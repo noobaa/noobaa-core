@@ -232,18 +232,18 @@ class NodesMonitor extends EventEmitter {
         const node_id = String(extra.node_id || '');
         if (!node_id) {
             dbg.log0('test_node_id: OK without node_id',
-                'from', req.connection.url.href);
+                'from', req.connection.connid);
             return true;
         }
         const item = this._map_node_id.get(String(node_id));
         if (item) {
             dbg.log0('test_node_id: OK node_id', node_id,
                 'node', item.node.name,
-                'from', req.connection.url.href);
+                'from', req.connection.connid);
             return true;
         }
         dbg.warn('test_node_id: INVALID node_id', node_id,
-            'from', req.connection.url.href);
+            'from', req.connection.connid);
         return false;
     }
 
@@ -434,9 +434,29 @@ class NodesMonitor extends EventEmitter {
     }
 
     _add_node_to_maps(item) {
-        this._map_node_id.set(String(item.node._id), item);
-        this._map_peer_id.set(String(item.node.peer_id), item);
-        this._map_node_name.set(String(item.node.name), item);
+        const node_id = String(item.node._id || '');
+        const peer_id = String(item.node.peer_id || '');
+        const name = String(item.node.name || '');
+
+        const id_collision = this._map_node_id.get(node_id);
+        if (id_collision && id_collision !== item) {
+            dbg.error('NODE ID COLLISSION', node_id, item, id_collision);
+            throw new Error('NODE ID COLLISSION ' + node_id);
+        }
+        const peer_id_collision = this._map_peer_id.get(peer_id);
+        if (peer_id_collision && peer_id_collision !== item) {
+            dbg.error('NODE PEER ID COLLISSION', peer_id, item, peer_id_collision);
+            throw new Error('NODE PEER ID COLLISSION ' + peer_id);
+        }
+        const name_collision = this._map_node_name.get(name);
+        if (name_collision && name_collision !== item) {
+            dbg.error('NODE NAME COLLISSION', name, item, name_collision);
+            throw new Error('NODE NAME COLLISSION ' + name);
+        }
+
+        this._map_node_id.set(node_id, item);
+        this._map_peer_id.set(peer_id, item);
+        this._map_node_name.set(name, item);
     }
 
     _set_node_defaults(item) {
@@ -556,11 +576,21 @@ class NodesMonitor extends EventEmitter {
             .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(info => {
                 item.agent_info = info;
-                if (info.name !== item.node.name) {
-                    dbg.log0('_get_agent_info: rename node from', item.node.name,
-                        'to', info.name);
+
+                // node name is set once before the node is created in nodes_store
+                // we take the name the agent sent as base, and add suffix if needed
+                // to prevent collisions.
+                if (!item.node_from_store) {
                     this._map_node_name.delete(String(item.node.name));
+                    let base_name = info.name;
+                    let counter = 1;
+                    while (this._map_node_name.has(info.name)) {
+                        info.name = base_name + '-' + counter;
+                        counter += 1;
+                    }
                     this._map_node_name.set(String(info.name), item);
+                    dbg.log0('_get_agent_info: set node name',
+                        item.node.name, 'to', info.name);
                 }
                 const updates = _.pick(info, AGENT_INFO_FIELDS);
                 updates.heartbeat = Date.now();

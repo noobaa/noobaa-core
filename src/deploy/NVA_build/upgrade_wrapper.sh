@@ -306,6 +306,12 @@ function post_upgrade {
       echo "${jwt}" >> ${CORE_DIR}/.env
   fi
 
+  #copy MONGO_RS_URL from previous .env
+  if grep -q MONGO_RS_URL /backup/.env; then
+      local mongo_url=$(grep MONGO_RS_URL /backup/.env)
+      echo "${mongo_url}" >> ${CORE_DIR}/.env
+  fi
+
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)
   if [ "${curmd}" != "${prevmd}" ]; then
     deploy_log "Previous md differs from current, bumping agent version"

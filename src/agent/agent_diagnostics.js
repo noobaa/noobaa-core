@@ -26,8 +26,8 @@ function collect_agent_diagnostics() {
             }
         })
         .then(function() {
-            if (fs.existsSync('/var/log/noobaa_local_service.log')) {
-                return fs_utils.file_copy('/var/log/noobaa_local_service.log', TMP_WORK_DIR);
+            if (fs.existsSync('/var/log/noobaalocalservice.log')) {
+                return fs_utils.file_copy('/var/log/noobaalocalservice.log', TMP_WORK_DIR);
             } else {
                 return;
             }

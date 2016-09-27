@@ -846,8 +846,9 @@ module.exports = {
                 secret: {
                     type: 'string',
                 },
-                is_connected: {
-                    type: 'boolean'
+                status: {
+                    type: 'string',
+                    enum: ['CONNECTED', 'DISCONNECTED', 'IN_PROGRESS']
                 },
                 hostname: {
                     type: 'string'

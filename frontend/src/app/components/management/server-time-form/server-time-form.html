@@ -1,88 +1,46 @@
-<h2 class="heading2" data-bind="click: () => expanded.toggle()">
-    <button class="btn-flat pull-right rotate no-outline" data-bind="
-        css: { 'deg-90': !expanded() }
-    ">
-        <svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
-    </button>
-    Server Date & Time
-</h2>
+<div class="row content-middle cursor-pointer" data-bind="
+    click: () => expanded.toggle()
+">
+    <h2 class="heading3 greedy">
+        Date & Time
+    </h2>
 
-<p class="summary container" data-bind="visible: !expanded()">
-    Current Server Time: 
-    <output class="text-tech emphasized" data-bind="text: serverTimeText"></output>
+    <button class="btn-flat expand-btn no-outline">
+        <svg-icon class="rotate icon-small" params="name: 'chevron'"
+            data-bind="css: { 'deg-90': !expanded() }">
+        </svg-icon>
+    </button>
+</div>
+
+<p data-bind="visible: !expanded()">
+    Server time:
+    <output class="text-tech" data-bind="value: formattedTime"></output>
 </p>
 
-<div class="container" data-bind="expand: expanded">
-    <radio-group class="container" params="
-        options: configTypes, 
+
+<section class="column" data-bind="expand: expanded">
+    <radio-group params="
+        options: configTypes,
         selected: selectedConfigType
     "></radio-group>
 
-    <!-- ko if: usingManualTime -->
-    <section class="container">
-        <editor params="label: 'Time Zone'">
-            <dropdown params="
-                options: timezones, 
-                selected: timezone,
-                matchOperator: matchByTimezoneName
-            "></dropdown>
-        </editor>
+    <timezone-chooser params="timezone: timezone"></timezone-chooser>
 
-        <editor params="label: 'Date', insertValMessages: false">
-            <dropdown class="fixed-width text-center" params="
-                options: months,
-                placeholder: 'month',
-                selected: month
-            "></dropdown>
+    <div class="forms row push-next">
+        <date-time-chooser params="time: time, timezone: timezone"
+            class="manual-form" data-bind="visibility: usingManualTime">
+        </date-time-chooser>
 
-            <dropdown class="fixed-width text-center" params="
-                options: days,
-                placeholder: 'day',
-                selected: day
-            "></dropdown>
-
-            <dropdown class="fixed-width text-center" params="
-                options: years,
-                placeholder: 'year',
-                selected: year
-            "></dropdown>
-        </editor>
-
-        <editor params="label: 'Time', insertValMessages: false">
-            <input type="number" class="fixed-width" min="0" max="23" placeholder="HH"
-                data-bind="textInput: hour"/>
-
-            <input type="number" class="fixed-width" min="0" max="59"  placeholder="MM"
-                data-bind="textInput: minute"/>
-
-            <input type="number" class="fixed-width" min="0" max="59" placeholder="SS" 
-                data-bind="textInput: second"/>
-        </editor>
-    </section>
-    <!-- /ko -->
-
-    <!-- ko if: usingNTP -->
-    <section class="container">
-        <editor params="label: 'Time Zone'">
-            <dropdown params="
-                options: timezones, 
-                selected: timezone,
-                matchOperator: matchByTimezoneName
-            "></dropdown>
-        </editor>
-
-        <editor params="label: 'NTP Server'">
+        <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
             <input type="text" placeholder="IP or DNS name" data-bind="
-                textInput: ntpServer
+                value: ntpServer
             "/>
         </editor>
-    </section>
-    <!-- /ko -->
+    </div>
 
-    <div class="container text-left">
-        <button class="btn2" data-bind="click: applyChanges">
+    <div class="row">
+        <button class="btn" data-bind="click: applyChanges">
             Apply Changes
         </button>
     </div>
-
-</div>
+</section>

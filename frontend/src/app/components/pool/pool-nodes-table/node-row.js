@@ -1,58 +1,124 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize, avgOp, dblEncode } from 'utils';
+import numeral from 'numeral';
+import { deepFreeze } from 'utils';
 
-export default class NodeRowViewModel {
+const nodeStateMapping = deepFreeze({
+    offline: {
+        css: 'error',
+        name: 'problem',
+        tooltip: 'offline'
+    },
+    deactivated: {
+        css: 'warning',
+        name: 'problem',
+        tooltip: 'deactivated'
+    },
+    online: {
+        css: 'success',
+        name: 'healthy',
+        tooltip: 'online'
+    }
+});
+
+const activityNameMapping = deepFreeze({
+    RESTORING: 'Restoring',
+    MIGRATING: 'Migrating',
+    DECOMMISSIONING: 'Deactivating',
+    DELETING: 'Deleting'
+});
+
+const activityStageMapping = deepFreeze({
+    OFFLINE_GRACE: 'Waiting',
+    REBUILDING: 'Rebuilding',
+    WIPING: 'Wiping Data'
+});
+
+export default class NodeRowViewModel extends Disposable {
     constructor(node) {
-        this.isVisible = ko.pureComputed(
-            () => !!node()
-        );
+        super();
 
-        this.stateToolTip = ko.pureComputed(
-            () => node() && node().online  ? 'online' : 'offline'
-        );
+        this.state = ko.pureComputed(
+            () => {
+                if (!node()) {
+                    return '';
+                }
 
-        this.stateIcon = ko.pureComputed(
-            () => node() && `/fe/assets/icons.svg#node-${
-                node().online ? 'online' : 'offline'
-            }`
+                if (!node().online) {
+                    return nodeStateMapping.offline;
+
+                } else if (node().decommissioning || node().decommissioned) {
+                    return nodeStateMapping.deactivated;
+
+                } else {
+                    return nodeStateMapping.online;
+                }
+            }
         );
 
         this.name = ko.pureComputed(
-            () => node() && node().name
-        );
+            () => {
+                if (!node()) {
+                    return '';
+                }
 
-        let diskRead = ko.pureComputed(
-            () => node() && node().latency_of_disk_read
-                .reduce(avgOp)
-                .toFixed(1)
-        );
-
-        let diskWrite = ko.pureComputed(
-            () => node() && node().latency_of_disk_write
-                .reduce(avgOp)
-                .toFixed(1)
-        );
-
-        this.diskReadWrite = ko.pureComputed(
-            () => node() && `${diskRead()}/${diskWrite()} ms`
-        );
-
-        this.RTT = ko.pureComputed(
-            () => node() && `${node().latency_to_server.reduce(avgOp).toFixed(1)} ms`
-        );
-
-        this.href = ko.pureComputed(
-            () => node() && `/fe/systems/:system/pools/:pool/nodes/${
-                dblEncode(node().name)
-            }`
+                let { name } = node();
+                return {
+                    text: name,
+                    href: { route: 'node', params: { node: name, tab: null } }
+                };
+            }
         );
 
         this.ip = ko.pureComputed(
-            () => node() && node().ip
+            () => node() ? node().ip : ''
         );
 
-        this.capacity = ko.pureComputed(
-            () => node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
+        let storage = ko.pureComputed(
+            () => node() ? node().storage : {}
+        );
+
+        this.capacity = {
+            total: ko.pureComputed(
+                () => storage().total
+            ),
+            used: [
+                {
+                    label: 'Used (Noobaa)',
+                    value: ko.pureComputed(
+                        () => storage().used
+                    )
+                },
+                {
+                    label: 'Used (other)',
+                    value: ko.pureComputed(
+                        () => storage().used_other
+                    )
+                }
+            ]
+        };
+
+        this.trustLevel = ko.pureComputed(
+            () => node() ?
+                (node().trusted ? 'Trusted' : 'Untrusted') :
+                ''
+        );
+
+        this.dataActivity = ko.pureComputed(
+            () => {
+                if (!node() || !node().data_activity) {
+                    return 'No activity';
+                }
+
+                let { reason, stage, progress } = node().data_activity;
+                return `${
+                    activityNameMapping[reason]
+                } ${
+                    numeral(progress).format('0%')
+                } | ${
+                    activityStageMapping[stage.name]
+                }`;
+            }
         );
     }
 }

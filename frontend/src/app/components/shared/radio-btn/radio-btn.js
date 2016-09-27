@@ -1,6 +1,6 @@
 import template from './radio-btn.html';
 
-/* 
+/*
     Component Parameters:
     - group: the name of the radio group.
     - value: the value of the radio input
@@ -9,4 +9,4 @@ import template from './radio-btn.html';
 */
 export default {
     template: template
-}
+};

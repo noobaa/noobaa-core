@@ -1,7 +1,6 @@
 'use strict';
 
 const _ = require('lodash');
-
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -12,13 +11,13 @@ const Semaphore = require('../../util/semaphore');
 const server_rpc = require('../server_rpc');
 const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
+const system_server_utils = require('../utils/system_server_utils');
 // const promise_utils = require('../../util/promise_utils');
 
 
-const replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
+const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
 
 
 /**
@@ -34,10 +33,13 @@ class MapBuilder {
 
     constructor(chunks) {
         this.chunks = chunks;
+        this.system_id = chunks[0] && chunks[0].system;
     }
 
     run() {
         dbg.log1('MapBuilder.run:', 'batch start', this.chunks.length, 'chunks');
+        if (!this.chunks.length) return;
+        if (system_server_utils.system_in_maintenance(this.system_id)) return;
         return P.resolve()
             .then(() => P.join(
                 system_store.refresh(),
@@ -65,7 +67,7 @@ class MapBuilder {
     mark_building() {
         let chunks_need_update_to_building = _.reject(this.chunks, 'building');
         return chunks_need_update_to_building.length &&
-            P.when(md_store.DataChunk.collection.updateMany({
+            P.resolve(md_store.DataChunk.collection.updateMany({
                 _id: {
                     $in: _.map(chunks_need_update_to_building, '_id')
                 }
@@ -80,7 +82,7 @@ class MapBuilder {
         _.each(this.chunks, chunk => {
             let bucket = system_store.data.get_by_id(chunk.bucket);
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
-            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, /*ignore_cloud_pools=*/ false);
+            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, /*async_mirror=*/ false);
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (chunk.status.accessible &&
@@ -102,7 +104,8 @@ class MapBuilder {
 
     allocate_blocks() {
         _.each(this.chunks, chunk => {
-            let avoid_nodes = _.map(chunk.blocks, block => block.node._id.toString());
+            let avoid_nodes = chunk.blocks.map(block => String(block.node._id));
+            let allocated_hosts = chunk.blocks.map(block => block.node.host_id);
             _.each(chunk.status.allocations, alloc => {
                 let f = alloc.fragment;
                 let block = _.pick(f,
@@ -115,7 +118,7 @@ class MapBuilder {
                 block._id = md_store.make_md_id();
                 // We send an additional flag in order to allocate
                 // replicas of content tiering feature on the best read latency nodes
-                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, {
+                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts, {
                     special_replica: true
                 });
                 if (!node) {
@@ -124,17 +127,17 @@ class MapBuilder {
                     this.had_errors = true;
                     return;
                 }
-                block.node = node;
+                block.node = node; // keep the node ref, same when populated
                 block.system = chunk.system;
                 block.chunk = chunk;
                 alloc.block = block;
-                avoid_nodes.push(node._id.toString());
+                avoid_nodes.push(String(node._id));
+                allocated_hosts.push(node.host_id);
             });
         });
     }
 
     replicate_blocks() {
-        const now = Date.now();
         return P.all(_.map(this.chunks, chunk => {
             return P.all(_.map(chunk.status.allocations, alloc => {
                 let block = alloc.block;
@@ -145,7 +148,7 @@ class MapBuilder {
 
                 let f = alloc.fragment;
                 f.accessible_blocks = f.accessible_blocks ||
-                    _.filter(f.blocks, block => map_utils.is_block_accessible(block, now));
+                    _.filter(f.blocks, b => map_utils.is_block_accessible(b));
                 f.next_source = f.next_source || 0;
                 let source_block = f.accessible_blocks[f.next_source];
                 //if no accessible_blocks - skip replication
@@ -160,7 +163,7 @@ class MapBuilder {
                 dbg.log1('MapBuilder.replicate_blocks: replicating to', target,
                     'from', source, 'chunk', chunk);
                 return replicate_block_sem.surround(() => {
-                    return server_rpc.client.agent.replicate_block({
+                    return server_rpc.client.block_store.replicate_block({
                         target: target,
                         source: source
                     }, {
@@ -186,7 +189,7 @@ class MapBuilder {
 
     update_db() {
         _.each(this.new_blocks, block => {
-            block.node = block.node._id;
+            block.node = mongo_utils.make_object_id(block.node._id);
             block.chunk = block.chunk._id;
         });
         let success_chunk_ids = mongo_utils.uniq_ids(
@@ -203,15 +206,15 @@ class MapBuilder {
             'chunks', this.chunks.length,
             'success_chunk_ids', success_chunk_ids.length,
             'failed_chunk_ids', failed_chunk_ids.length,
-            'new_blocks', this.new_blocks && this.new_blocks.length || 0,
-            'delete_blocks', this.delete_blocks && this.delete_blocks.length || 0);
+            'new_blocks', _.get(this, 'new_blocks.length', 0),
+            'delete_blocks', _.get(this, 'delete_blocks.length', 0));
 
         return P.join(
             this.new_blocks && this.new_blocks.length &&
-            P.when(md_store.DataBlock.collection.insertMany(this.new_blocks)),
+            P.resolve(md_store.DataBlock.collection.insertMany(this.new_blocks)),
 
             this.delete_blocks && this.delete_blocks.length &&
-            P.when(md_store.DataBlock.collection.updateMany({
+            P.resolve(md_store.DataBlock.collection.updateMany({
                 _id: {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }
@@ -220,18 +223,14 @@ class MapBuilder {
                     deleted: new Date()
                 }
             })),
+
             //delete actual blocks from agents.
             this.delete_blocks && this.delete_blocks.length &&
-            P.when(md_store.DataBlock.collection.find({
-                _id: {
-                    $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
-                }
-            }).toArray())
-            .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
-            .then(deleted_blocks => {
+            P.resolve().then(() => {
                 //TODO: If the overload of these calls is too big, we should protect
                 //ourselves in a similar manner to the replication
-                var blocks_by_node = _.groupBy(deleted_blocks, block => block.node._id);
+                var blocks_by_node = _.groupBy(this.delete_blocks,
+                    block => String(block.node._id));
                 return P.all(_.map(blocks_by_node, map_deleter.agent_delete_call));
             }),
 

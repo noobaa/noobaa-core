@@ -6,17 +6,30 @@
 'use strict';
 
 const _ = require('lodash');
-const os = require('os');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
+const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
-const ActivityLog = require('../analytic_services/activity_log');
-const nodes_store = require('../node_services/nodes_store');
+const Dispatcher = require('../notifications/dispatcher');
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
-const SupervisorCtl = require('../utils/supervisor_ctrl');
+const cloud_utils = require('../../util/cloud_utils');
 
+const POOL_STORAGE_DEFAULTS = Object.freeze({
+    total: 0,
+    free: 0,
+    used_other: 0,
+    unavailable_free: 0,
+    used: 0,
+    reserved: 0,
+});
+const POOL_NODES_INFO_DEFAULTS = Object.freeze({
+    count: 0,
+    online: 0,
+    has_issues: 0,
+});
 
 function new_pool_defaults(name, system_id) {
     return {
@@ -26,11 +39,11 @@ function new_pool_defaults(name, system_id) {
     };
 }
 
-function create_pool(req) {
+function create_nodes_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
     if (name !== 'default_pool' && nodes.length < config.NODES_MIN_COUNT) {
-        throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than ' +
+        throw new RpcError('NOT ENOUGH NODES', 'cant create a pool with less than ' +
             config.NODES_MIN_COUNT + ' nodes');
     }
     var pool = new_pool_defaults(name, req.system._id);
@@ -41,11 +54,9 @@ function create_pool(req) {
                 pools: [pool]
             }
         })
-        .then(function() {
-            return _assign_nodes_to_pool(req, pool);
-        })
-        .then((res) => {
-            ActivityLog.create({
+        .then(() => nodes_client.instance().migrate_nodes_to_pool(nodes, pool._id))
+        .then(res => {
+            Dispatcher.instance().activity({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -60,32 +71,38 @@ function create_pool(req) {
 
 function create_cloud_pool(req) {
     var name = req.rpc_params.name;
-    var cloud_info = req.rpc_params.cloud_info;
+    var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
+    var cloud_info = {
+        endpoint: connection.endpoint,
+        target_bucket: req.rpc_params.target_bucket,
+        access_keys: {
+            access_key: connection.access_key,
+            secret_key: connection.secret_key
+        },
+        endpoint_type: connection.endpoint_type || 'AWS'
+    };
 
     var pool = new_pool_defaults(name, req.system._id);
     dbg.log0('Creating new cloud_pool', pool);
     pool.cloud_pool_info = cloud_info;
 
+    dbg.log0('got connection for cloud pool:', connection);
     return system_store.make_changes({
             insert: {
                 pools: [pool]
             }
         })
         .then(res => {
-            let sys_access_keys = system_store.data.accounts[1].access_keys[0];
+            let sys_access_keys = req.system.owner.access_keys[0];
             return server_rpc.client.hosted_agents.create_agent({
                 name: req.rpc_params.name,
                 access_keys: sys_access_keys,
-                cloud_info: {
-                    endpoint: cloud_info.endpoint,
-                    target_bucket: cloud_info.target_bucket,
-                    access_keys: cloud_info.access_keys
-                },
+                cloud_info: cloud_info,
             });
         })
         .then(() => {
             // TODO: should we add different event for cloud pool?
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -103,7 +120,7 @@ function update_pool(req) {
     var name = req.rpc_params.name;
     var new_name = req.rpc_params.new_name;
     if ((name === 'default_pool') !== (new_name === 'default_pool')) {
-        throw req.rpc_error('ILLEGAL POOL RENAME', 'cant change name of default pool');
+        throw new RpcError('ILLEGAL POOL RENAME', 'cant change name of default pool');
     }
     var pool = find_pool_by_name(req);
     dbg.log0('Update pool', name, 'to', new_name);
@@ -119,46 +136,40 @@ function update_pool(req) {
 
 function list_pool_nodes(req) {
     var pool = find_pool_by_name(req);
-    return nodes_store.find_nodes({
-            system: req.system._id,
-            pool: pool._id,
-            deleted: null
-        }, {
-            fields: {
-                _id: 0,
-                name: 1,
-            }
-        })
-        .then(nodes => ({
+    return P.resolve()
+        .then(() => nodes_client.instance().list_nodes_by_pool(pool._id))
+        .then(res => ({
             name: pool.name,
-            nodes: _.map(nodes, 'name')
+            nodes: _.map(res.nodes, node =>
+                _.pick(node, 'id', 'name', 'peer_id', 'rpc_address'))
         }));
 }
 
 function read_pool(req) {
     var pool = find_pool_by_name(req);
-    return nodes_store.aggregate_nodes_by_pool({
-            system: req.system._id,
-            pool: pool._id,
-            deleted: null,
-        })
-        .then(function(nodes_aggregate_pool) {
-            return get_pool_info(pool, nodes_aggregate_pool);
-        });
+    return P.resolve()
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
+        .then(nodes_aggregate_pool => get_pool_info(pool, nodes_aggregate_pool));
 }
 
 function delete_pool(req) {
-    dbg.log0('Deleting pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
-    return nodes_store.aggregate_nodes_by_pool({
-            system: req.system._id,
-            pool: pool._id,
-            deleted: null,
-        })
-        .then(function(nodes_aggregate_pool) {
+    if (_is_cloud_pool(pool)) {
+        return _delete_cloud_pool(req.system, pool, req.account);
+    } else {
+        return _delete_nodes_pool(req.system, pool, req.account);
+    }
+}
+
+
+function _delete_nodes_pool(system, pool, account) {
+    dbg.log0('Deleting pool', pool.name);
+    return P.resolve()
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
+        .then(nodes_aggregate_pool => {
             var reason = check_pool_deletion(pool, nodes_aggregate_pool);
             if (reason) {
-                throw req.rpc_error(reason, 'Cannot delete pool');
+                throw new RpcError(reason, 'Cannot delete pool');
             }
             return system_store.make_changes({
                 remove: {
@@ -166,33 +177,28 @@ function delete_pool(req) {
                 }
             });
         })
-        .then((res) => {
-            ActivityLog.create({
+        .then(res => {
+            Dispatcher.instance().activity({
                 event: 'pool.delete',
                 level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
+                system: system._id,
+                actor: account && account._id,
                 pool: pool._id,
-                desc: `${pool.name} was deleted by ${req.account && req.account.email}`,
+                desc: `${pool.name} was deleted by ${account && account.email}`,
             });
             return res;
         })
         .return();
 }
 
+function _delete_cloud_pool(system, pool, account) {
+    dbg.log0('Deleting cloud pool', pool.name);
 
-
-function delete_cloud_pool(req) {
-    dbg.log0('Deleting cloud pool', req.rpc_params.name);
-    var pool = find_pool_by_name(req);
-
-    // construct the cloud node name according to convention
-    let cloud_node_name = 'noobaa-cloud-agent-' + os.hostname() + '-' + pool.name;
     return P.resolve()
         .then(function() {
             var reason = check_cloud_pool_deletion(pool);
             if (reason) {
-                throw req.rpc_error(reason, 'Cannot delete pool');
+                throw new RpcError(reason, 'Cannot delete pool');
             }
             return system_store.make_changes({
                 remove: {
@@ -200,72 +206,21 @@ function delete_cloud_pool(req) {
                 }
             });
         })
-        .then(() => SupervisorCtl.remove_program('agent_' + pool.name))
-        .then(() => SupervisorCtl.apply_changes())
-        .then(() => nodes_store.delete_node_by_name({
-            system: {
-                _id: req.system._id
-            },
-            rpc_params: {
-                name: cloud_node_name
-            }
-        }))
-        .then((res) => {
-            ActivityLog.create({
-                event: 'pool.delete',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                pool: pool._id,
-                desc: `${pool.name} was deleted by ${req.account && req.account.email}`,
+        .then(() => nodes_client.instance().list_nodes_by_pool(pool._id))
+        .then(function(pool_nodes) {
+            return P.each(pool_nodes && pool_nodes.nodes, node => {
+                nodes_client.instance().delete_node_by_name(system._id, node.name);
             });
         })
-        .return();
-}
-
-
-function _assign_nodes_to_pool(req, pool) {
-    var assign_nodes = req.rpc_params.nodes;
-    var nodes_before_change;
-    return nodes_store.find_nodes({
-            deleted: null,
-            name: {
-                $in: assign_nodes
-            },
-        }, {
-            fields: {
-                pool: 1,
-                name: 1,
-            }
-        })
-        .then(nodes_res => {
-            nodes_before_change = nodes_res;
-            return nodes_store.update_nodes({
-                    system: req.system._id,
-                    name: {
-                        $in: assign_nodes
-                    }
-                }, {
-                    $set: {
-                        pool: pool._id,
-                    }
-                })
-                .then(res => {
-                    let desc_string = [];
-                    desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
-                    _.forEach(nodes_before_change, node => {
-                        desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
-                    });
-                    ActivityLog.create({
-                        event: 'pool.assign_nodes',
-                        level: 'info',
-                        system: req.system._id,
-                        actor: req.account && req.account._id,
-                        pool: pool._id,
-                        desc: desc_string.join('\n'),
-                    });
-                    return res;
-                });
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'pool.delete',
+                level: 'info',
+                system: system._id,
+                actor: account && account._id,
+                pool: pool._id,
+                desc: `${pool.name} was deleted by ${account && account.email}`,
+            });
         })
         .return();
 }
@@ -274,7 +229,8 @@ function _assign_nodes_to_pool(req, pool) {
 function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
-    return _assign_nodes_to_pool(req, pool);
+    return nodes_client.instance().migrate_nodes_to_pool(
+        req.rpc_params.nodes, pool._id);
 }
 
 
@@ -303,30 +259,33 @@ function find_pool_by_name(req) {
     var name = req.rpc_params.name;
     var pool = req.system.pools_by_name[name];
     if (!pool) {
-        throw req.rpc_error('NO_SUCH_POOL', 'No such pool: ' + name);
+        throw new RpcError('NO_SUCH_POOL', 'No such pool: ' + name);
     }
     return pool;
 }
 
 function get_pool_info(pool, nodes_aggregate_pool) {
-    var n = nodes_aggregate_pool[pool._id] || {};
+    var p = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
     var info = {
         name: pool.name,
-        nodes: {
-            count: n.count || 0,
-            online: n.online || 0,
-        },
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier
-        storage: size_utils.to_bigint_storage({
-            total: n.total,
-            free: n.free,
-            used: n.used,
-        })
+        storage: _.defaults(size_utils.to_bigint_storage(p.storage), POOL_STORAGE_DEFAULTS)
     };
-    var reason = check_pool_deletion(pool, nodes_aggregate_pool);
-    if (reason) {
-        info.undeletable = reason;
+    if (p.data_activities) {
+        info.data_activities = p.data_activities;
+    }
+    if (_is_cloud_pool(pool)) {
+        info.cloud_info = {
+            endpoint: pool.cloud_pool_info.endpoint,
+            endpoint_type: pool.cloud_pool_info.endpoint_type || 'AWS',
+            target_bucket: pool.cloud_pool_info.target_bucket
+        };
+        info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);
+    } else {
+        info.nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+        info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
+        info.demo_pool = Boolean(pool.demo_pool);
     }
     return info;
 }
@@ -334,13 +293,15 @@ function get_pool_info(pool, nodes_aggregate_pool) {
 function check_pool_deletion(pool, nodes_aggregate_pool) {
 
     // Check if the default pool
-    if (pool.name === 'default_pool') {
+    if (pool.name === 'default_pool' || pool.name === config.DEMO_DEFAULTS.POOL_NAME) {
         return 'SYSTEM_ENTITY';
     }
 
     // Check if there are nodes till associated to this pool
-    var n = nodes_aggregate_pool[pool._id] || {};
-    if (n.count) {
+    const nodes_count = _.get(nodes_aggregate_pool, [
+        'groups', String(pool._id), 'nodes', 'count'
+    ], 0);
+    if (nodes_count) {
         return 'NOT_EMPTY';
     }
 
@@ -362,15 +323,19 @@ function check_cloud_pool_deletion(pool) {
 }
 
 
+function _is_cloud_pool(pool) {
+    return Boolean(pool.cloud_pool_info);
+}
+
+
 // EXPORTS
 exports.new_pool_defaults = new_pool_defaults;
 exports.get_pool_info = get_pool_info;
-exports.create_pool = create_pool;
+exports.create_nodes_pool = create_nodes_pool;
 exports.create_cloud_pool = create_cloud_pool;
 exports.update_pool = update_pool;
 exports.list_pool_nodes = list_pool_nodes;
 exports.read_pool = read_pool;
 exports.delete_pool = delete_pool;
-exports.delete_cloud_pool = delete_cloud_pool;
 exports.assign_nodes_to_pool = assign_nodes_to_pool;
 exports.get_associated_buckets = get_associated_buckets;

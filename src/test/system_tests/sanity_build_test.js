@@ -32,15 +32,15 @@ function main() {
     }
 
     console.log('Upgrading MD server at', argv.target_ip);
-    return P.when(ops.upload_and_upgrade(argv.target_ip, argv.upgrade_pack))
-        .fail(function(error) {
+    return P.resolve(ops.upload_and_upgrade(argv.target_ip, argv.upgrade_pack))
+        .catch(function(error) {
             console.warn('Upgrading failed with', error, error.stack);
             stop();
         })
         .then(function() {
             console.log('Upgrade successful, waiting on agents to upgrade');
-            return P.when(ops.wait_on_agents_upgrade(argv.target_ip))
-                .fail(function(error) {
+            return P.resolve(ops.wait_on_agents_upgrade(argv.target_ip))
+                .catch(function(error) {
                     console.warn('Agents failed to upgrade', error, error.stack);
                     stop();
                 });
@@ -52,7 +52,7 @@ function main() {
                     console.log('Verifying ul/dl of 1MB file', path);
                     return ops.verify_upload_download(argv.target_ip, path);
                 })
-                .fail(function(error) {
+                .catch(function(error) {
                     console.warn('Verifying ul/dl 1MB file failed with', error, error.stack);
                     stop();
                 });
@@ -64,7 +64,7 @@ function main() {
                     console.log('Verifying ul/dl of 20MB file', path);
                     return ops.verify_upload_download(argv.target_ip, path);
                 })
-                .fail(function(error) {
+                .catch(function(error) {
                     console.warn('Verifying ul/dl 20MB file failed with', error, error.stack);
                     stop();
                 });
@@ -72,7 +72,7 @@ function main() {
         .then(function() {
             console.log('ul/dl 20MB file successful, verifying agent download');
             return ops.get_agent_setup(argv.target_ip)
-                .fail(function(error) {
+                .catch(function(error) {
                     console.warn('Verifying agent download failed with', error, error.stack);
                     stop();
                 });

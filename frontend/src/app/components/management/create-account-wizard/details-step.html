@@ -1,4 +1,5 @@
-<section class="container">
-    <h2 class="heading3">Send the following message to your new user</h2>
-    <div class="box" data-bind="html: userMessage"></div>
-</section>
+<h2 class="heading3">Send the following message to your new user</h2>
+<div class="alt-bg pad row content-start">
+    <div class="greedy" data-bind="html: userMessage"></div>
+    <copy-to-clipboard-button params="value: userMessage"></copy-to-clipboard-button>
+</div>

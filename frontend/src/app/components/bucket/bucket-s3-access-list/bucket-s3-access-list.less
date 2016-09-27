@@ -1,9 +1,19 @@
 bucket-s3-access-list {
-    .account-list > li {
-        padding: 1em .5em;
+    .column();
 
-        + li {
-            border-top: 1px solid @bg-color3;
+    .no-accounts-message {
+        font-size: @font-size5;
+    }
+
+    .account-list {
+        .list-no-style();
+
+        > li {
+            padding: @gutter;
+
+            + li {
+                border-top: 1px solid @color15;
+            }
         }
     }
 }

@@ -1,41 +1,39 @@
 pool-nodes-table {
-    display: block;
-    position: relative;
-    height: 100%;
+    .column();
 
-    .table-wrapper {
-        .fill();
-        top : 4em;
+    .filter-by-editor {
+        padding: 0;
+
+        .editor-label {
+            width: auto;
+        }
     }
 
-    .data-table .state-col {
-        min-width: 4em;
-/*        padding-left: 0;
-        padding-right: 0*/;
-    }
+    > data-table {
+        .state-col {
+            min-width: 70px;
+        }
 
-    .disk-read-write-col {
-        min-width: 9em;
-    }
+        .name-col {
+            text-align: left;
+            min-width: 7em;
+            width: 100%;
+        }
 
-    .disk-write-col {
-        min-width: 7em;
-    }
+        .ip-col {
+            min-width: 120px;
+        }
 
-    .rtt-col {
-        min-width: 4em;
-    }
+        .capacity-col {
+            min-width: 120px;
+        }
 
-    .name-col {
-        min-width: 7em;
-        width: 100%;
-    }
+        .trust-level-col {
+            min-width: 130px;
+        }
 
-    .ip-col {
-        min-width: 7em;
-    }
-
-    .capacity-col {
-        min-width: 7em;
+        .data-activity-col {
+            min-width: 178px;
+        }
     }
 }

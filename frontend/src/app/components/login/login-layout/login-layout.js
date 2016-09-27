@@ -1,19 +1,40 @@
 import template from './login-layout.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { isDefined } from 'utils';
+import { supportedBrowsers} from 'config';
 import { serverInfo } from 'model';
+import { recognizeBrowser } from 'utils';
 
-class LoginLayoutViewModel {
+class LoginLayoutViewModel extends Disposable {
     constructor() {
-        this.form = ko.pureComputed(() => {
-            if (isDefined(serverInfo())) {
-                return serverInfo().initialized ? 'signin-form' : 'create-system-form';
+        super();
+
+        this.form = ko.pureComputed(
+            () => {
+                if (!supportedBrowsers.includes(recognizeBrowser())) {
+                    return 'unsupported-form';
+                }
+
+                if (!serverInfo()) {
+                    return 'loading-server-information-from';
+                }
+
+                let { initialized, config } = serverInfo();
+                if (initialized) {
+                    return 'signin-form';
+                }
+
+                if (config.phone_home_connectivity_status !== 'CONNECTED') {
+                    return 'loading-server-information-from';
+                } else {
+                    return 'create-system-form';
+                }
             }
-        });
+        );
     }
 }
 
 export default {
     viewModel: LoginLayoutViewModel,
     template: template
-}
+};

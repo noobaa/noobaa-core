@@ -63,7 +63,7 @@ module.exports = {
 function authenticate() {
     let auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return client.create_auth_token(auth_params);
@@ -75,7 +75,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('run_test failed with error:', err, err.stack);
             process.exit(1);
         });
@@ -94,6 +94,13 @@ function setup() {
         }))
         // add new accounts:
         .then(() => client.account.create_account(full_access_user))
+        //        .then(() => client.system.create_system({
+        // activation_code: '1111',
+        // name: full_access_user.name,
+        // email: full_access_user.email,
+        // password: full_access_user.password,
+        // access_keys: full_access_user.access_keys
+        //         }))
         .then(() => client.account.create_account(bucket1_user))
         .then(() => client.account.create_account(no_access_user));
 }
@@ -128,7 +135,10 @@ function run_test() {
         .then(() => test_create_bucket_add_creator_permissions())
         .then(() => test_delete_bucket_deletes_permissions())
         .then(() => test_no_s3_access())
-        .return();
+        .then(() => {
+            console.log('test_bucket_access PASSED');
+            return;
+        });
 }
 
 

@@ -28,7 +28,7 @@ Each step can be configured in the following manner:
 1) **name**: The name of the step. This name will be written to the final report.
 
 2) **action** OR **common**:
-- action: Command to perform, examples: 'src/test/system_tests/test_files_spread.js' or 'gulp mocha'
+- action: Command to perform, examples: 'src/test/system_tests/test_files_spread.js' or 'npm run mocha'
 - common: Run a common functionality the framework provides, example: 'restore_db_defaults'
 
 3) **blocking**: If set to true, failure in this step would stop the entire chain

@@ -6,7 +6,7 @@ module.exports = FrameStream;
 
 const DEFAULT_MSG_MAGIC = "FramStrm";
 const DEFAULT_MAX_MSG_LEN = 64 * 1024 * 1024;
-const MAX_SEQ = (1 << 16);
+const MAX_SEQ = 256 * 256; // 16 bit
 
 /**
  * message framing for byte streams
@@ -22,10 +22,10 @@ function FrameStream(stream, msg_handler, config) {
     this.msg_handler = msg_handler || function(msg, msg_type) {
         stream.emit('message', msg, msg_type);
     };
-    this._magic = config && config.magic || DEFAULT_MSG_MAGIC;
+    this._magic = (config && config.magic) || DEFAULT_MSG_MAGIC;
     this._magic_len = this._magic.length;
-    this._max_len = config && config.max_len || DEFAULT_MAX_MSG_LEN;
-    this._send_seq = (MAX_SEQ * Math.random()) >>> 0;
+    this._max_len = (config && config.max_len) || DEFAULT_MAX_MSG_LEN;
+    this._send_seq = (MAX_SEQ * Math.random()) | 0;
     this._recv_seq = NaN;
     this._header_len = this._magic_len + 8;
     stream.on('readable', () => this._on_readable());

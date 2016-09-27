@@ -1,23 +1,80 @@
-/* global db, print, printjson, ObjectId, setVerboseShell */
-/* jshint -W089 */ // ignore for-in loops without hasOwnProperty checks
+/* eslint-env mongo */
+/* global setVerboseShell */
+/* global sleep */
+
 'use strict';
-var DEFAULT_POOL_NAME = 'default_pool';
+// the following params are set from outside the script
+// using mongo --eval 'var param_ip="..."' and we only declare them here for completeness
+var param_ip;
+var param_secret;
+var param_bcrypt_secret;
 setVerboseShell(true);
 upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    sync_cluster_upgrade();
     upgrade_systems();
     upgrade_cluster();
-    upgrade_chunks_add_ref_to_bucket();
     upgrade_system_access_keys();
+    upgrade_object_mds();
+    // cluster upgrade: mark that upgrade is completed for this server
+    mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
+}
+
+function sync_cluster_upgrade() {
+    // find if this server should perform mongo upgrade
+    var is_mongo_upgrade = db.clusters.find({
+        owner_secret: param_secret
+    }).toArray()[0].upgrade.mongo_upgrade;
+
+    // if this server shouldn't run mongo_upgrade, set status to DB_READY,
+    // to indicate that this server is upgraded and with mongo running.
+    // then wait for master to complete upgrade
+    if (!is_mongo_upgrade) {
+        db.clusters.update({
+            owner_secret: param_secret
+        }, {
+            $set: {
+                "upgrade.status": "DB_READY"
+            }
+        });
+        var max_iterations = 100;
+        var i = 0;
+        while (i < max_iterations) {
+            i += 1;
+            var master_status = db.clusters.find({
+                "upgrade.mongo_upgrade": true
+            }).toArray()[0].upgrade.status;
+            if (master_status === 'COMPLETED') {
+                print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
+                mark_completed();
+                quit();
+            }
+            sleep(10000);
+        }
+        print('\nERROR: master did not finish mongo_upgrade in time!!! finishing upgrade of this server');
+        quit();
+    }
+}
+
+function mark_completed() {
+    // mark upgrade status of this server as completed
+    db.clusters.update({
+        owner_secret: param_secret
+    }, {
+        $set: {
+            "upgrade.status": "COMPLETED"
+        }
+    });
 }
 
 function upgrade_systems() {
     print('\n*** updating systems resources links ...');
     db.systems.find().forEach(function(system) {
         var updates = {};
+
         if (!system.resources.linux_agent_installer) {
             updates.resources = {
                 linux_agent_installer: 'noobaa-setup',
@@ -25,6 +82,7 @@ function upgrade_systems() {
                 s3rest_installer: 'noobaa-s3rest.exe'
             };
         }
+
         if (!system.n2n_config) {
             updates.n2n_config = {
                 tcp_tls: true,
@@ -37,6 +95,15 @@ function upgrade_systems() {
                 udp_port: true,
             };
         }
+
+        if (!system.freemium_cap) {
+            updates.freemium_cap = {
+                phone_home_upgraded: false,
+                phone_home_notified: false,
+                cap_terabytes: 0 //Upgraded systems which didn't have the cap before are customers, don't cap
+            };
+        }
+
         var updated_access_keys = system.access_keys;
         if (updated_access_keys) {
             for (var i = 0; i < updated_access_keys.length; ++i) {
@@ -44,22 +111,29 @@ function upgrade_systems() {
                     delete updated_access_keys[i]._id;
                 }
             }
-
             updates.access_keys = updated_access_keys;
-
-            print('updating system', system.name, '...');
-            printjson(updates);
-            printjson(system);
-            db.systems.update({
-                _id: system._id
-            }, {
-                $set: updates,
-                $unset: {
-                    __v: 1
-                }
-            });
-
         }
+
+        // optional fix - convert to idate format from ISO date
+        if (typeof(system.last_stats_report) !== 'number') {
+            updates.last_stats_report = new Date(system.last_stats_report).getTime() || 0;
+        }
+        if (typeof(system.maintenance_mode) !== 'number') {
+            updates.maintenance_mode = new Date(system.maintenance_mode).getTime() || 0;
+        }
+
+        print('updating system', system.name, '...');
+        printjson(updates);
+        printjson(system);
+        db.systems.update({
+            _id: system._id
+        }, {
+            $set: updates,
+            $unset: {
+                __v: 1
+            }
+        });
+
     });
     db.systems.find().forEach(upgrade_system);
 }
@@ -68,76 +142,26 @@ function upgrade_systems() {
 function upgrade_system(system) {
     print('\n*** upgrade_system ...', system.name);
 
-    print('\n*** POOL ***');
-
-    print('*** find', DEFAULT_POOL_NAME);
-    var default_pool = db.pools.findOne({
+    print('\n*** BUCKET STATS***');
+    db.bucket.find({
         system: system._id,
-        name: DEFAULT_POOL_NAME
-    });
-    if (default_pool) {
-        print('*** found', DEFAULT_POOL_NAME, default_pool._id);
-    } else {
-        print('*** creating', DEFAULT_POOL_NAME, '...');
-        db.pools.insert({
-            system: system._id,
-            name: DEFAULT_POOL_NAME
-        });
-        default_pool = db.pools.findOne({
-            system: system._id,
-            name: DEFAULT_POOL_NAME
-        });
-    }
-
-    print('\n*** NODE ***');
-
-    print('*** assign nodes without a pool to default pool ...');
-    db.nodes.update({
-        system: system._id,
-        pool: null
-    }, {
-        $set: {
-            pool: default_pool._id
-        },
-    }, {
-        multi: true
-    });
-
-    print('*** remove old refs from nodes to tier ...');
-    db.nodes.update({
-        system: system._id,
-        tier: {
-            $exists: true
+    }).forEach(function(bucket) {
+        var stats = {
+            reads: 0,
+            writes: 0,
+        };
+        if (bucket.stats) {
+            stats.reads = bucket.stats.reads ? bucket.stats.reads : 0;
+            stats.writes = bucket.stats.writes ? bucket.stats.writes : 0;
         }
-    }, {
-        $unset: {
-            tier: 1
-        }
-    }, {
-        multi: true
+        db.buckjets.update({
+            _id: bucket._id
+        }, {
+            $set: {
+                stats: stats
+            }
+        });
     });
-
-    print('\n*** TIER ***');
-
-    print('*** remove old tiers ...');
-    db.tiers.remove({
-        system: system._id,
-        $or: [{
-            pools: null
-        }, {
-            data_placement: null
-        }, {
-            replicas: null
-        }, {
-            data_fragments: null
-        }, {
-            parity_fragments: null
-        }]
-    }, {
-        multi: true
-    });
-
-    print('\n*** CLOUD SYNC ***');
 
     db.buckets.find({
         system: system._id,
@@ -145,11 +169,10 @@ function upgrade_system(system) {
             $exists: true
         }
     }).forEach(function(bucket) {
-        print('\n*** update bucket with endpoint and target bucket', bucket.name);
+        print('\n*** CLOUD SYNC update bucket with endpoint and target bucket', bucket.name);
         if (bucket.cloud_sync.target_bucket) {
             print('\n*** nothing to upgrade for ', bucket.name);
         } else {
-
             var target_bucket = bucket.cloud_sync.endpoint;
             db.buckets.update({
                 _id: bucket._id
@@ -179,6 +202,7 @@ function upgrade_system(system) {
     });
 
     db.accounts.find().forEach(function(account) {
+
         if (account.sync_credentials_cache &&
             account.sync_credentials_cache.length > 0) {
             var updated_access_keys = account.sync_credentials_cache;
@@ -188,6 +212,10 @@ function upgrade_system(system) {
                 if (updated_access_keys[i]._id) {
                     delete updated_access_keys[i]._id;
                 }
+                if (!updated_access_keys[i].endpoint) {
+                    print('\n*** update endpoint in sync_credentials_cache', updated_access_keys[i]);
+                    updated_access_keys[i].endpoint = "https://s3.amazonaws.com";
+                }
             }
             var updates = {};
             updates.sync_credentials_cache = updated_access_keys;
@@ -195,160 +223,52 @@ function upgrade_system(system) {
             db.accounts.update({
                 _id: account._id
             }, {
-                $set: updates
+                $set: updates,
+                $unset: {
+                    __v: 1
+                }
+
             });
-
-        }
-    });
-
-    print('\n*** BUCKET ***');
-    db.buckets.find({
-        system: system._id,
-    }).forEach(function(bucket) {
-
-        if (bucket.tiering instanceof ObjectId) {
-            print('\n*** bucket already with new tiering model', bucket.name);
-            return;
-        }
-
-        var bucket_with_suffix = bucket.name + '#' + Date.now().toString(36);
-
-        print('*** creating tier', bucket_with_suffix, '...');
-        db.tiers.insert({
-            system: system._id,
-            name: bucket_with_suffix,
-            data_placement: 'SPREAD',
-            replicas: 3,
-            data_fragments: 1,
-            parity_fragments: 0,
-            pools: [default_pool._id],
-        });
-        var tier = db.tiers.findOne({
-            system: system._id,
-            name: bucket_with_suffix
-        });
-
-        print('*** creating tiering policy', bucket_with_suffix, '...');
-        db.tieringpolicies.insert({
-            system: system._id,
-            name: bucket_with_suffix,
-            tiers: [{
-                order: 0,
-                tier: tier._id
-            }]
-        });
-        var tiering_policy = db.tieringpolicies.findOne({
-            system: system._id,
-            name: bucket_with_suffix
-        });
-
-        print('*** assign bucket to tiering policy',
-            bucket.name, bucket_with_suffix, '...');
-
-        db.buckets.update({
-            _id: bucket._id
-        }, {
-            $set: {
-                tiering: tiering_policy._id
-            }
-        });
-    });
-
-}
-
-function upgrade_chunks_add_ref_to_bucket() {
-    print('\n*** upgrade_chunks_add_ref_to_bucket ...');
-
-    var num_chunks_to_upgrade = db.datachunks.count({
-        bucket: null
-    });
-    if (!num_chunks_to_upgrade) {
-        print('\n*** no chunks require upgrade.');
-        return;
-    }
-    print('\n*** number of chunks to upgrade', num_chunks_to_upgrade);
-
-    // find all the objects and map them to buckets
-    // notice that the map keeps strings, and not object ids
-    // in order to correctly match equal ids
-    var num_objects = 0;
-    var map_obj_to_bucket = {};
-    db.objectmds.find({
-        deleted: null
-    }, {
-        _id: 1,
-        bucket: 1,
-    }).forEach(function(obj) {
-        num_objects += 1;
-        map_obj_to_bucket[obj._id.valueOf()] = obj.bucket.valueOf();
-    });
-
-    // find all parts in order to map chunks to objects and therefore to buckets
-    var num_parts = 0;
-    var map_chunk_to_bucket = {};
-    db.objectparts.find({
-        deleted: null
-    }, {
-        _id: 1,
-        obj: 1,
-        chunk: 1
-    }).forEach(function(part) {
-        num_parts += 1;
-        var obj_id = part.obj.valueOf();
-        var chunk_id = part.chunk.valueOf();
-        var obj_bucket = map_obj_to_bucket[obj_id] || '';
-        var chunk_bucket = map_chunk_to_bucket[chunk_id] || '';
-        if (chunk_bucket && obj_bucket !== chunk_bucket) {
-            print('OHHH NO not sure which bucket to use for chunk',
-                'obj_bucket', obj_bucket,
-                'chunk_bucket', chunk_bucket,
-                'part._id', part._id,
-                'part.obj', part.obj,
-                'part.chunk', part.chunk);
+        } else if (account.is_support && String(account.password) !== String(param_bcrypt_secret)) {
+            print('\n*** updated old support account', param_bcrypt_secret);
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $set: {
+                    password: param_bcrypt_secret
+                },
+                $unset: {
+                    __v: 1
+                }
+            });
         } else {
-            map_chunk_to_bucket[chunk_id] = obj_bucket;
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $unset: {
+                    __v: 1
+                }
+
+            });
         }
     });
 
-    print('num_objects:', num_objects);
-    print('num_parts:', num_parts);
-
-    print('\nmap_obj_to_bucket:');
-    printjson(map_obj_to_bucket);
-
-    print('\nmap_chunk_to_bucket:');
-    printjson(map_chunk_to_bucket);
-
-    // invert the map of chunks to bucket to have a map of bucket to array of chunks
-    // which allows to send single batch update command for all the chunks per bucket.
-    var bucket;
-    var chunk;
-    var bucket_to_chunks = {};
-    for (chunk in map_chunk_to_bucket) { // eslint-disable-line guard-for-in
-        bucket = map_chunk_to_bucket[chunk];
-        bucket_to_chunks[bucket] = bucket_to_chunks[bucket] || [];
-        // notice we have to convert the strings back to object id
-        // so that when sending to the update query it will find the relevant chunks
-        bucket_to_chunks[bucket].push(new ObjectId(chunk));
-    }
-
-    for (bucket in bucket_to_chunks) { // eslint-disable-line guard-for-in
-        var chunks = bucket_to_chunks[bucket];
-        print('\nupdating bucket', bucket, 'for all these chunks:');
-        printjson(chunks);
-        db.datachunks.update({
-            _id: {
-                $in: chunks
-            },
-            bucket: null
-        }, {
-            $set: {
-                bucket: bucket
-            }
-        }, {
-            multi: true
-        });
-    }
+    print('\n*** OBJECT STATS ***');
+    db.objectstats.update({
+        s3_errors_info: {
+            $exists: false
+        }
+    }, {
+        $set: {
+            // Notice that I've left an empty object, this is done on purpose
+            // In order to distinguish what from old records and new records
+            // The new records will have a minimum of total_errors property
+            // Even if we did not encounter any s3 related errors
+            s3_errors_info: {}
+        }
+    }, {
+        multi: true
+    });
 }
 
 function upgrade_system_access_keys() {
@@ -387,6 +307,11 @@ function upgrade_system_access_keys() {
                 }
             });
 
+            db.roles.update({}, {
+                $unset: {
+                    __v: 1
+                }
+            });
             db.systems.update({
                 _id: system._id
             }, {
@@ -402,16 +327,29 @@ function upgrade_system_access_keys() {
 function upgrade_cluster() {
     print('\n*** upgrade_cluster ...');
 
+    var system = db.systems.findOne();
     var clusters = db.clusters.find();
-    if (clusters.shards) {
+    if (clusters.size()) {
+        // if owner_shardname does not exist, set it to default
+        if (!clusters[0].owner_shardname) {
+            db.clusters.update({}, {
+                $set: {
+                    owner_shardname: 'shard1',
+                    cluster_id: param_secret
+                }
+            });
+        }
         print('\n*** Clusters up to date');
         return;
     }
 
-    /*global param_secret:true, params_cluster_id:true, param_ip:true*/
-    db.clusters.insert({
+    var cluster = {
+        is_clusterized: false,
         owner_secret: param_secret,
-        cluster_id: params_cluster_id,
+        owner_address: param_ip,
+        owner_shardname: 'shard1',
+        location: 'Earth',
+        cluster_id: param_secret,
         shards: [{
             shardname: 'shard1',
             servers: [{
@@ -419,6 +357,40 @@ function upgrade_cluster() {
             }]
         }],
         config_servers: [],
+    };
 
+    if (system.ntp) {
+        cluster.ntp = system.ntp;
+        db.systems.update({
+            _id: system._id
+        }, {
+            $unset: {
+                ntp: 1,
+                __v: 1
+            }
+        });
+    }
+
+    //global param_secret:true, params_cluster_id:true, param_ip:true
+    db.clusters.insert(cluster);
+}
+
+function upgrade_object_mds() {
+    print('\n*** upgrade_object_mds ...');
+    db.objectmds.find({
+        upload_size: {
+            $exists: true
+        }
+    }).forEach(function(obj) {
+        db.objectmds.update({
+            _id: obj._id
+        }, {
+            $set: {
+                upload_started: obj.create_time
+            },
+            $unset: {
+                create_time: 1
+            }
+        });
     });
 }

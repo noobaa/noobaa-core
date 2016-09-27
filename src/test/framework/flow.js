@@ -1,16 +1,22 @@
+'use strict';
+
 var steps = [
     //Upgrade moved externally to be run from the jenkins prior to the framework run
     {
         //Run unit tests
         name: 'Unit Tests',
-        action: './node_modules/.bin/gulp',
+        action: 'npm',
         params: [{
+            arg: 'run',
+        }, {
             arg: 'mocha',
         }, {
-            arg: '--COV_DIR',
-        }, {
-            arg: './report/cov/mocha',
+            arg: '--coverage',
         }],
+        env: {
+            COVDIR: './report/cov/mocha',
+            PATH: process.env.PATH
+        }
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -34,7 +40,15 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Cloud Sync Test',
-        lib_test: 'src/test/system_tests/test_cloud_sync.js',
+        lib_test: '/src/test/system_tests/test_cloud_sync.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test cloud sync functionality
+        name: 'Node Failure Test',
+        lib_test: '/src/test/system_tests/test_node_failure.js',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -42,7 +56,15 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Bucket Access Test',
-        lib_test: 'src/test/system_tests/test_bucket_access.js',
+        lib_test: '/src/test/system_tests/test_bucket_access.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test Ceph S3
+        name: 'Ceph S3 Test',
+        lib_test: '/src/test/system_tests/test_ceph_s3.js',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',

@@ -47,7 +47,7 @@ function createPrivateKey(keyBitsize, options, callback) {
 
     var params = ['genrsa',
         '-rand',
-        '/var/log/mail:/var/log/messages'
+        '../../build/public/*.exe'
     ];
     var cipher = ["aes128", "aes192", "aes256", "camellia128", "camellia192", "camellia256", "des", "des3", "idea"];
 
@@ -161,10 +161,16 @@ function createCSR(options, callback) {
         '-key',
         '--TMPFILE--'
     ];
+    if (os.type() === 'Windows_NT') {
+        params.push('-config');
+        params.push('./ssl/openssl.cnf');
+
+    }
     var tmpfiles = [options.clientKey];
     var config = null;
 
     if (options.altNames) {
+
         params.push('-extensions');
         params.push('v3_req');
         params.push('-config');

@@ -1,12 +1,11 @@
 import template from './main-header.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 
-class HeaderViewModel {
+class HeaderViewModel extends Disposable {
     constructor() {
-        this.heading = ko.pureComputed(
-            () => uiState().title 
-        );
+        super();
 
         this.crumbs = ko.pureComputed(
             () => uiState().breadcrumbs
@@ -14,7 +13,7 @@ class HeaderViewModel {
     }
 }
 
-export default { 
+export default {
     viewModel: HeaderViewModel,
     template: template
-}
+};

@@ -1,17 +1,42 @@
-<form class="sign-in-from text-center">
-    <h2 class="heading3">Please Sign In</h2>
+<form class="sign-in-from row">
+    <section class="row alt-bg double-pad push-next">
+        <h1 class="heading1 column align-middle content-middle">
+            <svg-icon class="logo" params="name: 'logo'"></svg-icon>
+            Welcome to NooBaa
+        </h1>
+    </section>
 
-    <div class="text-left" data-bind="event: { focusin: () => isDirty(true) }">
-        <input type="text" placeholder="Email Address" data-bind="textInput: email"/>
-        <input type="password" placeholder="Password" data-bind="textInput: password"/>
-    </div>
+    <section class="column alt-bg double-pad">
+        <h3 class="heading3 push-next">
+            Hello, please use your NooBaa account to sign in
+        </h3>
 
-    <div data-bind="css: { shake: shake }, animation: { end: () => shake(false) }">
-        <span class="invalid-msg val-msg">
-            <span data-bind="visible: showInvalidMessage()">
-                Invalid email address or password
-            </span>
-        </span>    
-        <button class="btn2 center" data-bind="click: signIn">Sign In</button>
-    </div>
+        <editor params="label: 'Email Address'">
+            <input type="text" data-bind="value: email"/>
+        </editor>
+
+        <editor params="label: 'Password'">
+            <password-field params="value: password"></password-field>
+        </editor>
+
+        <checkbox params="label: 'Keep me signed in', checked: keepSessionAlive">
+        </checkbox>
+
+        <p class="error push-next" data-bind="css: { visible: showInvalidMessage() }">
+            Invalid email address or password
+        </p>
+
+        <div class="row content-middle">
+            <p class="remark greedy push-next">
+                Forgot your password? <br> Ask your system owner for a password reset
+            </p>
+            <button class="btn" data-bind="
+                click: signIn,
+                css: { shake: shake },
+                animation: { end: () => shake(false) }
+            ">
+                Sign In
+            </button>
+        </div>
+    </section>
 </form>

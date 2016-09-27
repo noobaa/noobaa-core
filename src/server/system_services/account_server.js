@@ -13,11 +13,13 @@ const bcrypt = require('bcrypt');
 
 const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
-const server_rpc = require('../server_rpc');
-const ActivityLog = require('../analytic_services/activity_log');
+const RpcError = require('../../rpc/rpc_error');
+const auth_server = require('../common_services/auth_server');
+const Dispatcher = require('../notifications/dispatcher');
+const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
-const system_server = require('./system_server');
-const cluster_server = require('./cluster_server');
+const cloud_utils = require('../../util/cloud_utils');
+const azure = require('azure-storage');
 
 system_store.on('load', ensure_support_account);
 
@@ -31,45 +33,48 @@ function create_account(req) {
     validate_create_account_params(req);
     account.access_keys = [req.rpc_params.access_keys];
 
-    account._id = system_store.generate_id();
+    let sys_id = req.rpc_params.new_system_parameters ?
+        mongo_utils.make_object_id(req.rpc_params.new_system_parameters.new_system_id) :
+        req.system._id;
+
+    if (req.rpc_params.new_system_parameters) {
+        account._id = mongo_utils.make_object_id(req.rpc_params.new_system_parameters.account_id);
+    } else {
+        account._id = system_store.generate_id();
+    }
     return P.fcall(function() {
             return bcrypt_password(account);
         })
         .then(function() {
-            if (req.system) {
-                if (req.rpc_params.allowed_buckets) {
-                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                        bucket => req.system.buckets_by_name[bucket]._id);
-                }
-                return {
-                    insert: {
-                        accounts: [account],
-                        roles: [{
-                            _id: system_store.generate_id(),
-                            account: account._id,
-                            system: req.system._id,
-                            role: 'admin',
-                        }]
-                    }
-                };
+            if (req.rpc_params.allowed_buckets) {
+                account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                    bucket => req.system.buckets_by_name[bucket]._id);
             }
-            return system_server.new_system_changes(account.name, account)
-                .then(changes => {
-                    account.allowed_buckets = [changes.insert.buckets[0]._id];
-                    changes.insert.accounts = [account];
-                    return changes;
-                })
-                .then(changes => {
-                    var cluster_info = cluster_server.new_cluster_info();
-                    if (cluster_info) {
-                        changes.insert.clusters = [cluster_info];
-                    }
-                    return changes;
-                });
+            if (req.rpc_params.new_system_parameters) {
+                account.allowed_buckets = _.map(req.rpc_params.new_system_parameters.allowed_buckets,
+                    bucket => mongo_utils.make_object_id(bucket));
+            }
+            return {
+                insert: {
+                    accounts: [account],
+                    roles: [{
+                        _id: system_store.generate_id(),
+                        account: account._id,
+                        system: sys_id,
+                        role: 'admin',
+                    }]
+                }
+            };
         })
         .then(changes => {
-            create_activity_log_entry(req, 'create', account,
-                `${account.email} was created ${req.account && 'by ' + req.account.email}`);
+            Dispatcher.instance().activity({
+                event: 'account.create',
+                level: 'info',
+                system: req.system && req.system._id || sys_id,
+                actor: req.account && req.account._id,
+                account: account._id,
+                desc: `${account.email} was created ${req.account && 'by ' + req.account.email}`,
+            });
             return system_store.make_changes(changes);
         })
         .then(function() {
@@ -77,32 +82,21 @@ function create_account(req) {
             var auth = {
                 account_id: created_account._id
             };
-            if (!req.system) {
+            if (req.rpc_params.new_system_parameters) {
                 // since we created the first system for this account
                 // we expect just one system, but use _.each to get it from the map
+                var current_system = req.system && req.system._id || sys_id;
                 _.each(created_account.roles_by_system, (roles, system_id) => {
-                    auth.system_id = system_id;
-                    auth.role = roles[0];
+                    //we cannot assume only one system.
+                    if (current_system.toString() === system_id) {
+                        auth.system_id = system_id;
+                        auth.role = roles[0];
+                    }
                 });
             }
             return {
-                token: req.make_auth_token(auth),
+                token: auth_server.make_auth_token(auth),
             };
-        })
-        .then(token => {
-            if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
-                return token;
-            }
-            if (!req.system) {
-                return server_rpc.client.hosted_agents.create_agent({
-                        name: req.rpc_params.name,
-                        access_keys: req.rpc_params.access_keys,
-                        scale: 3,
-                        storage_limit: 100 * 1024 * 1024,
-                    })
-                    .then(() => token);
-            }
-
         });
 }
 
@@ -118,7 +112,7 @@ function read_account(req) {
 
     let account = system_store.data.accounts_by_email[email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
     }
 
     return get_account_info(account);
@@ -133,15 +127,15 @@ function read_account(req) {
 function generate_account_keys(req) {
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (req.system && req.account) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-            throw req.unauthorized('Cannot update account');
+            throw new RpcError('UNAUTHORIZED', 'Cannot update account');
         }
     }
     if (account.is_support) {
-        throw req.forbidden('Cannot update support account');
+        throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
     let updates = _.pick(account, '_id');
     let new_access_keys = [{
@@ -171,17 +165,17 @@ function update_account_s3_acl(req) {
     var system = req.system;
     let account = _.cloneDeep(system_store.data.accounts_by_email[req.rpc_params.email]);
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (req.system && req.account) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-            throw req.unauthorized('Cannot update account');
+            throw new RpcError('UNAUTHORIZED', 'Cannot update account');
         }
     } else if (!req.system) {
         system = system_store.data.systems_by_name[req.rpc_params.name];
     }
     if (account.is_support) {
-        throw req.forbidden('Cannot update support account');
+        throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
 
     let allowed_buckets = null;
@@ -234,7 +228,14 @@ function update_account_s3_acl(req) {
             if (removed_buckets.length) {
                 desc_string.push(`Removed buckets: ${removed_buckets}`);
             }
-            return create_activity_log_entry(req, 's3_access_updated', account, desc_string.join('\n'));
+            return Dispatcher.instance().activity({
+                event: 'account.s3_access_updated',
+                level: 'info',
+                system: req.system && req.system._id,
+                actor: req.account && req.account._id,
+                account: account._id,
+                desc: desc_string.join('\n'),
+            });
         })
         .return();
 }
@@ -247,13 +248,13 @@ function update_account_s3_acl(req) {
 function update_account(req) {
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-        throw req.unauthorized('Cannot update account');
+        throw new RpcError('UNAUTHORIZED', 'Cannot update account');
     }
     if (account.is_support) {
-        throw req.forbidden('Cannot update support account');
+        throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
     let updates = _.pick(req.rpc_params, 'name', 'password');
     updates._id = account._id;
@@ -268,7 +269,14 @@ function update_account(req) {
                 }
             });
         })
-        .then(() => create_activity_log_entry(req, 'update', account, `${account.email} was updated by ${req.account && req.account.email}: reset password`))
+        .then(() => Dispatcher.instance().activity({
+            event: 'account.update',
+            level: 'info',
+            system: req.system && req.system._id,
+            actor: req.account && req.account._id,
+            account: account._id,
+            desc: `${account.email} was updated by ${req.account && req.account.email}: reset password`,
+        }))
         .return();
 }
 
@@ -282,16 +290,16 @@ function update_account(req) {
 function delete_account(req) {
     let account_to_delete = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account_to_delete) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (account_to_delete.is_support) {
-        throw req.rpc_error('BAD_REQUEST', 'Cannot delete support account');
+        throw new RpcError('BAD_REQUEST', 'Cannot delete support account');
     }
     if (String(account_to_delete._id) === String(req.system.owner._id)) {
-        throw req.rpc_error('BAD_REQUEST', 'Cannot delete system owner account');
+        throw new RpcError('BAD_REQUEST', 'Cannot delete system owner account');
     }
     if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
-        throw req.unauthorized('Cannot delete account');
+        throw new RpcError('UNAUTHORIZED', 'Cannot delete account');
     }
 
     let roles_to_delete = system_store.data.roles
@@ -310,11 +318,25 @@ function delete_account(req) {
         })
         .then(
             val => {
-                create_activity_log_entry(req, 'delete', account_to_delete, `${account_to_delete.email} was deleted by ${req.account && req.account.email}`);
+                Dispatcher.instance().activity({
+                    event: 'account.delete',
+                    level: 'info',
+                    system: req.system && req.system._id,
+                    actor: req.account && req.account._id,
+                    account: account_to_delete._id,
+                    desc: `${account_to_delete.email} was deleted by ${req.account && req.account.email}`,
+                });
                 return val;
             },
             err => {
-                create_activity_log_entry(req, 'delete', account_to_delete, 'Error', 'alert');
+                Dispatcher.instance().activity({
+                    event: 'account.delete',
+                    level: 'alert',
+                    system: req.system && req.system._id,
+                    actor: req.account && req.account._id,
+                    account: account_to_delete._id,
+                    desc: `Error: ${account_to_delete.email} failed to delete by ${req.account && req.account.email}`,
+                });
                 throw err;
             }
         )
@@ -334,10 +356,11 @@ function list_accounts(req) {
     } else if (req.account) {
         // list system accounts - system admin can see all the system accounts
         if (!_.includes(req.account.roles_by_system[req.system._id], 'admin')) {
-            throw req.unauthorized('Must be system admin');
+            throw new RpcError('UNAUTHORIZED', 'Must be system admin');
         }
-        let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
-            roles && roles.length ? account_id : null);
+        let account_ids = _.map(req.system.roles_by_account, (roles, account_id) => {
+            return roles && roles.length ? account_id : null;
+        });
 
         accounts = _.compact(
             _.map(
@@ -385,7 +408,8 @@ function get_account_sync_credentials_cache(req) {
             return {
                 name: credentials.name || credentials.access_key,
                 endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
-                access_key: credentials.access_key
+                identity: credentials.access_key,
+                endpoint_type: credentials.endpoint_type
             };
         }
     );
@@ -398,7 +422,10 @@ function get_account_sync_credentials_cache(req) {
  */
 
 function add_account_sync_credentials_cache(req) {
-    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'access_key', 'secret_key');
+    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
+    if (!info.endpoint_type) info.endpoint_type = 'AWS';
+    info.access_key = req.rpc_params.identity;
+    info.secret_key = req.rpc_params.secret;
     var updates = {
         _id: req.account._id,
         sync_credentials_cache: req.account.sync_credentials_cache || []
@@ -412,21 +439,31 @@ function add_account_sync_credentials_cache(req) {
 }
 
 function check_account_sync_credentials(req) {
-    var params = _.pick(req.rpc_params, 'endpoint', 'access_key', 'secret_key');
+    var params = _.pick(req.rpc_params, 'endpoint', 'identity', 'secret', 'endpoint_type');
 
     return P.fcall(function() {
-        var s3 = new AWS.S3({
-            endpoint: params.endpoint,
-            accessKeyId: params.access_key,
-            secretAccessKey: params.secret_key,
-            httpOptions: {
-                agent: new https.Agent({
-                    rejectUnauthorized: false,
-                })
-            }
-        });
+        if (params.endpoint_type === 'AZURE') {
+            let conn_str = cloud_utils.get_azure_connection_string({
+                endpoint: params.endpoint,
+                access_key: params.identity,
+                secret_key: params.secret
+            });
+            let blob_svc = azure.createBlobService(conn_str);
+            return P.ninvoke(blob_svc, 'listContainersSegmented', null, {});
+        } else {
+            var s3 = new AWS.S3({
+                endpoint: params.endpoint,
+                accessKeyId: params.identity,
+                secretAccessKey: params.secret,
+                httpOptions: {
+                    agent: new https.Agent({
+                        rejectUnauthorized: false,
+                    })
+                }
+            });
 
-        return P.ninvoke(s3, "listBuckets");
+            return P.ninvoke(s3, "listBuckets");
+        }
     }).then(
         () => true,
         () => false
@@ -442,17 +479,17 @@ function check_account_sync_credentials(req) {
 function list_account_s3_acl(req) {
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (req.system && req.account) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-            throw req.unauthorized('No permission to get allowed buckets');
+            throw new RpcError('UNAUTHORIZED', 'No permission to get allowed buckets');
         }
     } else if (!req.system) {
         req.system = system_store.data.get_by_id(req.auth && req.auth.system_id);
     }
     if (account.is_support) {
-        throw req.forbidden('No allowed buckets for support account');
+        throw new RpcError('FORBIDDEN', 'No allowed buckets for support account');
     }
     let reply = [];
     reply = _.map(system_store.data.buckets,
@@ -515,7 +552,7 @@ function ensure_support_account() {
                 _id: system_store.generate_id(),
                 name: 'Support',
                 email: 'support@noobaa.com',
-                password: process.env.SUPPORT_DEFAULT_PASSWORD || 'help',
+                password: system_store.get_server_secret(),
                 is_support: true
             };
             return bcrypt_password(support_account)
@@ -536,13 +573,12 @@ function bcrypt_password(account) {
     if (!account.password) {
         return P.resolve();
     }
-    return P.fcall(function() {
-            return P.nfcall(bcrypt.genSalt, 10);
-        })
-        .then(function(salt) {
-            return P.nfcall(bcrypt.hash, account.password, salt);
-        })
-        .then(function(password_hash) {
+    return P.resolve()
+        .then(() => P.fromCallback(callback =>
+            bcrypt.genSalt(10, callback)))
+        .then(salt => P.fromCallback(callback =>
+            bcrypt.hash(account.password, salt, callback)))
+        .then(password_hash => {
             account.password = password_hash;
         });
 }
@@ -557,21 +593,9 @@ function is_support_or_admin_or_me(system, account, target_account) {
         );
 }
 
-function create_activity_log_entry(req, event, account, description, level) {
-    ActivityLog.create({
-        event: 'account.' + event,
-        level: level || 'info',
-        system: req.system ? req.system._id : undefined,
-        actor: req.account ? req.account._id : undefined,
-        account: account._id,
-        desc: description,
-    });
-}
-
-
 function validate_create_account_params(req) {
     if (req.rpc_params.name !== req.rpc_params.name.trim()) {
-        throw req.rpc_error('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
+        throw new RpcError('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
     }
 }
 

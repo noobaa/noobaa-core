@@ -1,13 +1,14 @@
 'use strict';
 
 const _ = require('lodash');
-const moment = require('moment');
 const chance = require('chance')();
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_client = require('./nodes_client');
+
+const ALLOC_REFRESH_MS = 10000;
 
 const alloc_group_by_pool = {};
 const alloc_group_by_pool_set = {};
@@ -23,79 +24,38 @@ function refresh_pool_alloc(pool) {
     var group =
         alloc_group_by_pool[pool._id] =
         alloc_group_by_pool[pool._id] || {
-            last_refresh: new Date(0),
+            last_refresh: 0,
             nodes: [],
-            aggregate: {}
         };
 
     dbg.log1('refresh_pool_alloc: checking pool', pool._id, 'group', group);
 
-    // cache the nodes for 1 minutes and then refresh
-    if (group.last_refresh >= moment().subtract(1, 'minute').toDate()) {
+    // cache the nodes for some time before refreshing
+    if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
         return P.resolve();
     }
 
     if (group.promise) return group.promise;
 
-    group.promise = P.join(
-        nodes_store.find_nodes({
-            system: pool.system._id,
-            pool: pool._id,
-            heartbeat: {
-                $gt: nodes_store.get_minimum_alloc_heartbeat()
-            },
-            $or: [{
-                'storage.free': {
-                    $gt: config.NODES_FREE_SPACE_RESERVE
+    group.promise = P.resolve()
+        .then(() => nodes_client.instance().allocate_nodes(pool.system._id, pool._id))
+        .then(res => {
+            group.last_refresh = Date.now();
+            group.promise = null;
+            group.nodes = res.nodes;
+            dbg.log0('refresh_pool_alloc: updated pool', pool._id,
+                'nodes', _.map(group.nodes, 'name'));
+            _.each(alloc_group_by_pool_set, (g, pool_set) => {
+                if (_.includes(pool_set, String(pool._id))) {
+                    dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
+                        'on change to pool', pool._id);
+                    delete alloc_group_by_pool_set[pool_set];
                 }
-            }, {
-                $and: [{
-                    'storage.free': {
-                        $gt: 0
-                    }
-                }, {
-                    'storage.limit': {
-                        $exists: true
-                    }
-                }]
-            }],
-
-            deleted: null,
-            srvmode: null,
-        }, {
-            fields: nodes_store.NODE_FIELDS_FOR_MAP,
-            sort: {
-                // sorting with lowest used storage nodes first
-                'storage.used': 1
-            },
-            limit: 1000
-        }),
-        nodes_store.aggregate_nodes_by_pool({
-            system: pool.system._id,
-            pool: pool._id,
-            deleted: null,
-        })
-    ).spread((nodes, nodes_aggregate_pool) => {
-        group.last_refresh = new Date();
-        group.promise = null;
-        // filter out nodes that exceeded the storage limit
-        group.nodes = _.filter(nodes, function(node) {
-            return _.isUndefined(node.storage.limit) || node.storage.limit > node.storage.used;
+            });
+        }, err => {
+            group.promise = null;
+            throw err;
         });
-        group.aggregate = nodes_aggregate_pool[pool._id];
-        dbg.log1('refresh_pool_alloc: updated pool', pool._id,
-            'nodes', group.nodes, 'aggregate', group.aggregate);
-        _.each(alloc_group_by_pool_set, (g, pool_set) => {
-            if (_.includes(pool_set, pool._id.toString())) {
-                dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
-                    'on change to pool', pool._id);
-                delete alloc_group_by_pool_set[pool_set];
-            }
-        });
-    }, err => {
-        group.promise = null;
-        throw err;
-    });
 
     return group.promise;
 }
@@ -110,8 +70,8 @@ function refresh_pool_alloc(pool) {
  * from the chunk of nodes that we've received in pools.
  *
  */
-function allocate_node(pools, avoid_nodes, content_tiering_params) {
-    let pool_set = _.map(pools, pool => pool._id.toString()).sort().join(',');
+function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_params) {
+    let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
     let alloc_group =
         alloc_group_by_pool_set[pool_set] =
         alloc_group_by_pool_set[pool_set] || {
@@ -141,7 +101,10 @@ function allocate_node(pools, avoid_nodes, content_tiering_params) {
             throw new Error('allocate_node: cloud_pool allocations should have only one node (cloud node)');
         }
     } else if (num_nodes < config.NODES_MIN_COUNT) {
-        throw new Error('allocate_node: not enough online nodes in pool set ' + pool_set);
+        dbg.warn('allocate_node: not enough online nodes in pool set',
+            pools, avoid_nodes, allocated_hosts, content_tiering_params);
+        throw new Error('allocate_node: not enough online nodes in pool set ' +
+            pool_set + ' num_nodes ' + num_nodes);
     }
 
     // allocate first tries from nodes with no error,
@@ -150,15 +113,29 @@ function allocate_node(pools, avoid_nodes, content_tiering_params) {
     // without failing to allocate.
     // nodes with error that are indeed offline they will eventually
     // be filtered by refresh_pool_alloc.
-    return allocate_from_list(alloc_group.nodes, avoid_nodes, false) ||
-        allocate_from_list(alloc_group.nodes, avoid_nodes, true);
+
+    // on the first try, filter out nodes (drives) from hosts that already hold a similar block
+    return allocate_from_list(alloc_group.nodes, avoid_nodes, allocated_hosts, {
+            unique_hosts: true, // try to allocate from unique hosts first
+            use_nodes_with_errors: false
+        }) ||
+        allocate_from_list(alloc_group.nodes, avoid_nodes, allocated_hosts, {
+            unique_hosts: false, // second try - allocate from allocated hosts
+            use_nodes_with_errors: false
+        }) ||
+        allocate_from_list(alloc_group.nodes, avoid_nodes, allocated_hosts, {
+            unique_hosts: false,
+            use_nodes_with_errors: true // last try - allocated also from nodes with errors
+        });
 }
 
-function allocate_from_list(nodes, avoid_nodes, use_nodes_with_errors) {
+function allocate_from_list(nodes, avoid_nodes, allocated_hosts, options) {
     for (var i = 0; i < nodes.length; ++i) {
         var node = get_round_robin(nodes);
-        if (Boolean(use_nodes_with_errors) === Boolean(node.error_since_hb) &&
-            !_.includes(avoid_nodes, node._id.toString())) {
+        if (Boolean(options.use_nodes_with_errors) ===
+            Boolean(node.report_error_on_node_alloc) &&
+            !_.includes(avoid_nodes, String(node._id)) &&
+            (!_.includes(allocated_hosts, node.host_id) || !options.unique_hosts)) {
             dbg.log1('allocate_node: allocated node', node.name,
                 'avoid_nodes', avoid_nodes);
             return node;
@@ -175,11 +152,11 @@ function get_round_robin(nodes) {
 /**
  * find the node in the memory groups and mark the error time
  */
-function report_node_error(node_id) {
+function report_error_on_node_alloc(node_id) {
     _.each(alloc_group_by_pool, (group, pool_id) => {
         _.each(group.nodes, node => {
             if (String(node._id) === String(node_id)) {
-                node.error_since_hb = new Date();
+                node.report_error_on_node_alloc = new Date();
             }
         });
     });
@@ -190,4 +167,4 @@ function report_node_error(node_id) {
 exports.refresh_tiering_alloc = refresh_tiering_alloc;
 exports.refresh_pool_alloc = refresh_pool_alloc;
 exports.allocate_node = allocate_node;
-exports.report_node_error = report_node_error;
+exports.report_error_on_node_alloc = report_error_on_node_alloc;

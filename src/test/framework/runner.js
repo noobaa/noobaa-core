@@ -1,27 +1,30 @@
 'use strict';
-var _ = require('lodash');
-var fs = require('fs');
-var argv = require('minimist')(process.argv);
-var istanbul = require('istanbul');
-var request = require('request');
-var mkdirp = require('mkdirp');
 
-require('dotenv').load();
+require('../../util/dotenv').load();
 
-var promise_utils = require('../../util/promise_utils');
-var P = require('../../util/promise');
-var ops = require('../system_tests/basic_server_ops');
-var api = require('../../api');
+const _ = require('lodash');
+const fs = require('fs');
+const path = require('path');
+const argv = require('minimist')(process.argv);
+const request = require('request');
+const istanbul = require('istanbul');
 
-var COVERAGE_DIR = './report/cov';
-var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
+const P = require('../../util/promise');
+const api = require('../../api');
+const dbg = require('../../util/debug_module')(__filename);
+const ops = require('../system_tests/basic_server_ops');
+const fs_utils = require('../../util/fs_utils');
+const promise_utils = require('../../util/promise_utils');
 
-function TestRunner(argv) {
-    this._version = argv.GIT_VERSION;
-    this._argv = argv;
+const COVERAGE_DIR = './report/cov';
+const REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
+
+function TestRunner(args) {
+    this._version = args.GIT_VERSION;
+    this._argv = args;
     this._error = false;
-    if (argv.FLOW_FILE) {
-        this._steps = require(argv.FLOW_FILE);
+    if (args.FLOW_FILE) {
+        this._steps = require(args.FLOW_FILE);
     } else {
         this._steps = require(process.cwd() + '/src/test/framework/flow.js');
     }
@@ -30,24 +33,26 @@ function TestRunner(argv) {
 /**************************
  *   Common Functionality
  **************************/
-TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait) {
+TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait, port) {
     var isNotListening = true;
     var MAX_RETRIES = max_seconds_to_wait;
     var wait_counter = 1;
     //wait up to 10 seconds
+    console.log('waiting for server to start (1)');
+
     return promise_utils.pwhile(
             function() {
                 return isNotListening;
             },
             function() {
                 return P.ninvoke(request, 'get', {
-                    url: 'http://127.0.0.1:8080/',
+                    url: 'http://127.0.0.1:' + port,
                     rejectUnauthorized: false,
-                }).spread(function(res, body) {
+                }).then(function() {
                     console.log('server started after ' + wait_counter + ' seconds');
                     isNotListening = false;
-                }, function(err) {
-                    console.log('waiting for server to start');
+                }).catch(function(err) {
+                    console.log('waiting for server to start(2)');
                     wait_counter += 1;
                     if (wait_counter >= MAX_RETRIES) {
                         console.Error('Too many retries after restart server');
@@ -65,20 +70,24 @@ TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait) {
 TestRunner.prototype.restore_db_defaults = function() {
     var self = this;
 
-    return promise_utils.promised_exec(
+    return promise_utils.exec(
             'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('failed on mongodb_defaults', err);
             throw new Error('Failed pn mongodb reset');
         })
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl restart webserver');
+            return promise_utils.exec('supervisorctl restart webserver bg_workers s3rver ');
         })
         .then(function() {
-            return self.wait_for_server_to_start(30);
+            return self.wait_for_server_to_start(30, 8080);
         })
-        .fail(function(err) {
-            console.log('Failed restarting webserver');
+        .then(function() {
+            return self.wait_for_server_to_start(30, 80);
+        })
+        .delay(5000) //Workaround for agents sending HBs and re-registering to the server
+        .catch(function(err) {
+            console.log('Failed restarting webserver', err);
             throw new Error('Failed restarting webserver');
         });
 };
@@ -89,41 +98,30 @@ TestRunner.prototype.restore_db_defaults = function() {
 
 TestRunner.prototype.init_run = function() {
     var self = this;
-    //Clean previous run results
-    console.log('Clearing previous test run results');
-    if (!fs.existsSync(COVERAGE_DIR)) {
-        P.nfcall(mkdirp, COVERAGE_DIR);
-    }
-
     self._rpc = api.new_rpc();
     self._client = self._rpc.new_client();
 
-    return P.fcall(function() {
-            var auth_params = {
-                email: 'demo@noobaa.com',
-                password: 'DeMo',
-                system: 'demo'
-            };
-            return self._client.create_auth_token(auth_params);
-        })
-        .then(function() {
-            return promise_utils.promised_exec('rm -rf ' + COVERAGE_DIR + '/*');
-        })
-        .fail(function(err) {
-            console.error('Failed cleaning ', COVERAGE_DIR, 'from previous run results', err);
-            throw new Error('Failed cleaning dir');
-        })
-        .then(function() {
-            return promise_utils.promised_exec('rm -rf /root/node_modules/noobaa-core/coverage/*');
-        })
-        .fail(function(err) {
-            console.error('Failed cleaning istanbul data from previous run results', err);
-            throw new Error('Failed cleaning istanbul data');
-        })
-        .then(function() {
-            //Restart services to hook require instanbul
-            return self._restart_services(true);
-        })
+    //Clean previous run results
+    console.log('Clearing previous test run results');
+
+    return P.resolve()
+        .then(() => fs_utils.create_fresh_path(COVERAGE_DIR)
+            .catch(function(err) {
+                console.error('Failed cleaning ', COVERAGE_DIR, 'from previous run results', err);
+                throw new Error('Failed cleaning dir');
+            }))
+        .then(() => promise_utils.exec('rm -rf /root/node_modules/noobaa-core/coverage/*')
+            .catch(function(err) {
+                console.error('Failed cleaning istanbul data from previous run results', err);
+                throw new Error('Failed cleaning istanbul data');
+            }))
+        .then(() => self._client.create_auth_token({
+            email: 'demo@noobaa.com',
+            password: 'DeMo1',
+            system: 'demo'
+        }))
+        //Restart services to hook require instanbul
+        .then(() => self._restart_services(true))
         .then(function() {
             fs.appendFileSync(REPORT_PATH, 'Init Test Run for version ' + self._version + '\n');
         });
@@ -135,14 +133,14 @@ TestRunner.prototype.complete_run = function() {
     var dst = '/tmp/res_' + this._version + '.tgz';
 
     return this._write_coverage()
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed writing coverage for test runs', err);
             throw new Error('Failed writing coverage for test runs');
         })
         .then(function() {
-            return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
+            return promise_utils.exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed archiving test runs', err);
             throw new Error('Failed archiving test runs');
         })
@@ -150,14 +148,17 @@ TestRunner.prototype.complete_run = function() {
             return self._restart_services(false);
         })
         .then(function() {
-            return self.wait_for_server_to_start(30);
+            return self.wait_for_server_to_start(30, 80);
+        })
+        .then(function() {
+            return self.wait_for_server_to_start(30, 8080);
         })
         .then(function() {
             console.log('Uploading results file');
             //Save package on current NooBaa system
             return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + self._version + '.tgz');
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('Failed restarting webserver');
             throw new Error('Failed restarting webserver');
         });
@@ -167,22 +168,26 @@ TestRunner.prototype.run_tests = function() {
     var self = this;
 
     return P.each(self._steps, function(current_step) {
-            return P.when(self._print_curent_step(current_step))
+            return P.resolve(self._print_curent_step(current_step))
                 .then(function(step_res) {
-                    return P.when(self._run_current_step(current_step, step_res));
+                    return P.resolve(self._run_current_step(current_step, step_res));
                 })
                 .then(function(step_res) {
                     fs.appendFileSync(REPORT_PATH, step_res + '\n');
                     return;
+                }).catch(function(error) {
+                    fs.appendFileSync(REPORT_PATH, 'Stopping tests with error ' + error + ' ' + error.stace + ' ' + error.message);
+                    throw new Error(error);
                 });
         })
         .then(function() {
+            console.warn('All steps done');
             fs.appendFileSync(REPORT_PATH, 'All steps done\n');
             return;
         })
-        .fail(function(error) {
-            fs.appendFileSync(REPORT_PATH, 'Stopping tests\n', error);
-            return;
+        .catch(function(error) {
+            fs.appendFileSync(REPORT_PATH, 'Stopping tests with error\n' + error);
+            throw new Error(error);
         });
 };
 
@@ -220,13 +225,18 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         step_res = '        No Action Defined!!!';
         return;
     }
+    console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
     if (current_step.common) {
         var ts = new Date();
-        return P.invoke(self, current_step.common)
+        return P.resolve()
+            .then(() => self[current_step.common].apply(self))
             .then(function() {
-                return step_res + ' - Successeful ( took ' +
+                return step_res + ' - Successeful common step ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
                 //return step_res;
+            }).catch(function(err) {
+                console.warn('Failure while running ' + step_res + ' with error ' + err);
+                throw new Error(err);
             });
     } else if (current_step.action) {
         return self._run_action(current_step, step_res);
@@ -254,14 +264,16 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
             }
         }
     }));
+    var options = _.pick(current_step, 'env');
 
-    return promise_utils.promised_spawn(command, args)
+    return promise_utils.spawn(command, args, options)
         .then(function(res) {
-            step_res = '        ' + step_res + ' - Successeful ( took ' +
+            step_res = '        ' + step_res + ' - Successeful running action  ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
+            console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
             return step_res;
         })
-        .fail(function(res) {
+        .catch(function(res) {
             self._error = true;
             if (current_step.blocking) {
                 fs.appendFileSync(REPORT_PATH, step_res + ' ' + res + '\n');
@@ -273,6 +285,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
                     '------------------------------   ' +
                     '( took ' + ((new Date() - ts) / 1000) + 's )';
             }
+            console.warn('Failed action with', res);
             return step_res;
         });
 };
@@ -280,15 +293,18 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
 TestRunner.prototype._run_lib_test = function(current_step, step_res) {
     var self = this;
     var ts = new Date();
-
+    // Used in order to log inside a file instead of console prints
+    dbg.set_log_to_file(process.cwd() + COVERAGE_DIR.substring(1) + '/' + path.parse(current_step.lib_test).name);
     var test = require(process.cwd() + current_step.lib_test);
-    return P.when(test.run_test())
+    return P.resolve(test.run_test())
         .then(function(res) {
+            dbg.set_log_to_file();
             step_res = '        ' + step_res + ' - Successeful ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
+            console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
             return step_res;
         })
-        .fail(function(res) {
+        .catch(function(res) {
             self._error = true;
             if (current_step.blocking) {
                 fs.appendFileSync(REPORT_PATH, step_res + ' ' + res + '\n');
@@ -338,16 +354,17 @@ TestRunner.prototype._write_coverage = function() {
             //Generate the report
             reporter.add('lcov');
             return P.fcall(function() {
-                    return reporter.write(collector, true /*sync*/ , function() {
+                    const REPORTER_SYNC = true;
+                    return reporter.write(collector, REPORTER_SYNC, function() {
                         console.warn('done reporter.write');
                     });
                 })
-                .fail(function(err) {
+                .catch(function(err) {
                     console.warn('Error on write with', err, err.stack);
                     throw err;
                 });
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('Error on _write_coverage', err, err.stack);
             throw err;
         });
@@ -364,13 +381,13 @@ TestRunner.prototype._restart_services = function(testrun) {
         command += " ; sed -i 's/\\(.*bg_workers_starter.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
     }
 
-    return promise_utils.promised_exec(command)
+    return promise_utils.exec(command)
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl reload');
+            return promise_utils.exec('supervisorctl reload');
         })
-        .delay(1000)
+        .delay(5000)
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl restart webserver bg_workers');
+            return promise_utils.exec('supervisorctl restart webserver bg_workers');
         })
         .delay(5000);
 
@@ -384,33 +401,37 @@ function main() {
         process.exit(1);
     }
     var run = new TestRunner(argv);
-    return P.when(run.init_run())
-        .fail(function(error) {
+    return P.resolve(run.init_run())
+        .catch(function(error) {
             console.error('Init run failed, stopping tests', error);
+            run._restart_services(false);
             process.exit(2);
         })
         .then(function() {
             console.warn('Running tests');
             return run.run_tests();
         })
-        .fail(function(error) {
+        .catch(function(error) {
             console.error('run tests failed', error);
+            run._restart_services(false);
             process.exit(3);
         })
         .then(function() {
             console.warn('Finalizing run results');
             return run.complete_run();
         })
-        .fail(function(error) {
+        .catch(function(error) {
             console.error('Complete run failed', error);
+            run._restart_services(false);
             process.exit(4);
         })
         .then(function() {
             run.print_conclusion();
-            if (!run._error) {
-                process.exit(0);
-            } else {
+            if (run._error) {
+                run._restart_services(false);
                 process.exit(1);
+            } else {
+                process.exit(0);
             }
         });
 }

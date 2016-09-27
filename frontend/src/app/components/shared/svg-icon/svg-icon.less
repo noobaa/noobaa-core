@@ -1,14 +1,16 @@
 svg-icon {
     display: inline-block;
-    width: 25px;
-    height: 25px;
+    width: 24px;
+    height: 24px;
     vertical-align: middle;
     line-height: 1;
+    fill: @color6;
+    stroke: none;
+/*    transition: fill 250ms ease-in-out;*/
 
     > svg {
         width: 100%;
         height: 100%;
-        /*border: 1px solid @text-color2;*/
     }
 
     &.icon-small {
@@ -17,6 +19,11 @@ svg-icon {
     }
 
     &.icon-big {
+        width: 48px;
+        height: 48px;
+    }
+
+    &.icon-xbig {
         width: 60px;
         height: 60px;
     }

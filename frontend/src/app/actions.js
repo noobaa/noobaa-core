@@ -2,21 +2,18 @@ import * as model from 'model';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
-import { hostname } from 'server-conf';
+import * as routes from 'routes';
 
-import {
-    isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
-    randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
-    generateAccessKeys
-} from 'utils';
+import { isDefined, isUndefined, last, makeArray, execInOrder, realizeUri,
+    downloadFile, generateAccessKeys, deepFreeze, flatMap } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
 import 'aws-sdk';
-AWS = window.AWS;
+let AWS = window.AWS;
 
 // Use preconfigured hostname or the addrcess of the serving computer.
-let endpoint = hostname || window.location.hostname;
+let endpoint = window.location.hostname;
 
 // -----------------------------------------------------
 // Utility function to log actions.
@@ -35,7 +32,10 @@ function logAction(action, payload) {
 export function start() {
     logAction('start');
 
-    api.options.auth_token = localStorage.getItem('sessionToken');
+    api.options.auth_token =
+        sessionStorage.getItem('sessionToken') ||
+        localStorage.getItem('sessionToken');
+
     return api.auth.read_auth()
         // Try to restore the last session
         .then(({account, system}) => {
@@ -46,37 +46,53 @@ export function start() {
                 });
             }
         })
+        .catch(err => {
+            if (err.rpc_code === 'UNAUTHORIZED') {
+                if (api.options.auth_token) {
+                    console.info('Signing out on unauthorized session.');
+                    signOut(false);
+                }
+            } else {
+                console.error(err);
+            }
+        })
         // Start the router.
         .then(
             () => page.start()
         )
-        .done()
+        .done();
 }
 
 // -----------------------------------------------------
 // Navigation actions
 // -----------------------------------------------------
-export function navigateTo(path = window.location.pathname, query = {}) {
-    logAction('navigateTo', { path, query });
+export function navigateTo(route = model.routeContext().pathname, params = {},  query = {}) {
+    logAction('navigateTo', { route, params, query });
 
     page.show(
-        realizeUri(path, model.routeContext().params, query)
+        realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
     );
 }
 
-export function redirectTo(path = window.location.pathname, query = {}) {
-    logAction('redirectTo', { path, query });
+export function redirectTo(route = model.routeContext().pathname, params = {}, query = {}) {
+    logAction('redirectTo', { route, params, query });
+
+    route = route || model.routeContext().pathname;
 
     page.redirect(
-        realizeUri(path, model.routeContext().params, query)
+        encodeURI(
+            realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
+        )
     );
 }
 
-export function reloadTo(path = window.location.pathname, query = {}) {
-    logAction('reloadTo', { path, query });
+export function reloadTo(route = model.routeContext().pathname, params = {},  query = {}) {
+    logAction('reloadTo', { route, params, query });
 
     // Force full browser refresh
-    window.location.href = realizeUri(path, model.routeContext().params, query)
+    window.location.href = realizeUri(
+        route, Object.assign({}, model.routeContext().params, params), query
+    );
 }
 
 export function refresh() {
@@ -86,7 +102,6 @@ export function refresh() {
 
     // Refresh the current path
     page.redirect(pathname + search);
-
     model.refreshCounter(model.refreshCounter() + 1);
 }
 
@@ -99,13 +114,13 @@ export function showLogin() {
     let session = model.sessionInfo();
     let ctx = model.routeContext();
 
-    if (!!session) {
-        redirectTo(`/fe/systems/${session.system}`);
+    if (session) {
+        redirectTo(routes.system, { system: session.system });
 
     } else {
         model.uiState({
             layout: 'login-layout',
-            returnUrl: ctx.query.returnUrl,
+            returnUrl: ctx.query.returnUrl
         });
 
         loadServerInfo();
@@ -117,14 +132,13 @@ export function showOverview() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'OVERVIEW',
+        title: 'Overview',
         breadcrumbs: [
-            { href: 'fe/systems/:system' }
+            { route: 'system', label: 'Overview' }
         ],
-        panel: 'overview'
+        panel: 'overview',
+        useBackground: true
     });
-
-    loadSystemSummary();
 }
 
 export function showBuckets() {
@@ -132,38 +146,34 @@ export function showBuckets() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'BUCKETS',
+        title: 'Buckets',
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' }
+            { route: 'system', label: 'Overview' },
+            { route: 'buckets', label: 'Buckets' }
         ],
-        panel: 'buckets',
+        panel: 'buckets'
     });
-
-    let { sortBy, order } = model.routeContext().query;
-    loadBucketList(sortBy, order);
 }
 
 export function showBucket() {
     logAction('showBucket');
 
     let ctx = model.routeContext();
-    let { bucket, tab = 'objects' } = ctx.params;
+    let { bucket, tab = 'data-placement' } = ctx.params;
     let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
     model.uiState({
         layout: 'main-layout',
         title: bucket,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' },
-            { href: ':bucket', label: bucket }
+            { route: 'system', label: 'Overview' },
+            { route: 'buckets', label: 'Buckets' },
+            { route: 'bucket', label: bucket }
         ],
         panel: 'bucket',
         tab: tab
     });
 
-    loadBucketInfo(bucket);
     loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));
 }
 
@@ -178,34 +188,34 @@ export function showObject() {
         layout: 'main-layout',
         title: object,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' },
-            { href: ':bucket', label: bucket },
-            { href: 'objects/:object', label: object }
+            { route: 'system', label: 'Overview' },
+            { route: 'buckets', label: 'Buckets' },
+            { route: 'bucket', label: bucket },
+            { route: 'object', label: object }
         ],
         panel: 'object',
         tab: tab
     });
 
-    loadObjectMetadata(bucket, object)
+    loadObjectMetadata(bucket, object);
     loadObjectPartList(bucket, object, parseInt(page));
 }
 
-export function showPools() {
-    logAction('showPools');
+export function showResources() {
+    logAction('showResources');
 
+    let ctx = model.routeContext();
+    let { tab = 'pools' } = ctx.params;
     model.uiState({
         layout: 'main-layout',
-        title: 'POOLS',
+        title: 'Resources',
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS'}
+            { route: 'system', label: 'Overview' },
+            { route: 'pools', label: 'Resources' }
         ],
-        panel: 'pools'
+        panel: 'resources',
+        tab: tab
     });
-
-    let { sortBy, order } = model.routeContext().query;
-    loadPoolList(sortBy, order);
 }
 
 export function showPool() {
@@ -213,40 +223,38 @@ export function showPool() {
 
     let ctx = model.routeContext();
     let { pool, tab = 'nodes' } = ctx.params;
-    let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
-
 
     model.uiState({
         layout: 'main-layout',
         title: pool,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS' },
-            { href: ':pool', label: pool }
+            { route: 'system', label: 'Overview' },
+            { route: 'pools', label: 'Resources'},
+            { route: 'pool', label: pool }
         ],
         panel: 'pool',
         tab: tab
     });
 
-    loadPoolInfo(pool);
-    loadPoolNodeList(pool, filter, sortBy, parseInt(order), parseInt(page));
+    let { filter, hasIssues, sortBy = 'name', order = 1, page = 0 } = ctx.query;
+    loadPoolNodeList(pool, filter, hasIssues, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showNode() {
     logAction('showNode');
 
     let ctx = model.routeContext();
-    let { pool, node, tab = 'info' } = ctx.params;
+    let { pool, node, tab = 'details' } = ctx.params;
     let { page = 0 } = ctx.query;
 
     model.uiState({
         layout: 'main-layout',
         title: node,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS' },
-            { href: ':pool', label: pool },
-            { href: 'nodes/:node', label: node }
+            { route: 'system', label: 'Overview' },
+            { route: 'pools', label: 'Resources'},
+            { route: 'pool', label: pool },
+            { route: 'node', label: node }
         ],
         panel: 'node',
         tab: tab
@@ -263,43 +271,52 @@ export function showManagement() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'SYSTEM MANAGEMENT',
+        title: 'System Management',
         breadcrumbs: [
-            { href: "fe/systems/:system" },
-            { href: "management", label: 'SYSTEM MANAGEMENT' }
+            { route: 'system', label: 'Overview' },
+            { route: 'management', label: 'System Management' }
         ],
         panel: 'management',
-        tab: tab
+        tab: tab,
+        working: model.uiState().working
     });
 }
 
-export function showCreateBucketWizard() {
-    loadAction('showCreateBucketModal')
+export function showCluster() {
+    logAction('showCluster');
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Cluster',
+        breadcrumbs: [
+            { route: 'system', label: 'Overview' },
+            { route: 'cluster', label: 'Cluster' }
+        ],
+        panel: 'cluster'
+    });
 }
 
-export function openAuditLog() {
-    logAction('openAuditLog');
+export function openDrawer() {
+    logAction('openDrawer');
 
     model.uiState(
-        Object.assign(model.uiState(), {
-            tray: { componentName: 'audit-pane' }
-        })
+        Object.assign(model.uiState(), { drawer: true })
     );
 }
 
-export function closeTray() {
-    logAction('closeTray');
+export function closeDrawer() {
+    logAction('closeDarwer');
 
     model.uiState(
-        Object.assign(model.uiState(), { tray: null })
+        Object.assign(model.uiState(), { drawer: false })
     );
 }
 
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
-export function signIn(email, password, redirectUrl) {
-    logAction('signIn', { email, password, redirectUrl });
+export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
+    logAction('signIn', { email, password, keepSessionAlive, redirectUrl });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -309,17 +326,18 @@ export function signIn(email, password, redirectUrl) {
 
                 return api.create_auth_token({ system, email, password })
                     .then(({ token }) => {
-                        localStorage.setItem('sessionToken', token);
+                        let storage = keepSessionAlive ? localStorage : sessionStorage;
+                        storage.setItem('sessionToken', token);
 
-                        model.sessionInfo({ user: email, system: system })
+                        model.sessionInfo({ user: email, system: system });
                         model.loginInfo({ retryCount: 0 });
 
                         if (isUndefined(redirectUrl)) {
-                            redirectUrl = `/fe/systems/${system}`;
+                            redirectTo(routes.system, { system });
+                        } else {
+                            redirectTo(decodeURIComponent(redirectUrl));
                         }
-
-                        redirectTo(decodeURIComponent(redirectUrl));
-                    })
+                    });
             }
         )
         .catch(
@@ -337,10 +355,14 @@ export function signIn(email, password, redirectUrl) {
         .done();
 }
 
-export function signOut() {
+export function signOut(shouldRefresh = true) {
+    sessionStorage.removeItem('sessionToken');
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
-    refresh();
+    api.options.auth_token = undefined;
+    if (shouldRefresh) {
+        refresh();
+    }
 }
 
 // -----------------------------------------------------
@@ -349,196 +371,57 @@ export function signOut() {
 export function loadServerInfo() {
     logAction('loadServerInfo');
 
+    model.serverInfo(null);
     api.account.accounts_status()
         .then(
-            reply => model.serverInfo({
-                initialized: reply.has_accounts
-            })
+            reply => reply.has_accounts ?
+                { initialized: true } :
+                api.cluster_server.read_server_config().then(
+                    config => ({
+                        initialized: false,
+                        address: endpoint,
+                        config: config
+                    })
+                )
         )
+        .then(model.serverInfo)
         .done();
 }
 
 export function loadSystemInfo() {
     logAction('loadSystemInfo');
 
+    model.uiState.assign({
+        working: true
+    });
+
     api.system.read_system()
         .then(
-            reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
-
-                model.systemInfo({
-                    status: 'active',
-                    name: reply.name,
-                    version: reply.version,
-                    endpoint: endpoint,
-                    ipAddress: reply.ip_address,
-                    dnsName: reply.dns_name,
-                    port: reply.web_port,
-                    sslPort: reply.ssl_port,
-                    accessKey: access_key,
-                    secretKey: secret_key,
-                    P2PConfig: reply.n2n_config,
-                    owner: reply.owner.email,
-                    timeConfig: reply.time_config
-                });
-            }
+            reply => model.systemInfo(
+                deepFreeze(Object.assign(reply, { endpoint }))
+            )
         )
-        .done();
-}
-
-export function loadSystemSummary() {
-    logAction('loadSystemSummary');
-
-    api.system.read_system()
         .then(
-            reply => model.systemSummary({
-                capacity: reply.storage.total,
-                bucketCount: reply.buckets.length,
-                objectCount: reply.objects,
-                poolCount: reply.pools.length,
-                nodeCount: reply.nodes.count,
-                onlineNodeCount: reply.nodes.online,
-                offlineNodeCount: reply.nodes.count - reply.nodes.online
+            () => model.uiState.assign({
+                working: false
             })
         )
-        .done();
-}
-
-const bucketCmpFuncs = Object.freeze({
-    state: (b1, b2) => cmpBools(b1.state, b2.state),
-    name: (b1, b2) => cmpStrings(b1.name, b2.name),
-    filecount: (b1, b2) => cmpInts(b1.num_objects, b2.num_objects),
-    totalsize: (b1, b2) => cmpInts(b1.storage.total, b2.storage.total),
-    freesize: (b1, b2) => cmpInts(b1.storage.free, b2.storage.free),
-    cloudsync: (b1, b2) => cmpStrings(b1.cloud_sync_status, b2.cloud_sync_status)
-});
-
-export function loadBucketList(sortBy = 'name', order = 1) {
-    logAction('loadBucketList', { sortBy, order });
-
-    // Normalize the order.
-    order = clamp(order, -1, 1);
-
-    let bucketList = model.bucketList;
-    api.system.read_system()
-        .then(
-            ({ buckets }) => {
-                bucketList(
-                    buckets.sort(
-                        (b1, b2) => order * bucketCmpFuncs[sortBy](b1, b2)
-                    )
-                );
-                bucketList.sortedBy(sortBy);
-                bucketList.order(order);
-            }
-        )
-        .done();
-}
-
-const poolCmpFuncs = Object.freeze({
-    state: (p1, p2) => cmpBools(true, true),
-    name: (p1, p2) => cmpStrings(p1.name, p2.name),
-    nodecount: (p1, p2) => cmpInts(p1.nodes.count, p2.nodes.count),
-    onlinecount: (p1, p2) => cmpInts(p1.nodes.online, p2.nodes.online),
-    offlinecount: (p1, p2) => cmpInts(
-        p1.nodes.count - p1.nodes.online,
-        p2.nodes.count - p2.nodes.online,
-    ),
-    usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
-    capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
-});
-
-export function loadPoolList(sortBy = 'name', order = 1) {
-    logAction('loadPoolList', { sortBy, order });
-
-    // Normalize the order.
-    order = clamp(order, -1, 1);
-
-    let poolList = model.poolList;
-    api.system.read_system()
-        .then(
-            ({ pools }) => {
-                poolList(
-                    pools.sort(
-                        (b1, b2) => order * poolCmpFuncs[sortBy](b1, b2)
-                    )
-                );
-                poolList.sortedBy(sortBy);
-                poolList.order(order);
-            }
-        )
-        .done();
-}
-
-export function loadAgentInstallationInfo() {
-    logAction('loadAgentInstallationInfo');
-
-    let { agentInstallationInfo } = model;
-    api.system.read_system()
-        .then(
-            reply => {
-                let keys = reply.owner.access_keys[0];
-
-                agentInstallationInfo({
-                    agentConf: encodeBase64({
-                        address: reply.base_address,
-                        system: reply.name,
-                        access_key: keys.access_key,
-                        secret_key: keys.secret_key,
-                        tier: 'nodes',
-                        root_path: './agent_storage/'
-                    }),
-                    downloadUris: {
-                        windows: reply.web_links.agent_installer,
-                        linux: reply.web_links.linux_agent_installer
-                    }
-                });
-            }
-        )
-        .done();
-}
-
-export function loadBucketInfo(name) {
-    logAction('loadBucketInfo', { name });
-
-    api.bucket.read_bucket({ name })
-        .then(model.bucketInfo)
-        .done();
-}
-
-export function loadBucketPolicy(name) {
-    logAction('loadBucketPolicy', { name });
-
-    model.bucketPolicy(null);
-    api.tiering_policy.read_policy({ name })
-        .then(model.bucketPolicy)
         .done();
 }
 
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
     logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });
 
-    let bucketObjectList = model.bucketObjectList;
-
     api.object.list_objects({
-            bucket: bucketName,
-            key_query: filter,
-            sort: sortBy,
-            order: order,
-            skip: config.paginationPageSize * page,
-            limit: config.paginationPageSize,
-            pagination: true
-        })
-        .then(
-            reply => {
-                bucketObjectList(reply.objects);
-                bucketObjectList.sortedBy(sortBy);
-                bucketObjectList.filter(filter);
-                bucketObjectList.order(order);
-                bucketObjectList.page(page);
-                bucketObjectList.count(reply.total_count);
-            }
-        )
+        bucket: bucketName,
+        key_query: filter,
+        sort: sortBy,
+        order: order,
+        skip: config.paginationPageSize * page,
+        limit: config.paginationPageSize,
+        pagination: true
+    })
+        .then(model.bucketObjectList)
         .done();
 }
 
@@ -546,47 +429,19 @@ export function loadObjectMetadata(bucketName, objectName) {
     logAction('loadObjectMetadata', { bucketName, objectName });
 
     // Drop previous data if of diffrent object.
-    if (!!model.objectInfo() && model.objectInfo().name !== objectName) {
+    if (!!model.objectInfo() && model.objectInfo().key !== objectName) {
         model.objectInfo(null);
     }
 
-    let objInfoPromise = api.object.read_object_md({
-         bucket: bucketName,
-         key: objectName,
-         get_parts_count: true
-    });
-
-    let S3Promise = api.system.read_system()
-        .then(
-            reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
-
-                return new AWS.S3({
-                    endpoint: endpoint,
-                    credentials: {
-                        accessKeyId:  access_key,
-                        secretAccessKey:  secret_key
-                    },
-                    s3ForcePathStyle: true,
-                    sslEnabled: false,
-                    signatureVersion: 'v4',
-                    region: 'eu-central-1'
-                })
-            }
-        );
-
-    Promise.all([objInfoPromise, S3Promise])
-        .then(
-            ([objInfo, s3]) => model.objectInfo({
-                name: objectName,
-                bucket: bucketName,
-                info: objInfo,
-                s3Url: s3.getSignedUrl(
-                    'getObject',
-                    { Bucket: bucketName, Key: objectName, Expires: 604800 }
-                )
-            })
-        );
+    api.object.read_object_md({
+        bucket: bucketName,
+        key: objectName,
+        adminfo: {
+            signed_url_endpoint: endpoint
+        }
+    })
+        .then(model.objectInfo)
+        .done();
 }
 
 export function loadObjectPartList(bucketName, objectName, page) {
@@ -609,25 +464,14 @@ export function loadObjectPartList(bucketName, objectName, page) {
         .done();
 }
 
-export function loadPoolInfo(name) {
-    logAction('loadPoolInfo', { name });
-
-    if (model.poolInfo() && model.poolInfo().name !== name) {
-        model.poolInfo(null);
-    }
-
-    api.pool.read_pool({ name })
-        .then(model.poolInfo)
-        .done();
-}
-
-export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
-    logAction('loadPoolNodeList', { poolName, filter, sortBy, order, page });
+export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, page) {
+    logAction('loadPoolNodeList', { poolName, filter, hasIssues, sortBy, order, page });
 
     api.node.list_nodes({
         query: {
             pools: [ poolName ],
-            name: filter
+            filter: filter,
+            has_issues: hasIssues
         },
         sort: sortBy,
         order: order,
@@ -636,25 +480,27 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
         pagination: true
     })
         .then(
-            reply => {
-                model.poolNodeList(reply.nodes);
-                model.poolNodeList.count(reply.total_count);
-                model.poolNodeList.filter(filter);
-                model.poolNodeList.sortedBy(sortBy);
-                model.poolNodeList.order(order);
-                model.poolNodeList.page(page)
-            }
+            reply => model.poolNodeList(
+                deepFreeze(reply)
+            )
         )
         .done();
 }
 
-export function loadNodeList() {
-    logAction('loadNodeList');
+export function loadNodeList(filter, pools, online, decommissioned) {
+    logAction('loadNodeList', { filter, pools, online, decommissioned});
 
-    model.nodeList([]);
-    api.node.list_nodes({})
+    api.node.list_nodes({
+        query: {
+            filter: filter,
+            pools: pools,
+            online: online,
+            decommissioned: decommissioned,
+            decommissioning: decommissioned
+        }
+    })
         .then(
-            ({nodes}) => model.nodeList(nodes)
+            ({ nodes }) => model.nodeList(nodes)
         )
         .done();
 }
@@ -667,51 +513,37 @@ export function loadNodeInfo(nodeName) {
     }
 
     api.node.read_node({ name: nodeName })
-        .then(
-            // TODO: remove assign after implementing trusted in the server.
-            nodeInfo => model.nodeInfo(
-                Object.assign(nodeInfo, { trusted: true })
-            )
-        )
+        .then(model.nodeInfo)
         .done();
 }
 
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.object.read_node_mappings({ 
+    api.object.read_node_mappings({
         name: nodeName,
         skip: config.paginationPageSize * page,
         limit: config.paginationPageSize,
         adminfo: true
     })
         .then(
-            ({ objects, total_count }) => {
-                let parts = objects
-                    .map(
-                        obj => obj.parts.map(
-                            part => {
-                                return {
-                                    object: obj.key,
-                                    bucket: obj.bucket,
-                                    info: part
-                                }
-                            }
+            ({ objects, total_count }) => ({
+                total_count: total_count,
+                parts: flatMap(
+                    objects,
+                    obj => obj.parts.map(
+                        part => Object.assign(
+                            {
+                                object: obj.key,
+                                bucket: obj.bucket
+                            },
+                            part
                         )
                     )
-                    .reduce(
-                        (list, objParts) => {
-                            list.push(...objParts);
-                            return list;
-                        },
-                        []
-                    );
-
-                model.nodeStoredPartList(parts);
-                model.nodeStoredPartList.page(page);
-                model.nodeStoredPartList.count(total_count);
-            }
+                )
+            })
         )
+        .then(model.nodeStoredPartList)
         .done();
 }
 
@@ -764,63 +596,47 @@ export function loadMoreAuditEntries(count) {
             .then(
                 ({ logs }) => auditLog.push(...logs.reverse())
             )
-            .done()
+            .done();
     }
 }
 
-export function loadAccountList() {
-    logAction('loadAccountList');
+export function exportAuditEnteries(categories) {
+    logAction('exportAuditEnteries', { categories });
 
-    api.account.list_accounts()
-        .then(
-            ({ accounts }) => model.accountList(accounts)
+    let filter = categories
+        .map(
+            category => `(^${category}.)`
         )
-        .done()
-}
+        .join('|');
 
-export function loadAccountInfo(email) {
-    logAction('loadAccountInfo', { email });
-
-    api.account.read_account({
-        email: email
-    })
-        .then(model.accountInfo)
+    api.system.export_activity_log({ event: filter || '^$' })
+        .catch(
+            err => {
+                notify('Exporting activity log failed', 'error');
+                throw err;
+            }
+        )
+        .then(downloadFile)
         .done();
 }
 
-export function loadTier(name) {
-    logAction('loadTier', { name });
-
-    api.tier.read_tier({ name })
-        .then(model.tierInfo)
-        .done();
-}
-
-export function loadCloudSyncInfo(bucket) {
-    logAction('loadCloudSyncInfo', { bucket });
-
-    api.bucket.get_cloud_sync_policy({ name: bucket })
-        .then(model.cloudSyncInfo)
-        .done();
-}
-
-export function loadS3Connections() {
-    logAction('loadS3Connections');
+export function loadCloudConnections() {
+    logAction('loadCloudConnections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(model.S3Connections)
+        .then(model.CloudConnections)
         .done();
 }
 
-export function loadS3BucketList(connection) {
-    logAction('loadS3BucketList', { connection })
+export function loadCloudBucketList(connection) {
+    logAction('loadCloudBucketList', { connection });
 
     api.bucket.get_cloud_buckets({
         connection: connection
     })
         .then(
-            model.S3BucketList,
-            () => model.S3BucketList(null)
+            model.CloudBucketList,
+            () => model.CloudBucketList(null)
         )
         .done();
 }
@@ -828,37 +644,52 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createSystemAccount(systemName, email, password, dnsName) {
-    logAction('createSystemAccount', { systemName, email, password, dnsName });
+export function createSystem(
+    activationCode,
+    email,
+    password,
+    systemName,
+    dnsName,
+    dnsServers,
+    timeConfig
+) {
+    logAction('createSystem', {
+        activationCode, email, password, systemName, dnsName,
+        dnsServers, timeConfig
+    });
 
-    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ?
+    let accessKeys = (systemName === 'demo' && email === 'demo@noobaa.com') ?
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
-    api.account.create_account({
+    api.system.create_system({
+        activation_code: activationCode,
         name: systemName,
         email: email,
         password: password,
-        access_keys: accessKeys
+        access_keys: accessKeys,
+        dns_name: dnsName,
+        dns_servers: dnsServers,
+        time_config: timeConfig
     })
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
-                localStorage.setItem('sessionToken', token);
-                model.sessionInfo({ user: email, system: systemName});
+                sessionStorage.setItem('sessionToken', token);
+
+                // Update the session info and redirect to system screen.
+                model.sessionInfo({
+                    user: email,
+                    system: systemName,
+                    token: token
+                });
+
+                redirectTo(
+                    routes.system,
+                    { system: systemName },
+                    { welcome: true }
+                );
             }
-        )
-        .then(
-            () => {
-                if (dnsName) {
-                    return api.system.update_hostname({
-                        hostname: dnsName
-                    });
-                }
-            }
-        )
-        .then(
-            () => redirectTo(`/fe/systems/${systemName}`)
         )
         .done();
 }
@@ -873,7 +704,11 @@ export function createAccount(name, email, password, accessKeys, S3AccessList) {
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })
-        .then(loadAccountList)
+        .then(
+            () => notify(`Account ${email} created successfully`, 'success'),
+            () => notify(`Account ${email} creation failed`, 'error')
+        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -881,7 +716,20 @@ export function deleteAccount(email) {
     logAction('deleteAccount', { email });
 
     api.account.delete_account({ email })
-        .then(loadAccountList)
+        .then(
+            () => {
+                let user = model.sessionInfo() && model.sessionInfo().user;
+                if (email === user) {
+                    signOut();
+                } else {
+                    loadSystemInfo();
+                }
+            }
+        )
+        .then(
+            () => notify(`Account ${email} deleted successfully`, 'success'),
+            () => notify(`Account ${email} deletion failed`, 'error')
+        )
         .done();
 }
 
@@ -889,13 +737,15 @@ export function resetAccountPassword(email, password) {
     logAction('resetAccountPassword', { email, password });
 
     api.account.update_account({ email, password })
+        .then(
+            () => notify(`${email} password has been reset successfully`, 'success'),
+            () => notify(`Resetting ${email}'s password failed`, 'error')
+        )
         .done();
 }
 
 export function createBucket(name, dataPlacement, pools) {
     logAction('createBucket', { name, dataPlacement, pools });
-
-    let { bucketList } = model;
 
     // TODO: remove the random string after patching the server
     // with a delete bucket that deletes also the policy
@@ -904,7 +754,7 @@ export function createBucket(name, dataPlacement, pools) {
     api.tier.create_tier({
         name: bucket_with_suffix,
         data_placement: dataPlacement,
-        pools: pools
+        node_pools: pools
     })
         .then(
             tier => {
@@ -914,7 +764,9 @@ export function createBucket(name, dataPlacement, pools) {
                 };
 
                 return api.tiering_policy.create_policy(policy)
-                    .then(() => policy)
+                    .then(
+                        () => policy
+                    );
             }
         )
         .then(
@@ -924,8 +776,10 @@ export function createBucket(name, dataPlacement, pools) {
             })
         )
         .then(
-            () => loadBucketList(bucketList.sortedBy(), bucketList.order())
+            () => notify(`Bucket ${name} created successfully`, 'success'),
+            () => notify(`Bucket ${name} creation failed`, 'error')
         )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -933,29 +787,68 @@ export function deleteBucket(name) {
     logAction('deleteBucket', { name });
 
     api.bucket.delete_bucket({ name })
-        .then(refresh)
+        .then(
+            () => notify(`Bucket ${name} deleted successfully`, 'success'),
+            () => notify(`Bucket ${name} deletion failed`, 'error')
+        )
+        .then(loadSystemInfo)
         .done();
 }
 
-export function updateTier(name, dataPlacement, pools) {
-    logAction('updateTier', { name, dataPlacement, pools });
+export function updateBucketPlacementPolicy(tierName, placementType, node_pools) {
+    logAction('updateBucketPlacementPolicy', { tierName, placementType, node_pools });
+
+    let bucket = model.systemInfo().buckets.find(
+        bucket => bucket.tiering.tiers.find(
+            entry => entry.tier === tierName
+        )
+    );
 
     api.tier.update_tier({
-        name: name,
-        data_placement: dataPlacement,
-        pools: pools
+        name: tierName,
+        data_placement: placementType,
+        node_pools: node_pools
     })
+        .then(
+            () => notify(`${bucket.name} placement policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updateBucketBackupPolicy(tierName, cloudResources) {
+    logAction('updateBucketBackupPolicy', { tierName, cloudResources });
+
+    let bucket = model.systemInfo().buckets.find(
+        bucket => bucket.tiering.tiers.find(
+            entry => entry.tier === tierName
+        )
+    );
+
+    api.tier.update_tier({
+        name: tierName,
+        cloud_pools: cloudResources
+    })
+        .then(
+            () => notify(`${bucket.name} cloud storage policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket.name} cloud storage policy failed`, 'error')
+        )
+        .then(loadSystemInfo)
         .done();
 }
 
 export function createPool(name, nodes) {
     logAction('createPool', { name, nodes });
 
-    let { poolList } = model;
-    api.pool.create_pool({ name, nodes })
+    nodes = nodes.map(name => ({ name }));
+
+    api.pool.create_nodes_pool({ name, nodes })
         .then(
-            () => loadPoolList(poolList.sortedBy(), poolList.order())
+            () => notify(`Pool ${name} created successfully`, 'success'),
+            () => notify(`Pool ${name} creation failed`, 'error')
         )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -963,7 +856,11 @@ export function deletePool(name) {
     logAction('deletePool', { name });
 
     api.pool.delete_pool({ name })
-        .then(refresh)
+        .then(
+            () => notify(`Pool ${name} deleted successfully`, 'success'),
+            () => notify(`Pool ${name} deletion failed`, 'error')
+        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -972,9 +869,41 @@ export function assignNodes(name, nodes) {
 
     api.pool.assign_nodes_to_pool({
         name: name,
-        nodes: nodes
+        nodes: nodes.map(name => ({ name }))
     })
+        .then(
+            () => notify(`${nodes.length} nodes has been assigend to pool ${name}`, 'success'),
+            () => notify(`Assinging nodes to pool ${name} failed`, 'error')
+        )
         .then(refresh)
+        .done();
+}
+
+export function createCloudResource(name, connection, cloudBucket) {
+    logAction('createCloudResource', { name, connection, cloudBucket });
+
+    api.pool.create_cloud_pool({
+        name: name,
+        connection: connection,
+        target_bucket: cloudBucket
+    })
+        .then(
+            () => notify(`Cloud resource ${name} created successfully`, 'success'),
+            () => notify(`Pool ${name} creation failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function deleteCloudResource(name) {
+    logAction('deleteCloudResource', { name });
+
+    api.pool.delete_pool({ name })
+        .then(
+            () => notify(`Cloud resource ${name} deleted successfully`, 'success'),
+            () => notify(`Cloud resource ${name} deletion failed`, 'error')
+        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -982,101 +911,137 @@ export function uploadFiles(bucketName, files) {
     logAction('uploadFiles', { bucketName, files });
 
     let recentUploads = model.recentUploads;
-    api.system.read_system()
-        .then(
-            reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
 
-                return new AWS.S3({
-                    endpoint: endpoint,
-                    credentials: {
-                        accessKeyId:  access_key,
-                        secretAccessKey:  secret_key
+    let { access_key , secret_key } = model.systemInfo().owner.access_keys[0];
+    let s3 = new AWS.S3({
+        endpoint: endpoint,
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key
+        },
+        s3ForcePathStyle: true,
+        sslEnabled: false
+    });
+
+    let uploadRequests = Array.from(files).map(
+        file => new Promise(
+            resolve => {
+                // Create an entry in the recent uploaded list.
+                let entry = {
+                    name: file.name,
+                    targetBucket: bucketName,
+                    state: 'UPLOADING',
+                    progress: 0,
+                    error: null
+                };
+                recentUploads.unshift(entry);
+
+                // Start the upload.
+                s3.upload(
+                    {
+                        Key: file.name,
+                        Bucket: bucketName,
+                        Body: file,
+                        ContentType: file.type
                     },
-                    s3ForcePathStyle: true,
-                    sslEnabled: false,
-                    //signatureVersion: 'v4',
-                    //region: 'eu-central-1'
-                })
+                    {
+                        partSize: 64 * 1024 * 1024,
+                        queueSize: 4
+                    },
+                    error => {
+                        if (!error) {
+                            entry.state = 'COMPLETED';
+                            entry.progress = 1;
+                            resolve(true);
+
+                        } else {
+                            entry.state = 'FAILED';
+                            entry.error = error;
+
+                            // This is not a bug we want to resolve failed uploads
+                            // in order to finalize the entire upload process.
+                            resolve(false);
+                        }
+
+                        // Use replace to trigger change event.
+                        recentUploads.replace(entry, entry);
+                    }
+                )
+                //  Report on progress.
+                .on('httpUploadProgress',
+                    ({ loaded, total }) => {
+                        entry.progress = loaded / total;
+
+                        // Use replace to trigger change event.
+                        recentUploads.replace(entry, entry);
+                    }
+                );
             }
         )
-        .then(
-            s3 => {
-                let uploadRequests = Array.from(files).map(
-                    file => new Promise(
-                        (resolve, reject) => {
-                            // Create an entry in the recent uploaded list.
-                            let entry = {
-                                name: file.name,
-                                targetBucket: bucketName,
-                                state: 'UPLOADING',
-                                progress: 0,
-                                error: null
-                            };
-                            recentUploads.unshift(entry);
+    );
 
-                            // Start the upload.
-                            s3.upload(
-                                {
-                                    Key: file.name,
-                                    Bucket: bucketName,
-                                    Body: file,
-                                    ContentType: file.type
-                                },
-                                {
-                                    partSize: 64 * 1024 * 1024,
-                                    queueSize: 4
-                                },
-                                error => {
-                                    if (!error) {
-                                        entry.state = 'COMPLETED';
-                                        entry.progress = 1;
-                                        resolve(1);
+    Promise.all(uploadRequests).then(
+        results => {
+            let { completed, failed } = results.reduce(
+                (stats, result) => {
+                    result ? ++stats.completed : ++stats.failed;
+                    return stats;
+                },
+                { completed: 0, failed: 0 }
+            );
 
-                                    } else {
-                                        entry.state = 'FAILED';
-                                        entry.error = error;
-
-                                        // This is not a bug we want to resolve failed uploads
-                                        // in order to finalize the entire upload process.
-                                        resolve(0);
-                                    }
-
-                                    // Use replace to trigger change event.
-                                    recentUploads.replace(entry, entry);
-                                }
-                            )
-                            //  Report on progress.
-                            .on('httpUploadProgress',
-                                ({ loaded, total }) => {
-                                    entry.progress = loaded / total;
-
-                                    // Use replace to trigger change event.
-                                    recentUploads.replace(entry, entry);
-                                }
-                            );
-                        }
-                    )
+            if (failed === 0) {
+                notify(
+                    `Uploading ${
+                        completed
+                    } file${
+                        completed === 1 ? '' : 's'
+                    } to ${
+                        bucketName
+                    } completed successfully`,
+                    'success'
                 );
 
-                return Promise.all(uploadRequests);
+            } else if (completed === 0) {
+                notify(
+                    `Uploading ${
+                        failed
+                    } file${
+                        failed === 1 ? '' : 's'
+                    } to ${
+                        bucketName
+                    } failed`,
+                    'error'
+                );
+
+            } else {
+                notify(
+                    `Uploading to ${
+                        bucketName
+                    } completed. ${
+                        completed
+                    } file${
+                        completed === 1 ? '' : 's'
+                    } uploaded successfully, ${
+                        failed
+                    } file${
+                        failed === 1 ? '' : 's'
+                    } failed`,
+                    'warning'
+                );
             }
-        )
-        .then(
-            results => results.reduce(
-                (sum, result) => sum += result
-            )
-        )
-        .then(
-            completedCount => {
-                completedCount > 0 && refresh()
+
+            if (completed > 0) {
+                refresh();
             }
-        );
+        }
+    );
 }
 
 export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
+    const regexp = /=>(\w{3}):\/\/([0-9.]+):(\d+)/;
     let { nodeTestInfo } = model;
 
     nodeTestInfo({
@@ -1102,13 +1067,15 @@ export function testNode(source, testSet) {
                                 testType: testType,
                                 targetName: name,
                                 targetAddress: rpc_address,
+                                targetIp: '',
+                                targetPort: '',
+                                protocol: '',
                                 state: 'WAITING',
                                 time: 0,
                                 position: 0,
                                 speed: 0,
-                                progress: 0,
-                                session: ''
-                            }
+                                progress: 0
+                            };
                             nodeTestInfo().results.push(result);
 
                             return {
@@ -1162,10 +1129,13 @@ export function testNode(source, testSet) {
                                 return true;
                             }
 
-                            return api.node.self_test_to_node_via_web(stepRequest)
+                            return api.node.test_node_network(stepRequest)
                                 .then(
                                     ({ session }) => {
-                                        result.session = session;
+                                        let [,protocol, ip, port] = session.match(regexp);
+                                        result.protocol = protocol;
+                                        result.targetIp = ip;
+                                        result.targetPort = port;
                                         result.time = Date.now() - start;
                                         result.position = result.position + stepSize;
                                         result.speed = result.position / result.time;
@@ -1189,14 +1159,20 @@ export function testNode(source, testSet) {
                             result.state = state;
                             nodeTestInfo.valueHasMutated();
                         }
-                    )
+                    );
                 }
             )
         )
         .then(
-            () => nodeTestInfo.assign({
-                state: nodeTestInfo().state === 'ABORTING' ? 'ABORTED' : 'COMPLETED'
-            })
+            () => {
+                if (nodeTestInfo().state === 'ABORTING') {
+                    nodeTestInfo(null);
+                } else {
+                    nodeTestInfo.assign({
+                        state: 'COMPLETED'
+                    });
+                }
+            }
         )
         .done();
 }
@@ -1222,6 +1198,10 @@ export function updateP2PSettings(minPort, maxPort) {
     api.system.update_n2n_config({
         tcp_permanent_passive: tcpPermanentPassive
     })
+        .then(
+            () => notify('Peer to peer settings updated successfully', 'success'),
+            () => notify('Peer to peer settings update failed', 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -1230,6 +1210,10 @@ export function updateHostname(hostname) {
     logAction('updateHostname', { hostname });
 
     api.system.update_hostname({ hostname })
+        .then(
+            () => notify('Hostname updated successfully', 'success'),
+            () => notify('Hostname update failed', 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -1240,9 +1224,9 @@ export function upgradeSystem(upgradePackage) {
     function ping() {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
-        xhr.onload = () => reloadTo('/fe/systems/:system', { afterupgrade: true });
-        xhr.onerror = evt => setTimeout(ping, 10000);
-        xhr.send()
+        xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
+        xhr.onerror = () => setTimeout(ping, 3000);
+        xhr.send();
     }
 
     let { upgradeStatus } = model;
@@ -1258,10 +1242,10 @@ export function upgradeSystem(upgradePackage) {
     xhr.upload.onprogress = function(evt) {
         upgradeStatus.assign({
             progress: evt.lengthComputable && evt.loaded / evt.total
-        })
+        });
     };
 
-    xhr.onload = function(evt) {
+    xhr.onload = function() {
         if (xhr.status === 200) {
             setTimeout(
                 () => {
@@ -1271,23 +1255,22 @@ export function upgradeSystem(upgradePackage) {
                         state: 'IN_PROGRESS'
                     });
 
-                    setTimeout(ping, 7000);
+                    setTimeout(ping, 3000);
                 },
-                3000
+                20000
             );
         } else {
-            upgradeStatus.assign({
-                state: 'FAILED',
-            });
-        }    };
+            upgradeStatus.assign({ state: 'FAILED' });
+        }
+    };
 
-    xhr.onerror = function(evt) {
+    xhr.onerror = function() {
         upgradeStatus.assign({
             state: 'FAILED'
         });
     };
 
-    xhr.onabort = function(evt) {
+    xhr.onabort = function() {
         upgradeStatus.assign({
             state: 'CANCELED'
         });
@@ -1298,39 +1281,123 @@ export function upgradeSystem(upgradePackage) {
     xhr.send(formData);
 }
 
+// TODO: Notificaitons - remove message
+export function uploadSSLCertificate(SSLCertificate) {
+    logAction('uploadSSLCertificate', { SSLCertificate });
+
+    let uploadStatus = model.sslCertificateUploadStatus;
+    uploadStatus({
+        state: 'IN_PROGRESS',
+        progress: 0,
+        error: ''
+    });
+
+    let xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload_certificate', true);
+
+    xhr.onload = function(evt) {
+        if (xhr.status !== 200) {
+            let error = evt.target.responseText;
+
+            uploadStatus.assign ({
+                state: 'FAILED',
+                error: error
+            });
+
+            notify(`Uploading SSL cartificate failed: ${error}`, 'error');
+
+        } else {
+            uploadStatus.assign ({
+                state: 'SUCCESS'
+            });
+
+            notify('SSL cartificate uploaded successfully', 'success');
+        }
+    };
+
+    xhr.upload.onprogress = function(evt) {
+        uploadStatus.assign({
+            progress: evt.lengthComputable && (evt.loaded / evt.total)
+        });
+    };
+
+    xhr.onerror = function(evt) {
+        let error = evt.target.responseText;
+
+        uploadStatus.assign({
+            state: 'FAILED',
+            error: error
+        });
+
+        notify(`Uploading SSL cartificate failed: ${error}`, 'error');
+    };
+
+    xhr.onabort = function() {
+        uploadStatus.assign ({
+            state: 'CANCELED'
+        });
+
+        notify('Uploading SSL cartificate canceled', 'info');
+    };
+
+    let formData = new FormData();
+    formData.append('upload_file', SSLCertificate);
+    xhr.send(formData);
+}
+
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
-    api.node.read_node({ name: nodeName })
-        .then(
-            node => api.node.collect_agent_diagnostics(node)
+    notify('Collecting data... might take a while');
+    api.system.diagnose_node({ name: nodeName })
+        .catch(
+            err => {
+                notify(`Packing diagnostic file for ${nodeName} failed`, 'error');
+                throw err;
+            }
         )
         .then(
             url => downloadFile(url)
         )
         .done();
 }
-
 
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
-    api.system.diagnose()
-        .then(
-            url => downloadFile(url)
+    notify('Collecting data... might take a while');
+    api.system.diagnose_system()
+        .catch(
+            err => {
+                notify('Packing system diagnostic file failed', 'error');
+                throw err;
+            }
         )
+        .then(downloadFile)
         .done();
 }
 
-export function raiseNodeDebugLevel(node) {
-    logAction('raiseNodeDebugLevel', { node });
+export function setNodeDebugLevel(node, level) {
+    logAction('setNodeDebugLevel', { node, level });
 
     api.node.read_node({ name: node })
         .then(
             node => api.node.set_debug_node({
-                level: 5,
-                target: node.rpc_address
+                node: {
+                    name: node.name
+                },
+                level: level
             })
+        )
+        .then(
+            () => notify(
+                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for node ${node}`,
+                'success'
+            ),
+            () => notify(
+                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for node ${node}`,
+                'error'
+            )
         )
         .then(
             () => loadNodeInfo(node)
@@ -1338,22 +1405,53 @@ export function raiseNodeDebugLevel(node) {
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, frequency, sycDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, connection, targetBucket, direction, frequency, sycDeletions });
+export function setSystemDebugLevel(level){
+    logAction('setSystemDebugLevel', { level });
+
+    api.cluster_server.set_debug_level({ level })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, frequency, syncDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, connection, targetBucket, direction, frequency, syncDeletions });
 
     api.bucket.set_cloud_sync({
         name: bucket,
         connection: connection,
+        target_bucket: targetBucket,
         policy: {
-            target_bucket: targetBucket,
-            c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
-            n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
-            schedule: frequency,
-            additions_only: !sycDeletions
+            n2c_enabled: Boolean(direction & 1),
+            c2n_enabled: Boolean(direction & 2),
+            schedule_min: frequency,
+            additions_only: !syncDeletions
         }
     })
-        .then(refresh)
+        .then(
+            () => notify(`${bucket} cloud sync policy was set successfully`, 'success'),
+            () => notify(`Setting ${bucket} cloud sync policy failed`, 'error')
+        )
+        .then(loadSystemInfo)
         .done();
+}
+
+export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletions) {
+    logAction('updateCloudSyncPolicy', { bucket, direction, frequency, syncDeletions });
+
+    api.bucket.update_cloud_sync({
+        name: bucket,
+        policy: {
+            n2c_enabled: Boolean(direction & 1),
+            c2n_enabled: Boolean(direction & 2),
+            schedule_min: frequency,
+            additions_only: !syncDeletions
+        }
+    })
+        .then(
+            () => notify(`${bucket} cloud sync policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket} cloud sync policy failed`, 'error')
+        )
+        .then(loadSystemInfo);
 }
 
 export function removeCloudSyncPolicy(bucket) {
@@ -1361,45 +1459,57 @@ export function removeCloudSyncPolicy(bucket) {
 
     api.bucket.delete_cloud_sync({ name: bucket })
         .then(
-            () => model.cloudSyncInfo(null)
+            () => notify(`${bucket} cloud sync policy removed successfully`, 'success'),
+            () => notify(`Removing ${bucket} cloud sync policy failed`, 'error')
         )
-        .then(refresh)
+        .then(loadSystemInfo);
+}
+
+export function toogleCloudSync(bucket, pause) {
+    logAction('toogleCloudSync', { bucket, pause });
+
+    api.bucket.toggle_cloud_sync({
+        name: bucket,
+        pause: pause
+    })
+        .then(
+            () => notify(`${bucket} cloud sync has been ${pause ? 'paused' : 'resumed'}`, 'success'),
+            () => notify(`${pause ? 'Pausing' : 'Resuming'} ${bucket} cloud sync failed`, 'error')
+        )
+        .then(loadSystemInfo)
         .done();
 }
 
-export function checkS3Connection(endpoint, accessKey, secretKey) {
-    logAction('checkS3Connection', { endpoint, accessKey, secretKey });
+
+export function checkCloudConnection(endpointType, endpoint, identity, secret) {
+    logAction('checkCloudConnection', { endpointType, endpoint, identity, secret });
 
     let credentials = {
+        endpoint_type: endpointType,
         endpoint: endpoint,
-        access_key: accessKey,
-        secret_key: secretKey
+        identity: identity,
+        secret: secret
     };
 
     api.account.check_account_sync_credentials(credentials)
-        .then(model.isS3ConnectionValid)
+        .then(model.isCloudConnectionValid)
         .done();
 }
 
-export function addS3Connection(name, endpoint, accessKey, secretKey) {
-    logAction('addS3Connection', { name, endpoint, accessKey, secretKey });
+export function addCloudConnection(name, endpointType, endpoint, identity, secret) {
+    logAction('addCloudConnection', { name, endpointType, endpoint, identity, secret });
 
     let credentials = {
         name: name,
+        endpoint_type: endpointType,
         endpoint: endpoint,
-        access_key: accessKey,
-        secret_key: secretKey
+        identity: identity,
+        secret: secret
     };
 
     api.account.add_account_sync_credentials_cache(credentials)
-        .then(loadS3Connections)
-        .done()
-}
-
-export function notify(message, severity = 'INFO') {
-    logAction('notify', { message, severity });
-
-    model.lastNotification({ message, severity });
+        .then(loadCloudConnections)
+        .done();
 }
 
 export function loadBucketS3ACL(bucketName) {
@@ -1419,6 +1529,10 @@ export function updateBucketS3ACL(bucketName, acl) {
         name: bucketName,
         access_control: acl
     })
+        .then(
+            () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
+            () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
+        )
         .then(
             () => model.bucketS3ACL(acl)
         )
@@ -1443,33 +1557,226 @@ export function updateAccountS3ACL(email, acl) {
         access_control: acl
     })
         .then(
-            () => model.accountS3ACL
+            () => notify(`${email} S3 accces control updated successfully`, 'success'),
+            () => notify(`Updating ${email} S3 access control failed`, 'error')
         )
-        .then(loadAccountList)
+        .then(loadSystemInfo)
         .done();
 }
 
+export function enterMaintenanceMode(duration) {
+    logAction('enterMaintenanceMode', { duration });
 
-export function updateServerTime(timezone, epoch) {
-    logAction('updateServerTime', { timezone, epoch });
+    api.system.set_maintenance_mode({ duration })
+        .then(loadSystemInfo)
+        .then(
+            () => setTimeout(
+                loadSystemInfo,
+                (duration * 60 + 1) * 1000
+            )
+        )
+        .done();
+}
 
-    api.system.update_time_config({
-        config_type: 'MANUAL',
+export function exitMaintenanceMode() {
+    logAction('exitMaintenanceMode');
+
+    api.system.set_maintenance_mode({ duration: 0 })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updatePhoneHomeConfig(proxyAddress) {
+    logAction('updatePhoneHomeConfig', { proxyAddress });
+
+    api.system.update_phone_home_config({ proxy_address: proxyAddress })
+        .then(
+            () => notify('Phone home proxy settings updated successfully', 'success'),
+            () => notify('Updating phone home proxy settings failed', 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function enableRemoteSyslog(protocol, address, port) {
+    logAction ('enableRemoteSyslog', { protocol, address, port });
+
+    api.system.configure_remote_syslog({ enabled: true, protocol, address, port })
+        .then(
+            () => notify('Remote syslog has been enabled', 'success'),
+            () => notify('Enabling remote syslog failed', 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function disableRemoteSyslog() {
+    logAction ('disableRemoteSyslog');
+
+    api.system.configure_remote_syslog({ enabled: false })
+        .then(
+            () => notify('Remote syslog has been disabled', 'success'),
+            () => notify('Enabling remote syslog failed', 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function attachServerToCluster(serverAddress, serverSecret) {
+    logAction('attachServerToCluster', { serverAddress, serverSecret });
+
+    api.cluster_server.add_member_to_cluster({
+        address: serverAddress,
+        secret: serverSecret,
+        role: 'REPLICA',
+        shard: 'shard1'
+    })
+        .then(
+            () => notify(`Server ${serverAddress} attached to cluster successfully`, 'success'),
+            () => notify(`Adding ${serverAddress} to cluster failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
+    logAction('updateServerDNSSettings', { primaryDNS, secondaryDNS });
+
+    let dnsServers = [primaryDNS, secondaryDNS].filter(
+        server => server
+    );
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_dns_servers({
+        target_secret: serverSecret,
+        dns_servers: dnsServers
+    })
+        .then(
+            () => notify(`${address} DNS settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} DNS settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function loadServerTime(serverSecret) {
+    logAction('loadServerTime', { serverSecret });
+
+
+    api.cluster_server.read_server_time({ target_secret: serverSecret })
+        .then(
+            time => model.serverTime({
+                server: serverSecret,
+                time: time
+            })
+        )
+        .done();
+}
+
+export function updateServerClock(serverSecret, timezone, epoch) {
+    logAction('updateServerClock', { serverSecret, timezone, epoch });
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_time_config({
+        target_secret: serverSecret,
         timezone: timezone,
         epoch: epoch
     })
+        .then(
+            () => notify(`${address} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} time settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress) {
+    logAction('updateServerNTP', { serverSecret, timezone, ntpServerAddress });
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_time_config({
+        timezone: timezone,
+        ntp_server: ntpServerAddress
+    })
+        .then(
+            () => notify(`${address} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} time settings failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
 
-export function updateServerNTP(timezone, server) {
-    logAction('updateServerNTP', { timezone, server });
+export function notify(message, severity = 'info') {
+    logAction('notify', { message, severity });
 
-    api.system.update_time_config({
-        config_type: 'NTP',
-        timezone: timezone,
-        server: server
-    })
+    model.lastNotification({ message, severity });
+}
+
+export function validateActivationCode(code) {
+    logAction('validateActivationCode', { code });
+
+    api.system.validate_activation({ code })
+        .then(
+            ({ valid, reason }) => model.activationCodeValid({
+                code: code,
+                isValid: valid,
+                reason: reason
+            })
+        )
+        .done();
+}
+
+export function validateActivationEmail(code, email) {
+    logAction('validateActivationEmail', { code, email });
+
+    api.system.validate_activation({ code, email })
+        .then(
+            ({ valid, reason }) => model.activationEmailValid({
+                code: code,
+                email: email,
+                isValid: valid,
+                reason: reason
+            })
+        )
+        .done();
+}
+
+export function dismissUpgradedCapacityNotification() {
+    logAction('dismissUpgradedCapacityNotification');
+
+    api.system.phone_home_capacity_notified()
         .then(loadSystemInfo)
+        .done();
+}
+
+export function decommissionNode(name) {
+    logAction('decommissionNode', { name });
+
+    api.node.decommission_node({ name })
+        .then(
+            () => notify(`Node ${name} deactivated successfully`, 'success'),
+            () => notify(`Deactivating node ${name} failed`, 'error')
+        )
+        .then(refresh)
+        .done();
+}
+
+export function recommissionNode(name) {
+    logAction('recommissionNode', { name });
+
+    api.node.recommission_node({ name })
+        .then(
+            () => notify(`Node ${name} activated successfully`, 'success'),
+            () => notify(`Activating node ${name} failed`, 'error')
+        )
+        .then(refresh)
         .done();
 }

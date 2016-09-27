@@ -53,16 +53,26 @@ sed -i 's/%current_version_line%/\"version\": \"%current_package_version%-%GIT_C
 
 REM
 REM remove irrelevant packages
-type package.json  | findstr /v forever-service | findstr /v istanbul | findstr /v babel-preset | findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v eslint | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v eslint| findstr /v nodetime| findstr /v newrelic > package.json_s
+type package.json  | findstr /v npm-run-all | findstr /v forever-service | findstr /v istanbul | findstr /v babel-preset | findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v eslint | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v eslint| findstr /v nodetime| findstr /v chromedriver| findstr /v selenium-webdriver| findstr /v selenium-standalone| findstr /v phantomjs-prebuilt| findstr /v newrelic| findstr /v vsphere > package.json_s
 
 del /Q package.json
 rename package.json_s package.json
 copy ..\..\binding.gyp .
+
+REM need to have a frontend dir with empty package.json for npm install to work
+mkdir frontend
+cd frontend
+call npm init --force
+cd ..
+
 nvm install 4.4.4 32
 nvm use 4.4.4 32
 call nvm list
 
-call npm install
+rem fail build if failed to install and build
+call npm install || exit 1
+if not exist ".\build\Release" exit 1
+
 xcopy /Y/I/E .\build\Release .\build\Release-32
 
 del /q/s .\build\Release
@@ -72,7 +82,6 @@ nvm list
 
 call .\node_modules\.bin\node-gyp --arch=x64 configure
 call .\node_modules\.bin\node-gyp --arch=x64 build
-
 rd /q/s .\node_modules\node-gyp
 
 xcopy /Y/I/E .\build\Release .\build\Release-64
@@ -112,6 +121,8 @@ del /Q *.dll
 del /Q node-64.exe
 del /Q openssl.exe
 
+del /s *.pdb
+
 cd ..\..
 echo "done building"
 
@@ -121,7 +132,7 @@ cd build\windows
 
 echo "building installer"
 
-makensis -NOCD ..\..\src\deploy\atom_agent_win.nsi
+makensis -NOCD ..\..\src\deploy\atom_agent_win.nsi || exit 1
 
 rename noobaa-setup.exe noobaa-setup-%current_package_version%-%GIT_COMMIT%.exe
 

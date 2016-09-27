@@ -1,106 +1,143 @@
-import template from "./dropdown.html";
+import template from './dropdown.html';
 import { randomString } from 'utils';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { isDefined } from 'utils';
+import { isDefined, clamp } from 'utils';
 
 const INPUT_THROTTLE = 1000;
 
-function matchByPrefix({ label }, input) {
-    return label.toString().toLowerCase().startsWith(input);
+function matchByPrefix({ label, value }, input) {
+    return (label || value) .toString().toLowerCase().startsWith(input);
 }
 
-class DropdownViewModel {
-    constructor({ 
-        selected = ko.observable(), 
-        options = [], 
-        placeholder = '', 
+class DropdownViewModel extends Disposable {
+    constructor({
+        selected = ko.observable(),
+        options = [],
+        placeholder = 'Choose...',
         disabled = false,
-        matchOperator = matchByPrefix
+        matchOperator = matchByPrefix,
+        hasFocus = false
     }) {
+        super();
+
         this.name = randomString(5);
         this.options = options;
+
         this.selected = selected;
         this.selectedIndex = ko.pureComputed(
-            () => ko.unwrap(options).findIndex(
-                opt => opt.value === ko.unwrap(selected)
+            () => (ko.unwrap(options) || []).findIndex(
+                opt => opt && opt.value === ko.unwrap(selected)
             )
         );
-
-        this.disabled = disabled;
-        this.focused = ko.observable(false);
-
-        let _active = ko.observable(false);
-        this.active = ko.pureComputed({
-            read: () => this.focused() && _active(),
-            write: _active
-        });
-
         this.selectedLabel = ko.pureComputed(
             () => {
-                let selectedOpt = isDefined(selected()) ? ko.unwrap(options).find( 
-                    opt => !!opt && opt.value === this.selected()
+                let options = ko.unwrap(this.options);
+                let selected = this.selected();
+
+                let selectedOpt = options && isDefined(selected) ? options.find(
+                    opt => !!opt && opt.value === selected
                 ) : null;
 
-                return !!selectedOpt ? 
-                    (selectedOpt.label || selectedOpt.value) :
-                    placeholder;
+                return selectedOpt ? (selectedOpt.label || selectedOpt.value) : placeholder;
             }
         );
 
+        this.disabled = disabled;
+        this.hasFocus = hasFocus;
+        this.active = ko.observable(false);
         this.matchOperator = matchOperator;
         this.searchInput = '';
         this.lastInput = 0;
     }
 
-    handleKeyPress({ which }) {
-        switch(which) {
-            case 9: /* tab */
-            case 13: /* enter */
-                this.searchInput = '';
-                this.active(false);
+    isInvalid() {
+        return ko.unwrap(this.selected.isModified) &&
+            !ko.unwrap(this.selected.isValid);
+    }
 
-                break;
-
-            case 38: /* up arrow */
-                this.active(true);
-                this.selectPrevOption();
-                break;
-
-            case 40: /* down arrow */
-                this.active(true);
-                this.selectNextOption()
-                break;
-
-            default:
-                this.sreachBy(which);
-                break;
+    handleClick() {
+        if (!ko.unwrap(this.disabled)) {
+            this.active.toggle();
         }
 
         return true;
     }
 
-    selectPrevOption() {
-        let options = ko.unwrap(this.options);
-        let prev = options[Math.max(this.selectedIndex() - 1, 0)];
-        this.selected(prev.value);
-        this.searchInput = ''; 
+    handleKeyPress({ which }) {
+        let optionsCount = ko.unwrap(this.options).length;
+
+        switch(which) {
+            case 9: /* tab */
+                this.searchInput = '';
+                this.active(false);
+                return true;
+
+            case 13: /* enter */
+                this.searchInput = '';
+                this.active.toggle();
+                return false;
+
+            case 33: /* page up */
+                this.active(true);
+                this.moveSelectionBy(-6);
+                return false;
+
+            case 34: /* page down */
+                this.active(true);
+                this.moveSelectionBy(6);
+                return false;
+
+            case 35: /* end */
+                this.active(true);
+                this.moveSelectionBy(optionsCount);
+                return false;
+
+            case 36: /* home */
+                this.active(true);
+                this.moveSelectionBy(-optionsCount);
+                return false;
+
+            case 38: /* up arrow */
+                this.active(true);
+                this.moveSelectionBy(-1);
+                return false;
+
+            case 40: /* down arrow */
+                this.active(true);
+                this.moveSelectionBy(1);
+                return false;
+
+            default:
+                this.sreachBy(which);
+                return true;
+        }
     }
 
-    selectNextOption() {
+    moveSelectionBy(step) {
         let options = ko.unwrap(this.options);
-        let next = options[Math.min(this.selectedIndex() + 1, options.length - 1)];
-        this.selected(next.value);
+
+        let i = clamp(this.selectedIndex() + step, 0, options.length - 1);
+        let dir = clamp(step, -1, 1);
+
+        while (options[i] === null) {
+            i += dir;
+        }
+
+        if (options[i]) {
+            this.selected(options[i].value);
+        }
         this.searchInput = '';
     }
 
     sreachBy(keyCode) {
         let char = String.fromCharCode(keyCode).toLowerCase();
         this.searchInput = Date.now() - this.lastInput <= INPUT_THROTTLE ?
-            this.searchInput + char : 
+            this.searchInput + char :
             char;
 
         let option = ko.unwrap(this.options).find(
-            option => this.matchOperator(option, this.searchInput)
+            option => option && this.matchOperator(option, this.searchInput)
         );
 
         if (option) {
@@ -114,4 +151,4 @@ class DropdownViewModel {
 export default {
     viewModel: DropdownViewModel,
     template: template
-}
+};

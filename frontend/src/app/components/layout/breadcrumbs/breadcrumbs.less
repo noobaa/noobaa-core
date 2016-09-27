@@ -1,90 +1,59 @@
 breadcrumbs {
-    display: block;
-    @height: 50px;
-    color: @text-color3;
-    font-size: @font-size-large;
+    color: @color6;
+    font-size: @font-size4;
 
-    ul {
-        list-style-type: none;
-        padding: 0;
-        margin: 0;
-        line-height: @height;
+    nav {
+        line-height: @gutter;
     }
 
-    li {
-        margin-left: -@height/2 + 12px;
+    .crumb {
+        .no-outline();
+        position: relative;
+        display: block;
+        margin-right: 2 * @gutter;
 
-        a {
-            .text(
-                @font-type2,
-                @font-weight-normal,
-                @font-size-normal,
-                @text-color3,
-                @text-color9,
-                text-color1
-            );
-
-            text-align: center;
-            float: left;
+        span {
             display: inline-block;
-            padding: 0 .5em;
-            background-color: @bg-color4;
-            max-width: 8em;
-        }
-
-        &::before, &::after {
-            content: '';
-            float: left;
-            display: inline-block;
-            border-style: solid;
-            border-color: transparent;
-            border-width: @height/2 0 @height/2 3/8 *@height;
+            max-width: 320px;
             vertical-align: middle;
         }
 
-        &::before {
-            border-color: @bg-color4;
-            border-left-color: transparent;
-        }
+        &:last-child {
+            color: @color8;
+            margin-right: 0;
 
-        &::after {
-            border-left-color: @bg-color4;
-        }
-
-        &:first-child {
-            margin-left: 0;
-
-            > a {
-                width: auto;
-            }
-
-            svg-icon {
-                width: @font-size-xlarge;
-                height: @font-size-xlarge;
-                vertical-align: middle;
-            }
-
-            &::before {
+            &::after, &::before {
                 display: none;
             }
         }
 
-        &:last-child {
-            a {
-                background: none;
-                margin-left: .5em;
-                font-size: @font-size-medium;
-                max-width: 37em;
-            }
-
-            &::before, &:after {
-                display: none;    
-            };
+        &::after, &::before {
+            content: '';
+            position: absolute;
+            right: -5/4 * @gutter;
+            top: 0;
+            border: @gutter/2 solid transparent;
+            border-right-width: 0;
         }
 
-        &:first-child:last-child a {
-            margin-left: 0;
-            font-size: @font-size-normal;
+        &::after {
+            top: 4px;
+            right: -5/4 * @gutter - 1px;
+            border-width: @gutter/2 - 4px;
+            border-left-color: @color1;
+        }
+
+        &::before {
+            border-left-color: @color8;
+        }
+    }
+
+    .seperator {
+        fill: @color8;
+        margin: 0 @gutter/2;
+
+        &:first-child {
+            display: none;
         }
     }
 }

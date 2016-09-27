@@ -17,7 +17,6 @@ var activity_log_schema = new Schema({
     system: {
         ref: 'System',
         type: types.ObjectId,
-        required: true,
     },
 
     time: {
@@ -46,7 +45,7 @@ var activity_log_schema = new Schema({
         type: types.ObjectId,
     },
     node: {
-        ref: 'Node',
+        // ref: 'Node',
         type: types.ObjectId,
     },
     bucket: {

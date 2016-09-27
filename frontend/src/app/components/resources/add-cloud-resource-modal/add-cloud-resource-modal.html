@@ -1,0 +1,59 @@
+<modal class="modal-small" params="
+    title: 'Add Cloud Resource',
+    onClose: () => cancel()
+">
+    <p class="push-next">Use a bucket from a public cloud to serve as a NooBaa storage resource</p>
+
+    <section class="greedy">
+        <editor params="label: 'Target Connection'">
+            <dropdown params="
+                placeholder: 'Choose a connection',
+                options: connectionOptions,
+                selected: connection
+            "></dropdown>
+            <div class="val-msg" data-bind="validationMessage: connection"></div>
+        </editor>
+
+        <editor params="
+            label: 'Target Bucket',
+            disabled: !targetBucketsOptions()
+        ">
+            <dropdown params="
+                placeholder: 'Choose bucket',
+                disabled: !targetBucketsOptions(),
+                options: targetBucketsOptions,
+                selected: targetBucket
+            "></dropdown>
+            <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
+        </editor>
+
+        <editor params="
+            label: 'Resource name',
+            disabled: !targetBucket()
+        ">
+            <input type="text" placeholder="Choose Name" data-bind="
+                enable: targetBucket,
+                textInput: resourceName
+            "/>
+        </editor>
+    </section>
+
+    <div class="row align-end push-prev">
+        <button class="link push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="
+            click: add,
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
+        ">
+            Add
+        </button>
+    </div>
+</modal>
+
+<!-- ko if: isAddCloudConnectionModalVisible -->
+<add-cloud-connection-modal params="
+    onClose: canceled => hideAddCloudConnectionModal()
+"></add-cloud-connection-modal>
+<!-- /ko -->

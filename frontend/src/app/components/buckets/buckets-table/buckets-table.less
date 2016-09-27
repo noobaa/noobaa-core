@@ -1,46 +1,43 @@
-
-@keyframes row-enter {
-    from { 
-        transform: translateX(100%);
-    }
-
-    to {
-        transform: translateX(0);
-    }
-}
-
 buckets-table {
-    display: block;
-    padding: 2em 3.5em;
+    .column();
 
-    .delete-btn {
-        padding: 0;
-
-        &[disabled] {
-            cursor: default;
+    data-table {
+        .state-col {
+            min-width: 44px;
         }
-    }
 
-    .state-col,
-    .totalsize-col,
-    .freesize-col {
-        min-width: 4em;
-    }
+        .name-col{
+            text-align: left;
+            max-width: 300px;
+            width: 100%;
+        }
 
-    .delete-col,
-    .filecount-col {
-        min-width: 6em;
-    }
+        .file-count-col {
+            min-width: 40px;
+        }
 
-    .cloudsync-col {
-        min-width: 7em;
-    }
+        .placement-policy-col {
+            min-width: 128px;
+        }
 
-    .name-col{
-        width: 100%;
-    }
+        .cloud-storage-col {
+            min-width: 128px;
 
-    .unable-to-sync {
-        color: @text-color8;
+            svg-icon {
+                margin: 0 @gutter/4;
+            }
+        }
+
+        .capacity-col {
+            min-width: 120px;
+        }
+
+        .cloud-sync-col {
+            min-width: 100px;
+        }
+
+        .delete-col {
+            min-width: 40px;
+        }
     }
 }

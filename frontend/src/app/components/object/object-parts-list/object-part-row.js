@@ -1,46 +1,79 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { shortString, formatSize, dblEncode } from 'utils';
+import { shortString, formatSize } from 'utils';
 
-const partStateMapping = Object.freeze({
+const partStateIcons = Object.freeze({
     available: {
-        toolTip: 'available',
-        icon: '/fe/assets/icons.svg#part-available'
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'available'
     },
     building:  {
-        toolTip: 'in process',
-        icon: '/fe/assets/icons.svg#part-in-process'
+        name: 'working',
+        css: 'warning',
+        tooltip: 'in process'
     },
     unavailable: {
-        toolTip: 'unavailable',
-        icon: '/fe/assets/icons.svg#part-unavailable'
+        name: 'problem',
+        css: 'error',
+        tooltip: 'unavailable'
     }
 });
 
-class BlockRowViewModel {
+class BlockRowViewModel extends Disposable {
     constructor({ adminfo }, index, count) {
-        let { online, node_ip, node_name, pool_name } = adminfo;
+        super();
 
-        this.label = `Replica ${index + 1} of ${count}`
-        this.nodeStateToolTip = online ? 'online' : 'offline';
-        this.nodeStateIcon = `/fe/assets/icons.svg#node-${online ? 'online' : 'offline'}`;
-        this.nodeIp = node_ip;
+        let { online, in_cloud_pool, node_ip, node_name, pool_name } = adminfo;
+
+        this.stateIcon = {
+            name: online ? 'healthy' : 'problem',
+            tooltip: online ? 'healthy' : 'problem',
+            css: online ? 'success' : 'error'
+        };
+        this.label = `Replica ${index + 1} of ${count} ${in_cloud_pool ? '(cloud replica)' : ''}`;
         this.poolName = pool_name;
-        this.poolUrl = `/fe/systems/:system/pools/${dblEncode(pool_name)}`;
-        this.nodeName = node_name;
-        this.shortenNodeName = shortString(node_name);
-        this.nodeUrl = `${this.poolUrl}/nodes/${dblEncode(node_name)}`;
+
+        if (!in_cloud_pool) {
+            this.nodeName = node_name;
+            this.shortenNodeName = shortString(node_name);
+            this.nodeIp = node_ip;
+
+            this.poolHref = {
+                route: 'pool',
+                params: {
+                    pool: pool_name,
+                    tab: null
+                }
+            };
+
+            this.nodeHref = {
+                route: 'node',
+                params: {
+                    pool: pool_name,
+                    node: node_name,
+                    tab: null
+                }
+            };
+        } else {
+            this.nodeName = null;
+            this.shortenNodeName = '---';
+            this.nodeIp = '---';
+            this.poolHref = null;
+            this.nodeHref = null;
+        }
     }
 }
 
-export default class ObjectPartRowViewModel {
+export default class ObjectPartRowViewModel extends Disposable {
     constructor(part, partNumber, partsCount) {
+        super();
+
         let size = formatSize(part.chunk.size);
         let state = part.chunk.adminfo.health;
         let blocks = part.chunk.frags[0].blocks;
-        let stateMapping = partStateMapping[state];
 
-        this.stateToolTip = stateMapping.toolTip;
-        this.stateIcon = stateMapping.icon;
+        this.stateIcon = partStateIcons[state];
         this.name = `Part ${partNumber + 1} of ${partsCount}`;
         this.size = size;
         this.blocks = blocks;
@@ -48,7 +81,7 @@ export default class ObjectPartRowViewModel {
             (block, i) =>  new BlockRowViewModel(block, i, blocks.length)
         );
 
-        this.isExpended = ko.observable(partNumber === 0);
+        this.isExpended = ko.observable(partsCount === 1);
     }
 
     toggleExpend() {

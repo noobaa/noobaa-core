@@ -5,22 +5,53 @@ module.exports = {
     pack_diagnostics: pack_diagnostics,
 };
 
-var base_diagnostics = require('../util/base_diagnostics');
-var fs_utils = require('../util/fs_utils');
-var P = require('../util/promise');
+const fs = require('fs');
+const fs_utils = require('../util/fs_utils');
+const base_diagnostics = require('../util/base_diagnostics');
 
-var TMP_WORK_DIR = '/tmp/diag';
+const TMP_WORK_DIR = '/tmp/diag';
 
 function collect_agent_diagnostics() {
     //mkdir c:\tmp ?
-    return P.fcall(function() {
-            let limit_logs_size = true;
-            return base_diagnostics.collect_basic_diagnostics(limit_logs_size);
+    return base_diagnostics.prepare_diag_dir()
+        .then(function() {
+            return base_diagnostics.collect_basic_diagnostics();
         })
         .then(function() {
-            return fs_utils.list_directory_to_file(process.cwd() + '/agent_storage/', TMP_WORK_DIR + '/ls_agent_storage.out');
+            if (fs.existsSync(process.cwd() + '/logs')) {
+                //will take only noobaa.log and the first 9 zipped logs
+                return fs_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR, 'noobaa?[1-9][0-9].log.gz');
+            } else {
+                return;
+            }
         })
-        .then(null, function(err) {
+        .then(function() {
+            if (fs.existsSync('/var/log/noobaalocalservice.log')) {
+                return fs_utils.file_copy('/var/log/noobaalocalservice.log', TMP_WORK_DIR);
+            } else {
+                return;
+            }
+        })
+        .then(function() {
+            const file = fs.createWriteStream(TMP_WORK_DIR + '/ls_agent_storage.out');
+            return fs_utils.read_dir_recursive({
+                    root: 'agent_storage',
+                    depth: 5,
+                    on_entry: entry => {
+                        file.write(JSON.stringify(entry) + '\n');
+                        // we cannot read the entire blocks_tree dir which gets huge
+                        // so stop the recursion from t
+                        if (entry.stat.isDirectory() &&
+                            (entry.path.endsWith('blocks') ||
+                                entry.path.endsWith('blocks_tree'))) {
+                            return false;
+                        }
+                    },
+                })
+                .finally(() => file.end());
+        })
+        .return()
+        .catch(err => {
             console.error('Error in collecting server diagnostics', err);
             throw new Error('Error in collecting server diagnostics ' + err);
         });

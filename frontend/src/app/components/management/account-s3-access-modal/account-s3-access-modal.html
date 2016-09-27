@@ -1,33 +1,40 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2 container">Account S3 Access</h1>
+<modal class="modal-small" params="
+    title: 'Account S3 Access',
+    onClose: () => cancel()
+">
+     <h2 class="heading3">Allow S3 access for this user</h2>
+    <toggle-switch class="push-next" params="value: hasS3Access"></toggle-switch>
 
-    <section class="container">
-        <h2 class="heading3">Allow S3 access for this user</h2>
-        <toggle-switch params="value: hasS3Access"></toggle-switch>
-    </section>
+    <div class="row content-middle push-prev">
+        <h2 class="heading3 greedy push-next" data-bind="
+            css: { disabled: !hasS3Access() }
+        ">
+            Edit S3 access permissions for buckets
+        </h2>
 
-    <section class="container">
-        <div class="pull-right">
-            <button class="link" data-bind="click: selectAllBuckets, enable: hasS3Access">
+        <div>
+            <button class="link alt-colors" data-bind="
+                click: selectAllBuckets, enable: hasS3Access
+            ">
                 Select all
             </button>
             |
-            <button class="link" data-bind="click: clearAllBuckets, enable: hasS3Access">
+            <button class="link alt-colors" data-bind="
+                click: clearAllBuckets, enable: hasS3Access
+            ">
                 Clear
             </button>
         </div>
-        <h2 class="heading3" data-bind="css: { disabled: !hasS3Access() }">
-            Edit S3 access permissions for buckets
-        </h2>
-        <multiselect params="
-            options: buckets, 
-            selected: selectedBuckets,
-            disabled: !hasS3Access()">
-        </multiselect>
-    </section>
+    </div>
 
-    <div class="action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>
-        <button class="action btn2" data-bind="click: save">Save</button>
+    <multiselect class="push-next greedy" params="
+        options: buckets,
+        selected: selectedBuckets,
+        disabled: !hasS3Access()">
+    </multiselect>
+
+    <div class="row align-end content-middle">
+        <button class="link alt-colors push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn" data-bind="click: save">Save</button>
     </div>
 </modal>

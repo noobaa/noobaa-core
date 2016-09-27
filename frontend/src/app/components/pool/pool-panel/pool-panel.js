@@ -1,10 +1,18 @@
 import template from './pool-panel.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { poolInfo, poolNodeList } from 'model';
+import { poolNodeList, systemInfo, routeContext } from 'model';
 
-class PoolPanelViewModel {
+class PoolPanelViewModel extends Disposable {
     constructor() {
-        this.pool = poolInfo;
+        super();
+
+        this.pool = ko.pureComputed(
+            () => systemInfo() && systemInfo().pools.find(
+                ({ name }) => routeContext().params.pool === name
+            )
+        );
+
         this.nodes = poolNodeList;
 
         this.ready = ko.pureComputed(
@@ -12,7 +20,7 @@ class PoolPanelViewModel {
         );
     }
 
-    isTabSelected(name) {
+    isTabSelected() {
         return true;
     }
 }
@@ -20,4 +28,4 @@ class PoolPanelViewModel {
 export default {
     viewModel: PoolPanelViewModel,
     template: template
-}
+};

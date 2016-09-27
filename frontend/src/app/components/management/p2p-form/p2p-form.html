@@ -1,22 +1,27 @@
-<h2 class="heading2" data-bind="click: () => expanded.toggle()">
-    <button class="btn-flat pull-right rotate no-outline" data-bind="css: { 'deg-90': !expanded() }">
-        <svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
+<h2 class="row heading3 cursor-pointer" data-bind="click: () => expanded.toggle()">
+    <span class="greedy align-middle">Peer to Peer</span>
+
+    <button class="btn-flat expand-btn">
+        <svg-icon class="icon-small rotate no-outline"
+            params="name: 'chevron'"
+            data-bind="css: { 'deg-90': !expanded() }">
+        </svg-icon>
     </button>
-    Peer to Peer
 </h2>
 
-<p class="summary" data-bind="visible: !expanded()">
-    TCP ports: 
-    <output class="text-tech emphasized" data-bind="text: ports"></output>
-</p>
+<div data-bind="visible: !expanded()">
+    TCP ports:
+    <output class="text-tech" data-bind="text: ports"></output>
+</div>
 
-<div data-bind="expand: expanded">
-    <p class="container paragraph">
+<div class="column" data-bind="expand: expanded">
+    <p class="paragraph push-next">
         Transport layer protocols, such as the Transmission Control Protocol (TCP) and User Datagram Protocol (UDP), specify a source and destination port number in their segment headers.
-    </p>    
+    </p>
 
-<!-- REMOVED UNTILS SERVER FIX P2P setting that does not breack th whole system -->
-<!--     <div class="container">
+<!--
+    REMOVED UNTILS SERVER FIX P2P setting that does not breack th whole system
+    <div class="container">
         <radio-group params="options: portOptions, selected: portType"></radio-group>
 
         <editor params="label: 'Port Number', visible: usingSinglePort">
@@ -34,43 +39,43 @@
 
             <div class="val-msg" data-bind="text: errorMessage"></div>
         </editor>
-    </div> -->
+    </div>
+-->
 
-    <div class="container">
-        <p class="emphasized">
-            Before you apply changes, add the following exception to your Firewall/NAT:
-        </p>
+    <p class="push-next">
+        In order the guarantee node to node communication add the following exception to your Firewall/NAT:
+    </p>
 
-        <div class="box config">
-            <span>
-                Source:
-                <output class="text-tech emphasized">any</output>
-            </span>
-            
-            <span>
-                Destination:
-                <output class="text-tech emphasized">any</output>
-            </span>
-            
-            <span>
-                Protocol:
-                <output class="text-tech emphasized">tcp</output>                
-            </span>
+    <div class="alt-bg pad config push-next">
+        <span>
+            <span class="highlight">Source:</span>
+            <output class="text-tech">any</output>
+        </span>
 
-            <span>
-                Ports:
-                <output class="text-tech emphasized" data-bind="value: ports"></output>
-            </span>
-            
-            <span>
-                Description:
-                <output class="text-tech emphasized">NooBaa</output>
-            </span>
-        </div>
+        <span>
+            <span class="highlight">Destination:</span>
+            <output class="text-tech">any</output>
+        </span>
+
+        <span>
+            <span class="highlight">Protocol:</span>
+            <output class="text-tech">TCP</output>
+        </span>
+
+        <span>
+            <span class="highlight">Ports:</span>
+            <output class="text-tech" data-bind="value: ports"></output>
+        </span>
+
+        <span>
+            <span class="highlight">Description:</span>
+            <output class="text-tech">NooBaa</output>
+        </span>
     </div>
 
-    <div class="container">
-        Notes: 
+
+    <div class="push-next">
+        Notes:
         <ul class="remark bullet-list">
             <li>TCP ports should br manually opened in firewalls/NATs in order to be reachable</li>
             <li>Connection are secured using SSL</li>
@@ -78,10 +83,12 @@
         </ul>
     </div>
 
-    <!-- REMOVED UNTILS SERVER FIX P2P setting that does not breack th whole system -->
-    <!-- <div class="container text-right">
-        <button class="btn2" data-bind="click: applyChanges">
+    <!--
+        REMOVED UNTILS SERVER FIX P2P setting that does not breck the whole system
+    <<div class="container text-right">
+        <button class="btn" data-bind="click: applyChanges">
             Apply Changes
         </button>
-    </div> -->
+    </div>
+    -->
 </div>

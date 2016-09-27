@@ -1,7 +1,10 @@
 import template from './object-preview-modal.html';
+import Disposable from 'disposable';
 
-class ObjectPreviewModalViewModel {
+class ObjectPreviewModalViewModel extends Disposable {
     constructor({ uri, onClose }) {
+        super();
+
         this.uri = uri;
         this.onClose = onClose;
     }
@@ -14,4 +17,4 @@ class ObjectPreviewModalViewModel {
 export default {
     viewModel: ObjectPreviewModalViewModel,
     template: template
-}
+};

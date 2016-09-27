@@ -1,0 +1,10 @@
+<!-- ko foreach: options -->
+<label>
+    <input type="radio" data-bind="
+        attr: { name: $component.group },
+        checked: $component.selected,
+        checkedValue: value
+    "/>
+    <div class="toggle-btn" data-bind="text: label || value"></div>
+</label>
+<!-- /ko -->

@@ -1,21 +1,24 @@
-import template from './after-upgrade-modal.html'
+import template from './after-upgrade-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 
-class AfterUpgradeModal {
-	constructor({ onClose }) {
-		this.onClose = onClose;
-		this.version = ko.pureComputed(
-			() => systemInfo() && systemInfo().version
-		);
-	}
+class AfterUpgradeModalViewModel extends Disposable {
+    constructor({ onClose }) {
+        super();
 
-	close() {
-		this.onClose();
-	}
+        this.onClose = onClose;
+        this.version = ko.pureComputed(
+            () => systemInfo() && systemInfo().version
+        );
+    }
+
+    close() {
+        this.onClose();
+    }
 }
 
 export default {
-	viewModel: AfterUpgradeModal,
-	template: template
-}
+    viewModel: AfterUpgradeModalViewModel,
+    template: template
+};

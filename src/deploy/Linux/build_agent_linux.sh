@@ -82,9 +82,23 @@ if [ "$CLEAN" = true ] ; then
     sed -i '/rebuild/d' package.json
     sed -i '/nodetime/d' package.json
     sed -i '/newrelic/d' package.json
+    sed -i '/selenium-standalone/d' package.json
+    sed -i '/selenium-webdriver/d' package.json
+    sed -i '/istanbul/d' package.json
+    sed -i '/npm-run-all/d' package.json
+    sed -i '/babel-preset/d' package.json
+    sed -i '/heapdump/d' package.json
+    sed -i '/selectize/d' package.json
+    sed -i '/jsonwebtoken/d' package.json
+    sed -i '/googleapis/d' package.json
+    sed -i '/chromedriver/d' package.json
+    sed -i '/phantomjs-prebuilt/d' package.json
+    sed -i '/vsphere/d' package.json
     echo "npm install node-gyp"
     npm install -g node-gyp
     npm install nan
+    echo "npm install node-linux@0.1.8"
+    npm install node-linux@0.1.8
     echo "rebuild"
     node-gyp rebuild
     echo "npm install"
@@ -100,9 +114,9 @@ else
   cd build/linux
 fi
 echo "building installer"
-cp ../../src/deploy/Linux/noobaa_local_service.sh ./package/
 cp ../../src/deploy/Linux/noobaa_service_installer.sh ./package/
-cp ../../src/deploy/Linux/noobaa_service_uninstall.sh ./package/
+cp ../../src/deploy/Linux/uninstall_noobaa_agent.sh ./package/
+cp ../../src/deploy/Linux/remove_service.sh ./package/
 mkdir ./dist
 cp ../../src/deploy/Linux/setup.sh ./dist/
 ./makeself.sh ./package noobaa-installer $current_package_version ./noobaa_service_installer.sh

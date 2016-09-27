@@ -17,9 +17,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['ip', 'secret', 'role', 'shard'],
+                required: ['address', 'secret', 'role', 'shard'],
                 properties: {
-                    ip: {
+                    address: {
                         type: 'string',
                     },
                     secret: {
@@ -29,7 +29,10 @@ module.exports = {
                         $ref: '#/definitions/cluster_member_role'
                     },
                     shard: {
-                        type: 'string',
+                        type: 'string'
+                    },
+                    location: {
+                        type: 'string'
                     }
                 },
             },
@@ -38,88 +41,143 @@ module.exports = {
             }
         },
 
-        join_to_cluster: {
-            doc: 'direct current server to join to the cluster',
+        update_server_location: {
+            doc: 'Add new member to the cluster',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['topology', 'cluster_id', 'secret', 'role', 'shard'],
+                required: ['secret', 'location'],
                 properties: {
-                    ip: {
-                        type: 'string',
-                    },
-                    cluster_id: {
-                        type: 'string'
-                    },
                     secret: {
-                        type: 'string'
-                    },
-                    role: {
-                        $ref: '#/definitions/cluster_member_role'
-                    },
-                    shard: {
                         type: 'string',
                     },
-                    topology: {
-                        type: 'object',
-                        additionalProperties: true,
-                        properties: {}
+                    location: {
+                        type: 'string'
+                    }
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_time_config: {
+            method: 'POST',
+            params: {
+                $ref: 'cluster_internal_api#/definitions/time_config'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_dns_servers: {
+            method: 'POST',
+            params: {
+                $ref: 'cluster_internal_api#/definitions/dns_servers_config'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        set_debug_level: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['level'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    },
+                    level: {
+                        type: 'integer',
+                    }
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        diagnose_system: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        read_server_time: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target_secret'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                format: 'idate',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        read_server_config: {
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['using_dhcp', 'phone_home_connectivity_status'],
+                properties: {
+                    ntp_server: {
+                        type: 'string'
+                    },
+                    timezone: {
+                        type: 'string'
+                    },
+                    dns_servers: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    },
+                    using_dhcp: {
+                        type: 'boolean'
+                    },
+                    phone_home_connectivity_status: {
+                        enum: [
+                            'CANNOT_REACH_DNS_SERVER',
+                            'CANNOT_RESOLVE_PHONEHOME_NAME',
+                            'CANNOT_CONNECT_INTERNET',
+                            'CANNOT_CONNECT_PHONEHOME_SERVER',
+                            'MALFORMED_RESPONSE',
+                            'CONNECTED'
+                        ],
+                        type: 'string',
                     },
                 }
             },
             auth: {
-                system: false
+                account: false,
+                system: false,
             }
-        },
-
-        news_config_servers: {
-            doc: 'published the config server IPs to the cluster',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['IPs', 'cluster_id'],
-                properties: {
-                    IPs: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                address: {
-                                    type: 'string'
-                                },
-                            }
-                        },
-                    },
-                    cluster_id: {
-                        type: 'string'
-                    },
-                },
-            },
-            auth: {
-                system: false
-            }
-        },
-
-        news_updated_topology: {
-            doc: 'published updated clustering topology info',
-            method: 'POST',
-            params: {
-                type: 'object',
-                additionalProperties: true,
-                properties: {}
-            },
-            auth: {
-                system: false
-            }
-        },
-
-        heartbeat: {
-            doc: 'HB passed between members of the cluster',
-            method: 'POST',
-
         }
-
     },
+
     definitions: {
         cluster_member_role: {
             enum: ['SHARD', 'REPLICA'],

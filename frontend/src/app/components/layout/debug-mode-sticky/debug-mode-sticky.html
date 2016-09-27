@@ -1,0 +1,13 @@
+<section class="sticky" data-bind="css: { active: isActive }">
+    <div class="sticky-content row content-middle">
+        <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+
+        <span class="greedy">
+            System is in debug mode and might exhibit temporary performance degradation
+        </span>
+
+        <button class="link alt-colors" data-bind="click: lowerDebugLevel">
+            Lower debug level
+        </button>
+    </div>
+</section>

@@ -46,6 +46,24 @@ module.exports = {
                             type: 'string',
                         }
                     },
+                    //Special handling for the first account created with create_system
+                    new_system_parameters: {
+                        type: 'object',
+                        properties: {
+                            new_system_id: {
+                                type: 'string'
+                            },
+                            account_id: {
+                                type: 'string'
+                            },
+                            allowed_buckets: {
+                                type: 'array',
+                                items: {
+                                    type: 'string',
+                                }
+                            },
+                        },
+                    },
                 },
             },
             reply: {
@@ -230,7 +248,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'access_key', 'secret_key', 'endpoint'],
+                required: ['name', 'identity', 'secret', 'endpoint'],
                 properties: {
                     name: {
                         type: 'string'
@@ -238,12 +256,18 @@ module.exports = {
                     endpoint: {
                         type: 'string'
                     },
-                    access_key: {
+                    identity: {
                         type: 'string'
                     },
-                    secret_key: {
+                    secret: {
                         type: 'string'
+                    },
+
+                    endpoint_type: {
+                        type: 'string',
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                     }
+
                 }
             },
             auth: {
@@ -264,8 +288,12 @@ module.exports = {
                         endpoint: {
                             type: 'string'
                         },
-                        access_key: {
+                        identity: {
                             type: 'string'
+                        },
+                        endpoint_type: {
+                            type: 'string',
+                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                         }
                     }
                 }
@@ -279,17 +307,22 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['access_key', 'secret_key', 'endpoint'],
+                required: ['identity', 'secret', 'endpoint'],
                 properties: {
                     endpoint: {
                         type: 'string'
                     },
-                    access_key: {
+                    identity: {
                         type: 'string'
                     },
 
-                    secret_key: {
+                    secret: {
                         type: 'string'
+                    },
+
+                    endpoint_type: {
+                        type: 'string',
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                     }
                 }
             },
@@ -349,26 +382,23 @@ module.exports = {
         },
 
         account_acl: {
-            anyOf: [
-                {
-                    type: 'null'
-                },
-                {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        required: ['bucket_name', 'is_allowed'],
-                        properties: {
-                            bucket_name: {
-                                type: 'string'
-                            },
-                            is_allowed: {
-                                type: 'boolean'
-                            }
+            anyOf: [{
+                type: 'null'
+            }, {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['bucket_name', 'is_allowed'],
+                    properties: {
+                        bucket_name: {
+                            type: 'string'
+                        },
+                        is_allowed: {
+                            type: 'boolean'
                         }
                     }
                 }
-            ]
+            }]
         }
     }
 };

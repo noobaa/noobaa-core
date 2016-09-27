@@ -1,46 +1,58 @@
 .overview-panel {
-    max-width: 650px;
-    
-    .overview {
-        background: linear-gradient(@text-color2, @text-color2) center repeat-y;
-        background-size: 1px;    
 
-        .btn {
-            margin-top: 3em;
-            width: 250px;
+    .bounded {
+        max-width: 900px;
+    }
+
+    .left-col {
+        margin-right: 90px;
+    }
+
+    .right-col {
+        margin-left: 90px;
+    }
+
+    .overview-heading {
+        position: relative;
+        border-bottom: 1px solid;
+        transition: color 300ms ease-in-out;
+
+        &:hover {
+            color: @color8;
         }
     }
 
+    .seperator {
+        width: 50px;
+        margin: @gutter;
+    }
+
+    .no-left-border {
+        border-left: none;
+    }
+
+    .no-right-border {
+        border-right: none;
+    }
+
+    .overview-btn {
+        text-transform: uppercase;
+        font-size: @font-size4;
+        padding: @gutter/2;
+    }
+
     .counters {
-    	position: absolute;
-    	left: 0;
-    	right: 0;
-		margin-top: 2em;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 420px;
+        margin-bottom: 60px;
+        background-color: fade(@color6, 7%);
+        justify-content: center;
+
+
+        .counter {
+            margin: 0 2 * @gutter;
+        }
     }
-
-    .counter-list {
-    	position: absolute;
-    	color: @text-color2;
-    	font-size: @font-size-medium;
-    	padding: 1.5em 0;
-    	left: 0;
-    	right: 0;
-    	top: 2.5em;
-		background-color: fade(@bg-color7, 7%);    	
-
-    	> li {
-    		margin: 0 2em;
-	    	display: inline-block;
-    	}
-
-    	.counter-value {
-    		font-size: @font-size-xlarge;
-    		display: block;
-    	}
-    }
-
-     .world-map {
-    	max-width: 650px;
-    	margin: 0 auto;
-    }
-}    
+}

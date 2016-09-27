@@ -1,0 +1,42 @@
+bucket-data-placement-form  {
+    display: block;
+    padding-right: @gutter / 2;
+
+    section + section {
+        margin: @gutter * 3 0;
+    }
+
+    .placement-table {
+        .state-col {
+            min-width: 60px;
+        }
+
+        .pool-name-col {
+            text-align: left;
+            width: 100%;
+        }
+
+        .online-node-count-col {
+            min-width: 180px;
+        }
+
+        .free-space-col {
+            min-width: 180px;
+        }
+    }
+
+    .backup-table {
+        .resource-type-col {
+            min-width: 60px;
+        }
+
+        .resource-name-col {
+            text-align: left;
+            width: 100%;
+        }
+
+        .usage-col {
+            min-width: 180px;
+        }
+    }
+}

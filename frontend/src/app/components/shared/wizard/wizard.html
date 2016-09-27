@@ -1,35 +1,31 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2" data-bind="text: heading"></h1>
-    <stepper params="steps: steps, current: step"></stepper>
+<modal params="onClose: () => cancel(), title: heading" data-bind="css: stepClass">
+    <stepper class="push-next" params="steps: stepsLabels, current: step">
+    </stepper>
 
-    <div class="steps" data-bind="
-        style: { transform: stepsTransform },
+    <div class="pages greedy push-next" data-bind="
         foreach: $parentContext.$parentContext.$componentTemplateNodes
     ">
-        <div class="step" data-bind="
-            css: { current: $parent.step() === $index() },
-            template: { nodes: [$data], data: $parents[3] }
+        <div class="page column" data-bind="
+            css: { selected: $parent.isInStep($index()) },
+            template: {
+                nodes: [$data],
+                data: $parents[3],
+                let: { $inActiveStep: $parent.isInStep($index()) }
+            }
         "></div>
     </div>
 
-    <div class="action-line pull-right">
-        <button class="action link" 
-            data-bind="click: cancel, visible: isCancelVisible">
-            Cancel
-        </button>
-        
-        <button class="action link" 
-            data-bind="click: prev, visible: isPrevVisible">
-            Previous
-        </button>        
+    <div class="row buttons align-end content-middle">
+        <button class="link alt-colors push-next" data-bind="
+            click: isFirstStep() ? cancel : prev,
+            text: isFirstStep() ? 'Cancel' : 'Previous'
+        "></button>
 
-        <button class="action btn2" 
-            data-bind="click: next, visible: isNextVisible">
-            Next
-        </button>
-        
-        <button class="action btn2" 
-            data-bind="click: done, visible: isDoneVisible, text: actionLabel">
-        </button>
+        <button class="btn" data-bind="
+            click: isLastStep() ? done : next,
+            text: isLastStep() ? actionLabel : 'Next',
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
+        "></button>
     </div>
 </modal>

@@ -1,10 +1,13 @@
 import template from './signin-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState, loginInfo } from 'model';
 import { signIn } from 'actions';
 
-class SignInFormViewModel {
+class SignInFormViewModel extends Disposable {
     constructor() {
+        super();
+
         this.email = ko.observable()
             .extend({
                 required: { message: 'Please enter an email address' },
@@ -16,6 +19,8 @@ class SignInFormViewModel {
                 required: { message: 'Please enter a password' }
             });
 
+        this.keepSessionAlive = ko.observable(false);
+
         let retryCount = ko.pureComputed(
             () => loginInfo().retryCount
         );
@@ -26,25 +31,32 @@ class SignInFormViewModel {
             () => !this.isDirty() && retryCount() > 0
         );
 
-        let temp = this.temp = ko.observable(0);
-        this.shake = ko.pureComputed({
-            read: () => {
-                console.log(retryCount(), temp());
-                return retryCount() > temp()
-            },
-            write: val => val === false && temp(retryCount())
-        });
+        this.shake = ko.observable(false);
 
-        this.errors = ko.validation.group(this);
+        this.errors = ko.validation.group([
+            this.email,
+            this.password
+        ]);
+
+        this.addToDisposeList(
+            retryCount.subscribe(
+                () => this.shake(true)
+            )
+        );
     }
 
     signIn() {
-        if (this.errors().length === 0) {
-            this.isDirty(false);
-            signIn(this.email(), this.password(), uiState().returnUrl);
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
+            this.shake(true);
 
         } else {
-            this.errors.showAllMessages();
+            this.isDirty(false);
+            signIn(
+                this.email(),
+                this.password(),
+                this.keepSessionAlive(),
+                uiState().returnUrl);
         }
     }
 }
@@ -52,4 +64,4 @@ class SignInFormViewModel {
 export default {
     viewModel: SignInFormViewModel,
     template: template
-}
+};

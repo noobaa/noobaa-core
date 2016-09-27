@@ -1,0 +1,33 @@
+<!-- ko if: dataReady -->
+<section class="column pad">
+    <div class="row content-middle">
+        <h3 class="heading3 greedy push-next">Daemon Information</h3>
+
+        <div data-bind="tooltip: toggleButtonTooltip">
+            <button class="btn" data-bind="
+                text: toggleButtonLabel,
+                click: toggleNode,
+                disable: isDemoNode
+            "></button>
+        </div>
+    </div>
+
+    <property-sheet params="properties: agentInfo"></property-sheet>
+</section>
+
+
+<hr>
+
+<section class="column pad">
+    <h3 class="heading3">System Information</h3>
+    <property-sheet params="properties: systemInfo"></property-sheet>
+</section>
+
+<hr>
+
+<section class="column pad">
+    <h3 class="heading3">Drive</h3>
+    <property-sheet params="properties: driveInfo"></property-sheet>
+</section>
+<!-- /ko -->
+

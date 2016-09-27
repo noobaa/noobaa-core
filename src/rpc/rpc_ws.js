@@ -5,7 +5,7 @@ let _ = require('lodash');
 let RpcBaseConnection = require('./rpc_base_conn');
 let buffer_utils = require('../util/buffer_utils');
 let dbg = require('../util/debug_module')(__filename);
-let WS = require('ws');
+let WS = global.WebSocket || require('ws');
 
 let WS_CONNECT_OPTIONS = {
     // accept self signed ssl certificates
@@ -64,10 +64,10 @@ class RpcWsConnection extends RpcBaseConnection {
 
         ws.onmessage = msg => {
             try {
-                let buffer = buffer_utils.toBuffer(msg.data);
+                let buffer = buffer_utils.to_buffer(msg.data);
                 this.emit('message', buffer);
             } catch (err) {
-                dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err);
+                dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err, msg);
                 this.emit('error', err);
             }
         };

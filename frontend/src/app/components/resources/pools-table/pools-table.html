@@ -1,0 +1,23 @@
+<div class="column alt-bg pad">
+    <div class="align-end" data-bind="tooltip: createPoolTooltip">
+        <button class="btn" data-bind="
+            click: () => showCreatePoolWizard(),
+            disable: isCreatePoolDisabled,
+        ">
+            Create Pool
+        </button>
+    </div>
+</div>
+
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: pools,
+    rowFactory: pool => newPoolRow(pool),
+    sorting: sorting
+"></data-table>
+
+<!-- ko if: isCreatePoolWizardVisible -->
+<create-pool-wizard params="onClose: () => hideCreatePoolWizard()">
+</create-pool-wizard>
+<!-- /ko -->

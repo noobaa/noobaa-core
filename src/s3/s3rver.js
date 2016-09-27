@@ -5,7 +5,7 @@ require('../util/panic');
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
-require('dotenv').load();
+require('../util/dotenv').load();
 
 const _ = require('lodash');
 const fs = require('fs');
@@ -17,17 +17,19 @@ const https = require('https');
 const express = require('express');
 const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
+const path = require('path');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const pem = require('../util/pem');
 const api = require('../api');
+const config = require('../../config');
 const s3_rest = require('./s3_rest');
 const S3Controller = require('./s3_controller');
 
 dbg.set_process_name('S3rver');
 
-if (cluster.isMaster && process.env.S3_CLUSTER_DISABLED !== 'true') {
+if (cluster.isMaster && config.S3_FORKS_ENABLED) {
     // Fork workers
     for (let i = 0; i < numCPUs; i++) {
         console.warn('Spawning S3 Server', i + 1);
@@ -35,6 +37,8 @@ if (cluster.isMaster && process.env.S3_CLUSTER_DISABLED !== 'true') {
     }
     cluster.on('exit', function(worker, code, signal) {
         console.log('worker ' + worker.process.pid + ' died');
+        // fork again on exit
+        cluster.fork();
     });
 } else {
     run_server();
@@ -58,15 +62,26 @@ function run_server() {
                 port: process.env.S3_PORT || 80,
                 ssl_port: process.env.S3_SSL_PORT || 443,
             });
-            dbg.log0('Generating selfSigned SSL Certificate...');
-            return P.nfcall(pem.createCertificate, {
-                days: 365 * 100,
-                selfSigned: true
-            }).then(certificate => {
-                params.certificate = certificate;
-            });
+            dbg.log0('certificate location:', path.join('/etc', 'private_ssl_path', 'server.key'));
+            if (fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.key')) &&
+                fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.crt'))) {
+                dbg.log0('Using local certificate');
+                var local_certificate = {
+                    serviceKey: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.key')),
+                    certificate: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.crt'))
+                };
+                return local_certificate;
+            } else {
+
+                dbg.log0('Generating self signed certificate');
+                return P.fromCallback(callback => pem.createCertificate({
+                    days: 365 * 100,
+                    selfSigned: true
+                }, callback));
+            }
         })
-        .then(() => {
+        .then(certificate => {
+            params.certificate = certificate;
             const addr_url = url.parse(params.address || '');
             const is_local_address = !params.address ||
                 addr_url.hostname === '127.0.0.1' ||
@@ -95,7 +110,7 @@ function run_server() {
 }
 
 function read_config_file() {
-    return P.nfcall(fs.readFile, 'agent_conf.json')
+    return fs.readFileAsync('agent_conf.json')
         .then(data => {
             let agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));

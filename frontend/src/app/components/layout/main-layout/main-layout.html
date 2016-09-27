@@ -1,12 +1,41 @@
-<div class="main-layout">
-    <main-header></main-header>
+<div class="main-layout column">
+    <section class="sticky-wrapper">
+        <maintenance-sticky></maintenance-sticky>
+        <debug-mode-sticky></debug-mode-sticky>
+        <phone-home-connectivity-sticky></phone-home-connectivity-sticky>
+        <license-sticky></license-sticky>
+    </section>
 
-    <!-- ko if: panel -->
-    <main class="center" data-bind="component: panel">
-    </main>
-    <!-- /ko -->
+    <div class="content-wrapper column greedy" data-bind="
+        css: { 'background-image': useBackground }
+    ">
+        <main-header class="push-next"></main-header>
 
-    <notification-bar></notification-bar>
+        <!-- ko if: panel -->
+        <main class="column greedy bounded push-next" data-bind="
+            component: panel,
+            css: panel
+        "></main>
+        <!-- /ko -->
 
-    <tray></tray>
+        <notification-box></notification-box>
+
+        <drawer>
+            <audit-pane></audit-pane>
+        </drawer>
+    </div>
 </div>
+
+<!-- ko if: isWelcomeModalVisible -->
+<welcome-modal params="onClose: () => hideWelcomeModal()"></welcome-modal>
+<!-- /ko -->
+
+<!-- ko if: isAfterUpgradeModalVisible -->
+<after-upgrade-modal params="onClose: () => hideAfterUpgradeModal()"></after-upgrade-modal>
+<!-- /ko -->
+
+<!-- ko if: isUpgradedCapacityNofiticationModalVisible -->
+<upgraded-capacity-notification-modal params="
+    onClose: () => hideUpgradedCapacityNofiticationModal()"
+></upgraded-capacity-notification-modal>
+<!-- /ko -->

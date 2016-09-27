@@ -1,19 +1,29 @@
 editor {
-    display: block;
-    margin-bottom: .5em;
+    .row();
+    padding: @gutter 0;
 
-    .editor-label {
-        display: inline-block;
-        vertical-align: top;
-        width: 6em;
+    .val-msg {
+        position: relative;
+        margin-top: -1em;
+        top: 1.4em;
+        line-height: 1;
+    }
 
-        &::after {
-            content: ':';
+    > .editor-label {
+        font-size: @font-size3;
+        font-weight: @font-light;
+        line-height: 42px;
+        color: @color7;
+        width: 152px;
+
+        &.disabled {
+            color: @color7;
+            opacity: .3;
         }
     }
 
-    .editor-field {
-        display: inline-block;
-        margin-left: 1em;
+    > .editor-content {
+        position: relative;
+        justify-content: center;
     }
 }

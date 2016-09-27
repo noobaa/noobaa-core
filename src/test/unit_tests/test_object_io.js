@@ -9,13 +9,13 @@ let promise_utils = require('../../util/promise_utils');
 let coretest = require('./coretest');
 let ObjectIO = require('../../api/object_io');
 let SliceReader = require('../../util/slice_reader');
-let dbg = require('../../util/debug_module')(__filename);
+// let dbg = require('../../util/debug_module')(__filename);
 
 let chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
 let chance = require('chance')(chance_seed);
 
-dbg.set_level(5, 'core');
+// dbg.set_level(5, 'core');
 
 mocha.describe('object_io', function() {
 
@@ -35,28 +35,43 @@ mocha.describe('object_io', function() {
     // const NODE = 'test-node';
 
     mocha.before(function() {
-        this.timeout(30000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(30000);
+
         return P.resolve()
-            .then(() => client.account.create_account({
-                name: SYS,
-                email: EMAIL,
-                password: PASSWORD,
-                access_keys: ACCESS_KEYS
-            }))
+            .then(() => {
+                return client.system.create_system({
+                    activation_code: '1111',
+                    name: SYS,
+                    email: EMAIL,
+                    password: PASSWORD,
+                    access_keys: ACCESS_KEYS
+                });
+            })
             .then(res => {
                 client.options.auth_token = res.token;
             })
+            .then(() => client.create_auth_token({
+                email: EMAIL,
+                password: PASSWORD,
+                system: SYS,
+            }))
+            .delay(2000)
             .then(() => coretest.init_test_nodes(client, SYS, 5));
     });
 
     mocha.after(function() {
-        this.timeout(30000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(30000);
+
         // return coretest.clear_test_nodes();
     });
 
 
     mocha.it('works', function() {
-        this.timeout(30000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(30000);
+
         let key = KEY + Date.now();
         return P.fcall(function() {
             return client.object.create_object_upload({
@@ -116,7 +131,9 @@ mocha.describe('object_io', function() {
 
 
         mocha.it('should write and read object data', function() {
-            this.timeout(30000);
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(30000);
+
             let key = KEY + Date.now();
             let size;
             let data;
@@ -189,7 +206,9 @@ mocha.describe('object_io', function() {
     mocha.describe('multipart upload', function() {
 
         mocha.it('should list_multipart_parts', function() {
-            this.timeout(30000);
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(30000);
+
             let upload_id;
             let key = KEY + Date.now();
             let part_size = 1024;
@@ -222,25 +241,25 @@ mocha.describe('object_io', function() {
                     return promise_utils.loop(10, function() {
                         i++;
                         return object_io.upload_stream_parts({
-                            client: client,
-                            bucket: BKT,
-                            key: key,
-                            upload_id: upload_id,
-                            upload_part_number: i,
-                            size: part_size,
-                            source_stream: new SliceReader(data, {
-                                start: i * part_size,
-                                end: (i + 1) * part_size
-                            }),
-                            calculate_md5: true,
-                        })
-                        .then((md5_digest) => client.object.complete_part_upload({
-                            bucket: BKT,
-                            key: key,
-                            upload_id: upload_id,
-                            upload_part_number: i,
-                            etag: md5_digest.md5.toString('hex')
-                        }));
+                                client: client,
+                                bucket: BKT,
+                                key: key,
+                                upload_id: upload_id,
+                                upload_part_number: i,
+                                size: part_size,
+                                source_stream: new SliceReader(data, {
+                                    start: i * part_size,
+                                    end: (i + 1) * part_size
+                                }),
+                                calculate_md5: true,
+                            })
+                            .then((md5_digest) => client.object.complete_part_upload({
+                                bucket: BKT,
+                                key: key,
+                                upload_id: upload_id,
+                                upload_part_number: i,
+                                etag: md5_digest.md5.toString('hex')
+                            }));
                     });
                 })
                 .then(function() {

@@ -2,15 +2,22 @@ import template from './install-node-wizard.html';
 import selectStepTemplate from './select-step.html';
 import installStepTemplate from './install-step.html';
 import reviewStepTemplate from './review-step.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
-import { agentInstallationInfo as installInfo, systemInfo } from 'model';
-import { copyTextToClipboard, lastSegment } from 'utils';
-import { loadAgentInstallationInfo } from 'actions';
+import { systemInfo } from 'model';
+import { deepFreeze, lastSegment, realizeUri, encodeBase64 } from 'utils';
+import { asset as assetRoute } from 'routes';
 
-const installCommands = {
+const steps = deepFreeze([
+    'select',
+    'install',
+    'review'
+]);
+
+const installCommands = deepFreeze({
     NETWORK_WINDOWS(pkg, conf, server) {
-        return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} /S /config ${conf}`
+        return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} /S /config ${conf}`;
     },
 
     NETWORK_LINUX(pkg, conf, server) {
@@ -18,48 +25,47 @@ const installCommands = {
     },
 
     LOCAL_WINDOWS(pkg, conf) {
-        return `${pkg} /S /config ${conf}`; 
+        return `${pkg} /S /config ${conf}`;
     },
 
     LOCAL_LINUX(pkg, conf) {
-        return `${pkg} /S /config ${conf}`; 
+        return `${pkg} /S /config ${conf}`;
     }
-};
+});
 
-const installationTypeOptions = [
-    { 
-        value: 'NETWORK', 
+const installationTypeOptions = deepFreeze([
+    {
+        value: 'NETWORK',
         label: 'Network Installation (recommended)',
         description: 'Choose this option to use NooBaa\'s distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server'
     },
-    { 
-        value: 'LOCAL', 
+    {
+        value: 'LOCAL',
         label: 'Local Installation',
         description: 'Choose this option when your target machine does not have direct access to the NooBaa server'
     }
-];
+]);
 
-const installationTargetOptions = [
-    { 
-        value: 'LINUX', 
-        label: 'Linux' 
+const installationTargetOptions = deepFreeze([
+    {
+        value: 'LINUX',
+        label: 'Linux'
     },
-    { 
-        value: 'WINDOWS', 
-        label: 'Windows' 
+    {
+        value: 'WINDOWS',
+        label: 'Windows'
     }
-];
+]);
 
-class InstallNodeWizardViewModel {
+class InstallNodeWizardViewModel extends Disposable {
     constructor({ onClose }) {
+        super();
+
+        this.steps = steps;
         this.selectStepTemplate = selectStepTemplate;
         this.installStepTemplate = installStepTemplate;
         this.reviewStepTemplate = reviewStepTemplate;
         this.onClose = onClose;
-
-        this.dataReady = ko.pureComputed(
-            () => !!installInfo()
-        );
 
         this.installationTypeOptions = installationTypeOptions;
         this.installationType = ko.observable(
@@ -76,33 +82,51 @@ class InstallNodeWizardViewModel {
         );
 
         this.packageUrl = ko.pureComputed(
-            () => ({
-                LINUX: installInfo().downloadUris.linux,
-                WINDOWS: installInfo().downloadUris.windows
-            })[
-                this.installationTarget()
-            ]
-        );
-
-        this.selectedInstallCommand = ko.pureComputed(
             () => {
-                let selector = this.commandSelector();
-                let pkg = lastSegment(this.packageUrl(), '/');
-                let conf = installInfo().agentConf;
-                let server = systemInfo().ipAddress;
+                if (!systemInfo()) {
+                    return;
+                }
 
-                return installCommands[selector](pkg, conf, server)
+                return {
+                    'LINUX': systemInfo().web_links.linux_agent_installer,
+                    'WINDOWS': systemInfo().web_links.agent_installer
+                }[
+                    this.installationTarget()
+                ];
             }
         );
 
-        this.defaultPoolUrl = `/fe/systems/:system/pools/${defaultPoolName}`;
+        let agentConf = ko.pureComputed(
+            () => {
+                if (!systemInfo()) {
+                    return;
+                }
 
-        loadAgentInstallationInfo();
-    }
+                let { access_key, secret_key } = systemInfo().owner.access_keys[0];
+                return encodeBase64({
+                    address: systemInfo().base_address,
+                    system: systemInfo().name,
+                    access_key: access_key,
+                    secret_key: secret_key,
+                    tier: 'nodes',
+                    root_path: './agent_storage/'
+                });
+            }
+        );
 
-    copyInstallCommand() {
-        copyTextToClipboard(
-            this.selectedInstallCommand()
+        this.selectedInstallCommand = ko.pureComputed(
+            () => installCommands[this.commandSelector()](
+                lastSegment(this.packageUrl(), '/'),
+                agentConf(),
+                systemInfo().dns_name ? systemInfo().dns_name : systemInfo().ip_address
+            )
+        );
+
+        this.defaultPool = defaultPoolName;
+
+        this.nodeListImageUrl = realizeUri(
+            assetRoute,
+            { asset: 'nodesList_illustration.png' }
         );
     }
 }
@@ -110,4 +134,4 @@ class InstallNodeWizardViewModel {
 export default {
     viewModel: InstallNodeWizardViewModel,
     template: template
-}
+};

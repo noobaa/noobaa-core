@@ -1,0 +1,102 @@
+@keyframes notif-in {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes notif-out {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(-100%);
+    }
+}
+
+notification-box {
+    z-index: 1;
+
+    section {
+        position: fixed;
+        bottom: @gutter/2;
+        left: @gutter/2;
+        padding: @gutter;
+        border: 1px solid fadeout(@color7, 50%);
+        background-color: fadeout(@color1, 50%);
+        color: white;
+        font-size: @font-size3;
+        transform: translateY(120%);
+        transition: all 500ms ease-out;
+
+        &:hover {
+            border-color: @color7;
+            background-color: @color1;
+        }
+
+        > div {
+            position: relative;
+            overflow: hidden;
+            width: 400px;
+            height: 44px;
+        }
+
+        &.visible {
+            transform: translateY(0);
+        }
+    }
+
+    .notif {
+        position: absolute;
+        animation: notif-in 500ms linear both;
+        font-size: @font-size3;
+        height: inherit;
+
+        &:only-child {
+            animation: none;
+        }
+
+        .notif-icon {
+            margin-right: @gutter/2;
+        }
+
+        &.notif-info {
+            color: @color6;
+
+            svg-icon {
+                fill: @color6;
+            }
+        }
+
+        &.notif-success {
+            color: @color12;
+
+            svg-icon {
+                fill: @color12;
+            }
+        }
+
+        &.notif-warning {
+            color: @color11;
+
+            svg-icon {
+                fill: @color11;
+            }
+        }
+
+        &.notif-error {
+            color: @color10;
+
+            svg-icon {
+                fill: @color10;
+            }
+        }
+
+        + .notif {
+            animation: notif-out 500ms linear both;
+        }
+    }
+}
+

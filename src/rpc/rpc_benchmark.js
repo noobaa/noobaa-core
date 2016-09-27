@@ -2,7 +2,6 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
-// P.longStackTraces();
 var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);
@@ -33,7 +32,7 @@ argv.time = argv.time || undefined;
 // io concurrency
 argv.concur = argv.concur || 16;
 // io size in bytes
-argv.wsize = !_.isUndefined(argv.wsize) ? argv.wsize : MB;
+argv.wsize = _.isUndefined(argv.wsize) ? MB : argv.wsize;
 argv.rsize = argv.rsize || 0;
 argv.n2n = argv.n2n || false;
 argv.nconn = argv.nconn || 1;
@@ -85,7 +84,7 @@ schema.register_api({
                         required: ['data', 'rsize'],
                         properties: {
                             data: {
-                                format: 'buffer'
+                                buffer: true
                             },
                             rsize: {
                                 type: 'integer'
@@ -98,7 +97,7 @@ schema.register_api({
                 type: 'object',
                 properties: {
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     }
                 }
             }
@@ -165,10 +164,10 @@ function start() {
                 'tls:': 1,
             };
             if (tcp) {
-                return P.nfcall(pem.createCertificate, {
+                return P.fromCall(callback => pem.createCertificate({
                         days: 365 * 100,
                         selfSigned: true
-                    })
+                    }, callback))
                     .then(function(cert) {
                         return rpc.register_tcp_transport(argv.addr.port,
                             argv.addr.protocol === 'tls:' && {
@@ -183,10 +182,10 @@ function start() {
                 'ntls:': 1,
             };
             if (ntcp) {
-                return P.nfcall(pem.createCertificate, {
+                return P.fromCallback(callback => pem.createCertificate({
                         days: 365 * 100,
                         selfSigned: true
-                    })
+                    }, callback))
                     .then(function(cert) {
                         return rpc.register_ntcp_transport(argv.addr.port,
                             argv.addr.protocol === 'ntls:' && {
@@ -221,7 +220,7 @@ function start() {
             });
 
             // register n2n and accept any peer_id
-            var n2n_agent = rpc.register_n2n_transport(client.rpcbench.n2n_signal);
+            var n2n_agent = rpc.register_n2n_agent(client.rpcbench.n2n_signal);
             n2n_agent.set_any_rpc_address();
         })
         .then(function() {
@@ -273,7 +272,7 @@ function call_next_io(req) {
         return_rpc_req: true
     });
     if (retry_func) {
-        promise = promise.fail(retry_func);
+        promise = promise.catch(retry_func);
     }
     return promise.then(call_next_io);
 }

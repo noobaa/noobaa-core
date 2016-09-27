@@ -1,20 +1,18 @@
 'use strict';
 
 module.exports = {
-    toArrayBuffer: toArrayBuffer,
-    toBuffer: toBuffer,
-    addToBuffer: addToBuffer,
-    isAbv: isAbv,
-    toArrayBufferView: toArrayBufferView,
+    to_array_buffer: to_array_buffer,
+    to_buffer: to_buffer,
+    get_single: get_single,
 };
 
 
 /**
  *
- * toArrayBuffer
+ * to_array_buffer
  *
  */
-function toArrayBuffer(buffer) {
+function to_array_buffer(buffer) {
 
     if (buffer instanceof ArrayBuffer) {
         return buffer;
@@ -39,10 +37,10 @@ function toArrayBuffer(buffer) {
 
 /**
  *
- * toBuffer
+ * to_buffer
  *
  */
-function toBuffer(ab) {
+function to_buffer(ab) {
     if (Buffer.isBuffer(ab)) {
         return ab;
     }
@@ -68,36 +66,8 @@ function toBuffer(ab) {
 }
 
 
-/**
- *
- * addToBuffer
- *
- */
-function addToBuffer(chunk1, chunk2) {
-    var buffer1 = toBuffer(chunk1);
-    var buffer2 = toBuffer(chunk2);
-
-    // concat to the buffer already there
-    return Buffer.concat([buffer1, buffer2]);
-}
-
-
-/**
- *
- * isAbv
- *
- */
-function isAbv(value) {
-    return value && value.buffer instanceof ArrayBuffer && value.byteLength !== undefined;
-}
-
-
-/**
- *
- * toArrayBufferView
- *
- */
-function toArrayBufferView(buffer) {
-    var arrBuffer = toArrayBuffer(buffer);
-    return new DataView(arrBuffer);
+function get_single(buffers) {
+    if (!buffers) return null;
+    if (buffers.length === 1) return buffers[0];
+    return Buffer.concat(buffers);
 }

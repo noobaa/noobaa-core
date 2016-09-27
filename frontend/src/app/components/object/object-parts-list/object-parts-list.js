@@ -1,17 +1,20 @@
 import template from './object-parts-list.html';
 import ObjectPartRowViewModel from './object-part-row';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 
-class ObjectPartsListViewModel {
-    constructor({ parts }) {
+class ObjectPartsListViewModel extends Disposable {
+    constructor({ obj, parts }) {
+        super();
+
         this.pageSize = paginationPageSize;
         this.count = parts.count;
-        
+
         this.page = ko.pureComputed({
             read: parts.page,
-            write: page => redirectTo(undefined, { page })
+            write: page => redirectTo(undefined, undefined, { page })
         });
 
         this.rows = parts.map(
@@ -20,10 +23,24 @@ class ObjectPartsListViewModel {
                 return new ObjectPartRowViewModel(part, partNumber, this.count());
             }
         );
+
+        this.s3SignedUrl = ko.pureComputed(
+            () => obj() && obj().s3_signed_url
+        );
+
+        this.isPreviewModalVisible = ko.observable(false);
+    }
+
+    showPreviewModal() {
+        this.isPreviewModalVisible(true);
+    }
+
+    hidePreviewModal() {
+        this.isPreviewModalVisible(false);
     }
 }
 
 export default {
     viewModel: ObjectPartsListViewModel,
     template: template
-}
+};

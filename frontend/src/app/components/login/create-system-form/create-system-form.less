@@ -1,5 +1,61 @@
 .create-system-form {
-    .optional {
-        margin-top: -1.5em;
+    z-index: 1;
+
+    .logo {
+        width: 64px;
+        height: 64px;
+        margin-top: -64px;
+    }
+
+    stepper {
+        background-color: @color4;
+        margin: -2 * @gutter;
+    }
+
+    .steps {
+        width: 516px;
+        position: relative;
+    }
+
+    .pages {
+        overflow: hidden;
+
+        > .page {
+            min-width: 100%;
+            transition: opacity 500ms ease-in-out;
+            opacity: 0;
+
+            + .page {
+                margin-left: -100%;
+            }
+
+            &.selected {
+                opacity: 1;
+                z-index: 1;
+            }
+        }
+    }
+
+    .hint {
+        .remark();
+        color: @color7;
+        line-height: 1.7;
+        position: relative;
+        margin-top: -1.7em;
+        top : 1.7em;
+    }
+
+    .invalid ~ .hint {
+        display: none;
+    }
+
+    .validating-indicator {
+        position: absolute;
+        top: @gutter/2;
+        right: @gutter/2;
+    }
+
+    .remark {
+        margin-top: auto;
     }
 }

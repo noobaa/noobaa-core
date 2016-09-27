@@ -1,29 +1,79 @@
+@keyframes dropdown {
+    from {
+        top: -50%;
+    }
+
+    to {
+        top: 50%;
+    }
+}
+
 modal {
+
     .fixed();
     display: block;
     z-index: 999;
 
     .modal-backdrop {
         .fill();
-        .fade-in;
         background-color: @shadow-color;
     }
 
-    .modal-content {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        background: @bg-color3;
-        box-shadow: 0 0 20px black;
-        max-width: 90%;
-        padding: 1.5em;
-        z-index: 999;
-        line-height: normal;
+    .modal-heading {
+        margin: -@gutter;
+        margin-bottom: @gutter;
+        padding: 0 @gutter;
+        line-height: 3 * @gutter;
+        text-align: left;
+        border-bottom: 1px solid @color8;
+    }
 
-        .heading2 {
-            text-align: center;
-            margin-bottom: .25em;
+    .modal-content {
+        background: @color2;
+        box-shadow: 0 0 20px @black;
+        padding: @gutter;
+        transition: all 250ms ease-in-out;
+    }
+
+    .close-btn {
+        padding: 0;
+
+        > svg-icon {
+            width :12px;
+            height: 12px;
         }
-    }    
+    }
+
+
+    &.modal-xsmall > .modal-content {
+        width: 570px;
+        height: 330px;
+    }
+
+    .modal-content,
+    &.modal-small > .modal-content {
+        width: 610px;
+        height: 455px;;
+    }
+
+    &.modal-medium > .modal-content {
+        width: 610px;
+        height: 540px;
+    }
+
+    &.modal-large > .modal-content {
+        width: 750px;
+        height: 540px;
+    }
+
+    &.modal-xlarge > .modal-content {
+        width: 900px;
+        height: 540px;
+    }
+
+    &.modal-auto-height > .modal-content {
+        width: 900px;
+        height: 80%;
+        min-height: 540px;
+    }
 }

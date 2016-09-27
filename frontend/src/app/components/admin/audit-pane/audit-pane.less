@@ -1,49 +1,74 @@
-.audit-pane {
-    position: relative;
-    height: 100%;
-    padding: 1em;
+audit-pane {
+    .column();
+    .greedy();
+    padding: 0 @gutter;
 
-    .log {
-        position: absolute;
-        left: 1em;
-        right: 1em;
-        bottom: .5em;
-        top: 11em;
+    .audit-header {
+        margin: 0 -@gutter;
+        margin-bottom: @gutter;
+        padding: 0 @gutter;
+        line-height: 3 * @gutter;
+        border-bottom: 1px solid @color8;
     }
 
-    .log-entry {
-        &.alert {
-            color: @text-color8;
+    .close-icon {
+        width: 12px;
+        height: 12px;
+    }
+
+    data-table {
+        .data-row {
+            height: 54px;
+
+            cursor: @cursor-pointer;
+            transition: all 300ms;
+
+            &:hover {
+                background-color: fadeout(@color15, 50%);
+            }
+
+            &.selected {
+                cursor: default;
+                background-color: @color5;
+                color: @color6;
+            }
         }
 
-        &.warning {
-            color: @text-color10;
+        .time-col {
+            min-width: 80px;
+            max-width: 80px;
+        }
+
+        tbody .time-col {
+            text-align: left;
+        }
+
+        .account-col {
+            min-width: 90px;
+            max-width: 90px;
+            word-wrap: break-word;
+            word-break: break-all;
+        }
+
+        .category-col {
+            min-width: 78px;
+        }
+
+        .event-col {
+            min-width: 90px;
+        }
+
+        .entity-col {
+            text-align: left;
+            width: 100%;
+            max-width: 200px;
+            word-wrap: break-word;
+            word-break: break-all;
         }
     }
-    
-    .time-col {
-        min-width: 6em;
-    }
 
-    .user-col {
-        min-width: 5em;
-        max-width: 5em;
-
-        > span {
-            display: block;
-        }
-    }
-
-    .entity-col {
-        width: 100%;
-    }
-
-    .category-col {
-        min-width: 6em;
-    }
-
-    .event-col {
-        min-width: 7em;
-        word-break: break-word;
-    }
+    .desc-box {
+        height: 80px;
+        overflow-y: auto;
+   }
 }

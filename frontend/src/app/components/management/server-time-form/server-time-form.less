@@ -1,16 +1,21 @@
 server-time-form {
     display: block;
 
-    .heading2 {
-        cursor: @cursor-pointer;
+    .forms {
+        position: relative;;
+
+        .ntp-form {
+            position: absolute;
+            left: 0;
+        }
     }
 
-    .expand-icon {
-        fill: @text-color4;
+    editor > .editor-label {
+        width: 8em;
     }
 
-    .fixed-width {
-        width: 5.8em;
-        min-width: 5.8em;
+    .small-field {
+        width: 129px;
     }
+
 }

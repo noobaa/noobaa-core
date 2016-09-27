@@ -63,7 +63,7 @@ function s3_rest(controller) {
     app.get('/:bucket', s3_handler('get_bucket', GET_BUCKET_QUERIES));
     app.put('/:bucket', s3_handler('put_bucket', BUCKET_QUERIES));
     app.post('/:bucket', s3_handler('post_bucket', ['delete']));
-    app.delete('/:bucket', s3_handler('delete_bucket'));
+    app.delete('/:bucket', s3_handler('delete_bucket', BUCKET_QUERIES));
     app.head('/:bucket/:key(*)', s3_handler('head_object'));
     app.get('/:bucket/:key(*)', s3_handler('get_object', ['uploadId', 'acl']));
     app.put('/:bucket/:key(*)', s3_handler('put_object', ['uploadId', 'acl']));
@@ -140,7 +140,7 @@ function s3_rest(controller) {
                 // test for non printable characters
                 // 403 is required for unreadable headers
                 // eslint-disable-next-line no-control-regex
-                if (/[\x00-\x1F]/.test(val) || /[\x00-\x1F]/.test(key)) {
+                if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
                     if (key.startsWith('x-amz-meta-')) {
                         throw s3_errors.InvalidArgument;
                     }
@@ -208,12 +208,13 @@ function s3_rest(controller) {
         let s3err =
             (err instanceof s3_errors.S3Error) && err ||
             RPC_ERRORS_TO_S3[err.rpc_code] ||
-            // s3_errors.InternalError;
-            s3_errors.AccessDenied;
+            s3_errors.InternalError;
         let reply = s3err.reply(req.url, req.request_id);
         dbg.error('S3 ERROR', reply,
             JSON.stringify(req.headers),
             err.stack || err);
+        // This doesn't need to affect response if we fail to register
+        controller.register_s3_error(req, s3err);
         res.status(s3err.http_code).send(reply);
     }
 
@@ -397,9 +398,16 @@ function handle_options(req, res, next) {
 }
 
 function read_post_body(req, res, next) {
-    if (req.method === 'POST' &&
+
+    //temporary fix for put_bucket_lifecycle
+    //We need this body in this case, and want to avoid reading the body for
+    //other requests, like put_object
+
+    if ((req.method === 'POST' ||
+            (req.method === 'PUT' && 'lifecycle' in req.query)) &&
         (req.headers['content-type'] === 'application/xml' ||
             req.headers['content-type'] === 'application/octet-stream')) {
+
         let data = '';
         req.setEncoding('utf8');
         req.on('data', function(chunk) {

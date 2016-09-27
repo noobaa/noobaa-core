@@ -1,9 +1,45 @@
 delete-button {
-    .btn-flat {
-        padding: 0;
+    display: block;
+    position: relative;
 
-        &[disabled] {
-            cursor: default;
+    .message-wrapper {
+        direction: rtl;
+        display: block;
+        overflow-x: hidden;
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: black;
+        max-width: 0;
+        box-shadow: -2px 2px 4px black;
+        transition: max-width 200ms ease-in-out;
+    }
+
+    .message-text {
+        white-space: nowrap;
+        display: block;
+        padding-right: 24px + 2 * @gutter;
+        padding-left: @gutter;
+        line-height: 44px;
+    }
+
+    button {
+        position: relative;
+        background: red;
+
+        > svg-icon {
+            fill: @color7;
+
+        }
+
+        &:disabled > svg-icon {
+            fill: @color15;
+        }
+    }
+
+    .active {
+        .message-wrapper {
+            max-width: 300px;
         }
     }
 }

@@ -1,76 +1,70 @@
-<!-- ko if: dataReady -->
-<section class="gauge-legend">
-    <h3 class="heading3 underline">
-        Potential Capacity: 
-        <span data-bind="text: totalText"></span>
-    </h3>
+<div class="row" data-bind="if: dataReady">
+    <section class="c3 column pad borders">
+        <div class="greedy row content-middle">
+            <svg-icon class="push-next" params="name: state().icon"
+                data-bind="css: state().css">
+            </svg-icon>
+            <span class="heading3" data-bind="text: state().text"></span>
+        </div>
+        <hr />
+        <div class="greedy row content-middle">
+            <span class="c5 highlight push-next">Data Placement:</span>
+            <span class="c7" data-bind="text: dataPlacement"></span>
+        </div>
+        <hr />
+        <div class="greedy row content-middle" >
+            <span class="c5 highlight push-next">Cloud Sync:</span>
+            <span class="c7" data-bind="text: cloudSyncStatus"></span>
+        </div>
+    </section>
 
-    <ul class="list-no-style">
-        <li class="used-legend">
-            Used: 
-            <span class="emphasized" data-bind="text: usedText"></span>
-        </li>
-        <li class="free-legend">
-            Free: 
-            <span class="emphasized" data-bind="text: freeText"></span>
-        </li>
-    </ul>
-</section>
+    <section class="c6 column push-both">
+        <div class="row align-middle">
+            <div class="column greedy push-next">
+                <toggle-filter class="push-next" params="
+                    options: graphOptions,
+                    selected: selectedGraph
+                "></toggle-filter>
 
-<quantity-gauge params="values: gaugeValues"></quantity-gauge>
+                <chart-legend params="items: legend"></chart-legend>
+            </div>
 
-<section class="action-list">
-    <button class="action btn2" data-bind="click: () => isUploadFilesModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#upload'"></svg-icon>
-        Upload File
-    </button>
+            <!-- ko if: selectedGraph() === 'STORAGE' -->
+            <pie-chart class="push-prev" params="
+                values: storageValues,
+                primaryText: totalStorage,
+                secondaryText: 'Total'
+            "></pie-chart>
+            <!-- /ko -->
 
-    <!-- ko if: hasCloudSyncPolicy -->
-    <button class="action btn3" data-bind="click: () => isViewCloudSyncModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#cloud'"></svg-icon>
-        View Cloud Sync
-    </button>
-    <!-- /ko -->
+            <!-- ko if: selectedGraph() === 'DATA' -->
+            <bar-chart class="push-prev" params="values: dataValues"></bar-chart>
+            <!-- /ko -->
+        </div>
+    </section>
 
-    <!-- ko ifnot: hasCloudSyncPolicy -->
-    <button class="action btn3" data-bind="click: () => isSetCloudSyncModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#cloud-plus'"></svg-icon>
-        Set Cloud Sync
-    </button>
-    <!-- /ko -->
+    <section class="c3 column">
+        <p class="borders pad highlight row content-middle push-next">
+            <svg-icon class="push-next" params="name: 'notif-info'" data-bind="
+                tooltip: avaliableForWriteTooltip
+            "></svg-icon>
+            <span>
+                <span data-bind="text: avaliableForWrite"></span>
+                of data can be uploaded
+            </span>
+        </p>
 
-    <button class="action btn3" data-bind="click: () => isPolicyModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#policy'"></svg-icon>
-        Edit Policy
-    </button>
-</section>
+        <div class="greedy borders pad column">
+            <p class="row">
+                <span class="c4 highlight">Last read:</span>
+                <span class="c8 text-right" data-bind="text: lastRead"></span>
+            </p>
+            <hr />
+            <p class="row">
+                <span class="c4 highlight">Last write:</span>
+                <span class="c8 text-right" data-bind="text: lastWrite"></span>
+            </p>
+        </div>
 
-<!-- ko if: isPolicyModalVisible -->
-<bucket-policy-modal params="
-    policy: policy, 
-    onClose: () => isPolicyModalVisible(false)
-"></bucket-policy-modal>
-<!-- /ko -->        
-
-<!-- ko if: isUploadFilesModalVisible -->
-<upload-files-modal params="
-    bucketName: name, 
-    onClose: () => isUploadFilesModalVisible(false)
-"></upload-files-modal>
-<!-- /ko -->    
-
-<!-- ko if: isSetCloudSyncModalVisible -->
-<set-cloud-sync-modal params="
-    bucketName: name, 
-    onClose: () => isSetCloudSyncModalVisible(false)
-"></set-cloud-sync-modal>
-<!-- /ko -->  
-
-<!-- ko if: isViewCloudSyncModalVisible -->
-<cloud-sync-modal params="
-    bucketName: name, 
-    onClose: () => isViewCloudSyncModalVisible(false)
-"></cloud-sync-modal>
-<!-- /ko -->    
-
-<!-- /ko -->
+    </section>
+</div>

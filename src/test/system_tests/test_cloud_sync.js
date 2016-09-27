@@ -41,7 +41,7 @@ module.exports = {
 function authenticate() {
     let auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return P.fcall(function() {
@@ -55,38 +55,38 @@ function authenticate() {
 
 
 function set_cloud_sync(params) {
-    return P.when()
+    return P.resolve()
         .then(
             () => client.account.add_account_sync_credentials_cache({
                 name: TEST_CTX.connection_name,
                 endpoint: TEST_CTX.target_ip,
-                access_key: '123',
-                secret_key: 'abc'
+                identity: '123',
+                secret: 'abc'
             })
         )
         .then(
             () => client.bucket.set_cloud_sync({
                 name: TEST_CTX.source_bucket,
                 connection: TEST_CTX.connection_name,
+                target_bucket: TEST_CTX.target_bucket,
                 policy: {
-                    target_bucket: TEST_CTX.target_bucket,
                     c2n_enabled: params.c2n,
                     n2c_enabled: params.n2c,
-                    schedule: 1,
+                    schedule_min: 1,
                     additions_only: !params.deletions
                 }
             })
         )
-        .fail(
+        .catch(
             error => {
                 console.warn('Failed with', error, error.stack);
-                process.exit(0);
+                throw new Error(error);
             }
         );
 }
 
 function compare_object_lists(file_names, fail_msg, expected_len) {
-    let timeout_ms = 3 * 60 * 1000; // 3 wait up to 3 minutes for changes to sync
+    let timeout_ms = 5 * 60 * 1000; // 3 wait up to 3 minutes for changes to sync
     let start_ts = Date.now();
     let done = false;
     var source_list;
@@ -118,7 +118,7 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
                             done = (source_list.length === expected_len && target_list.length === expected_len);
                         }
                     })
-                    .delay(10000); // wait 10 seconds between each check
+                    .delay(5000); // wait 10 seconds between each check
             }
         )
         .then(function() {
@@ -193,7 +193,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             process.exit(1);
         });
 }
@@ -208,7 +208,7 @@ function run_test() {
             if (should_create_bucket) {
                 client.tier.create_tier({
                         name: 'tier1',
-                        pools: ['default_pool'],
+                        node_pools: ['default_pool'],
                         data_placement: 'SPREAD'
                     })
                     .then(() =>

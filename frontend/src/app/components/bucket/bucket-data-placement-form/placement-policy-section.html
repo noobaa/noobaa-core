@@ -1,0 +1,40 @@
+<div class="row content-middle pad alt-bg">
+    <div class="cloumn greedy">
+        <h3 class="heading3">Node pools</h3>
+        <div class="row">
+            <span>
+                <span>Pool count:</span>
+                <span data-bind="text: nodePoolCount"></span>
+            </span>
+            <span class="push-both">|</span>
+            <span>
+                <span>Policy type:</span>
+                <span data-bind="text: placementType"></span>
+            </span>
+        </div>
+    </div>
+
+
+    <div data-bind="tooltip: editingDisabledTooltip">
+        <button class="btn" data-bind="
+            disable: editingDisabled,
+            click: showPlacementPolicyModal
+        ">
+            Edit placement policy
+        </button>
+    </div>
+</div>
+
+<data-table class="placement-table" params="
+    columns: placementTableColumns,
+    data: nodePools,
+    rowFactory: pool => createPlacementRow(pool),
+    emptyMessage: 'No node pools participate in policy'
+"></data-table>
+
+<!-- ko if: isPlacementPolicyModalVisible -->
+<bucket-placement-policy-modal params="
+    bucketName: bucketName,
+    onClose: () => hidePlacementPolicyModal()
+"></bucket-placement-policy-modal>
+<!-- /ko -->

@@ -1,0 +1,80 @@
+.tabs {
+    .column();
+    background-color: @color3;
+
+    > nav {
+        .row();
+        .push-next();
+        overflow-x: hidden;
+
+        width: 100%;
+        background-color: @color3;
+        color: @color6;
+        padding: 0 4px;
+
+        > a {
+            .no-wrap();
+            .no-outline();
+            position: relative;
+            padding: 0 @gutter;
+            line-height: 44px;
+            min-width: 150px;
+            text-align: center;
+            cursor: @cursor-pointer;
+
+
+            &:before, &:after {
+                content: '';
+                position: absolute;
+                height: 1px;
+                left: 2px;
+                right: 2px;
+                bottom: 4px;
+                background-color: @color6;
+            }
+
+            &::after {
+                left: 51%;
+                right: 51%;
+                background-color: @color8;
+                transition: 300ms;
+            }
+
+            &.selected {
+                color: @color8;
+
+                &::after {
+                    left: 2px;
+                    right: 2px;
+                }
+            }
+        }
+    }
+
+    > .tabs-row {
+        .row();
+        .greedy();
+        overflow-x: hidden;
+        overflow-y: auto;
+
+        > .tab {
+            position: relative;
+            min-width :100%;
+            margin-left: -100%;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 500ms;
+
+            &.selected {
+                margin-left: 0;
+                opacity: 1;
+                overflow: auto;
+
+                ~ .tab {
+                    margin-left: 100%;
+                    opacity: 0;
+                }
+            }
+        }
+    }
+}

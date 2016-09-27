@@ -1,4 +1,5 @@
 import template from './p2p-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { makeRange } from 'utils';
@@ -11,13 +12,15 @@ const portOptions = [
     { label: 'Port Range', value: PORT_RANGE }
 ];
 
-class P2PFormViewModel {
+class P2PFormViewModel extends Disposable {
     constructor() {
+        super();
+
         this.expanded = ko.observable(false);
         this.portOptions = portOptions;
 
         let ports = ko.pureComputed(
-            () => (systemInfo() && systemInfo().P2PConfig.tcp_permanent_passive)
+            () => (systemInfo() && systemInfo().n2n_config.tcp_permanent_passive)
         );
 
         this.portType = ko.observableWithDefault(
@@ -41,10 +44,10 @@ class P2PFormViewModel {
             () => this.rangeMin() + (this.usingPortRange() ? ` - ${this.rangeMax()}` : '')
         );
 
-        this.errors = ko.validation.group({
-            rangeMin: this.rangeMin,
-            rangeMax: this.rangeMax
-        });
+        this.errors = ko.validation.group([
+            this.rangeMin,
+            this.rangeMax
+        ]);
 
         this.errorMessage = ko.pureComputed(
             () => this.errors()[0]
@@ -57,7 +60,7 @@ class P2PFormViewModel {
 
         } else {
             updateP2PSettings(
-                parseInt(this.rangeMin()), 
+                parseInt(this.rangeMin()),
                 parseInt(this.rangeMax())
             );
         }
@@ -67,4 +70,4 @@ class P2PFormViewModel {
 export default {
     viewModel: P2PFormViewModel,
     template: template
-}
+};

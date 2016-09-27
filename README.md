@@ -1,9 +1,12 @@
 noobaa-core
 ===========
 
-[![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=MDserver)](http://146.148.16.59:8080/job/MDserver/)
+MDServer [![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=MDserver)](http://146.148.16.59:8080/job/MDserver/)
+Vitaly [![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=vitaly)](http://146.148.16.59:8080/job/vitaly/)
+
 
 ###Utils Table of Contents:
+
 
 [1. NVA (Noobaa Virtual Appliance) Deployment and Upgrade Packaging](https://github.com/noobaa/noobaa-core/blob/master/src/deploy/NVA_build/README.md)
 

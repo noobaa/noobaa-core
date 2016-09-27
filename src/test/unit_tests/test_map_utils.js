@@ -102,13 +102,14 @@ mocha.describe('map_utils', function() {
                 });
 
                 mocha.it('should remove long gone blocks', function() {
-                    let now = new Date();
                     let chunk = {};
                     let blocks = [{
                         layer: 'D',
                         frag: 0,
                         node: _.extend(mock_node(pools[0]._id), {
-                            heartbeat: new Date(now.getTime() - 24 * 3600 * 1000),
+                            online: false,
+                            readable: false,
+                            writable: false,
                         })
                     }, {
                         layer: 'D',
@@ -168,6 +169,9 @@ mocha.describe('map_utils', function() {
             return {
                 pool: pool_id,
                 heartbeat: new Date(),
+                online: true,
+                readable: true,
+                writable: true,
                 storage: {
                     free: 100 * 1024 * 1024 * 1024
                 }

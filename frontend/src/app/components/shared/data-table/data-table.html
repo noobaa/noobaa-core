@@ -1,0 +1,18 @@
+<table data-bind="scroll: scroll, dataTable: rows">
+    <thead>
+        <tr data-bind="foreach: columns">
+            <th data-bind="css: css">
+                <span data-bind="
+                    text: label,
+                    css: $component.getSortCss(sortKey),
+                    click: () => sortKey && $component.sortBy(sortKey)
+                "></span>
+            </th>
+        </tr>
+    </thead>
+    <tbody data-bind="template: { html: rowTemplate, foreach: rows } ">
+    </tbody>
+</table>
+
+<div class="empty-message" data-bind="visible: isEmpty, text: emptyMessage">
+</div>

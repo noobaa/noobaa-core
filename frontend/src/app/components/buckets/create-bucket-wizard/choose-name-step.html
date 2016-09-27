@@ -1,4 +1,6 @@
-<h2 class="heading3">Choose a name for the bucket</h2>
+<h2 class="heading3 push-next">
+    Choose a name for the bucket
+</h2>
 
 <ul class="bullet-list">
     <li>Bucket names must be between 3-63 chars</li>
@@ -7,4 +9,10 @@
     <li>The name cannot be changed later</li>
 </ul>
 
-<input type="text" placeholder="Bucket Name" data-bind="value: bucketName, hasFocus: true"/>
+<editor params="label: 'Bucket Name'">
+    <input type="text" placeholder="Type here" data-bind="
+        value: bucketName,
+        hasFocus: $inActiveStep
+    "/>
+</editor>
+

@@ -1,13 +1,16 @@
-import template from './commands-bar.html'; 
+import template from './commands-bar.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
-import { refresh, signOut, openAuditLog, closeTray } from 'actions';
+import { refresh, signOut, openDrawer, closeDrawer } from 'actions';
 
-class CommandBarViewModel {
+class CommandBarViewModel extends Disposable {
     constructor() {
-        this.isTrayOpen = ko.pureComputed(
-            () => !!uiState().tray
-        )
+        super();
+
+        this.isDrawerOpen = ko.pureComputed(
+            () => !!uiState().drawer
+        );
     }
 
     refresh() {
@@ -15,15 +18,15 @@ class CommandBarViewModel {
     }
 
     showAuditLog() {
-        this.isTrayOpen() ? closeTray() : openAuditLog();
+        this.isDrawerOpen() ? closeDrawer() : openDrawer();
     }
 
     signOut() {
         signOut();
-    }    
+    }
 }
 
-export default { 
+export default {
     viewModel: CommandBarViewModel,
     template: template
-}
+};

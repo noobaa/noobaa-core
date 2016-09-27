@@ -1,40 +1,41 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2 container">
-        Bucket S3 Access
-    </h1>
-
-    <div class="container">
-        <div class="pull-right">
-            <button class="link" data-bind="click: selectAllAccounts">
+<modal class="modal-small" params="
+    onClose: () => cancel(),
+    title: 'Bucket S3 Access'
+">
+    <div class="row content-middle">
+        <h2 class="heading3 greedy">Edit accounts S3 access permissions</h2>
+        <div>
+            <button class="link alt-colors" data-bind="click: selectAllAccounts">
                 Select all
             </button>
             |
-            <button class="link" data-bind="click: clearAllAccounts">
+            <button class="link alt-colors" data-bind="click: clearAllAccounts">
                 Clear
             </button>
         </div>
-        <h2 class="heading3">
-            Select accounts to add or remove S3 access permissions
-        </h2>        
-        <multiselect class="container cols2" params="
-            options: accounts, 
-            selected: selectedAccounts
-        "></multiselect>
-    
-        <p class="paragraph">
-            <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#notif-info'"></svg-icon>
-            to create a new account go to System Managemnet >
-            <a class="link" data-bind="
-                href: '/fe/systems/:system/management/accounts'
-            ">
-                Accounts
-            </a>
-        </p>
     </div>
 
+    <multiselect class="cols-3 greedy" params="
+        options: accounts,
+        selected: selectedAccounts
+    "></multiselect>
 
-    <div class="container action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>
-        <button class="action btn2" data-bind="click: save">Save</button>
+    <p class="push-next info-line">
+        <svg-icon class="icon-small" params="name: 'notif-info'"></svg-icon>
+        To create a new account go to System Managemnet >
+        <a class="link" data-bind="
+            href: { route: 'management', params: { tab: 'accounts' } }
+        ">
+            Accounts
+        </a>
+    </p>
+
+    <div class="row align-end">
+        <button class="link alt-colors push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="click: save">
+            Save
+        </button>
     </div>
 </modal>

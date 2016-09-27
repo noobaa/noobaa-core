@@ -30,11 +30,11 @@ module.exports = {
 function authenticate() {
     let auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return P.fcall(function() {
-        client.create_auth_token(auth_params);
+        return client.create_auth_token(auth_params);
     });
 }
 
@@ -81,8 +81,8 @@ function test_uploaded_object_has_expected_num_blocks(expected_num_blocks) {
                             // go over all nodes and check that the block is in the pool:
                             for (let n = 0; n < nodes_list.nodes.length; n++) {
                                 for (let blk = 0; blk < blk_info.length; blk++) {
-                                    // console.log('checking block node = ', blk_info[blk].block_md.node, 'vs node.id = ', nodes_list.nodes[n].id);
-                                    if (nodes_list.nodes[n].id === blk_info[blk].block_md.node) {
+                                    //console.log('checking block node = ', blk_info[blk].block_md.address, 'vs node.id = ', nodes_list.nodes[n].rpc_address);
+                                    if (nodes_list.nodes[n].rpc_address === blk_info[blk].block_md.address) {
                                         num_blocks++;
                                     }
                                 }
@@ -91,7 +91,7 @@ function test_uploaded_object_has_expected_num_blocks(expected_num_blocks) {
                                 if (first_iteration) {
                                     start_ts = Date.now();
                                     first_iteration = false;
-                                    console.warn('number of blocks for uploaded object is ' + num_blocks + '. expecting ' + expected_num_blocks +
+                                    console.warn('number of blocks for uploaded `object` is ' + num_blocks + '. expecting ' + expected_num_blocks +
                                         ' blocks. retrying for ' + abort_timeout_sec + ' seconds...');
                                 }
 
@@ -127,7 +127,7 @@ function move_one_block_to_different_pool(object_mapping) {
     let blocks = object_mapping.parts[0].chunk.frags[0].blocks;
     return client.node.list_nodes({
             query: {
-                state: 'online'
+                online: true
             }
         })
         .then(function(node_list) {
@@ -140,7 +140,9 @@ function move_one_block_to_different_pool(object_mapping) {
                 if ((node.id === node_id) ||
                     (node.id !== blocks[1].block_md.node && node.id !== blocks[2].block_md.node)) {
                     // console.log('adding node to pool: ' + node.name);
-                    new_pool_nodes.push(node.name);
+                    new_pool_nodes.push({
+                        name: node.name
+                    });
                 }
             });
             var create_pool_params = {
@@ -149,7 +151,7 @@ function move_one_block_to_different_pool(object_mapping) {
             };
             // console.log('calling create_pool with these parameters: ', create_pool_params);
             console.log('moving 3 nodes to \'test\' pool: ', new_pool_nodes);
-            return client.pool.create_pool(create_pool_params);
+            return client.pool.create_nodes_pool(create_pool_params);
         });
 }
 
@@ -159,7 +161,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             process.exit(1);
         });
 }

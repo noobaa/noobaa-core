@@ -1,16 +1,19 @@
-<!-- ko if: dataReady -->
 <wizard params="
-    heading: 'Install Node', 
-    steps: ['select', 'install', 'review'],
+    heading: 'Install Node',
+    steps: steps,
+    size: 'medium',
+    skip: 0,
     onClose: onClose
 ">
-    <section class="select-step"  data-bind="template: { html: selectStepTemplate }">
-    </section>
+    <section class="column greedy"  data-bind="
+        template: { html: selectStepTemplate }
+    "></section>
 
-    <section class="install-step" data-bind="template: { html: installStepTemplate }">
-    </section>
-    
-    <section class="review-step" data-bind="template: { html: reviewStepTemplate }">
-    </section>
+    <section class="column greedy" data-bind="
+        template: { html: installStepTemplate }
+    "></section>
+
+    <section class="row greedy" data-bind="
+        template: { html: reviewStepTemplate }
+    "></section>
 </wizard>
-<!-- /ko -->

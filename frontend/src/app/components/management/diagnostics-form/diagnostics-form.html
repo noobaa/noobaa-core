@@ -1,4 +1,24 @@
-<h2 class="heading2">System Diagnostics</h2>
-<button class="btn2" data-bind="click: downloadDiagnosticPack">
-    Export Diag Pack
-</button>
+<section class="column pad">
+    <h2 class="heading3">Contact Support</h2>
+    <property-sheet params="properties: contactSupport"></property-sheet>
+</section>
+<hr>
+
+<section class="row pad">
+    <div class="column greedy">
+        <h2 class="heading3 greedy">Diagnostics</h2>
+        <p class="row">
+            <span class="push-next">Debug level:</span>
+            <span data-bind="text: debugLevelText"></span>
+        </p>
+    </div>
+
+    <button class="btn align-start push-next" data-bind="
+        click: toogleDebugLevel,
+        text: toogleDebugLevelButtonText
+    "></button>
+    <button class="btn align-start" data-bind="click: downloadDiagnosticPack">
+        Download Diagnostics
+    </button>
+</section>
+

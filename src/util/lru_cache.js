@@ -49,11 +49,13 @@ class LRUCache {
                 if ('d' in item &&
                     (cache_miss !== 'cache_miss') &&
                     (this.use_negative_cache || item.d)) {
-                    return P.when(this.validate(item.d, params))
-                        .then(validated => validated ? item : this._load_item(item, params));
-                } else {
-                    return this._load_item(item, params);
+                    return P.resolve(this.validate(item.d, params))
+                        .then(validated => {
+                            if (validated) return item;
+                            return this._load_item(item, params);
+                        });
                 }
+                return this._load_item(item, params);
             })
             .then(item => this.make_val(item.d, params));
     }
@@ -69,14 +71,21 @@ class LRUCache {
     }
 
     /**
-     * remove multiple keys from the cache
+     * remove multiple items from the cache
      */
     multi_invalidate(params) {
         return _.map(params, p => this.invalidate(p));
     }
 
     /**
-     * remove the key from the cache
+     * remove multiple items from the cache
+     */
+    multi_invalidate_keys(keys) {
+        return _.map(keys, key => this.invalidate_key(key));
+    }
+
+    /**
+     * remove item from the cache
      */
     invalidate(params) {
         var key = this.make_key(params);
@@ -97,7 +106,7 @@ class LRUCache {
         // keep the promise in the item to synchronize when getting
         // concurrent get requests that miss the cache
         if (!item.p) {
-            item.p = P.when(this.load(params))
+            item.p = P.resolve(this.load(params))
                 .then(data => {
                     item.p = null;
                     item.d = data;

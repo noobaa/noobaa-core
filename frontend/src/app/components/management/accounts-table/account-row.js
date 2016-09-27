@@ -1,53 +1,67 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo } from 'model';
+import { sessionInfo, systemInfo } from 'model';
 import { deleteAccount } from 'actions';
 
-export default class AccountRowViewModel {
-    constructor(account, deleteCandidate) {
+export default class AccountRowViewModel extends Disposable {
+    constructor(account, table) {
+        super();
+
         let systemName = ko.pureComputed(
             () => systemInfo() ? systemInfo().name : ''
         );
 
-        this.isVisible = ko.pureComputed(
-            () => account()
+        this.email = ko.pureComputed(
+            () => account() ? account().email : ''
         );
 
-        this.username = ko.pureComputed(
-            () => account() && account().email
+        this.name = ko.pureComputed(
+            () => {
+                let email = this.email();
+                let curr = sessionInfo() && sessionInfo().user;
+                return `${email} ${email === curr ? '(Current user)' : ''}`;
+            }
         );
 
         let isSystemOwner = ko.pureComputed(
-            () => systemInfo() && this.username() === systemInfo().owner
-        )
+            () => systemInfo() && this.email() === systemInfo().owner.email
+        );
 
-        this.roles = ko.pureComputed(
+        this.role = ko.pureComputed(
             () => {
                 if (!account() || !systemName()) {
                     return '';
                 }
 
-                return  isSystemOwner() ?
-                    'owner' :
-                    account().systems.find( 
-                        ({ name }) => name === systemName() 
-                    ).roles[0]
+                return  isSystemOwner() ? 'owner' : account().systems.find(
+                    ({ name }) => name === systemName()
+                ).roles[0];
             }
         );
 
-        this.hasS3Access = ko.pureComputed(
-            () => !!account() && account().has_s3_access
+        this.s3Access = ko.pureComputed(
+            () => {
+                if (!account()) {
+                    return {};
+                }
+
+                return {
+                    text: account().has_s3_access ? 'enabled' : 'disabled',
+                    edit: () => table.openS3AccessModal(this.email())
+                };
+            }
         );
 
-        this.isDeletable = ko.pureComputed(
-            () =>  !isSystemOwner()
-        );
+        this.password = () => table.openResetPasswordModal(this.email());
 
-        this.deleteToolTip = ko.pureComputed(
-            () =>  this.isDeletable() ? 'delete user' : 'Cannot delete system owner'
-        );
-    }
-
-    del() {
-        deleteAccount(this.username())
+        this.deleteButton = {
+            subject: 'account',
+            group: table.deleteGroup,
+            undeletable: isSystemOwner,
+            tooltip: ko.pureComputed(
+                () => isSystemOwner() ? 'Cannot delete system owner' : 'Delete account'
+            ),
+            onDelete: () => deleteAccount(this.email())
+        };
     }
 }

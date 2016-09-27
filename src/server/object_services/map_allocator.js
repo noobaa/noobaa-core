@@ -61,7 +61,7 @@ class MapAllocator {
     }
 
     find_dups() {
-        if (process.env.DEDUP_DISABLED === 'true') return;
+        if (!config.DEDUP_ENABLED) return;
         let digest_list = _.uniq(_.map(this.parts, part => part.chunk.digest_b64));
         dbg.log3('MapAllocator.find_dups', digest_list.length);
         return md_store.load_chunks_by_digest(this.bucket, digest_list)
@@ -73,7 +73,7 @@ class MapAllocator {
                         if (map_utils.is_chunk_good(dup_chunk, this.bucket.tiering)) {
                             // we set the part's chunk_dedup to the chunk id
                             // so that the client will send it back to finalize
-                            part.chunk_dedup = dup_chunk._id.toString();
+                            part.chunk_dedup = String(dup_chunk._id);
                             delete part.chunk;
                             // returning explicit false to break from _.each
                             return false;
@@ -86,22 +86,25 @@ class MapAllocator {
     allocate_blocks() {
         _.each(this.parts, part => {
             if (part.chunk_dedup) return; // already found dup
-            let status = map_utils.get_chunk_status(part.chunk, this.bucket.tiering, /*ignore_cloud_pools=*/ true);
+            let status = map_utils.get_chunk_status(part.chunk, this.bucket.tiering, /*async_mirror=*/ true);
             var avoid_nodes = [];
+            let allocated_hosts = [];
+
             _.each(status.allocations, alloc => {
                 let f = alloc.fragment;
                 let block = _.pick(f,
                     'digest_type',
                     'digest_b64');
                 block._id = md_store.make_md_id();
-                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes);
+                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts);
                 if (!node) {
                     throw new Error('MapAllocator: no nodes for allocation');
                 }
                 block.node = node;
                 f.blocks = f.blocks || [];
                 f.blocks.push(map_utils.get_block_info(block));
-                avoid_nodes.push(node._id.toString());
+                avoid_nodes.push(String(node._id));
+                allocated_hosts.push(node.host_id);
             });
         });
     }

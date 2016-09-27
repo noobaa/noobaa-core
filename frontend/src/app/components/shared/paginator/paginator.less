@@ -1,17 +1,32 @@
 paginator {
+    .alt-bg();
     display: block;
-    height: 30px;
+    padding: @gutter/2 @gutter;
+    text-align: right;
 
-    .page-indicator {
-        margin-right: 1em;
-
-        .highlight {
-            font-weight: @font-weight-medium;
-        }
+    .paginator-wrapper {
+        display: inline-block;
+        line-height: 1;
+        font-size: @font-size1;
+        color: @color7;
+        vertical-align: middle;
+        margin: 0 auto;
+        margin-right: -4px;
     }
 
-    .page-btn svg-icon {
-        width: 1em;
-        height: 1em;
+    .btn-flat {
+        padding: 0 4px;
+        disabled: inline;
+
+        svg-icon {
+            fill: @color7;
+            width: @font-size1;
+            height: @font-size1;
+        }
+
+        &[disabled] > svg-icon {
+            cursor: default;
+            fill: @color15;
+        }
     }
 }

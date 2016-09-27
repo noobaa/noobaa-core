@@ -4,7 +4,7 @@ var _ = require('lodash');
 var fs = require('fs');
 var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
-var os_utils = require('../../util/os_util');
+var os_utils = require('../../util/os_utils');
 var config = require('../../../config.js');
 
 module.exports = new SupervisorCtrl(); //Singleton
@@ -23,12 +23,12 @@ SupervisorCtrl.prototype.init = function() {
         return;
     }
     return fs.statAsync(config.CLUSTERING_PATHS.SUPER_FILE)
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('Error on reading supervisor file', err);
             throw err;
         })
         .then(function() {
-            return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SUPER_FILE)
+            return fs.readFileAsync(config.CLUSTERING_PATHS.SUPER_FILE)
                 .then(function(data) {
                     return self._parse_config(data.toString());
                 });
@@ -41,7 +41,7 @@ SupervisorCtrl.prototype.init = function() {
 SupervisorCtrl.prototype.apply_changes = function() {
     var self = this;
 
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -49,15 +49,25 @@ SupervisorCtrl.prototype.apply_changes = function() {
             return self._serialize();
         })
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl update')
-                .delay(5000); //TODO:: Better solution
+            return promise_utils.exec('supervisorctl update');
+        });
+};
+
+SupervisorCtrl.prototype.restart = function(services) {
+    return promise_utils.spawn('supervisorctl', ['restart', services.join(' ')], {
+            detached: true
+        }, false)
+        .delay(5000) //TODO:: Better solution
+        .catch(function(err) {
+            console.error('failed to restart services', services);
+            throw new Error('failed to restart services ' + services + err);
         });
 };
 
 SupervisorCtrl.prototype.add_program = function(prog) {
     let self = this;
 
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -69,7 +79,7 @@ SupervisorCtrl.prototype.add_program = function(prog) {
 SupervisorCtrl.prototype.remove_program = function(prog_name) {
     let self = this;
 
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -90,7 +100,7 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
     let self = this;
 
     let mongo_progs = {};
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -130,7 +140,9 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
     prog.stopsignal = config.SUPERVISOR_DEFAULTS.STOPSIGNAL;
     prog.command = '/usr/local/bin/node src/agent/agent_cli.js ' + args_str;
     prog.name = 'agent_' + agent_name;
-    return P.when(self.init())
+    prog.autostart = 'true';
+    prog.priority = '1100';
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;

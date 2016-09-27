@@ -1,18 +1,26 @@
 import template from './bucket-panel.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { uiState, bucketInfo, bucketObjectList } from 'model';
+import { uiState, systemInfo, routeContext, bucketObjectList } from 'model';
 
-class BucketPanelViewModel {
+class BucketPanelViewModel extends Disposable {
     constructor() {
-        this.bucket = bucketInfo;
-        this.objects = bucketObjectList;
+        super();
+
+        this.bucket = ko.pureComputed(
+            () => systemInfo() && systemInfo().buckets.find(
+                ({ name }) => routeContext().params.bucket === name
+            )
+        );
+
+        this.objectList = bucketObjectList;
 
         this.ready = ko.pureComputed(
-            () => !!bucketInfo()
-        )
+            () => !!this.bucket()
+        );
 
         this.bucketName = ko.pureComputed(
-            () => bucketInfo() && bucketInfo().name
+            () => this.bucket() && this.bucket().name
         );
 
         this.selectedTab = ko.pureComputed(
@@ -28,4 +36,4 @@ class BucketPanelViewModel {
 export default {
     viewModel: BucketPanelViewModel,
     template: template
-}
+};

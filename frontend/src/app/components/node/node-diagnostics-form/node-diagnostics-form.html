@@ -1,0 +1,57 @@
+<section class="row pad">
+    <div class="column greedy push-next">
+        <h3 class="heading3">Diagnostics</h3>
+
+        <div>
+            Debug Level:
+            <span data-bind="text: debugLevelText"></span>
+            <span data-bind="visible: debugLevel() > 0" class="warning">
+                (May cause agent slowdown)
+            </span>
+        </div>
+    </div>
+
+    <div class="push-next" data-bind="tooltip: actionsTooltip">
+        <button class="btn" data-bind="
+            disable: areActionsDisabled,
+            click: toggleDebugLevel,
+            text: toggleDebugLevelButtonText
+        "></button>
+    </div>
+
+    <div data-bind="tooltip: actionsTooltip">
+        <button class="btn" data-bind="
+            disable: areActionsDisabled,
+            click: downloadDiagnosticPack
+        ">
+            Download Diagnostics
+        </button>
+    </div>
+</section>
+
+<hr />
+
+<section class="row pad">
+    <div class="column greedy push-next">
+        <h3 class="heading3">Node's connectivity</h3>
+
+        <p>Testing a node allows you the verify peer to peer connectivity &amp; bandwidth between this node and several of its peers</p>
+    </div>
+
+    <div data-bind="tooltip: actionsTooltip">
+        <button class="btn" data-bind="
+            disable: areActionsDisabled,
+            click: showTestNodeModal
+        ">
+            Run Test
+        </button>
+    </div>
+</section>
+
+<!-- ko if: isTestNodeModalVisible -->
+<test-node-modal params="
+    nodeName: nodeName,
+    sourceRpcAddress: rpcAddress,
+    onClose: () => hideTestNodeModal()
+"></test-node-modal>
+<!-- /ko -->

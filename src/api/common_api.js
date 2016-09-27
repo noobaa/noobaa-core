@@ -17,19 +17,38 @@ module.exports = {
             type: 'object',
             // required: [],
             properties: {
+                // Total Capacity
                 total: {
                     $ref: '#/definitions/bigint'
                 },
+                // "Online/Available" free space
                 free: {
                     $ref: '#/definitions/bigint'
                 },
+                // "Offline/Issues" free space
+                unavailable_free: {
+                    $ref: '#/definitions/bigint'
+                },
+                // Used By NooBaa
                 used: {
+                    $ref: '#/definitions/bigint'
+                },
+                // Used By NooBaa
+                used_other: {
+                    $ref: '#/definitions/bigint'
+                },
+                // Physical NooBaa capacity after compression including dedup, disregarding replicas and policies
+                // Example: Sum compressed size of chunks in bucket
+                used_reduced: {
                     $ref: '#/definitions/bigint'
                 },
                 alloc: {
                     $ref: '#/definitions/bigint'
                 },
                 limit: {
+                    $ref: '#/definitions/bigint'
+                },
+                reserved: {
                     $ref: '#/definitions/bigint'
                 },
                 // real - after calculating dedup reduction or redundancy overheads
@@ -213,7 +232,110 @@ module.exports = {
         undeletable_enum: {
             enum: ['SYSTEM_ENTITY', 'NOT_EMPTY', 'IN_USE'],
             type: 'string',
-        }
+        },
+
+        block_md: {
+            type: 'object',
+            required: ['id'],
+            properties: {
+                id: {
+                    type: 'string'
+                },
+                address: {
+                    type: 'string'
+                },
+                node: {
+                    type: 'string'
+                },
+                size: {
+                    type: 'integer'
+                },
+                digest_type: {
+                    type: 'string'
+                },
+                digest_b64: {
+                    type: 'string'
+                },
+            }
+        },
+
+        block_action: {
+            type: 'string',
+            enum: [
+                'read',
+                'write',
+                'replicate',
+                'delete'
+            ]
+        },
+
+        blocks_report: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: [
+                    'block_md',
+                    'action',
+                    'rpc_code',
+                    'error_message'
+                ],
+                properties: {
+                    block_md: {
+                        $ref: '#/definitions/block_md'
+                    },
+                    action: {
+                        $ref: '#/definitions/block_action'
+                    },
+                    rpc_code: {
+                        type: 'string'
+                    },
+                    error_message: {
+                        type: 'string'
+                    },
+                }
+            }
+        },
+
+        proxy_params: {
+            type: 'object',
+            required: ['target', 'method_api', 'method_name'],
+            properties: {
+                target: {
+                    type: 'string'
+                },
+                method_api: {
+                    type: 'string'
+                },
+                method_name: {
+                    type: 'string'
+                },
+                stop_proxy: {
+                    type: 'boolean',
+                },
+                request_params: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
+                },
+                proxy_buffer: {
+                    buffer: true
+                },
+            },
+        },
+
+        proxy_reply: {
+            type: 'object',
+            properties: {
+                proxy_reply: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
+                },
+                proxy_buffer: {
+                    buffer: true
+                },
+            }
+        },
 
     }
 };

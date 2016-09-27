@@ -1,9 +1,13 @@
-<!-- ko foreach: options -->
-<radio-btn data-bind="css: $component.layoutClass" params="
-    group: $component.Name, 
-    selected: $component.selected,
-    label: label,
-    value: value,
-    disabled: $component.disabled
-"></radio-btn>
-<!-- /ko -->
+<div class="content-middle" data-bind="
+    foreach: options,
+    css: $component.layoutClass
+">
+    <radio-btn class="push-next" params="
+        group: $component.name,
+        selected: $component.selected,
+        label: label,
+        value: value,
+        disabled: $component.disabled,
+        hasFocus: $component.hasFocus && $index() === 0
+    "></radio-btn>
+</div>

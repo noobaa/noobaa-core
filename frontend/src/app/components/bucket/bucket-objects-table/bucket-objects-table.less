@@ -1,27 +1,23 @@
 bucket-objects-table {
-    display: block;
-    position: relative;
-    height: 100%;
+    .column();
 
-    .table-wrapper {
-        .fill();
-        top : 4em;
+    .upload-btn {
+        margin-left: auto;
     }
 
-    .filter {
-        margin-bottom: 2em;
-    }
+    data-table {
+        .name-col {
+            text-align: left;
+            min-width: 5em;
+            width: 100%;
+        }
 
-    .state-col {
-        min-width: 45px;
-    }
+        .creation-time-col {
+            min-width: 150px;
+        }
 
-    .name-col {
-        min-width: 45px;
-        width: 100%;
-    }
-
-    .size-col  {
-        min-width: 70px;
+        .size-col {
+            min-width: 100px;
+        }
     }
 }

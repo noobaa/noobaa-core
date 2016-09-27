@@ -1,119 +1,72 @@
 dropdown {
-    position: relative;
-    width: 20em;
     display: inline-block;
-    cursor: @cursor-pointer;
-    vertical-align: middle;
-    margin-right: 1em;
-    margin-bottom: .5em;
 
     .dropdown-wrapper {
-        vertical-align: middle;
-        fill: @text-color4;
-        width: inherit;
-
-        &:focus {
-            fill: @text-color2;
-
-            .value {
-                border-bottom-color: @text-color6;
-            }
-        }
-
-        &.active svg-icon {
-            background-color: @bg-color5;
-            box-shadow: 1px 0 0 @bg-color2;
-        }
-
-        &.disabled {
-            fill: @text-color5;
-
-            .value {
-                color: @text-color5;
-                border-bottom: 1px dotted @text-color5;
-            }
-        }   
+        .input();
+        max-width: 100%;
+        position: relative;
     }
 
     .value {
-        border-bottom: 1px solid @bg-color7;
-        padding: 1px 2px;
-        padding-right: 2em;
-        line-height: 1.4;
-        color: @text-color2;
         width: 100%;
-
-        &.invalid {
-            border-color: @red-mid;
-        }
-    }
-
-    .value, .option-label {
-        display: block;
-        margin: 0;
-        vertical-align: middle;
-
-        &.placeholder {
-            color: @text-color5;
-        }
+        padding-right: 32px;
     }
 
     svg-icon {
-        box-sizing: content-box;
+        fill: @color7;
         position: absolute;
-        padding: .25em .5em;
-        height: 1em;
-        width: 1em;
-        top: 0;
-        right: 0;
+        top: 12px;
+        right: 12px;
     }
 
     .options {
-        position: fixed;
-        width: inherit;
-        background-color: @bg-color5;
-        padding: .25em;
-        margin-top: -2px;
+        position: absolute;
+        left: -1px;
+        right: -1px;
+        background-color: @color6;
+        margin-top: 2px;
+        padding: 2px;
         z-index: 1;
-        box-shadow: 1px 1px 1px @bg-color2;
-
 
         > ul {
             min-height: 2em;
             max-height: 17em;
-            padding-right: .25em;
             overflow-y: auto;
         }
     }
 
     .seperator {
-        margin: .25em .5em;
         border: none;
-        border-top: 1px solid @text-color4;
+        margin: 2px 0;
+        border-top: 1px solid @color7;
     }
 
     .option {
         display: block;
-        padding: 1px 0;
+        margin-right: 2px;
 
         > input {
             display: none;
         }
 
         .option-label {
-            color: @text-color1;
-            padding: 0 .5em;
-            height: 2em;
-            line-height: 2;
+            display: block;
+            margin: 0;
+            color: @color1;
+            font-weight: @font-regular;
+            padding: @gutter/2;
+
+            &:hover {
+                background-color: @color7;
+            }
         }
 
         :checked + .option-label {
-            color: @text-color6;
-            background-color: @bg-color3;
+            color: @color8;
         }
+    }
 
-        .option-label:hover {
-            background-color: @bg-color4;
-        }
+    ::-webkit-scrollbar-thumb  {
+        border-color: @color6;
     }
 }

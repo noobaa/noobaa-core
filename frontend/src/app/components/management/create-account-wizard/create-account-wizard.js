@@ -1,14 +1,16 @@
 import template from './create-account-wizard.html';
 import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
-import { systemInfo, bucketList, accountList } from 'model';
-import { loadBucketList, createAccount } from 'actions';
+import { randomString, generateAccessKeys } from 'utils';
+import { systemInfo } from 'model';
+import { createAccount } from 'actions';
+import { deepFreeze } from 'utils';
 
 function makeUserMessage(loginInfo, S3AccessInfo) {
     return `
-<p class="paragraph">Hi, I created a NooBaa user for you:</p>
+<p>Hi, I created a NooBaa user for you:</p>
 ${makeLoginMessage(loginInfo)}<br>
 ${S3AccessInfo ? makeS3AccessMessage(S3AccessInfo) : ''}
     `;
@@ -16,11 +18,11 @@ ${S3AccessInfo ? makeS3AccessMessage(S3AccessInfo) : ''}
 
 function makeLoginMessage({ serverAddress, username, password }) {
     return `
-<p class="paragraph">
+<p>
 Use the following credentials to connect to the NooBaa console:<br>
-<span class="emphasized">Console Url:</span> ${serverAddress}<br>
-<span class="emphasized">Username:</span> ${username}<br>
-<span class="emphasized">Password:</span> ${password}
+<span>Console Url:</span> ${serverAddress}<br>
+<span>Username:</span> ${username}<br>
+<span>Password:</span> ${password}
 </p>
     `;
 }
@@ -28,33 +30,49 @@ Use the following credentials to connect to the NooBaa console:<br>
 function makeS3AccessMessage({ access_key, secret_key }) {
     return `
 <p class="paragraph">
-Use the follwoing S3 access to connect an S3 compatible application to NooBaa:<br>
-<span class="emphasized">Access Key:</span> ${access_key}<br>
-<span class="emphasized">Secret Key:</span> ${secret_key}
+Use the following S3 access to connect an S3 compatible application to NooBaa:<br>
+<span>Access Key:</span> ${access_key}<br>
+<span>Secret Key:</span> ${secret_key}
 </p>
     `;
 }
 
-class CreateAccountWizardViewModel {
+const steps = deepFreeze([
+    'name & permissions',
+    'review details'
+]);
+
+class CreateAccountWizardViewModel extends Disposable {
     constructor({ onClose }) {
+        super();
+
         this.onClose = onClose;
         this.nameAndPermissionsStepTemplate = nameAndPermissionsStepTemplate;
         this.detailsStepTemplate = detailsStepTemplate;
+        this.steps = steps;
+
+        let accounts = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().accounts : []).map(
+                account => account.email
+            )
+        );
 
         this.emailAddress = ko.observable()
             .extend({
                 required: { message: 'Please enter an email address' },
                 email: { message: 'Please enter a valid email address' },
                 notIn: {
-                    params: accountList.map( ({ email }) => email ),
+                    params: accounts,
                     message: 'An account with the same email address already exists'
                 }
             });
 
         this.enableS3Access = ko.observable(false);
 
-        this.buckets = bucketList.map(
-            bucket => bucket.name
+        this.buckets = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().buckets : []).map(
+                ({ name }) => name
+            )
         );
 
         let selectedBuckets = ko.observableArray();
@@ -69,7 +87,7 @@ class CreateAccountWizardViewModel {
 
         let loginInfo = ko.pureComputed(
             () => ({
-                serverAddress: `https://${systemInfo().endpoint}:${systemInfo().sslPort}`,
+                serverAddress: `https://${systemInfo().endpoint}:${systemInfo().ssl_port}`,
                 username: this.emailAddress(),
                 password: this.password
             })
@@ -82,11 +100,9 @@ class CreateAccountWizardViewModel {
             )
         );
 
-        this.nameAndPermissionsErrors = ko.validation.group({
-            email: this.emailAddress
-        });
-
-        loadBucketList();
+        this.nameAndPermissionsErrors = ko.validation.group([
+            this.emailAddress
+        ]);
     }
 
     validateStep(step) {
@@ -112,11 +128,6 @@ class CreateAccountWizardViewModel {
         this.selectedBuckets([]);
     }
 
-    copyCreateEmailToClipboard() {
-
-
-    }
-
     create() {
         createAccount(
             systemInfo().name,
@@ -126,7 +137,6 @@ class CreateAccountWizardViewModel {
             this.enableS3Access() ? this.selectedBuckets() : undefined
         );
 
-        copyTextToClipboard(this.userMessage());
         this.onClose();
 
     }

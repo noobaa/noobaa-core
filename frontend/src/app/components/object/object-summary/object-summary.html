@@ -1,36 +1,47 @@
-<!-- ko if: dataReady -->
-<ul class="status-line">
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#object-size'"></svg-icon>
-        <span data-bind="text: size"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#part-dark'"></svg-icon>
-        <span data-bind="text: partsCount"></span>
-    </li>
-</ul>        
+<div class="row" data-bind="if: dataReady">
+    <section class="c3 column borders pad">
+        <div class="greedy row content-middle">
+            <span class="c4 highlight push-next">Bucket name:</span>
+            <span class="c8 break-words" data-bind="text: bucketName"></span>
+        </div>
 
-<section class="text-left">
-    <h3 class="heading3 underline">Weekly File Reads</h3>
-</section>
+        <hr />
 
-<needle-gauge params="value: reads, threshold: 500, scale: 1.5"></needle-gauge>
+        <div class="greedy row content-middle">
+            <span class="c4 highlight push-next">Content Type:</span>
+            <span class="c8 break-words" data-bind="text: contentType"></span>
+        </div>
+    </section>
 
-<section class="action-list text-right">
-    <button class="action btn2" data-bind="click: () => isPreviewModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#preview'"></svg-icon>
-        Preview
-    </button>
-    <a class="action btn3" data-bind="href: s3Url" download>
-        <svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
-        Download
-    </a>
-</section>
-<!-- /ko -->
 
-<!-- ko if: isPreviewModalVisible -->
-<object-preview-modal params="
-    onClose: () => isPreviewModalVisible(false), 
-    uri: s3Url
-"></object-preview-modal>
-<!-- /ko -->
+    <section class="c6 column push-both">
+        <div class="row align-middle">
+            <chart-legend class="pad" params="
+                items: barsValues,
+                caption: 'File Size'
+            "></chart-legend>
+            <bar-chart class="greedy" params="values: barsValues"></bar-chart>
+        </div>
+    </section>
+
+    <section class="c3 column  borders pad">
+        <div class="greedy row content-middle">
+            <span class="c4 highlight push-next">Creation time:</span>
+            <span class="c8" data-bind="text: creationTime"></span>
+        </div>
+
+        <hr />
+
+        <div class="greedy row content-middle">
+            <span class="c4 highlight push-next">Last read time:</span>
+            <span class="c8" data-bind="text: lastRead"></span>
+        </div>
+
+        <hr />
+
+        <div class="greedy row content-middle">
+            <span class="c4 highlight push-next">Read count:</span>
+            <span class="c8" data-bind="text: readCount"></span>
+        </div>
+    </section>
+</div>

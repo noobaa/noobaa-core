@@ -1,0 +1,19 @@
+<modal class="modal-xsmall" params="
+    title: 'Attach Server',
+    onClose: () => cancel()
+">
+    <section class="push-next greedy">
+        <editor params="label: 'Server IP or DNS name'">
+            <input type="text" data-bind="value: address"/>
+        </editor>
+        <editor params="label: 'Server Secret'">
+            <input type="text" data-bind="value: secret"/>
+        </editor>
+    </section>
+
+
+    <div class="row content-middle align-end">
+        <button class="link push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn" data-bind="click: attach">Attach</button>
+    </div>
+</modal>

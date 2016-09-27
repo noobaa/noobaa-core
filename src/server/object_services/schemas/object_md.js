@@ -49,10 +49,16 @@ const objmd_schema = new Schema({
         type: Number,
     },
 
-    create_time: {
+    upload_started: {
         type: Date,
         default: Date.now,
-        required: true,
+        // required: true,
+    },
+
+    create_time: {
+        type: Date,
+        // default: Date.now,
+        // required: true,
     },
 
     etag: {
@@ -71,7 +77,11 @@ const objmd_schema = new Schema({
     stats: {
         reads: {
             type: Number,
-        }
+        },
+
+        last_read: {
+            type: Date,
+        },
     },
 
     // on delete set deletion time

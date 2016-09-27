@@ -1,47 +1,58 @@
 import template from './connect-app-wizard.html';
-import selectSlideTemplate from './select-slide.html';
-import connecSlideTemplate from './connect-slide.html';
+import selectConnectionSlideTemplate from './select-connection.html';
+import selectAccountSlideTemplate from './select-account.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo, accountList } from 'model';
-import { copyTextToClipboard } from 'utils';
-import { loadAccountList } from 'actions';
+import { systemInfo } from 'model';
+import { deepFreeze } from 'utils';
 
-const connectionTypes = Object.freeze([
+const steps = deepFreeze([
+    'select connection',
+    'select account'
+]);
+
+const connectionTypes = deepFreeze([
     {
         type: 'NATIVE',
         label: 'Native Access',
-        description: 'A REST based protocal commonly used by S3 compatible clients (e.g. S3 Browser)',
+        description: 'A REST based protocal commonly used by S3 compatible clients (e.g. S3 Browser)'
     },
     {
-        type: 'FS',
-        label: 'Linux File Access (Using Fuse)',
-        description: 'Coming Soon...',
-        disabled: true
-    },
-    {
-        type: 'HDFS',
-        label: 'Big Data Access (HDFS)',
-        description: 'Coming Soon...',
+        type: 'SPLUNK',
+        label: 'Splunk',
+        description: 'Contact support@noobaa.com for more information',
         disabled: true
     }
 ]);
 
-class ConnectApplicationWizard {
+class ConnectApplicationWizardViewModel extends Disposable {
     constructor({ onClose }) {
+        super();
+
         this.onClose = onClose;
-        this.selectSlideTemplate = selectSlideTemplate;
-        this.connectSlideTemplate = connecSlideTemplate;
+        this.steps = steps;
+        this.selectConnectionSlideTemplate = selectConnectionSlideTemplate;
+        this.selectAccountSlideTemplate = selectAccountSlideTemplate;
 
         this.conTypes = connectionTypes;
         this.selectedConType = ko.observable(this.conTypes[0]);
 
-        this.accountOptions = accountList.map(
-            account => ({ label: account.email, value: account })
+        let accounts = ko.pureComputed(
+            () => systemInfo() ? systemInfo().accounts : []
+        );
+
+        this.accountOptions = ko.pureComputed(
+            () => accounts().map(
+                account => ({
+                    label: account.email,
+                    value: account
+                })
+            )
         );
 
         this.selectedAccount = ko.observableWithDefault(
-            () => systemInfo() && accountList() && accountList().filter(
-                account => account.email === systemInfo().owner
+            () => systemInfo() && accounts().filter(
+                account => account.email === systemInfo().owner.email
             )[0]
         );
 
@@ -51,37 +62,35 @@ class ConnectApplicationWizard {
 
         this.details = [
             {
-                label: 'Storage Type', 
+                label: 'Storage Type',
                 value: 'S3 compatible storage'
             },
             {
-                label: 'REST Endpoint', 
+                label: 'REST Endpoint',
                 value: ko.pureComputed(
                     () => systemInfo() && systemInfo().endpoint
                 ),
                 allowCopy: true
             },
-            { 
-                label: 'Access Key', 
+            {
+                label: 'Access Key',
                 value: ko.pureComputed(
                     () => keys() && keys().access_key
                 ),
                 allowCopy: true
             },
-            { 
-                label: 'Secret Key', 
+            {
+                label: 'Secret Key',
                 value: ko.pureComputed(
                     () => keys() && keys().secret_key
                 ),
                 allowCopy: true
             }
         ];
-
-        loadAccountList();
     }
 }
 
 export default {
-    viewModel: ConnectApplicationWizard,
+    viewModel: ConnectApplicationWizardViewModel,
     template: template
-}
+};

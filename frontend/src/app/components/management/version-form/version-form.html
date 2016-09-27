@@ -1,0 +1,33 @@
+<seciton class="column pad">
+    <h2 class="heading3">
+        Version Control
+    </h1>
+
+    <div class="row content-middle">
+        <span class="push-next">Current Version:</span>
+        <span data-bind="text: version"></span>
+    </div>
+</seciton>
+
+<hr>
+
+<section class="column pad">
+    <h2 class="heading3">
+        Upgrade System
+    </h2>
+
+    <p class="push-next">
+        The upgrading process may take a few minutes to complete.
+    </p>
+
+    <file-selector params="
+        message: 'Drag an upgrade package here',
+        filter: upgradePackageSuffix,
+        onFilesReady: files => upgrade(files)
+    "></file-selector>
+</section>
+
+<!-- ko if: isUpgradingModalVisible -->
+<upgrade-modal params="onClose: () => isUpgradingModalVisible(false)">
+</upgrade-modal>
+<!-- /ko -->

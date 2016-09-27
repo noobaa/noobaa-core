@@ -1,48 +1,27 @@
 .login-layout {
-    padding: .5em;
-    background: url('/fe/assets/login-background.png') no-repeat;
-    background-size: cover;
+    .column();
+    height: 100%;
+    justify-content: center;
+    align-items: center;
 
-    .content {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        text-align: center;            
-        width: 25em;    
-        transform: translate(-50%, -50%);            
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-size: cover;
+        opacity: .3;
+
+        /*
+        https://unsplash.com/license
+        https://unsplash.com/collections/136301/space?photo=NORa8-4ohA0
+        */
+        background-image: url('@{assets}/stars.jpg');
     }
 
-    .heading2 {
-        line-height: 1.50;
-        margin-bottom: 0em;
-
-        .logo {
-            width: 80px;
-            height: 80px;
-            display: block;
-            margin: 0 auto;
-        }
-
-        .noobaa {
-            color: @white;
-            font-weight: @font-weight-light;
-        }        
+    .alt-bg {
+        background-color: fadeout(@color5, 55%);
     }
-
-    .heading3 {
-        margin-bottom: 1.5em;
-    }
-
-    input {
-        color: @text-color1;
-        margin-right: 0;
-        width: 100%;
-
-        .placeholder(@text-color4);
-    }
-
-    .btn2 {
-        margin-top: 1.5em;
-        width: 80%;
-    }    
 }

@@ -1,22 +1,35 @@
 <div class="dropdown-wrapper no-outline" data-bind="
-    click: () => active.toggle(),
-    event: { keydown: (_, evt) => handleKeyPress(evt) },
-    hasFocus: focused,
+    event: {
+        blur: () => active(false),
+        click: () => handleClick(),
+        keydown: (_, evt) => handleKeyPress(evt)
+    },
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
-    css: { disabled: disabled, active: active },
-    validationOptions: { insertMessages: false }
+    hasFocus: hasFocus,
+    css: {
+        disabled: disabled,
+        active: active,
+        invalid: isInvalid(),
+        placeholder: selected() == null
+    },
+    validationOptions: { insertMessages: false },
+    let: { $wrapper: $element }
 ">
-    <svg-icon class="pull-right" params="uri: '/fe/assets/icons.svg#expand'"></svg-icon>
-    
-    <div type="text" class="value no-wrap" data-bind="
-        value: selected, 
-        text: selectedLabel,
-        css: { placeholder: selected() == null }
+    <div class="value no-wrap" data-bind="
+        value: selected,
+        text: selectedLabel
     "></div>
 
+    <svg-icon class="icon-small" params="name: 'chevron'" data-bind="
+        event: { mousedown: () => $wrapper.focus() }
+    "></svg-icon>
+
     <div class="options" data-bind="
-        visible: active(), 
-        click: () => active(false) && true,
+        visible: active(),
+        event: {
+            click: () => active(false) && true,
+            mousedown: () => $wrapper.focus()
+        },
         clickBubble: false
     ">
         <ul class="list-no-style" data-bind="foreach: options, scrollTo: selectedIndex">
@@ -24,7 +37,7 @@
                 <label class="option">
                     <input type="radio" data-bind="
                         attr: { name: $component.name },
-                        checked: $component.selected, 
+                        checked: $component.selected,
                         checkedValue: value
                     "/>
                     <span class="option-label no-wrap" data-bind="

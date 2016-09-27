@@ -1,9 +1,17 @@
 pool-summary {
-    .used-legend::before {
-        background-color: @text-color6;
+    display: block;
+
+    .node-counter {
+        .highlight();
+        font-size: @font-size5;
+        line-height: 1.7;
     }
 
-    .free-legend::before {
-        background-color: @text-color4;
+    .progress-bar {
+        margin-top: @gutter;
+
+        bar {
+            margin-bottom: @gutter/2;
+        }
     }
 }

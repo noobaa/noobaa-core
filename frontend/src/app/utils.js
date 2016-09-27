@@ -1,4 +1,6 @@
-const sizeUnits = ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
+/*global setImmediate */
+
+const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
 
 export function noop() {
 }
@@ -8,6 +10,10 @@ export function invokeAsync(f, ...params) {
         () => f(...params),
         0
     );
+}
+
+export function isArray(value){
+    return value instanceof Array;
 }
 
 export function isNumber(value) {
@@ -23,7 +29,7 @@ export function isFunction(value) {
 }
 
 export function isObject(value) {
-    return typeof value === 'object';
+    return typeof value === 'object' && value !== null;
 }
 
 export function isUndefined(value) {
@@ -43,7 +49,7 @@ export function toDashedCase(str) {
 }
 
 export function formatSize(num) {
-    const peta = 1024 ** 5;
+    const peta = Math.pow(1024, 5);
 
     let i = 0;
     if (!isNumber(num)) {
@@ -55,7 +61,7 @@ export function formatSize(num) {
         }
     }
 
-    while (num / 1024 > 1) {
+    while (num / 1024 >= 1) {
         num /= 1024;
         ++i;
     }
@@ -64,24 +70,31 @@ export function formatSize(num) {
         num = num.toFixed(num < 10 ? 1 : 0);
     }
 
-    return `${num} ${sizeUnits[i]}`;
+    return `${num}${sizeUnits[i]}`;
 }
 
 export function formatDuration(minutes) {
     let hours = minutes / 60 | 0;
     let days = hours / 24 | 0;
+    hours %= 24;
     minutes %= 60;
-    hours %= 60;
 
     return [
-        days > 0 ? `${days} Day${days > 1 ? 's' : ''}` : '',
-        hours > 0 ? `${hours} Hour${hours > 1 ? 's' : ''}` : '',
-        minutes > 0 ? `${minutes} Min${minutes > 1 ? 's' : ''}` : ''
-    ].join(' ');
+        days > 0 ? `${days} day${days > 1 ? 's' : ''}` : null,
+        hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : null,
+        minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : null
+    ]
+        .filter(
+            part => part
+        )
+        .reduce(
+            (str, part, i, parts) =>
+                str + (i === parts.length - 1 ? ' and ' : ', ') + parts
+        );
 }
 
 export function randomString(len = 8) {
-    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
     return makeArray(
         len,
@@ -89,14 +102,10 @@ export function randomString(len = 8) {
     ).join('');
 }
 
-export function dblEncode(str) {
-    return encodeURIComponent(encodeURIComponent(str));
-}
-
 export function parseQueryString(str) {
     return decodeURIComponent(str)
         .replace(/(^\?)/,'')
-        .split("&")
+        .split('&')
         .filter(part => part)
         .reduce( (result, part) => {
             let [name, value] = part.split('=');
@@ -112,7 +121,7 @@ export function stringifyQueryString(query) {
                 let encodedName = encodeURIComponent(toDashedCase(key));
                 let value = query[key] === true ?
                     encodedName :
-                    `${encodedName}=${encodeURIComponent(query[key])}`
+                    `${encodedName}=${encodeURIComponent(query[key])}`;
 
                 list.push(value);
             }
@@ -122,24 +131,37 @@ export function stringifyQueryString(query) {
         .join('&');
 }
 
-export function realizeUri(uri, params = {}, query = {}) {
-    let base = uri
+export function realizeUri(template, params = {}, query = {}) {
+    let search = stringifyQueryString(query);
+    let base = template
         .split('/')
-        .map(part => part[0] === ':' ? params[part.substr(1)] : part)
+        .map(
+            part => {
+                let isParam = part[0] === ':';
+                let isOptional = part.substr(-1) === '?';
+
+                if (isParam) {
+                    let name = part.substr(1, part.length - 1 - Number(isOptional));
+                    let value = params[name ];
+
+                    if (value) {
+                        return encodeURIComponent(value);
+                    } else if (isOptional) {
+                        return null;
+                    } else {
+                        throw new Error(`Cannot satisfy mandatory parameter: ${name}`);
+                    }
+                } else {
+                    return part;
+                }
+            }
+        )
+        .filter(
+            part => part !== null
+        )
         .join('/');
 
-    let search = stringifyQueryString(query);
     return search ? `${base}?${search}` : base;
-}
-
-export function createCompareFunc(accessor, descending = false) {
-    return function (obj1, obj2) {
-        let value1 = accessor(obj1);
-        let value2 = accessor(obj2);
-
-        return (descending ? -1 : 1) *
-            (value1 < value2 ? -1 : (value1 > value2 ? 1 : 0));
-    }
 }
 
 export function throttle(func, grace, owner) {
@@ -147,19 +169,15 @@ export function throttle(func, grace, owner) {
     return function(...args) {
         clearTimeout(handle);
         handle = setTimeout(() => func.apply(owner || this, args), grace);
-    }
+    };
 }
 
-export function cmpStrings(a, b) {
+export function compare(a, b) {
     return a < b ? -1 : ( b < a ? 1 : 0);
 }
 
-export function cmpInts(a, b) {
-    return a - b;
-}
-
-export function cmpBools(a, b) {
-    return b - a;
+export function createCompareFunc(accessor, factor = 1) {
+    return (a,b) => factor * compare(accessor(a), accessor(b));
 }
 
 export function equalNoCase(str1, str2) {
@@ -217,8 +235,8 @@ export function makeRange(start, end) {
         start = 0;
     }
 
-    let dir = start > end ? -1 : 1; 
-    let count = Math.abs(end - start + dir)
+    let dir = start > end ? -1 : 1;
+    let count = Math.abs(end - start + dir);
 
     return makeArray(
         count,
@@ -226,12 +244,12 @@ export function makeRange(start, end) {
     );
 }
 
-window.makeRange = makeRange;
-
 export function domFromHtml(html) {
-    let parser = new DOMParser();
-    let doc = parser.parseFromString(html, 'text/html');
-    return doc.body.children;
+    // Switched to template element because DOMParser did not parsed
+    // <tr>, <td>, <option> and <li> elements as root elements.
+    let template = document.createElement('template');
+    template.innerHTML = html;
+    return template.content.childNodes;
 }
 
 export function encodeBase64(obj) {
@@ -302,4 +320,71 @@ export function toOwnKeyValuePair(obj) {
         .map(
             key => ({ key: key, value: obj[key] })
         );
+}
+
+export function bitsToNumber(...bits) {
+    return bits.reduce(
+        (number, bit) => number << 1 | (!!bit | 0),
+        0
+    );
+}
+
+export function pad(num, size, char = '0') {
+    return (char.repeat(size) + num).substr(-size);
+}
+
+export function deepFreeze(val) {
+    if (isObject(val) && !Object.isFrozen(val)) {
+        Object.keys(val).forEach(
+            key => { val[key] = deepFreeze(val[key]); }
+        );
+        return Object.freeze(val);
+    } else {
+        return val;
+    }
+}
+
+export function waitFor(miliseconds, value) {
+    return new Promise(
+        resolve => setTimeout(
+            () => resolve(value),
+            miliseconds
+        )
+    );
+}
+
+export function areSame(a, b) {
+    return a === b;
+}
+
+export function capitalize(str) {
+    return str[0].toUpperCase() + str.substr(1);
+}
+
+export function flatMap(arr, predicate) {
+    return arr.reduce(
+        (result, item) => {
+            let mappedValue = predicate(item);
+
+            if (isArray(mappedValue)) {
+                result.push(...mappedValue);
+            } else {
+                result.push(mappedValue);
+            }
+
+            return result;
+        },
+        []
+    );
+}
+
+export function recognizeBrowser() {
+    const userAgentTokens = [
+        'chrome', 'chromium', 'firefox', 'edge', 'msie', 'safari', 'opr'
+    ];
+
+    let userAgent = navigator.userAgent.toLowerCase();
+    return  userAgentTokens.find(
+        token => userAgent.includes(token)
+    );
 }

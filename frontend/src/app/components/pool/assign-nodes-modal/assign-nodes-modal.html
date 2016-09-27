@@ -1,56 +1,40 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2 container">
-        Assign Nodes
-    </h1>    
-    <div class="table-wrapper box container">
-        <div class="data-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="name-col text-left">name</th>
-                        <th class="ip-col">ip</th>
-                        <th class="capacity-col">capacity</th>
-                        <th class="pool-col">pool</th>
-                    </tr>
-                </thead>
-                <tbody data-bind="
-                    foreach: rows, 
-                    validationOptions: { insertMessages: false }
-                ">
-                    <!-- ko if: isVisible -->
-                    <tr>
-                        <td class="name-col text-left">
-                            <checkbox params="
-                                value: name, 
-                                checked: $parent.selectedNodes
-                            "></checkbox>
-                        </td>
+<modal class="modal-auto-height" params="
+    title: 'Assign Nodes',
+    onClose: () => cancel()
+">
+    <div class="row push-next content-middle">
+        <input type="search" placeholder="filter by node name or ip" class="push-next"
+            data-bind="textInput: nameOrIpFilter"/>
 
-                        <td class="ip-col" data-bind="text: ip"></td>
-                        
-                        <td class="capacity-col" data-bind="text: capacity"></td>
+        <span class="push-next">in</span>
 
-                        <td class="pool-col">
-                            <div class="no-wrap" data-bind="
-                                text: currPool, 
-                                tooltip: currPool
-                            "></div>
-                        </td>
-                    </tr>
-                    <!-- /ko -->
-                </tbody>
-            </table>
+        <dropdown class="push-next" params="
+            placeholder: 'All Pools',
+            options: poolFilterOptions,
+            selected: poolFilter
+        "></dropdown>
 
-            <div class="empty-message" data-bind="
-                visible: !!emptyMessage(),
-                text: emptyMessage()
-            "></div>
-        </div>
+        <checkbox class="push-next" params="
+            checked: onlineFilter,
+            label: 'Show online nodes only'
+        "></checkbox>
     </div>
-    <div class="val-msg" data-bind="validationMessage: selectedNodes"></div>
 
-    <div class="action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>    
-        <button class="action btn2" data-bind="click: assign">Assign</button>        
+    <node-selection-table class="greedy" params="
+        caption: 'Select nodes you wish to move into this pool',
+        nodes: nodes,
+        selectedNodes: selectedNodes,
+        nodeCount: nodeCount,
+        poolName: poolName,
+        emptyMessage: emptyMessage
+    "></node-selection-table>
+
+    <div class="row align-end ">
+        <button class="link alt-colors push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="click: assign">
+            Assign
+        </button>
     </div>
 </modal>

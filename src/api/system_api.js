@@ -15,29 +15,61 @@ module.exports = {
     methods: {
 
         create_system: {
+            doc: 'Create a new system',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'email', 'password', 'access_keys', 'activation_code'],
                 properties: {
                     name: {
                         type: 'string',
                     },
+                    email: {
+                        type: 'string',
+                    },
+                    password: {
+                        type: 'string',
+                    },
+                    activation_code: {
+                        type: 'string',
+                    },
+                    access_keys: {
+                        type: 'object',
+                        properties: {
+                            access_key: {
+                                type: 'string'
+                            },
+                            secret_key: {
+                                type: 'string'
+                            }
+                        }
+                    },
+                    //Optionals: DNS, NTP and NooBaa Domain Name
+                    time_config: {
+                        $ref: 'cluster_internal_api#/definitions/time_config'
+                    },
+                    dns_servers: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    },
+                    dns_name: {
+                        type: 'string'
+                    }
                 },
             },
             reply: {
                 type: 'object',
-                required: ['token', 'info'],
+                required: ['token'],
                 properties: {
                     token: {
-                        type: 'string',
-                    },
-                    info: {
-                        $ref: '#/definitions/system_info'
-                    },
+                        type: 'string'
+                    }
                 }
             },
             auth: {
+                account: false,
                 system: false,
             }
         },
@@ -64,6 +96,41 @@ module.exports = {
                         type: 'string',
                     },
                 },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        set_maintenance_mode: {
+            doc: 'Configure system maintenance',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['duration'],
+                properties: {
+                    // Number of minutes
+                    duration: {
+                        type: 'number',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        set_webserver_master_state: {
+            doc: 'Set if webserver is master',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['is_master'],
+                properties: {
+                    is_master: {
+                        type: 'boolean',
+                    },
+                }
             },
             auth: {
                 system: 'admin',
@@ -99,6 +166,24 @@ module.exports = {
             }
         },
 
+        log_frontend_stack_trace: {
+            doc: 'Add frontend stack trace to logs',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['stack_trace'],
+                properties: {
+                    stack_trace: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {},
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
         add_role: {
             doc: 'Add role',
@@ -140,6 +225,53 @@ module.exports = {
             }
         },
 
+        set_last_stats_report_time: {
+            doc: 'Set last stats report sync time',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['last_stats_report'],
+                properties: {
+                    last_stats_report: {
+                        format: 'idate',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        export_activity_log: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    event: {
+                        type: 'string',
+                    },
+                    events: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    till: {
+                        format: 'idate'
+                    },
+                    since: {
+                        format: 'idate'
+                    }
+                }
+            },
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
         read_activity_log: {
             method: 'GET',
@@ -271,7 +403,7 @@ module.exports = {
             }
         },
 
-        diagnose: {
+        diagnose_system: {
             method: 'GET',
             reply: {
                 type: 'string',
@@ -281,16 +413,13 @@ module.exports = {
             }
         },
 
-        start_debug: {
-            method: 'POST',
+        diagnose_node: {
+            method: 'GET',
             params: {
-                type: 'object',
-                required: ['level'],
-                properties: {
-                    level: {
-                        type: 'integer',
-                    },
-                },
+                $ref: 'node_api#/definitions/node_identity'
+            },
+            reply: {
+                type: 'string',
             },
             auth: {
                 system: 'admin',
@@ -301,9 +430,6 @@ module.exports = {
             method: 'POST',
             params: {
                 $ref: 'common_api#/definitions/n2n_config'
-            },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
             },
             auth: {
                 system: 'admin',
@@ -321,8 +447,51 @@ module.exports = {
                     }
                 }
             },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_phone_home_config: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['proxy_address'],
+                properties: {
+                    proxy_address: {
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'string'
+                        }]
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        configure_remote_syslog: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['enabled'],
+                properties: {
+                    enabled: {
+                        type: 'boolean'
+                    },
+                    protocol: {
+                        type: 'string',
+                        enum: ['TCP', 'UDP']
+                    },
+                    address: {
+                        type: 'string'
+                    },
+                    port: {
+                        type: 'number'
+                    }
+                }
             },
             auth: {
                 system: 'admin',
@@ -336,11 +505,8 @@ module.exports = {
             }
         },
 
-        update_time_config: {
+        phone_home_capacity_notified: {
             method: 'POST',
-            params: {
-                $ref: '#/definitions/time_config'
-            },
             auth: {
                 system: 'admin',
             }
@@ -357,13 +523,43 @@ module.exports = {
                     }
                 }
             },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
-            },
             auth: {
                 system: 'admin',
             }
         },
+
+
+        validate_activation: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['code'],
+                properties: {
+                    code: {
+                        type: 'string'
+                    },
+                    email: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['valid'],
+                properties: {
+                    valid: {
+                        type: 'boolean',
+                    },
+                    reason: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        }
     },
 
     definitions: {
@@ -405,6 +601,9 @@ module.exports = {
                 owner: {
                     $ref: 'account_api#/definitions/account_info'
                 },
+                last_stats_report: {
+                    format: 'idate',
+                },
                 tiers: {
                     type: 'array',
                     items: {
@@ -415,7 +614,7 @@ module.exports = {
                     $ref: 'common_api#/definitions/storage_info'
                 },
                 nodes: {
-                    $ref: '#/definitions/nodes_info'
+                    $ref: 'node_api#/definitions/nodes_aggregate_info'
                 },
                 buckets: {
                     type: 'array',
@@ -429,15 +628,15 @@ module.exports = {
                         $ref: 'pool_api#/definitions/pool_extended_info'
                     },
                 },
+                accounts: {
+                    type: 'array',
+                    items: {
+                        $ref: 'account_api#/definitions/account_info'
+                    }
+                },
                 objects: {
                     type: 'integer'
                 },
-                /*access_keys: {
-                    type: 'array',
-                    items: {
-                        $ref: '#/definitions/access_keys'
-                    }
-                },*/
                 ssl_port: {
                     type: 'string'
                 },
@@ -458,8 +657,53 @@ module.exports = {
                         },
                     }
                 },
+                maintenance_mode: {
+                    type: 'object',
+                    required: ['state'],
+                    properties: {
+                        state: {
+                            type: 'boolean',
+                        },
+                        till: {
+                            format: 'idate',
+                        },
+                    }
+                },
                 n2n_config: {
                     $ref: 'common_api#/definitions/n2n_config'
+                },
+                phone_home_config: {
+                    type: 'object',
+                    properties: {
+                        proxy_address: {
+                            anyOf: [{
+                                type: 'null'
+                            }, {
+                                type: 'string'
+                            }]
+                        },
+                        upgraded_cap_notification: {
+                            type: 'boolean'
+                        },
+                        phone_home_unable_comm: {
+                            type: 'boolean'
+                        },
+                    }
+                },
+                remote_syslog_config: {
+                    type: 'object',
+                    properties: {
+                        protocol: {
+                            type: 'string',
+                            enum: ['TCP', 'UDP']
+                        },
+                        address: {
+                            type: 'string'
+                        },
+                        port: {
+                            type: 'number'
+                        }
+                    }
                 },
                 ip_address: {
                     type: 'string'
@@ -473,26 +717,29 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
-                time_config: {
+                debug_level: {
+                    type: 'integer'
+                },
+                system_cap: {
+                    type: 'integer'
+                },
+                upgrade: {
                     type: 'object',
                     properties: {
-                        srv_time: {
-                            type: 'string'
+                        status: {
+                            type: 'string',
+                            enum: ['CAN_UPGRADE', 'FAILED', 'PENDING', 'UNAVAILABLE']
                         },
-                        ntp_server: {
-                            type: 'string'
+                        message: {
+                            type: 'string',
                         },
-                        synced: {
-                            type: 'boolean'
-                        },
-                        timezone: {
-                            type: 'string'
-                        },
-                    }
-                }
-            }
+                    },
+                },
+                cluster: {
+                    $ref: '#/definitions/cluster_info'
+                },
+            },
         },
-
 
         role_info: {
             type: 'object',
@@ -525,19 +772,6 @@ module.exports = {
             type: 'string',
         },
 
-        nodes_info: {
-            type: 'object',
-            required: ['count', 'online'],
-            properties: {
-                count: {
-                    type: 'integer'
-                },
-                online: {
-                    type: 'integer'
-                },
-            }
-        },
-
         access_keys: {
             type: 'object',
             required: ['access_key', 'secret_key'],
@@ -551,41 +785,83 @@ module.exports = {
             }
         },
 
-        system_nodes_update_reply: {
+        cluster_info: {
             type: 'object',
-            required: ['nodes_count', 'nodes_updated'],
+            // required: ['count', 'online'],
             properties: {
-                nodes_count: {
-                    type: 'integer'
+                master_secret: {
+                    type: 'string',
                 },
-                nodes_updated: {
-                    type: 'integer'
+                shards: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            shardname: {
+                                type: 'string',
+                            },
+                            high_availabilty: {
+                                type: 'boolean',
+                            },
+                            servers: {
+                                type: 'array',
+                                items: {
+                                    $ref: '#/definitions/cluster_server_info'
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
 
-        time_config: {
+        cluster_server_info: {
             type: 'object',
-            required: ['config_type', 'timezone'],
             properties: {
-                config_type: {
-                    $ref: '#/definitions/time_config_type'
+                version: {
+                    type: 'string'
+                },
+                secret: {
+                    type: 'string',
+                },
+                status: {
+                    type: 'string',
+                    enum: ['CONNECTED', 'DISCONNECTED', 'IN_PROGRESS']
+                },
+                hostname: {
+                    type: 'string'
+                },
+                address: {
+                    type: 'string'
+                },
+                memory_usage: {
+                    type: 'number'
+                },
+                cpu_usage: {
+                    type: 'number'
+                },
+                location: {
+                    type: 'string'
+                },
+                ntp_server: {
+                    type: 'string'
+                },
+                time_epoch: {
+                    format: 'idate'
                 },
                 timezone: {
                     type: 'string'
                 },
-                server: {
-                    type: 'string'
+                dns_servers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
                 },
-                epoch: {
-                    type: 'number'
-                },
-            },
+                debug_level: {
+                    type: 'integer'
+                }
+            }
         },
-
-        time_config_type: {
-            enum: ['NTP', 'MANUAL'],
-            type: 'string',
-        }
     }
 };

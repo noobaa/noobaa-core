@@ -1,0 +1,12 @@
+<modal class="modal-xsmall" params="
+    title: 'Cloud resource deleted',
+    onClose: () => close()
+">
+    <div class="column greedy message">
+        <p>Deleting this resource will not delete the data stored on the cloud bucket.</p>
+
+        <p>The data is still stored on the cloud bucket and should be deleted manually.</p>
+    </div>
+
+    <button class="btn align-end" data-bind="click: close">Ok, Got it</button>
+</modal>

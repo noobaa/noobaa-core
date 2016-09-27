@@ -24,7 +24,10 @@ module.exports = {
                     },
                     tiering: {
                         type: 'string',
-                    }
+                    },
+                    tag: {
+                        type: 'string',
+                    },
                 }
             },
             reply: {
@@ -68,6 +71,9 @@ module.exports = {
                     },
                     tiering: {
                         type: 'string',
+                    },
+                    new_tag: {
+                        type: 'string',
                     }
                 }
             },
@@ -77,6 +83,22 @@ module.exports = {
         },
 
         delete_bucket: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_bucket_lifecycle: {
             method: 'DELETE',
             params: {
                 type: 'object',
@@ -155,7 +177,7 @@ module.exports = {
             }
         },
 
-        get_cloud_sync_policy: {
+        get_cloud_sync: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -167,67 +189,19 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    endpoint: {
-                        type: 'string'
-                    },
-                    access_key: {
-                        type: 'string'
-                    },
-                    policy: {
-                        $ref: '#/definitions/cloud_sync'
-                    },
-                    health: {
-                        type: 'boolean'
-                    },
-                    status: {
-                        $ref: '#/definitions/api_cloud_sync_status'
-                    },
-                    last_sync: {
-                        format: 'idate'
-                    }
-                }
+                $ref: '#/definitions/cloud_sync_info'
             },
             auth: {
                 system: 'admin'
             }
         },
 
-        get_all_cloud_sync_policies: {
+        get_all_cloud_sync: {
             method: 'GET',
             reply: {
                 type: 'array',
-                // required: [],
                 items: {
-                    type: 'object',
-                    properties: {
-                        name: {
-                            type: 'string'
-                        },
-                        endpoint: {
-                            type: 'string'
-                        },
-                        access_key: {
-                            type: 'string'
-                        },
-                        policy: {
-                            $ref: '#/definitions/cloud_sync'
-                        },
-                        health: {
-                            type: 'boolean'
-                        },
-                        status: {
-                            $ref: '#/definitions/api_cloud_sync_status'
-                        },
-                        last_sync: {
-                            format: 'idate'
-                        }
-                    }
+                    $ref: '#/definitions/cloud_sync_info'
                 }
             },
             auth: {
@@ -263,8 +237,30 @@ module.exports = {
                     connection: {
                         type: 'string'
                     },
+                    target_bucket: {
+                        type: 'string'
+                    },
                     policy: {
-                        $ref: '#/definitions/cloud_sync'
+                        $ref: '#/definitions/cloud_sync_policy'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_cloud_sync: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'policy'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    policy: {
+                        $ref: '#/definitions/cloud_sync_policy'
                     }
                 }
             },
@@ -341,6 +337,179 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+        set_bucket_lifecycle_configuration_rules: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    rules: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['id', 'prefix', 'status', 'expiration'],
+                            properties: {
+                                id: {
+                                    type: 'string'
+                                },
+                                prefix: {
+                                    type: 'string'
+                                },
+                                status: {
+                                    type: 'string'
+                                },
+                                expiration: {
+                                    type: 'object',
+                                    properties: {
+                                        days: {
+                                            type: 'integer'
+                                        },
+                                        date: {
+                                            format: 'idate'
+                                        },
+                                        expired_object_delete_marker: {
+                                            type: 'boolean'
+                                        }
+
+                                    }
+                                },
+                                abort_incomplete_multipart_upload: {
+                                    type: 'object',
+                                    properties: {
+                                        days_after_initiation: {
+                                            type: 'integer'
+                                        },
+                                    }
+                                },
+                                transition: {
+                                    type: 'object',
+                                    properties: {
+                                        date: {
+                                            format: 'idate'
+                                        },
+                                        storage_class: {
+                                            $ref: '#/definitions/storage_class_enum'
+                                        }
+                                    }
+                                },
+                                noncurrent_version_expiration: {
+                                    type: 'object',
+                                    properties: {
+                                        noncurrent_days: {
+                                            type: 'integer'
+                                        },
+                                    }
+                                },
+                                noncurrent_version_transition: {
+                                    type: 'object',
+                                    properties: {
+                                        noncurrent_days: {
+                                            type: 'integer'
+                                        },
+                                        storage_class: {
+                                            $ref: '#/definitions/storage_class_enum'
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            },
+        },
+        get_bucket_lifecycle_configuration_rules: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['id', 'prefix', 'status', 'expiration'],
+                    properties: {
+                        id: {
+                            type: 'string'
+                        },
+                        prefix: {
+                            type: 'string'
+                        },
+                        status: {
+                            type: 'string'
+                        },
+                        last_sync: {
+                            format: 'idate'
+                        },
+                        expiration: {
+                            type: 'object',
+                            properties: {
+                                days: {
+                                    type: 'integer'
+                                },
+                                date: {
+                                    format: 'idate'
+                                },
+                                expired_object_delete_marker: {
+                                    type: 'boolean'
+                                }
+
+                            }
+                        },
+                        abort_incomplete_multipart_upload: {
+                            type: 'object',
+                            properties: {
+                                days_after_initiation: {
+                                    type: 'integer'
+                                },
+                            }
+                        },
+                        transition: {
+                            type: 'object',
+                            properties: {
+                                date: {
+                                    format: 'idate'
+                                },
+                                storage_class: {
+                                    $ref: '#/definitions/storage_class_enum'
+                                }
+                            }
+                        },
+                        noncurrent_version_expiration: {
+                            type: 'object',
+                            properties: {
+                                noncurrent_days: {
+                                    type: 'integer'
+                                },
+                            }
+                        },
+                        noncurrent_version_transition: {
+                            type: 'object',
+                            properties: {
+                                noncurrent_days: {
+                                    type: 'integer'
+                                },
+                                storage_class: {
+                                    $ref: '#/definitions/storage_class_enum'
+                                }
+                            }
+                        },
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
 
     },
@@ -349,7 +518,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'tiering', 'storage', 'num_objects'],
+            required: ['name', 'tiering', 'storage', 'data', 'num_objects'],
             properties: {
                 name: {
                     type: 'string',
@@ -360,23 +529,97 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
+                data: {
+                    type: 'object',
+                    properties: {
+                        // This is the sum of all compressed chunks that are related to the bucket.
+                        // Which means that it includes dedup and compression, but not replicas.
+                        size_reduced: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        // This is logical size aggregation of objects that are related to the bucket.
+                        size: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        // This is the actual free space of the bucket considering data placement policy.
+                        // On mirror it is the minimum free space of the pools, on spread it is the sum.
+                        // Also we divide by replicas in order to get the actual size that can be written.
+                        actual_free: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                    }
+                },
                 num_objects: {
                     type: 'integer'
                 },
-                cloud_sync_status: {
-                    $ref: '#/definitions/api_cloud_sync_status'
+                cloud_sync: {
+                    $ref: '#/definitions/cloud_sync_info'
+                },
+                tag: {
+                    type: 'string'
+                },
+                demo_bucket: {
+                    type: 'boolean'
+                },
+                stats: {
+                    type: 'object',
+                    properties: {
+                        reads: {
+                            type: 'integer'
+                        },
+                        writes: {
+                            type: 'integer'
+                        },
+                        last_read: {
+                            format: 'idate'
+                        },
+                        last_write: {
+                            format: 'idate'
+                        },
+                    },
                 }
             }
         },
 
-        cloud_sync: {
+        cloud_sync_info: {
             type: 'object',
-            required: ['target_bucket', 'schedule'],
             properties: {
-                target_bucket: {
-                    type: 'string',
+                name: {
+                    type: 'string'
                 },
-                schedule: {
+                endpoint: {
+                    type: 'string'
+                },
+                endpoint_type: {
+                    type: 'string',
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                },
+                access_key: {
+                    type: 'string'
+                },
+                target_bucket: {
+                    type: 'string'
+                },
+                policy: {
+                    $ref: '#/definitions/cloud_sync_policy'
+                },
+                health: {
+                    type: 'boolean'
+                },
+                status: {
+                    $ref: '#/definitions/api_cloud_sync_status'
+                },
+                last_sync: {
+                    format: 'idate'
+                }
+            }
+        },
+
+        cloud_sync_policy: {
+            type: 'object',
+            required: ['schedule_min'],
+            properties: {
+                schedule_min: {
                     type: 'integer'
                 },
                 c2n_enabled: {
@@ -385,7 +628,8 @@ module.exports = {
                 n2c_enabled: {
                     type: 'boolean',
                 },
-                additions_only: { //If true, only additions will be synced
+                //If true, only additions will be synced
+                additions_only: {
                     type: 'boolean',
                 }
             }
@@ -408,7 +652,7 @@ module.exports = {
         },
 
         api_cloud_sync_status: {
-            enum: ['PENDING', 'SYNCING', 'PASUED', 'UNABLE', 'SYNCED', 'NOTSET'],
+            enum: ['PENDING', 'SYNCING', 'PAUSED', 'UNABLE', 'SYNCED', 'NOTSET'],
             type: 'string',
         },
 
@@ -416,7 +660,9 @@ module.exports = {
             enum: ['IDLE', 'SYNCING'],
             type: 'string',
         },
-
+        storage_class_enum: {
+            enum: ['STANDARD_IA', 'GLACIER'],
+            type: 'string'
+        }
     },
-
 };

@@ -4,10 +4,11 @@ const _ = require('lodash');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
 const md_store = require('./md_store');
 const server_rpc = require('../server_rpc');
-const nodes_store = require('../node_services/nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
+const nodes_client = require('../node_services/nodes_client');
 
 
 /**
@@ -19,7 +20,7 @@ function delete_object_mappings(obj) {
     // find parts intersecting the [start,end) range
     var deleted_parts;
     var all_chunk_ids;
-    return P.when(md_store.ObjectPart.collection.find({
+    return P.resolve(md_store.ObjectPart.collection.find({
             system: obj.system,
             obj: obj._id,
             deleted: null,
@@ -90,7 +91,7 @@ function delete_object_mappings(obj) {
  */
 function delete_objects_from_agents(deleted_chunk_ids) {
     //Find the deleted data blocks and their nodes
-    P.when(md_store.DataBlock.collection.find({
+    P.resolve(md_store.DataBlock.collection.find({
             chunk: {
                 $in: deleted_chunk_ids
             },
@@ -98,11 +99,13 @@ function delete_objects_from_agents(deleted_chunk_ids) {
             //delete_object_mappings with P.all along with the DataBlocks
             //deletion update
         }).toArray())
-        .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
+        .then(blocks => nodes_client.instance().populate_nodes_for_map(
+            blocks[0] && blocks[0].system, blocks, 'node'))
         .then(deleted_blocks => {
             //TODO: If the overload of these calls is too big, we should protect
             //ourselves in a similar manner to the replication
-            var blocks_by_node = _.groupBy(deleted_blocks, block => block.node._id);
+            var blocks_by_node = _.groupBy(deleted_blocks,
+                block => String(block.node._id));
             return P.all(_.map(blocks_by_node, agent_delete_call));
         });
 }
@@ -114,14 +117,14 @@ function delete_objects_from_agents(deleted_chunk_ids) {
  */
 function agent_delete_call(del_blocks, node_id) {
     var address = del_blocks[0].node.rpc_address;
-    var block_ids = _.map(del_blocks, block => block._id.toString());
+    var block_ids = _.map(del_blocks, block => String(block._id));
     dbg.log0('agent_delete_call: node', node_id, address,
         'block_ids', block_ids.length);
-    return server_rpc.client.agent.delete_blocks({
-        blocks: block_ids
+    return server_rpc.client.block_store.delete_blocks({
+        block_ids: block_ids
     }, {
         address: address,
-        timeout: 30000,
+        timeout: config.IO_DELETE_BLOCK_TIMEOUT,
     }).then(() => {
         dbg.log0('agent_delete_call: DONE. node', node_id, address,
             'block_ids', block_ids.length);

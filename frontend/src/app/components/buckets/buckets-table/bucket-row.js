@@ -1,105 +1,236 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { formatSize, isDefined } from 'utils';
+import { systemInfo } from 'model';
+import { deepFreeze, isDefined, capitalize } from 'utils';
 import { deleteBucket } from'actions';
 
-const stateMapping = Object.freeze({
+const stateIconMapping = deepFreeze({
     true: {
-        toolTip: 'Healthy',
-        icon: '/fe/assets/icons.svg#bucket-healthy'
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
     },
 
     false: {
-        toolTip: 'Problem',
-        icon: '/fe/assets/icons.svg#bucket-problam'
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Problem'
     }
 });
 
-const cloudSyncStatusMapping = Object.freeze({
-    [undefined]:    { label: 'N/A',             css: ''               },
-    NOTSET:         { label: 'not set',         css: 'no-set'         },
-    PENDING:        { label: 'pending',         css: 'pending'       },
-    SYNCING:        { label: 'syncing',         css: 'syncing'        },
-    PASUED:         { label: 'paused',          css: 'paused'         },
-    SYNCED:         { label: 'synced',          css: 'synced'         },
-    UNABLE:         { label: 'unable to sync',  css: 'unable-to-sync' }
+const cloudSyncStatusMapping = deepFreeze({
+    NOTSET: {
+        text: 'not set',
+        css: ''
+    },
+    PENDING: {
+        text: 'pending',
+        css: ''
+    },
+    SYNCING: {
+        text: 'syncing',
+        css: ''
+    },
+    PAUSED: {
+        text: 'paused',
+        css: ''
+    },
+    SYNCED: {
+        text: 'synced',
+        css: ''
+    },
+    UNABLE: {
+        text: 'unable to sync',
+        css: 'error'
+    }
 });
 
-export default class BucketRowViewModel {
-    constructor(bucket, isLastBucket) {
-        this.isVisible = ko.pureComputed( 
-            () => !!bucket()
-        );
+const placementPolicyTypeMapping = deepFreeze({
+    SPREAD: 'Spread',
+    MIRROR: 'Mirrored'
+});
 
-        let stateMap = ko.pureComputed(
-            () => bucket() && stateMapping[bucket().state || true]
-        );
+function cloudStorageIcon(list, baseIconName, tooltipTitle) {
+    let count = list.length;
+    let name =  `${baseIconName}${count ? '-colored' : ''}`;
 
-        this.stateToolTip = ko.pureComputed(
-            () => stateMap() && stateMap().toolTip
-        );
+    let tooltipText = count === 0 ?
+        `No ${tooltipTitle}` :
+        { title: capitalize(tooltipTitle), list: list };
 
-        this.stateIcon = ko.pureComputed(
-            () => stateMap() && stateMap().icon
+    return {
+        name: name,
+        tooltip: { text: tooltipText }
+    };
+}
+
+export default class BucketRowViewModel extends Disposable {
+    constructor(bucket, deleteGroup, isLastBucket) {
+        super();
+
+        this.state = ko.pureComputed(
+            () => bucket() ? stateIconMapping[bucket().state || true] : {}
         );
 
         this.name = ko.pureComputed(
-            () => bucket() && bucket().name
-        );
+            () => {
+                if (!bucket()) {
+                    return {};
+                }
 
-        this.href = ko.pureComputed(
-            () => bucket() && `/fe/systems/:system/buckets/${bucket().name}`
+                let { name } = bucket();
+                return {
+                    text: name,
+                    href: { route: 'bucket', params: { bucket: name } }
+                };
+            }
         );
 
         this.fileCount = ko.pureComputed(
             () => {
-                if (bucket()) {
-                    let count = bucket().num_objects;
-                    return isDefined(count) ? numeral(count).format('0,0') : 'N/A';                    
+                if (!bucket()) {
+                    return {};
                 }
 
+                let count = bucket().num_objects;
+                return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
             }
         );
 
-        this.totalSize = ko.pureComputed(
+        let tierName = ko.pureComputed(
+            () => bucket() && bucket().tiering.tiers[0].tier
+        );
+
+        let tier = ko.pureComputed(
+            () => systemInfo() && systemInfo().tiers.find(
+                tier => tier.name === tierName()
+            )
+        );
+
+        this.placementPolicy = ko.pureComputed(
             () => {
-                if (bucket()) {                
-                    let storage = bucket().storage;
-                    return isDefined(storage) ? formatSize(storage.total) : 'N/A';
+                if (tier()) {
+                    let { data_placement, node_pools } = tier();
+                    let count = node_pools.length;
+
+                    let text = `${
+                            placementPolicyTypeMapping[data_placement]
+                        } on ${
+                            count
+                        } pool${
+                            count === 1 ? '' : 's'
+                        }`;
+
+                    return {
+                        text: text,
+                        tooltip: node_pools
+                    };
                 }
             }
         );
 
-        this.freeSize = ko.pureComputed(
+        let cloudPolicy = ko.pureComputed(
             () => {
-                if (bucket()) {
-                    let storage = bucket().storage;
-                    return isDefined(storage) ? formatSize(storage.free) : 'N/A';
+                let policy = { AWS: [], AZURE: [], S3_COMPATIBLE: [] };
+                if (!tier()) {
+                    return policy;
                 }
+
+                let a = tier().cloud_pools
+                    .map(
+                        name => systemInfo().pools.find(
+                            pool => pool.name === name
+                        )
+                    )
+                    .reduce(
+                        (mapping, pool) => {
+                            mapping[pool.cloud_info.endpoint_type].push(pool.name);
+                            return mapping;
+                        },
+                        policy
+                    );
+
+                return a;
             }
         );
 
-        this.cloudSyncStatus = ko.pureComputed(
-            () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
+        this.cloudStorage = {
+            awsIcon: ko.pureComputed(
+                () => cloudStorageIcon(
+                    cloudPolicy().AWS,
+                    'aws-s3-resource',
+                    'AWS S3 resources'
+                )
+            ),
+            azureIcon: ko.pureComputed(
+                () => cloudStorageIcon(
+                    cloudPolicy().AZURE,
+                    'azure-resource',
+                    'Azure resources'
+                )
+            ),
+            cloudIcon: ko.pureComputed(
+                () => cloudStorageIcon(
+                    cloudPolicy().S3_COMPATIBLE,
+                    'cloud-resource',
+                    'generic cloud resorurces'
+                )
+            )
+        };
+
+        let storage = ko.pureComputed(
+            () => bucket() ? bucket().storage : {}
         );
 
-        
+        this.capacity = {
+            total: ko.pureComputed(
+                () => storage().total
+            ),
+            used: ko.pureComputed(
+                () => storage().used
+            )
+        };
+
+
+        this.cloudSync = ko.pureComputed(
+            () => bucket() && cloudSyncStatusMapping[
+                bucket().cloud_sync ? bucket().cloud_sync.status : 'NOTSET'
+            ]
+        );
+
         let hasObjects = ko.pureComputed(
-            () => bucket() && bucket().num_objects > 0
+            () => Boolean(bucket() && bucket().num_objects > 0)
         );
 
-        this.isDeletable = ko.pureComputed(
-            () => !isLastBucket() && !hasObjects()
+        let isDemoBucket = ko.pureComputed(
+            () => Boolean(bucket() && bucket().demo_bucket)
         );
 
-        this.deleteToolTip = ko.pureComputed(
-            () => isLastBucket() ? 
-                 'Cannot delete last bucket' :
-                 (hasObjects() ? 'bucket not empty' : 'delete bucket')
-        );
-    }
+        this.deleteButton = {
+            subject: 'bucket',
+            group: deleteGroup,
+            undeletable: ko.pureComputed(
+                () => isDemoBucket() || isLastBucket() || hasObjects()
+            ),
+            tooltip: ko.pureComputed(
+                () => {
+                    if (isDemoBucket()) {
+                        return 'Demo buckets cannot be deleted';
+                    }
 
-    del() {
-        deleteBucket(this.name());
+                    if (hasObjects()) {
+                        return 'Bucket not empty';
+                    }
+
+                    if (isLastBucket()) {
+                        return 'Last bucket cannot be deleted';
+                    }
+
+                    return 'delete bucket';
+                }
+            ),
+            onDelete: () => deleteBucket(bucket().name)
+        };
     }
 }

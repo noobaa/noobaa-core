@@ -1,88 +1,123 @@
 import ko from 'knockout';
-import { isObject, isString, isDefined } from 'utils';
+import { isObject, isString } from 'utils';
 
+const tooltip = document.createElement('p');
 const delay = 350;
-
-const alignMapping = Object.freeze({
+const alignments = Object.freeze({
     left: 0,
     center: .5,
     right: 1
 });
 
-function normalizeParams(params) {
-    let alignments = Object.keys(alignMapping);
-
-    return ko.computed(
-        () => {
-            let naked = ko.unwrap(params);
-            if (isObject(naked) && !isString(naked)) {
-                let align = ko.unwrap(naked.align);
-
-                return {
-                    text: ko.unwrap(naked.text),
-                    align: alignments.indexOf(align) > -1 ? align : 'center'
-                };
-
-            } else {
-                
-                return {
-                    text: naked && naked.toString(),
-                    align: 'center'
-                }
-            }
-        }
-    );
+function toHtmlList(arr) {
+    return `<ul class="bullet-list">${
+        arr.map(
+            item => `<li>${item}</li>`
+        ).join('')
+    }</ul>`;
 }
 
-function position(tooltip, target, align) {
+function normalizeValue(value) {
+    if (isString(value)) {
+        return {
+            text: value,
+            css: 'center',
+            align: alignments.center,
+            breakWords: false
+        };
+
+    } else if (value instanceof Array) {
+        return {
+            text: value.length === 1 ? value : toHtmlList(value),
+            css: 'center',
+            align: alignments.center,
+            breakWords: false
+        };
+
+    } else if (isObject(value)) {
+        let text = ko.unwrap(value.text);
+        if (text instanceof Array) {
+            text = value.length === 1 ? value : toHtmlList(value);
+        } else if (isObject(text)) {
+            let { title  = '', list = [] } = text;
+            //text = `<p>${title}:</p>${list[0]}`;
+            text = `<p>${title}:</p>${toHtmlList(list)}`;
+        }
+
+        let pos = ko.unwrap(value.align);
+        if (!Object.keys(alignments).includes(pos)) {
+            pos = 'center';
+        }
+
+        return {
+            text: text,
+            css: pos,
+            align: alignments[pos],
+            breakWords: Boolean(ko.unwrap(value.breakWords))
+        };
+    } else {
+        return {};
+    }
+}
+
+function showTooltip(target, { text, css, align, breakWords }) {
+    tooltip.innerHTML = text;
+    tooltip.className = `tooltip ${css} ${breakWords ? 'break-words' : ''}`;
+    document.body.appendChild(tooltip);
+
     let { left, top } = target.getBoundingClientRect();
     top += target.offsetHeight;
-    left += target.offsetWidth / 2 - tooltip.offsetWidth * alignMapping[align];
-
+    left += target.offsetWidth / 2 - tooltip.offsetWidth * align;
     tooltip.style.top = `${Math.ceil(top)}px`;
     tooltip.style.left = `${Math.ceil(left)}px`;
 }
 
+function hideTooltip() {
+    if (tooltip.parentElement) {
+        document.body.removeChild(tooltip);
+        tooltip.innerHTML = '';
+    }
+}
+
 export default {
-    init: function(target, valueAccessor, allBindings, viewModel, bindingContext) {
-        let params = normalizeParams(valueAccessor());
-        let handle = -1;
-        let tooltip = document.createElement('p');
-
-        ko.utils.registerEventHandler(
-            target,
-            'mouseenter', 
-            () => {
-                handle = setTimeout(
-                    () => {
-                        handle = -1;
-                        if (params().text) {
-                            tooltip.innerHTML = params().text;
-                            tooltip.className = `tooltip ${params().align}`;
-                            document.body.appendChild(tooltip);
-                            position(tooltip, target, params().align);
-                        }
-                    },
-                    delay
-                )
-            }
+    init: function(target, valueAccessor) {
+        let params = ko.pureComputed(
+            () => normalizeValue(ko.unwrap(valueAccessor()))
         );
 
-        ko.utils.registerEventHandler(
-            target,
-            'mouseleave', 
-            () => handle > -1 ? 
-                clearTimeout(handle) : 
-                tooltip.parentElement && document.body.removeChild(tooltip)
+        let hover = ko.observable(false);
+
+        let paramsSub = params.subscribe(
+            params => (hover() && params.text) ?
+                    showTooltip(target, params) :
+                    hideTooltip()
         );
 
+        let hoverSub = hover
+            .extend({
+                rateLimit: {
+                    timeout: delay,
+                    method: 'notifyWhenChangesStop'
+                }
+            })
+            .subscribe(
+                hoverd => (hoverd && params().text) ?
+                    showTooltip(target, params()) :
+                    hideTooltip()
+            );
+
+        // Handle delyed hover state.
+        ko.utils.registerEventHandler(target, 'mouseenter', () => hover(true));
+        ko.utils.registerEventHandler(target, 'mouseleave', () => hover(false));
+
+        // Cleanup code.
         ko.utils.domNodeDisposal.addDisposeCallback(
             target,
             () => {
-                clearTimeout(handle);
-                tooltip.parentElement && document.body.removeChild(tooltip);
-                params.dispose();
+                hideTooltip(tooltip);
+                paramsSub.dispose();
+                hoverSub.dispose();
             }
         );
     }
-}
+};

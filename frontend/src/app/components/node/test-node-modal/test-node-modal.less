@@ -1,46 +1,61 @@
 test-node-modal {
-
-    .container + .container {
-        margin-top: 1.5em;
-    }
-
-    .results {
-        margin-top: 1em;
-        width: 60em;
-        height: 25em;
-    }
-
-    .result {
-        &.completed > .progress-col {
-            color: @text-color7;
+    data-table {
+        .test-col {
+            min-width: 75px;
         }
 
-        &.failed {
-            color: @text-color8;
+        .source-node-col, .target-node-col {
+            .no-wrap();
+            text-align: left;
+            width: 50%;
+            max-width: 136px;
         }
 
-        &.aborted > .progress-col {
-            color: @text-color8;
+        .protocol-col {
+            min-width: 50px;
+        }
+
+        .ip-col {
+            min-width: 100px;
+        }
+
+        .port-col {
+            min-width: 55px;
+        }
+
+        .time-col {
+            min-width: 100px;
+        }
+
+        .speed-col {
+            min-width: 100px;
+        }
+
+        .progress-col {
+            min-width: 75px;
+            text-transform: capitalize;
+
+            .completed  {
+                .success;
+            }
+
+            .failed {
+                .error;
+            }
+
+            .aborted {
+                .warning;
+            }
         }
     }
 
-    .test-col {
-        min-width: 6em;
-    }
+    .summary {
+        padding: 0 @gutter;
+        line-height: 24px;
+        height: 24px;
 
-    .target-col {
-        width: 100%;
-    }
-
-    .time-col {
-        min-width: 7em;
-    }
-
-    .speed-col {
-        min-width: 6em;
-    }
-
-    .progress-col {
-        min-width: 6em;
+        svg-icon {
+            margin-right: @gutter/2;
+        }
     }
 }

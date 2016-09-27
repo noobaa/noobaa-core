@@ -1,6 +1,9 @@
 <!-- ko if: visible -->
-<span class="editor-label" data-bind="text: label"></span>
-<div class="editor-field" data-bind="
+<span class="editor-label push-next" data-bind="
+    css: { disabled: disabled },
+    text: ko.unwrap(label) + ':'
+"></span>
+<div class="editor-content column" data-bind="
     validationOptions: { insertMessages: insertValMessages },
     template: { nodes: $componentTemplateNodes, data: $parent }
 "></div>

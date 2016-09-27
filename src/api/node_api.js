@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  *
  * NODE API
@@ -10,60 +8,70 @@
  * the heartbeat is sent from an agent to the web server
  *
  */
+'use strict';
+
 module.exports = {
 
     id: 'node_api',
 
     methods: {
 
-        create_node: {
-            method: 'POST',
+        heartbeat: {
+            // do not define/require more fields!
+            // read this explanation -
+            // the heartbeat request/reply should not require or verify any fields
+            // since on upgrades the agents are still running old version
+            // and the heartbeat is the one that should let them know they
+            // should pull the new version, so it should not fail on missing/extra fields.
+            method: 'PUT',
             params: {
-                $ref: '#/definitions/node_config'
+                $ref: '#/definitions/heartbeat_schema_for_upgrade_compatibility'
             },
             reply: {
-                type: 'object',
-                required: ['id', 'peer_id', 'token'],
-                properties: {
-                    id: {
-                        type: 'string'
-                    },
-                    peer_id: {
-                        type: 'string'
-                    },
-                    token: {
-                        type: 'string'
-                    }
-                }
+                $ref: '#/definitions/heartbeat_schema_for_upgrade_compatibility'
             },
             auth: {
-                system: ['admin', 'create_node']
+                system: false
+            }
+        },
+
+        test_node_id: {
+            method: 'PUT',
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: false
             }
         },
 
         read_node: {
             method: 'GET',
             params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    }
-                }
+                $ref: '#/definitions/node_identity'
             },
             reply: {
-                $ref: '#/definitions/node_full_info'
+                $ref: '#/definitions/node_info'
             },
             auth: {
                 system: 'admin'
             }
         },
 
-        update_node: {
-            method: 'PUT',
+        decommission_node: {
+            method: 'DELETE',
             params: {
-                $ref: '#/definitions/node_config'
+                $ref: '#/definitions/node_identity'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        recommission_node: {
+            method: 'DELETE',
+            params: {
+                $ref: '#/definitions/node_identity'
             },
             auth: {
                 system: 'admin'
@@ -73,13 +81,7 @@ module.exports = {
         delete_node: {
             method: 'DELETE',
             params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
+                $ref: '#/definitions/node_identity'
             },
             auth: {
                 system: 'admin'
@@ -93,52 +95,12 @@ module.exports = {
                 // required: [],
                 properties: {
                     query: {
-                        type: 'object',
-                        // required: [],
-                        properties: {
-                            pools: {
-                                type: 'array',
-                                items: {
-                                    type: 'string',
-                                },
-                            },
-                            name: {
-                                // regexp
-                                type: 'string'
-                            },
-                            geolocation: {
-                                // regexp
-                                type: 'string'
-                            },
-                            state: {
-                                type: 'string',
-                                enum: ['online', 'offline']
-                            },
-                            filter: {
-                                type: 'string'
-                            },
-                            trust_level: {
-                                type: 'string',
-                                enum: ['TRUSTED', 'UNTRUSTED']
-                            },
-                            accessibility: {
-                                type: 'string',
-                                enum: ['FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS']
-                            },
-                            data_activity: {
-                                type: 'object',
-                                properties: {
-                                    EVACUATING: {
-                                        type: 'boolean'
-                                    },
-                                    REBUILDING: {
-                                        type: 'boolean'
-                                    },
-                                    MIGRATING: {
-                                        type: 'boolean'
-                                    }
-                                }
-                            },
+                        $ref: '#/definitions/nodes_query'
+                    },
+                    fields: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
                         }
                     },
                     skip: {
@@ -152,12 +114,20 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['state', 'name', 'ip', 'capacity', 'hd', 'trust', 'online']
+                        enum: [
+                            'name',
+                            'ip',
+                            'online',
+                            'used',
+                            'trusted',
+                            'accessibility',
+                            'connectivity',
+                            'data_activity'
+                        ]
                     },
                     order: {
                         type: 'integer',
                     }
-
                 }
             },
             reply: {
@@ -167,10 +137,13 @@ module.exports = {
                     total_count: {
                         type: 'integer'
                     },
+                    filter_counts: {
+                        $ref: '#/definitions/nodes_aggregate_info'
+                    },
                     nodes: {
                         type: 'array',
                         items: {
-                            $ref: '#/definitions/node_full_info'
+                            $ref: '#/definitions/node_info'
                         }
                     }
                 }
@@ -180,115 +153,57 @@ module.exports = {
             }
         },
 
-
-        heartbeat: {
-            method: 'PUT',
+        aggregate_nodes: {
+            method: 'GET',
             params: {
                 type: 'object',
-                required: [
-                    'version',
-                    // do not require more fields! see explaination -
-                    // the heartbeat request should require the minimal fields
-                    // since on upgrades the agents are still running old version
-                    // and the heartbeat is the one that should let them know they
-                    // should pull the new version, so it should not fail on missing/extra fields.
-                ],
                 properties: {
-                    //0.4 backward compatibility. allows id and port for old agents
-                    //will return simple reply that will result with agent upgrade
-                    id: {
-                        type: 'string'
+                    query: {
+                        $ref: '#/definitions/nodes_query'
                     },
-                    port: {
-                        type: 'integer'
-                    },
-                    name: {
-                        type: 'string'
-                    },
-                    geolocation: {
-                        type: 'string'
-                    },
-                    ip: {
-                        type: 'string'
-                    },
-                    base_address: {
-                        type: 'string'
-                    },
-                    rpc_address: {
-                        type: 'string'
-                    },
-                    version: {
-                        type: 'string'
-                    },
-                    extended_hb: {
-                        type: 'boolean'
-                    },
-                    storage: {
-                        $ref: 'common_api#/definitions/storage_info'
-                    },
-                    drives: {
-                        type: 'array',
-                        items: {
-                            $ref: 'common_api#/definitions/drive_info'
-                        }
-                    },
-                    os_info: {
-                        $ref: 'common_api#/definitions/os_info'
-                    },
-                    latency_to_server: {
-                        $ref: '#/definitions/latency_array'
-                    },
-                    latency_of_disk_write: {
-                        $ref: '#/definitions/latency_array'
-                    },
-                    latency_of_disk_read: {
-                        $ref: '#/definitions/latency_array'
-                    },
-                    debug_level: {
-                        type: 'integer',
-                    },
-                    cloud_pool_name: {
-                        type: 'string'
-                    },
-                    is_internal_agent: {
-                        type: 'boolean'
+                    group_by: {
+                        type: 'string',
+                        enum: ['pool']
                     }
                 }
             },
             reply: {
                 type: 'object',
-                required: [
-                    'version',
-                    // do not require more fields! see explaination -
-                    // the heartbeat reply should require the minimal fields
-                    // since on upgrades the agents are still running old version
-                    // and the heartbeat is the one that should let them know they
-                    // should pull the new version, so it should not fail on missing/extra fields.
-                ],
+                required: ['nodes', 'storage'],
                 properties: {
-                    auth_token: {
-                        // auth token will only be sent back if new node was created
-                        type: 'string'
-                    },
-                    rpc_address: {
-                        type: 'string'
-                    },
-                    n2n_config: {
-                        $ref: 'common_api#/definitions/n2n_config'
-                    },
-                    version: {
-                        type: 'string'
-                    },
-                    delay_ms: {
-                        type: 'integer'
+                    nodes: {
+                        $ref: '#/definitions/nodes_aggregate_info'
                     },
                     storage: {
                         $ref: 'common_api#/definitions/storage_info'
                     },
+                    data_activities: {
+                        $ref: '#/definitions/data_activities'
+                    },
+                    groups: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                name: {
+                                    type: 'string',
+                                },
+                                nodes: {
+                                    $ref: '#/definitions/nodes_aggregate_info'
+                                },
+                                storage: {
+                                    $ref: 'common_api#/definitions/storage_info'
+                                },
+                                data_activities: {
+                                    $ref: '#/definitions/data_activities'
+                                },
+                            }
+                        }
+                    },
                 }
             },
             auth: {
-                system: ['admin', 'agent', 'create_node']
+                system: 'admin'
             }
         },
 
@@ -305,20 +220,20 @@ module.exports = {
             }
         },
 
-        redirect: {
+        n2n_proxy: {
             method: 'POST',
             params: {
-                $ref: 'redirector_api#/definitions/redirect_params'
+                $ref: 'common_api#/definitions/proxy_params'
             },
             reply: {
-                $ref: 'redirector_api#/definitions/redirect_reply'
+                $ref: 'common_api#/definitions/proxy_reply'
             },
             auth: {
                 system: false
             }
         },
 
-        self_test_to_node_via_web: {
+        test_node_network: {
             method: 'POST',
             params: {
                 $ref: 'agent_api#/definitions/self_test_params'
@@ -334,17 +249,16 @@ module.exports = {
         collect_agent_diagnostics: {
             method: 'GET',
             params: {
-                //type: 'object',
-                $ref: '#/definitions/node_full_info',
-                /*required: ['target'],
-                properties: {
-                    target: {
-                        type: 'string'
-                    }
-                },*/
+                $ref: '#/definitions/node_identity'
             },
             reply: {
-                type: 'string',
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        buffer: true
+                    },
+                },
             },
             auth: {
                 system: 'admin',
@@ -355,10 +269,10 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['target', 'level'],
+                required: ['node', 'level'],
                 properties: {
-                    target: {
-                        type: 'string',
+                    node: {
+                        $ref: '#/definitions/node_identity'
                     },
                     level: {
                         type: 'integer',
@@ -370,20 +284,10 @@ module.exports = {
             }
         },
 
-        test_latency_to_server: {
+        ping: {
             method: 'POST',
             auth: {
                 system: ['admin', 'agent', 'create_node']
-            }
-        },
-
-        max_node_capacity: {
-            method: 'GET',
-            reply: {
-                type: 'integer'
-            },
-            auth: {
-                system: 'admin',
             }
         },
 
@@ -421,26 +325,60 @@ module.exports = {
             }
         },
 
-        report_node_block_error: {
-            method: 'POST',
+        allocate_nodes: {
+            method: 'PUT',
             params: {
                 type: 'object',
-                required: [
-                    'action',
-                    'block_md'
-                ],
+                required: ['pool_id'],
                 properties: {
-                    action: {
-                        type: 'string',
-                        enum: ['write', 'read'],
+                    pool_id: {
+                        type: 'string'
                     },
-                    block_md: {
-                        $ref: 'agent_api#/definitions/block_md'
+                    fields: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
                     },
-                },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/node_info'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        report_error_on_node_blocks: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['blocks_report'],
+                properties: {
+                    blocks_report: {
+                        $ref: 'common_api#/definitions/blocks_report'
+                    }
+                }
             },
             auth: {
                 system: ['admin', 'user', 'agent']
+            }
+        },
+
+        sync_monitor_to_store: {
+            method: 'PUT',
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -449,49 +387,11 @@ module.exports = {
 
     definitions: {
 
-        node_config: {
+        node_info: {
             type: 'object',
-            required: ['name'],
+            required: ['_id'],
             properties: {
-                name: {
-                    type: 'string',
-                },
-                is_server: {
-                    type: 'boolean',
-                },
-                geolocation: {
-                    type: 'string',
-                },
-                srvmode: {
-                    $ref: '#/definitions/srvmode'
-                },
-                cloud_pool_name: {
-                    type: 'string'
-                }
-            }
-        },
-
-        srvmode: {
-            type: 'string',
-            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
-        },
-
-        node_full_info: {
-            type: 'object',
-            required: [
-                'id',
-                'name',
-                'pool',
-                'rpc_address',
-                'peer_id',
-                'ip',
-                'online',
-                'heartbeat',
-                'version',
-                'storage',
-            ],
-            properties: {
-                id: {
+                _id: {
                     type: 'string'
                 },
                 name: {
@@ -500,14 +400,17 @@ module.exports = {
                 pool: {
                     type: 'string'
                 },
-                geolocation: {
+                peer_id: {
                     type: 'string'
                 },
-                srvmode: {
-                    $ref: '#/definitions/srvmode'
-                },
-                storage_full: {
+                is_cloud_node: {
                     type: 'boolean'
+                },
+                demo_node: {
+                    type: 'boolean'
+                },
+                geolocation: {
+                    type: 'string'
                 },
                 rpc_address: {
                     type: 'string'
@@ -515,23 +418,68 @@ module.exports = {
                 base_address: {
                     type: 'string'
                 },
-                peer_id: {
-                    type: 'string'
-                },
                 ip: {
                     type: 'string'
                 },
-                online: {
-                    type: 'boolean',
-                },
-                heartbeat: {
-                    format: 'idate'
+                host_id: {
+                    type: 'string'
                 },
                 version: {
                     type: 'string'
                 },
+                version_install_time: {
+                    format: 'idate'
+                },
+                heartbeat: {
+                    format: 'idate'
+                },
+                has_issues: {
+                    type: 'boolean',
+                },
+                online: {
+                    type: 'boolean',
+                },
+                readable: {
+                    type: 'boolean',
+                },
+                writable: {
+                    type: 'boolean',
+                },
+                trusted: {
+                    type: 'boolean',
+                },
+                n2n_connectivity: {
+                    type: 'boolean',
+                },
+                migrating_to_pool: {
+                    format: 'idate'
+                },
+                decommissioning: {
+                    format: 'idate'
+                },
+                decommissioned: {
+                    format: 'idate'
+                },
+                deleting: {
+                    format: 'idate'
+                },
+                deleted: {
+                    format: 'idate'
+                },
+                accessibility: {
+                    $ref: '#/definitions/accessibility_type'
+                },
+                connectivity: {
+                    $ref: '#/definitions/connectivity_type'
+                },
+                data_activity: {
+                    $ref: '#/definitions/data_activity'
+                },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
+                },
+                storage_full: {
+                    type: 'boolean',
                 },
                 drives: {
                     type: 'array',
@@ -553,8 +501,233 @@ module.exports = {
                 },
                 debug_level: {
                     type: 'integer',
+                },
+                suggested_pool: {
+                    type: 'string'
+                },
+            }
+        },
+
+        node_identity: {
+            type: 'object',
+            properties: {
+                id: {
+                    type: 'string'
+                },
+                name: {
+                    type: 'string'
+                },
+                peer_id: {
+                    type: 'string'
+                },
+                rpc_address: {
+                    type: 'string'
+                },
+            }
+        },
+
+        nodes_query: {
+            type: 'object',
+            properties: {
+                nodes: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/node_identity'
+                    }
+                },
+                pools: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                },
+                filter: {
+                    // regexp on name & ip
+                    type: 'string'
+                },
+                geolocation: {
+                    // regexp
+                    type: 'string'
+                },
+                has_issues: {
+                    type: 'boolean',
+                },
+                online: {
+                    type: 'boolean',
+                },
+                readable: {
+                    type: 'boolean',
+                },
+                writable: {
+                    type: 'boolean',
+                },
+                trusted: {
+                    type: 'boolean',
+                },
+                migrating_to_pool: {
+                    type: 'boolean'
+                },
+                decommissioning: {
+                    type: 'boolean',
+                },
+                decommissioned: {
+                    type: 'boolean',
+                },
+                deleting: {
+                    type: 'boolean',
+                },
+                deleted: {
+                    type: 'boolean',
+                },
+                skip_internal: {
+                    type: 'boolean'
+                },
+                accessibility: {
+                    $ref: '#/definitions/accessibility_type'
+                },
+                connectivity: {
+                    $ref: '#/definitions/connectivity_type'
+                },
+                data_activity: {
+                    $ref: '#/definitions/data_activity_type'
+                },
+            }
+        },
+
+        nodes_aggregate_info: {
+            type: 'object',
+            required: [
+                'count',
+                'online',
+                'has_issues'
+            ],
+            properties: {
+                count: {
+                    type: 'integer'
+                },
+                online: {
+                    type: 'integer'
+                },
+                has_issues: {
+                    type: 'integer'
+                },
+            }
+        },
+
+        data_activity: {
+            type: 'object',
+            required: ['reason'],
+            properties: {
+                reason: {
+                    $ref: '#/definitions/data_activity_type'
+                },
+                progress: {
+                    type: 'number',
+                    minimum: 0,
+                    maximum: 1,
+                },
+                time: {
+                    $ref: '#/definitions/time_progress'
+                },
+                stage: {
+                    type: 'object',
+                    properties: {
+                        name: {
+                            type: 'string',
+                            enum: [
+                                'OFFLINE_GRACE',
+                                'REBUILDING',
+                                'WIPING',
+                            ]
+                        },
+                        wait_reason: {
+                            type: 'string',
+                            enum: [
+                                'NODE_OFFLINE',
+                                'SYSTEM_MAINTENANCE'
+                            ]
+                        },
+                        time: {
+                            $ref: '#/definitions/time_progress'
+                        },
+                        size: {
+                            $ref: '#/definitions/size_progress'
+                        },
+                    }
+                },
+            }
+        },
+
+        data_activities: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['reason', 'count'],
+                properties: {
+                    reason: {
+                        $ref: '#/definitions/data_activity_type'
+                    },
+                    count: {
+                        type: 'integer'
+                    },
+                    progress: {
+                        type: 'number',
+                        minimum: 0,
+                        maximum: 1,
+                    },
+                    time: {
+                        $ref: '#/definitions/time_progress'
+                    },
                 }
             }
+        },
+
+
+        data_activity_type: {
+            type: 'string',
+            enum: [
+                'RESTORING', // offline
+                'MIGRATING', // assign_nodes
+                'DECOMMISSIONING', // decommission_node
+                'DELETING', // delete_node
+            ]
+        },
+
+        time_progress: {
+            type: 'object',
+            properties: {
+                start: {
+                    format: 'idate',
+                },
+                end: {
+                    format: 'idate',
+                },
+            }
+        },
+
+        size_progress: {
+            type: 'object',
+            properties: {
+                total: {
+                    type: 'number',
+                },
+                remaining: {
+                    type: 'number',
+                },
+                completed: {
+                    type: 'number',
+                },
+            }
+        },
+
+        accessibility_type: {
+            type: 'string',
+            enum: ['FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS']
+        },
+
+        connectivity_type: {
+            type: 'string',
+            enum: ['TCP', 'UDP', 'UNKNOWN']
         },
 
         signal_params: {
@@ -581,6 +754,22 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'number',
+            }
+        },
+
+        heartbeat_schema_for_upgrade_compatibility: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {
+                // the only field we use now is version.
+                // however since we want to avoid any kind of upgrade
+                // compatibility issues in the future, we leave this schema
+                // completely open, so that both the upgraded server and the
+                // under-graded agent will not reject each others request/reply
+                // version: {type:'string'}
+                // For HA purposes, we also want to redirect an agent to the current master server in the cluster
+                // Thus adding the following to the reply
+                // redirect: {type: 'string'}
             }
         }
 

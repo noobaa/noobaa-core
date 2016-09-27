@@ -1,0 +1,26 @@
+<div class="column pad alt-bg">
+    <button class="btn align-end" data-bind="
+        click: () => showAddCloudResourceModal()
+    ">
+        Add Cloud Resource
+    </button>
+</div>
+
+<data-table params="
+    columns: columns,
+    rowFactory: resource => newResourceRow(resource),
+    sorting: sorting,
+    data: resources,
+    emptyMessage: 'System does not contain any cloud resources'
+"></data-table>
+
+<!-- ko if: isAddCloudResourceModalVisible -->
+<add-cloud-resource-modal params="onClose: () => hideCloudReousrceModal()">
+</add-cloud-resource-modal>
+<!-- /ko -->
+
+<!-- ko if: isAfterDeleteAlertModalVisible -->
+<cloud-resource-deleted-alert-modal params="
+    onClose: () => hideAfterDeleteAlertModal()
+"></cloud-resource-deleted-alert-modal>
+<!-- /ko -->

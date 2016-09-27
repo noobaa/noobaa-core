@@ -29,13 +29,6 @@ module.exports = {
     start_all_agents: start_all_agents,
     stop_all_agents: stop_all_agents,
     get_agents_list: get_agents_list,
-
-    //I/O
-    read_block: read_block,
-    write_block: write_block,
-    delete_blocks: delete_blocks,
-    corrupt_blocks: corrupt_blocks,
-    list_blocks: list_blocks,
 };
 
 /*
@@ -147,98 +140,6 @@ function get_agents_list() {
     }));
 }
 
-/*
- *
- * Agent(s) I/O path
- *
- */
-function read_block(node_name, block_id) {
-    return P.fcall(() => {
-        if (true) {
-            throw new Error('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
-        }
-
-        if (!block_id) {
-            throw new Error('No block_id supplied');
-        }
-
-        var req = {
-            block_id: block_id,
-        };
-
-        var ent = get_agent_entry(node_name);
-        if (ent.started) {
-            return ent.agent.read_block(req);
-        }
-    });
-}
-
-function write_block(node_name, block_id, data) {
-    return P.fcall(() => {
-        if (true) {
-            throw new Error('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
-        }
-
-        if (!block_id || !data) {
-            throw new Error('No block_id/data supplied');
-        }
-
-        var req = {
-            block_id: block_id,
-            data: data,
-        };
-
-        var ent = get_agent_entry(node_name);
-        if (ent.started) {
-            return ent.agent.write_block(req);
-        }
-    });
-}
-
-function delete_blocks(node_name, block_ids) {
-    return P.fcall(() => {
-        if (!block_ids) {
-            throw new Error('No block_ids supplied');
-        }
-
-        var req = {
-            blocks: _.map(block_ids, block => block._id.toString())
-        };
-
-        var ent = get_agent_entry(node_name);
-        if (ent.started) {
-            return ent.agent.delete_blocks(req);
-        }
-    });
-}
-
-function corrupt_blocks(node_name, block_ids) {
-    return P.fcall(() => {
-        if (!block_ids) {
-            throw new Error('No block_ids supplied');
-        }
-
-        /*
-        var req = {
-            blocks: _.map(block_ids, block => block._id.toString())
-        };
-        */
-
-        var ent = get_agent_entry(node_name);
-        if (ent.started) {
-            return ent.agent.corrupt_blocks(block_ids);
-        }
-    });
-}
-
-function list_blocks(node_name) {
-    return P.fcall(() => {
-        var ent = get_agent_entry(node_name);
-        if (ent.started) {
-            return ent.agent.list_blocks();
-        }
-    });
-}
 
 /*
  *

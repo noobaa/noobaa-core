@@ -2,28 +2,20 @@ file-selector {
     display: block;
 
     .drop-area {
-        padding: 1em;
-        border: 3px dashed @bg-color4;
-        font-size: @font-size-normal;
+        padding: @gutter;
+        border: 1px dashed @color7;
+        font-size: @font-size3;
 
         &.dragover {
-            border-color: @bg-color11;
+            border-color: @color14;
         }
     }
 
     .drop-message {
-        display: inline-block;
-        color: @text-color4;
+        display: block;
+        font-size: @font-size4;
+        color: @color7;
         margin: 0;
-    }
-
-    .method-seperator {
-        margin: 1em;
-        font-weight: @font-weight-medium;
-        color: @text-color3;
-    }
-
-    .browse-btn > input[type=file] {
-        .hide();
+        margin-bottom: @gutter/2;
     }
 }

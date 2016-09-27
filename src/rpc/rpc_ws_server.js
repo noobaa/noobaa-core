@@ -6,7 +6,7 @@ let url = require('url');
 let EventEmitter = require('events').EventEmitter;
 let RpcWsConnection = require('./rpc_ws');
 let dbg = require('../util/debug_module')(__filename);
-let WS = require('ws');
+let WS = global.WebSocket || require('ws');
 
 
 /**

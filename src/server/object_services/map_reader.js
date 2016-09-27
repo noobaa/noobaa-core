@@ -8,7 +8,7 @@ const config = require('../../../config.js');
 const map_utils = require('./map_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const md_store = require('./md_store');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 
 
@@ -25,7 +25,9 @@ const system_store = require('../system_services/system_store').get_instance();
 function read_object_mappings(params) {
     var rng = map_utils.sanitize_object_range(params.obj, params.start, params.end);
     if (!rng) { // empty range
-        return [];
+        return P.fcall(function() {
+            return [];
+        });
     }
     var start = rng.start;
     var end = rng.end;
@@ -66,23 +68,22 @@ function read_object_mappings(params) {
  *
  * read_node_mappings
  *
- * @params: node, skip, limit
+ * @params: node_id, skip, limit
  */
 function read_node_mappings(params) {
-    var objects = {};
-    var parts_per_obj_id = {};
-
-    return P.fcall(function() {
-            return md_store.DataBlock.collection.find({
-                node: params.node._id,
-                deleted: null,
-            }, {
-                sort: '-_id',
-                skip: params.skip || 0,
-                limit: params.limit || 0
-            }).toArray();
-        })
-        .then(function(blocks) {
+    return P.resolve()
+        .then(() => md_store.DataBlock.collection.find({
+            system: params.system._id,
+            node: mongo_utils.make_object_id(params.node_id),
+            deleted: null,
+        }, {
+            sort: {
+                _id: -1
+            },
+            skip: params.skip || 0,
+            limit: params.limit || 0
+        }).toArray())
+        .then(blocks => {
             dbg.warn('read_node_mappings: SLOW QUERY',
                 'ObjectPart.find(chunk $in array).',
                 'adding chunk index?');
@@ -97,29 +98,27 @@ function read_node_mappings(params) {
             mongo_utils.populate(parts, 'chunk', md_store.DataChunk),
             mongo_utils.populate(parts, 'obj', md_store.ObjectMD)
         ).return(parts))
-        .then(function(parts) {
-            return read_parts_mappings({
-                parts: parts,
-                set_obj: true,
-                adminfo: true
-            });
-        })
-        .then(function(parts) {
-            objects = {};
-            parts_per_obj_id = _.groupBy(parts, function(part) {
+        .then(parts => read_parts_mappings({
+            parts: parts,
+            set_obj: true,
+            adminfo: true
+        }))
+        .then(parts => {
+            const objects_by_id = {};
+            const parts_per_obj_id = _.groupBy(parts, part => {
                 var obj = part.obj;
                 delete part.obj;
-                objects[obj._id] = obj;
+                objects_by_id[obj._id] = obj;
                 return obj._id;
             });
-
-            return _.map(objects, function(obj, obj_id) {
+            const objects_reply = _.map(objects_by_id, (obj, obj_id) => {
                 return {
                     key: obj.key,
                     bucket: system_store.data.get_by_id(obj.bucket).name,
                     parts: parts_per_obj_id[obj_id]
                 };
             });
+            return objects_reply;
         });
 }
 
@@ -138,7 +137,7 @@ function read_parts_mappings(params) {
     var chunk_ids = mongo_utils.uniq_ids(chunks, '_id');
 
     // find all blocks of the resulting parts
-    return P.when(md_store.DataBlock.collection.find({
+    return P.resolve(md_store.DataBlock.collection.find({
             chunk: {
                 $in: chunk_ids
             },
@@ -146,15 +145,18 @@ function read_parts_mappings(params) {
         }, {
             sort: 'frag'
         }).toArray())
-        .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
+        .then(blocks => nodes_client.instance().populate_nodes_for_map(
+            blocks[0] && blocks[0].system, blocks, 'node'))
         .then(blocks => {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             return _.map(params.parts, part => {
-                // console.log('GGG part', require('util').inspect(part, {
-                //     depth: null
-                // }), require('util').inspect(blocks_by_chunk[part.chunk._id], {
-                //     depth: null
-                // }));
+                // console.log('GGG part',
+                //     require('util').inspect(part, {
+                //         depth: null
+                //     }),
+                //     require('util').inspect(blocks_by_chunk[part.chunk._id], {
+                //         depth: null
+                //     }));
                 map_utils.set_chunk_frags_from_blocks(
                     part.chunk, blocks_by_chunk[part.chunk._id]);
                 let part_info = map_utils.get_part_info(part, params.adminfo);

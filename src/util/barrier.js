@@ -88,12 +88,13 @@ Barrier.prototype.release = function() {
 
     // call the process function with the items list
     P.fcall(self.process, barrier.items)
-        .done(function(res) {
+        .then(function(res) {
             res = res || [];
             _.each(barrier.defers, function(defer, index) {
                 defer.resolve(res[index]);
             });
-        }, function(err) {
+        })
+        .catch(function(err) {
             _.each(barrier.defers, function(defer, index) {
                 defer.reject(err);
             });

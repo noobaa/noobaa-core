@@ -21,27 +21,27 @@ mocha.describe('semaphore', function() {
             woke++;
         };
 
-        return P.fcall(function() {
+        return P.resolve().then(function() {
             sem = new Semaphore(10);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 10);
 
-            P.when(sem.wait(2)).then(do_wake);
+            P.resolve(sem.wait(2)).then(do_wake);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 8);
             assert.strictEqual(woke, 0);
 
-            P.when(sem.wait()).then(do_wake);
+            P.resolve(sem.wait()).then(do_wake);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 7);
             assert.strictEqual(woke, 0);
 
-            P.when(sem.wait(8)).then(do_wake);
+            P.resolve(sem.wait(8)).then(do_wake);
             assert.strictEqual(sem.length, 1);
             assert.strictEqual(sem.value, 7);
             assert.strictEqual(woke, 0);
 
-            P.when(sem.wait(10)).then(do_wake);
+            P.resolve(sem.wait(10)).then(do_wake);
             assert.strictEqual(sem.length, 2);
             assert.strictEqual(sem.value, 7);
             assert.strictEqual(woke, 0);
@@ -62,7 +62,7 @@ mocha.describe('semaphore', function() {
 
             sem.release(14);
 
-        }).delay(0).then(function() {
+        }).delay(0).delay(0).then(function() {
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 5);
             assert.strictEqual(woke, 4);
@@ -76,20 +76,22 @@ mocha.describe('semaphore', function() {
             sem = new Semaphore(10);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 10);
-            return P.settle([
+            return P.all([
                 sem.surround(function() {
                     assert.strictEqual(sem.length, 2);
                     assert.strictEqual(sem.value, 9);
                     return 11;
-                }), sem.surround(10, function() {
+                }).reflect(),
+                sem.surround(10, function() {
                     assert.strictEqual(sem.length, 1);
                     assert.strictEqual(sem.value, 0);
                     throw err;
-                }), sem.surround(4, function() {
+                }).reflect(),
+                sem.surround(4, function() {
                     assert.strictEqual(sem.length, 0);
                     assert.strictEqual(sem.value, 6);
                     return 22;
-                })
+                }).reflect()
             ]);
         }).then(function(results) {
             assert(results[0].isFulfilled());

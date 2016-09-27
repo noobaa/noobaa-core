@@ -20,6 +20,9 @@ module.exports = {
                     name: {
                         type: 'string',
                     },
+                    demo: {
+                        type: 'boolean'
+                    },
                     access_keys: {
                         type: 'object',
                         required: ['access_key', 'secret_key'],
@@ -50,8 +53,12 @@ module.exports = {
                             },
                             access_keys: {
                                 $ref: 'system_api#/definitions/access_keys',
+                            },
+                            endpoint_type: {
+                                type: 'string',
+                                enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                             }
-                        }
+                        },
                     }
                 }
             },
@@ -73,7 +80,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: 'admin'
+                system: false
             }
         },
     },

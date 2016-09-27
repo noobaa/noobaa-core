@@ -1,11 +1,13 @@
 import template from './upgrade-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { makeArray } from 'utils';
 import { upgradeStatus } from 'model';
 
-class UpgradeModalViewModel {
+class UpgradeModalViewModel extends Disposable {
     constructor({ onClose }) {
+        super();
+
         this.onClose = onClose;
 
         let step = ko.pureComputed(
@@ -13,15 +15,16 @@ class UpgradeModalViewModel {
         );
 
         this.progress = ko.pureComputed(
-            () => upgradeStatus() ? upgradeStatus().progress : 0
+            () => upgradeStatus() ?
+                (upgradeStatus().step === 'UPLOAD' ? upgradeStatus().progress : 1) :
+                0
         );
 
         this.upgradeFailed = ko.pureComputed(
-            () => !!upgradeStatus() && upgradeStatus().state === 'FAILED'
-        );
-
-        this.stepClass = ko.pureComputed(
-            () => (step() || '').toLowerCase() 
+            () => !!upgradeStatus() && (
+                upgradeStatus().state === 'FAILED' ||
+                upgradeStatus().state === 'CANCELED'
+            )
         );
 
         this.progressText = ko.pureComputed(
@@ -41,4 +44,4 @@ class UpgradeModalViewModel {
 export default {
     viewModel: UpgradeModalViewModel,
     template: template
-}
+};

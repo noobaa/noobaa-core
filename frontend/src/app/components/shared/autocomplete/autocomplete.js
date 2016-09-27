@@ -1,20 +1,23 @@
 import template from './autocomplete.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class AutoCompleteViewModel {
-    constructor({ 
-        value, 
-        suggestions = [], 
-        placeholder = '', 
-        disabled = false 
+class AutoCompleteViewModel extends Disposable {
+    constructor({
+        value,
+        suggestions = [],
+        placeholder = '',
+        disabled = false
     }) {
+        super();
+
         this.value = value;
         this.placeholder = placeholder;
         this.disabled = disabled;
 
         this.suggestions = ko.pureComputed(
             () => ko.unwrap(suggestions).filter(
-                suggestion => suggestion.startsWith(ko.unwrap(value) || '') 
+                suggestion => suggestion.startsWith(ko.unwrap(value) || '')
             )
         );
 
@@ -28,4 +31,4 @@ class AutoCompleteViewModel {
 export default {
     viewModel: AutoCompleteViewModel,
     template: template
-}
+};

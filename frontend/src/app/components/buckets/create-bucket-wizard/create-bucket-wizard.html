@@ -1,11 +1,15 @@
 <wizard params="
-    heading: 'Create Bucket', 
-    steps: ['choose name', 'set policy'], 
+    heading: 'Create Bucket',
+    steps: steps,
     actionLabel: 'Create',
     validateStep: step => validateStep(step),
     onComplete: () => createBucket(),
     onClose: onClose
 ">
-    <section data-bind="template: { html: chooseNameStepTemplate }"></section>
-    <section data-bind="template: { html: setPolicyStepTemplate }"></section>
+    <section class="column greedy" data-bind="
+        template: { html: chooseNameStepTemplate }
+    "></section>
+    <section class="column greedy" data-bind="
+        template: { html: setPolicyStepTemplate }
+    "></section>
 </wizard>

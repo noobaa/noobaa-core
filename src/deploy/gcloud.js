@@ -86,6 +86,7 @@ function import_key_pair_to_region() {
 
 }
 
+// eslint-disable-next-line max-params
 function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region, agent_conf) {
 
     return describe_instances({
@@ -152,7 +153,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
 
             return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
         }));
-    }).fail(function(err) {
+    }).catch(function(err) {
         console.log('####');
         console.log('#### Cannot scale. Reason:', err.message, err.stack);
         console.log('####');
@@ -193,7 +194,7 @@ function get_zones(func) {
             project: NooBaaProject,
             auth: authClient
         }).then(func)
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('get_zones err:', err);
             if (err.errors > 0 && err.errors[0].reason === 'notFound') {
                 console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', err);
@@ -216,24 +217,24 @@ function get_zones(func) {
  */
 function foreach_zone(func) {
     return get_zones(function(res) {
-        return P.all(_.map(res[0].items, func));
-    }).fail(function(err) {
+        return P.all(_.map(res.items, func));
+    }).catch(function(err) {
         console.log('err zone:', err);
     });
 }
 
 
+// eslint-disable-next-line max-params
 function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf) {
     //console.log('scale region from ' + instances.length + ' to count ' + count);
     // need to create
     if (count > instances.length) {
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' +++ adding', count - instances.length);
-        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf)
+        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf, instanceCreationProgressHandler)
             //once the instances are up, we can add disk dependency
             .then(instance_post_creation_handler,
-                instance_creation_error_handler,
-                instanceCreationProgressHandler);
+                instance_creation_error_handler);
     }
 
     // need to terminate
@@ -367,16 +368,17 @@ function describe_instances(params, filter) {
             instancesListParams.filter = params.filter;
         }
 
-        return P.nfcall(compute.instances.list, instancesListParams).then(
-            function(instances_list_results) {
-                if (instances_list_results[0].hasOwnProperty('items')) {
+        return P.nfcall(compute.instances.list, instancesListParams)
+            .then(function(instances_list_results) {
+                if (instances_list_results.items) {
                     // var number_of_instances_in_zone = instances_list_results[0].items.length;
-                    created_instance_data = created_instance_data.concat(instances_list_results[0].items);
+                    created_instance_data = created_instance_data.concat(instances_list_results.items);
                 }
 
-            }).fail(function(error) {
-            console.log('ERROR1:' + JSON.stringify(error) + ':' + error.stack);
-        });
+            })
+            .catch(function(error) {
+                console.log('ERROR1:' + JSON.stringify(error) + ':' + error.stack);
+            });
     }).then(function(err, data) {
         var instances = _.flatten(created_instance_data);
         // also put the regions list as a "secret" property of the array
@@ -410,7 +412,7 @@ function describe_instances(params, filter) {
     }).then(function(instances) {
         instances.zones = zones;
         return instances;
-    }).fail(
+    }).catch(
         function(error) {
             if (error && error.errors && error.errors[0].reason === 'notFound') {
                 console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', error);
@@ -456,7 +458,7 @@ function getInstanceDataPerInstanceId(instanceId) {
 
             index++;
             return P.delay(500); // delay, otherwise error from google
-        })).then(function() {}).done();
+        }));
 
     }));
 }
@@ -467,7 +469,8 @@ function getInstanceDataPerInstanceId(instanceId) {
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
+// eslint-disable-next-line max-params
+function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf, progress_func) {
     var deferred = P.defer();
     var instancesDetails = [];
     console.log('adding to region ' + region_name + ' ' + count + ' instances', agent_conf);
@@ -484,8 +487,8 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                     var noobaa_env_name = app_name;
                     var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-standard-1';
                     var startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.sh';
-                    var source_image = 'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141031a';
-                    var disk_size = 2048;
+                    var source_image = 'https://www.googleapis.com/compute/v1/projects/centos-cloud/global/images/centos-6-v20160803';
+                    var disk_size = 100;
 
                     if (is_docker_host) {
                         startup_script = 'http://noobaa-download.s3.amazonaws.com/docker_setup.sh';
@@ -505,7 +508,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                         instance_name = 'router-for-' + app_name.replace(/\./g, "-");
                         disk_size = 50;
                     } else {
-                        instance_name = 'agent-instance-for-' + app_name.replace(/\./g, "-");
+                        instance_name = 'agent-for-' + app_name.replace(/\./g, "-");
                     }
                     console.log('env:', noobaa_env_name, NooBaaProject);
                     console.log('script:', startup_script);
@@ -522,7 +525,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                         name: instance_name,
                         resource: {
                             zone: region_name,
-                            name: instance_name + (new Date().getTime()),
+                            name: instance_name + '-' + Date.now().toString(36),
                             machineType: machine_type,
                             disks: [{
                                 initializeParams: {
@@ -566,7 +569,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                     value: router_address
                                 }, {
                                     key: 'Name',
-                                    value: 'AgentInstance_For_' + app_name
+                                    value: 'Agent_For_' + app_name
                                 }]
                             },
                             networkInterfaces: [{
@@ -584,7 +587,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                     console.log('New instance name: in region:' + region_name, instanceResource.resource.tags);
                     return P.nfcall(compute.instances.insert, instanceResource)
                         .then(function(instanceInformation) {
-                            var pieces_array = instanceInformation[0].targetLink.split('/');
+                            var pieces_array = instanceInformation.targetLink.split('/');
                             var instanceName = pieces_array[pieces_array.length - 1];
                             console.log('New instance name:' + JSON.stringify(instanceName));
 
@@ -595,17 +598,17 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                     var operationsParams = {
                                         project: NooBaaProject,
                                         zone: instanceResource.zone,
-                                        operation: instanceInformation[0].name,
+                                        operation: instanceInformation.name,
                                         auth: authClient,
                                         instanceName: instanceName
                                     };
 
                                     return P.nfcall(compute.zoneOperations.get, operationsParams)
                                         .then(function(operationResource) {
-                                            deferred.notify(operationResource);
+                                            progress_func(operationResource);
 
-                                            if (operationResource[0].status === 'DONE') {
-                                                console.log('Instance ' + operationsParams.instanceName + ' is up and started installation ' + JSON.stringify(operationResource[0].status));
+                                            if (operationResource.status === 'DONE') {
+                                                console.log('Instance ' + instanceName + '::: is up and started installation ' + JSON.stringify(operationResource.status));
                                                 var instanceDetailedInformationParams = {
                                                     instance: operationsParams.instanceName,
                                                     zone: operationsParams.zone,
@@ -615,20 +618,21 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                                 };
                                                 return P.nfcall(compute.instances.get, instanceDetailedInformationParams)
                                                     .then(function(instanceDetails) {
-                                                        console.log('instanceDetails up:' + instanceDetails[0].name);
-                                                        instancesDetails.push(instanceDetails[0]);
+                                                        console.log('instanceDetails up:' + instanceDetails.name);
+                                                        instancesDetails.push(instanceDetails);
                                                         if (instancesDetails.length === count) {
                                                             deferred.resolve(instancesDetails);
                                                         }
                                                         clearInterval(interval);
                                                     }).then(null, function(err) {
-                                                        console.log('Instance get details err:' + JSON.stringify(err));
+                                                        console.log('Instance get details err (2):', err);
                                                     });
                                             }
 
 
                                         })
-                                        .fail(function(err) {
+                                        .catch(function(err) {
+                                            console.log('Zone Operation err(1):', err);
                                             console.log('Zone Operation err:' + JSON.stringify(err) + JSON.stringify(operationsParams));
                                             deferred.resolve(null);
                                             clearInterval(interval);
@@ -649,9 +653,9 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
             console.log('done creating ' + count + ' new instances in zone ' + region_name);
             return deferred.promise;
         })
-        .fail(function(error) {
+        .catch(function(error) {
             console.log('ERROR4:' + JSON.stringify(error) + ' ' + error.stack);
-        }).done();
+        });
     return deferred.promise;
 }
 
@@ -676,7 +680,7 @@ function terminate_instances(region_name, instance_ids) {
                 console.log('Termination of instance ' + current_instance + ' done');
 
             })
-            .fail(function(err) {
+            .catch(function(err) {
                 console.log('Termination of instance ' + current_instance + ' failed due to error:' + JSON.stringify(err) + err.stack);
                 throw err;
             });
@@ -688,9 +692,7 @@ function terminate_instances(region_name, instance_ids) {
 
 
 function init(callback) {
-    if (authClient.hasOwnProperty('gapi')) {
-        return;
-    }
+    if (authClient.gapi) return;
     console.log('waiting for auth');
     setTimeout(function() {
         authClient.authorize(function(err, token) {
@@ -788,18 +790,16 @@ function main() {
                         return;
                     }
                     throw err;
-                })
-                .done();
+                });
         } else if (!_.isUndefined(argv.instance)) {
 
             describe_instance(argv.instance)
                 .then(function(instance) {
                     console_inspect('Instance ' + argv.instance + ':', instance);
-                })
-                .done();
+                });
         } else {
             //console.log('desc instances');
-            describe_instances().then(print_instances).done();
+            describe_instances().then(print_instances);
         }
     });
 

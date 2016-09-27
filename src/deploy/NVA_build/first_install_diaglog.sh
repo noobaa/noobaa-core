@@ -1,11 +1,12 @@
-#!/bin/sh
 # First Installation Wizard
+#!/bin/sh
 
 trap "" 2 20
 
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
 FIRST_INSTALL_MARK="/etc/first_install.mrk"
+NOOBAASEC="/etc/noobaa_sec"
 
 function clean_ifcfg() {
   sudo sed -i 's:.*IPADDR=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
@@ -82,6 +83,9 @@ function configure_networking_dialog {
         local dns1=$(head -1 answer_dns)
         local dns2=$(tail -1 answer_dns)
 
+        sudo sed -i "s/.*NooBaa Configured Primary DNS Server//" /etc/resolv.conf
+        sudo sed -i "s/.*NooBaa Configured Secondary DNS Server//" /etc/resolv.conf
+
         while [ "${dns1}" == "" ]; do
           dialog --colors --nocancel --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 65 4 "Primary DNS:" 1 1 "${dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${dns2}" 2 25 25 30 2> answer_dns
           dns1=$(head -1 answer_dns)
@@ -89,25 +93,34 @@ function configure_networking_dialog {
           dns2=$(tail -1 answer_dns)
         done
 
-        sudo bash -c "echo 'nameserver ${dns1}' > /etc/resolv.conf"
-        if [ "${dns2}" -ne "" ]; then
-          sudo bash -c "echo 'nameserver ${dns2}' >> /etc/resolv.conf"
-          #sudo echo "First Install adding dns ${dns}">> /var/log/noobaa_deploy.log
+        sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
+        sudo bash -c "echo 'nameserver ${dns1} #NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"
+        if [ "${dns2}" != "" ]; then
+          sudo bash -c "echo 'nameserver ${dns2} #NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
         fi
 
       elif [ "${dynamic}" -eq "2" ]; then #Dynamic IP
-        #sudo echo "First Install Choose Dynamic IP">> /var/log/noobaa_deploy.log
+        dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --infobox "Requesting IP from DHCP server. \nDepending on network connectivity and DHCP server availability, this might take a while." 6 60
         clean_ifcfg
         sudo bash -c "echo 'BOOTPROTO=dhcp' >> /etc/sysconfig/network-scripts/ifcfg-eth0"
+        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Using DHCP" --msgbox "Using DHCP is not recommended without adding a DNS name to the server. Please assign a DNS name and configure it in the configuration section in \Z5\ZbNooBaa\Zn GUI." 7 66
       fi
-      sudo service network restart
-      dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
+      # Surpressing messages to the console for the cases where DHCP is unreachable.
+      # In these cases the network service cries to the log like a little bi#@h
+      # and we don't want that.
+      sudo dmesg -n 1
+      sudo service network restart &> /dev/null
+      sudo dmesg -n 3
+      ifcfg=$(ifconfig | grep inet | grep -v inet6 | grep -v 127.0.0.1) # ipv4
+      if [[ "${dynamic}" -eq "2" && "${ifcfg}" == "" ]]; then
+        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1ERROR" --msgbox "\Zb\Z1Was unable to get dynamically allocated IP via DHCP" 5 55
+      else
+        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
 
-      local host=$(cat answer_host)
-      rc=$(sudo sysctl kernel.hostname=${host})
-      #sudo echo "First Install configure hostname ${host}, sysctl rc ${rc}" >> /var/log/noobaa_deploy.log
-
-
+        local host=$(tail -1 answer_host)
+        rc=$(sudo sysctl kernel.hostname=${host})
+        #sudo echo "First Install configure hostname ${host}, sysctl rc ${rc}" >> /var/log/noobaa_deploy.log
+      fi
 }
 
 
@@ -147,7 +160,7 @@ function configure_ntp_dialog {
     fi
 
   done
-     echo "${ntp_server}" > /tmp/ntp
+    echo "${ntp_server}" > /tmp/ntp
 
     sudo sed -i "s/.*NooBaa Configured NTP Server.*/server ${ntp_server} iburst #NooBaa Configured NTP Server/" /etc/ntp.conf
 
@@ -158,23 +171,50 @@ function configure_ntp_dialog {
     sudo /etc/init.d/rsyslog restart
 }
 
+
+function reset_password {
+
+    local err_pass=1
+    local err_pass_msg=""
+    while [ ${err_pass} -eq 1 ]; do
+
+        local number_of_account=$(/usr/bin/mongo nbcore --eval 'db.accounts.count({_id: {$exists: true}})' --quiet)
+        if [ ${number_of_account} -lt 2 ]; then
+          echo "Could not find any account. Please setup a system from the web management first"
+          return 0
+        fi
+
+        local user_name=$(/usr/bin/mongo nbcore --eval 'db.accounts.find({email:{$ne:"support@noobaa.com"}},{email:1,_id:0}).sort({_id:-1}).limit(1).map(function(u){return u.email})[0]' --quiet)
+
+        local answer_reset_password=$(dialog --colors --backtitle "NooBaa First Install" --title "Password Reset for ${user_name}"  --passwordbox "Password enter a new password (your input is hidden):\n${err_pass_msg}"  10 50 --stdout)
+
+        case $answer_reset_password in
+            ''|*[!0-9]*) err_pass=0 ;;
+            *) err_pass_msg="error: password cannot be a number"  ;;
+        esac
+
+    done
+
+    local bcrypt_sec=$(sudo /usr/local/bin/node /root/node_modules/noobaa-core/src/util/crypto_utils.js --bcrypt_password $answer_reset_password)
+    /usr/bin/mongo nbcore --eval  "db.accounts.update({email:'${user_name}'},{\$set:{password:'${bcrypt_sec}'}})" --quiet
+
+
+}
+
 function run_wizard {
-  if [ ! -f ${NOOBAASEC} ]; then
-    local sec=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -1)
-    echo ${sec} > ${NOOBAASEC}
-  fi
 
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
-is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 50
+is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"
-  while [ "${menu_entry}" -ne "3" ]; do
-    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 3 1 "Networking Configuration" 2 "NTP Configuration" 3 "Exit" 2> choice
-
+  while [ "${menu_entry}" -ne "4" ]; do
+    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration" 3 "Password reset" 4 "Exit" 2> choice
     menu_entry=$(cat choice)
     if [ "${menu_entry}" -eq "1" ]; then
       configure_networking_dialog
     elif [ "${menu_entry}" -eq "2" ]; then
       configure_ntp_dialog
+  elif [ "${menu_entry}" -eq "3" ]; then
+        reset_password
     fi
   done
   dialog --colors --nocancel --backtitle "NooBaa First Install" --infobox "Finalizing \Z5\ZbNooBaa\Zn first install..." 4 40 ; sleep 2
@@ -187,6 +227,20 @@ function end_wizard {
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
   date | sudo tee -a ${FIRST_INSTALL_MARK}
   clear
+  if [ ! -f ${NOOBAASEC} ]; then
+    local sec=$(uuidgen | sudo cut -f 1 -d'-')
+    echo ${sec} |sudo tee -a ${NOOBAASEC}
+    #dev/null to avoid output with user name
+    echo ${sec} |sudo passwd noobaaroot --stdin >/dev/null
+    sudo sed -i "s:No Server Secret.*:This server's secret is \x1b[0;32;40m${sec}\x1b[0m:" /etc/issue
+  fi
+
+  #verify JWT_SECRET exists in .env, if not create it
+
+  if ! sudo -s grep -q JWT_SECRET /root/node_modules/noobaa-core/.env; then
+      local jwt=$(cat /etc/noobaa_sec | openssl sha512 -hmac | cut -c10-44)
+      echo "JWT_SECRET=${jwt}" | sudo tee -a /root/node_modules/noobaa-core/.env
+  fi
 
   sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m:" /etc/issue
 
@@ -203,6 +257,8 @@ function verify_wizard_run {
         run_wizard
         ;;
      1)
+        trap 2 20
+        exit 0
         ;;
   esac
 }

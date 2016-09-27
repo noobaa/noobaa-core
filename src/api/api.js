@@ -17,6 +17,7 @@ api_schema.register_api(require('./node_api'));
 api_schema.register_api(require('./bucket_api'));
 api_schema.register_api(require('./object_api'));
 api_schema.register_api(require('./agent_api'));
+api_schema.register_api(require('./block_store_api'));
 api_schema.register_api(require('./stats_api'));
 api_schema.register_api(require('./cloud_sync_api'));
 api_schema.register_api(require('./debug_api'));
@@ -24,7 +25,8 @@ api_schema.register_api(require('./redirector_api'));
 api_schema.register_api(require('./tiering_policy_api'));
 api_schema.register_api(require('./pool_api'));
 api_schema.register_api(require('./cluster_server_api'));
-api_schema.register_api(require('./cluster_member_api'));
+api_schema.register_api(require('./cluster_internal_api'));
+api_schema.register_api(require('./server_inter_process_api'));
 api_schema.register_api(require('./hosted_agents_api'));
 api_schema.compile();
 
@@ -33,21 +35,31 @@ api_schema.compile();
  */
 RPC.Client.prototype.create_auth_token = function(params) {
     return this.auth.create_auth(params)
-        .tap(res => {
+        .then(res => {
             this.options.auth_token = res.token;
+            return res;
         });
 };
 RPC.Client.prototype.create_access_key_auth = function(params) {
     return this.auth.create_access_key_auth(params)
-        .tap(res => {
+        .then(res => {
             this.options.auth_token = res.token;
+            return res;
         });
 };
 
+function get_base_port() {
+    return parseInt(process.env.PORT, 10) || 5001;
+}
+
+function default_base_address() {
+    // the default 5001 port is for development
+    return 'ws://127.0.0.1:' + get_base_port();
+}
+
 function new_router(base_address) {
     if (!base_address) {
-        // the default 5001 port is for development
-        base_address = 'ws://127.0.0.1:' + (parseInt(process.env.PORT, 10) || 5001);
+        base_address = default_base_address();
     }
     let base_url = _.pick(url.parse(base_address),
         'protocol', 'hostname', 'port', 'slashes');
@@ -81,4 +93,6 @@ function new_rpc(base_address) {
 module.exports = {
     new_rpc: new_rpc,
     new_router: new_router,
+    default_base_address: default_base_address,
+    get_base_port: get_base_port,
 };

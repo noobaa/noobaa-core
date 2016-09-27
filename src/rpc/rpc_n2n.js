@@ -50,13 +50,15 @@ class RpcN2NConnection extends RpcBaseConnection {
                 this.ice.udp.on('message', msg => this.emit('message', msg));
                 if (this.controlling) {
                     dbg.log0('N2N CONNECTING NUDP', session.key);
-                    P.invoke(this.ice.udp, 'connect',
+                    P.fromCallback(callback => this.ice.udp.connect(
                             session.remote.port,
-                            session.remote.address)
-                        .done(() => {
+                            session.remote.address,
+                            callback))
+                        .then(() => {
                             dbg.log0('N2N CONNECTED TO NUDP', session.key);
                             this.emit('connect');
-                        }, err => {
+                        })
+                        .catch(err => {
                             this.emit('error', err);
                         });
                 } else {

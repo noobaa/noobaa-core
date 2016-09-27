@@ -19,9 +19,12 @@ mocha.describe('agent', function() {
     };
 
     mocha.it('should run agents', function() {
-        this.timeout(20000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(20000);
+
         return P.resolve()
-            .then(() => client.account.create_account({
+            .then(() => client.system.create_system({
+                activation_code: '1111',
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,
@@ -31,7 +34,11 @@ mocha.describe('agent', function() {
                 client.options.auth_token = res.token;
             })
             .then(() => coretest.init_test_nodes(client, SYS, 5))
-            .then(() => coretest.clear_test_nodes());
+            .delay(2000)
+            .then(() => coretest.clear_test_nodes())
+            .catch((err) => {
+                console.log('Failure during testing agent:' + err, err.stack);
+            });
     });
 
 });

@@ -1,50 +1,77 @@
-<div class="management-panel">
-    <ul class="tabs">
-        <li data-bind="css: { selected: isTabSelected('accounts') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/accounts'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#account'"></svg-icon>
-                Accounts
-            </a>
-            <section class="tab-content">
-                <accounts-table></accounts-table>
-            </section>
-        </li>
+<div class="greedy tabs">
+    <nav>
+        <a data-bind="
+            href: { route: 'management', params: { tab:'accounts' } },
+            css: { selected: isTabSelected('accounts') }
+        ">
+            Accounts
+        </a>
+        <a data-bind="
+            href: { route: 'management', params: { tab: 'settings' } },
+            css: { selected: isTabSelected('settings') }
+        ">
+            Configuration
+        </a>
 
-        <li data-bind="css: { selected: isTabSelected('settings') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/settings'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#network'"></svg-icon>
-                Settings
-            </a>
+        <a data-bind="
+            href: { route: 'management', params: { tab: 'diagnostics' } },
+            css: { selected: isTabSelected('diagnostics') }
+        ">
+            Support &amp; Diagnostics
+        </a>
 
-            <section class="tab-content">
-                <p2p-form class="container"></p2p-form>
-                
-                <hr class="seperator"/>
+        <a data-bind="
+            href: { route: 'management', params: { tab: 'version' } },
+            css: { selected: isTabSelected('version') }
+        ">
+            Version
+        </a>
+        <a data-bind="
+            href: { route: 'management', params: { tab: 'advanced-options' } },
+            css: { selected: isTabSelected('advanced-options') }
+        ">
+            Advanced Options
+        </a>
+    </nav>
 
-                <server-dns-form class="container"></server-dns-form>
+    <div class="tabs-row">
+        <accounts-table class="tab" data-bind="
+            css: { selected: isTabSelected('accounts') }
+        "></accounts-table>
 
-                <hr>
+        <section class="tab" data-bind="
+            css: { selected: isTabSelected('settings') }
+        ">
+            <server-time-form class="pad"></server-time-form>
+            <hr />
+            <server-dns-form class="pad"></server-dns-form>
+            <hr />
+            <server-dns-settings-form class="pad"></server-dns-settings-form>
+            <hr />
+            <phone-home-form class="pad"></phone-home-form>
+            <hr />
+            <remote-syslog-form class="pad"></remote-syslog-form>
+            <hr />
+            <server-ssl-form class="pad"></server-ssl-form>
+            <hr />
+            <p2p-form class="pad"></p2p-form>
 
-                <server-time-form class="container"></server-time-form>
-            </section>
-        </li>        
-        <li data-bind="css: { selected: isTabSelected('about') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/about'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#upgrade'"></svg-icon>
-                <span>Version</span>
-            </a>
-            <section class="tab-content">
-                <about-form></about-form>
-            </section>
-        </li>
-        <li data-bind="css: { selected: isTabSelected('diagnostics') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/diagnostics'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#diagnose', fill: '#526D7C'"></svg-icon>
-                <span>Diagnostics</span>
-            </a>
-            <section class="tab-content">
-                <diagnostics-form></diagnostics-form>
-            </section>
-        </li>
-    </ul>
+
+        </section>
+
+        <diagnostics-form class="tab" data-bind="
+            css: { selected: isTabSelected('diagnostics') }
+        "></diagnostics-form>
+
+        <version-form class="tab" data-bind="
+            css: { selected: isTabSelected('version') }
+        "></version-form>
+
+        <section class="tab" data-bind="
+            css: { selected: isTabSelected('advanced-options') }
+        ">
+            <maintenance-form class="pad"></maintenance-form>
+            <hr>
+        </section>
+    </div>
 </div>

@@ -1,0 +1,54 @@
+node-selection-table {
+    .column();
+    margin-bottom: @gutter;
+
+    data-table {
+        .selected-col {
+            min-width: 25px;
+        }
+
+        .state-col {
+            min-width: 44px;
+        }
+
+        .name-col {
+            text-align: left;
+            width: 100%;
+            max-width: 270px;
+        }
+
+        .ip-col {
+            min-width: 105px;
+        }
+
+        .capacity-col {
+            min-width: 80px;
+        }
+
+        .pool-col {
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        .recommended-col {
+            min-width: 120px;
+            max-width: 120px;
+        }
+    }
+
+    .selection-summary {
+        padding: @gutter/2 @gutter;
+        background-color: @color4;
+    }
+
+    .selection-text {
+        font-size: @font-size4;
+    }
+
+    .val-msg {
+        position: relative;
+        margin-top: -1em;
+        top: 1em;
+        line-height: 1;
+    }
+}

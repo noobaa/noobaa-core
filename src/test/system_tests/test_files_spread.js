@@ -24,7 +24,7 @@ module.exports = {
 function get_nodes_auth() {
     var auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return P.fcall(function() {
@@ -33,7 +33,7 @@ function get_nodes_auth() {
         .then(function() {
             return client.node.list_nodes({
                 query: {
-                    state: 'online',
+                    online: true,
                 }
             });
         });
@@ -53,18 +53,18 @@ function run_test() {
                 return P.reject("Not Enough Nodes For 2 Pools");
             }
 
-            return client.pool.create_pool({
+            return client.pool.create_nodes_pool({
                 name: "pool1",
-                nodes: [sys_nodes.nodes[0].name, sys_nodes.nodes[1].name, sys_nodes.nodes[2].name],
+                nodes: _.map(sys_nodes.nodes.slice(0, 3), node => _.pick(node, 'name'))
             });
         })
-        .then(() => client.pool.create_pool({
+        .then(() => client.pool.create_nodes_pool({
             name: "pool2",
-            nodes: [sys_nodes.nodes[3].name, sys_nodes.nodes[4].name, sys_nodes.nodes[5].name],
+            nodes: _.map(sys_nodes.nodes.slice(3, 6), node => _.pick(node, 'name'))
         }))
         .then(() => client.tier.create_tier({
             name: 'tier1',
-            pools: ['pool1', 'pool2'],
+            node_pools: ['pool1', 'pool2'],
             data_placement: 'SPREAD'
         }))
         .then(() =>
@@ -85,7 +85,7 @@ function run_test() {
             return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
         .delay(3000)
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('Failed uploading file (SPREAD)', err);
             throw new Error('Failed uploading file (SPREAD) ' + err);
         })
@@ -116,7 +116,7 @@ function run_test() {
             return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
         .delay(3000)
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('Failed uploading file (MIRROR)', err);
             throw new Error('Failed uploading file (MIRROR) ' + err);
         })
@@ -160,7 +160,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             process.exit(1);
         });
 }

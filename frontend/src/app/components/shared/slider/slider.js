@@ -1,8 +1,11 @@
 import template from './slider.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class SliderViewModel {
-    constructor({ current = 1, slides }) {
+class SliderViewModel extends Disposable {
+    constructor({ current = 1 }) {
+        super();
+
         this.current = current;
 
         this.transform = ko.pureComputed(
@@ -19,5 +22,5 @@ class SliderViewModel {
 
 export default {
     viewModel: SliderViewModel,
-    template: template,
-}
+    template: template
+};

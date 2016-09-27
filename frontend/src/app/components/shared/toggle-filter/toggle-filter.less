@@ -1,0 +1,36 @@
+toggle-filter {
+    .row();
+    .align-start();
+
+    border: 1px solid @color15;
+    overflow: hidden;
+    padding: 4px;
+    line-height: 1;
+
+    label + label {
+        margin-left: 4px;
+    }
+
+    input {
+        position: absolute;
+        visibility: hidden;
+        z-index: -1;
+
+        &:checked + .toggle-btn {
+            color: @color8;
+            background-color: fadeout(@color8, 90%);
+        }
+    }
+
+    .toggle-btn {
+        line-height: 28px;
+        min-width: 120px;
+        color: @color7;
+        font-size: @font-size3;
+        text-align: center;
+        text-transform: capitalize;
+        cursor: @cursor-pointer;
+        background-color: fadeout(@color7, 90%);
+        transition: all 250ms ease-out;
+    }
+}

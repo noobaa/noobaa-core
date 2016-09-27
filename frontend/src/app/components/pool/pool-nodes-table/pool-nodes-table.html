@@ -1,56 +1,41 @@
-<input type="search" class="filter" placeholder="Filter Nodes" data-bind="textInput: filter" />
+<div class="row pad alt-bg">
+    <input type="search" class="push-next" placeholder="Filter by Node Name or IP"
+        data-bind=" textInput: nameOrIpFilter"/>
 
-<paginator params="itemCount: count, pageSize: pageSize, page: page" class="pull-right">
-</paginator>
+    <editor class="filter-by-editor greedy push-both" params="label: 'Filter By'">
+        <radio-group params="
+            options: issuesFilterOptions,
+            selected: issuesOnly
+        "></radio-group>
+    </editor>
 
-<section class="table-wrapper">
-    <div class="data-table">
-        <table>
-            <thead>
-                <tr>
-                    <th class="state-col" data-bind="css: orderClassFor('state')">
-                        <a href data-bind="click: () => orderBy('state')">state</a>
-                    </th>
-
-                    <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                        <a href data-bind="click: () => orderBy('name')">node name</a>
-                    </th>
-                    <th class="disk-read-write-col">
-                        Disk Read / write
-                    </th>
-                    <th class="rtt-col">
-                        RTT
-                    </th>
-
-                    <th class="ip-col" data-bind="css: orderClassFor('ip')">
-                        <a href data-bind="click: () => orderBy('ip')">ip</a>
-                    </th>
-
-                    <th class="capacity-col" data-bind="css: orderClassFor('capacity')">
-                        <a href data-bind="click: () => orderBy('capacity')">capacity</a>
-                    </th>
-                </tr>
-            </thead>
-            <tbody data-bind="foreach: rows">
-                <!-- ko if: isVisible -->
-                <tr>
-                    <td class="state-col" data-bind="tooltip: stateToolTip">
-                        <svg-icon params="uri: stateIcon"></svg-icon>
-                    </td>
-                    <td class="name-col text-left" >
-                        <a class="link" data-bind="text: name, href: href"></a>
-                    </td>
-                    <td class="disk-read-write-col" data-bind="text: diskReadWrite"></td>
-                    <td class="rtt-col " data-bind="text: RTT"></td>
-                    <td class="ip-col" data-bind="text: ip"></td>
-                    <td class="capacity-col" data-bind="text: capacity"></td>
-                </tr>
-                <!-- /ko -->
-            </tbody>
-        </table>
-
-        <p class="empty-message" data-bind="visible: !hasNodes()">
-            Pool does not contain any nodes
-        </p>
+    <div data-bind="tooltip: assignNodeTooltip">
+        <button class="btn " data-bind="
+            disable: isAssignNodesDisabled,
+            click: () => showAssignNodesModal()
+        ">
+            Assign Nodes
+        </button>
     </div>
-</section>
+</div>
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: nodes,
+    rowFactory: createNodeRow,
+    sorting: sorting,
+    emptyMessage: emptyMessage
+"></data-table>
+
+<paginator params="
+    itemCount: count,
+    pageSize: pageSize,
+    page: page
+"></paginator>
+
+<!-- ko if: isAssignNodeModalVisible -->
+    <assign-nodes-modal params="
+        poolName: poolName,
+        onClose: () => hideAssignNodesModal()
+    "></assign-nodes-modal>
+<!-- /ko -->

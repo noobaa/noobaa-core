@@ -1,10 +1,12 @@
 import template from './wizard.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop } from 'utils';
+import { isObject, noop } from 'utils';
 
-class WizardViewModel {
+class WizardViewModel extends Disposable {
     constructor({
-        heading = '[wizard-heading]', 
+        heading = '[wizard-heading]',
+        size = 'small',
         steps = [],
         skip = 0,
         actionLabel = 'Done',
@@ -13,8 +15,9 @@ class WizardViewModel {
         onComplete = noop,
         onClose = noop
     }) {
+        super();
+
         this.heading = heading;
-        this.steps = steps;
         this.actionLabel = actionLabel;
         this.step = ko.observable(skip);
         this.validateStep = validateStep;
@@ -22,25 +25,30 @@ class WizardViewModel {
         this.onComplete = onComplete;
         this.onClose = onClose;
 
-        this.stepsTransform = ko.pureComputed(
-            () => `translate(${this.step() * -100}%)`
+        this.stepsLabels = steps.map(
+            step => isObject(step) ? step.label : step
         );
 
-        this.isCancelVisible = ko.pureComputed(
+        this.stepClass = ko.pureComputed(
+            () => {
+                let step = steps[this.step()];
+                return `modal-${(isObject(step) && step.size) || size}` ;
+            }
+        );
+
+        this.isFirstStep = ko.pureComputed(
             () => this.step() === 0
         );
 
-        this.isPrevVisible = ko.pureComputed(
-            () => this.step() > 0
-        );        
-
-        this.isNextVisible = ko.pureComputed(
-            () => this.step() < this.steps.length - 1
+        this.isLastStep = ko.pureComputed(
+            () => this.step() === steps.length -1
         );
 
-        this.isDoneVisible = ko.pureComputed(
-            () => this.step() === this.steps.length - 1
-        );
+        this.shake = ko.observable(false);
+    }
+
+    isInStep(stepNum) {
+        return this.step() === stepNum;
     }
 
     cancel() {
@@ -55,10 +63,10 @@ class WizardViewModel {
     }
 
     next() {
-        if (this.step() < this.steps.length - 1 && 
-            this.validateStep(this.step() + 1)) {
-            
-            this.step(this.step() + 1)
+        if (!this.isLastStep() && this.validateStep(this.step() + 1)) {
+            this.step(this.step() + 1);
+        } else {
+            this.shake(true);
         }
     }
 
@@ -66,6 +74,8 @@ class WizardViewModel {
         if (this.validateStep(this.step() + 1)) {
             this.onComplete();
             this.onClose();
+        } else {
+            this.shake(true);
         }
     }
 }
@@ -75,12 +85,12 @@ function modelFactory(params, ci) {
         node => node.nodeType === 1
     );
 
-    // In order for the filtering to take effect we need to change the 
+    // In order for the filtering to take effect we need to change the
     // original array and not just replace it.
     ci.templateNodes.length = 0;
     ci.templateNodes.push(...elms);
-    
-    params.steps.length = elms.length;
+
+    params.steps = params.steps.slice(0, elms.length);
 
     return new WizardViewModel(params);
 }
@@ -88,4 +98,4 @@ function modelFactory(params, ci) {
 export default {
     viewModel: { createViewModel: modelFactory },
     template: template
-}
+};

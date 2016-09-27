@@ -1,7 +1,9 @@
 radio-btn {
-    @size: 21px;
+    @size: 18px;
     display: block;
     vertical-align: bottom;
+    white-space: nowrap;
+    line-height: 40px;
 
     label {
         display: inline-block;
@@ -21,20 +23,21 @@ radio-btn {
         }
 
         &:checked  ~ .radio-knob {
-            background-position-x: -@size;
+            background-position: -@size 0;
         }
 
-        &[disabled] {
+        &:disabled {
             ~ .radio-knob {
-                background-position-x: -2 * @size;    
+                background-position: -2 * @size 0;
             }
 
             &:checked ~ .radio-knob {
-                background-position-x: -3 * @size;            
+                background-position: -3 * @size 0;
             }
 
             ~ .radio-label {
-                color: @gray-lv5;
+                color: @color7;
+                opacity: .3;
             }
 
             ~ .radio-knob, ~ .radio-label {
@@ -50,16 +53,18 @@ radio-btn {
         height: @size;
         cursor: @cursor-pointer;
         text-align: center;
-        line-height: .9;
         vertical-align: middle;
-        background: url('/fe/assets/radiobtn.png') no-repeat;
+        background: url('@{assets}/radiobtn.png') no-repeat;
         overflow: hidden;
     }
 
     .radio-label {
         display: inline-block;
-        font-weight: @font-weight-medium;
-        margin-left: .25em;
+        line-height: 1;
+        vertical-align: middle;
+        color: @color6;
+        font-weight: @font-thin;
+        margin-left: 4px;
         transition: color 500ms;
         cursor: @cursor-pointer;
     }

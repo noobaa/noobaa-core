@@ -1,10 +1,12 @@
 'use strict';
 
-let _ = require('lodash');
-let P = require('./promise');
-let mongodb = require('mongodb');
-let mongoose = require('mongoose');
-let util = require('util');
+const _ = require('lodash');
+const util = require('util');
+const mongodb = require('mongodb');
+const mongoose = require('mongoose');
+
+const P = require('./promise');
+const RpcError = require('../rpc/rpc_error');
 
 /*
  *@param base - the array to subtract from
@@ -12,7 +14,7 @@ let util = require('util');
  *@out - return an array of string containing values in base which did no appear in values
  */
 function obj_ids_difference(base, values) {
-    let map_base = {};
+    const map_base = {};
     for (let i = 0; i < base.length; ++i) {
         map_base[base[i]] = base[i];
     }
@@ -28,11 +30,11 @@ function obj_ids_difference(base, values) {
  * logically correct for it even for two objects with the same id.
  */
 function uniq_ids(docs, doc_path) {
-    let map = {};
+    const map = {};
     _.each(docs, doc => {
-        let id = _.get(doc, doc_path);
+        const id = _.get(doc, doc_path);
         if (id) {
-            map[id.toString()] = id;
+            map[String(id)] = id;
         }
     });
     return _.values(map);
@@ -42,11 +44,11 @@ function uniq_ids(docs, doc_path) {
  * populate a certain doc path which contains object ids to another collection
  */
 function populate(docs, doc_path, collection, fields) {
-    let docs_list = _.isArray(docs) ? docs : [docs];
-    let ids = uniq_ids(docs_list, doc_path);
+    const docs_list = _.isArray(docs) ? docs : [docs];
+    const ids = uniq_ids(docs_list, doc_path);
     collection = collection.collection || collection;
     if (!ids.length) return docs;
-    return P.when(collection.find({
+    return P.resolve(collection.find({
             _id: {
                 $in: ids
             }
@@ -54,14 +56,11 @@ function populate(docs, doc_path, collection, fields) {
             fields: fields
         }).toArray())
         .then(items => {
-            let idmap = _.keyBy(items, '_id');
+            const idmap = _.keyBy(items, '_id');
             _.each(docs_list, doc => {
-                let item;
-                let id = _.get(doc, doc_path);
+                const id = _.get(doc, doc_path);
                 if (id) {
-                    item = idmap[id.toString()];
-                }
-                if (item) {
+                    const item = idmap[String(id)];
                     _.set(doc, doc_path, item);
                 }
             });
@@ -74,7 +73,7 @@ function resolve_object_ids_recursive(idmap, item) {
     _.each(item, (val, key) => {
         if (val instanceof mongodb.ObjectId) {
             if (key !== '_id') {
-                let obj = idmap[val];
+                const obj = idmap[val];
                 if (obj) {
                     item[key] = obj;
                 }
@@ -88,9 +87,9 @@ function resolve_object_ids_recursive(idmap, item) {
 
 function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
     _.each(paths, path => {
-        let ref = _.get(item, path);
+        const ref = _.get(item, path);
         if (is_object_id(ref)) {
-            let obj = idmap[ref];
+            const obj = idmap[ref];
             if (obj) {
                 _.set(item, path, obj);
             } else if (!allow_missing) {
@@ -107,6 +106,19 @@ function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
     return item;
 }
 
+function make_object_id(id_str) {
+    return new mongodb.ObjectId(id_str);
+}
+
+function fix_id_type(doc) {
+    if (_.isArray(doc)) {
+        _.each(doc, d => fix_id_type(d));
+    } else if (doc && doc._id) {
+        doc._id = make_object_id(doc._id);
+    }
+    return doc;
+}
+
 // apparently mongoose defined it's own class of ObjectID
 // instead of using the class from mongodb driver,
 // so we have to check both for now,
@@ -120,37 +132,37 @@ function is_err_duplicate_key(err) {
     return err && err.code === 11000;
 }
 
-function check_duplicate_key_conflict(req, entity, err) {
-    if (!is_err_duplicate_key(err)) {
-        throw err;
-    } else if (req) {
-        throw req.rpc_error('CONFLICT', entity + ' already exists');
+function check_duplicate_key_conflict(err, entity) {
+    if (is_err_duplicate_key(err)) {
+        throw new RpcError('CONFLICT', entity + ' already exists');
     } else {
-        throw new Error('CONFLICT', entity + ' already exists');
+        throw err;
     }
 }
 
-function check_entity_not_found(req, entity, doc) {
+function check_entity_not_found(doc, entity) {
     if (doc) {
         return doc;
     }
-    if (req) {
-        throw req.rpc_error('NO_SUCH_' + entity.toUpperCase(), 'No such ' + entity);
-    } else {
-        throw new Error('NO_SUCH_' + entity.toUpperCase());
-    }
+    throw new RpcError('NO_SUCH_' + entity.toUpperCase());
 }
 
-function check_entity_not_deleted(req, entity, doc) {
+function check_entity_not_deleted(doc, entity) {
     if (doc && !doc.deleted) {
         return doc;
     }
-    if (req) {
-        throw req.rpc_error('NO_SUCH_' + entity.toUpperCase(), 'No such ' + entity);
-    } else {
-        throw new Error('NO_SUCH_' + entity.toUpperCase());
-    }
+    throw new RpcError('NO_SUCH_' + entity.toUpperCase());
 }
+
+function make_object_diff(current, prev) {
+    const set_map = _.pickBy(current, (value, key) => !_.isEqual(value, prev[key]));
+    const unset_map = _.pickBy(prev, (value, key) => !(key in current));
+    const diff = {};
+    if (!_.isEmpty(set_map)) diff.$set = set_map;
+    if (!_.isEmpty(unset_map)) diff.$unset = _.mapValues(unset_map, () => 1);
+    return diff;
+}
+
 
 // EXPORTS
 exports.obj_ids_difference = obj_ids_difference;
@@ -158,8 +170,11 @@ exports.uniq_ids = uniq_ids;
 exports.populate = populate;
 exports.resolve_object_ids_recursive = resolve_object_ids_recursive;
 exports.resolve_object_ids_paths = resolve_object_ids_paths;
+exports.make_object_id = make_object_id;
+exports.fix_id_type = fix_id_type;
 exports.is_object_id = is_object_id;
 exports.is_err_duplicate_key = is_err_duplicate_key;
 exports.check_duplicate_key_conflict = check_duplicate_key_conflict;
 exports.check_entity_not_found = check_entity_not_found;
 exports.check_entity_not_deleted = check_entity_not_deleted;
+exports.make_object_diff = make_object_diff;

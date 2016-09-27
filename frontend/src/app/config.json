@@ -1,26 +1,47 @@
 {
     "inputThrottle": 400,
     "paginationPageSize": 25,
+    "infinitScrollPageSize": 25,
     "defaultPoolName": "default_pool",
-    "notificationInterval": 5000,
+    "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",
+    "defaultIconFile": "icons.svg",
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {
             "connectivity": {
                 "stepCount": 1,
-                "requestLength": 0, 
-                "responseLength": 0, 
+                "requestLength": 0,
+                "responseLength": 0,
                 "count": 1,
                 "concur": 1
             },
             "bandwidth": {
                 "stepCount": 8,
-                "requestLength": 524288, 
-                "responseLength": 524288, 
-                "count": 64, 
+                "requestLength": 524288,
+                "responseLength": 524288,
+                "count": 64,
                 "concur": 16
             }
         }
+    },
+    "notificaitons": {
+        "minTimeOnScreen": 3200,
+        "charTimeContribution": 50
+    },
+    // Uncommect browser codes after enabling support and QA
+    "supportedBrowsers": [
+        "chrome",
+        "firefox",
+        // "chromium",
+        // "edge",
+        // "msie",
+        // "safari",
+        // "opr"
+    ],
+    "support":  {
+        "email": "support@noobaa.com",
+        "helpDesk": "https://noobaa.desk.com",
+        "upgradeToEnterpriseMailSubject": "Application for upgrade from Community Edition to Enterprise Edition license"
     }
 }

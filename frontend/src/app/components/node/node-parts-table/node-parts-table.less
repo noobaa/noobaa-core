@@ -1,30 +1,28 @@
 node-parts-table {
-    display: block;
-    position: relative;
-    height: 100%;
+    .column();
 
-    .table-wrapper {
-        .fill();
-        top : 4em;
-    }
+    data-table {
+        .state-col {
+            min-width: 28px;
+        }
 
-    .state-col {
-        min-width: 4em;
-    }
+        .object-col {
+            text-align: left;
+            min-width: 90px;
+            width: 100%;
+        }
 
-    .name-col {
-        min-width: 7em;
-        width: 100%;
-    }
+        .bucket-col {
+            min-width: 100px;
+        }
 
-    .bucket-col,
-    .start-col,
-    .end-col {
-        min-width: 7em;
-        max-width: 7em;
-    }
+        .start-offset-col,
+        .end-offset-col {
+            min-width: 100px;
+        }
 
-    .size-col {
-        min-width: 10em;
+        .size-col {
+            min-width: 54px;
+        }
     }
 }

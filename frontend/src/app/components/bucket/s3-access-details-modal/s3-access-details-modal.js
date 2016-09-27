@@ -1,19 +1,27 @@
 import template from './s3-access-details-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo, accountInfo } from 'model';
-import { loadAccountInfo } from 'actions';
+import { systemInfo } from 'model';
 import { noop, copyTextToClipboard } from 'utils';
 
-class S3AccessDetailsModalViewModel {
-    constructor({ account, onClose = noop }) {
+class S3AccessDetailsModalViewModel extends Disposable {
+    constructor({ email, onClose = noop }) {
+        super();
+
         this.onClose = onClose;
+
+        let account = ko.pureComputed(
+            () => systemInfo() && systemInfo().accounts.find(
+                account => account.email === ko.unwrap(email)
+            )
+        );
 
         let endpoint = ko.pureComputed(
             () => systemInfo() && systemInfo().endpoint
         );
 
         let keys = ko.pureComputed(
-            () => accountInfo() && accountInfo().access_keys[0]
+            () => account() && account().access_keys[0]
         );
 
         let accessKey = ko.pureComputed(
@@ -30,8 +38,6 @@ class S3AccessDetailsModalViewModel {
             { label: 'Access Key', value: accessKey, allowCopy: true },
             { label: 'Secret Key', value: secretKey, allowCopy: true }
         ];
-
-        loadAccountInfo(ko.unwrap(account));
     }
 
     copyToClipboard(text) {
@@ -46,4 +52,4 @@ class S3AccessDetailsModalViewModel {
 export default {
     viewModel: S3AccessDetailsModalViewModel,
     template: template
-}
+};

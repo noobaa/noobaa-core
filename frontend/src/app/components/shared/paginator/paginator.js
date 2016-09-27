@@ -1,13 +1,16 @@
 import template from './paginator.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class PaginatorViewModel {
+class PaginatorViewModel extends Disposable {
     constructor({ itemCount, pageSize, page }) {
+        super();
+
         this.page = page;
 
         this.count = ko.pureComputed(
             () => ko.unwrap(itemCount)
-        );    
+        );
 
         this.noResults = ko.pureComputed(
             () => this.count() === 0
@@ -27,30 +30,18 @@ class PaginatorViewModel {
 
         this.isLastPage = ko.pureComputed(
             () => (this.page() + 1) * pageSize >= this.count()
-        );        
-
-        this.backwardIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#backward${
-                this.isFirstPage() ? '-disabled' : '' 
-            }`
-        );
-
-        this.forwardIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#forward${
-                this.isLastPage() ? '-disabled' : '' 
-            }`
         );
     }
 
     pageForward() {
         if (!this.isLastPage()) {
             this.page(this.page() + 1);
-        } 
+        }
     }
 
     pageBackward() {
         if (!this.isFirstPage()) {
-            this.page(this.page() - 1);    
+            this.page(this.page() - 1);
         }
     }
 }
@@ -58,4 +49,4 @@ class PaginatorViewModel {
 export default {
     viewModel: PaginatorViewModel,
     template: template
-}
+};

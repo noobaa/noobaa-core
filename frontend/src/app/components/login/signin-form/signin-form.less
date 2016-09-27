@@ -1,6 +1,20 @@
 .sign-in-from {
-    .invalid-msg {
-        margin: .5em;
-        font-size: @font-size-medium;
-    } 
+    z-index: 1;
+
+    .logo {
+        width: 64px;
+        height: 64px;
+    }
+
+    checkbox {
+        margin: @gutter 0;
+    }
+
+    .error {
+        visibility: hidden;
+
+        &.visible {
+            visibility: visible;
+        }
+    }
 }

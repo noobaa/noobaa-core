@@ -34,6 +34,10 @@ module.exports = {
                 endpoint: {
                     type: 'string'
                 },
+                endpoint_type: {
+                    type: 'string',
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                },
                 target_bucket: {
                     type: 'string'
                 },
@@ -75,6 +79,131 @@ module.exports = {
                 }
             }
         },
+        storage_stats: {
+            type: 'object',
+            required: ['chunks_capacity', 'objects_size', 'objects_count', 'last_update'],
+            properties: {
+                chunks_capacity: {
+                    oneOf: [{
+                            type: 'integer'
+                        }, {
+                            type: 'object',
+                            properties: {
+                                n: {
+                                    type: 'integer',
+                                },
+                                // to support bigger integers we can specify a peta field
+                                // which is considered to be based from 2^50
+                                peta: {
+                                    type: 'integer',
+                                }
+                            }
+                        }]
+                        // $ref: 'common_api#/definitions/bigint'
+                },
+                objects_size: {
+                    oneOf: [{
+                            type: 'integer'
+                        }, {
+                            type: 'object',
+                            properties: {
+                                n: {
+                                    type: 'integer',
+                                },
+                                // to support bigger integers we can specify a peta field
+                                // which is considered to be based from 2^50
+                                peta: {
+                                    type: 'integer',
+                                }
+                            }
+                        }]
+                        // $ref: 'common_api#/definitions/bigint'
+                },
+                objects_count: {
+                    type: 'integer'
+                },
+                last_update: {
+                    format: 'idate'
+                }
+            }
+        },
+        //lifecycle rules if exist
+        lifecycle_configuration_rules: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['id', 'prefix', 'status', 'expiration'],
+                properties: {
+                    id: {
+                        type: 'string'
+                    },
+                    prefix: {
+                        type: 'string'
+                    },
+                    status: {
+                        type: 'string'
+                    },
+                    expiration: {
+                        type: 'object',
+                        properties: {
+                            days: {
+                                type: 'integer'
+                            },
+                            date: {
+                                format: 'idate'
+                            },
+                            expired_object_delete_marker: {
+                                type: 'boolean'
+                            }
+
+                        }
+                    },
+                    abort_incomplete_multipart_upload: {
+                        type: 'object',
+                        properties: {
+                            days_after_initiation: {
+                                type: 'integer'
+                            },
+                        }
+                    },
+                    transition: {
+                        type: 'object',
+                        properties: {
+                            date: {
+                                format: 'idate'
+                            },
+                            storage_class: {
+                                type: 'string',
+                                enum: ['STANDARD_IA', 'GLACIER'],
+                            }
+                        }
+                    },
+                    noncurrent_version_expiration: {
+                        type: 'object',
+                        properties: {
+                            noncurrent_days: {
+                                type: 'integer'
+                            },
+                        }
+                    },
+                    noncurrent_version_transition: {
+                        type: 'object',
+                        properties: {
+                            noncurrent_days: {
+                                type: 'integer'
+                            },
+                            storage_class: {
+                                type: 'string',
+                                enum: ['STANDARD_IA', 'GLACIER'],
+                            }
+                        }
+                    },
+                    last_sync: {
+                        format: 'idate'
+                    }
+                }
+            }
+        },
         stats: {
             type: 'object',
             // required: [],
@@ -84,8 +213,18 @@ module.exports = {
                 },
                 writes: {
                     type: 'integer',
+                },
+                last_read: {
+                    format: 'idate'
+                },
+                last_write: {
+                    format: 'idate'
                 }
             }
+        },
+        demo_bucket: {
+            type: 'boolean'
         }
+
     }
 };

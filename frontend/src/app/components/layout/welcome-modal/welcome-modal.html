@@ -1,0 +1,27 @@
+<modal params="onClose: () => start(), allowBackdropClose: false">
+
+    <div class="text-center" data-bind="visible: loading">
+        <p class="heading1 push-next">Creating your system...</p>
+
+        <svg-icon class="loading-icon icon-big spin"
+            params="name: 'in-progress'"></svg-icon>
+    </div>
+
+    <div class="column" data-bind="visible: !loading()">
+        <hr />
+        <h1 class="heading1 text-center push-both">
+            Congratulations, You're in
+        </h1>
+
+        <p class="push-next text-center">
+            NooBaa system was created and is ready to go.
+            <br>
+            We have created a demo pool, bucket and nodes for you to get you started as quickly as possible.
+        </p>
+
+        <button class="start-btn btn push-both" data-bind="click: start">
+            Start getting things done
+        </button>
+        <hr />
+    </div>
+</modal>

@@ -15,6 +15,7 @@ var rpc = api.new_rpc();
 
 module.exports = {
     upload_and_upgrade: upload_and_upgrade,
+    wait_for_server: wait_for_server,
     get_agent_setup: get_agent_setup,
     upload_file: upload_file,
     download_file: download_file,
@@ -50,52 +51,68 @@ function upload_and_upgrade(ip, upgrade_pack) {
             formData: formData,
             rejectUnauthorized: false,
         })
-        .then(function(httpResponse, body) {
-            console.log('Upload package successful');
+        .then(res => console.log('Upload package successful', res.statusCode))
+        .then(() => P.delay(10000))
+        .then(() => wait_for_server(ip))
+        .then(() => P.delay(10000))
+        .then(() => {
             var isNotListening = true;
-            return P.delay(10000).then(function() {
-                return promise_utils.pwhile(
-                    function() {
-                        return isNotListening;
-                    },
-                    function() {
-                        return P.ninvoke(request, 'get', {
-                            url: 'http://' + ip + ':8080/',
-                            rejectUnauthorized: false,
-                        }).spread(function(res, body) {
-                            console.log('Web Server started after upgrade');
-                            isNotListening = false;
-                        }, function(err) {
-                            console.log('waiting for Web Server to start');
-                            return P.delay(10000);
-                        });
+            return promise_utils.pwhile(
+                function() {
+                    return isNotListening;
+                },
+                function() {
+                    return P.ninvoke(request, 'get', {
+                        url: 'http://' + ip + ':80/',
+                        rejectUnauthorized: false,
+                    }).then(res => {
+                        console.log('S3 server started after upgrade');
+                        isNotListening = false;
+                    }, err => {
+                        console.log('waiting for S3 server to start');
+                        return P.delay(10000);
                     });
-            }).then(function() {
-                isNotListening = true;
-                return P.delay(60000).then(function() {
-                    return promise_utils.pwhile(
-                        function() {
-                            return isNotListening;
-                        },
-                        function() {
-                            return P.ninvoke(request, 'get', {
-                                url: 'http://' + ip + ':8080/',
-                                rejectUnauthorized: false,
-                            }).spread(function(res, body) {
-                                console.log('S3 server started after upgrade');
-                                isNotListening = false;
-                            }, function(err) {
-                                console.log('waiting for S3 server to start');
-                                return P.delay(10000);
-                            });
-                        });
                 });
-            });
         })
-        .then(null, function(err) {
+        .catch(err => {
             console.error('Upload package failed', err, err.stack);
             throw new Error('Upload package failed ' + err);
         });
+}
+
+function wait_for_server(ip, wait_for_version) {
+    var isNotListening = true;
+    var version;
+    return promise_utils.pwhile(
+        function() {
+            return isNotListening;
+        },
+        function() {
+            console.log('waiting for Web Server to start');
+            return P.fromCallback(callback => request({
+                    method: 'get',
+                    url: 'http://' + ip + ':8080/version',
+                    strictSSL: false,
+                }, callback), {
+                    multiArgs: true
+                })
+                .spread(function(response, body) {
+                    if (response.statusCode !== 200) {
+                        throw new Error('got error code ' + response.statusCode);
+                    }
+                    if (wait_for_version && body !== wait_for_version) {
+                        throw new Error('version is ' + body +
+                            ' wait for version ' + wait_for_version);
+                    }
+                    console.log('Web Server started. version is: ' + body);
+                    version = body;
+                    isNotListening = false;
+                })
+                .catch(function(err) {
+                    console.log('not up yet...', err.message);
+                    return P.delay(5000);
+                });
+        }).return(version);
 }
 
 function get_agent_setup(ip) {
@@ -165,22 +182,22 @@ function download_file(ip, path) {
 function verify_upload_download(ip, path) {
     var orig_md5;
     var down_path = path + '_download';
-    return P.when(calc_md5(path))
+    return P.resolve(calc_md5(path))
         .then(function(md5) {
             orig_md5 = md5;
             return upload_file(ip, path);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('Failed to upload file', path, 'with err', err, err.stack);
         })
         .then(function() {
             return download_file(ip, down_path);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('Failed to download file with err', err, err.stack);
         })
         .then(function() {
-            return P.when(calc_md5(down_path));
+            return P.resolve(calc_md5(down_path));
         })
         .then(function(md5) {
             if (md5 === orig_md5) {
@@ -204,7 +221,7 @@ function generate_random_file(size_mb) {
         dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1M';
     }
 
-    return promise_utils.promised_exec(dd_cmd)
+    return promise_utils.exec(dd_cmd)
         .then(function() {
             return fname;
         });
@@ -219,18 +236,18 @@ function wait_on_agents_upgrade(ip) {
     return P.fcall(function() {
             var auth_params = {
                 email: 'demo@noobaa.com',
-                password: 'DeMo',
+                password: 'DeMo1',
                 system: 'demo'
             };
             return client.create_auth_token(auth_params);
         })
         .then(function() {
-            return P.when(client.system.read_system({}))
+            return P.resolve(client.system.read_system({}))
                 .then(function(res) {
                     sys_ver = res.version;
                 });
         })
-        .fail(function(error) {
+        .catch(function(error) {
             console.warn('Failed with', error, error.stack);
             throw error;
         })
@@ -245,14 +262,14 @@ function wait_on_agents_upgrade(ip) {
                         return old_agents;
                     },
                     function() {
-                        return P.when(client.node.list_nodes({
+                        return P.resolve(client.node.list_nodes({
                                 query: {
-                                    state: 'online',
+                                    online: true,
                                 }
                             }))
-                            .then(function(nodes) {
+                            .then(function(res) {
                                 old_agents = false;
-                                _.each(nodes.nodes, function(n) {
+                                _.each(res.nodes, function(n) {
                                     if (n.version !== sys_ver) {
                                         old_agents = true;
                                     }

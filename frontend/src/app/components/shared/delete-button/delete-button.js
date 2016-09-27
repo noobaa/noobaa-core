@@ -1,55 +1,56 @@
 import template from './delete-button.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop } from 'utils';
+import { isFunction, noop } from 'utils';
 
-const disabledIcon =  '/fe/assets/icons.svg#trash-disabled';
-const closedIcon = '/fe/assets/icons.svg#trash-closed';
-const opendIcon = '/fe/assets/icons.svg#trash-opened';
-
-class DeleteButtonViewModel {
-    constructor({ 
-        group = ko.observable(), 
-        onDelete = noop,
-        toolTip,
+class DeleteButtonViewModel extends Disposable {
+    constructor({
+        subject,
+        group = ko.observable(),
+        onDelete,
+        tooltip = 'delete',
         disabled = false
     }) {
-        this.onDelete = onDelete;
-        this.toolTip = toolTip;
+        super();
+
+        this.onDelete = isFunction(onDelete) ? onDelete : noop;
         this.disabled = disabled;
 
-        this.isSelected = ko.pureComputed({
+        this.isActive = ko.pureComputed({
             read: () => group() === this,
-            write: val => {
-                if (val) {
-                    group(this);
-                } else if (group() === this) {
-                    group(null)
-                }
-            }
+            write: val => group(val ? this : null)
         });
 
-        this.deleteIcon = ko.pureComputed(
-            () => ko.unwrap(this.disabled) ? 
-                disabledIcon :
-                (this.isSelected() ? opendIcon : closedIcon)
+        this.tooltip = ko.pureComputed(
+            () => this.isActive() ? undefined : { text: tooltip, align: 'right' }
+        );
+
+        this.icon = ko.pureComputed(
+            () => (ko.unwrap(this.disabled) || !this.isActive()) ?
+                'bin-closed' :
+                'bin-opened'
+        );
+
+        this.question = ko.pureComputed(
+            () => subject ? `Delete ${subject}?` : 'Delete ?'
         );
     }
 
-    select() {
-        this.isSelected(true);
+    activate() {
+        this.isActive(true);
     }
 
     confirm() {
-        this.isSelected(false);
+        this.isActive(false);
         this.onDelete();
     }
-    
+
     cancel() {
-        this.isSelected(false);
+        this.isActive(false);
     }
 }
 
 export default {
     viewModel: DeleteButtonViewModel,
     template: template
-}
+};

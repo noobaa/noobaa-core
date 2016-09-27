@@ -1,12 +1,70 @@
 import template from './node-summary.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import { raiseNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
-import { formatSize } from 'utils';
+import { deepFreeze, formatSize, bitsToNumber } from 'utils';
 import style from 'style';
 
-class NodeSummaryViewModel {
+const stateMapping = deepFreeze({
+    online: {
+        text: 'Online',
+        css: 'success',
+        icon: 'healthy'
+    },
+    deactivated: {
+        text: 'Deactivated',
+        css: 'warning',
+        icon: 'problem'
+    },
+    offline: {
+        text: 'Offline',
+        css: 'error',
+        icon: 'problem'
+    }
+});
+
+const trustMapping = deepFreeze({
+    true: {
+        text: 'Trusted',
+        css: 'success',
+        icon: 'healthy'
+    },
+    false: {
+        text: 'Untrusted',
+        css: 'error',
+        icon: 'problem'
+    }
+});
+
+const accessibilityMapping = deepFreeze({
+    0: {
+        text: 'No Access',
+        css: 'error',
+        icon: 'problem'
+    },
+    2: {
+        text: 'Read Only',
+        css: 'warning',
+        icon: 'problem'
+    },
+    3: {
+        text: 'Readable & Writable',
+        css: 'success',
+        icon: 'healthy'
+    }
+});
+
+const activityNameMapping = deepFreeze({
+    RESTORING: 'Restoring Node',
+    MIGRATING: 'Migrating Node',
+    DECOMMISSIONING: 'Deactivating Node',
+    DELETING: 'Deleting Node'
+});
+
+class NodeSummaryViewModel extends Disposable {
     constructor({ node }) {
+
+        super();
 
         this.dataReady = ko.pureComputed(
             () => !!node()
@@ -16,95 +74,151 @@ class NodeSummaryViewModel {
             () => node().name
         );
 
-        this.ip = ko.pureComputed(
-            () => node().ip
-        );
-
-        this.stateIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
-        )
-        let extended_state = '';
-        if (node().storage_full) {
-            extended_state = '. Not enough free space. Read-Only mode';
-        }
         this.state = ko.pureComputed(
-            () => node().online ? 'Online' + extended_state : 'Offline' + extended_state
-        );
+            () => {
+                if (!node().online) {
+                    return stateMapping.offline;
 
-        this.heartbeat = ko.pureComputed(
-            () => moment(node().heartbeat).fromNow()
-        );
+                } else if (node().decommissioning || node().decommissioned) {
+                    return stateMapping.deactivated;
 
-        this.trustIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
+                } else {
+                    return stateMapping.online;
+                }
+            }
         );
 
         this.trust = ko.pureComputed(
-            () => node().trusted ? 'Trusted' : 'Untrusted'
+            () => trustMapping[node().trusted]
         );
 
-        this.debugLevel = ko.pureComputed(
-            () => node().debug_level === 0 ? 'Low' : 'High'
+        this.accessibility = ko.pureComputed(
+            () => {
+                let index = bitsToNumber(node().readable, node().writable);
+                return accessibilityMapping[index];
+            }
         );
 
-        this.debugLevelCss = ko.pureComputed(
-          () => node().debug_level === 0 ? 'dl-low' : 'dl-high'
+        let storage = ko.pureComputed(
+            () => node().storage
         );
 
-        this.total = ko.pureComputed(
-            () => node().storage.total
+        this.formattedText = ko.pureComputed(
+            () => storage().total
+        ).extend({
+            formatSize: true
+        });
+
+        this.pieValues = [
+            {
+                label: 'Potential free',
+                color: style['color5'],
+                value: ko.pureComputed(
+                    () => storage().free
+                )
+            },
+            {
+                label: 'Used (NooBaa)',
+                color: style['color13'],
+                value: ko.pureComputed(
+                    () => storage().used
+                )
+            },
+            {
+                label: 'Used (Other)',
+                color: style['color14'],
+                value: ko.pureComputed(
+                    () => storage().used_other
+                )
+
+            },
+            {
+                label: 'Reserved',
+                color: style['color7'],
+                value: ko.pureComputed(
+                    () => storage().reserved
+                )
+            }
+        ];
+
+        let dataActivity = ko.pureComputed(
+            () => node().data_activity
         );
 
-        this.totalText = ko.pureComputed(
-            () => formatSize(this.total())
+        this.hasActivity = ko.pureComputed(
+            () => Boolean(dataActivity())
         );
 
-        this.used = ko.pureComputed(
-            () => node().storage.used
+        this.activityTitle = ko.pureComputed(
+            () => {
+                if (!dataActivity()) {
+                    return 'No Activity';
+                }
+
+                return activityNameMapping[dataActivity().reason];
+            }
         );
 
-        this.usedText = ko.pureComputed(
-            () => formatSize(this.used())
+        this.activityStageMessage = ko.pureComputed(
+            () => {
+                if (!dataActivity()) {
+                    return 'Node is in optimal condition';
+                }
+
+                let { stage } = dataActivity();
+                switch (stage.name) {
+                    case 'OFFLINE_GRACE':
+                        return `Waiting for heartbeat, ${
+                            moment(stage.time.end).fromNow()
+                        } until restore`;
+
+                    case 'REBUILDING':
+                        return `Rebuilding ${
+                            formatSize(stage.size.completed)
+                        } of ${
+                            formatSize(stage.size.total)
+                        }`;
+
+                    case 'WIPING':
+                        return `Wiping ${
+                            formatSize(stage.size.completed)
+                        } of ${
+                            formatSize(stage.size.total)
+                        }`;
+                }
+            }
         );
 
-        this.free = ko.pureComputed(
-            () => node().storage.free
-        );
+        this.activityProgressBarValues = [
+            {
+                value: ko.pureComputed(
+                    () => dataActivity() ? dataActivity().progress : 0
+                ),
+                color: style['color8']
+            },
+            {
+                value: ko.pureComputed(
+                    () => dataActivity() ? 1 - dataActivity().progress : 1
+                ),
+                color: style['color15']
+            }
+        ];
 
-        this.freeText = ko.pureComputed(
-            () => formatSize(this.free())
-        );
+        this.activityETA = ko.pureComputed(
+            () => {
+                if (!dataActivity() || !dataActivity().time.end) {
+                    return 'calculating...';
+                }
 
-        this.os = ko.pureComputed(
-            () => this.total() - (this.used() + this.free())
-        );
-
-        this.osText = ko.pureComputed(
-            () => formatSize(this.os())
-        );
-        this.gaugeValues = [
-            { value: this.used(), color: style['text-color6'], emphasize: true },
-            { value: this.os(), color: style['text-color2'] ,emphasize: false },
-            { value: this.free(), color: style['text-color5'] ,emphasize: false }
-        ]
-
-        this.rpcAddress = ko.pureComputed(
-            () => !!node() && node().rpc_address
+                return moment(dataActivity().time.end).fromNow();
+            }
         );
 
         this.isTestModalVisible = ko.observable(false);
-    }
-
-    raiseDebugLevel() {
-        raiseNodeDebugLevel(this.name());
-    }
-
-    downloadDiagnosticPack() {
-        downloadNodeDiagnosticPack(this.name());
     }
 }
 
 export default {
     viewModel: NodeSummaryViewModel,
     template: template
-}
+};

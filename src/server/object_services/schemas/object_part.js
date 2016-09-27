@@ -107,5 +107,11 @@ object_part_schema.index({
     unique: false
 });
 
+object_part_schema.index({
+    obj: 1,
+    deleted: 1, // allow to filter deleted
+}, {
+    unique: false
+});
 
 module.exports = mongoose.model('ObjectPart', object_part_schema);

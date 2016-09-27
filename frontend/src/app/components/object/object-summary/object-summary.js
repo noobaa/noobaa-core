@@ -1,34 +1,63 @@
 import template from './object-summary.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize } from 'utils';
+import moment from 'moment';
+import style from 'style';
 
-class ObjectSummaryViewModel {
-    constructor({ object }) {
+const timeFormat = 'DD MMM YYYY hh:mm:ss';
+
+class ObjectSummaryViewModel extends Disposable {
+    constructor({ obj }) {
+        super();
+
         this.dataReady = ko.pureComputed(
-            () => !!object()
+            () => !!obj()
         );
 
-        this.s3Url = ko.pureComputed(
-            () => object().s3Url
+        this.bucketName = ko.pureComputed(
+            () => obj() && obj().bucket
         );
 
-        this.reads = ko.pureComputed(
-            () => object().info.stats.reads
+        this.contentType = ko.pureComputed(
+            () => obj() && obj().content_type
         );
 
-        this.size = ko.pureComputed(
-            () => `Size: ${formatSize(object().info.size)}`
+        this.creationTime = ko.pureComputed(
+            () => obj() && (
+                obj().create_time ? moment(obj().create_time).format(timeFormat) : 'N/A'
+            )
         );
 
-        this.partsCount = ko.pureComputed(
-            () => `Parts Count: ${object().info.total_parts_count || 'N/A'}`
+        this.lastRead = ko.pureComputed(
+            () => obj() && (
+                obj().stats.last_read ? moment(obj().stats.last_read).format(timeFormat) : 'N/A'
+            )
         );
 
-        this.isPreviewModalVisible = ko.observable(false);
+        this.readCount = ko.pureComputed(
+            () => obj() ? obj().stats.reads : 0
+        );
+
+        this.barsValues = [
+            {
+                label: 'Physical size',
+                value: ko.pureComputed(
+                    () => obj().capacity_size
+                ),
+                color: style['color13']
+            },
+            {
+                label: 'Size',
+                value: ko.pureComputed(
+                    () => obj().size
+                ),
+                color: style['color7']
+            }
+        ];
     }
 }
 
 export default {
     viewModel: ObjectSummaryViewModel,
     template: template
-}
+};

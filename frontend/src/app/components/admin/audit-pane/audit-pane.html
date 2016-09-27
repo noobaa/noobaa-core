@@ -1,47 +1,54 @@
-<section class="audit-pane">
+<h1 class="row content-middle heading2 audit-header push-next">
+    <span class="greedy push-next">Audit Log</span>
 
-    <div class="pull-right">
-        <button class="link" data-bind="click: selectAllCategories">
+    <button class="icon-btn no-outline" data-bind="click: closeDrawer">
+        <svg-icon class="close-icon" params="name: 'x'"></svg-icon>
+    </button>
+</h1>
+
+<div class="row content-middle">
+    <h2 class="heading3 greedy">Choose Categories</h2>
+
+    <div>
+        <button class="link alt-colors" data-bind="click: selectAllCategories">
             Select all
         </button>
         |
-        <button class="link" data-bind="click: clearAllCategories">
+        <button class="link alt-colors" data-bind="click: clearAllCategories">
             Clear
         </button>
     </div>
+</div>
 
-    <h2 class="heading3">Choose Categories</h2>
+<multiselect class="push-next" params="
+    options: categories,
+    selected: selectedCategories
+"></multiselect>
 
-    <multiselect params="options: categories, selected: selectedCategories" class="cols4">
-    </multiselect>
+<div class="row">
+    <h3 class="heading3 greedy push-next align-end">Events</h3>
 
-    <div class="log box">
-        <div class="data-table">
-            <table data-bind="scroll: scroll">
-                <thead>
-                    <tr>
-                        <th class="time-col">Time</th>
-                        <th class="user-col">Account</th>
-                        <th class="category-col">Category</th>
-                        <th class="event-col">Event</th>
-                        <th class="entity-col text-left">Entity</th>
-                    </tr>
-                </thead>
-                <tbody data-bind="foreach: rows">
-                    <tr class="log-entry" data-bind="css: level">
-                        <td class="time-col text-left" data-bind="text: date"></td>
-                        <td class="user-col">
-                            <div class="no-wrap" data-bind="
-                                text: user || '---', 
-                                tooltip: user
-                            "></div>
-                        </td>
-                        <td class="category-col" data-bind="text: category"></td>
-                        <td class="event-col" data-bind="text: event"></td>
-                        <td class="entity-col text-left" data-bind="text: entity"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+    <button class="icon-btn export-btn" data-bind="
+        click: exportToCSV,
+        tooltip: { text: 'Export as CSV', align: 'right'}
+    ">
+        <svg-icon class="icon-small" params="name: 'export'" ></svg-icon>
+    </button>
+</div>
+
+<data-table class="greedy push-next" params="
+    columns: columns,
+    data: entries,
+    rowFactory: entry => createAuditRow(entry),
+    rowCssProp: 'selectedCss',
+    rowClick: selectedRow,
+    scroll: scroll,
+    emptyMessage: 'Filter does not match any event'
+"></data-table>
+
+<h3 class="heading3">Event Description</h3>
+<section class=" alt-bg pad push-next" >
+    <div class="desc-box" data-bind="foreach: description">
+        <div data-bind="text: $data"></div>
     </div>
 </section>

@@ -1,12 +1,14 @@
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var mocha = require('mocha');
-var assert = require('assert');
-let pem = require('../../util/pem');
-var RPC = require('../../rpc/rpc');
-var RpcSchema = require('../../rpc/rpc_schema');
+const _ = require('lodash');
+const mocha = require('mocha');
+const assert = require('assert');
+
+const P = require('../../util/promise');
+const RPC = require('../../rpc/rpc');
+const pem = require('../../util/pem');
+const RpcError = require('../../rpc/rpc_error');
+const RpcSchema = require('../../rpc/rpc_schema');
 
 mocha.describe('RPC', function() {
 
@@ -228,10 +230,7 @@ mocha.describe('RPC', function() {
                         assert.deepEqual(param, req.rpc_params[name]);
                     });
                     if (reply_error) {
-                        throw req.rpc_error(ERROR_CODE, ERROR_MESSAGE, {
-                            quiet: true,
-                            nostack: true
-                        });
+                        throw new RpcError(ERROR_CODE, ERROR_MESSAGE);
                     } else {
                         return P.resolve(REPLY);
                     }
@@ -353,10 +352,10 @@ mocha.describe('RPC', function() {
             allow_missing_methods: true
         });
         let tls_server;
-        return P.nfcall(pem.createCertificate, {
+        return P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
                 selfSigned: true
-            })
+            }, callback))
             .then(cert => {
                 return rpc.register_tcp_transport(0, {
                     key: cert.serviceKey,
@@ -376,13 +375,13 @@ mocha.describe('RPC', function() {
     });
 
     mocha.it('N2N DEFAULT', n2n_tester());
-    mocha.it('N2N UDP', n2n_tester({
-        udp_port: true,
-        tcp_active: false,
-        tcp_permanent_passive: false,
-        tcp_transient_passive: false,
-        tcp_simultaneous_open: false,
-    }));
+    // mocha.it('N2N UDP', n2n_tester({
+    //     udp_port: true,
+    //     tcp_active: false,
+    //     tcp_permanent_passive: false,
+    //     tcp_transient_passive: false,
+    //     tcp_simultaneous_open: false,
+    // }));
     mocha.it('N2N TCP', n2n_tester({
         tcp_active: true,
         tcp_permanent_passive: {
@@ -411,7 +410,7 @@ mocha.describe('RPC', function() {
             });
             let tcp_server;
             const ADDR = 'n2n://testrpc';
-            let n2n_agent = rpc.register_n2n_transport(
+            let n2n_agent = rpc.register_n2n_agent(
                 params => rpc.accept_n2n_signal(params)
             );
             n2n_agent.set_rpc_address(ADDR);

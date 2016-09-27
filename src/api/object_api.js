@@ -488,8 +488,13 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
-                    get_parts_count: {
-                        type: 'boolean'
+                    adminfo: {
+                        type: 'object',
+                        properties: {
+                            signed_url_endpoint: {
+                                type: 'string'
+                            },
+                        }
                     },
                 }
             },
@@ -600,7 +605,7 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['state', 'name', 'size']
+                        enum: ['state', 'name', 'size', 'create_time']
                     },
                     order: {
                         type: 'integer',
@@ -645,6 +650,148 @@ module.exports = {
             }
         },
 
+        report_error_on_object: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'action',
+                    'bucket',
+                    'key'
+                ],
+                properties: {
+                    action: {
+                        type: 'string',
+                        enum: ['read', 'upload']
+                    },
+                    bucket: {
+                        type: 'string'
+                    },
+                    key: {
+                        type: 'string'
+                    },
+                    upload_id: {
+                        type: 'string'
+                    },
+                    start: {
+                        type: 'integer',
+                    },
+                    end: {
+                        type: 'integer',
+                    },
+                    blocks_report: {
+                        $ref: 'common_api#/definitions/blocks_report'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        add_s3_usage_report: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['s3_usage_info', 's3_errors_info'],
+                properties: {
+                    s3_usage_info: {
+                        $ref: '#/definitions/s3_usage_info',
+                    },
+                    s3_errors_info: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    },
+                }
+            },
+            auth: {
+                system: ['admin']
+            }
+        },
+
+        remove_s3_usage_reports: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['till_time'],
+                properties: {
+                    till_time: {
+                        format: 'idate'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        read_s3_usage_report: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['from_time'],
+                properties: {
+                    from_time: {
+                        format: 'idate'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['reports'],
+                properties: {
+                    reports: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['system', 'time', 's3_usage_info', 's3_errors_info'],
+                            properties: {
+                                system: {
+                                    type: 'string',
+                                },
+                                time: {
+                                    format: 'idate',
+                                },
+                                s3_usage_info: {
+                                    $ref: '#/definitions/s3_usage_info',
+                                },
+                                s3_errors_info: {
+                                    type: 'object',
+                                    additionalProperties: true,
+                                    properties: {}
+                                },
+                            }
+                        }
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        delete_multiple_objects_by_prefix: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket', 'prefix'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    create_time: {
+                        format: 'idate',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
     },
 
 
@@ -693,11 +840,18 @@ module.exports = {
         object_info: {
             type: 'object',
             required: [
+                'bucket',
+                'key',
                 'size',
-                'content_type',
-                'create_time'
+                'content_type'
             ],
             properties: {
+                bucket: {
+                    type: 'string'
+                },
+                key: {
+                    type: 'string'
+                },
                 version_id: {
                     type: 'string'
                 },
@@ -710,11 +864,17 @@ module.exports = {
                 create_time: {
                     format: 'idate'
                 },
+                upload_started: {
+                    format: 'idate'
+                },
                 upload_size: {
                     type: 'integer',
                 },
                 etag: {
                     type: 'string',
+                },
+                cloud_synced: {
+                    type: 'boolean'
                 },
                 xattr: {
                     $ref: '#/definitions/xattr',
@@ -724,12 +884,23 @@ module.exports = {
                     properties: {
                         reads: {
                             type: 'integer',
+                        },
+                        last_read: {
+                            format: 'idate',
                         }
                     }
                 },
                 total_parts_count: {
                     type: 'integer',
                 },
+                // This is the physical size (aggregation of all blocks)
+                // It does not pay attention to dedup
+                capacity_size: {
+                    type: 'integer',
+                },
+                s3_signed_url: {
+                    type: 'string'
+                }
             }
         },
 
@@ -871,7 +1042,7 @@ module.exports = {
             required: ['block_md'],
             properties: {
                 block_md: {
-                    $ref: 'agent_api#/definitions/block_md'
+                    $ref: 'common_api#/definitions/block_md'
                 },
                 adminfo: {
                     type: 'object',
@@ -889,14 +1060,118 @@ module.exports = {
                         online: {
                             type: 'boolean'
                         },
-                        srvmode: {
-                            $ref: 'node_api#/definitions/srvmode'
+                        in_cloud_pool: {
+                            type: 'boolean'
                         },
+
                     }
                 }
             }
         },
 
+        s3_usage_info: {
+            type: 'object',
+            required: [
+                'prepare_request',
+                'list_buckets',
+                'head_bucket',
+                'get_bucket',
+                'get_bucket_versions',
+                'get_bucket_uploads',
+                'put_bucket',
+                'delete_bucket',
+                'post_bucket_delete',
+                'get_bucket_acl',
+                'put_bucket_acl',
+                'get_bucket_location',
+                'head_object',
+                'get_object',
+                'put_object',
+                'copy_object',
+                'delete_object',
+                'get_object_acl',
+                'put_object_acl',
+                'post_object_uploads',
+                'post_object_uploadId',
+                'delete_object_uploadId',
+                'get_object_uploadId',
+                'put_object_uploadId',
+            ],
+            properties: {
+                prepare_request: {
+                    type: 'integer',
+                },
+                list_buckets: {
+                    type: 'integer',
+                },
+                head_bucket: {
+                    type: 'integer',
+                },
+                get_bucket: {
+                    type: 'integer',
+                },
+                get_bucket_versions: {
+                    type: 'integer',
+                },
+                get_bucket_uploads: {
+                    type: 'integer',
+                },
+                put_bucket: {
+                    type: 'integer',
+                },
+                delete_bucket: {
+                    type: 'integer',
+                },
+                post_bucket_delete: {
+                    type: 'integer',
+                },
+                get_bucket_acl: {
+                    type: 'integer',
+                },
+                put_bucket_acl: {
+                    type: 'integer',
+                },
+                get_bucket_location: {
+                    type: 'integer',
+                },
+                head_object: {
+                    type: 'integer',
+                },
+                get_object: {
+                    type: 'integer',
+                },
+                put_object: {
+                    type: 'integer',
+                },
+                copy_object: {
+                    type: 'integer',
+                },
+                delete_object: {
+                    type: 'integer',
+                },
+                get_object_acl: {
+                    type: 'integer',
+                },
+                put_object_acl: {
+                    type: 'integer',
+                },
+                post_object_uploads: {
+                    type: 'integer',
+                },
+                post_object_uploadId: {
+                    type: 'integer',
+                },
+                delete_object_uploadId: {
+                    type: 'integer',
+                },
+                get_object_uploadId: {
+                    type: 'integer',
+                },
+                put_object_uploadId: {
+                    type: 'integer',
+                },
+            }
+        },
 
     },
 

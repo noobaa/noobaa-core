@@ -1,0 +1,29 @@
+<h2 class="heading3">
+    Choose an account to connect with
+</h2>
+
+<dropdown class="push-next" params="
+    options: accountOptions,
+    selected: selectedAccount,
+    placeholder: 'select account',
+    hasFocus: $inActiveStep
+"></dropdown>
+
+<h2 class="heading3 push-prev">
+    Use the following infromation to config your application
+</h2>
+
+<div class="alt-bg pad greedy">
+    <property-sheet class="greedy" params="properties: details">
+    </property-sheet>
+</div>
+
+<p class="create-account-msg">
+    <svg-icon class="icon-small" params="
+        name: 'notif-info'
+    "></svg-icon>
+    To create a new account go to System Management >
+    <a class="link" data-bind="href: { route: 'management', tab: 'accounts' }">
+        Accounts
+    </a>
+</p>

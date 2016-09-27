@@ -1,10 +1,13 @@
 import template from './account-s3-access-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { accountInfo, accountS3ACL } from 'model';
-import { loadAccountInfo, loadAccountS3ACL, updateAccountS3ACL } from 'actions';
+import { systemInfo, accountS3ACL } from 'model';
+import { loadAccountS3ACL, updateAccountS3ACL } from 'actions';
 
-class AccountS3AccessModalViewModel {
+class AccountS3AccessModalViewModel extends Disposable {
     constructor({ email, onClose }) {
+        super();
+
         this.onClose = onClose;
         this.email = email;
 
@@ -12,6 +15,12 @@ class AccountS3AccessModalViewModel {
             .map(
                 ({ bucket_name }) => bucket_name
             );
+
+        let account = ko.pureComputed(
+            () => systemInfo() && systemInfo().accounts.find(
+                account => account.email === ko.unwrap(email)
+            )
+        );
 
         let selectedBucketsInternal = ko.observableWithDefault(
             () => accountS3ACL
@@ -21,7 +30,7 @@ class AccountS3AccessModalViewModel {
                 .map(
                     ({ bucket_name }) => bucket_name
                 )
-        )
+        );
 
         this.selectedBuckets = ko.pureComputed({
             read: () => this.hasS3Access() ? selectedBucketsInternal() : [],
@@ -29,10 +38,9 @@ class AccountS3AccessModalViewModel {
         });
 
         this.hasS3Access = ko.observableWithDefault(
-            () => !!accountInfo() && accountInfo().has_s3_access
+            () => !!account() && account().has_s3_access
         );
 
-        loadAccountInfo(ko.unwrap(email));
         loadAccountS3ACL(ko.unwrap(email));
     }
 
@@ -55,9 +63,8 @@ class AccountS3AccessModalViewModel {
             })
         );
 
-        console.log('HERE1');
         updateAccountS3ACL(
-            ko.unwrap(this.email), 
+            ko.unwrap(this.email),
             this.hasS3Access() ? acl : null
         );
         this.onClose();
@@ -71,4 +78,4 @@ class AccountS3AccessModalViewModel {
 export default {
     viewModel: AccountS3AccessModalViewModel,
     template: template
-}
+};

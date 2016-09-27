@@ -5,25 +5,85 @@
 // and will make searching easier.
 var config = exports;
 
+//////////////////
+// NODES CONFIG //
+//////////////////
+
 // TODO take nodes min and free space reserve from system/pool config
 config.NODES_MIN_COUNT = 3;
 config.NODES_PER_CLOUD_POOL = 1;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024 * 1024;
 
-// WRITE CONCURRENCY
-config.WRITE_CONCURRENCY = 256;
-config.REPLICATE_CONCURRENCY = 256;
-// READ CONCURRENCY
-config.READ_CONCURRENCY = 256;
-config.READ_RANGE_CONCURRENCY = 32;
-
-config.write_block_timeout = 20 * 1000;
-config.read_block_timeout = 10 * 1000;
-
 config.LONG_GONE_THRESHOLD = 3600000;
 config.SHORT_GONE_THRESHOLD = 300000;
 config.LONG_BUILD_THRESHOLD = 300000;
 config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
+config.DEMO_NODES_STORAGE_LIMIT = 500 * 1024 * 1024;
+config.NUM_DEMO_NODES = 3;
+
+////////////////
+// RPC CONFIG //
+////////////////
+
+config.RPC_CONNECT_TIMEOUT = 5000;
+config.RPC_SEND_TIMEOUT = 5000;
+
+///////////////
+// S3 CONFIG //
+///////////////
+
+config.S3_FORKS_ENABLED = true;
+
+///////////////
+// MD CONFIG //
+///////////////
+
+config.DEDUP_ENABLED = true;
+
+///////////////
+// IO CONFIG //
+///////////////
+
+config.IO_WRITE_BLOCK_RETRIES = 5;
+config.IO_WRITE_BLOCK_TIMEOUT = 20000;
+config.IO_WRITE_RETRY_DELAY_MS = 100;
+config.IO_REPLICATE_BLOCK_RETRIES = 3;
+config.IO_REPLICATE_BLOCK_TIMEOUT = 20000;
+config.IO_REPLICATE_RETRY_DELAY_MS = 100;
+config.IO_READ_BLOCK_TIMEOUT = 10000;
+config.IO_DELETE_BLOCK_TIMEOUT = 30000;
+
+config.IO_WRITE_CONCURRENCY = 256;
+config.IO_REPLICATE_CONCURRENCY = 256;
+config.IO_READ_CONCURRENCY = 256;
+config.IO_READ_RANGE_CONCURRENCY = 32;
+
+config.IO_STREAM_CHUNK_SIZE = 128 * 1024 * 1024;
+config.IO_OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
+config.IO_HTTP_PART_ALIGN = 32 * 1024 * 1024;
+config.IO_HTTP_TRUNCATE_PART_SIZE = false;
+
+////////////////////
+// REBUILD CONFIG //
+////////////////////
+
+config.REBUILD_BATCH_SIZE = 100;
+config.REBUILD_BATCH_DELAY = 50;
+config.REBUILD_BATCH_ERROR_DELAY = 3000;
+config.REBUILD_LAST_BUILD_BACKOFF = 1 * 60000; // TODO increase?
+config.REBUILD_BUILDING_MODE_BACKOFF = 5 * 60000; // TODO increase?
+
+config.REBUILD_NODE_CONCURRENCY = 5;
+config.REBUILD_NODE_OFFLINE_GRACE = 5 * 60000;
+
+config.SCRUBBER_ENABLED = true;
+config.SCRUBBER_RESTART_DELAY = 30000;
+
+//////////////////
+// DEBUG CONFIG //
+//////////////////
+
+config.DEBUG_MODE_PERIOD = 10 * 60 * 1000; // 10 minutes for increased debug level
 
 config.dbg_log_level = 0;
 
@@ -45,12 +105,14 @@ var is_windows = (process.platform === "win32");
 if (!is_windows) {
     process.env.ProgramData = '/tmp';
 }
+config.PHONE_HOME_BASE_URL = 'https://phonehome.noobaa.com';
 config.central_stats = {
-    send_stats: true,
-    central_listener: '127.0.0.1',
+    send_stats: 'true',
+    send_time_cycle: 30 * 60000, //min
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
 };
+config.central_stats.send_time = 10 * (24 / (config.central_stats.send_time_cycle / 60000 / 60)); //10 days
 
 /*
   Clustering Defaults
@@ -65,12 +127,33 @@ config.MONGO_DEFAULTS = {
 
 config.CLUSTERING_PATHS = {
     SECRET_FILE: '/etc/noobaa_sec',
+    DARWIN_SECRET_FILE: '/Users/Shared/noobaa_sec',
     SUPER_FILE: '/etc/noobaa_supervisor.conf',
 };
 
+config.CLUSTER_HB_INTERVAL = 1 * 60000;
+config.CLUSTER_MASTER_INTERVAL = 30000;
+config.BUCKET_FETCH_INTERVAL = 30000;
+config.CLUSTER_NODE_MISSING_TIME = 3 * 60000;
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
 
 config.SUPERVISOR_DEFAULTS = {
     STOPSIGNAL: 'KILL',
     DIRECTORY: '/root/node_modules/noobaa-core'
 };
+
+
+config.DEMO_DEFAULTS = {
+    POOL_NAME: 'demo-pool',
+    BUCKET_NAME: 'demo-bucket'
+};
+
+
+// load a local config file that overwrites some of the config
+try {
+    // eslint-disable-next-line global-require
+    require('./config-local');
+} catch (err) {
+    if (err.code !== 'MODULE_NOT_FOUND') throw err;
+    console.log('NO LOCAL CONFIG');
+}

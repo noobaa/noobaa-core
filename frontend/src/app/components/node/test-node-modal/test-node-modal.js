@@ -1,72 +1,111 @@
 import template from './test-node-modal.html';
 import TestRowViewModel from './test-row';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { nodeTestInfo } from 'model';
 import { testNode, abortNodeTest } from 'actions';
-import { makeArray } from 'utils';
+import { deepFreeze } from 'utils';
 import moment from 'moment';
 
 const testTypes = Object.freeze([
-    { 
-        name: 'Full', 
-        tests: ['connectivity', 'bandwidth'] 
+    {
+        name: 'Full test',
+        tests: ['connectivity', 'bandwidth']
     },
     {
-        name: 'Connectivity', 
-        tests: ['connectivity'] 
+        name: 'Connectivity',
+        tests: ['connectivity']
     },
-    { 
-        name: 'Bandwidth', 
-        tests: ['bandwidth'] 
+    {
+        name: 'Bandwidth',
+        tests: ['bandwidth']
     }
 ]);
 
-class TestNodeModalViewModel {
+const columns = deepFreeze([
+    'test',
+    'targetNode',
+    'protocol',
+    'ip',
+    'port',
+    'time',
+    'speed',
+    'progress'
+]);
+
+class TestNodeModalViewModel extends Disposable {
     constructor({ sourceRpcAddress, onClose }) {
+        super();
+
         this.onClose = onClose;
+        this.columns = columns;
 
         this.testTypeOptions = testTypes.map(
-            ({ name, tests }) => { 
-                return { label: name, value: tests }
+            ({ name, tests }) => {
+                return { label: name, value: tests };
             }
         );
 
         this.sourceRpcAddress = sourceRpcAddress;
-
         this.selectedTests = ko.observable(testTypes[0].tests);
 
-        let results = ko.pureComputed(
+        this.results = ko.pureComputed(
             () => nodeTestInfo() && nodeTestInfo().results
-        );
-
-        this.hasResults = ko.pureComputed(
-            () => !!results() && results().length > 0
         );
 
         this.lastTestTime = ko.pureComputed(
             () => nodeTestInfo() &&
-                `( From: ${moment(nodeTestInfo().timestemp).format('HH:mm:ss')} )`
+                `( Last test results from: ${
+                    moment(nodeTestInfo().timestemp).format('HH:mm:ss')
+            } )`
         );
 
         this.testing = ko.pureComputed(
             () => !!nodeTestInfo() && nodeTestInfo().state === 'IN_PROGRESS'
         );
 
-        this.rows = makeArray(    
-            100,
-            i => new TestRowViewModel(() => results()[i])
+        this.summary = ko.pureComputed(
+            () => this.results() && this._summarizeResults(this.results())
+        );
+
+        this.bandwidthSummary = ko.pureComputed(
+            () => this._getTestSummary(this.results(), 'bandwidth')
+        );
+
+        this.closeBtnText = ko.pureComputed(
+            () => this.testing() ? 'Abort & Close' : 'Close'
         );
     }
 
-    runTest() {
-        testNode(ko.unwrap(this.sourceRpcAddress), this.selectedTests())
+    _summarizeResults(results) {
+        return results.reduce(
+            (summary, { state }) => {
+                summary.inProcess += Number(state === 'RUNNING' || state === 'WAITING');
+                summary.completed += Number(state === 'COMPLETED');
+                summary.failed += Number(state === 'FAILED');
+                summary.aborted += Number(state === 'ABORTED');
+                return summary;
+            }, {
+                inProcess: 0,
+                completed: 0,
+                failed: 0,
+                aborted: 0
+            }
+        );
     }
 
-    abortTest() {
-        abortNodeTest();
+    createTestRow(test) {
+        return new TestRowViewModel(test);
+    }
+
+    runTest() {
+        testNode(ko.unwrap(this.sourceRpcAddress), this.selectedTests());
     }
 
     close() {
+        if (this.testing()) {
+            abortNodeTest();
+        }
         this.onClose();
     }
 }
@@ -74,4 +113,4 @@ class TestNodeModalViewModel {
 export default {
     viewModel: TestNodeModalViewModel,
     template: template
-}
+};

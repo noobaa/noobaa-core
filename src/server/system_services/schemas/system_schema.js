@@ -47,22 +47,71 @@ module.exports = {
             additionalProperties: true,
             properties: {}
         },
+        last_stats_report: {
+            format: 'idate'
+        },
+        maintenance_mode: {
+            format: 'idate'
+        },
         // the DNS name or IP address used for the server
         base_address: {
             type: 'string'
         },
+        phone_home_proxy_address: {
+            type: 'string'
+        },
 
-        //NTP configuration
-        ntp: {
+        freemium_cap: {
             type: 'object',
             properties: {
-                server: {
+                phone_home_upgraded: {
+                    type: 'boolean'
+                },
+                phone_home_notified: {
+                    type: 'boolean'
+                },
+                phone_home_unable_comm: {
+                    type: 'boolean'
+                },
+                cap_terabytes: {
+                    type: 'number'
+                }
+            },
+        },
+
+        //Remote syslog configuration
+        remote_syslog_config: {
+            type: 'object',
+            properties: {
+                protocol: {
                     type: 'string'
                 },
-                timezone: {
+                address: {
                     type: 'string'
                 },
+                port: {
+                    type: 'number'
+                }
             }
-        }
+        },
+
+        // //NTP configuration
+        // ntp: {
+        //     type: 'object',
+        //     properties: {
+        //         server: {
+        //             type: 'string'
+        //         },
+        //         timezone: {
+        //             type: 'string'
+        //         },
+        //     }
+        // },
+
+        //Debug Level:
+        debug_level: {
+            type: 'integer'
+        },
+
     }
 };

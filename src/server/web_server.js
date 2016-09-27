@@ -3,7 +3,7 @@
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
-require('dotenv').load();
+require('../util/dotenv').load();
 
 //If test mode, use Istanbul for coverage
 for (let i = 0; i < process.argv.length; ++i) {
@@ -21,47 +21,107 @@ require('../util/panic');
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 
-var _ = require('lodash');
-var fs = require('fs');
-var path = require('path');
-var util = require('util');
-var http = require('http');
-var https = require('https');
-var multer = require('multer');
-var express = require('express');
-var express_favicon = require('serve-favicon');
-var express_compress = require('compression');
-var express_body_parser = require('body-parser');
-var express_morgan_logger = require('morgan');
-var express_cookie_parser = require('cookie-parser');
-var express_cookie_session = require('cookie-session');
-var express_method_override = require('method-override');
-var P = require('../util/promise');
-var dbg = require('../util/debug_module')(__filename);
-var pem = require('../util/pem');
-var pkg = require('../../package.json');
-var config = require('../../config.js');
-var time_utils = require('../util/time_utils');
-var mongo_client = require('../util/mongo_client').get_instance();
-var mongoose_utils = require('../util/mongoose_utils');
+const _ = require('lodash');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const util = require('util');
+const http = require('http');
+const https = require('https');
+const multer = require('multer');
+const express = require('express');
+const express_favicon = require('serve-favicon');
+const express_compress = require('compression');
+const express_body_parser = require('body-parser');
+const express_morgan_logger = require('morgan');
+const express_cookie_parser = require('cookie-parser');
+const express_cookie_session = require('cookie-session');
+const express_method_override = require('method-override');
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const pem = require('../util/pem');
+const pkg = require('../../package.json');
+const config = require('../../config.js');
+const mongo_client = require('../util/mongo_client');
+const mongoose_utils = require('../util/mongoose_utils');
+const system_store = require('./system_services/system_store').get_instance();
+const promise_utils = require('../util/promise_utils');
+const SupervisorCtl = require('./utils/supervisor_ctrl');
 
-var rootdir = path.join(__dirname, '..', '..');
-var dev_mode = (process.env.DEV_MODE === 'true');
+const rootdir = path.join(__dirname, '..', '..');
+const dev_mode = (process.env.DEV_MODE === 'true');
+const app = express();
+
 
 dbg.set_process_name('WebServer');
 mongoose_utils.mongoose_connect();
-mongo_client.connect();
+mongo_client.instance().connect();
 
-// create express app
-var app = express();
 
-// copied from s3rver. not sure why. but copy.
-app.disable('x-powered-by');
+/////////
+// RPC //
+/////////
+
+var server_rpc = require('./server_rpc');
+server_rpc.register_system_services();
+server_rpc.register_node_services();
+server_rpc.register_object_services();
+server_rpc.register_common_services();
+server_rpc.rpc.register_http_transport(app);
+server_rpc.rpc.router.default = 'fcall://fcall';
+
+var http_port = process.env.PORT = process.env.PORT || 5001;
+var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
+var http_server = http.createServer(app);
+var https_server;
+
+P.fcall(function() {
+        // we register the rpc before listening on the port
+        // in order for the rpc services to be ready immediately
+        // with the http services like /fe and /version
+        server_rpc.rpc.register_ws_transport(http_server);
+        return P.ninvoke(http_server, 'listen', http_port);
+    })
+    .then(function() {
+        if (fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.key')) &&
+            fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.crt'))) {
+            dbg.log0('Using local certificate');
+            var local_certificate = {
+                serviceKey: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.key')),
+                certificate: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.crt'))
+            };
+            return local_certificate;
+        } else {
+            dbg.log0('Using self-signed certificate', path.join('/etc', 'private_ssl_path', 'server.key'));
+            return P.fromCallback(callback => pem.createCertificate({
+                days: 365 * 100,
+                selfSigned: true
+            }, callback));
+        }
+    })
+    .then(function(cert) {
+        https_server = https.createServer({
+            key: cert.serviceKey,
+            cert: cert.certificate
+        }, app);
+        server_rpc.rpc.register_ws_transport(https_server);
+        return P.ninvoke(https_server, 'listen', https_port);
+    })
+    .then(function() {
+        dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
+    })
+    .catch(function(err) {
+        dbg.error('Web Server FAILED TO START', err.stack || err);
+        process.exit(1);
+    });
 
 
 ////////////////
 // MIDDLEWARE //
 ////////////////
+
+// copied from s3rver. not sure why. but copy.
+app.disable('x-powered-by');
 
 // configure app middleware handlers in the order to use them
 
@@ -85,6 +145,24 @@ app.use(function(req, res, next) {
         return res.redirect('https://' + host + req.url);
     }
     return next();
+});
+app.use(function(req, res, next) {
+    let current_clustering = system_store.get_local_cluster_info();
+    if ((current_clustering && current_clustering.is_clusterized) &&
+        !system_store.is_cluster_master && req.url !== '/upload_package') {
+        P.fcall(function() {
+                return server_rpc.client.cluster_internal.redirect_to_cluster_master();
+            })
+            .then(host => {
+                res.status(307);
+                return res.redirect(`http://${host}:8080` + req.url);
+            })
+            .catch(err => {
+                res.status(500);
+            });
+    } else {
+        return next();
+    }
 });
 app.use(express_method_override());
 app.use(express_cookie_parser(process.env.COOKIE_SECRET));
@@ -113,52 +191,6 @@ function use_exclude(route_path, middleware) {
         }
     };
 }
-
-
-/////////
-// RPC //
-/////////
-
-// register RPC services and transports
-var server_rpc = require('./server_rpc');
-server_rpc.register_system_services();
-server_rpc.register_node_services();
-server_rpc.register_object_services();
-server_rpc.register_common_services();
-server_rpc.rpc.register_http_transport(app);
-server_rpc.rpc.router.default = 'fcall://fcall';
-
-var http_port = process.env.PORT = process.env.PORT || 5001;
-var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
-var http_server = http.createServer(app);
-var https_server;
-
-P.fcall(function() {
-        return P.ninvoke(http_server, 'listen', http_port);
-    })
-    .then(function() {
-        return P.nfcall(pem.createCertificate, {
-            days: 365 * 100,
-            selfSigned: true
-        });
-    })
-    .then(function(cert) {
-        https_server = https.createServer({
-            key: cert.serviceKey,
-            cert: cert.certificate
-        }, app);
-        return P.ninvoke(https_server, 'listen', https_port);
-    })
-    .then(function() {
-        dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
-        server_rpc.rpc.register_ws_transport(http_server);
-        server_rpc.rpc.register_ws_transport(https_server);
-    })
-    .done(null, function(err) {
-        dbg.error('Web Server FAILED TO START', err.stack || err);
-        throw err;
-    });
-
 
 
 ////////////
@@ -199,6 +231,76 @@ app.post('/upgrade',
             },
             filename: function(req, file, cb) {
                 dbg.log0('UPGRADE upload', file);
+                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname.replace(/ /g, ''));
+            }
+        })
+    })
+    .single('upgrade_file'),
+    function(req, res) {
+        var upgrade_file = req.file;
+        dbg.log0('got upgrade file:', upgrade_file);
+        dbg.log0('calling cluster.upgrade_cluster()');
+        server_rpc.client.cluster_internal.upgrade_cluster({
+            filepath: upgrade_file.path
+        });
+        res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
+    });
+
+app.post('/upload_certificate',
+    multer({
+        storage: multer.diskStorage({
+            destination: function(req, file, cb) {
+                cb(null, '/tmp');
+            },
+            filename: function(req, file, cb) {
+                dbg.log0('uploading SSL Certificate', file);
+                cb(null, 'nb_ssl_certificate_' + Date.now() + '_' + file.originalname);
+            }
+        })
+    })
+    .single('upload_file'),
+    function(req, res) {
+        var ssl_certificate = req.file;
+        dbg.log0('upload ssl certificate file', ssl_certificate);
+        promise_utils.spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
+                'from_file', ssl_certificate.path
+            ], {}, false)
+            .then(function() {
+                res.status(200).send('SUCCESS');
+                if (os.type() === 'Linux') {
+                    return SupervisorCtl.restart(['s3rver', 'webserver']);
+                }
+            }).catch(function(err) {
+                let error_message = '';
+                //TODO: replace this ugly code.
+                dbg.log0('failed to upload certificate. ' + err.message, err);
+                if (err.message.indexOf(' error code 1') > 0) {
+                    error_message = 'No match between key and certificate.';
+                } else if (err.message.indexOf(' error code 2') > 0) {
+                    error_message = 'Only one key is required.';
+                } else if (err.message.indexOf(' error code 3') > 0) {
+                    error_message = 'Only one certificate is required.';
+                } else if (err.message.indexOf(' error code 5') > 0) {
+                    error_message = 'Not a zip file. Please upload zip with certificate and key in pem format';
+                } else {
+                    error_message = err.message;
+                }
+                dbg.error(error_message);
+
+                res.status(500).send(error_message);
+
+            });
+
+    });
+
+app.post('/upload_package',
+    multer({
+        storage: multer.diskStorage({
+            destination: function(req, file, cb) {
+                cb(null, '/tmp');
+            },
+            filename: function(req, file, cb) {
+                dbg.log0('UPGRADE upload', file);
                 cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname);
             }
         })
@@ -206,22 +308,11 @@ app.post('/upgrade',
     .single('upgrade_file'),
     function(req, res) {
         var upgrade_file = req.file;
-        dbg.log0('UPGRADE file', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
-        var fsuffix = time_utils.time_suffix();
-        var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
-        var stdout = fs.openSync(fname, 'a');
-        var stderr = fs.openSync(fname, 'a');
-        var spawn = require('child_process').spawn;
-        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file.path);
-        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh',
-            'from_file', upgrade_file.path,
-            'fsuffix', fsuffix
-        ], {
-            detached: true,
-            stdio: ['ignore', stdout, stderr],
-            cwd: '/tmp'
-        });
-        res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
+        server_rpc.client.cluster_internal.member_pre_upgrade({
+            filepath: upgrade_file.path,
+            mongo_upgrade: false
+        }); //Async
+        res.end('<html><head></head>Upgrade file uploaded successfully');
     });
 
 //Upgrade from 0.3.X will try to return to this path. We will redirect it.
@@ -289,8 +380,12 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
-    res.send(pkg.version);
-    res.end();
+    if (server_rpc.is_service_registered('system_api.read_system')) {
+        res.send(pkg.version);
+        res.end();
+    } else {
+        res.status(404).end();
+    }
 });
 
 ////////////
@@ -322,18 +417,14 @@ app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
 app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
 app.use('/public/images/', express.static(path.join(rootdir, 'images')));
+app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
 
 // Serve the new frontend (management console)
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
 app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
 app.get('/fe/**/', function(req, res) {
     var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
-    if (fs.existsSync(filePath)) {
-        res.sendFile(filePath);
-    } else {
-        res.statusCode = 404;
-        res.end();
-    }
+    res.sendFile(filePath);
 });
 
 app.use('/', express.static(path.join(rootdir, 'public')));

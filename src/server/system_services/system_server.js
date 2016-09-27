@@ -4,29 +4,87 @@
  *
  */
 'use strict';
-
+require('../../util/dotenv').load();
+const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
+const fs = require('fs');
 const url = require('url');
 const net = require('net');
-const moment = require('moment');
+const request = require('request');
+// const uuid = require('node-uuid');
 const ip_module = require('ip');
+
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
+const cutil = require('../utils/clustering_utils');
+const config = require('../../../config');
 const md_store = require('../object_services/md_store');
-const fs_utils = require('../../util/fs_utils');
-const os_utils = require('../../util/os_util');
+const os_utils = require('../../util/os_utils');
+const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
-const ActivityLog = require('../analytic_services/activity_log');
-const nodes_store = require('../node_services/nodes_store');
+const account_server = require('./account_server');
+const cluster_server = require('./cluster_server');
+const Dispatcher = require('../notifications/dispatcher');
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
-const account_server = require('./account_server');
+const system_server_utils = require('../utils/system_server_utils');
+
+const SYS_STORAGE_DEFAULTS = Object.freeze({
+    total: 0,
+    free: 0,
+    unavailable_free: 0,
+    alloc: 0,
+    real: 0,
+});
+const SYS_NODES_INFO_DEFAULTS = Object.freeze({
+    count: 0,
+    online: 0,
+    has_issues: 0,
+});
+
+// called on rpc server init
+function _init() {
+    const DEFUALT_DELAY = 5000;
+
+    function wait_for_system_store() {
+        var update_done = false;
+        P.fcall(function() {
+                if (system_store.is_finished_initial_load) {
+                    update_done = true;
+                    // The purpose of this code is to initialize the debug level
+                    // on server's startup, to synchronize the db with the actual value
+                    let current_clustering = system_store.get_local_cluster_info();
+                    if (current_clustering) {
+                        var update_object = {};
+                        update_object.clusters = [{
+                            _id: current_clustering._id,
+                            debug_level: 0
+                        }];
+                        return system_store.make_changes({
+                            update: update_object
+                        });
+                    }
+                }
+            })
+            .catch((err) => {
+                dbg.log('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
+                return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+            })
+            .then(() => {
+                if (!update_done) {
+                    return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+                }
+            });
+    }
+    promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+}
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -57,57 +115,81 @@ function new_system_defaults(name, owner_account_id) {
             udp_dtls: true,
             udp_port: true,
         },
+        debug_level: 0,
+        upgrade: {
+            path: '',
+            status: 'UNAVAILABLE',
+            error: '',
+        },
+        last_stats_report: 0,
+        freemium_cap: {
+            phone_home_upgraded: false,
+            phone_home_notified: false,
+            cap_terabytes: 20
+        }
     };
     return system;
 }
 
 function new_system_changes(name, owner_account) {
-    return fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server')
-        .then(line => {
-            const default_pool_name = 'default_pool';
-            const default_bucket_name = 'files';
-            const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-            var system = new_system_defaults(name, owner_account._id);
-            if (line) {
-                let ntp_server = line.split(' ')[1];
-                system.ntp = {
-                    server: ntp_server
-                };
-                dbg.log0('found configured NTP server in ntp.conf:', ntp_server);
-            }
-            var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
-            var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
-            var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
-                tier: tier._id,
+    return P.fcall(function() {
+        const default_pool_name = 'default_pool';
+        const default_bucket_name = 'files';
+        const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
+        var system = new_system_defaults(name, owner_account._id);
+        var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
+        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+        var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
+            tier: tier._id,
+            order: 0
+        }]);
+        var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
+
+        let bucket_insert = [bucket];
+        let tieringpolicies_insert = [policy];
+        let tiers_insert = [tier];
+        let pools_insert = [pool];
+
+        Dispatcher.instance().activity({
+            event: 'conf.create_system',
+            level: 'info',
+            system: system._id,
+            actor: owner_account._id,
+            desc: `${name} was created by ${owner_account && owner_account.email}`,
+        });
+
+
+        if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
+            const demo_pool_name = config.DEMO_DEFAULTS.POOL_NAME;
+            const demo_bucket_name = config.DEMO_DEFAULTS.BUCKET_NAME;
+            const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
+            let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
+            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);
+            var demo_policy = tier_server.new_policy_defaults(demo_bucket_with_suffix, system._id, [{
+                tier: demo_tier._id,
                 order: 0
             }]);
-            var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
-            var role = {
-                _id: system_store.generate_id(),
-                account: owner_account._id,
-                system: system._id,
-                role: 'admin'
-            };
-            ActivityLog.create({
-                event: 'conf.create_system',
-                level: 'info',
-                system: system._id,
-                actor: owner_account._id,
-                desc: `${name} was created by ${owner_account && owner_account.email}`,
-            });
+            var demo_bucket = bucket_server.new_bucket_defaults(demo_bucket_name, system._id, demo_policy._id);
 
-            return {
-                insert: {
-                    systems: [system],
-                    buckets: [bucket],
-                    tieringpolicies: [policy],
-                    tiers: [tier],
-                    pools: [pool],
-                    roles: [role],
-                }
-            };
+            demo_bucket.demo_bucket = true;
+            demo_pool.demo_pool = true;
 
-        });
+            bucket_insert.push(demo_bucket);
+            tieringpolicies_insert.push(demo_policy);
+            tiers_insert.push(demo_tier);
+            pools_insert.push(demo_pool);
+        }
+
+        return {
+            insert: {
+                systems: [system],
+                buckets: bucket_insert,
+                tieringpolicies: tieringpolicies_insert,
+                tiers: tiers_insert,
+                pools: pools_insert,
+            }
+        };
+    });
 }
 
 
@@ -117,30 +199,113 @@ function new_system_changes(name, owner_account) {
  *
  */
 function create_system(req) {
-    var name = req.rpc_params.name;
-    return new_system_changes(name, req.account)
-        .then(changes => system_store.make_changes(changes))
-        .then(function() {
-            if (process.env.ON_PREMISE === 'true') {
-                return P.fcall(function() {
-                        return promise_utils.promised_exec('supervisorctl restart s3rver');
-                    })
-                    .then(null, function(err) {
-                        dbg.error('Failed to restart s3rver', err);
-                    });
-            }
-        })
-        .then(function() {
-            var system = system_store.data.systems_by_name[name];
-            return {
-                // a token for the new system
-                token: req.make_auth_token({
-                    account_id: req.account._id,
-                    system_id: system._id,
-                    role: 'admin',
-                }),
-                info: get_system_info(system)
+    var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    if (system_store.data.systems.length > 20) {
+        throw new Error('Too many created systems');
+    }
+    //Create the new system
+    account._id = system_store.generate_id();
+    let allowed_buckets;
+    let reply_token;
+    let owner_secret = system_store.get_server_secret();
+    //Create system
+    return P.fcall(function() {
+            var params = {
+                code: req.rpc_params.activation_code || '',
+                email: req.rpc_params.email,
+                system_info: _.omit(req.rpc_params, ['access_keys', 'password']),
+                command: 'perform_activation'
             };
+            return _communicate_license_server(params);
+        })
+        .then(() => {
+            return P.join(new_system_changes(account.name, account),
+                    cluster_server.new_cluster_info())
+                .spread(function(changes, cluster_info) {
+                    allowed_buckets = [changes.insert.buckets[0]._id.toString()];
+                    if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
+                        allowed_buckets.push(changes.insert.buckets[1]._id.toString());
+                    }
+
+                    if (cluster_info) {
+                        changes.insert.clusters = [cluster_info];
+                    }
+                    return changes;
+                })
+                .then(changes => {
+                    return system_store.make_changes(changes);
+                })
+                .then(() => {
+                    //Create the owner account
+                    return server_rpc.client.account.create_account({
+                        name: req.rpc_params.name,
+                        email: req.rpc_params.email,
+                        password: req.rpc_params.password,
+                        access_keys: req.rpc_params.access_keys,
+                        new_system_parameters: {
+                            account_id: account._id.toString(),
+                            allowed_buckets: allowed_buckets,
+                            new_system_id: system_store.data.systems[0]._id.toString(),
+                        },
+                    });
+                })
+                .then(response => {
+                    reply_token = response.token;
+                    //If internal agents enabled, create them
+                    if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
+                        return;
+                    }
+                    return server_rpc.client.hosted_agents.create_agent({
+                        name: req.rpc_params.name,
+                        demo: true,
+                        access_keys: req.rpc_params.access_keys,
+                        scale: config.NUM_DEMO_NODES,
+                        storage_limit: config.DEMO_NODES_STORAGE_LIMIT,
+                    }, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => {
+                    //Time config, if supplied
+                    if (!req.rpc_params.time_config) {
+                        return;
+                    }
+                    let time_config = req.rpc_params.time_config;
+                    time_config.target_secret = owner_secret;
+                    return server_rpc.client.cluster_server.update_time_config(time_config, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => {
+                    //DNS servers, if supplied
+                    if (!req.rpc_params.dns_servers) {
+                        return;
+                    }
+
+                    return server_rpc.client.cluster_server.update_dns_servers({
+                        target_secret: owner_secret,
+                        dns_servers: req.rpc_params.dns_servers
+                    }, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => {
+                    //DNS name, if supplied
+                    if (!req.rpc_params.dns_name) {
+                        return;
+                    }
+                    return server_rpc.client.system.update_hostname({
+                        hostname: req.rpc_params.dns_name
+                    }, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => ({
+                    token: reply_token
+                }));
+        })
+        .catch(err => {
+            throw err;
         });
 }
 
@@ -151,50 +316,76 @@ function create_system(req) {
  *
  */
 function read_system(req) {
-    var system = req.system;
-    var by_system_id_undeleted = {
-        system: system._id,
-        deleted: null,
-    };
+    const system = req.system;
     return P.join(
         // nodes - count, online count, allocated/used storage aggregate by pool
-        nodes_store.aggregate_nodes_by_pool(by_system_id_undeleted),
-
-        // objects - size, count
-        md_store.aggregate_objects(by_system_id_undeleted),
-
-        promise_utils.all_obj(system.buckets_by_name, function(bucket) {
-            // TODO this is a hacky "pseudo" rpc request. really should avoid.
-            let new_req = _.defaults({
-                rpc_params: {
-                    name: bucket.name
-                }
-            }, req);
-            return bucket_server.get_cloud_sync_policy(new_req);
+        nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
+        // TODO: find a better solution than aggregating nodes twice
+        nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false),
+        md_store.aggregate_objects_count({
+            system: system._id,
+            deleted: null
         }),
 
-        os_utils.get_time_config()
+        // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
+        // which is supported instead of sending the bucket name in an rpc req
+        // just to reuse the rpc function code without calling through rpc.
+        promise_utils.all_obj(
+            system.buckets_by_name,
+            bucket => bucket_server.get_cloud_sync(req, bucket)
+        ),
 
+        P.fcall(() => server_rpc.client.account.list_accounts({}, {
+            auth_token: req.auth_token
+        })).then(
+            response => response.accounts
+        )
     ).spread(function(
-        nodes_aggregate_pool,
-        objects_aggregate,
+        nodes_aggregate_pool_no_cloud,
+        nodes_aggregate_pool_with_cloud,
+        objects_count,
         cloud_sync_by_bucket,
-        time_status) {
-
-        var nodes_sys = nodes_aggregate_pool[''] || {};
-        var objects_sys = objects_aggregate[''] || {};
-        var ip_address = ip_module.address();
-        var n2n_config = system.n2n_config;
-        var time_config = {
-            srv_time: time_status.srv_time,
-            synced: time_status.status,
+        accounts
+    ) {
+        const objects_sys = {
+            count: size_utils.BigInteger.zero,
+            size: size_utils.BigInteger.zero,
         };
-        if (system.ntp) {
-            time_config.ntp_server = system.ntp.server;
-            time_config.timezone = system.ntp.timezone ? system.ntp.timezone : time_status.timezone;
+        _.forEach(system_store.data.buckets, bucket => {
+            if (String(bucket.system._id) !== String(system._id)) return;
+            objects_sys.size = objects_sys.size
+                .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
+        });
+        objects_sys.count = objects_sys.count.plus(objects_count[''] || 0);
+        const ip_address = ip_module.address();
+        const n2n_config = system.n2n_config;
+        const debug_level = system.debug_level;
+        const upgrade = {};
+        if (system.upgrade) {
+            upgrade.status = system.upgrade.status;
+            upgrade.message = system.upgrade.error;
         } else {
-            time_config.timezone = time_status.timezone;
+            upgrade.status = 'UNAVAILABLE';
+            upgrade.message = '';
         }
+        const maintenance_mode = {
+            state: system_server_utils.system_in_maintenance(system._id)
+        };
+        if (maintenance_mode.state) {
+            maintenance_mode.till = system.maintenance_mode;
+        }
+
+        let phone_home_config = {};
+        phone_home_config.upgraded_cap_notification = system.freemium_cap.phone_home_upgraded ?
+            !system.freemium_cap.phone_home_notified : false;
+        if (system.phone_home_proxy_address) {
+            phone_home_config.proxy_address = system.phone_home_proxy_address;
+        }
+        if (system.freemium_cap.phone_home_unable_comm) {
+            phone_home_config.phone_home_unable_comm = true;
+        }
+
+        let system_cap = system.freemium_cap.cap_terabytes ? system.freemium_cap.cap_terabytes : Number.MAX_SAFE_INTEGER;
 
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
@@ -204,9 +395,10 @@ function read_system(req) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
-        let response = {
+
+        const response = {
             name: system.name,
-            objects: objects_sys.count || 0,
+            objects: objects_sys.count.toJSNumber(),
             roles: _.map(system.roles_by_account, function(roles, account_id) {
                 var account = system_store.data.get_by_id(account_id);
                 return {
@@ -217,34 +409,36 @@ function read_system(req) {
             buckets: _.map(system.buckets_by_name,
                 bucket => bucket_server.get_bucket_info(
                     bucket,
-                    objects_aggregate,
-                    nodes_aggregate_pool,
+                    nodes_aggregate_pool_no_cloud,
+                    objects_count[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
-                pool => pool_server.get_pool_info(pool, nodes_aggregate_pool)),
+                pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
-                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool)),
-            storage: size_utils.to_bigint_storage({
-                total: nodes_sys.total,
-                free: nodes_sys.free,
-                alloc: nodes_sys.alloc,
+                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_no_cloud)),
+            storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
-                real: nodes_sys.used,
-            }),
-            nodes: {
-                count: nodes_sys.count || 0,
-                online: nodes_sys.online || 0,
-            },
+            }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),
+            nodes: _.defaults({}, nodes_aggregate_pool_no_cloud.nodes, SYS_NODES_INFO_DEFAULTS),
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
+            last_stats_report: system.last_stats_report || 0,
+            maintenance_mode: maintenance_mode,
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
-            time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
+            remote_syslog_config: system.remote_syslog_config,
+            phone_home_config: phone_home_config,
             version: pkg.version,
+            debug_level: debug_level,
+            upgrade: upgrade,
+            system_cap: system_cap,
         };
+
+        // fill cluster information if we have a cluster.
+        response.cluster = cutil.get_cluster_info();
 
         if (system.base_address) {
             let hostname = url.parse(system.base_address).hostname;
@@ -255,6 +449,8 @@ function read_system(req) {
                 response.dns_name = hostname;
             }
         }
+
+        response.accounts = accounts;
 
         return response;
     });
@@ -271,6 +467,39 @@ function update_system(req) {
     }).return();
 }
 
+function set_maintenance_mode(req) {
+    var updates = {};
+    updates._id = req.system._id;
+    // duration is in minutes (?!$%)
+    updates.maintenance_mode = Date.now() + (req.rpc_params.duration * 60000);
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
+
+function set_webserver_master_state(req) {
+    // TODO: This is for future use when we will need to realize if master state changed
+    if (system_store.is_cluster_master !== req.rpc_params.is_master) {
+        system_store.is_cluster_master = req.rpc_params.is_master;
+        if (system_store.is_cluster_master) {
+            // If current server became master
+            promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                .then(() => server_rpc.client.cluster_server.set_debug_level({
+                    level: 0
+                }, {
+                    auth_token: req.auth_token
+                }));
+            //Going Master //TODO:: add this one we get back to HA
+            //node_server.start_monitor();
+        } else {
+            //Stepping Down
+            //node_server.stop_monitor();
+        }
+    }
+}
+
 
 /**
  *
@@ -285,7 +514,13 @@ function delete_system(req) {
     }).return();
 }
 
-
+function log_frontend_stack_trace(req) {
+    return P.fcall(function() {
+            dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
+            return;
+        })
+        .return();
+}
 
 /**
  *
@@ -296,7 +531,8 @@ function list_systems(req) {
     console.log('List systems:', req.account);
     if (!req.account) {
         if (!req.system) {
-            throw req.rpc_error('FORBIDDEN', 'list_systems requires authentication with account or system');
+            throw new RpcError('FORBIDDEN',
+                'list_systems requires authentication with account or system');
         }
         return {
             systems: [get_system_info(req.system, false)]
@@ -410,6 +646,52 @@ function get_system_web_links(system) {
 }
 
 
+function set_last_stats_report_time(req) {
+    var updates = {};
+    updates._id = req.system._id;
+    updates.last_stats_report = req.rpc_params.last_stats_report;
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
+
+function export_activity_log(req) {
+    req.rpc_params.csv = true;
+
+    // generate csv file name:
+    const file_name = 'audit.csv';
+    const out_path = `/public/${file_name}`;
+    const inner_path = `${process.cwd()}/build${out_path}`;
+
+    return Dispatcher.instance().read_activity_log(req)
+        .then(logs => {
+            let lines = logs.logs.reduce(
+                (lines, entry) => {
+                    let time = (new Date(entry.time)).toISOString();
+                    let entity_type = entry.event.split('.')[0];
+                    let account = entry.actor ? entry.actor.email : '';
+                    let entity = entry[entity_type];
+                    let description = entry.desc.join(' ');
+                    let entity_name = entity ?
+                        (entity_type === 'obj' ? entity.key : entity.name) :
+                        '';
+
+                    lines.push(`"${time}",${entry.level},${account},${entry.event},${entity_name},"${description}"`);
+                    return lines;
+                }, ['time,level,account,event,entity,description']
+            );
+
+            return fs.writeFileAsync(inner_path, lines.join('\n'), 'utf8');
+        })
+        .then(() => out_path)
+        .catch(err => {
+            dbg.error('received error when writing to audit csv file:', inner_path, err);
+            throw err;
+        });
+}
+
 
 
 /**
@@ -418,138 +700,42 @@ function get_system_web_links(system) {
  *
  */
 function read_activity_log(req) {
-    var q = ActivityLog.find({
-        system: req.system._id,
-    });
-
-    var reverse = true;
-    if (req.rpc_params.till) {
-        // query backwards from given time
-        req.rpc_params.till = new Date(req.rpc_params.till);
-        q.where('time').lt(req.rpc_params.till).sort('-time');
-
-    } else if (req.rpc_params.since) {
-        // query forward from given time
-        req.rpc_params.since = new Date(req.rpc_params.since);
-        q.where('time').gte(req.rpc_params.since).sort('time');
-        reverse = false;
-    } else {
-        // query backward from last time
-        q.sort('-time');
-    }
-    if (req.rpc_params.event) {
-        q.where({
-            event: new RegExp(req.rpc_params.event)
-        });
-    }
-    if (req.rpc_params.events) {
-        q.where('event').in(req.rpc_params.events);
-    }
-    if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
-    q.limit(req.rpc_params.limit || 10);
-    q.populate('node', 'name');
-    q.populate('obj', 'key');
-    return P.when(q.exec())
-        .then(function(logs) {
-            logs = _.map(logs, function(log_item) {
-                var l = _.pick(log_item, 'id', 'level', 'event');
-                l.time = log_item.time.getTime();
-
-                let tier = log_item.tier && system_store.data.get_by_id(log_item.tier);
-                if (tier) {
-                    l.tier = _.pick(tier, 'name');
-                }
-
-                if (log_item.node) {
-                    l.node = _.pick(log_item.node, 'name');
-                }
-
-                if (log_item.desc) {
-                    l.desc = log_item.desc.split('\n');
-                }
-
-                let bucket = log_item.bucket && system_store.data.get_by_id(log_item.bucket);
-                if (bucket) {
-                    l.bucket = _.pick(bucket, 'name');
-                }
-
-                let pool = log_item.pool && system_store.data.get_by_id(log_item.pool);
-                if (pool) {
-                    l.pool = _.pick(pool, 'name');
-                }
-
-                if (log_item.obj) {
-                    l.obj = _.pick(log_item.obj, 'key');
-                }
-
-                let account = log_item.account && system_store.data.get_by_id(log_item.account);
-                if (account) {
-                    l.account = _.pick(account, 'email');
-                }
-
-                let actor = log_item.actor && system_store.data.get_by_id(log_item.actor);
-                if (actor) {
-                    l.actor = _.pick(actor, 'email');
-                }
-
-                return l;
-            });
-            if (reverse) {
-                logs.reverse();
-            }
-            return {
-                logs: logs
-            };
-        });
+    return Dispatcher.instance().read_activity_log(req);
 }
 
-function diagnose(req) {
+
+
+
+function diagnose_system(req) {
     dbg.log0('Recieved diag req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
-    return P.fcall(function() {
-            return diag.collect_server_diagnostics(req);
-        })
-        .then(function() {
-            return diag.pack_diagnostics(inner_path);
-        })
-        .then(function() {
-            return out_path;
-        })
+    return P.resolve()
+        .then(() => diag.collect_server_diagnostics(req))
+        .then(() => diag.pack_diagnostics(inner_path))
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'dbg.diagnose_system',
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
             });
-            return res;
-        })
-        .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics', err, err.stack);
-            return '';
+            return out_path;
         });
 }
 
-function diagnose_with_agent(data, req) {
+function diagnose_node(req) {
     dbg.log0('Recieved diag with agent req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
-    return P.fcall(function() {
-            return diag.collect_server_diagnostics(req);
-        })
-        .then(function() {
-            return diag.write_agent_diag_file(data.data);
-        })
-        .then(function() {
-            return diag.pack_diagnostics(inner_path);
-        })
-        .then(function() {
-            return out_path;
-        })
-        .then(res => {
-            ActivityLog.create({
+    return P.resolve()
+        .then(() => diag.collect_server_diagnostics(req))
+        .then(() => nodes_client.instance().collect_agent_diagnostics(req.rpc_params))
+        .then(res => diag.write_agent_diag_file(res.data))
+        .then(() => diag.pack_diagnostics(inner_path))
+        .then(() => {
+            Dispatcher.instance().activity({
                 event: 'dbg.diagnose_node',
                 level: 'info',
                 system: req.system && req.system._id,
@@ -557,39 +743,7 @@ function diagnose_with_agent(data, req) {
                 node: req.rpc_params && req.rpc_params.id,
                 desc: `${req.rpc_params.name} diagnostics package was exported by ${req.account && req.account.email}`,
             });
-            return res;
-        })
-        .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
-            return '';
-        });
-}
-
-function start_debug(req) {
-    dbg.log0('Recieved start_debug req');
-    return server_rpc.client.redirector.publish_to_cluster({
-            target: '', // required but irrelevant
-            method_api: 'debug_api',
-            method_name: 'set_debug_level',
-            request_params: {
-                level: req.rpc_params.level,
-                module: 'core'
-            }
-        })
-        .then(function() {
-            if (req.rpc_params.level > 0) { //If level was set, remove it after 10m
-                promise_utils.delay_unblocking(1000 * 60 * 10) //10m
-                    .then(() => server_rpc.client.redirector.publish_to_cluster({
-                        target: '', // required but irrelevant
-                        method_api: 'debug_api',
-                        method_name: 'set_debug_level',
-                        request_params: {
-                            level: 0,
-                            module: 'core'
-                        }
-                    }));
-            }
-            return;
+            return out_path;
         });
 }
 
@@ -605,36 +759,10 @@ function update_n2n_config(req) {
                 }]
             }
         })
-        .then(function() {
-            return nodes_store.find_nodes({
-                system: req.system._id,
-                deleted: null
-            }, {
-                // select just what we need
-                fields: {
-                    name: 1,
-                    rpc_address: 1
-                }
-            });
-        })
-        .then(function(nodes) {
-            var reply = {
-                nodes_count: nodes.length,
-                nodes_updated: 0
-            };
-            return P.map(nodes, function(node) {
-                    return server_rpc.client.agent.update_n2n_config(n2n_config, {
-                        address: node.rpc_address
-                    }).then(function() {
-                        reply.nodes_updated += 1;
-                    }, function(err) {
-                        dbg.error('update_n2n_config: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
-                    });
-                }, {
-                    concurrency: 5
-                })
-                .return(reply);
-        });
+        .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
+            auth_token: req.auth_token
+        }))
+        .return();
 }
 
 function update_base_address(req) {
@@ -648,47 +776,98 @@ function update_base_address(req) {
                 }]
             }
         })
-        .then(function() {
-            return nodes_store.find_nodes({
-                system: req.system._id,
-                deleted: null
-            }, {
-                // select just what we need
-                fields: {
-                    name: 1,
-                    rpc_address: 1
-                }
-            });
-        })
-        .then(function(nodes) {
-            var reply = {
-                nodes_count: nodes.length,
-                nodes_updated: 0
-            };
-            return P.map(nodes, function(node) {
-                    return server_rpc.client.agent.update_base_address(req.rpc_params, {
-                        address: node.rpc_address
-                    }).then(function() {
-                        reply.nodes_updated += 1;
-                    }, function(err) {
-                        dbg.error('update_base_address: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
-                    });
-                }, {
-                    concurrency: 5
-                })
-                .return(reply);
-        })
-        .then(res => {
-            ActivityLog.create({
+        .then(() => cutil.update_host_address(req.rpc_params.base_address))
+        .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
+            auth_token: req.auth_token
+        }))
+        .then(() => {
+            Dispatcher.instance().activity({
                 event: 'conf.dns_address',
                 level: 'info',
-                system: req.system,
+                system: req.system._id,
                 actor: req.account && req.account._id,
                 desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
             });
-            return res;
         });
 }
+
+// phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
+function update_phone_home_config(req) {
+    dbg.log0('update_phone_home_config', req.rpc_params);
+
+    let update = {
+        _id: req.system._id
+    };
+
+    if (req.rpc_params.proxy_address === null) {
+        update.$unset = {
+            phone_home_proxy_address: 1
+        };
+    } else {
+        update.phone_home_proxy_address = req.rpc_params.proxy_address;
+    }
+
+    return system_store.make_changes({
+            update: {
+                systems: [update]
+            }
+        })
+        .return();
+}
+
+function phone_home_capacity_notified(req) {
+    dbg.log0('phone_home_capacity_notified');
+
+    let update = {
+        _id: req.system._id,
+        freemium_cap: Object.assign({},
+            req.system.freemium_cap, {
+                phone_home_notified: true
+            }
+        )
+    };
+
+    return system_store.make_changes({
+            update: {
+                systems: [update]
+            }
+        })
+        .return();
+}
+
+
+function configure_remote_syslog(req) {
+    let params = req.rpc_params;
+    dbg.log0('configure_remote_syslog', params);
+
+    let update = {
+        _id: req.system._id
+    };
+
+    if (params.enabled) {
+        if (!params.protocol || !params.address || !params.port) {
+            throw new RpcError('INVALID_REQUEST', 'Missing protocol, address or port');
+        }
+
+        update.remote_syslog_config = _.pick(params, 'protocol', 'address', 'port');
+
+    } else {
+        update.$unset = {
+            remote_syslog_config: 1
+        };
+    }
+
+    return system_store.make_changes({
+            update: {
+                systems: [update]
+            }
+        })
+        .then(
+            () => os_utils.reload_syslog_configuration(params)
+        )
+        .return();
+}
+
 
 function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
@@ -701,53 +880,26 @@ function update_hostname(req) {
 }
 
 function update_system_certificate(req) {
-    throw req.rpc_error('TODO', 'update_system_certificate');
+    throw new RpcError('TODO', 'update_system_certificate');
 }
 
-function update_time_config(req) {
-    dbg.log0('update_time_config', req.rpc_params);
-    var config = {
-        timezone: req.rpc_params.timezone,
-        server: (req.rpc_params.config_type === 'NTP') ?
-            req.rpc_params.server : ''
-    };
 
-    return system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: req.system._id,
-                    ntp: config
-                }]
-            }
-        })
-        .then(() => {
-            if (req.rpc_params.config_type === 'NTP') { //set NTP
-                return os_utils.set_ntp(config.server, config.timezone);
-            } else { //manual set
-                return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
-            }
-        })
-        .then(res => {
-            let desc_string = [];
-            desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
-            desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
-            if (req.rpc_params.server) {
-                desc_string.push(`NTP server ${req.rpc_params.server}`);
-            }
-            let date = req.rpc_params.epoch &&
-                moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
-            if (date) {
-                desc_string.push(`Date and Time set to ${date}`);
-            }
-            ActivityLog.create({
-                event: 'conf.server_date_time_updated',
-                level: 'info',
-                system: req.system,
-                actor: req.account && req.account._id,
-                desc: desc_string.join('\n'),
+
+function validate_activation(req) {
+    return P.fcall(function() {
+            var params = _.defaults(req.rpc_params, {
+                command: 'validate_creation'
             });
-            return res;
-        });
+            // Method is used both for license code validation with and without business email
+            return _communicate_license_server(params);
+        })
+        .return({
+            valid: true
+        })
+        .catch(err => ({
+            valid: false,
+            reason: err.message
+        }));
 }
 
 
@@ -765,13 +917,45 @@ function get_system_info(system, get_id) {
 function find_account_by_email(req) {
     var account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     return account;
 }
 
+function _communicate_license_server(params) {
+    if (DEV_MODE) return 'ok';
+    const body = {
+        code: params.code.trim(),
+    };
+    if (params.email) {
+        body['Business Email'] = params.email.trim();
+    }
+    if (params.command === 'perform_activation') {
+        body.system_info = params.system_info || {};
+    }
+    const options = {
+        url: config.PHONE_HOME_BASE_URL + '/' + params.command,
+        method: 'POST',
+        body: body,
+        strictSSL: false, // means rejectUnauthorized: false
+        json: true,
+        gzip: true,
+    };
+    dbg.log0('Sending Post Request To Activation Server:', options);
+    return P.fromCallback(callback => request(options, callback), {
+            multiArgs: true
+        })
+        .spread(function(response, reply) {
+            dbg.log0('Received Response From Activation Server', response.statusCode, reply);
+            if (response.statusCode !== 200) {
+                throw new Error(String(reply));
+            }
+            return String(reply);
+        });
+}
 
 // EXPORTS
+exports._init = _init;
 exports.new_system_defaults = new_system_defaults;
 exports.new_system_changes = new_system_changes;
 
@@ -787,13 +971,21 @@ exports.add_role = add_role;
 exports.remove_role = remove_role;
 
 exports.read_activity_log = read_activity_log;
+exports.export_activity_log = export_activity_log;
 
-exports.diagnose = diagnose;
-exports.diagnose_with_agent = diagnose_with_agent;
-exports.start_debug = start_debug;
+exports.diagnose_system = diagnose_system;
+exports.diagnose_node = diagnose_node;
+exports.log_frontend_stack_trace = log_frontend_stack_trace;
+exports.set_last_stats_report_time = set_last_stats_report_time;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
+exports.update_phone_home_config = update_phone_home_config;
+exports.phone_home_capacity_notified = phone_home_capacity_notified;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
-exports.update_time_config = update_time_config;
+exports.set_maintenance_mode = set_maintenance_mode;
+exports.set_webserver_master_state = set_webserver_master_state;
+exports.configure_remote_syslog = configure_remote_syslog;
+
+exports.validate_activation = validate_activation;

@@ -1,74 +1,172 @@
 import template from './bucket-objects-table.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { paginationPageSize } from 'config';
-import { throttle, makeArray } from 'utils';
+import { paginationPageSize, inputThrottle } from 'config';
+import { deepFreeze, throttle } from 'utils';
 import ObjectRowViewModel from './object-row';
 import { redirectTo } from 'actions';
+import { routeContext, systemInfo } from 'model';
 
-class BucketObjectsTableViewModel {
-    constructor({ objects }) {
+const columns = deepFreeze([
+    {
+        name: 'name',
+        cellTemplate: 'link',
+        sortable: true
+    },
+    {
+        name: 'creationTime'
+    },
+    {
+        name: 'size',
+        sortable: true
+    }
+]);
+
+// TODO: logic should move to server side.
+function hasEnoughBackingNodeForUpload(bucket) {
+    if (!bucket() || !systemInfo()) {
+        return false;
+    }
+
+    let tier = systemInfo().tiers.find(
+        tier => tier.name === bucket().tiering.tiers[0].tier
+    );
+
+    let pools = systemInfo().pools.filter(
+        pool => tier.node_pools.includes(pool.name)
+    );
+
+    if (tier.data_placement === 'SPREAD') {
+        let nodeCount = pools.reduce(
+            (total, pool) => {
+                let { count, has_issues } = pool.nodes;
+                return total + (count - has_issues);
+            },
+            0
+        );
+
+        return nodeCount >= 3;
+
+    } else {
+        return pools.every(
+            pool => pool.nodes.online >= 3
+        );
+    }
+}
+
+class BucketObjectsTableViewModel extends Disposable {
+    constructor({ bucket, objectList }) {
+        super();
+
+        this.columns = columns;
         this.pageSize = paginationPageSize;
-        this.count = objects.count;
-        this.sortedBy = objects.sortedBy;
-        this.order = objects.order;
-        
+
+        this.objects = ko.pureComputed(
+            () => objectList() && objectList().objects.map(
+                pair => pair.info
+            )
+        );
+
+        this.bucketName = ko.pureComputed(
+            () => bucket() && bucket().name
+        );
+
+        this.uploadDisabled = ko.pureComputed(
+            () => !hasEnoughBackingNodeForUpload(bucket)
+        );
+
+        this.uploadTooltip = ko.pureComputed(
+            () => this.uploadDisabled() &&
+                'Cannot upload, not enough healthy nodes in bucket storage'
+        );
+
+        this.objectCount = ko.pureComputed(
+            () => bucket() && bucket().num_objects
+        );
+
+        this.filteredObjectCount = ko.pureComputed(
+            () => objectList() && objectList().total_count
+        );
+
+        let query = ko.pureComputed(
+            () => routeContext().query
+        );
+
+        this.sorting = ko.pureComputed({
+            read: () => ({
+                sortBy: query().sortBy || 'name',
+                order: Number(query().order) || 1
+            }),
+            write: value => this.orderBy(value)
+        });
+
         this.page = ko.pureComputed({
-            read: objects.page,
+            read: () => Number(query().page) || 0,
             write:  page => this.pageTo(page)
         });
 
         this.filter = ko.pureComputed({
-            read: objects.filter,
-            write: throttle(phrase => this.filterObjects(phrase), 750)
+            read: () => query().filter,
+            write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
         });
 
         this.hasObjects = ko.pureComputed(
-            () => objects().length > 0
+            () => this.objects().length > 0
         );
 
-        this.rows = makeArray(
-            this.pageSize,
-            i => new ObjectRowViewModel(
-                () => objects()[i]
-            )
-        );
+        this.isUploadFilesModalVisible = ko.observable(false);
+    }
+
+    createObjectRow(obj) {
+        return new ObjectRowViewModel(obj);
+    }
+
+    showUploadFilesModal() {
+        this.isUploadFilesModalVisible(true);
+    }
+
+    hideUploadFilesModal() {
+        this.isUploadFilesModalVisible(false);
     }
 
     pageTo(page) {
-        redirectTo(undefined, {
-            filter: this.filter(),
-            sortBy: this.sortedBy(),
-            order: this.order(),
-            page: page
-        });
+        let params = Object.assign(
+            {
+                filter: this.filter(),
+                page: page
+            },
+            this.sorting()
+        );
+
+        redirectTo(undefined, undefined, params);
     }
 
     filterObjects(phrase) {
-        redirectTo(undefined, {
-            filter: phrase || undefined, 
-            sortBy: this.sortedBy(), 
-            order: this.order(),
-            page: 0
-        }); 
+        let params = Object.assign(
+            {
+                filter: phrase || undefined,
+                page: 0
+            },
+            this.sorting()
+        );
+
+        redirectTo(undefined, undefined, params);
     }
 
-    orderBy(colName) {
-        redirectTo(undefined, {
-            filter: this.filter(), 
-            sortBy: colName, 
-            order: this.sortedBy() === colName ? 0 - this.order() : 1,
-            page: 0
-        });
-    }
+    orderBy(sorting) {
+        let params = Object.assign(
+            {
+                filter: this.filter(),
+                page: 0
+            },
+            sorting
+        );
 
-    orderClassFor(colName) {
-        if (this.sortedBy() === colName) {
-            return this.order() === 1 ? 'des' : 'asc';
-        } 
-    }    
+        redirectTo(undefined, undefined, params);
+    }
 }
 
 export default {
     viewModel: BucketObjectsTableViewModel,
-    template: template,
-}
+    template: template
+};

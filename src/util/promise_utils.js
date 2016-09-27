@@ -1,37 +1,12 @@
-// module targets: nodejs & browserify
 'use strict';
 
-var _ = require('lodash');
-var fs = require('fs');
-var child_process = require('child_process');
+const _ = require('lodash');
+const child_process = require('child_process');
+
+const P = require('./promise');
+const dbg = require('../util/debug_module')(__filename);
+
 require('setimmediate');
-var ncp = require('ncp').ncp;
-var P = require('./promise');
-var dbg = require('../util/debug_module')(__filename);
-
-var is_windows = (process.platform === "win32");
-
-module.exports = {
-    join: join,
-    iterate: iterate,
-    loop: loop,
-    retry: retry,
-    delay_unblocking: delay_unblocking,
-    run_background_worker: run_background_worker,
-    next_tick: next_tick,
-    set_immediate: set_immediate,
-    promised_spawn: promised_spawn,
-    promised_exec: promised_exec,
-    full_dir_copy: full_dir_copy,
-    file_copy: file_copy,
-    file_delete: file_delete,
-    folder_delete: folder_delete,
-    pack: pack,
-    wait_for_event: wait_for_event,
-    pwhile: pwhile,
-    auto: auto,
-    all_obj: all_obj,
-};
 
 
 /**
@@ -42,9 +17,8 @@ function join(obj, property, func) {
     if (promise) {
         return promise;
     }
-    promise =
-        P.fcall(func)
-        .fin(function() {
+    promise = P.try(func)
+        .finally(() => {
             delete obj[property];
         });
     obj[property] = promise;
@@ -61,7 +35,7 @@ function iterate(array, func) {
     var i = -1;
     var results = [];
     if (!array || !array.length) {
-        return P.when(results);
+        return P.resolve(results);
     }
     results.length = array.length;
 
@@ -84,10 +58,10 @@ function iterate(array, func) {
         }
 
         // call func as function(item, index, array)
-        return P.fcall(func, array[i], i, array).then(next);
+        return P.try(() => func(array[i], i, array)).then(next);
     }
 
-    return P.fcall(next).thenResolve(results);
+    return P.try(next).return(results);
 }
 
 
@@ -101,10 +75,8 @@ function iterate(array, func) {
 function loop(times, func, current_index) {
     current_index = current_index || 0;
     if (current_index < times) {
-        return P.fcall(func, current_index)
-            .then(function() {
-                return loop(times, func, current_index + 1);
-            });
+        return P.try(() => func(current_index))
+            .then(() => loop(times, func, current_index + 1));
     }
 }
 
@@ -118,7 +90,7 @@ function pwhile(condition, body) {
     // done promise
     function loop2() {
         if (condition()) {
-            return P.fcall(body).then(loop2);
+            return P.try(body).then(loop2);
         }
     }
 }
@@ -136,8 +108,8 @@ function retry(attempts, delay, func, error_logger) {
 
     // call func and catch errors,
     // passing remaining attempts just fyi
-    return P.fcall(func, attempts)
-        .then(null, function(err) {
+    return P.try(() => func(attempts))
+        .catch(err => {
 
             // check attempts
             attempts -= 1;
@@ -150,26 +122,49 @@ function retry(attempts, delay, func, error_logger) {
             }
 
             // delay and retry next attempt
-            return P.delay(delay).then(function() {
-                return retry(attempts, delay, func, error_logger);
-            });
-
+            return P.delay(delay)
+                .then(() => retry(attempts, delay, func, error_logger));
         });
 }
 
 
 /**
- * create a timeout promise that does not block the event loop from exiting
+ * promise version of setImmediate, or P.delay
+ * using unref() so that the promise will not block the event loop from exiting
  * in case there are no other events waiting.
  * see http://nodejs.org/api/timers.html#timers_unref
  */
 function delay_unblocking(delay) {
-    var defer = P.defer();
-    var timer = setTimeout(defer.resolve, delay);
-    timer.unref();
-    return defer.promise;
+    return new P((resolve, reject, on_cancel) => {
+        const timer = setTimeout(resolve, delay).unref();
+        if (on_cancel) {
+            on_cancel(() => clearTimeout(timer));
+        }
+    });
 }
 
+/**
+ * promise version of setImmediate
+ * which will be resolved on the next event loop
+ */
+function set_immediate() {
+    return new P((resolve, reject, on_cancel) => {
+        const timer = setImmediate(resolve);
+        if (on_cancel) {
+            on_cancel(() => clearImmediate(timer));
+        }
+    });
+}
+
+/**
+ * promise version of process.nextTick
+ * which will be resolved before handling I/O completions
+ */
+function next_tick() {
+    return new P((resolve, reject) => {
+        process.nextTick(resolve);
+    });
+}
 
 
 // for the sake of tests to be able to exit we schedule the worker with unblocking delay
@@ -178,12 +173,10 @@ function run_background_worker(worker) {
     var DEFUALT_DELAY = 10000;
 
     function run() {
-        P.fcall(function() {
-                return worker.run_batch();
-            })
-            .then(function(delay) {
+        P.try(() => worker.run_batch())
+            .then(delay => {
                 return delay_unblocking(delay || worker.delay || DEFUALT_DELAY);
-            }, function(err) {
+            }, err => {
                 dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
                 return delay_unblocking(worker.delay || DEFUALT_DELAY);
             })
@@ -194,45 +187,72 @@ function run_background_worker(worker) {
     return worker;
 }
 
-function next_tick() {
-    var defer = P.defer();
-    process.nextTick(defer.resolve);
-    return defer.promise;
-}
-
-function set_immediate() {
-    var defer = P.defer();
-    setImmediate(defer.resolve);
-    return defer.promise;
-}
-
 /*
  * Run child process spawn wrapped by a promise
  */
-function promised_spawn(command, args, options, ignore_rc) {
+function spawn(command, args, options, ignore_rc, unref) {
     return new P((resolve, reject) => {
         options = options || {};
-        dbg.log0('promised_spawn:', command, args.join(' '), options, ignore_rc);
+        args = args || [];
+        dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
         options.stdio = options.stdio || 'inherit';
         var proc = child_process.spawn(command, args, options);
-        proc.on('exit', function(code) {
+        proc.on('exit', code => {
             if (code === 0 || ignore_rc) {
                 resolve();
             } else {
-                reject(new Error('promised_spawn "' +
+                reject(new Error('spawn "' +
                     command + ' ' + args.join(' ') +
                     '" exit with error code ' + code));
             }
         });
-        proc.on('error', function(error) {
+        proc.on('error', error => {
             if (ignore_rc) {
-                dbg.warn('promised_spawn ' +
+                dbg.warn('spawn ' +
                     command + ' ' + args.join(' ') +
                     ' exited with error ' + error +
                     ' and ignored');
                 resolve();
             } else {
-                reject(new Error('promised_spawn ' +
+                reject(new Error('spawn ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error));
+            }
+        });
+        if (unref) proc.unref();
+    });
+}
+
+/*
+ * Run a node child process spawn wrapped by a promise
+ */
+function fork(command, input_args, opts, ignore_rc) {
+    return new P((resolve, reject) => {
+        let options = opts || {};
+        let args = input_args || [];
+        dbg.log0('fork:', command, args.join(' '), options, ignore_rc);
+        options.stdio = options.stdio || 'inherit';
+        var proc = child_process.fork(command, args, options);
+        proc.on('exit', code => {
+            if (code === 0 || ignore_rc) {
+                resolve();
+            } else {
+                const err = new Error('fork "' +
+                    command + ' ' + args.join(' ') +
+                    '" exit with error code ' + code);
+                err.code = code;
+                reject(err);
+            }
+        });
+        proc.on('error', error => {
+            if (ignore_rc) {
+                dbg.warn('fork ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error +
+                    ' and ignored');
+                resolve();
+            } else {
+                reject(new Error('fork ' +
                     command + ' ' + args.join(' ') +
                     ' exited with error ' + error));
             }
@@ -240,11 +260,12 @@ function promised_spawn(command, args, options, ignore_rc) {
     });
 }
 
-function promised_exec(command, ignore_rc, return_stdout) {
+function exec(command, ignore_rc, return_stdout, timeout) {
     return new P((resolve, reject) => {
         dbg.log2('promise exec', command, ignore_rc);
         child_process.exec(command, {
             maxBuffer: 5000 * 1024, //5MB, should be enough
+            timeout: timeout
         }, function(error, stdout, stderr) {
             if (!error || ignore_rc) {
                 if (error) {
@@ -262,87 +283,17 @@ function promised_exec(command, ignore_rc, return_stdout) {
     });
 }
 
-function pack(tar_file_name, source) {
-    console.log('pack windows?', is_windows);
-    if (is_windows) {
-        console.log('in windows', '7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
-        return promised_exec('7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
-    } else {
-        console.log('not windows?', is_windows);
-        return promised_exec('tar -zcvf ' + tar_file_name + ' ' + source + '/*');
-    }
-}
-
-function file_copy(src, dst) {
-    if (is_windows) {
-        console.log('file copy ' + src.replace(/\//g, '\\') + ' ' + dst.replace(/\//g, '\\'));
-        return promised_exec('copy /Y  "' + src.replace(/\//g, '\\') + '" "' + dst.replace(/\//g, '\\') + '"');
-    } else {
-        return promised_exec('cp -f ' + src + ' ' + dst);
-    }
-}
-
-function folder_delete(path) {
-    if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach(function(file, index) {
-            var curPath = path + "/" + file;
-            if (fs.lstatSync(curPath).isDirectory()) { // recurse
-                folder_delete(curPath);
-            } else { // delete file
-                fs.unlinkSync(curPath);
-            }
-        });
-        fs.rmdirSync(path);
-    }
-}
-
-function file_delete(file_name) {
-    if (fs.existsSync(file_name)) {
-        return fs.unlinkAsync(file_name);
-    }
-}
-
-function full_dir_copy(src, dst, filter_regex) {
-    ncp.limit = 10;
-    let ncp_options = {};
-    if (filter_regex) {
-        //this regexp will filter out files that matches, except path.
-        var ncp_filter_regex = new RegExp(filter_regex);
-        var ncp_filter_function = function(input) {
-            if (input.indexOf('/') > 0) {
-                return false;
-            } else if (ncp_filter_regex.test(input)) {
-                return false;
-            } else {
-                return true;
-            }
-        };
-        ncp_options.filter = ncp_filter_function;
-    }
-    if (!src || !dst) {
-        return P.reject(new Error('Both src and dst must be given'));
-    }
-
-    return P.nfcall(ncp, src, dst, ncp_options).done(function(err) {
-        if (err) {
-            return P.reject(new Error('full_dir_copy failed with ' + err));
-        } else {
-            return P.resolve();
-        }
-    });
-}
-
 function wait_for_event(emitter, event, timeout) {
-    return new P(function(resolve, reject) {
+    return new P((resolve, reject) => {
         // the first event to fire wins.
         // since we use emitter.once and the promise will not change after settling
         // then we can be lazy and leave dangling listeners
         emitter.once(event, resolve);
         if (event !== 'close') {
-            emitter.once('close', reject);
+            emitter.once('close', () => reject(new Error('wait_for_event: closed')));
         }
         if (event !== 'error') {
-            emitter.once('error', reject);
+            emitter.once('error', err => reject(err || new Error('wait_for_event: error')));
         }
         if (timeout) {
             setTimeout(reject, timeout);
@@ -402,10 +353,28 @@ function all_obj(obj, func) {
     var new_obj = {};
     func = func || ((val, key) => val);
     return P.all(_.map(obj, (val, key) => {
-            return P.fcall(func, val, key)
+            return P.try(() => func(val, key))
                 .then(res => {
                     new_obj[key] = res;
                 });
         }))
         .return(new_obj);
 }
+
+
+// EXPORTS
+exports.join = join;
+exports.iterate = iterate;
+exports.loop = loop;
+exports.retry = retry;
+exports.delay_unblocking = delay_unblocking;
+exports.run_background_worker = run_background_worker;
+exports.next_tick = next_tick;
+exports.set_immediate = set_immediate;
+exports.spawn = spawn;
+exports.exec = exec;
+exports.wait_for_event = wait_for_event;
+exports.pwhile = pwhile;
+exports.auto = auto;
+exports.all_obj = all_obj;
+exports.fork = fork;

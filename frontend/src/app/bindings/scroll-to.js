@@ -1,6 +1,6 @@
 import ko from 'knockout';
 
-function scroll(element, valueAccessor, allBindings, viewModel, bindingContext) {
+function scroll(element, valueAccessor) {
     let i = ko.unwrap(valueAccessor());
     if ( -1 < i && i < element.children.length) {
         let child = element.children[i];
@@ -8,7 +8,7 @@ function scroll(element, valueAccessor, allBindings, viewModel, bindingContext) 
         element.scrollTop = Math.min(
             child.offsetTop,
             Math.max(
-                element.scrollTop, 
+                element.scrollTop,
                 child.offsetTop + child.clientHeight - element.clientHeight
             )
         );
@@ -18,4 +18,4 @@ function scroll(element, valueAccessor, allBindings, viewModel, bindingContext) 
 export default {
     init: scroll,
     update: scroll
-}
+};

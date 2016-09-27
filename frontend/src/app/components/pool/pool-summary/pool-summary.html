@@ -1,48 +1,73 @@
-<!-- ko if: dataReady -->
-<ul class="list-no-style status-line">
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#node-online'"></svg-icon>
-        <span data-bind="text: onlineCount"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#node-offline'"></svg-icon>
-        <span data-bind="text: offlineCount"></span>
-    </li>
-</ul>
+<div class="row" data-bind="if: dataReady">
+    <section class="c3 column borders pad">
+        <div class="row heading3 content-middle">
+            <svg-icon class="push-next" params="name: state().icon"
+                data-bind="css: state().css">
+            </svg-icon>
+            <span data-bind="text: state().text"></span>
+        </div>
+        <hr />
+        <div class="row greedy text-center">
+            <div class="greedy align-middle">
+                <p class="node-counter" data-bind="text: nodeCount"></p>
+                <p> Nodes</p>
+            </div>
 
-<div class="text-center">
-    <section class="gauge-legend">
-        <h3 class="heading3 underline">
-            Potential Capacity: 
-            <span data-bind="text: totalText"></span>
-        </h3>
+            <vr></vr>
 
-        <ul class="list-no-style">
-            <li class="used-legend">
-                Used: 
-                <span class="emphasized" data-bind="text: usedText"></span>
-            </li>
-            <li class="free-legend">
-                Free: 
-                <span class="emphasized" data-bind="text: freeText"></span>
-            </li>
-        </ul>        
+            <div class="greedy align-middle">
+                <p class="node-counter" data-bind="text: onlineCount"></p>
+                <p>Online</p>
+            </div>
+
+            <vr></vr>
+
+            <div class="greedy column align-middle">
+                <p class="node-counter" data-bind="text: offlineCount"></p>
+                <p>Offline</p>
+            </div>
+        </div>
     </section>
 
-    <quantity-gauge params="values: gaugeValues"></quantity-gauge>
+    <section class="c6 column push-both">
+        <div class="row align-middle">
+            <chart-legend class="pad" params="
+                items: pieValues,
+                caption: 'Pool Capacity'
+            "></chart-legend>
 
-    <section class="action-list">
-        <button class="action btn2" data-bind="click: () => isAssignNodeModalVisible(true)">
-            <svg-icon params="uri: '/fe/assets/icons.svg#move-nodes'"></svg-icon>
-            Assign Nodes
-        </button>     
+            <pie-chart class="push-prev" params="
+                values: pieValues,
+                primaryText: formattedTotal,
+                secondaryText: 'Total'
+            "></pie-chart>
+        </div>
+    </section>
+
+
+    <section class="column c3 borders pad">
+        <h3 class="heading3" data-bind="text: activityTitle"></h3>
+
+        <hr>
+
+        <p data-bind="visible: !hasActivities()">
+            Pool is in optimal condition
+        </p>
+
+        <div class="column progress-bar greedy" data-bind="if: hasActivities">
+            <bar params="values: activityProgressBarValues"></bar>
+            <div class="text-right">
+                ETA:
+                <span data-bind="text: activityETA"></span>
+            </div>
+        </div>
+
+        <div class="column" data-bind="if: hasAdditionalActivities">
+            <hr>
+            <p class="align-start" data-bind="
+                text: additionalActivitiesMessage,
+                tooltip: additionalActivitiesTooltip
+            "></p>
+        </div>
     </section>
 </div>
-<!-- /ko -->
-
-<!-- ko if: isAssignNodeModalVisible -->
-    <assign-nodes-modal params="
-        poolName: poolName,
-        onClose: () => isAssignNodeModalVisible(false)
-    "></assign-nodes-modal>
-<!-- /ko -->

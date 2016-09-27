@@ -21,6 +21,11 @@ module.exports = {
         name: {
             type: 'string'
         },
+
+        demo_pool: {
+            type: 'boolean'
+        },
+
         // cloud pool information - exist only for cloud pools
         cloud_pool_info: {
             type: 'object',
@@ -44,7 +49,12 @@ module.exports = {
                             type: 'string'
                         }
                     }
+                },
+                endpoint_type: {
+                    type: 'string',
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                 }
+
             }
         }
 

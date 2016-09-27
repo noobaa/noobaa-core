@@ -1,0 +1,75 @@
+<div class="column">
+    <h3 class="heading3 row content-middle pad alt-bg">
+        Cloud sync
+    </h3>
+
+    <!-- ko ifnot: hasCloudSync -->
+    <div class="row pad content-middle">
+        <p class="not-set-message greedy push-next">
+            Cloud sync was not set for this bucket
+        </p>
+
+        <button class="btn" data-bind="click: showSetCloudSyncModal">
+            Set Policy
+        </button>
+    </div>
+    <!-- /ko -->
+
+    <!-- ko if: hasCloudSync -->
+    <section class="column pad">
+        <div class="row">
+            <h3 class="heading3 greedy push-next">Status details</h3>
+
+            <!-- ko if: hasCloudSync -->
+            <button class="btn push-next" data-bind="
+                click: toggleSync,
+                text: toggleSyncButtonLabel
+            "></button>
+
+            <button class="btn" data-bind="click: removePolicy">
+                Remove
+            </button>
+            <!-- /ko -->
+
+            <!-- ko ifnot: hasCloudSync -->
+            <button class="btn" data-bind="click: showSetCloudSyncModal">
+                Set Policy
+            </button>
+            <!-- /ko -->
+        </div>
+        <property-sheet params="properties: statusDetails"></property-sheet>
+    </section>
+
+     <hr>
+
+    <section class="column pad">
+        <h3 class="heading3">Connection details</h3>
+        <property-sheet params="properties: connectionDetails"></property-sheet>
+    </section>
+
+     <hr>
+
+    <section class="column pad">
+        <div class="row">
+            <h3 class="heading3 greedy push-next">Sync Policy</h3>
+            <button class="btn" data-bind="click: showEditCloudSyncModal">
+                Edit
+            </button>
+        </div>
+        <property-sheet params="properties: syncPolicy"></property-sheet>
+    </section>
+    <!-- /ko -->
+</div>
+<!-- ko if: isSetCloudSyncModalVisible -->
+<set-cloud-sync-modal params="
+    bucketName: bucketName,
+    onClose: () => hideSetCloudSyncModal()
+"></set-cloud-sync-modal>
+<!-- /ko -->
+
+<!-- ko if: isEditCloudSyncModalVisible -->
+<edit-cloud-sync-modal params="
+    bucketName: bucketName,
+    onClose: () => hideEditCloudSyncModal()
+"></edit-cloud-sync-modal>
+<!-- /ko -->

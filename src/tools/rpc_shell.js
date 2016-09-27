@@ -14,7 +14,7 @@ var repl_srv;
 var rpcshell = new RPCShell();
 
 argv.email = argv.email || 'demo@noobaa.com';
-argv.password = argv.password || 'DeMo';
+argv.password = argv.password || 'DeMo1';
 argv.system = argv.system || 'demo';
 
 function RPCShell() {

@@ -236,7 +236,7 @@ function wait_on_agents_upgrade(ip) {
     return P.fcall(function() {
             var auth_params = {
                 email: 'demo@noobaa.com',
-                password: 'DeMo',
+                password: 'DeMo1',
                 system: 'demo'
             };
             return client.create_auth_token(auth_params);

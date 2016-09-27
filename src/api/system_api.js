@@ -528,28 +528,6 @@ module.exports = {
             }
         },
 
-        upload_upgrade_package: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['filepath'],
-                properties: {
-                    filepath: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
-        do_upgrade: {
-            method: 'POST',
-            auth: {
-                system: 'admin',
-            }
-        },
 
         validate_activation: {
             method: 'GET',

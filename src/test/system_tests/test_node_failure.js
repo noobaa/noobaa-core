@@ -33,7 +33,7 @@ module.exports = {
 function authenticate() {
     let auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return P.fcall(function() {
@@ -46,7 +46,7 @@ function authenticate() {
 //     return P.resolve(client.system.create_system({
 //         activation_code: 'bla',
 //         email: 'demo@noobaa.com',
-//         password: 'DeMo',
+//         password: 'DeMo1',
 //         name: 'demo',
 //         access_keys: {
 //             access_key: '123',

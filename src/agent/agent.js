@@ -122,7 +122,7 @@ class Agent {
         // AGENT API methods - bind to self
         // (rpc registration requires bound functions)
         js_utils.self_bind(this, [
-            'get_agent_info',
+            'get_agent_info_and_update_masters',
             'update_auth_token',
             'update_rpc_config',
             'n2n_signal',
@@ -196,7 +196,11 @@ class Agent {
     }
 
     _handle_server_change(suggested) {
-        dbg.warn('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list', this.servers);
+        dbg.warn('_handle_server_change',
+            suggested ?
+            'suggested server ' + suggested :
+            'no suggested server, trying next in list',
+            this.servers);
         this.connect_attempts = 0;
         if (!this.servers.length) {
             dbg.error('_handle_server_change no server list');

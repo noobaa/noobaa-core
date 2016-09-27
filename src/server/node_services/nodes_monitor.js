@@ -483,34 +483,46 @@ class NodesMonitor extends EventEmitter {
         this._set_connection(item, conn);
     }
 
-    _set_connection(item, conn) {
-        if (item.connection === conn) return;
+    _disconnect_node(item) {
         if (item.connection) {
-            // make sure it is not a cloned agent. if the old connection is still connected
-            // the assumption is that this is a duplicated agent. in that case throw an error
-            if (conn &&
-                item.connection._state === 'connected' &&
-                conn.url.hostname !== item.connection.url.hostname) {
-                throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort', false);
-            }
-            dbg.warn('heartbeat: closing old connection', item.connection.connid);
+            dbg.warn('_disconnect_node: closing connection', item.connection.connid);
             item.connection.close();
+            item.connection = null;
         }
-        item.connection = conn;
+        this._update_status(item);
         this._set_need_update.add(item);
         setTimeout(() => this._run_node(item), 1000).unref();
-        if (conn) {
-            item.node.heartbeat = Date.now();
-            conn.on('close', () => {
-                dbg.warn('got close on node connection for', item.node.name,
-                    'conn', conn.connid,
-                    'active conn', item.connection && item.connection.connid);
-                // if connection already replaced ignore the close event
-                if (item.connection !== conn) return;
-                item.connection = null;
-                // TODO GUYM what to wakeup on disconnect?
-                setTimeout(() => this._run_node(item), 1000).unref();
-            });
+    }
+
+    _set_connection(item, conn) {
+        if (item.connection === conn) return;
+        this._check_duplicate_agent(item, conn);
+        this._disconnect_node(item);
+        item.connection = conn;
+        item.node.heartbeat = Date.now();
+        conn.on('close', () => {
+            this._on_connection_close(item, conn);
+        });
+    }
+
+    _on_connection_close(item, conn) {
+        dbg.warn('got close on node connection for', item.node.name,
+            'conn', conn.connid,
+            'active conn', item.connection && item.connection.connid);
+        // if then connection was replaced ignore the close event
+        if (item.connection === conn) {
+            this._disconnect_node(item);
+        }
+    }
+
+    _check_duplicate_agent(item, conn) {
+        // make sure it is not a cloned agent. if the old connection is still connected
+        // the assumption is that this is a duplicated agent. in that case throw an error
+        if (item.connection && conn &&
+            item.connection._state === 'connected' &&
+            conn.url.hostname !== item.connection.url.hostname) {
+            dbg.warn('DUPLICATE AGENT', item.node.name, item.connection.connid, conn.connid);
+            throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort', false);
         }
     }
 
@@ -1627,7 +1639,7 @@ class NodesMonitor extends EventEmitter {
                 'issues_report', item.node.issues_report,
                 'block_report', block_report);
             // disconnect from the node to force reconnect
-            this._set_connection(item, null);
+            this._disconnect_node(item);
         }
     }
 

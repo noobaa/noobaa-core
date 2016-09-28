@@ -14,8 +14,14 @@ class ServerTimeFormViewModel extends Disposable{
     constructor() {
         super();
 
+        let cluster = ko.pureComputed(
+            () => systemInfo() && systemInfo().cluster
+        );
+
         let server = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.shards[0].servers[0]
+            () => cluster() && cluster().shards[0].servers.find(
+                server => server.secret === cluster().master_secret
+            )
         );
 
         this.serverSecret = ko.pureComputed(

@@ -1,5 +1,7 @@
 import ko from 'knockout';
 
+const patternValidatior = ko.validation.rules.pattern.validator;
+
 function notIn(value, params) {
     params = ko.unwrap(params);
     if (params instanceof Array) {
@@ -77,6 +79,18 @@ function isURI(value) {
     return uriRegExp.test(value);
 }
 
+function includesUppercase(value) {
+    return patternValidatior(value, /[A-Z]/);
+}
+
+function includesLowercase(value) {
+    return patternValidatior(value, /[a-z]/);
+}
+
+function includesDigit(value) {
+    return patternValidatior(value, /[0-9]/);
+}
+
 export default function register(ko) {
     Object.assign(ko.validation.rules, {
         notIn: {
@@ -107,7 +121,20 @@ export default function register(ko) {
         isURI:{
             validator: isURI,
             message: 'Please enter a valid URI'
+        },
+        includesUppercase:{
+            validator: includesUppercase,
+            message: 'Please enter at least one uppercase letter'
+        },
+        includesLowercase:{
+            validator: includesLowercase,
+            message: 'Please enter at least one lowercase letter'
+        },
+        includesDigit:{
+            validator: includesDigit,
+            message: 'Please enter at least one digit'
         }
+
     });
 
     ko.validation.registerExtenders();

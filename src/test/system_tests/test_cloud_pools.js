@@ -34,7 +34,7 @@ var target_client = target_rpc.new_client({ // eslint-disable-line no-unused-var
 function authenticate() {
     let auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return P.fcall(function() {

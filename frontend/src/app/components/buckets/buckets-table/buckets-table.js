@@ -9,13 +9,13 @@ import { systemInfo, routeContext } from 'model';
 const columns = deepFreeze([
     {
         name: 'state',
-        type: 'icon',
+        cellTemplate: 'icon',
         sortable: true
     },
     {
         name: 'name',
         label: 'bucket name',
-        type: 'link',
+        cellTemplate: 'link',
         sortable: true
     },
     {
@@ -28,7 +28,7 @@ const columns = deepFreeze([
     },
     {
         name: 'cloudStorage',
-        type: 'cloud-storage'
+        cellTemplate: 'cloud-storage'
     },
     {
         name: 'cloudSync',
@@ -37,14 +37,14 @@ const columns = deepFreeze([
     {
         name: 'capacity',
         label: 'used capacity',
-        type: 'capacity',
+        cellTemplate: 'capacity',
         sortable: true
     },
     {
         name: 'deleteButton',
         label: '',
         css: 'delete-col',
-        type: 'delete'
+        cellTemplate: 'delete'
     }
 ]);
 

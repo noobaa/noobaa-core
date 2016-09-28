@@ -3,9 +3,24 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils';
 
-const stateMapping = deepFreeze({
-    true: { text: 'connected', css: 'success' },
-    false: { text: 'disconnected', css: 'error' }
+const stateIconMapping = deepFreeze({
+    CONNECTED: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    },
+
+    IN_PROGRESS: {
+        name: 'in-progress',
+        css: 'warning',
+        tooltip: 'In Progress'
+    },
+
+    DISCONNECTED: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Problem'
+    }
 });
 
 export default class ServerRowViewModel extends Disposable {
@@ -13,7 +28,7 @@ export default class ServerRowViewModel extends Disposable {
         super();
 
         this.state = ko.pureComputed(
-            () => server() ? stateMapping[server().is_connected] : ''
+            () => server() ? stateIconMapping[server().status] : ''
         );
 
         this.hostname = ko.pureComputed(

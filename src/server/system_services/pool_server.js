@@ -15,7 +15,7 @@ const server_rpc = require('../server_rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
 
 const POOL_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -78,7 +78,8 @@ function create_cloud_pool(req) {
         access_keys: {
             access_key: connection.access_key,
             secret_key: connection.secret_key
-        }
+        },
+        endpoint_type: connection.endpoint_type || 'AWS'
     };
 
     var pool = new_pool_defaults(name, req.system._id);
@@ -96,14 +97,7 @@ function create_cloud_pool(req) {
             return server_rpc.client.hosted_agents.create_agent({
                 name: req.rpc_params.name,
                 access_keys: sys_access_keys,
-                cloud_info: {
-                    endpoint: connection.endpoint,
-                    target_bucket: req.rpc_params.target_bucket,
-                    access_keys: {
-                        access_key: connection.access_key,
-                        secret_key: connection.secret_key
-                    }
-                },
+                cloud_info: cloud_info,
             });
         })
         .then(() => {
@@ -212,9 +206,12 @@ function _delete_cloud_pool(system, pool, account) {
                 }
             });
         })
-        .then(() => server_rpc.client.hosted_agents.remove_agent({
-            name: pool.name
-        }))
+        .then(() => nodes_client.instance().list_nodes_by_pool(pool._id))
+        .then(function(pool_nodes) {
+            return P.each(pool_nodes && pool_nodes.nodes, node => {
+                nodes_client.instance().delete_node_by_name(system._id, node.name);
+            });
+        })
         .then(() => {
             Dispatcher.instance().activity({
                 event: 'pool.delete',
@@ -281,6 +278,7 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     if (_is_cloud_pool(pool)) {
         info.cloud_info = {
             endpoint: pool.cloud_pool_info.endpoint,
+            endpoint_type: pool.cloud_pool_info.endpoint_type || 'AWS',
             target_bucket: pool.cloud_pool_info.target_bucket
         };
         info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);

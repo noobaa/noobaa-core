@@ -22,7 +22,6 @@ const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
 const md_store = require('../object_services/md_store');
 const os_utils = require('../../util/os_utils');
-const upgrade_utils = require('../../util/upgrade_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -785,7 +784,7 @@ function update_base_address(req) {
             Dispatcher.instance().activity({
                 event: 'conf.dns_address',
                 level: 'info',
-                system: req.system,
+                system: req.system._id,
                 actor: req.account && req.account._id,
                 desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
             });
@@ -884,56 +883,7 @@ function update_system_certificate(req) {
     throw new RpcError('TODO', 'update_system_certificate');
 }
 
-// UPGRADE ////////////////////////////////////////////////////////
-function upload_upgrade_package(req) {
-    //Update path in DB
-    var upgrade = {
-        path: req.rpc_params.filepath,
-        status: 'PENDING',
-        error: ''
-    };
 
-    return system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: req.system._id,
-                    upgrade: upgrade
-                }]
-            }
-        })
-        .then(() => upgrade_utils.pre_upgrade())
-        .then(res => {
-            //Update result of pre_upgrade and message in DB
-            var upgrade;
-            if (res.result) {
-                upgrade.status = 'CAN_UPGRADE';
-            } else {
-                upgrade.status = 'FAILED';
-                upgrade.error = res.message;
-            }
-            return system_store.make_changes({
-                update: {
-                    systems: [{
-                        _id: req.system._id,
-                        upgrade: upgrade
-                    }]
-                }
-            });
-        });
-}
-
-function do_upgrade(req) {
-    if (req.system.upgrade.status !== 'CAN_UPGRADE') {
-        throw new Error('No in upgrade state');
-    }
-    if (req.system.upgrade.path === '') {
-        throw new Error('No package path supplied');
-    }
-
-    //Async as the server will soon be restarted anyway
-    upgrade_utils.do_upgrade(req.system.upgrade.path);
-    return;
-}
 
 function validate_activation(req) {
     return P.fcall(function() {
@@ -1037,8 +987,5 @@ exports.update_system_certificate = update_system_certificate;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;
-
-exports.upload_upgrade_package = upload_upgrade_package;
-exports.do_upgrade = do_upgrade;
 
 exports.validate_activation = validate_activation;

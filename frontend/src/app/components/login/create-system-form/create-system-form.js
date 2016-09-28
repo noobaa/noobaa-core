@@ -10,8 +10,21 @@ class CreateSystemFormViewModel extends Disposable {
     constructor() {
         super();
 
+        // Wizard configuration:
+        // ---------------------
         this.steps = ['account details', 'system config'];
         this.step = ko.observable(0);
+
+        let serverConfig = ko.pureComputed(
+            () => serverInfo() ? serverInfo().config : {}
+        );
+
+        this.isUnableToActivateModalVisible = ko.pureComputed(
+            () => serverConfig().phone_home_connectivity_status !== 'CONNECTED'
+        );
+
+        // First step fields:
+        // -------------------
 
         this.activationCode = ko.observable()
             .extend({
@@ -62,20 +75,29 @@ class CreateSystemFormViewModel extends Disposable {
 
         this.password = ko.observable()
             .extend({
-                required: { message: 'Please enter a password' }
+                required: { message: 'Please enter a password' },
+                minLength: 5,
+                includesUppercase: true,
+                includesLowercase: true,
+                includesDigit: true
             });
 
-        this.confirmPassword = ko.observable()
-            .extend({
-                equal: {
-                    params: this.password,
-                    message: 'Passwords must match'
-                }
-            });
+        this.passwordValidations = ko.pureComputed(
+            () => ko.validation.fullValidationState(this.password)()
+                .map(
+                    validator => ({
+                        message: validator.message,
+                        isValid: this.password() && validator.isValid
+                    })
+                )
+        );
 
         this.name = ko.pureComputed(
             () => this.email() && this.email().split('@')[0]
         );
+
+        // Second step fields:
+        // -------------------
 
         this.systemName = ko.observable()
             .extend({
@@ -92,18 +114,8 @@ class CreateSystemFormViewModel extends Disposable {
                 isDNSName: true
             });
 
-        this.primaryDNSServerIP = ko.observableWithDefault(
-            () => {
-                if (!serverInfo() || !serverInfo().config) {
-                    return;
-                }
-
-                return (serverInfo().config.dns_servers || [])[0];
-            }
-        )
-            .extend({
-                isIP: true
-            });
+        // Wizard controls:
+        // ----------------
 
         this.isPrevVisible = ko.pureComputed(
             () => this.step() > 0
@@ -117,6 +129,9 @@ class CreateSystemFormViewModel extends Disposable {
             () => this.step() === this.steps.length - 1
         );
 
+        // Error groups:
+        // -------------
+
         this.errorsByStep = [
             // Account details validations
             ko.validation.group([
@@ -129,8 +144,7 @@ class CreateSystemFormViewModel extends Disposable {
             // System config validations
             ko.validation.group([
                 this.systemName,
-                this.serverDNSName,
-                this.primaryDNSServerIP
+                this.serverDNSName
             ])
         ];
     }
@@ -164,9 +178,10 @@ class CreateSystemFormViewModel extends Disposable {
     createSystem() {
         let serverConfig = serverInfo().config;
 
-        let dnsServers = this.primaryDNSServerIP() ?
-            Object.assign([], serverConfig.dns_servers, [this.primaryDNSServerIP()]) :
-            serverConfig.dns_servers;
+        let dnsServers = [];
+        if (!serverConfig.using_dhcp && serverConfig.dns_servers) {
+            dnsServers = serverConfig.dns_servers;
+        }
 
         let timeConfig = {
             timezone: serverConfig.timezone || Intl.DateTimeFormat().resolved.timeZone,

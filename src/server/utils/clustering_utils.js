@@ -7,7 +7,6 @@ const _ = require('lodash');
 const util = require('util');
 const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
-const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const os = require('os');
@@ -21,7 +20,7 @@ function update_cluster_info(params) {
     var current_clustering = system_store.get_local_cluster_info();
     var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
     update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
-    update.owner_address = os_utils.get_local_ipv4_ips()[0];
+    update.owner_address = params.owner_address || current_clustering.owner_address;
     update._id = current_clustering._id;
 
     dbg.log0('Updating local cluster info for owner', update.owner_secret, 'previous cluster info',
@@ -80,14 +79,7 @@ function extract_servers_ip(arr) {
 
 //Return all servers in the cluster, regardless of role
 function get_all_cluster_members() {
-    var top = get_topology();
-    var servers = [];
-    _.each(top.shards, function(sh) {
-        _.each(sh.servers, function(srv) {
-            servers.push(srv.address);
-        });
-    });
-
+    let servers = system_store.data.clusters.map(top => top.owner_address);
     return servers;
 }
 
@@ -163,18 +155,23 @@ function get_cluster_info() {
         let memory_usage = 0;
         let cpu_usage = 0;
         let version = '0';
-        let single_server = system_store.data.clusters.length === 1;
-        let is_connected = single_server;
+        let is_connected = 'DISCONNECTED';
         let hostname = os.hostname();
         let time_epoch = moment().unix();
         let location = cinfo.location;
+        let single_server = system_store.data.clusters.length === 1;
+        if (single_server) {
+            is_connected = 'CONNECTED';
+        }
         if (cinfo.heartbeat) {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
             cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
             let now = Date.now();
             let diff = now - cinfo.heartbeat.time;
-            is_connected = single_server || (diff < config.CLUSTER_NODE_MISSING_TIME);
+            if (diff < config.CLUSTER_NODE_MISSING_TIME) {
+                is_connected = 'CONNECTED';
+            }
             hostname = cinfo.heartbeat.health.os_info.hostname;
         }
         let server_info = {
@@ -182,7 +179,7 @@ function get_cluster_info() {
             hostname: hostname,
             secret: cinfo.owner_secret,
             address: cinfo.owner_address,
-            is_connected: is_connected,
+            status: is_connected,
             memory_usage: memory_usage,
             cpu_usage: cpu_usage,
             location: location,
@@ -198,7 +195,7 @@ function get_cluster_info() {
         if (shard.servers.length < 3) {
             shard.high_availabilty = false;
         } else {
-            let num_connected = shard.servers.filter(server => server.is_connected).length;
+            let num_connected = shard.servers.filter(server => server.status === 'CONNECTED').length;
             // to be highly available the cluster must be able to stand a failure and still
             // have a majority to vote for a master.
             shard.high_availabilty = num_connected > (shard.servers.length + 1) / 2;
@@ -222,6 +219,14 @@ function get_potential_masters() {
     return masters;
 }
 
+function get_member_upgrade_status(ip) {
+    dbg.log0('UPGRADE:', 'get upgrade status for ip', ip);
+    let server_entry = system_store.data.clusters.find(server => server.owner_address === ip);
+    dbg.log0('UPGRADE:', 'found server:', server_entry);
+    if (!server_entry || !server_entry.upgrade) return 'NOT_READY';
+    return server_entry.upgrade.status;
+}
+
 
 //Exports
 exports.get_topology = get_topology;
@@ -235,4 +240,5 @@ exports.pretty_topology = pretty_topology;
 exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
 exports.get_cluster_info = get_cluster_info;
+exports.get_member_upgrade_status = get_member_upgrade_status;
 exports.get_potential_masters = get_potential_masters;

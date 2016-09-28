@@ -5,6 +5,7 @@
  */
 'use strict';
 
+const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const request = require('request');
 const P = require('../../util/promise');
@@ -16,6 +17,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
+const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
@@ -41,6 +43,7 @@ const SINGLE_SYS_DEFAULTS = {
     tiers: 0,
     buckets: 0,
     chunks: 0,
+    // chunks_rebuilt_since_last: 0,
     objects: 0,
     roles: 0,
     allocated_space: 0,
@@ -56,32 +59,62 @@ const SINGLE_SYS_DEFAULTS = {
 //Collect systems related stats and usage
 function get_systems_stats(req) {
     var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
-    sys_stats.version = process.env.CURRENT_VERSION || 'Unknown';
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
     sys_stats.count = system_store.data.systems.length;
     var cluster = system_store.data.clusters[0];
     if (cluster && cluster.cluster_id) {
         sys_stats.clusterid = cluster.cluster_id;
     }
+
     return P.all(_.map(system_store.data.systems, system => {
             let new_req = _.defaults({
                 system: system
             }, req);
             return system_server.read_system(new_req)
-                .then(res => _.defaults({
-                    roles: res.roles.length,
-                    tiers: res.tiers.length,
-                    buckets: res.buckets.length,
-                    objects: res.objects,
-                    allocated_space: res.storage.alloc,
-                    used_space: res.storage.used,
-                    total_space: res.storage.total,
-                    associated_nodes: {
-                        on: res.nodes.online,
-                        off: res.nodes.count - res.nodes.online,
-                    },
-                    owner: res.owner.email,
-                }, SINGLE_SYS_DEFAULTS));
+                .then(res => {
+                    // Means that if we do not have any systems, the version number won't be sent
+                    sys_stats.version = res.version || process.env.CURRENT_VERSION;
+                    return _.defaults({
+                        roles: res.roles.length,
+                        tiers: res.tiers.length,
+                        buckets: res.buckets.length,
+                        objects: res.objects,
+                        allocated_space: res.storage.alloc,
+                        used_space: res.storage.used,
+                        total_space: res.storage.total,
+                        associated_nodes: {
+                            on: res.nodes.online,
+                            off: res.nodes.count - res.nodes.online,
+                        },
+                        owner: res.owner.email,
+                    }, SINGLE_SYS_DEFAULTS);
+                });
+            // TODO: Need to handle it differently
+            // .then(function(res) {
+            //     let last_stats_report = system.last_stats_report || 0;
+            //     var query = {
+            //         system: system._id,
+            //         // Notice that we only count the chunks that finished their rebuild
+            //         last_build: {
+            //             $gt: new Date(last_stats_report)
+            //         },
+            //         // Ignore old chunks without buckets
+            //         bucket: {
+            //             $exists: true
+            //         },
+            //         deleted: null
+            //     };
+            //
+            //     return md_store.DataChunk.collection.count(query)
+            //         .then(count => {
+            //             res.chunks_rebuilt_since_last = count;
+            //             return res;
+            //         })
+            //         .catch(err => {
+            //             dbg.log0('Could not fetch chunks_rebuilt_since_last', err);
+            //             return res;
+            //         });
+            // });
         }))
         .then(systems => {
             sys_stats.systems = systems;
@@ -102,6 +135,7 @@ var NODES_STATS_DEFAULTS = {
         linux: 0,
         other: 0,
     },
+    nodes_with_issue: 0
 };
 
 const SYNC_STATS_DEFAULTS = {
@@ -139,6 +173,9 @@ function get_nodes_stats(req) {
         .then(results => {
             for (const system_nodes of results) {
                 for (const node of system_nodes.nodes) {
+                    if (node.has_issues) {
+                        nodes_stats.nodes_with_issue++;
+                    }
                     nodes_stats.count++;
                     nodes_histo.histo_allocation.add_value(
                         node.storage.alloc / SCALE_BYTES_TO_GB);
@@ -265,7 +302,8 @@ function get_object_usage_stats(req) {
             return _.map(res.reports, report => ({
                 system: String(report.system),
                 time: report.time,
-                s3_usage_info: report.s3_usage_info
+                s3_usage_info: report.s3_usage_info,
+                s3_errors_info: report.s3_errors_info
             }));
         })
         .catch(err => {
@@ -547,21 +585,23 @@ function get_empty_objects_histo() {
 }
 
 function background_worker() {
+    if (DEV_MODE) {
+        dbg.log('Central Statistics gathering disabled in DEV_MODE');
+        return;
+    }
     dbg.log('Central Statistics gathering enabled');
     //Run the system statistics gatheting
     return P.fcall(() => {
-            if (!server_rpc.client.options.auth_token) {
-                let system = system_store.data.systems[0];
-                let auth_params = {
-                    email: 'support@noobaa.com',
-                    password: system_store.get_server_secret(),
-                    system: system.name,
-                };
-                return server_rpc.client.create_auth_token(auth_params);
-            }
-            return;
+            let system = system_store.data.systems[0];
+            let support_account = _.find(system_store.data.accounts, account => account.is_support);
+            return server_rpc.client.stats.get_all_stats({}, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin',
+                    account_id: support_account._id
+                })
+            });
         })
-        .then(() => server_rpc.client.stats.get_all_stats({}))
         .then(payload => send_stats_payload(payload))
         .catch(err => {
             failed_sent++;
@@ -601,7 +641,17 @@ function background_worker() {
                 });
             }
         })
-        .then(() => server_rpc.client.stats.object_usage_scrubber({}))
+        .then(() => {
+            let system = system_store.data.systems[0];
+            let support_account = _.find(system_store.data.accounts, account => account.is_support);
+            return server_rpc.client.stats.object_usage_scrubber({}, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin',
+                    account_id: support_account._id
+                })
+            });
+        })
         .then(() => dbg.log('Phone Home data was sent successfuly'))
         .catch(err => {
             dbg.warn('Phone Home data send failed', err.stack || err);

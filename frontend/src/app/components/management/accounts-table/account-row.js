@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo } from 'model';
+import { sessionInfo, systemInfo } from 'model';
 import { deleteAccount } from 'actions';
 
 export default class AccountRowViewModel extends Disposable {
@@ -11,9 +11,16 @@ export default class AccountRowViewModel extends Disposable {
             () => systemInfo() ? systemInfo().name : ''
         );
 
-
         this.email = ko.pureComputed(
             () => account() ? account().email : ''
+        );
+
+        this.name = ko.pureComputed(
+            () => {
+                let email = this.email();
+                let curr = sessionInfo() && sessionInfo().user;
+                return `${email} ${email === curr ? '(Current user)' : ''}`;
+            }
         );
 
         let isSystemOwner = ko.pureComputed(

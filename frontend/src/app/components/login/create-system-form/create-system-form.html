@@ -16,7 +16,7 @@
                 <p class="heading3">Create your owner account</p>
 
                 <editor params="label: 'Activation code'">
-                    <input type="text" placeholder="your actication code"
+                    <input type="text" placeholder="your activation code"
                         data-bind="value: activationCode">
 
                     <svg-icon class="validating-indicator spin"
@@ -33,13 +33,24 @@
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
-                <editor params="label: 'Password'">
-                    <input type="password" autocomplete="off" data-bind="value: password" placeholder="enter passowrd">
+                <editor params="
+                    label: 'Password',
+                    insertValMessages: false
+                ">
+                    <password-field params="
+                        value: password,
+                        placeholder: 'enter password'
+                    "></password-field>
                 </editor>
 
-                <editor params="label: 'Confirm password'">
-                    <input type="password" autocomplete="off" data-bind="value: confirmPassword" placeholder="repeat password ">
-                </editor>
+                <ul class="bullet-list remark" data-bind="
+                    foreach: passwordValidations
+                ">
+                    <li data-bind="
+                        text: message,
+                        css: { success: isValid }
+                    "></li>
+                </ul>
             </div>
 
             <div class="page column" data-bind="css: { selected: step() === 1 }">
@@ -56,12 +67,6 @@
 
                 <editor params="label: 'Server DNS name'">
                     <input type="text" data-bind="value: serverDNSName">
-                    <p class="hint">optional</p>
-                </editor>
-
-                <editor class="push-next" params="label: 'Primary DNS server IP'">
-                    <input type="text" data-bind="value: primaryDNSServerIP"
-                        placeholder="The IP of your primary DNS server" >
                     <p class="hint">optional</p>
                 </editor>
 
@@ -94,3 +99,4 @@
         </div>
     </div>
 </section>
+

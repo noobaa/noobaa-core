@@ -12,7 +12,19 @@
     data: buckets,
     rowFactory: bucket => newBucketRow(bucket),
     emptyMessage: ''
-"></data-table>
+">
+    <template name="cloud-storage">
+        <svg-icon class="icon-small" params="name: awsIcon().name" data-bind="
+            tooltip: awsIcon().tooltip
+        "></svg-icon>
+        <svg-icon class="icon-small" params="name: azureIcon().name" data-bind="
+            tooltip: azureIcon().tooltip
+        "></svg-icon>
+        <svg-icon class="icon-small" params="name: cloudIcon().name" data-bind="
+            tooltip: cloudIcon().tooltip
+        "></svg-icon>
+    </template>
+</data-table>
 
 <!-- ko if: isCreateBucketWizardVisible -->
 <create-bucket-wizard params="onClose: () => hideCreateBucketWizard()">

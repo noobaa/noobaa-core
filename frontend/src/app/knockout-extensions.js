@@ -51,3 +51,43 @@ ko.deepUnwrap = function(value) {
         return uw;
     }
 };
+
+// ko.validation specific extentions:
+// ----------------------------------
+if (ko.validation) {
+    let kv = ko.validation;
+
+    const getRuleValidationState = function(observable, appliedRule) {
+        let { 
+            rule = 'inline', 
+            params, 
+            validator = kv.rules[rule].validator, 
+            message = kv.rules[rule].message
+        } = appliedRule;
+
+        return {
+            rule: rule,
+            isValid: validator(observable(), params),
+            message:  kv.formatMessage(message, params, observable)
+        };
+    };
+
+    ko.validation.fullValidationState = function(observable) {
+        return ko.pureComputed(
+            () => {
+                let rules = observable.rules;
+                
+                if (!rules) {
+                    return [];
+                }
+                
+                return rules().map(
+                    rule => getRuleValidationState(observable, rule)
+                );
+            }
+        );
+    };
+}
+
+window.ko = ko;
+

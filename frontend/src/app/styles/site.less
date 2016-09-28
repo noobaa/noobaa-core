@@ -209,7 +209,7 @@ output {
 .bullet-list {
     margin: 0;
     padding: 0;
-    padding-left: 1.3em;
+    padding-left: @gutter;
     line-height: 1.8;
 
     ol& > li {
@@ -263,6 +263,16 @@ output {
 
 .pad {
     padding: @gutter;
+}
+
+.vpad {
+    padding-top: @gutter;
+    padding-bottom: @gutter;
+}
+
+.hpad {
+    padding-right: @gutter;
+    padding-left: @gutter;
 }
 
 .double-pad {

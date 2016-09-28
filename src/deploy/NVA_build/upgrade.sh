@@ -9,13 +9,15 @@ TMP_PATH="/tmp/"
 EXTRACTION_PATH="/tmp/test/"
 VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"
 NEW_UPGRADE_SCRIPT="${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/upgrade.sh"
+MONGO_SHELL="/usr/bin/mongo nbcore"
+MONGO_PROGRAM="mongodb"
 
 
 function wait_for_mongo {
-  local running=$(supervisorctl status mongodb | awk '{ print $2 }' )
+  local running=$(supervisorctl status ${MONGO_PROGRAM} | awk '{ print $2 }' )
   while [ "$running" != "RUNNING" ]; do
     sleep 5
-    running=$(supervisorctl status mongodb | awk '{ print $2 }' )
+    running=$(supervisorctl status ${MONGO_PROGRAM} | awk '{ print $2 }' )
   done
 }
 
@@ -55,27 +57,31 @@ function disable_supervisord {
 
 function mongo_upgrade {
 
+
+
   disable_autostart
 
   ${SUPERD}
   sleep 3
 
-  ${SUPERCTL} start mongodb
+  ${SUPERCTL} start ${MONGO_PROGRAM}
   wait_for_mongo
 
   #MongoDB nbcore upgrade
   deploy_log "starting mongo data upgrade"
   local sec=$(cat /etc/noobaa_sec)
+  local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
   local id=$(uuidgen | cut -f 1 -d'-')
   local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
-  /usr/bin/mongo nbcore --eval "var param_secret='${sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+  ${MONGO_SHELL} --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
   deploy_log "finished mongo data upgrade"
 
 
   enable_autostart
 
 
-  ${SUPERCTL} reload
+  ${SUPERCTL} update
+  ${SUPERCTL} start all
   sleep 3
 }
 
@@ -97,9 +103,10 @@ function restart_webserver {
     #MongoDB nbcore upgrade
     deploy_log "starting mongo data upgrade"
     local sec=$(cat /etc/noobaa_sec)
+    local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
     local id=$(uuidgen | cut -f 1 -d'-')
     local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
-    /usr/bin/mongo nbcore --eval "var param_secret='${sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+    ${MONGO_SHELL} --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
     deploy_log "finished mongo data upgrade"
 
     ${SUPERCTL} start webserver
@@ -147,36 +154,37 @@ function extract_package {
     exit 1
   fi
 
-  #test if package contains expected locations/files, for example build/Release/native_core.node
-  if [ -f "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" ]; then
-          deploy_log "native_core.node exists in temp extraction point, continue with upgrade"
-          #test if build time is newer than current version build time
-          if [ "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" -nt "/root/node_modules/noobaa-core/build/Release/native_core.node" ]; then
-              deploy_log "native_core.node exists and its newer than current version, continue with upgrade"
-         else
-             deploy_log "build time is older than current version, abort upgrade"
-             rm -rf ${EXTRACTION_PATH}*
-             exit 1
-          fi
-  else
-    deploy_log "native_core.node does not exists, abort upgrade"
-    rm -rf ${EXTRACTION_PATH}*
-    exit 1
-  fi
+  # #test if package contains expected locations/files, for example build/Release/native_core.node
+  # if [ -f "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" ]; then
+  #         deploy_log "native_core.node exists in temp extraction point, continue with upgrade"
+  #         #test if build time is newer than current version build time
+  #         if [ "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" -nt "/root/node_modules/noobaa-core/build/Release/native_core.node" ]; then
+  #             deploy_log "native_core.node exists and its newer than current version, continue with upgrade"
+  #        else
+  #            deploy_log "build time is older than current version, abort upgrade"
+  #            rm -rf ${EXTRACTION_PATH}*
+  #            exit 1
+  #         fi
+  # else
+  #   deploy_log "native_core.node does not exists, abort upgrade"
+  #   rm -rf ${EXTRACTION_PATH}*
+  #   exit 1
+  # fi
 }
 
 function do_upgrade {
   disable_supervisord
-  
-  # remove auth flag from mongo if present
-  sed -i "s:mongod --auth:mongod:" /etc/noobaa_supervisor.conf
-  # add bind_ip flag to restrict access to local host only.
-  local has_bindip=$(grep bind_ip /etc/noobaa_supervisor.conf | wc -l)
-  if [ $has_bindip == '0' ]; then
-    deploy_log "adding --bind_ip to noobaa_supervisor.conf" 
-    sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
-  fi
 
+  if [ "$CLUSTER" != 'cluster' ]; then
+    # remove auth flag from mongo if present
+    sed -i "s:mongod --auth:mongod:" /etc/noobaa_supervisor.conf
+    # add bind_ip flag to restrict access to local host only.
+    local has_bindip=$(grep bind_ip /etc/noobaa_supervisor.conf | wc -l)
+    if [ $has_bindip == '0' ]; then
+      deploy_log "adding --bind_ip to noobaa_supervisor.conf"
+      sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
+    fi
+  fi
 
   unalias cp
   deploy_log "Tar extracted successfully, Running pre upgrade"
@@ -194,20 +202,20 @@ function do_upgrade {
   tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
 
   # move existing internal agnets_storage to new dir
-  if [ -d /backup/agent_storage/ ]; then 
+  if [ -d /backup/agent_storage/ ]; then
     mv /backup/agent_storage/ ${CORE_DIR}
-  fi 
+  fi
 
   # Re-setup Repos
   setup_repos
 
-  if [ ! -d  /var/lib/mongo/cluster/shard1 ] || [ ! "$(ls -A /var/lib/mongo/cluster/shard1)" ]; then
-      deploy_log "Moving mongo db files into new location"
-      mkdir -p /var/lib/mongo/cluster/shard1
-      chmod +x /var/lib/mongo/cluster/shard1
-      cp -r /data/db/* /var/lib/mongo/cluster/shard1/
-      mv /data/db /backup/old_db
-  fi
+   if [ ! -d  /var/lib/mongo/cluster/shard1 ] || [ ! "$(ls -A /var/lib/mongo/cluster/shard1)" ]; then
+        deploy_log "Moving mongo db files into new location"
+        mkdir -p /var/lib/mongo/cluster/shard1
+        chmod +x /var/lib/mongo/cluster/shard1
+        cp -r /data/db/* /var/lib/mongo/cluster/shard1/
+        mv /data/db /backup/old_db
+    fi
 
   deploy_log "Running post upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post ${FSUFFIX}
@@ -219,8 +227,8 @@ function do_upgrade {
 
   #Update Mongo Upgrade status
   deploy_log "Updating system.upgrade on success"
-  local id=$(/usr/bin/mongo nbcore --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
-  /usr/bin/mongo nbcore --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
+  local id=$(${MONGO_SHELL} --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
+  ${MONGO_SHELL} --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
 
   deploy_log "Upgrade finished successfully!"
 }
@@ -268,7 +276,17 @@ else
       shift
       LOG_FILE="/var/log/noobaa_deploy_${1}.log"
       FSUFFIX="$1"
+      shift
     fi
+
+    CLUSTER="$1"
+    if [ "$CLUSTER" == 'cluster' ]; then
+      RS_SERVERS=`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'/' -f 3`
+      # TODO: handle differenet shards 
+      MONGO_SHELL="/usr/bin/mongo --host shard1/${RS_SERVERS} nbcore"
+      MONGO_PROGRAM="mongors-shard1"
+    fi
+
 
     deploy_log "upgrade.sh called with ${allargs}"
     verify_supported_upgrade #verify upgrade from ver > 0.4.5

@@ -301,9 +301,15 @@ function post_upgrade {
   rm -f ${CORE_DIR}/.env
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
   #fix JWT_SECRET from previous .env
-  if ! grep -q JWT_SECRET /backup/.env; then
+  if grep -q JWT_SECRET /backup/.env; then
       local jwt=$(grep JWT_SECRET /backup/.env)
       echo "${jwt}" >> ${CORE_DIR}/.env
+  fi
+
+  #copy MONGO_RS_URL from previous .env
+  if grep -q MONGO_RS_URL /backup/.env; then
+      local mongo_url=$(grep MONGO_RS_URL /backup/.env)
+      echo "${mongo_url}" >> ${CORE_DIR}/.env
   fi
 
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)

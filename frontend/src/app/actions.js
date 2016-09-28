@@ -32,7 +32,10 @@ function logAction(action, payload) {
 export function start() {
     logAction('start');
 
-    api.options.auth_token = localStorage.getItem('sessionToken');
+    api.options.auth_token =
+        sessionStorage.getItem('sessionToken') ||
+        localStorage.getItem('sessionToken');
+
     return api.auth.read_auth()
         // Try to restore the last session
         .then(({account, system}) => {
@@ -41,6 +44,16 @@ export function start() {
                     user: account.email,
                     system: system.name
                 });
+            }
+        })
+        .catch(err => {
+            if (err.rpc_code === 'UNAUTHORIZED') {
+                if (api.options.auth_token) {
+                    console.info('Signing out on unauthorized session.');
+                    signOut(false);
+                }
+            } else {
+                console.error(err);
             }
         })
         // Start the router.
@@ -302,8 +315,8 @@ export function closeDrawer() {
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
-export function signIn(email, password, redirectUrl) {
-    logAction('signIn', { email, password, redirectUrl });
+export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
+    logAction('signIn', { email, password, keepSessionAlive, redirectUrl });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -313,7 +326,8 @@ export function signIn(email, password, redirectUrl) {
 
                 return api.create_auth_token({ system, email, password })
                     .then(({ token }) => {
-                        localStorage.setItem('sessionToken', token);
+                        let storage = keepSessionAlive ? localStorage : sessionStorage;
+                        storage.setItem('sessionToken', token);
 
                         model.sessionInfo({ user: email, system: system });
                         model.loginInfo({ retryCount: 0 });
@@ -341,10 +355,14 @@ export function signIn(email, password, redirectUrl) {
         .done();
 }
 
-export function signOut() {
+export function signOut(shouldRefresh = true) {
+    sessionStorage.removeItem('sessionToken');
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
-    refresh();
+    api.options.auth_token = undefined;
+    if (shouldRefresh) {
+        refresh();
+    }
 }
 
 // -----------------------------------------------------
@@ -353,17 +371,18 @@ export function signOut() {
 export function loadServerInfo() {
     logAction('loadServerInfo');
 
+    model.serverInfo(null);
     api.account.accounts_status()
         .then(
             reply => reply.has_accounts ?
                 { initialized: true } :
-                api.cluster_server.read_server_config()
-                    .then(
-                        config => ({
-                            initialized: false,
-                            config: config
-                        })
-                    )
+                api.cluster_server.read_server_config().then(
+                    config => ({
+                        initialized: false,
+                        address: endpoint,
+                        config: config
+                    })
+                )
         )
         .then(model.serverInfo)
         .done();
@@ -472,12 +491,12 @@ export function loadNodeList(filter, pools, online, decommissioned) {
     logAction('loadNodeList', { filter, pools, online, decommissioned});
 
     api.node.list_nodes({
-        query: { 
-            filter: filter, 
+        query: {
+            filter: filter,
             pools: pools,
             online: online,
             decommissioned: decommissioned,
-            decommissioning: decommissioned 
+            decommissioning: decommissioned
         }
     })
         .then(
@@ -601,23 +620,23 @@ export function exportAuditEnteries(categories) {
         .done();
 }
 
-export function loadS3Connections() {
-    logAction('loadS3Connections');
+export function loadCloudConnections() {
+    logAction('loadCloudConnections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(model.S3Connections)
+        .then(model.CloudConnections)
         .done();
 }
 
-export function loadS3BucketList(connection) {
-    logAction('loadS3BucketList', { connection });
+export function loadCloudBucketList(connection) {
+    logAction('loadCloudBucketList', { connection });
 
     api.bucket.get_cloud_buckets({
         connection: connection
     })
         .then(
-            model.S3BucketList,
-            () => model.S3BucketList(null)
+            model.CloudBucketList,
+            () => model.CloudBucketList(null)
         )
         .done();
 }
@@ -656,7 +675,7 @@ export function createSystem(
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
-                localStorage.setItem('sessionToken', token);
+                sessionStorage.setItem('sessionToken', token);
 
                 // Update the session info and redirect to system screen.
                 model.sessionInfo({
@@ -698,10 +717,19 @@ export function deleteAccount(email) {
 
     api.account.delete_account({ email })
         .then(
+            () => {
+                let user = model.sessionInfo() && model.sessionInfo().user;
+                if (email === user) {
+                    signOut();
+                } else {
+                    loadSystemInfo();
+                }
+            }
+        )
+        .then(
             () => notify(`Account ${email} deleted successfully`, 'success'),
             () => notify(`Account ${email} deletion failed`, 'error')
         )
-        .then(loadSystemInfo)
         .done();
 }
 
@@ -1453,32 +1481,34 @@ export function toogleCloudSync(bucket, pause) {
 }
 
 
-export function checkS3Connection(endpoint, accessKey, secretKey) {
-    logAction('checkS3Connection', { endpoint, accessKey, secretKey });
+export function checkCloudConnection(endpointType, endpoint, identity, secret) {
+    logAction('checkCloudConnection', { endpointType, endpoint, identity, secret });
 
     let credentials = {
+        endpoint_type: endpointType,
         endpoint: endpoint,
-        access_key: accessKey,
-        secret_key: secretKey
+        identity: identity,
+        secret: secret
     };
 
     api.account.check_account_sync_credentials(credentials)
-        .then(model.isS3ConnectionValid)
+        .then(model.isCloudConnectionValid)
         .done();
 }
 
-export function addS3Connection(name, endpoint, accessKey, secretKey) {
-    logAction('addS3Connection', { name, endpoint, accessKey, secretKey });
+export function addCloudConnection(name, endpointType, endpoint, identity, secret) {
+    logAction('addCloudConnection', { name, endpointType, endpoint, identity, secret });
 
     let credentials = {
         name: name,
+        endpoint_type: endpointType,
         endpoint: endpoint,
-        access_key: accessKey,
-        secret_key: secretKey
+        identity: identity,
+        secret: secret
     };
 
     api.account.add_account_sync_credentials_cache(credentials)
-        .then(loadS3Connections)
+        .then(loadCloudConnections)
         .done();
 }
 
@@ -1541,7 +1571,7 @@ export function enterMaintenanceMode(duration) {
         .then(loadSystemInfo)
         .then(
             () => setTimeout(
-                loadSystemInfo, 
+                loadSystemInfo,
                 (duration * 60 + 1) * 1000
             )
         )

@@ -1,21 +1,73 @@
 /* eslint-env mongo */
 /* global setVerboseShell */
+/* global sleep */
+
 'use strict';
 // the following params are set from outside the script
 // using mongo --eval 'var param_ip="..."' and we only declare them here for completeness
 var param_ip;
 var param_secret;
-var params_cluster_id;
+var param_bcrypt_secret;
 setVerboseShell(true);
 upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    sync_cluster_upgrade();
     upgrade_systems();
     upgrade_cluster();
     upgrade_system_access_keys();
     upgrade_object_mds();
+    // cluster upgrade: mark that upgrade is completed for this server
+    mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
+}
+
+function sync_cluster_upgrade() {
+    // find if this server should perform mongo upgrade
+    var is_mongo_upgrade = db.clusters.find({
+        owner_secret: param_secret
+    }).toArray()[0].upgrade.mongo_upgrade;
+
+    // if this server shouldn't run mongo_upgrade, set status to DB_READY,
+    // to indicate that this server is upgraded and with mongo running.
+    // then wait for master to complete upgrade
+    if (!is_mongo_upgrade) {
+        db.clusters.update({
+            owner_secret: param_secret
+        }, {
+            $set: {
+                "upgrade.status": "DB_READY"
+            }
+        });
+        var max_iterations = 100;
+        var i = 0;
+        while (i < max_iterations) {
+            i += 1;
+            var master_status = db.clusters.find({
+                "upgrade.mongo_upgrade": true
+            }).toArray()[0].upgrade.status;
+            if (master_status === 'COMPLETED') {
+                print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
+                mark_completed();
+                quit();
+            }
+            sleep(10000);
+        }
+        print('\nERROR: master did not finish mongo_upgrade in time!!! finishing upgrade of this server');
+        quit();
+    }
+}
+
+function mark_completed() {
+    // mark upgrade status of this server as completed
+    db.clusters.update({
+        owner_secret: param_secret
+    }, {
+        $set: {
+            "upgrade.status": "COMPLETED"
+        }
+    });
 }
 
 function upgrade_systems() {
@@ -177,7 +229,18 @@ function upgrade_system(system) {
                 }
 
             });
-
+        } else if (account.is_support && String(account.password) !== String(param_bcrypt_secret)) {
+            print('\n*** updated old support account', param_bcrypt_secret);
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $set: {
+                    password: param_bcrypt_secret
+                },
+                $unset: {
+                    __v: 1
+                }
+            });
         } else {
             db.accounts.update({
                 _id: account._id
@@ -187,8 +250,24 @@ function upgrade_system(system) {
                 }
 
             });
-
         }
+    });
+
+    print('\n*** OBJECT STATS ***');
+    db.objectstats.update({
+        s3_errors_info: {
+            $exists: false
+        }
+    }, {
+        $set: {
+            // Notice that I've left an empty object, this is done on purpose
+            // In order to distinguish what from old records and new records
+            // The new records will have a minimum of total_errors property
+            // Even if we did not encounter any s3 related errors
+            s3_errors_info: {}
+        }
+    }, {
+        multi: true
     });
 }
 
@@ -255,7 +334,8 @@ function upgrade_cluster() {
         if (!clusters[0].owner_shardname) {
             db.clusters.update({}, {
                 $set: {
-                    owner_shardname: 'shard1'
+                    owner_shardname: 'shard1',
+                    cluster_id: param_secret
                 }
             });
         }
@@ -269,7 +349,7 @@ function upgrade_cluster() {
         owner_address: param_ip,
         owner_shardname: 'shard1',
         location: 'Earth',
-        cluster_id: params_cluster_id,
+        cluster_id: param_secret,
         shards: [{
             shardname: 'shard1',
             servers: [{
@@ -295,7 +375,6 @@ function upgrade_cluster() {
     db.clusters.insert(cluster);
 }
 
-// TODO: JEN AIN'T PROUD OF IT BUT NOBODY PERFECT!, should do the update with 1 db reach
 function upgrade_object_mds() {
     print('\n*** upgrade_object_mds ...');
     db.objectmds.find({

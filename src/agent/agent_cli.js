@@ -61,6 +61,7 @@ AgentCLI.prototype.init = function() {
     if (self.params.cloud_endpoint) {
         self.cloud_info = {
             endpoint: self.params.cloud_endpoint,
+            endpoint_type: self.params.endpoint_type,
             target_bucket: self.params.cloud_bucket,
             access_keys: {
                 access_key: self.params.cloud_access_key,
@@ -357,9 +358,10 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
     var self = this;
 
     return P.fcall(function() {
+        dbg.log0('create_node_helper called with self.params', self.params);
         var current_node_path = current_node_path_info.mount;
         var node_name = internal_node_name || os.hostname();
-        var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
+        var path_modification = current_node_path.replace('/agent_storage/', '').replace(/\//g, '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
         dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_name, 'current_node_path', current_node_path, 'exists');
@@ -381,7 +383,6 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
         var node_path = path.join(current_node_path, node_name);
         var token_path = path.join(node_path, 'token');
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
-
 
         return fs_utils.file_must_not_exist(token_path)
             .then(function() {
@@ -418,9 +419,9 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
                 return fs.writeFileAsync(token_path, self.create_node_token);
             })
             .then(function() {
-                if (!fs.existsSync('./noobaa_service_uninstall.sh')) return;
+                if (!fs.existsSync('./uninstall_noobaa_agent.sh')) return;
                 dbg.log0('Add uninstall command', node_path);
-                return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./noobaa_service_uninstall.sh ');
+                return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./uninstall_noobaa_agent.sh ');
             })
             .then(function() {
                 if (!fs.existsSync('./service_uninstaller.bat')) return;

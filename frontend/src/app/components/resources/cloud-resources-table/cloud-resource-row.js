@@ -7,48 +7,51 @@ const undeletableReasons = Object.freeze({
     IN_USE: 'Cannot delete a resource which is used in a bucket cloud storage policy'
 });
 
-const icons = deepFreeze([
-    {
-        pattern: 's3.amazonaws.com',
-        icon: 'amazon-resource',
-        description: 'AWS S3 Bucket'
+const serviceIconMapping = deepFreeze({
+    AWS: {
+        name: 'aws-s3-resource',
+        tooltip: 'AWS S3 Bucket'
     },
-    {
-        pattern: 'storage.googleapis.com',
-        icon: 'google-resource',
-        description: 'GCloud Bucket'
+
+    AZURE: {
+        name: 'azure-resource',
+        tooltip: 'Azure Container'
     },
-    {
-        pattern: '',
-        icon: 'cloud-resource',
-        description: 'AWS Compatible Cloud Bukcet'
+
+    S3_COMPATIBLE: {
+        name: 'cloud-resource',
+        tooltip: 'S3 Compatible Cloud Bukcet'
     }
-]);
+});
 
 export default class CloudResourceRowViewModel extends Disposable {
-    constructor(resource, deleteGroup, showAfterDeleteAlertModal) {
+    constructor(resource, resourcesToBuckets, deleteGroup, showAfterDeleteAlertModal) {
         super();
 
+        this.state = {
+            name: 'healthy',
+            css: 'success',
+            tooltip: 'Healthy'
+        };
+
         this.type = ko.pureComputed(
-            () => {
-                if (!resource()) {
-                    return '';
-                }
-
-                let endpoint = resource().cloud_info.endpoint.toLowerCase();
-                let { icon, description } = icons.find(
-                    ({ pattern }) => endpoint.indexOf(pattern) > -1
-                );
-
-                return {
-                    name: icon,
-                    tooltip: description
-                };
-            }
+            () => resource() ? serviceIconMapping[resource().cloud_info.endpoint_type] : ''
         );
 
         this.name = ko.pureComputed(
             () => resource() ? resource().name : ''
+        );
+
+        this.buckets = ko.pureComputed(
+            () => {
+                let buckets = resourcesToBuckets()[this.name()] || [];
+                let count = buckets.length;
+
+                return {
+                    text: `${count} bucket${count != 1 ? 's' : ''}`,
+                    tooltip: count ? buckets : null
+                };
+            }
         );
 
         this.usage = ko.pureComputed(

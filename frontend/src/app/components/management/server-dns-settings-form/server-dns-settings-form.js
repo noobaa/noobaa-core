@@ -10,8 +10,14 @@ class ServerDnsSettingsFormViewModel extends Disposable{
 
         this.expanded = ko.observable(false);
 
+        let cluster = ko.pureComputed(
+            () => systemInfo() && systemInfo().cluster
+        );
+
         let server = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.shards[0].servers[0]
+            () => cluster() && cluster().shards[0].servers.find(
+                server => server.secret === cluster().master_secret
+            )
         );
 
         this.serverSecret = ko.pureComputed(
@@ -49,6 +55,7 @@ class ServerDnsSettingsFormViewModel extends Disposable{
             this.errors.showAllMessages();
 
         } else {
+            console.warn(this.serverSecret());
             updateServerDNSSettings(
                 this.serverSecret(), this.primaryDNS(), this.secondaryDNS()
             );

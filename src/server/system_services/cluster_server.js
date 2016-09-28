@@ -110,6 +110,8 @@ function add_member_to_cluster(req) {
             console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
             throw new Error('Failed adding members to cluster');
         })
+        // TODO: solve in a better way
+        // added this delay, otherwise the next system_store.load doesn't catch the new servers HB
         .delay(500)
         .then(function() {
             dbg.log0('Added member', req.rpc_params.address, 'to cluster. New topology',

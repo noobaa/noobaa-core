@@ -17,6 +17,7 @@ const SETUP_FILENAME = './noobaa-setup';
 const UPGRADE_SCRIPT = './src/agent/agent_linux_upgrader.sh';
 const EXECUTABLE_MOD_VAL = 511;
 const DUPLICATE_RET_CODE = 68;
+const NUM_OF_UPGRADE_ATTEMPT_MINUTES = 5;
 
 var address = "";
 
@@ -54,10 +55,15 @@ fs.readFileAsync('./agent_conf.json')
         dbg.log0('Upgrading Noobaa agent');
         return promise_utils.spawn(UPGRADE_SCRIPT);
     })
-    .then(() => (function loop() {
-        // This will not (or should not) run forever because when the service
-        // installs, it stops the old service, which kills this thread.
-        dbg.log0('Upgrading Noobaa agent...');
-        setTimeout(loop, 30000);
-    }()))
+    .then(() => {
+        let i = 0;
+        (function loop() {
+            if (i >= NUM_OF_UPGRADE_ATTEMPT_MINUTES * 2) return P.reject('Failed to stop service during upgrade');
+            i += 1;
+            // This will not (or should not) run forever because when the service
+            // installs, it stops the old service, which kills this thread.
+            dbg.log0('Upgrading Noobaa agent...');
+            setTimeout(loop, 30000);
+        }());
+    })
     .catch(err => dbg.error(err));

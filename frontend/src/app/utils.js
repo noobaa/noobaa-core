@@ -406,8 +406,42 @@ export function isLetter(str) {
 
 export function isDigit(str) {
     let num = Number(str);
-    return isNaN(num) && 0 <= num && num <= 9;
+    return !isNaN(num) && 0 <= num && num <= 9;
 }
+
+export function tweenTwoColors(ratio, color1, color2) {
+    const regExp = /#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/;
+    let [, r1, g1, b1] = color1.match(regExp).map( hex => parseInt(hex,16) );
+    let [, r2, g2, b2] = color2.match(regExp).map( hex => parseInt(hex,16) );
+
+    let r = ((r1 + (r2 - r1) * ratio) | 0).toString(16);
+    let g = ((g1 + (g2 - g1) * ratio) | 0).toString(16);
+    let b = ((b1 + (b2 - b1) * ratio) | 0).toString(16);
+
+    return `#${
+        (r.length<2 ? '0' + r : r)
+    }${
+        (g.length<2 ? '0' + g : g)
+    }${
+        (b.length<2 ? '0' + b : b)
+    }`;
+}
+
+export function tweenColors(ratio, ...colors){
+    if (colors.length === 1) {
+        return colors[0];
+    }
+
+    let a = ratio * (colors.length - 1);
+    let i = a | 0;
+    let color1 = colors[i];
+    let color2 = colors[i + 1];
+    let innerRatio = a - i;
+
+    return tweenTwoColors(innerRatio, color1, color2);
+}
+
+
 
 export function calcPasswordStrenght(password) {
     let charsInfo = Array.from(password).map(
@@ -428,8 +462,8 @@ export function calcPasswordStrenght(password) {
 
     let counts = charsInfo.reduce(
         (counts, charInfo) => {
-            counts.upperCase += charInfo.upperCase ? 1 : 0;
-            counts.lowerCase += charInfo.lowerCase ? 1 : 0;
+            counts.upperCase += charInfo.upperCase && charInfo.letter ? 1 : 0;
+            counts.lowerCase += charInfo.lowerCase && charInfo.letter ? 1 : 0;
             counts.symbol += charInfo.symbol ? 1 : 0;
             counts.digit += charInfo.digit ? 1 : 0;
             counts.letter += charInfo.letter ? 1 : 0;
@@ -456,8 +490,8 @@ export function calcPasswordStrenght(password) {
         0);
 
     // Lowercase Letters : +((len-n)*2)
-    score += (counts.upperCase ?
-        (charsInfo.length - counts.upperCase) * 2 :
+    score += (counts.lowerCase ?
+        (charsInfo.length - counts.lowerCase) * 2 :
         0);
 
     // Numbers : +(n*4)

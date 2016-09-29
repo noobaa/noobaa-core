@@ -14,7 +14,6 @@ const url = require('url');
 const dbg = require('../util/debug_module')(__filename);
 
 const SETUP_FILENAME = './noobaa-setup';
-const UPGRADE_SCRIPT = './src/agent/agent_linux_upgrader.sh';
 const EXECUTABLE_MOD_VAL = 511;
 const DUPLICATE_RET_CODE = 68;
 const UPGRADE_TIMEOUT = 3;
@@ -34,7 +33,7 @@ fs.readFileAsync('./agent_conf.json')
         }
         throw err;
     }) // Currently, to signal an upgrade is required agent_cli exits with 0
-    .then(() => { //TODO: this should also happen in throws, but it needs to be handled better.
+    .then(() => { //TODO: this should also happen in throws, but upgrade handling needs to be handled better by this script first
         const output = fs.createWriteStream(SETUP_FILENAME);
         return new P((resolve, reject) => {
             dbg.log0('Downloading Noobaa agent upgrade package');
@@ -50,13 +49,11 @@ fs.readFileAsync('./agent_conf.json')
         });
     })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
-    .then(() => fs.chmodAsync(UPGRADE_SCRIPT, EXECUTABLE_MOD_VAL))
-    .then(() => {
-        dbg.log0('Upgrading Noobaa agent');
-        return promise_utils.spawn(UPGRADE_SCRIPT);
-    })
+    .then(() => P.delay(2000)) // TODO: investigate why this is necessary (but it is)
+    .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null'))
     .then(() => {
         let i = 0;
+        dbg.log0('Upgrading Noobaa agent');
         (function loop() {
             if (i >= UPGRADE_TIMEOUT * 6) return P.reject('Upgrade process did not stop service.');
             i += 1;

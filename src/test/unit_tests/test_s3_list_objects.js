@@ -162,6 +162,27 @@ mocha.describe('s3_list_objects', function() {
                     });
             })
             .then(function() {
+                return client.object.list_objects_s3({
+                        bucket: BKT,
+                        prefix: 'file_without',
+                    })
+                    .then(function(list_reply) {
+                        console.warn('JEN CHECK', list_reply);
+                        // Should be like the first check, but because of limit 5 we should only
+                        // Receive the first 5 files without folders under root and not all the folders
+                        // Which means that the common_prefixes should be zero, and only 5 objects
+                        // This tests the sorting algorithm of the response, and also the max-keys limit
+                        if (!(list_reply &&
+                                list_reply.common_prefixes.length === 0 &&
+                                _.difference(files_without_folders_to_upload,
+                                    _.map(list_reply.objects, obj => obj.key)).length === 0 &&
+                                !list_reply.is_truncated)) {
+                            throw new Error(`Limit Test Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: ${files_without_folders_to_upload.slice(0, 5)}`);
+                        }
+                    });
+            })
+            .then(function() {
                 // Initialization of IsTruncated in order to perform the first while cycle
                 var listObjectsResponse = {
                     is_truncated: true,

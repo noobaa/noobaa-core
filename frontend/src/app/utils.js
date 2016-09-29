@@ -456,7 +456,7 @@ export function calcPasswordStrenght(password) {
                 letters.indexOf(char.toLowerCase());
 
 
-            return { digit, letter, upperCase, lowerCase, place };
+            return { digit, letter, symbol, upperCase, lowerCase, place };
         }
     );
 
@@ -505,10 +505,20 @@ export function calcPasswordStrenght(password) {
     score -= (charsInfo[0].digit || charsInfo[0].symbol ? 2 : 0);
     score -= (charsInfo[charsInfo.length - 1].digit || charsInfo[charsInfo.length - 1].symbol ? 2 : 0);
 
-    // Requirements : +(4*2)
-    if (counts.digit > 0 && counts.lowerCase > 0 &&
-        counts.upperCase >0 && charsInfo.length >= 8)
-        score += 8;
+    // Requirements : +(n*2)
+    // Minimum 8 characters in length
+    // Contains 3/4 of the following items:
+    // - Uppercase Letters
+    // - Lowercase Letters
+    // - Numbers
+    // - Symbols
+    let checkedRequirements = 0;
+    checkedRequirements += Number(counts.digit > 0);
+    checkedRequirements += Number(counts.upperCase > 0);
+    checkedRequirements += Number(counts.lowerCase > 0);
+    checkedRequirements += Number(counts.symbol > 0);
+    if (checkedRequirements >=3 && charsInfo.length >= 8)
+        score += (checkedRequirements + 1) * 2;
 
     //Letters Only : -n
     score -= (charsInfo.length === counts.letter ? counts.letter : 0);
@@ -593,22 +603,29 @@ export function calcPasswordStrenght(password) {
         0
     );
     // Repeat Characters (Case Insensitive)
-    // score -= charsInfo.reduce(
-    //     (inc, _, i)  => {
-    //         let newInc = charsInfo.reduce(
-    //             (inc, _, j) => (j !== i && pass[i] === pass[j]) ?
-    //                 inc += Math.abs(pass.length/(j - i)) :
-    //                 inc
-    //             },
-    //             inc
-    //         );
+    let uniquesCount = password.length;
+    score -= charsInfo.reduce(
+        (inc, _, i)  => {
+            let newInc = charsInfo.reduce(
+                (inc, _, j) => {
+                    return (j !== i && password[i] === password[j]) ?
+                    inc += Math.abs(password.length/(j - i)) :
+                    inc;
+                },
+                inc
+            );
 
-    //         if (inc != newInc) {
-
-    //         }
-    //     }
-    //     0
-    // );
+            if (inc != newInc) {
+                uniquesCount --;
+                inc = (uniquesCount) ? Math.ceil(newInc/uniquesCount) : Math.ceil(newInc);
+            }
+            else {
+                inc = newInc;
+            }
+            return inc;
+        },
+        0
+    );
 
     return Math.max(0, Math.min(score / 100, 1));
 }

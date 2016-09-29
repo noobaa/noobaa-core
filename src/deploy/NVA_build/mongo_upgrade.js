@@ -43,14 +43,19 @@ function sync_cluster_upgrade() {
         var max_iterations = 100;
         var i = 0;
         while (i < max_iterations) {
+            print('waiting for master to complete mongo upgrade...');
             i += 1;
-            var master_status = db.clusters.find({
-                "upgrade.mongo_upgrade": true
-            }).toArray()[0].upgrade.status;
-            if (master_status === 'COMPLETED') {
-                print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
-                mark_completed();
-                quit();
+            try {
+                var master_status = db.clusters.find({
+                    "upgrade.mongo_upgrade": true
+                }).toArray()[0].upgrade.status;
+                if (master_status === 'COMPLETED') {
+                    print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
+                    mark_completed();
+                    quit();
+                }
+            } catch (err) {
+                print(err);
             }
             sleep(10000);
         }

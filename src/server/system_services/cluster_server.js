@@ -641,11 +641,11 @@ function do_upgrade(req) {
 function upgrade_cluster(req) {
     dbg.log0('UPGRADE got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
     // get all cluster members other than the master
-    let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== os_utils.get_local_ipv4_ips()[0]);
+    let cinfo = system_store.get_local_cluster_info();
+    let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== cinfo.owner_address);
     dbg.log0('UPGRADE:', 'secondaries =', secondary_members);
     // upgrade can only be called from master. throw error otherwise
     return P.fcall(() => {
-            let cinfo = system_store.get_local_cluster_info();
             if (cinfo.is_clusterized) {
                 return MongoCtrl.is_master();
             }

@@ -335,11 +335,15 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
      * (aka create bucket)
      */
-    put_bucket(req) {
+    put_bucket(req, res) {
         this.usage_report.s3_usage_info.put_bucket++;
         return req.rpc_client.bucket.create_bucket({
             name: req.params.bucket
-        }).return();
+        })
+        .return()
+        .then(() => {
+            res.setHeader('Location', '/' + req.params.bucket);
+        });
     }
 
     /**

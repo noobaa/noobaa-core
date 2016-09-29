@@ -666,16 +666,17 @@ function list_objects_s3(req) {
                         results = _.concat(results, res);
                         // This is the case when there are no more objects that apply to the query
                         if (_.get(res, 'length', 0) === 0) {
-                            // If there were no object/common prefixes to match than no next marker
-                            reply.next_marker = marker.slice(prefix.length);
+                            // If there were no object/common prefixes to match then no next marker
+                            reply.next_marker = marker;
                             done = true;
-                        } else if (results.length === limit) {
+                        } else if (results.length >= limit) {
                             // This is the case when the number of objects that apply to the query
                             // Exceeds the number of objects that we've requested (max-keys)
                             // Thus we must cut the additional object (as mentioned above we request
                             // one more key in order to know if the response is truncated or not)
                             // In order to reply with the right amount of objects and prefixes
-                            results.pop();
+                            // results.pop();
+                            results = results.slice(0, limit - 1);
                             reply.is_truncated = true;
                             // Marking the object/prefix that we've stopped on
                             // Notice: THIS IS THE LAST OBJECT AFTER THE POP
@@ -683,7 +684,7 @@ function list_objects_s3(req) {
                             done = true;
                         } else {
                             // In this case we did not reach the end yet
-                            marker = prefix + res[res.length - 1].key;
+                            marker = res[res.length - 1].key;
                         }
                     });
             })
@@ -751,13 +752,17 @@ function _list_next_objects(req, delimiter, prefix, marker, limit) {
                     })
                 .then(res => {
                     return _.map(res, obj => {
-                        let mapped_object = {
-                            key: obj._id,
-                        };
                         if (_.isObject(obj.value)) {
-                            mapped_object.info = get_object_info(obj.value);
+                            let obj_value = get_object_info(obj.value);
+                            return {
+                                key: obj_value.key,
+                                info: obj_value
+                            };
+                        } else {
+                            return {
+                                key: prefix + obj._id,
+                            };
                         }
-                        return mapped_object;
                     });
                 });
         } else {

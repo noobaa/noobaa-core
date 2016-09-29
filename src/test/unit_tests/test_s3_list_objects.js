@@ -85,71 +85,81 @@ mocha.describe('s3_list_objects', function() {
             ))
             .then(function() {
                 return client.object.list_objects_s3({
-                    bucket: BKT,
-                    delimiter: '/',
-                })
-                .then(function(list_reply) {
-                    console.log(`Delimiter without limit response: ${util.inspect(list_reply)}`);
-                    // We should get the folder names in common_prefixes
-                    // And we should get the objects without folders inside objects
-                    // Also we check that the response is not truncated
-                    if (list_reply &&
-                        _.difference(list_reply.common_prefixes, folders_to_upload).length === 0 &&
-                        _.difference(_.map(list_reply.objects, obj => obj.key), files_without_folders_to_upload).length === 0 &&
-                        !list_reply.is_truncated) {
-                        console.warn('Delimiter without limit Test Passed!');
-                    } else {
-                        throw new Error(`Delimiter without limit Test Failed! Got list: ${util.inspect(list_reply)}
-                            Wanted list: ${folders_to_upload}, ${files_without_folders_to_upload}`);
-                    }
-                });
+                        bucket: BKT,
+                        delimiter: '/',
+                        prefix: 'folder'
+                    })
+                    .then(function(list_reply) {
+                        // In case we don't fully spell the name of the common prefix
+                        // We should get all the common prefixes that begin with that prefix
+                        if (!(list_reply &&
+                                _.difference(folders_to_upload, list_reply.common_prefixes).length === 0 &&
+                                list_reply.objects.length === 0 &&
+                                !list_reply.is_truncated)) {
+                            throw new Error(`Partial Prefix Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: ${folders_to_upload}`);
+                        }
+                    });
             })
             .then(function() {
                 return client.object.list_objects_s3({
-                    bucket: BKT,
-                    delimiter: '/',
-                    prefix: 'folder1/'
-                })
-                .then(function(list_reply) {
-                    console.log(`Delimiter with prefix without limit response: ${util.inspect(list_reply)}`);
-                    // We should get nothing in common_prefixes
-                    // And we should get the objects inside folder1 in objects
-                    // Also we check that the response is not truncated
-                    if (list_reply &&
-                        list_reply.common_prefixes.length === 0 &&
-                        _.difference(_.map(list_reply.objects, obj => ('folder1/' + obj.key)),
-                            files_in_folders_to_upload).length === 0 &&
-                        !list_reply.is_truncated) {
-                        console.warn('Delimiter with prefix without limit Test Passed!');
-                    } else {
-                        throw new Error(`Delimiter with prefix without limit Test Failed! Got list: ${util.inspect(list_reply)}
-                            Wanted list: ${files_in_folders_to_upload}`);
-                    }
-                });
+                        bucket: BKT,
+                        delimiter: '/',
+                    })
+                    .then(function(list_reply) {
+                        // We should get the folder names in common_prefixes
+                        // And we should get the objects without folders inside objects
+                        // Also we check that the response is not truncated
+                        if (!(list_reply &&
+                                _.difference(folders_to_upload, list_reply.common_prefixes).length === 0 &&
+                                _.difference(files_without_folders_to_upload,
+                                    _.map(list_reply.objects, obj => obj.key)).length === 0 &&
+                                !list_reply.is_truncated)) {
+                            throw new Error(`Delimiter Test Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: ${folders_to_upload}, ${files_without_folders_to_upload}`);
+                        }
+                    });
             })
             .then(function() {
                 return client.object.list_objects_s3({
-                    bucket: BKT,
-                    delimiter: '/',
-                    limit: 5
-                })
-                .then(function(list_reply) {
-                    console.log(`Delimiter with limit response: ${util.inspect(list_reply)}`);
-                    // Should be like the first check, but because of limit 5 we should only
-                    // Receive the first 5 files without folders under root and not all the folders
-                    // Which means that the common_prefixes should be zero, and only 5 objects
-                    // This tests the sorting algorithm of the response, and also the max-keys limit
-                    if (list_reply &&
-                        list_reply.common_prefixes.length === 0 &&
-                        _.difference(_.map(list_reply.objects, obj => obj.key),
-                            files_without_folders_to_upload.slice(0, 5)).length === 0 &&
-                        list_reply.is_truncated) {
-                        console.warn('Delimiter with limit Test Passed!');
-                    } else {
-                        throw new Error(`Delimiter with limit Test Failed! Got list: ${util.inspect(list_reply)}
-                            Wanted list: ${files_without_folders_to_upload.slice(0, 5)}`);
-                    }
-                });
+                        bucket: BKT,
+                        delimiter: '/',
+                        prefix: 'folder1/'
+                    })
+                    .then(function(list_reply) {
+                        // We should get nothing in common_prefixes
+                        // And we should get the objects inside folder1 in objects
+                        // Also we check that the response is not truncated
+                        if (!(list_reply &&
+                                list_reply.common_prefixes.length === 0 &&
+                                _.difference(files_in_folders_to_upload,
+                                    _.map(list_reply.objects, obj => obj.key)).length === 0 &&
+                                !list_reply.is_truncated)) {
+                            throw new Error(`Folder Test Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: ${files_in_folders_to_upload}`);
+                        }
+                    });
+            })
+            .then(function() {
+                return client.object.list_objects_s3({
+                        bucket: BKT,
+                        delimiter: '/',
+                        limit: 5
+                    })
+                    .then(function(list_reply) {
+                        // Should be like the first check, but because of limit 5 we should only
+                        // Receive the first 5 files without folders under root and not all the folders
+                        // Which means that the common_prefixes should be zero, and only 5 objects
+                        // This tests the sorting algorithm of the response, and also the max-keys limit
+                        if (!(list_reply &&
+                                list_reply.common_prefixes.length === 0 &&
+                                _.difference(files_without_folders_to_upload.slice(0, 5),
+                                    _.map(list_reply.objects, obj => obj.key)).length === 0 &&
+                                list_reply.is_truncated)) {
+                            throw new Error(`Limit Test Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: ${files_without_folders_to_upload.slice(0, 5)}`);
+                        }
+                    });
             })
             .then(function() {
                 // Initialization of IsTruncated in order to perform the first while cycle
@@ -189,18 +199,15 @@ mocha.describe('s3_list_objects', function() {
                                 });
                         })
                     .then(() => {
-                        console.log(`Delimiter with limit and marker response: ${util.inspect(listObjectsResponse)}`);
                         // Should be like the first check, but because of limit 1
                         // We loop and ask to list several times to get all of the objects/common_prefixes
                         // This checks the correctness of max-keys/next-marker/sort
-                        if (listObjectsResponse &&
-                            _.difference(listObjectsResponse.common_prefixes, folders_to_upload).length === 0 &&
-                            _.difference(_.map(listObjectsResponse.objects, obj => obj.key),
-                                files_without_folders_to_upload).length === 0 &&
-                            !listObjectsResponse.is_truncated) {
-                            console.warn('Delimiter with limit and marker Test Passed!');
-                        } else {
-                            throw new Error(`Delimiter with limit and marker Test Failed! Got list: ${util.inspect(listObjectsResponse)}
+                        if (!(listObjectsResponse &&
+                                _.difference(folders_to_upload, listObjectsResponse.common_prefixes).length === 0 &&
+                                _.difference(files_without_folders_to_upload,
+                                    _.map(listObjectsResponse.objects, obj => obj.key)).length === 0 &&
+                                !listObjectsResponse.is_truncated)) {
+                            throw new Error(`Marker Test Failed! Got list: ${util.inspect(listObjectsResponse)}
                                 Wanted list: ${folders_to_upload}, ${files_without_folders_to_upload}`);
                         }
                     });

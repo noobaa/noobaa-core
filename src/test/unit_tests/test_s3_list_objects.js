@@ -66,6 +66,7 @@ mocha.describe('s3_list_objects', function() {
         var files_without_folders_to_upload = [];
         var folders_to_upload = [];
         var files_in_folders_to_upload = [];
+        var files_in_utf_diff_delimiter = [];
 
         var i = 0;
         for (i = 0; i < 9; i++) {
@@ -77,12 +78,38 @@ mocha.describe('s3_list_objects', function() {
         for (i = 0; i < 9; i++) {
             files_without_folders_to_upload.push(`file_without_folder${i}`);
         }
+        for (i = 0; i < 9; i++) {
+            files_in_utf_diff_delimiter.push(`תיקיה#קובץ${i}`);
+        }
 
         // Uploading zero size objects from the key arrays that were provided
         return upload_multiple_files(_.concat(folders_to_upload,
                 files_in_folders_to_upload,
-                files_without_folders_to_upload
+                files_without_folders_to_upload,
+                files_in_utf_diff_delimiter
             ))
+            .then(function() {
+                return client.object.list_objects_s3({
+                        bucket: BKT,
+                        delimiter: '#',
+                    })
+                    .then(function(list_reply) {
+                        // We should get the folder names in common_prefixes
+                        // And we should get the objects without folders inside objects
+                        // Also we check that the response is not truncated
+                        if (!(list_reply &&
+                                _.difference(['תיקיה#'], list_reply.common_prefixes).length === 0 &&
+                                _.difference(_.concat(folders_to_upload,
+                                        files_in_folders_to_upload,
+                                        files_without_folders_to_upload),
+                                    _.map(list_reply.objects, obj => obj.key)).length === 0 &&
+                                !list_reply.is_truncated)) {
+                            throw new Error(`Delimiter Test Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: ${_.concat(folders_to_upload, files_in_folders_to_upload,
+                                    files_without_folders_to_upload)},תיקיה#`);
+                        }
+                    });
+            })
             .then(function() {
                 return client.object.list_objects_s3({
                         bucket: BKT,

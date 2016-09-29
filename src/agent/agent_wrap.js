@@ -17,7 +17,7 @@ const SETUP_FILENAME = './noobaa-setup';
 const UPGRADE_SCRIPT = './src/agent/agent_linux_upgrader.sh';
 const EXECUTABLE_MOD_VAL = 511;
 const DUPLICATE_RET_CODE = 68;
-const UPGRADE_TIMEOUT = 2;
+const UPGRADE_TIMEOUT = 3;
 
 var address = "";
 
@@ -58,7 +58,7 @@ fs.readFileAsync('./agent_conf.json')
     .then(() => {
         let i = 0;
         (function loop() {
-            if (i >= UPGRADE_TIMEOUT * 6) return P.reject('Failed to stop service during upgrade');
+            if (i >= UPGRADE_TIMEOUT * 6) return P.reject('Upgrade process did not stop service.');
             i += 1;
             // This will not (or should not) run forever because when the service
             // installs, it stops the old service, which kills this thread.

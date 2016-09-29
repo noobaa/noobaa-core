@@ -14,6 +14,7 @@ const _ = require('lodash');
 const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_monitor = require('./nodes_monitor');
+const dbg = require('../../util/debug_module')(__filename);
 
 let monitor;
 
@@ -21,9 +22,12 @@ let monitor;
 function _init() {
     monitor = new nodes_monitor.NodesMonitor();
     //TODO:: return this once we enable HA
-    //if (system_store.is_cluster_master) {
-    return monitor.start();
-    //}
+    if (system_store.is_cluster_master) {
+        dbg.log0('this is master. starting nodes_monitor');
+        return monitor.start();
+    } else {
+        dbg.log0('this is not master. nodes_monitor iw not started');
+    }
 }
 
 function get_local_monitor() {

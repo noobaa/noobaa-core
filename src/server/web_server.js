@@ -75,7 +75,9 @@ var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
 
-// a temp fix to block /version until upgrade is finished
+// TODO: chang this. a temp fix to block /version until upgrade is finished
+// this is not cleared if upgrade fails, and will block UI until browser refresh.
+// maybe we need to change it to use upgrade status in DB.
 let is_upgrading = false;
 
 P.fcall(function() {

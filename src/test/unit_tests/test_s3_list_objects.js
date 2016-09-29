@@ -194,7 +194,6 @@ mocha.describe('s3_list_objects', function() {
                         prefix: 'file_without',
                     })
                     .then(function(list_reply) {
-                        console.warn('JEN CHECK', list_reply);
                         // Should be like the first check, but because of limit 5 we should only
                         // Receive the first 5 files without folders under root and not all the folders
                         // Which means that the common_prefixes should be zero, and only 5 objects

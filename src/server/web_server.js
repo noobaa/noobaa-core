@@ -75,6 +75,9 @@ var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
 
+// a temp fix to block /version until upgrade is finished
+let is_upgrading = false;
+
 P.fcall(function() {
         // we register the rpc before listening on the port
         // in order for the rpc services to be ready immediately
@@ -240,6 +243,7 @@ app.post('/upgrade',
         var upgrade_file = req.file;
         dbg.log0('got upgrade file:', upgrade_file);
         dbg.log0('calling cluster.upgrade_cluster()');
+        is_upgrading = true;
         server_rpc.client.cluster_internal.upgrade_cluster({
             filepath: upgrade_file.path
         });
@@ -380,7 +384,7 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
-    if (server_rpc.is_service_registered('system_api.read_system')) {
+    if (server_rpc.is_service_registered('system_api.read_system') && !is_upgrading) {
         res.send(pkg.version);
         res.end();
     } else {

@@ -70,19 +70,10 @@ export default class ServerRowViewModel extends Disposable {
             () => {
                 let ntpServer = server() && server().ntp_server;
 
-                if (ntpServer) {
-                    return 'Using ';
-                } else {
-                    return 'No NTP (network time protocol) server configured';
-                }
+                return ntpServer ?
+                    `Using NTP server at ${ntpServer}` :
+                    'Using local serve time';
             }
-            // {
-            //
-            //     // return ntpServer ?
-            //     //     ~Using network time server at <span
-
-            //     // return this.ntpServer()
-            // }`Set to use ${this.ntpServer ? 'network' : 'manual'} time`
         );
     }
 }

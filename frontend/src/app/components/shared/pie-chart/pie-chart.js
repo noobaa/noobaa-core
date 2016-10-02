@@ -55,7 +55,11 @@ function normalizeValues(values) {
 }
 
 class PieChartViewModel extends Disposable{
-    constructor({ values, primaryText = '', secondaryText = '' }) {
+    constructor({
+        values = [],
+        primaryText = '',
+        secondaryText = ''
+    }) {
         super();
 
         this.canvasWidth = this.canvasHeight = radius * 2;

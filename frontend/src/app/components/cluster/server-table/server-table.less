@@ -1,12 +1,8 @@
 server-table {
-    display: block;
-
-    data-table > table::before {
-        content: unset;
-    }
+    .column();
 
     .state-col {
-        min-width: 8em;
+        min-width: 44px;
     }
 
     .hostname-col{
@@ -15,22 +11,22 @@ server-table {
     }
 
     .address-col{
-        min-width: 9em;
+        min-width: 110px;
     }
 
     .memory-usage-col {
-        min-width: 10em;
+        min-width: 110px;
     }
 
     .cpu-usage-col {
-        min-width: 10em;
+        min-width: 110px;
     }
 
     .version-col {
-        min-width: 6em;
+        min-width: 80px;
     }
 
     .actions-col {
-        min-width: 10em;
+        min-width: 80px;
     }
 }

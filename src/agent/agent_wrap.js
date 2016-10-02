@@ -32,8 +32,11 @@ fs.readFileAsync('./agent_conf.json')
             return promise_utils.fork('./src/agent/agent_cli', '--duplicate');
         }
         throw err;
-    }) // Currently, to signal an upgrade is required agent_cli exits with 0
-    .then(() => { //TODO: this should also happen in throws, but upgrade handling needs to be handled better by this script first
+    })
+    // Currently, to signal an upgrade is required agent_cli exits with 0.
+    // It should also upgrade when agent_cli throws,
+    // but upgrade needs to be handled better by this script first
+    .then(() => {
         const output = fs.createWriteStream(SETUP_FILENAME);
         return new P((resolve, reject) => {
             dbg.log0('Downloading Noobaa agent upgrade package');
@@ -49,16 +52,16 @@ fs.readFileAsync('./agent_conf.json')
         });
     })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
-    .then(() => P.delay(2000)) // TODO: investigate why this is necessary (but it is)
+    .then(() => P.delay(2000)) // Not sure why this is necessary, but it is.
     .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null'))
     .then(() => {
         let i = 0;
         dbg.log0('Upgrading Noobaa agent');
         (function loop() {
             if (i >= UPGRADE_TIMEOUT * 6) return P.reject('Upgrade process did not stop service.');
-            i += 1;
+            i += 1; // Counting 10 sec intervals, so multiplied by 6 for minutes
             // This will not (or should not) run forever because when the service
-            // installs, it stops the old service, which kills this thread.
+            // installs, it stops the old service, which kills this process.
             dbg.log0('Upgrading Noobaa agent...');
             setTimeout(loop, 10000);
         }());

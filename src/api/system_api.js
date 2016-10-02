@@ -528,28 +528,6 @@ module.exports = {
             }
         },
 
-        upload_upgrade_package: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['filepath'],
-                properties: {
-                    filepath: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
-        do_upgrade: {
-            method: 'POST',
-            auth: {
-                system: 'admin',
-            }
-        },
 
         validate_activation: {
             method: 'GET',
@@ -846,8 +824,9 @@ module.exports = {
                 secret: {
                     type: 'string',
                 },
-                is_connected: {
-                    type: 'boolean'
+                status: {
+                    type: 'string',
+                    enum: ['CONNECTED', 'DISCONNECTED', 'IN_PROGRESS']
                 },
                 hostname: {
                     type: 'string'

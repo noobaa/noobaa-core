@@ -75,8 +75,22 @@ class CreateSystemFormViewModel extends Disposable {
 
         this.password = ko.observable()
             .extend({
-                required: { message: 'Please enter a password' }
+                required: { message: 'Please enter a password' },
+                minLength: 5,
+                includesUppercase: true,
+                includesLowercase: true,
+                includesDigit: true
             });
+
+        this.passwordValidations = ko.pureComputed(
+            () => ko.validation.fullValidationState(this.password)()
+                .map(
+                    validator => ({
+                        message: validator.message,
+                        isValid: this.password() && validator.isValid
+                    })
+                )
+        );
 
         this.name = ko.pureComputed(
             () => this.email() && this.email().split('@')[0]

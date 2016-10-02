@@ -26,6 +26,9 @@ module.exports = {
                     rs_name: {
                         type: 'string',
                     },
+                    skip_load_system_store: {
+                        type: 'boolean'
+                    }
                 }
             },
             auth: {

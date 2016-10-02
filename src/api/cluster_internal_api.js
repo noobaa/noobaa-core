@@ -195,6 +195,58 @@ module.exports = {
                 system: false,
             }
         },
+
+        upgrade_cluster: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['filepath'],
+                properties: {
+                    filepath: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+
+        member_pre_upgrade: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['filepath', 'mongo_upgrade'],
+                properties: {
+                    filepath: {
+                        type: 'string'
+                    },
+                    mongo_upgrade: {
+                        type: 'boolean'
+                    }
+
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+
+        do_upgrade: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    filepath: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        }
+
     },
 
     definitions: {

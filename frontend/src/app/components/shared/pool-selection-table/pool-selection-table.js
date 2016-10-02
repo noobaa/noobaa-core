@@ -8,11 +8,11 @@ const columns = deepFreeze([
     {
         name: 'select',
         label: '',
-        cellTemplate: 'checkbox'
+        type: 'checkbox'
     },
     {
         name: 'state',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     'name',
     'onlineCount',
@@ -21,7 +21,7 @@ const columns = deepFreeze([
 
 class PoolSelectionTableViewModel extends Disposable{
     constructor({
-        caption = 'Select pools'    ,
+        caption = 'Select pools',
         pools = [],
         selectedPools = ko.observableArray()
     }) {

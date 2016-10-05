@@ -200,16 +200,18 @@ class Agent {
         this.connect_attempts = 0;
         if (!this.servers.length) {
             dbg.error('_handle_server_change no server list');
-            return;
+            return P.resolve();
         }
         const previous_address = this.servers[0].address;
+        dbg.log0('previous_address =', previous_address);
+        dbg.log0('original servers list =', this.servers);
         if (suggested) {
             //Find if the suggested server appears in the list we got from the initial connect
             const current_server = _.remove(this.servers, function(srv) {
                 return srv.address === suggested;
             });
             if (current_server[0]) {
-                this.servers.unshift(current_server);
+                this.servers.unshift(current_server[0]);
             } else {
                 this.servers.push(this.servers.shift());
             }
@@ -217,11 +219,12 @@ class Agent {
             //Skip to the next server in list
             this.servers.push(this.servers.shift());
         }
+        dbg.log0('new servers list =', this.servers);
         dbg.log('Chosen new address', this.servers[0].address, this.servers);
-        return P.resolve(this._update_rpc_config_internal({
+        return this._update_rpc_config_internal({
             base_address: this.servers[0].address,
             old_base_address: previous_address,
-        }));
+        });
     }
 
     _init_node() {
@@ -295,7 +298,11 @@ class Agent {
                 const conn = req.connection;
                 this._server_connection = conn;
                 if (res.redirect) {
-                    return this._handle_server_change(res.redirect);
+                    dbg.log0('got redirect response:', res.redirect);
+                    return this._handle_server_change(res.redirect)
+                        .then(() => {
+                            throw new Error('redirect to ' + res.redirect);
+                        });
                 }
                 if (res.version !== pkg.version) {
                     dbg.warn('exit on version change:',
@@ -458,6 +465,8 @@ class Agent {
                     this._do_heartbeat();
                 });
         }
+
+        return P.resolve();
     }
 
     _fix_storage_limit(storage_info) {

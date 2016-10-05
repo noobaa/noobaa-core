@@ -1,18 +1,33 @@
-<table data-bind="scroll: scroll, dataTable: rows">
+<table data-bind="css: tableCss, scroll: scroll, dataTable: rows">
     <thead>
         <tr data-bind="foreach: columns">
             <th data-bind="css: css">
-                <span data-bind="
-                    text: label,
-                    css: $component.getSortCss(sortKey),
-                    click: () => sortKey && $component.sortBy(sortKey)
-                "></span>
+                <span data-bind="text: label, css: sortCss, click: sortBy"></span>
             </th>
         </tr>
     </thead>
-    <tbody data-bind="template: { html: rowTemplate, foreach: rows } ">
+
+    <tbody data-bind="foreach: rows">
+        <tr class="main-row" data-bind="
+            css: md.css,
+            click: md.clickHandler,
+            template: { html: md.template, data: vm,  let: { $row: md } }
+        "></tr>
+
+        <!-- ko if: md.subRowTemplate -->
+        <tr class="sub-row text-left">
+             <td data-bind="attr: { colspan: md.columnCount }">
+                 <div class="column" data-bind="
+                    expand: md.isExpanded,
+                    template: { html: md.subRowTemplate, data: vm }
+                "><div>
+             </td>
+        </tr>
+        <!-- /ko -->
     </tbody>
 </table>
 
-<div class="empty-message" data-bind="visible: isEmpty, text: emptyMessage">
-</div>
+<div class="empty-message" data-bind="visible: emptyMessage, text: emptyMessage"></div>
+
+
+

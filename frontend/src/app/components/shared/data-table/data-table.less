@@ -39,51 +39,67 @@ data-table {
 
     th {
         font-weight: @font-light;
+
+        .sortable {
+            position: relative;
+            padding-right: @gutter/2 + 6px;
+            cursor: @cursor-pointer;
+
+            &::before, &::after {
+                content: '';
+                position: absolute;
+                display: inline-block;
+                vertical-align: middle;
+                right: 0;
+                border: solid transparent;
+                border-width: 4px 3px;
+            }
+
+            &:before {
+                top: -2px;
+                border-bottom-color: @color7;
+            }
+
+
+            &::after {
+                bottom: -2px;
+                border-top-color: @color7;
+            }
+
+            &.des::before {
+                border-bottom-color: @color6;
+            }
+
+            &.asc::after {
+                border-top-color: @color6;
+            }
+        }
     }
 
-    tbody > tr {
+    .main-row {
         line-height: 44px;
         height: 44px;
-        border-bottom: 1px solid @color15;
         font-size: @font-size2;
-
-        &:last-child {
-            border: none;
-        };
     }
 
-    .sortable {
-        position: relative;
-        padding-right: @gutter/2 + 6px;
-        cursor: @cursor-pointer;
 
-        &::before, &::after {
-            content: '';
-            position: absolute;
-            display: inline-block;
-            vertical-align: middle;
-            right: 0;
-            border: solid transparent;
-            border-width: 4px 3px;
+    .sub-row {
+        height: auto;
+        vertical-align: top;
+        font-size: @font-size2;
+
+        > div {
+            margin-bottom: @gutter;
         }
 
-        &:before {
-            top: -2px;
-            border-bottom-color: @color7;
+        li {
+            padding: @gutter/2 0;
         }
+    }
 
-
-        &::after {
-            bottom: -2px;
-            border-top-color: @color7;
-        }
-
-        &.des::before {
-            border-bottom-color: @color6;
-        }
-
-        &.asc::after {
-            border-top-color: @color6;
+    .main-row, .sub-row {
+        + .main-row > td {
+            border-top: 1px solid @color15;
         }
     }
 
@@ -94,6 +110,12 @@ data-table {
         font-size: @font-size5;
         color: @color7;
     }
+
+    .expand-col {
+        min-width: 28px;
+    }
+
+    /* Default cell templates css */
 
     .text-cell, .link-cell {
         width: 100%;

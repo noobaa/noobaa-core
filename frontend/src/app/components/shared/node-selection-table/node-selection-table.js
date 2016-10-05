@@ -8,11 +8,11 @@ const columns = deepFreeze([
     {
         name: 'selected',
         label: '',
-        cellTemplate: 'checkbox'
+        type: 'checkbox'
     },
     {
         name: 'state',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     'name',
     {

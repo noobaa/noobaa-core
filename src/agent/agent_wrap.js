@@ -16,7 +16,9 @@ const dbg = require('../util/debug_module')(__filename);
 const SETUP_FILENAME = './noobaa-setup';
 const EXECUTABLE_MOD_VAL = 511;
 const DUPLICATE_RET_CODE = 68;
-const UPGRADE_TIMEOUT = 3;
+
+const NUM_UPGRADE_WARNINGS = 18;
+const TIME_BETWEEN_WARNINGS = 10000;
 
 var address = "";
 
@@ -54,16 +56,9 @@ fs.readFileAsync('./agent_conf.json')
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => P.delay(2000)) // Not sure why this is necessary, but it is.
     .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null'))
-    .then(() => {
-        let i = 0;
-        dbg.log0('Upgrading Noobaa agent');
-        (function loop() {
-            if (i >= UPGRADE_TIMEOUT * 6) return P.reject('Upgrade process did not stop service.');
-            i += 1; // Counting 10 sec intervals, so multiplied by 6 for minutes
-            // This will not (or should not) run forever because when the service
-            // installs, it stops the old service, which kills this process.
-            dbg.log0('Upgrading Noobaa agent...');
-            setTimeout(loop, 10000);
-        }());
-    })
+    .then(() => promise_utils.retry(NUM_UPGRADE_WARNINGS, TIME_BETWEEN_WARNINGS, attempts => {
+        let msg = `Still upgrading. ${(NUM_UPGRADE_WARNINGS - attempts) * (TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
+        if (attempts !== NUM_UPGRADE_WARNINGS) dbg.warn(msg);
+        throw Error(msg);
+    }))
     .catch(err => dbg.error(err));

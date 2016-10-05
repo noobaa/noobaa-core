@@ -165,7 +165,6 @@ class S3Controller {
         let params = {
             bucket: req.params.bucket,
             upload_mode: false,
-            // limit: 1000,
         };
         if ('prefix' in req.query) {
             params.prefix = req.query.prefix;
@@ -340,10 +339,10 @@ class S3Controller {
         return req.rpc_client.bucket.create_bucket({
             name: req.params.bucket
         })
-        .return()
         .then(() => {
             res.setHeader('Location', '/' + req.params.bucket);
-        });
+        })
+        .return();
     }
 
     /**

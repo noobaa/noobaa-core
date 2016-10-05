@@ -675,7 +675,6 @@ function list_objects_s3(req) {
                             // Thus we must cut the additional object (as mentioned above we request
                             // one more key in order to know if the response is truncated or not)
                             // In order to reply with the right amount of objects and prefixes
-                            // results.pop();
                             results = results.slice(0, limit - 1);
                             reply.is_truncated = true;
                             // Marking the object/prefix that we've stopped on

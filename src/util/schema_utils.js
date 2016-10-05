@@ -3,6 +3,7 @@
 var _ = require('lodash');
 
 module.exports = {
+    date_format: date_format,
     idate_format: idate_format,
     strictify: strictify,
     empty_schema_validator: empty_schema_validator,
@@ -10,7 +11,14 @@ module.exports = {
     generate_schema_import_buffers: generate_schema_import_buffers,
 };
 
+function date_format(val) {
+    return _.isDate(val);
+}
+
 function idate_format(val) {
+    // TODO: Remove the validation of date format after converting all uses of
+    // idates in the database schema into the date format (currently most of them are
+    // already saved in ISO format which is not idate)
     if (!_.isDate(val) && !_.isNumber(val)) {
         return false;
     }
@@ -56,6 +64,8 @@ function strictify(schema, options, base) {
         check_schema_extra_keywords(schema, base, ['type', 'format', 'minimum', 'maximum']);
     } else if (schema.buffer) {
         check_schema_extra_keywords(schema, base, 'buffer');
+    } else if (schema.format === 'date') {
+        check_schema_extra_keywords(schema, base, 'format');
     } else if (schema.format === 'idate') {
         check_schema_extra_keywords(schema, base, 'format');
     } else if (schema.format === 'objectid') {

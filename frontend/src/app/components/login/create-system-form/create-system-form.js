@@ -204,7 +204,6 @@ class CreateSystemFormViewModel extends Disposable {
             );
         }
     }
-
 }
 
 export default {

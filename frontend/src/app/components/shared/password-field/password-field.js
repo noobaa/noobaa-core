@@ -15,6 +15,8 @@ const iconMapping = deepFreeze({
     }
 });
 
+const barTweenDuration = 250;
+
 class PasswordFieldViewModel extends Disposable{
     constructor({ value, placeholder = '', strengthCalc}) {
         super();
@@ -35,19 +37,16 @@ class PasswordFieldViewModel extends Disposable{
         this.passwordStrength = ko.pureComputed (
             () => {
                 let naked = ko.unwrap(value);
-                return (this.isStrengthVisible && naked ?
-                    strengthCalc(naked) :
-                    0
-                );
+                return (this.isStrengthVisible && naked ? strengthCalc(naked) : 0 );
             }
         ).extend({
             tween: {
-                duration: 250,
+                duration: barTweenDuration,
                 easing: 'linear'
             }
         });
 
-        let colors = ko.pureComputed(
+        let passwordStrengthColor = ko.pureComputed(
             () => tweenColors(
                 this.passwordStrength(),
                 style['color10'],
@@ -59,7 +58,7 @@ class PasswordFieldViewModel extends Disposable{
         this.barValues = [
             {
                 value: this.passwordStrength,
-                color: colors
+                color: passwordStrengthColor
             },
             {
                 value: ko.pureComputed(

@@ -397,37 +397,20 @@ export function isLowerCase(str) {
 }
 
 export function isUpperCase(str) {
-    return str.toUpperCase() == str;
+    return str.toUpperCase() === str;
 }
 
 export function isLetter(str) {
-    return letters.indexOf(str.toLowerCase()) >=0;
+    return letters.includes(str.toLowerCase());
 }
 
 export function isDigit(str) {
-    let num = Number(str);
-    return !isNaN(num) && 0 <= num && num <= 9;
-}
-
-export function tweenTwoColors(ratio, color1, color2) {
-    const regExp = /#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/;
-    let [, r1, g1, b1] = color1.match(regExp).map( hex => parseInt(hex,16) );
-    let [, r2, g2, b2] = color2.match(regExp).map( hex => parseInt(hex,16) );
-
-    let r = ((r1 + (r2 - r1) * ratio) | 0).toString(16);
-    let g = ((g1 + (g2 - g1) * ratio) | 0).toString(16);
-    let b = ((b1 + (b2 - b1) * ratio) | 0).toString(16);
-
-    return `#${
-        (r.length<2 ? '0' + r : r)
-    }${
-        (g.length<2 ? '0' + g : g)
-    }${
-        (b.length<2 ? '0' + b : b)
-    }`;
+    return !isNaN(Number(str)) && str.length === 1;
 }
 
 export function tweenColors(ratio, ...colors){
+    const regExp = /#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/;
+
     if (colors.length === 1) {
         return colors[0];
     }
@@ -438,10 +421,15 @@ export function tweenColors(ratio, ...colors){
     let color2 = colors[i + 1];
     let innerRatio = a - i;
 
-    return tweenTwoColors(innerRatio, color1, color2);
+    let [, r1, g1, b1] = color1.match(regExp).map( hex => parseInt(hex, 16) );
+    let [, r2, g2, b2] = color2.match(regExp).map( hex => parseInt(hex, 16) );
+
+    let r = ((r1 + (r2 - r1) * innerRatio) | 0).toString(16);
+    let g = ((g1 + (g2 - g1) * innerRatio) | 0).toString(16);
+    let b = ((b1 + (b2 - b1) * innerRatio) | 0).toString(16);
+
+    return `#${pad(r, 2)}${pad(g, 2)}${pad(b, 2)}`;
 }
-
-
 
 export function calcPasswordStrenght(password) {
     let charsInfo = Array.from(password).map(
@@ -485,14 +473,14 @@ export function calcPasswordStrenght(password) {
     score += charsInfo.length * 4;
 
     // Uppercase Letters : +((len-n)*2)
-    score += (counts.upperCase ?
+    score += counts.upperCase ?
         (charsInfo.length - counts.upperCase) * 2 :
-        0);
+        0;
 
     // Lowercase Letters : +((len-n)*2)
-    score += (counts.lowerCase ?
+    score += counts.lowerCase ?
         (charsInfo.length - counts.lowerCase) * 2 :
-        0);
+        0;
 
     // Numbers : +(n*4)
     score += counts.digit * 4;
@@ -502,8 +490,8 @@ export function calcPasswordStrenght(password) {
 
     // Middle Numbers or Symbols : +(n*2)
     score += (counts.digit + counts.symbol) * 2;
-    score -= (charsInfo[0].digit || charsInfo[0].symbol ? 2 : 0);
-    score -= (charsInfo[charsInfo.length - 1].digit || charsInfo[charsInfo.length - 1].symbol ? 2 : 0);
+    score -= charsInfo[0].digit || charsInfo[0].symbol ? 2 : 0;
+    score -= last(charsInfo).digit || last(charsInfo).symbol ? 2 : 0;
 
     // Requirements : +(n*2)
     // Minimum 8 characters in length
@@ -513,26 +501,27 @@ export function calcPasswordStrenght(password) {
     // - Numbers
     // - Symbols
     let checkedRequirements = 0;
-    checkedRequirements += Number(counts.digit > 0);
-    checkedRequirements += Number(counts.upperCase > 0);
-    checkedRequirements += Number(counts.lowerCase > 0);
-    checkedRequirements += Number(counts.symbol > 0);
+    checkedRequirements += Number(counts.digit > 0) +
+        Number(counts.upperCase > 0) +
+        Number(counts.lowerCase > 0) +
+        Number(counts.symbol > 0);
     if (checkedRequirements >=3 && charsInfo.length >= 8)
         score += (checkedRequirements + 1) * 2;
 
     //Letters Only : -n
-    score -= (charsInfo.length === counts.letter ? counts.letter : 0);
+    score -= charsInfo.length === counts.letter ? counts.letter : 0;
 
     // Numbers Only : -n
-    score -= (charsInfo.length === counts.digit ? counts.digit : 0);
+    score -= charsInfo.length === counts.digit ? counts.digit : 0;
 
     // Consecutive Uppercase Letters  : -(n*2)
     score -= charsInfo.reduce(
         (inc, currInfo, i) => {
             if(i < 1) return inc;
 
+            let lastChar = charsInfo[i - 1];
             return inc + Number(currInfo.letter && currInfo.upperCase &&
-                charsInfo[i - 1].letter && charsInfo[i - 1].upperCase) * 2;
+                lastChar.letter && lastChar.upperCase) * 2;
         },
         0
     );
@@ -542,8 +531,9 @@ export function calcPasswordStrenght(password) {
         (inc, currInfo, i) => {
             if(i < 1) return inc;
 
+            let lastChar = charsInfo[i - 1];
             return inc + Number(currInfo.letter && currInfo.lowerCase &&
-                charsInfo[i - 1].letter && charsInfo[i - 1].lowerCase) * 2;
+                lastChar.letter && lastChar.lowerCase) * 2;
         },
         0
     );
@@ -578,13 +568,15 @@ export function calcPasswordStrenght(password) {
         (inc, currInfo, i) => {
             if(i < 2) return inc;
 
-            if(!charsInfo[i - 2].digit || !charsInfo[i - 1].digit || !currInfo.digit) {
+            let last1 = charsInfo[i - 1];
+            let last2 = charsInfo[i - 2];
+            if(!last2.digit || !last1.digit || !currInfo.digit) {
                 return inc;
             }
 
-            let diff = charsInfo[i - 2].place - charsInfo[i - 1].place;
-            let diff2 = charsInfo[i - 1].place - currInfo.place;
-            return inc + Number(diff * diff2 === 1) * 3;
+            let diff = last2.place - last1.place;
+            let diff2 = last1.place - currInfo.place;
+            return inc + (Math.abs(diff) === 1 && diff === diff2) ? 3 : 0;
         },
         0
     );
@@ -592,40 +584,46 @@ export function calcPasswordStrenght(password) {
     score -= charsInfo.reduce(
         (inc, currInfo, i) => {
             if(i < 2) return inc;
-            if(!charsInfo[i - 2].symbol || !charsInfo[i - 1].symbol || !currInfo.symbol) {
+
+            let last1 = charsInfo[i - 1];
+            let last2 = charsInfo[i - 2];
+            if(!last2.symbol || !last1.symbol || !currInfo.symbol) {
                 return inc;
             }
 
-            let diff = charsInfo[i - 2].place - charsInfo[i - 1].place;
-            let diff2 = charsInfo[i - 1].place - currInfo.place;
-            return inc + Number(diff * diff2 === 1) * 3;
+            let diff = last2.place - last1.place;
+            let diff2 = last1.place - currInfo.place;
+            return inc + (Math.abs(diff) === 1 && diff === diff2) ? 3 : 0;
         },
         0
     );
     // Repeat Characters (Case Insensitive)
     let uniquesCount = password.length;
-    score -= charsInfo.reduce(
-        (inc, _, i)  => {
-            let newInc = charsInfo.reduce(
-                (inc, _, j) => {
-                    return (j !== i && password[i] === password[j]) ?
-                    inc += Math.abs(password.length/(j - i)) :
-                    inc;
-                },
-                inc
-            );
+    score -= password.reduce(
+        (inc, char, i) => {
+            let delta = 0;
 
-            if (inc != newInc) {
-                uniquesCount --;
-                inc = (uniquesCount) ? Math.ceil(newInc/uniquesCount) : Math.ceil(newInc);
+            let j = password.indexOf(char);
+            while(j > -1) {
+                if (j !== i) {
+                    delta += password.length / Math.abs(j - i);
+                }
+
+                j = password.indexOf(char, j + 1);
             }
-            else {
-                inc = newInc;
+
+            if (delta > 0) {
+                inc += delta;
+
+                if (--uniquesCount) {
+                    inc = uniquesCount;
+                }
             }
-            return inc;
+
+            return Math.ceil(inc);
         },
         0
     );
 
-    return Math.max(0, Math.min(score / 100, 1));
+    return clamp(socre/100, 0, 1)
 }

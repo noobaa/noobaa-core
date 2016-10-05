@@ -309,6 +309,7 @@ class SystemStore extends EventEmitter {
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this._json_validator = new Ajv({
             formats: {
+                date: schema_utils.date_format,
                 idate: schema_utils.idate_format,
                 objectid: val => mongo_utils.is_object_id(val)
             }

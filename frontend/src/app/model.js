@@ -29,11 +29,9 @@ export const serverInfo = ko.observable();
 // Hold current system information.
 export const systemInfo = ko.observable();
 
-// Hold agent installation information.
-export const agentInstallationInfo = ko.observable();
-
 // Hold the current bucket object list.
 export const bucketObjectList = ko.observable();
+
 // Hold the current bucket S3 access permissions.
 export const bucketS3ACL = ko.observableArray();
 

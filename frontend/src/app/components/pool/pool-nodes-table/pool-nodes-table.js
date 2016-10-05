@@ -11,13 +11,13 @@ let columns = deepFreeze([
     {
         name: 'state',
         sortable: 'online',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     {
         name: 'name',
         label: 'node name',
         sortable: true,
-        cellTemplate: 'link'
+        type: 'link'
     },
     {
         name: 'ip',
@@ -28,7 +28,7 @@ let columns = deepFreeze([
         name: 'capacity',
         label: 'used capacity',
         sortable: 'used',
-        cellTemplate: 'capacity'
+        type: 'capacity'
     },
     'trustLevel',
     'dataActivity'

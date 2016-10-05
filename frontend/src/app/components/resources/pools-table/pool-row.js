@@ -1,6 +1,5 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import numeral from 'numeral';
 import { deletePool } from 'actions';
 
 export default class PoolRowViewModel extends Disposable {
@@ -53,12 +52,16 @@ export default class PoolRowViewModel extends Disposable {
         );
 
         this.nodeCount = ko.pureComputed(
-            () => pool() ? numeral(pool().nodes.count).format('0,0') : ''
-        );
+            () => pool() && pool().nodes.count
+        ).extend({
+            formatNumber: true
+        });
 
         this.onlineCount = ko.pureComputed(
-            () => pool() ? numeral(pool().nodes.online).format('0,0') : ''
-        );
+            () => pool() && pool().nodes.online
+        ).extend({
+            formatNumber: true
+        });
 
         this.offlineCount = ko.pureComputed(
             () => {
@@ -67,9 +70,11 @@ export default class PoolRowViewModel extends Disposable {
                 }
 
                 let { count, online } = pool().nodes;
-                return numeral(count - online).format('0,0');
+                return count - online;
             }
-        );
+        ).extend({
+            formatNumber: true
+        });
 
         let storage = ko.pureComputed(
             () => pool() ? pool().storage : {}
@@ -109,6 +114,10 @@ export default class PoolRowViewModel extends Disposable {
             undeletable: isUndeletable,
             tooltip: ko.pureComputed(
                 () => {
+                    if (!pool()) {
+                        return;
+                    }
+
                     if (isDemoPool()) {
                         return 'Demo pools cannot be deleted';
                     }

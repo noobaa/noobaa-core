@@ -155,11 +155,13 @@ class NodesMonitor extends EventEmitter {
     }
 
     start() {
+        dbg.log0('starting nodes_monitor');
         this._started = true;
         return this._load_from_store();
     }
 
     stop() {
+        dbg.log0('stoping nodes_monitor');
         this._started = false;
     }
 
@@ -196,12 +198,15 @@ class NodesMonitor extends EventEmitter {
         }
 
         //If this server is not the master, redirect the agent to the master
-        let current_clustering = system_store.get_local_cluster_info();
-        if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+        if (!this._is_master()) {
             return P.resolve(cluster_server.redirect_to_cluster_master())
                 .then(addr => {
-                    dbg.log0('heartbeat: current is not master redirecting to', addr);
-                    reply.redirect = addr;
+                    reply.redirect = url.format({
+                        protocol: 'wss',
+                        slashes: true,
+                        hostname: addr,
+                        port: 8443
+                    });
                     return reply;
                 });
         }
@@ -356,7 +361,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _load_from_store() {
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         dbg.log0('_load_from_store ...');
         return mongoose_utils.mongoose_wait_connected()
             .then(() => nodes_store.instance().connect())
@@ -364,7 +369,7 @@ class NodesMonitor extends EventEmitter {
                 deleted: null
             }))
             .then(nodes => {
-                if (!this._started) return;
+                if (!this._started) return P.resolve();
                 this._clear();
                 for (const node of nodes) {
                     this._add_existing_node(node);
@@ -493,7 +498,7 @@ class NodesMonitor extends EventEmitter {
     _schedule_next_run(delay_ms) {
         // TODO GUYM _schedule_next_run should check if currently running?
         clearTimeout(this._next_run_timeout);
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         this._next_run_timeout = setTimeout(() => {
             P.resolve()
                 .then(() => this._run())
@@ -502,7 +507,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _run() {
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         dbg.log0('_run:', this._map_node_id.size, 'nodes in queue');
         let next = 0;
         const queue = Array.from(this._map_node_id.values());
@@ -519,7 +524,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _run_node(item) {
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         dbg.log0('_run_node:', item.node.name);
         // TODO schedule run for node should re-run if requested during run
         item.run_promise = item.run_promise || P.resolve()
@@ -542,7 +547,14 @@ class NodesMonitor extends EventEmitter {
         const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
-        let potential_masters = clustering_utils.get_potential_masters();
+        let potential_masters = clustering_utils.get_potential_masters().map(addr => ({
+            address: url.format({
+                protocol: 'wss',
+                slashes: true,
+                hostname: addr.address,
+                port: 8443
+            })
+        }));
 
         return this.client.agent.get_agent_info_and_update_masters({
                 addresses: potential_masters
@@ -743,6 +755,13 @@ class NodesMonitor extends EventEmitter {
                     this._set_need_update.add(item);
                 }
             });
+    }
+
+    _is_master() {
+        let current_clustering = system_store.get_local_cluster_info();
+        return !current_clustering || // no cluster info => treat as master
+            !current_clustering.is_clusterized || // not clusterized => treat as master
+            system_store.is_cluster_master; // clusterized and is master
     }
 
 
@@ -1025,7 +1044,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _rebuild_node(item) {
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         if (!item.data_activity) return;
         const act = item.data_activity;
         if (act.running) return;

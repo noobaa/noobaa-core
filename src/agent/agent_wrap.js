@@ -14,9 +14,11 @@ const url = require('url');
 const dbg = require('../util/debug_module')(__filename);
 
 const SETUP_FILENAME = './noobaa-setup';
-const UPGRADE_SCRIPT = './src/agent/agent_linux_upgrader.sh';
 const EXECUTABLE_MOD_VAL = 511;
 const DUPLICATE_RET_CODE = 68;
+
+const NUM_UPGRADE_WARNINGS = 18;
+const TIME_BETWEEN_WARNINGS = 10000;
 
 var address = "";
 
@@ -32,8 +34,11 @@ fs.readFileAsync('./agent_conf.json')
             return promise_utils.fork('./src/agent/agent_cli', '--duplicate');
         }
         throw err;
-    }) // Currently, to signal an upgrade is required agent_cli exits with 0
-    .then(() => { //TODO: this should also happen in throws, but it needs to be handled better.
+    })
+    // Currently, to signal an upgrade is required agent_cli exits with 0.
+    // It should also upgrade when agent_cli throws,
+    // but upgrade needs to be handled better by this script first
+    .then(() => {
         const output = fs.createWriteStream(SETUP_FILENAME);
         return new P((resolve, reject) => {
             dbg.log0('Downloading Noobaa agent upgrade package');
@@ -49,15 +54,11 @@ fs.readFileAsync('./agent_conf.json')
         });
     })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
-    .then(() => fs.chmodAsync(UPGRADE_SCRIPT, EXECUTABLE_MOD_VAL))
-    .then(() => {
-        dbg.log0('Upgrading Noobaa agent');
-        return promise_utils.spawn(UPGRADE_SCRIPT);
-    })
-    .then(() => (function loop() {
-        // This will not (or should not) run forever because when the service
-        // installs, it stops the old service, which kills this thread.
-        dbg.log0('Upgrading Noobaa agent...');
-        setTimeout(loop, 30000);
-    }()))
+    .then(() => P.delay(2000)) // Not sure why this is necessary, but it is.
+    .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null'))
+    .then(() => promise_utils.retry(NUM_UPGRADE_WARNINGS, TIME_BETWEEN_WARNINGS, attempts => {
+        let msg = `Still upgrading. ${(NUM_UPGRADE_WARNINGS - attempts) * (TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
+        if (attempts !== NUM_UPGRADE_WARNINGS) dbg.warn(msg);
+        throw Error(msg);
+    }))
     .catch(err => dbg.error(err));

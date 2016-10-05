@@ -59,7 +59,7 @@ class DataTableViewModel extends Disposable {
                 }
 
                 return descriptors.map(
-                    descriptor => new ColumnViewModel(descriptor, templates)
+                    descriptor => new ColumnViewModel(descriptor, templates, sorting)
                 );
             }
         );
@@ -70,7 +70,6 @@ class DataTableViewModel extends Disposable {
 
         this.rowFactory = rowFactory;
         this.rows = ko.observableArray();
-        this.rowsMetaData = ko.observableArray();
 
         // This is used to generate a complete template for a row in order to
         // to skip using knockout template bindings for each column which will
@@ -91,11 +90,6 @@ class DataTableViewModel extends Disposable {
         this.emptyMessage = ko.pureComputed(
             () => this.rows().length === 0 ? ko.unwrap(emptyMessage) : null
         );
-
-        this.rowsMeta = ko.observableArray();
-
-        // This hold the expand state for the sub rows.
-        this.expanded = ko.observableArray();
 
         // Init the table rows.
         this.updateRows(data);

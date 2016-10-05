@@ -27,7 +27,7 @@ export default class ColumnViewModel extends Disposable {
         this.template = templates[type];
         this.css = css;
 
-        this.sorting - sorting;
+        this.sorting = sorting;
         this.sortKey = sortable && (isString(sortable) ? sortable : name);
 
         this.sortCss = ko.pureComputed(

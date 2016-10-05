@@ -8,11 +8,11 @@ import { updateBucketPlacementPolicy } from 'actions';
 const columns = deepFreeze([
     {
         name: 'select',
-        cellTemplate: 'checkbox'
+        type: 'checkbox'
     },
     {
         name: 'state',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     'name',
     'onlineCount',

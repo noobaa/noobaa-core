@@ -10,7 +10,7 @@ import { routeContext, systemInfo } from 'model';
 const columns = deepFreeze([
     {
         name: 'name',
-        cellTemplate: 'link',
+        type: 'link',
         sortable: true
     },
     {

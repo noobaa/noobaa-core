@@ -9,12 +9,12 @@ import { redirectTo } from 'actions';
 const columns = deepFreeze([
     {
         name: 'state',
-        cellTemplate: 'icon',
+        type: 'icon',
         sortable: true
     },
     {
         name: 'type',
-        cellTemplate: 'icon',
+        type: 'icon',
         sortable: true
     },
     {
@@ -41,7 +41,7 @@ const columns = deepFreeze([
         name: 'deleteBtn',
         label: '',
         css: 'delete-col',
-        cellTemplate: 'delete'
+        type: 'delete'
     }
 ]);
 

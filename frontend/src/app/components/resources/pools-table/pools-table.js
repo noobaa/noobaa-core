@@ -9,13 +9,13 @@ import { routeContext, systemInfo } from 'model';
 const columns = deepFreeze([
     {
         name: 'state',
-        cellTemplate: 'icon',
+        type: 'icon',
         sortable: true
     },
     {
         name: 'name',
         label: 'pool name',
-        cellTemplate: 'link',
+        type: 'link',
         sortable: true
     },
     {
@@ -42,13 +42,13 @@ const columns = deepFreeze([
         name: 'capacity',
         label: 'used capacity',
         sortable: true,
-        cellTemplate: 'capacity'
+        type: 'capacity'
     },
     {
         name: 'deleteButton',
         label: '',
         css: 'delete-col',
-        cellTemplate: 'delete'
+        type: 'delete'
     }
 ]);
 

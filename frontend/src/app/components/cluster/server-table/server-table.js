@@ -9,7 +9,7 @@ import { systemInfo, routeContext } from 'model';
 const columns = deepFreeze([
     {
         name: 'state',
-        cellTemplate: 'icon',
+        type: 'icon',
         sortable: true
     },
     {
@@ -33,10 +33,6 @@ const columns = deepFreeze([
     {
         name: 'version',
         sortable: true
-    },
-    {
-        name: 'actions',
-        cellTemplate: 'actions'
     }
 ]);
 
@@ -73,6 +69,7 @@ class ServerTableViewModel extends Disposable {
                     .sort(compareOp);
             }
         );
+
 
         this.actionContext = ko.observable();
         this.isAttachServerModalVisible = ko.observable(false);

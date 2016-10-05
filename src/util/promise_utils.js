@@ -277,7 +277,9 @@ function exec(command, ignore_rc, return_stdout, timeout) {
                     resolve();
                 }
             } else {
-                reject(new Error(command + " exited with error " + error));
+                const err = new Error(command + " exited with error " + error);
+                err.stderr = stderr;
+                reject(err);
             }
         });
     });

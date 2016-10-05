@@ -361,7 +361,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _load_from_store() {
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         dbg.log0('_load_from_store ...');
         return mongoose_utils.mongoose_wait_connected()
             .then(() => nodes_store.instance().connect())
@@ -369,7 +369,7 @@ class NodesMonitor extends EventEmitter {
                 deleted: null
             }))
             .then(nodes => {
-                if (!this._started) return;
+                if (!this._started) return P.resolve();
                 this._clear();
                 for (const node of nodes) {
                     this._add_existing_node(node);
@@ -498,7 +498,7 @@ class NodesMonitor extends EventEmitter {
     _schedule_next_run(delay_ms) {
         // TODO GUYM _schedule_next_run should check if currently running?
         clearTimeout(this._next_run_timeout);
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         this._next_run_timeout = setTimeout(() => {
             P.resolve()
                 .then(() => this._run())
@@ -507,7 +507,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _run() {
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         dbg.log0('_run:', this._map_node_id.size, 'nodes in queue');
         let next = 0;
         const queue = Array.from(this._map_node_id.values());
@@ -524,7 +524,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _run_node(item) {
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         dbg.log0('_run_node:', item.node.name);
         // TODO schedule run for node should re-run if requested during run
         item.run_promise = item.run_promise || P.resolve()
@@ -1044,7 +1044,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _rebuild_node(item) {
-        if (!this._started) return;
+        if (!this._started) return P.resolve();
         if (!item.data_activity) return;
         const act = item.data_activity;
         if (act.running) return;

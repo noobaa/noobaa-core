@@ -14,7 +14,7 @@ module.exports = {
             format: 'objectid'
         },
         deleted: {
-            format: 'idate'
+            format: 'date'
         },
         name: {
             type: 'string'
@@ -24,6 +24,9 @@ module.exports = {
         },
         password: {
             type: 'string' // bcrypted password
+        },
+        next_password_change: {
+            format: 'date'
         },
         is_support: {
             type: 'boolean'

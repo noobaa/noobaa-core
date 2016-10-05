@@ -10,12 +10,12 @@ import { routeContext } from 'model';
 const columns = deepFreeze([
     {
         name: 'state',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     {
         name: 'object',
         label: 'file name',
-        cellTemplate: 'link'
+        type: 'link'
     },
     'bucket',
     'startOffset',

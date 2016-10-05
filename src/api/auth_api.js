@@ -52,11 +52,14 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['token'],
+                required: ['token', 'info'],
                 properties: {
                     token: {
                         type: 'string',
                     },
+                    info: {
+                        $ref: '#/definitions/auth_info'
+                    }
                 }
             },
             auth: {
@@ -114,42 +117,7 @@ module.exports = {
             doc: 'Get info about the authenticated token.',
             method: 'GET',
             reply: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    account: {
-                        type: 'object',
-                        required: ['name', 'email'],
-                        properties: {
-                            name: {
-                                type: 'string',
-                            },
-                            email: {
-                                type: 'string',
-                            },
-                            is_support: {
-                                type: 'boolean',
-                            },
-                        },
-                    },
-                    system: {
-                        type: 'object',
-                        required: ['name'],
-                        properties: {
-                            name: {
-                                type: 'string',
-                            },
-                        }
-                    },
-                    role: {
-                        type: 'string',
-                    },
-                    extra: {
-                        type: 'object',
-                        additionalProperties: true,
-                        properties: {}
-                    },
-                }
+                $ref: '#/definitions/auth_info'
             },
             auth: {
                 account: false,
@@ -159,4 +127,47 @@ module.exports = {
 
     },
 
+    definitions: {
+        auth_info: {
+            type: 'object',
+            // required: [],
+            properties: {
+                account: {
+                    type: 'object',
+                    required: ['name', 'email'],
+                    properties: {
+                        name: {
+                            type: 'string',
+                        },
+                        email: {
+                            type: 'string',
+                        },
+                        is_support: {
+                            type: 'boolean',
+                        },
+                        must_change_password: {
+                            type: 'boolean'
+                        },
+                    },
+                },
+                system: {
+                    type: 'object',
+                    required: ['name'],
+                    properties: {
+                        name: {
+                            type: 'string',
+                        },
+                    }
+                },
+                role: {
+                    type: 'string',
+                },
+                extra: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
+                },
+            }
+        },
+    },
 };

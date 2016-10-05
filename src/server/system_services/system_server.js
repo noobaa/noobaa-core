@@ -35,6 +35,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
+const node_server = require('../node_services/node_server');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -492,10 +493,10 @@ function set_webserver_master_state(req) {
                     auth_token: req.auth_token
                 }));
             //Going Master //TODO:: add this one we get back to HA
-            //node_server.start_monitor();
+            node_server.start_monitor();
         } else {
             //Stepping Down
-            //node_server.stop_monitor();
+            node_server.stop_monitor();
         }
     }
 }

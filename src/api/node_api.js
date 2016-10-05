@@ -464,7 +464,7 @@ module.exports = {
                     format: 'idate'
                 },
                 deleted: {
-                    format: 'date'
+                    format: 'idate'
                 },
                 accessibility: {
                     $ref: '#/definitions/accessibility_type'

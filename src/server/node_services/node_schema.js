@@ -91,7 +91,7 @@ module.exports = {
             format: 'idate'
         },
         deleted: {
-            format: 'date'
+            format: 'idate'
         },
 
         // node storage stats - sum of drives

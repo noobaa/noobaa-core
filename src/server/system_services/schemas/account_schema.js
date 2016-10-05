@@ -26,7 +26,7 @@ module.exports = {
             type: 'string' // bcrypted password
         },
         next_password_change: {
-            format: 'idate'
+            format: 'date'
         },
         is_support: {
             type: 'boolean'

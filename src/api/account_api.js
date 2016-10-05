@@ -357,7 +357,7 @@ module.exports = {
                     type: 'boolean',
                 },
                 next_password_change: {
-                    format: 'date',
+                    format: 'idate',
                 },
                 access_keys: {
                     type: 'array',

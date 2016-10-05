@@ -130,8 +130,8 @@ function archive_diagnostics_pack(dst) {
 }
 
 function get_tmp_workdir() {
-    let iswindows = (process.platform === "win32");
-    return iswindows ? process.env.ProgramData + '/diag' : '/tmp/diag';
+    let is_windows = (process.platform === "win32");
+    return is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
 }
 
 

@@ -11,16 +11,42 @@
         columns: columns,
         rowFactory: rowFactory,
         sorting: sorting,
-        data: servers
+        data: servers,
+        subRow: 'sub-row'
     ">
-        <template name="actions">
-            <button class="link" data-bind="
-                click: () => vm.showServerDNSSettingsModal(ko.unwrap($data))
-            ">DNS</button>
-            |
-            <button class="link" data-bind="
-                click: () => vm.showServerTimeSettingsModal(ko.unwrap($data))
-            ">Time</button>
+        <template name="sub-row">
+            <ul class="alt-bg pad push-next list-no-style column">
+                <li class="row">
+                    <span class="c2 push-next">Server Time Settings:</span>
+                    <span class="greedy" data-bind="text: timeConfig"></span>
+
+                    <button class="link alt-colors no-outline" data-bind="
+                        click: () => vm.showServerTimeSettingsModal(secret())
+                    ">
+                        Edit Date and Time
+                    </button>
+                </li>
+                <li class="row">
+                    <span class="c2 push-next">Server DNS Settings:</span>
+                    <span class="row greedy">
+                        <span class="push-next">
+                            Primary:
+                            <span class="text-tech" data-bind="text: primaryDNS"></span>
+                        </span>
+                        |
+                        <span class="push-prev">
+                            Secondary:
+                            <span class="text-tech" data-bind="text: secondaryDNS"></span>
+                        </span>
+                    </span>
+
+                    <button class="link alt-colors no-outline" data-bind="
+                        click: () => vm.showServerDNSSettingsModal(secret())
+                    ">
+                        Edit Enviorment DNS
+                    </button>
+                </li>
+            </ul>
         </template>
     </data-table>
 </div>

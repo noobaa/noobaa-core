@@ -13,9 +13,7 @@ const config = require('../../config.js');
 const os_utils = require('../util/os_utils');
 const fs_utils = require('../util/fs_utils');
 
-const is_windows = (process.platform === "win32");
-
-const TMP_WORK_DIR = is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
+const TMP_WORK_DIR = get_tmp_workdir();
 
 
 function prepare_diag_dir(is_clusterized) {
@@ -131,9 +129,15 @@ function archive_diagnostics_pack(dst) {
         });
 }
 
+function get_tmp_workdir() {
+    let is_windows = (process.platform === "win32");
+    return is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
+}
+
 
 // EXPORTS
 exports.prepare_diag_dir = prepare_diag_dir;
 exports.collect_basic_diagnostics = collect_basic_diagnostics;
 exports.write_agent_diag_file = write_agent_diag_file;
 exports.pack_diagnostics = pack_diagnostics;
+exports.get_tmp_workdir = get_tmp_workdir;

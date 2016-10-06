@@ -13,7 +13,7 @@ module.exports = {
             format: 'objectid'
         },
         deleted: {
-            format: 'idate'
+            format: 'date'
         },
         name: {
             type: 'string'

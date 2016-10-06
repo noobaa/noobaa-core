@@ -54,6 +54,7 @@ class NodesStore {
         mongo_client.instance().define_collection(NODES_COLLECTION);
         this._json_validator = new Ajv({
             formats: {
+                date: schema_utils.date_format,
                 idate: schema_utils.idate_format,
                 objectid: val => mongo_utils.is_object_id(val)
             }

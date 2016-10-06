@@ -11,11 +11,11 @@ import { deepFreeze } from 'utils';
 const placementTableColumns = deepFreeze([
     {
         name: 'state',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     {
         name: 'poolName',
-        cellTemplate: 'link'
+        type: 'link'
     },
     {
         name: 'onlineNodeCount',
@@ -31,7 +31,7 @@ const backupTableColumns = deepFreeze([
     {
         name: 'resourceType',
         label: 'type',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     'resourceName',
     {

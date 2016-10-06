@@ -330,7 +330,10 @@ module.exports = {
                                     properties: {
                                         name: {
                                             type: 'string'
-                                        }
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 node: {
@@ -339,7 +342,10 @@ module.exports = {
                                     properties: {
                                         name: {
                                             type: 'string'
-                                        }
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 bucket: {
@@ -348,7 +354,10 @@ module.exports = {
                                     properties: {
                                         name: {
                                             type: 'string'
-                                        }
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 pool: {
@@ -357,7 +366,10 @@ module.exports = {
                                     properties: {
                                         name: {
                                             type: 'string'
-                                        }
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 obj: {

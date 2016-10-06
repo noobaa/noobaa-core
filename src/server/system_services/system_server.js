@@ -36,6 +36,7 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 const node_server = require('../node_services/node_server');
+const dns = require('dns');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -218,6 +219,19 @@ function create_system(req) {
                 command: 'perform_activation'
             };
             return _communicate_license_server(params);
+        })
+        .then(() => {
+            // Attempt to resolve DNS name, if supplied
+            if (!req.rpc_params.dns_name) {
+                return;
+            }
+            return attempt_dns_resolve(req)
+                .then(result => {
+                    if (!result.valid) {
+                        throw new Error('Could not resolve ' + req.rpc_params.dns_name +
+                            ' Reason ' + result.reason);
+                    }
+                });
         })
         .then(() => {
             return P.join(new_system_changes(account.name, account),
@@ -875,10 +889,47 @@ function update_hostname(req) {
     // during create system process
 
     req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
-    delete req.rpc_params.hostname;
 
-    return update_base_address(req);
+    return P.resolve()
+        .then(() => {
+            // This will test if we've received IP or DNS name
+            // This check is essential because there is no point of resolving an IP using DNS Servers
+            const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            if (!req.rpc_params.hostname || regExp.test(req.rpc_params.hostname)) {
+                return;
+            }
+            // Use defaults to add dns_name property without altering the original request
+            return attempt_dns_resolve(_.defaults({
+                    rpc_params: {
+                        dns_name: req.rpc_params.hostname
+                    }
+                }, req))
+                .then(result => {
+                    if (!result.valid) {
+                        throw new Error('Could not resolve ' + req.rpc_params.hostname +
+                            ' Reason ' + result.reason);
+                    }
+                });
+        })
+        .then(() => {
+            delete req.rpc_params.hostname;
+            return update_base_address(req);
+        });
 }
+
+
+
+function attempt_dns_resolve(req) {
+    return P.promisify(dns.resolve)(req.rpc_params.dns_name)
+        .return({
+            valid: true
+        })
+        .catch(err => ({
+            valid: false,
+            reason: err.code
+        }));
+}
+
 
 function update_system_certificate(req) {
     throw new RpcError('TODO', 'update_system_certificate');
@@ -981,6 +1032,7 @@ exports.set_last_stats_report_time = set_last_stats_report_time;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
+exports.attempt_dns_resolve = attempt_dns_resolve;
 exports.update_phone_home_config = update_phone_home_config;
 exports.phone_home_capacity_notified = phone_home_capacity_notified;
 exports.update_hostname = update_hostname;

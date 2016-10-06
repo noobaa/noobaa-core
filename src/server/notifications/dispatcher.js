@@ -119,7 +119,7 @@ class Dispatcher {
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
                     if (!l.node.name) {
-                        l.node.name = '(deleted)';
+                        l.node.name = '(deleted node)';
                     }
                 }
 

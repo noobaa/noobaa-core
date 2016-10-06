@@ -58,10 +58,10 @@ if (ko.validation) {
     let kv = ko.validation;
 
     const getRuleValidationState = function(observable, appliedRule) {
-        let { 
-            rule = 'inline', 
-            params, 
-            validator = kv.rules[rule].validator, 
+        let {
+            rule = 'inline',
+            params,
+            validator = kv.rules[rule].validator,
             message = kv.rules[rule].message
         } = appliedRule;
 
@@ -76,11 +76,11 @@ if (ko.validation) {
         return ko.pureComputed(
             () => {
                 let rules = observable.rules;
-                
+
                 if (!rules) {
                     return [];
                 }
-                
+
                 return rules().map(
                     rule => getRuleValidationState(observable, rule)
                 );

@@ -1,7 +1,5 @@
 /*global setImmediate */
 
-const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
-
 export function noop() {
 }
 
@@ -47,6 +45,9 @@ export function toCammelCase(str) {
 export function toDashedCase(str) {
     return str.replace(/[A-Z]+/g, match => `-${match.toLowerCase()}`);
 }
+
+
+const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
 
 export function formatSize(num) {
     const peta = Math.pow(1024, 5);
@@ -329,8 +330,8 @@ export function bitsToNumber(...bits) {
     );
 }
 
-export function pad(num, size, char = '0') {
-    return (char.repeat(size) + num).substr(-size);
+export function pad(str, size, char = '0') {
+    return (char.repeat(size) + str).substr(-size);
 }
 
 export function deepFreeze(val) {

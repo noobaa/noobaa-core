@@ -38,11 +38,12 @@ export function start() {
 
     return api.auth.read_auth()
         // Try to restore the last session
-        .then(({account, system}) => {
+        .then(({ account, system }) => {
             if (isDefined(account)) {
                 model.sessionInfo({
                     user: account.email,
-                    system: system.name
+                    system: system.name,
+                    mustChangePassowrd: account.must_change_password
                 });
             }
         })
@@ -325,11 +326,17 @@ export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
                 let system = systems[0].name;
 
                 return api.create_auth_token({ system, email, password })
-                    .then(({ token }) => {
+                    .then(({ token, info }) => {
                         let storage = keepSessionAlive ? localStorage : sessionStorage;
                         storage.setItem('sessionToken', token);
 
-                        model.sessionInfo({ user: email, system: system });
+                        let mustChangePassword = info.account.must_change_password;
+                        model.sessionInfo({
+                            user: email,
+                            system: system,
+                            mustChangePassword: mustChangePassword
+                        });
+
                         model.loginInfo({ retryCount: 0 });
 
                         if (isUndefined(redirectUrl)) {
@@ -680,8 +687,7 @@ export function createSystem(
                 // Update the session info and redirect to system screen.
                 model.sessionInfo({
                     user: email,
-                    system: systemName,
-                    token: token
+                    system: systemName
                 });
 
                 redirectTo(
@@ -701,7 +707,7 @@ export function createAccount(name, email, password, accessKeys, S3AccessList) {
         name: name,
         email: email,
         password: password,
-        // must_change_password: true,
+        must_change_password: true,
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })
@@ -734,10 +740,14 @@ export function deleteAccount(email) {
         .done();
 }
 
-export function resetAccountPassword(email, password) {
-    logAction('resetAccountPassword', { email, password });
+export function updateAccountPassword(email, password, mustChangePassword = false) {
+    logAction('updateAccountPassword', { email, password, mustChangePassword });
 
-    api.account.update_account({ email, password })
+    api.account.update_account({
+        email,
+        password,
+        must_change_password: mustChangePassword
+    })
         .then(
             () => notify(`${email} password has been reset successfully`, 'success'),
             () => notify(`Resetting ${email}'s password failed`, 'error')

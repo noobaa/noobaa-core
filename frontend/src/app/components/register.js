@@ -31,6 +31,7 @@ export default function register(ko) {
     ko.components.register('unsupported-form',          require('./login/unsupported-form/unsupported-form'));
     ko.components.register('unable-to-activate-modal',  require('./login/unable-to-activate-modal/unable-to-activate-modal'));
     ko.components.register('loading-server-information-from', require('./login/loading-server-information-from/loading-server-information-from'));
+    ko.components.register('change-password-form', require('./login/change-password-form/change-password-form'));
     /** INJECT:login **/
 
     // -------------------------------

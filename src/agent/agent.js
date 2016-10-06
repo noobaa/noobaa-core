@@ -317,11 +317,20 @@ class Agent {
             .catch(err => {
                 dbg.error('heartbeat failed', err);
                 if (err.rpc_code === 'DUPLICATE') {
-                    dbg.error('This agent appears to be duplicated. exiting and starting new agent', err);
+                    dbg.error('This agent appears to be duplicated.',
+                        'exiting and starting new agent', err);
                     process.exit(68); // 68 is 'D' in ascii
                 }
+                if (err.rpc_code === 'NODE_NOT_FOUND') {
+                    // we want to reuse the agent_cli INVALID_NODE handling,
+                    // but the fastest way to get there is restart the process,
+                    // maybe better to reuse the code path instead.
+                    dbg.error('This agent appears to be using an old token.',
+                        'restarting to handle invalid node', err);
+                    process.exit(0);
+                }
                 return P.delay(3000).then(() => {
-                    this.connect_attempts++;
+                    this.connect_attempts += 1;
                     this._do_heartbeat();
                 });
 

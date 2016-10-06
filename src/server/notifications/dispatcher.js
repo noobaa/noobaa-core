@@ -45,12 +45,14 @@ class Dispatcher {
         if (req.rpc_params.till) {
             // query backwards from given time
             req.rpc_params.till = new Date(req.rpc_params.till);
-            q.where('time').lt(req.rpc_params.till).sort('-time');
+            q.where('time').lt(req.rpc_params.till)
+                .sort('-time');
 
         } else if (req.rpc_params.since) {
             // query forward from given time
             req.rpc_params.since = new Date(req.rpc_params.since);
-            q.where('time').gte(req.rpc_params.since).sort('time');
+            q.where('time').gte(req.rpc_params.since)
+                .sort('time');
             reverse = false;
         } else {
             // query backward from last time
@@ -73,24 +75,20 @@ class Dispatcher {
         }
 
         return P.resolve(q.lean().exec())
-            .then(logs => {
-                return P.map(logs, function(log_item) {
-                    var l = {
-                        id: String(log_item._id),
-                        level: log_item.level,
-                        event: log_item.event,
-                        time: log_item.time.getTime(),
-                    };
+            .then(logs => P.map(logs, function(log_item) {
+                var l = {
+                    id: String(log_item._id),
+                    level: log_item.level,
+                    event: log_item.event,
+                    time: log_item.time.getTime(),
+                };
 
-                    if (log_item.desc) {
-                        l.desc = log_item.desc.split('\n');
-                    }
-                    return P.resolve(self._resolve_activity_item(log_item, l))
-                        .then(() => {
-                            return l;
-                        });
-                });
-            })
+                if (log_item.desc) {
+                    l.desc = log_item.desc.split('\n');
+                }
+                return P.resolve(self._resolve_activity_item(log_item, l))
+                    .return(l);
+            }))
             .then(logs => {
                 if (reverse) {
                     logs.reverse();
@@ -120,6 +118,9 @@ class Dispatcher {
             .then(() => {
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
+                    if (!l.node.name) {
+                        l.node.name = '(deleted)';
+                    }
                 }
 
                 if (log_item.obj) {

@@ -118,7 +118,10 @@ class Dispatcher {
             .then(() => {
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
-                    if (!l.node.name) {
+                    if (l.node.name) {
+                        l.node.linkable = true;
+                    } else {
+                        l.node.linkable = false;
                         l.node.name = '(deleted node)';
                     }
                 }
@@ -130,33 +133,34 @@ class Dispatcher {
             })
             .then(tier => {
                 if (tier) {
-                    l.tier = _.pick(tier, 'name');
+                    l.tier = _.pick(tier.record, 'name');
+                    l.tier.linkable = tier.linkable;
                 }
                 return P.resolve(log_item.bucket && system_store.data.get_by_id_include_deleted(log_item.bucket, 'buckets'));
             })
             .then(bucket => {
                 if (bucket) {
-                    l.bucket = _.pick(bucket, 'name');
+                    l.bucket = _.pick(bucket.record, 'name');
+                    l.bucket.linkable = bucket.linkable;
                 }
                 return P.resolve(log_item.pool && system_store.data.get_by_id_include_deleted(log_item.pool, 'pools'));
             })
             .then(pool => {
                 if (pool) {
-                    l.pool = _.pick(pool, 'name');
+                    l.pool = _.pick(pool.record, 'name');
+                    l.pool.linkable = pool.linkable;
                 }
-
                 return P.resolve(log_item.account && system_store.data.get_by_id_include_deleted(log_item.account, 'accounts'));
             })
             .then(account => {
                 if (account) {
-                    l.account = _.pick(account, 'email');
+                    l.account = _.pick(account.record, 'email');
                 }
-
                 return P.resolve(log_item.actor && system_store.data.get_by_id_include_deleted(log_item.actor, 'accounts'));
             })
             .then(actor => {
                 if (actor) {
-                    l.actor = _.pick(actor, 'email');
+                    l.actor = _.pick(actor.record, 'email');
                 }
                 return log_item;
             });

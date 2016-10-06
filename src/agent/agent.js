@@ -198,7 +198,7 @@ class Agent {
     _update_servers_list(new_list) {
         let sorted_new = _.sortBy(new_list, srv => srv.address);
         let sorted_old = _.sortBy(this.servers, srv => srv.address);
-        if (_.isEqual(sorted_new, sorted_old)) return P.resolve;
+        if (_.isEqual(sorted_new, sorted_old)) return P.resolve();
         this.servers = new_list;
         return this._update_agent_conf({
             servers: this.servers

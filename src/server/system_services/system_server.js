@@ -36,6 +36,7 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 const node_server = require('../node_services/node_server');
+const dns = require('dns');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -218,6 +219,13 @@ function create_system(req) {
                 command: 'perform_activation'
             };
             return _communicate_license_server(params);
+        })
+        .then(() => {
+            // Attempt to resolve DNS name, if supplied
+            if (!req.rpc_params.dns_name) {
+                return;
+            }
+            return _verify_resolve_hostname(req.rpc_params.dns_name);
         })
         .then(() => {
             return P.join(new_system_changes(account.name, account),
@@ -875,10 +883,24 @@ function update_hostname(req) {
     // during create system process
 
     req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
-    delete req.rpc_params.hostname;
-
-    return update_base_address(req);
+    return _verify_resolve_hostname(req.rpc_params.hostname)
+        .then(() => {
+            delete req.rpc_params.hostname;
+            return update_base_address(req);
+        });
 }
+
+
+function _verify_resolve_hostname(hostname) {
+    return P.fromCallback(callback => dns.resolve(hostname, callback), {
+            multiArgs: true
+        })
+        .spread((err, addresses) => {
+            if (err) throw err;
+            dbg.log0('update_hostname Received Response From DNS Servers For:', hostname, addresses);
+        });
+}
+
 
 function update_system_certificate(req) {
     throw new RpcError('TODO', 'update_system_certificate');

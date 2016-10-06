@@ -42,6 +42,8 @@ const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
 
 
+const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
+const MASTER_MAX_CONNECT_ATTEMPTS = 20;
 
 class Agent {
 
@@ -260,7 +262,16 @@ class Agent {
 
                 // test the existing token against the server. if not valid throw error, and let the
                 // agent_cli create new node.
-                return this.client.node.test_node_id({})
+                return promise_utils.retry(MASTER_MAX_CONNECT_ATTEMPTS, 1000, () => {
+                        this.client.node.test_node_id({})
+                            .timeout(MASTER_RESPONSE_TIMEOUT)
+                            .catch(err => {
+                                return this._handle_server_change()
+                                    .then(() => {
+                                        throw err;
+                                    });
+                            });
+                    })
                     .then(valid_node => {
                         if (!valid_node) {
                             let err = new Error('INVALID_NODE');
@@ -285,11 +296,9 @@ class Agent {
     }
 
     _do_heartbeat() {
-        const HB_RESPONSE_TIMEOUT = 60 * 1000; // 1 minute timeout for master to respond to HB
-        const HB_MAX_CONNECT_ATTEMPTS = 20;
         if (!this.is_started) return;
 
-        if (this.connect_attempts > HB_MAX_CONNECT_ATTEMPTS) {
+        if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
             dbg.error('too many failure to connect, switching servers');
             return this._handle_server_change();
         }
@@ -305,7 +314,7 @@ class Agent {
         return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true
             })
-            .timeout(HB_RESPONSE_TIMEOUT)
+            .timeout(MASTER_RESPONSE_TIMEOUT)
             .then(req => {
                 this.connect_attempts = 0;
                 const res = req.reply;

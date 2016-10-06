@@ -233,6 +233,7 @@ class NodesMonitor extends EventEmitter {
 
 
     test_node_id(req) {
+        this._throw_if_not_started_and_loaded();
         const extra = req.auth.extra || {};
         const node_id = String(extra.node_id || '');
         if (node_id) {

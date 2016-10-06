@@ -528,6 +528,35 @@ module.exports = {
             }
         },
 
+        attempt_dns_resolve: {
+            doc: 'Attempt to resolve a dns name',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['dns_name'],
+                properties: {
+                    dns_name: {
+                        type: 'string'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['valid'],
+                properties: {
+                    valid: {
+                        type: 'boolean'
+                    },
+                    reason: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        },
 
         validate_activation: {
             method: 'GET',

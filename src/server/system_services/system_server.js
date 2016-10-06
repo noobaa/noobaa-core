@@ -225,7 +225,13 @@ function create_system(req) {
             if (!req.rpc_params.dns_name) {
                 return;
             }
-            return _verify_resolve_hostname(req.rpc_params.dns_name);
+            return attempt_dns_resolve(req)
+                .then(result => {
+                    if (!result.valid) {
+                        throw new Error('Could not resolve ' + req.rpc_params.dns_name +
+                            ' Reason ' + result.reason);
+                    }
+                });
         })
         .then(() => {
             return P.join(new_system_changes(account.name, account),
@@ -883,7 +889,27 @@ function update_hostname(req) {
     // during create system process
 
     req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
-    return _verify_resolve_hostname(req.rpc_params.hostname)
+
+    return P.resolve()
+        .then(() => {
+            // This will test if we've received IP or DNS name
+            // This check is essential because there is no point of resolving an IP using DNS Servers
+            const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            if (!req.rpc_params.hostname || regExp.test(req.rpc_params.hostname)) {
+                return;
+            }
+            return attempt_dns_resolve(_.defaults({
+                    rpc_params: {
+                        dns_name: req.rpc_params.hostname
+                    }
+                }, req))
+                .then(result => {
+                    if (!result.valid) {
+                        throw new Error('Could not resolve ' + req.rpc_params.hostname +
+                            ' Reason ' + result.reason);
+                    }
+                });
+        })
         .then(() => {
             delete req.rpc_params.hostname;
             return update_base_address(req);
@@ -891,14 +917,16 @@ function update_hostname(req) {
 }
 
 
-function _verify_resolve_hostname(hostname) {
-    return P.fromCallback(callback => dns.resolve(hostname, callback), {
-            multiArgs: true
+
+function attempt_dns_resolve(req) {
+    return P.promisify(dns.resolve)(req.rpc_params.dns_name)
+        .return({
+            valid: true
         })
-        .spread((err, addresses) => {
-            if (err) throw err;
-            dbg.log0('update_hostname Received Response From DNS Servers For:', hostname, addresses);
-        });
+        .catch(err => ({
+            valid: false,
+            reason: err.code
+        }));
 }
 
 
@@ -1003,6 +1031,7 @@ exports.set_last_stats_report_time = set_last_stats_report_time;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
+exports.attempt_dns_resolve = attempt_dns_resolve;
 exports.update_phone_home_config = update_phone_home_config;
 exports.phone_home_capacity_notified = phone_home_capacity_notified;
 exports.update_hostname = update_hostname;

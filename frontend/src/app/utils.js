@@ -1,8 +1,6 @@
 /*global setImmediate */
 
 const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
-const letters = 'abcdefghijklmnopqrstuvwxyz';
-const symbols = ')!@#$%^&*(';
 
 export function noop() {
 }
@@ -412,32 +410,65 @@ export function isDigit(str) {
     return !isNaN(Number(str)) && str.length === 1;
 }
 
-export function tweenColors(ratio, ...colors){
+export function getColorChannels(color) {
     const regExp = /#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/;
 
+    let [, ...channels] = color.match(regExp).map(
+            hex => parseInt(hex, 16)
+    );
+
+    return channels;
+}
+
+export function rgbToColor(r,g,b) {
+    return `#${
+        pad(r.toString(16), 2)
+    }${
+        pad(g.toString(16), 2)
+    }${
+        pad(b.toString(16), 2)
+    }`;
+}
+
+export function tweenColors(ratio, ...colors){
     if (colors.length === 1) {
         return colors[0];
     }
 
-    let a = ratio * (colors.length - 1);
-    let i = a | 0;
-    let color1 = colors[i];
-    let color2 = colors[i + 1];
-    let innerRatio = a - i;
+    let scaledRatio = ratio * (colors.length - 1);
+    let i = scaledRatio | 0;
+    let tweenValue = scaledRatio - i;
 
-    let [, r1, g1, b1] = color1.match(regExp).map( hex => parseInt(hex, 16) );
-    let [, r2, g2, b2] = color2.match(regExp).map( hex => parseInt(hex, 16) );
+    let [r1, g1, b1] = getColorChannels(colors[i]);
+    let [r2, g2, b2] = getColorChannels(colors[i + 1]);
 
-    let r = ((r1 + (r2 - r1) * innerRatio) | 0).toString(16);
-    let g = ((g1 + (g2 - g1) * innerRatio) | 0).toString(16);
-    let b = ((b1 + (b2 - b1) * innerRatio) | 0).toString(16);
+    let r = ((r1 + (r2 - r1) * tweenValue) | 0);
+    let g = ((g1 + (g2 - g1) * tweenValue) | 0);
+    let b = ((b1 + (b2 - b1) * tweenValue) | 0);
 
-    return `#${pad(r, 2)}${pad(g, 2)}${pad(b, 2)}`;
+    return rgbToColor(r,g,b);
 }
 
-//TODO: Move the section below to password-utils
+const letters = 'abcdefghijklmnopqrstuvwxyz';
+const symbols = ')!@#$%^&*(';
+
+// TODO: Move the section below to password-utils
 export function calcPasswordStrenght(password) {
-    let charsInfo = getCharsInfoArray(password);
+    let charsInfo = Array.from(password).map(
+        char => {
+            let digit = isDigit(char);
+            let letter = isLetter(char);
+            let symbol = !digit && !letter;
+            let upperCase = isUpperCase(char);
+            let lowerCase = isLowerCase(char);
+            let place = !letter ?
+                (symbol ? symbols.indexOf(char) : Number(char)) :
+                letters.indexOf(char.toLowerCase());
+
+
+            return { digit, letter, symbol, upperCase, lowerCase, place };
+        }
+    );
 
     let counts = charsInfo.reduce(
         (counts, charInfo) => {
@@ -590,32 +621,8 @@ export function calcPasswordStrenght(password) {
         0
     );
     // Repeat Characters (Case Insensitive)
-    score -= getRepeatedCharsScore(password);
-
-    return clamp(score/100, 0, 1);
-}
-
-function getCharsInfoArray(string) {
-    return Array.from(string).map(
-        char => {
-            let digit = isDigit(char);
-            let letter = isLetter(char);
-            let symbol = !digit && !letter;
-            let upperCase = isUpperCase(char);
-            let lowerCase = isLowerCase(char);
-            let place = !letter ?
-                (symbol ? symbols.indexOf(char) : Number(char)) :
-                letters.indexOf(char.toLowerCase());
-
-
-            return { digit, letter, symbol, upperCase, lowerCase, place };
-        }
-    );
-}
-
-function getRepeatedCharsScore(password) {
     let uniquesCount = password.length;
-    return Array.from(password).reduce(
+    score -= Array.from(password).reduce(
         (inc, char, i) => {
             let delta = 0;
 
@@ -640,4 +647,6 @@ function getRepeatedCharsScore(password) {
         },
         0
     );
+
+    return clamp(score/100, 0, 1);
 }

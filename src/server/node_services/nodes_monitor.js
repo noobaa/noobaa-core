@@ -1259,41 +1259,7 @@ class NodesMonitor extends EventEmitter {
                 };
                 pools_data_map.set(pool_id, pool_data);
             }
-
-            // cannot use numbers as dclassify tokens only discrete strings,
-            // so we have to transform numbers to some relevant tokens
-            const tokens = [];
-            if (item.node.ip) {
-                const x = item.node.ip.split('.');
-                if (x.length === 4) {
-                    tokens.push('ip:' + x[0] + '.x.x.x');
-                    tokens.push('ip:' + x[0] + '.' + x[1] + '.x.x');
-                    tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.x');
-                    tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.' + x[3]);
-                }
-            }
-            if (item.node.os_info) {
-                tokens.push('platform:' + item.node.os_info.platform);
-                tokens.push('arch:' + item.node.os_info.arch);
-                tokens.push('totalmem:' + scale_size_token(item.node.os_info.totalmem));
-            }
-            if (_.isNumber(item.avg_ping)) {
-                tokens.push('avg_ping:' + scale_number_token(item.avg_ping));
-            }
-            if (_.isNumber(item.avg_disk_read)) {
-                tokens.push('avg_disk_read:' + scale_number_token(item.avg_disk_read));
-            }
-            if (_.isNumber(item.avg_disk_write)) {
-                tokens.push('avg_disk_write:' + scale_number_token(item.avg_disk_write));
-            }
-            if (item.node.storage && _.isNumber(item.node.storage.total)) {
-                const storage_other =
-                    item.node.storage.total -
-                    item.node.storage.used -
-                    item.node.storage.free;
-                tokens.push('storage_other:' + scale_size_token(storage_other));
-                tokens.push('storage_total:' + scale_size_token(item.node.storage.total));
-            }
+            const tokens = this._classify_node_tokens(item);
             pool_data.docs.push(new dclassify.Document(node_id, tokens));
         }
 
@@ -1339,6 +1305,44 @@ class NodesMonitor extends EventEmitter {
                 }
             }
         }
+    }
+
+    _classify_node_tokens(item) {
+        // cannot use numbers as dclassify tokens only discrete strings,
+        // so we have to transform numbers to some relevant tokens
+        const tokens = [];
+        if (item.node.ip) {
+            const x = item.node.ip.split('.');
+            if (x.length === 4) {
+                tokens.push('ip:' + x[0] + '.x.x.x');
+                tokens.push('ip:' + x[0] + '.' + x[1] + '.x.x');
+                tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.x');
+                tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.' + x[3]);
+            }
+        }
+        if (item.node.os_info) {
+            tokens.push('platform:' + item.node.os_info.platform);
+            tokens.push('arch:' + item.node.os_info.arch);
+            tokens.push('totalmem:' + scale_size_token(item.node.os_info.totalmem));
+        }
+        if (_.isNumber(item.avg_ping)) {
+            tokens.push('avg_ping:' + scale_number_token(item.avg_ping));
+        }
+        if (_.isNumber(item.avg_disk_read)) {
+            tokens.push('avg_disk_read:' + scale_number_token(item.avg_disk_read));
+        }
+        if (_.isNumber(item.avg_disk_write)) {
+            tokens.push('avg_disk_write:' + scale_number_token(item.avg_disk_write));
+        }
+        if (item.node.storage && _.isNumber(item.node.storage.total)) {
+            const storage_other =
+                item.node.storage.total -
+                item.node.storage.used -
+                item.node.storage.free;
+            tokens.push('storage_other:' + scale_size_token(storage_other));
+            tokens.push('storage_total:' + scale_size_token(item.node.storage.total));
+        }
+        return tokens;
     }
 
     list_nodes(query, options) {

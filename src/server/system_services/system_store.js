@@ -177,11 +177,14 @@ class SystemStoreData {
         return id ? this.idmap[String(id)] : null;
     }
 
+    //Return the mongo record (if found) and an indication if the
+    //object is linkable (not deleted) -> used in the activity log to link the
+    //various entities
     get_by_id_include_deleted(id, name) {
         const res = this.get_by_id(id);
         if (res) {
             return {
-                res: res,
+                record: res,
                 linkable: true
             };
         }
@@ -196,7 +199,7 @@ class SystemStoreData {
             .then(res => {
                 if (res) {
                     return {
-                        res: res,
+                        record: res,
                         linkable: false
                     };
                 } else {

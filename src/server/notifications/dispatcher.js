@@ -120,7 +120,7 @@ class Dispatcher {
             .then(() => {
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
-                    l.node.linkable = true;
+                    l.node.linkable = true; //Currently node can't be deleted
                 }
 
                 if (log_item.obj) {
@@ -130,36 +130,35 @@ class Dispatcher {
             })
             .then(tier => {
                 if (tier) {
-                    l.tier = _.pick(tier.res, 'name');
+                    l.tier = _.pick(tier.record, 'name');
                     l.tier.linkable = tier.linkable;
                 }
                 return P.resolve(log_item.bucket && system_store.data.get_by_id_include_deleted(log_item.bucket, 'buckets'));
             })
             .then(bucket => {
                 if (bucket) {
-                    l.bucket = _.pick(bucket.res, 'name');
+                    l.bucket = _.pick(bucket.record, 'name');
                     l.bucket.linkable = bucket.linkable;
                 }
                 return P.resolve(log_item.pool && system_store.data.get_by_id_include_deleted(log_item.pool, 'pools'));
             })
             .then(pool => {
                 if (pool) {
-                    l.pool = _.pick(pool.res, 'name');
+                    l.pool = _.pick(pool.record, 'name');
                     l.pool.linkable = pool.linkable;
                 }
                 return P.resolve(log_item.account && system_store.data.get_by_id_include_deleted(log_item.account, 'accounts'));
             })
             .then(account => {
                 if (account) {
-                    l.account = _.pick(account.res, 'email');
+                    l.account = _.pick(account.record, 'email');
                 }
                 return P.resolve(log_item.actor && system_store.data.get_by_id_include_deleted(log_item.actor, 'accounts'));
             })
             .then(actor => {
                 if (actor) {
-                    l.actor = _.pick(actor.res, 'email');
+                    l.actor = _.pick(actor.record, 'email');
                 }
-                console.warn('NBNB:: log_item', log_item, 'NBNB:: l', l);
                 return log_item;
             });
     }

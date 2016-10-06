@@ -7,6 +7,7 @@ const symbols = ')!@#$%^&*(';
 export function noop() {
 }
 
+// TODO: deprecate
 export function invokeAsync(f, ...params) {
     setTimeout(
         () => f(...params),
@@ -278,6 +279,7 @@ export function execInOrder(list, executer) {
     return result;
 }
 
+// TODO: deprecate
 export function defineEnum(...values) {
     return Object.freeze(
         values.reduce(
@@ -317,6 +319,7 @@ export function shortString(str, maxLength = 25, suffixLengh = 5) {
     }`;
 }
 
+// TODO: deprecate
 export function toOwnKeyValuePair(obj) {
     return Object.keys(obj)
         .map(
@@ -355,6 +358,7 @@ export function waitFor(miliseconds, value) {
     );
 }
 
+// TODO: deprecate
 export function areSame(a, b) {
     return a === b;
 }

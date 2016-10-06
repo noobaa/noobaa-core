@@ -51,7 +51,7 @@ class Agent {
         this.rpc = api.new_rpc(params.address);
         this.client = this.rpc.new_client();
 
-        this.servers = [{
+        this.servers = params.servers || [{
             address: params.address
         }];
 
@@ -195,6 +195,16 @@ class Agent {
         });
     }
 
+    _update_servers_list(new_list) {
+        let sorted_new = _.sortBy(new_list, srv => srv.address);
+        let sorted_old = _.sortBy(this.servers, srv => srv.address);
+        if (_.isEqual(sorted_new, sorted_old)) return P.resolve;
+        this.servers = new_list;
+        return this._update_agent_conf({
+            servers: this.servers
+        });
+    }
+
     _handle_server_change(suggested) {
         dbg.warn('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list', this.servers);
         this.connect_attempts = 0;
@@ -275,12 +285,14 @@ class Agent {
     }
 
     _do_heartbeat() {
+        const HB_RESPONSE_TIMEOUT = 60 * 1000; // 1 minute timeout for master to respond to HB
+        const HB_MAX_CONNECT_ATTEMPTS = 20;
         if (!this.is_started) return;
 
-        /*if (this.connect_attempts > 20) {
+        if (this.connect_attempts > HB_MAX_CONNECT_ATTEMPTS) {
             dbg.error('too many failure to connect, switching servers');
             return this._handle_server_change();
-        }*/
+        }
 
         let hb_info = {
             version: pkg.version
@@ -292,7 +304,9 @@ class Agent {
         }
         return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true
-            }).then(req => {
+            })
+            .timeout(HB_RESPONSE_TIMEOUT)
+            .then(req => {
                 this.connect_attempts = 0;
                 const res = req.reply;
                 const conn = req.connection;
@@ -420,6 +434,27 @@ class Agent {
         }
         // otherwise it's good
     }
+    _update_agent_conf(params) {
+        return fs.readFileAsync('agent_conf.json')
+            .then(data => {
+                const agent_conf = JSON.parse(data);
+                dbg.log0('_update_agent_conf: old values in agent_conf.json:', agent_conf);
+                return agent_conf;
+            }, err => {
+                if (err.code === 'ENOENT') {
+                    dbg.log0('_update_agent_conf: no agent_conf.json file. creating new one...');
+                    return {};
+                } else {
+                    throw err;
+                }
+            })
+            .then(agent_conf => {
+                _.assign(agent_conf, params);
+                const data = JSON.stringify(agent_conf);
+                dbg.log0('_update_agent_conf: writing new values to agent_conf.json:', agent_conf);
+                return fs.writeFileAsync('agent_conf.json', data);
+            });
+    }
 
     _update_rpc_config_internal(params) {
         if (params.n2n_config) {
@@ -440,24 +475,10 @@ class Agent {
             return P.fcall(() => this.client.node.ping(null, {
                     address: params.base_address
                 }))
-                .then(() => fs.readFileAsync('agent_conf.json')
-                    .then(data => {
-                        const agent_conf = JSON.parse(data);
-                        dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
-                        return agent_conf;
-                    }, err => {
-                        if (err.code === 'ENOENT') {
-                            dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
-                            return {};
-                        } else {
-                            throw err;
-                        }
-                    }))
-                .then(agent_conf => {
-                    agent_conf.address = params.base_address;
-                    const data = JSON.stringify(agent_conf);
-                    return fs.writeFileAsync('agent_conf.json', data);
-                })
+                // TODO: we need to handle the case when multiple agents (multidrive) try to update agent_conf
+                .then(() => this._update_agent_conf({
+                    address: params.base_address
+                }))
                 .then(() => {
                     dbg.log0('update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
@@ -484,7 +505,6 @@ class Agent {
         const extended_hb = true;
         const ip = ip_module.address();
         dbg.log('Recieved potential servers list', req.rpc_params.addresses);
-        this.servers = req.rpc_params.addresses;
         const reply = {
             version: pkg.version || '',
             name: this.node_name || '',
@@ -503,7 +523,7 @@ class Agent {
             reply.os_info = os_utils.os_info();
         }
 
-        return P.resolve()
+        return this._update_servers_list(req.rpc_params.addresses)
             .then(() => this.block_store.get_storage_info())
             .then(storage_info => {
                 dbg.log0('storage_info:', storage_info);

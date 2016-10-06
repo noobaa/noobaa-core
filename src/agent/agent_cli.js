@@ -555,6 +555,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
 
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
+            servers: self.params.servers,
             node_name: node_name,
             host_id: self.params.host_id,
             storage_path: node_path,

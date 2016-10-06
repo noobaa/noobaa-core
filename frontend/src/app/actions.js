@@ -1363,11 +1363,11 @@ export function downloadNodeDiagnosticPack(nodeName) {
         .done();
 }
 
-export function downloadServerDiagnosticPack(secret) {
-    logAction('downloadServerDiagnosticPack', { secret });
+export function downloadServerDiagnosticPack(target_secret) {
+    logAction('downloadServerDiagnosticPack', { target_secret });
 
     notify('Collecting data... might take a while');
-    api.cluster_server.diagnose_system(secret)
+    api.cluster_server.diagnose_system(target_secret)
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');
@@ -1421,10 +1421,10 @@ export function setNodeDebugLevel(node, level) {
         .done();
 }
 
-export function setServerDebugLevel(secret, hostname, level){
-    logAction('setServerDebugLevel', { secret, hostname, level });
+export function setServerDebugLevel(target_secret, hostname, level){
+    logAction('setServerDebugLevel', { target_secret, hostname, level });
 
-    api.cluster_server.set_debug_level({ secret, level })
+    api.cluster_server.set_debug_level({ target_secret, level })
         .then(
             () => notify(
                 `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${hostname}`,

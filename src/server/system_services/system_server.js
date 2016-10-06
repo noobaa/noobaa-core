@@ -898,6 +898,7 @@ function update_hostname(req) {
             if (!req.rpc_params.hostname || regExp.test(req.rpc_params.hostname)) {
                 return;
             }
+            // Use defaults to add dns_name property without altering the original request
             return attempt_dns_resolve(_.defaults({
                     rpc_params: {
                         dns_name: req.rpc_params.hostname

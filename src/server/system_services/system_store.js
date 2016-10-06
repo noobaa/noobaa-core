@@ -179,15 +179,30 @@ class SystemStoreData {
 
     get_by_id_include_deleted(id, name) {
         const res = this.get_by_id(id);
-        if (res) return res;
+        if (res) {
+            return {
+                res: res,
+                linkable: true
+            };
+        }
         //Query deleted !== null
         const collection = mongo_client.instance().db.collection(name);
         return P.resolve(collection.findOne({
-            _id: id,
-            deleted: {
-                $ne: null
-            }
-        }));
+                _id: id,
+                deleted: {
+                    $ne: null
+                }
+            }))
+            .then(res => {
+                if (res) {
+                    return {
+                        res: res,
+                        linkable: false
+                    };
+                } else {
+                    return;
+                }
+            });
     }
 
     resolve_object_ids_paths(item, paths, allow_missing) {

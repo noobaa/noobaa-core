@@ -83,8 +83,21 @@ class CreateSystemFormViewModel extends Disposable {
                 includesDigit: true
             });
 
+        this.isPasswordValid = ko.pureComputed(
+            () => this.password() && this.password.isValid()
+        ).extend({
+            equal: {
+                params: true,
+                message: 'Please enter a valid password'
+            },
+            isModified: this.password.isModified
+        });
+
         this.passwordValidations = ko.pureComputed(
             () => ko.validation.fullValidationState(this.password)()
+                .filter(
+                    validator => validator.rule !== 'required'
+                )
                 .map(
                     validator => ({
                         message: validator.message,

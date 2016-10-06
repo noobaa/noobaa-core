@@ -437,11 +437,12 @@ export function tweenColors(ratio, ...colors){
     }
 
     let scaledRatio = ratio * (colors.length - 1);
-    let i = scaledRatio | 0;
-    let tweenValue = scaledRatio - i;
+    let lowerBound = Math.floor(scaledRatio);
+    let upperBound = Math.ceil(scaledRatio);
+    let tweenValue = scaledRatio - lowerBound;
 
-    let [r1, g1, b1] = getColorChannels(colors[i]);
-    let [r2, g2, b2] = getColorChannels(colors[i + 1]);
+    let [r1, g1, b1] = getColorChannels(colors[lowerBound]);
+    let [r2, g2, b2] = getColorChannels(colors[upperBound]);
 
     let r = ((r1 + (r2 - r1) * tweenValue) | 0);
     let g = ((g1 + (g2 - g1) * tweenValue) | 0);

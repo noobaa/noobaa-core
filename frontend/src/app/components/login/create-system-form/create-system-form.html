@@ -33,15 +33,16 @@
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
-                <editor params="
-                    label: 'Password',
-                    insertValMessages: false
-                ">
-                    <password-field params="
+                <editor class="push-next" params="label: 'Password'">
+                    <password-field data-bind="
+                        validationOptions: { insertMessages: false }
+                    " params="
                         value: password,
                         placeholder: 'enter password',
                         strengthCalc: calcPasswordStrenght
                     "></password-field>
+
+                    <input type="hidden"  data-bind="value: isPasswordValid" />
                 </editor>
 
                 <ul class="bullet-list remark" data-bind="

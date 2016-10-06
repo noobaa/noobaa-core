@@ -240,10 +240,12 @@ class NodesMonitor extends EventEmitter {
 
     // test the passed node id, to verify that it's a valid node
     test_node_id(req) {
+        this._throw_if_not_started_and_loaded();
         const extra = req.auth.extra || {};
         const node_id = String(extra.node_id || '');
         if (!node_id) {
             dbg.log0('test_node_id: OK without node_id',
+                'auth', req.auth,
                 'from', req.connection.connid);
             return true;
         }
@@ -251,10 +253,12 @@ class NodesMonitor extends EventEmitter {
         if (item) {
             dbg.log0('test_node_id: OK node_id', node_id,
                 'node', item.node.name,
+                'auth', req.auth,
                 'from', req.connection.connid);
             return true;
         }
         dbg.warn('test_node_id: INVALID node_id', node_id,
+            'auth', req.auth,
             'from', req.connection.connid);
         return false;
     }

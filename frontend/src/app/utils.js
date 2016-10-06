@@ -488,7 +488,6 @@ export function calcPasswordStrenght(password) {
         }
     );
 
-
     let score = 0;
 
     //  Number of Characters : +(n*4)
@@ -563,7 +562,8 @@ export function calcPasswordStrenght(password) {
         (inc, currInfo, i) => {
             if(i < 1) return inc;
 
-            return inc + Number(currInfo.digit && charsInfo[i - 1].digit) * 2;
+            let lastChar = charsInfo[i - 1];
+            return inc + Number(currInfo.digit && lastChar.digit) * 2;
         },
         0
     );

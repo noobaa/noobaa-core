@@ -1,11 +1,25 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import numeral from 'numeral';
 import { deepFreeze } from 'utils';
 
-const stateMapping = deepFreeze({
-    true: { text: 'connected', css: 'success' },
-    false: { text: 'disconnected', css: 'error' }
+const stateIconMapping = deepFreeze({
+    CONNECTED: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    },
+
+    IN_PROGRESS: {
+        name: 'in-progress',
+        css: 'warning',
+        tooltip: 'In Progress'
+    },
+
+    DISCONNECTED: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Problem'
+    }
 });
 
 export default class ServerRowViewModel extends Disposable {
@@ -13,7 +27,7 @@ export default class ServerRowViewModel extends Disposable {
         super();
 
         this.state = ko.pureComputed(
-            () => server() ? stateMapping[server().is_connected] : ''
+            () => server() ? stateIconMapping[server().status] : ''
         );
 
         this.hostname = ko.pureComputed(
@@ -25,19 +39,41 @@ export default class ServerRowViewModel extends Disposable {
         );
 
         this.memoryUsage = ko.pureComputed(
-            () => server() ? numeral(server().memory_usage).format('%') : 'N/A'
-        );
+            () => server().memory_usage
+        ).extend({
+            formatNumber: { format: '%' }
+        });
 
         this.cpuUsage = ko.pureComputed(
-            () => server() ? numeral(server().cpu_usage).format('%') : 'N/A'
-        );
+            () => server().cpu_usage
+        ).extend({
+            formatNumber: { format: '%' }
+        });
 
         this.version = ko.pureComputed(
             () => server() ? server().version : 'N/A'
         );
 
-        this.actions = ko.pureComputed(
+        this.secret = ko.pureComputed(
             () => server() && server().secret
+        );
+
+        this.primaryDNS = ko.pureComputed(
+            () => (server() && server().dns_servers[0]) || 'Not set'
+        );
+
+        this.secondaryDNS = ko.pureComputed(
+            () => (server() && server().dns_servers[1]) || 'Not set'
+        );
+
+        this.timeConfig = ko.pureComputed(
+            () => {
+                let ntpServer = server() && server().ntp_server;
+
+                return ntpServer ?
+                    `Using NTP server at ${ntpServer}` :
+                    'Using local serve time';
+            }
         );
     }
 }

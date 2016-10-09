@@ -2,12 +2,11 @@
 #this script installs the service on linux systems.
 #first we find the newest init mechanism, then we install
 echo "installing NooBaa"
+echo $(date)
 PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
-
 chmod 777 /usr/local/noobaa/remove_service.sh
-/usr/local/noobaa/remove_service.sh &> /dev/null
-
+/usr/local/noobaa/remove_service.sh
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
   cp /usr/local/noobaa/src/agent/system_d.conf /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service

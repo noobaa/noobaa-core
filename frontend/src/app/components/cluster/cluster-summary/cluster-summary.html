@@ -1,31 +1,58 @@
-<section class="c6 column">
-    <h3 class="heading3 push-next">Cluster status</h3>
-    <div class="row push-next">
-        <span class="c3">Highly avaliable:</span>
-        <span data-bind="text: highlyAvaliable"></span>
-    </div>
-
-    <div class="row">
-        <span class="c3">Fault tolerance:</span>
-        <span data-bind="text: faultTolerance"></span>
-    </div>
-</section>
-
-<vr></vr>
-
-<section class="c6 column">
-    <h3 class="heading3 push-next">
-        Servers in cluster:
-        <span data-bind="text: serverCount"></span>
-    </h3>
-    <div class="row">
-        <div class="push-next">
-            <span class="success">Connected:</span>
-            <span data-bind="text: connectedCount"></span>
+<div class="row">
+    <section class="c3 column borders pad">
+        <div class="row greedy content-middle">
+            <svg-icon class="push-next success" params="name: 'healthy'"></svg-icon>
+            <span class="heading3">Healthy</span>
         </div>
-        <div>
-            <span class="error">Disconnected:</span>
-            <span data-bind="text: disconnectedCount"></span>
+
+        <hr>
+
+        <div class="row greedy content-middle">
+            <span class="c5 highlight push-next">H/A Status:</span>
+            <span class="c7" data-bind="text: HAStatus"></span>
         </div>
-    </div>
-</section>
+
+        <hr>
+
+        <div class="row greedy content-middle">
+            <span class="c5 highlight push-next">Fault Tolerance:</span>
+            <span class="c7" data-bind="text: faultTolerance"></span>
+        </div>
+    </section>
+
+    <section class="c6 column push-both">
+        <pie-chart class="align-middle" params="
+            values: chartValues,
+            primaryText: connectedPercentage,
+            secondaryText: 'Connected'
+        "></pie-chart>
+    </section>
+
+    <section class="c3 column pad borders">
+        <div class="row greedy content-middle">
+            <span class="c5 highlight push-next">Servers:</span>
+            <span class="c7 text-right" data-bind="text: serverCount"></span>
+        </div>
+
+        <hr>
+
+        <div class="row greedy content-middle">
+            <span class="c5 highlight push-next">Connected:</span>
+            <span class="c7 text-right" data-bind="text: connectedCount"></span>
+        </div>
+
+        <hr>
+
+        <div class="row greedy content-middle">
+            <span class="c5 highlight push-next">Disconnected:</span>
+            <span  class="c7 text-right" data-bind="text: disconnectedCount"></span>
+        </div>
+
+        <hr>
+
+        <div class="row greedy content-middle">
+            <span class="c5 highlight push-next">In Process:</span>
+            <span class="c7 text-right" data-bind="text: inProcessCount"></span>
+        </div>
+    </section>
+</div>

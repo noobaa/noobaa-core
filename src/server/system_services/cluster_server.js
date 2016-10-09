@@ -22,6 +22,7 @@ const url = require('url');
 const upgrade_utils = require('../../util/upgrade_utils');
 const request = require('request');
 const dns = require('dns');
+const cluster_hb = require('../bg_services/cluster_hb');
 
 function _init() {
     return P.resolve(MongoCtrl.init());
@@ -109,11 +110,16 @@ function add_member_to_cluster(req) {
             console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
             throw new Error('Failed adding members to cluster');
         })
+        // TODO: solve in a better way
+        // added this delay, otherwise the next system_store.load doesn't catch the new servers HB
+        .delay(500)
         .then(function() {
             dbg.log0('Added member', req.rpc_params.address, 'to cluster. New topology',
                 cutil.pretty_topology(cutil.get_topology()));
-            return;
-        });
+            // reload system_store to update after new member HB
+            return system_store.load();
+        })
+        .return();
 }
 
 
@@ -173,6 +179,10 @@ function join_to_cluster(req) {
             //Mongo servers are up, update entire cluster with the new topology
             return _publish_to_cluster('news_updated_topology', topology_to_send);
         })
+        // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
+        .then(() => cluster_hb.do_heartbeat())
+        // restart bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
+        .then(() => _restart_services())
         .return();
 }
 
@@ -416,6 +426,13 @@ function apply_set_debug_level(req) {
         .return();
 }
 
+function _restart_services() {
+    // set timeout to restart services in 1 second
+    setTimeout(() => {
+        promise_utils.exec('supervisorctl restart s3rver bg_workers');
+    }, 1000);
+}
+
 
 function _set_debug_level_internal(req, level) {
     dbg.log0('Recieved _set_debug_level_internal req', req.rpc_params, 'With Level', level);
@@ -624,11 +641,11 @@ function do_upgrade(req) {
 function upgrade_cluster(req) {
     dbg.log0('UPGRADE got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
     // get all cluster members other than the master
-    let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== os_utils.get_local_ipv4_ips()[0]);
+    let cinfo = system_store.get_local_cluster_info();
+    let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== cinfo.owner_address);
     dbg.log0('UPGRADE:', 'secondaries =', secondary_members);
     // upgrade can only be called from master. throw error otherwise
     return P.fcall(() => {
-            let cinfo = system_store.get_local_cluster_info();
             if (cinfo.is_clusterized) {
                 return MongoCtrl.is_master();
             }

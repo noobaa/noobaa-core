@@ -31,6 +31,7 @@ const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const moment = require('moment');
+const promise_utils = require('../../util/promise_utils');
 
 /**
  *
@@ -599,61 +600,147 @@ function delete_multiple_objects_by_prefix(req) {
         })
         .return();
 }
-/**
- * return a regexp pattern to be appended to a prefix
- * to make it match "prefix/file" or "prefix/dir/"
- * but with a custom delimiter instead of /
- * @param delimiter - a single character.
- */
-function one_level_delimiter(delimiter) {
-    var d = string_utils.escapeRegExp(delimiter[0]);
-    return '[^' + d + ']*' + d + '?$';
+
+
+// /**
+//  * return a regexp pattern to be appended to a prefix
+//  * to make it match "prefix/file" or "prefix/dir/"
+//  * but with a custom delimiter instead of /
+//  * @param delimiter - a single character.
+//  */
+// function one_level_delimiter(delimiter) {
+//     var d = string_utils.escapeRegExp(delimiter[0]);
+//     return '[^' + d + ']*' + d + '?$';
+// }
+//
+// /**
+//  * common case is / as delimiter
+//  */
+// var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
+//
+
+// The method list_objects_s3 is used for s3 access exclusively
+// Read: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
+// TODO: Currently we implement v1 of list-objects need to implement v2 as well
+// There are two main ways to store objects inside folders:
+// First way (mainly used by Cyberduck) - The objects are stored inside folders
+// In this case Cyberduck will create an empty "object" (size 0) for each folder
+// So to upload /tmp/object.mp4, Cyberduck will upload 0 sized object with key tmp/
+// And afterwards upload an object with the key /tmp/object.mp4, which will have the content
+// Second way - The objects are stored inside folders but we don't create the folders
+// In this case we just upload the objects and write the folder hierarchy in it's key
+// So to we just upload a file with key /tmp/object.mp4 and the list_objects will resolve it
+function list_objects_s3(req) {
+    dbg.log0('list_objects_s3', req.rpc_params);
+    // Prefix mainly used as a folder name, in order to get all objects/prefixes inside that folder
+    // Notice that the prefix can also be used as a searching tool among objects (not only folder)
+    var prefix = req.rpc_params.prefix || '';
+    // The delimiter is usually '/', this describes how we should handle the folder hierarchy
+    var delimiter = req.rpc_params.delimiter || '';
+    // Last object's key that was received from list-objects last call (when truncated)
+    // This is used in order to continue from a certain key when the response is truncated
+    var marker = prefix + (req.rpc_params.key_marker || '');
+    var limit = req.rpc_params.limit || 1000;
+    // ********* Important!!! *********
+    // Notice that we add 1 to the limit.
+    // This addition will be used in order to know if the response if truncated or not
+    // Which means that we will always query 1 additional object/prefix and then cut it in response
+    limit += 1;
+    var results = [];
+    var reply = {
+        is_truncated: false,
+        objects: [],
+        common_prefixes: []
+    };
+    load_bucket(req);
+    var done = false;
+    return promise_utils.pwhile(
+            function() {
+                return !done;
+            },
+            function() {
+                return P.fcall(() => {
+                        return _list_next_objects(req, delimiter, prefix, marker, limit);
+                    })
+                    .then(res => {
+                        results = _.concat(results, res);
+                        // This is the case when there are no more objects that apply to the query
+                        if (_.get(res, 'length', 0) === 0) {
+                            // If there were no object/common prefixes to match then no next marker
+                            reply.next_marker = marker;
+                            done = true;
+                        } else if (results.length >= limit) {
+                            // This is the case when the number of objects that apply to the query
+                            // Exceeds the number of objects that we've requested (max-keys)
+                            // Thus we must cut the additional object (as mentioned above we request
+                            // one more key in order to know if the response is truncated or not)
+                            // In order to reply with the right amount of objects and prefixes
+                            results = results.slice(0, limit - 1);
+                            reply.is_truncated = true;
+                            // Marking the object/prefix that we've stopped on
+                            // Notice: THIS IS THE LAST OBJECT AFTER THE POP
+                            reply.next_marker = results[results.length - 1].key;
+                            done = true;
+                        } else {
+                            // In this case we did not reach the end yet
+                            marker = res[res.length - 1].key;
+                        }
+                    });
+            })
+        .then(() => {
+            // Fetching common prefixes and returning them in appropriate property
+            reply.common_prefixes = _.compact(_.map(results, result => {
+                if (!result.info) {
+                    return result.key;
+                }
+            }));
+
+            // Creating set of prefixes for an efficient look up
+            let prefixes_set = new Set(reply.common_prefixes);
+            // Filtering all of the prefixes and returning only objects
+            reply.objects = _.filter(results, obj => !prefixes_set.has(obj.key));
+
+            return reply;
+        });
 }
 
-/**
- * common case is / as delimiter
- */
-var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
+function _list_next_objects(req, delimiter, prefix, marker, limit) {
+    // filter keys starting with prefix, *not* followed by marker
+    var regexp_text = '^' + prefix;
+    if (marker) {
+        if (!marker.startsWith(prefix)) {
+            throw new Error('BAD MARKER ' + marker + ' FOR PREFIX ' + prefix);
+        }
+        var marker_suffix = marker.slice(prefix.length);
+        if (marker_suffix) {
+            regexp_text += '(?!' + marker_suffix + ')';
+        }
+    }
+    var regexp = new RegExp(regexp_text);
 
-
-/**
- *
- * LIST_OBJECTS
- *
- */
-function list_objects(req) {
-    dbg.log0('list_objects', req.rpc_params);
-    var prefix = req.rpc_params.prefix || '';
-    let escaped_prefix = string_utils.escapeRegExp(prefix);
-    var delimiter = req.rpc_params.delimiter || '';
-    load_bucket(req);
     return P.fcall(() => {
-            var info = _.omit(object_md_query(req), 'key');
-            var common_prefixes_query;
+        let query = {
+            system: req.system._id,
+            bucket: req.bucket._id,
+            key: {
+                $regex: regexp,
+                $gt: marker
+            },
+            deleted: null,
+            upload_size: {
+                $exists: req.rpc_params.upload_mode || false
+            }
+        };
 
-            if (delimiter) {
-                // find objects that match "prefix***" or "prefix***/"
-                let one_level = delimiter !== '/' ?
-                    one_level_delimiter(delimiter) :
-                    ONE_LEVEL_SLASH_DELIMITER;
-                info.key = new RegExp('^' + escaped_prefix + one_level);
-
-                // we need another query to find common prefixes
-                // we go over objects with key that starts with prefix
-                // and only emit the next level delimited part of the key
-                // for example with prefix /Users/ and key /Users/tumtum/shlumper
-                // the emitted key will be just tumtum.
-                // this is used by s3 protocol to return folder structure
-                // even if there is no explicit empty object with the folder name.
-                common_prefixes_query = md_store.ObjectMD.collection.mapReduce(
-                    mongo_functions.map_key_with_prefix_delimiter,
-                    mongo_functions.reduce_noop, {
-                        query: {
-                            system: req.system._id,
-                            bucket: req.bucket._id,
-                            key: new RegExp('^' + escaped_prefix),
-                            deleted: null
+        if (delimiter) {
+            return md_store.ObjectMD.collection.mapReduce(
+                    mongo_functions.map_common_prefixes_and_objects,
+                    mongo_functions.reduce_common_prefixes_occurrence_and_objects, {
+                        query: query,
+                        sort: {
+                            key: 1
                         },
+                        limit: limit,
                         scope: {
                             prefix: prefix,
                             delimiter: delimiter,
@@ -661,8 +748,49 @@ function list_objects(req) {
                         out: {
                             inline: 1
                         }
+                    })
+                .then(res => {
+                    return _.map(res, obj => {
+                        if (_.isObject(obj.value)) {
+                            let obj_value = get_object_info(obj.value);
+                            return {
+                                key: obj_value.key,
+                                info: obj_value
+                            };
+                        } else {
+                            return {
+                                key: prefix + obj._id,
+                            };
+                        }
                     });
-            } else if (prefix) {
+                });
+        } else {
+            var find = md_store.ObjectMD.find(query);
+            if (limit) {
+                find.limit(limit);
+            }
+            find.sort({
+                key: 1
+            });
+            return find.lean().exec()
+                .then(res => {
+                    return _.map(res, obj => ({
+                        key: obj.key,
+                        info: get_object_info(obj)
+                    }));
+                });
+        }
+    });
+}
+
+function list_objects(req) {
+    dbg.log0('list_objects', req.rpc_params);
+    var prefix = req.rpc_params.prefix || '';
+    let escaped_prefix = string_utils.escapeRegExp(prefix);
+    load_bucket(req);
+    return P.fcall(() => {
+            var info = _.omit(object_md_query(req), 'key');
+            if (prefix) {
                 info.key = new RegExp('^' + escaped_prefix);
                 if (req.rpc_params.create_time) {
                     let creation_date = moment.unix(req.rpc_params.create_time).toISOString();
@@ -676,11 +804,9 @@ function list_objects(req) {
                 info.key = new RegExp(req.rpc_params.key_regexp);
             } else if (req.rpc_params.key_glob) {
                 info.key = glob_to_regexp(req.rpc_params.key_glob);
-            } else if (req.rpc_params.key_prefix) {
-                info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
             }
 
-            // TODO: Should look at the upload_size or create_time?
+            // TODO: Should look at the upload_size or upload_completed?
             // allow filtering of uploading/non-uploading objects
             if (typeof(req.rpc_params.upload_mode) === 'boolean') {
                 info.upload_size = {
@@ -708,36 +834,16 @@ function list_objects(req) {
 
             return P.join(
                 find.exec(),
-                req.rpc_params.pagination && md_store.ObjectMD.count(info),
-                common_prefixes_query
+                req.rpc_params.pagination && md_store.ObjectMD.count(info)
             );
         })
-        .spread(function(objects, total_count, common_prefixes_res) {
+        .spread(function(objects, total_count) {
             let res = {};
-            let prefix_map;
-            let should_compact_objects = false;
-            if (common_prefixes_res) {
-                prefix_map = _.keyBy(common_prefixes_res, r => prefix + r._id + delimiter);
-                res.common_prefixes = _.keys(prefix_map);
-            } else {
-                prefix_map = {};
-            }
-            res.objects = _.map(objects, obj => {
-                if (obj.key in prefix_map) {
-                    // we filter out objects that are folder placeholders
-                    // which means that have size 0 and already included as prefixes
-                    // this is to avoid showing them as duplicates
-                    should_compact_objects = true;
-                    return;
-                }
-                return {
-                    key: obj.key,
-                    info: get_object_info(obj),
-                };
-            });
-            if (should_compact_objects) {
-                res.objects = _.compact(res.objects);
-            }
+            res.objects = _.map(objects, obj => ({
+                key: obj.key,
+                info: get_object_info(obj),
+            }));
+
             if (req.rpc_params.pagination) {
                 res.total_count = total_count;
             }
@@ -1030,5 +1136,6 @@ exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
 exports.delete_multiple_objects_by_prefix = delete_multiple_objects_by_prefix;
 exports.list_objects = list_objects;
+exports.list_objects_s3 = list_objects_s3;
 // cloud sync related
 exports.set_all_files_for_sync = set_all_files_for_sync;

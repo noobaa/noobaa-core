@@ -122,7 +122,7 @@ class Agent {
         // AGENT API methods - bind to self
         // (rpc registration requires bound functions)
         js_utils.self_bind(this, [
-            'get_agent_info',
+            'get_agent_info_and_update_masters',
             'update_auth_token',
             'update_rpc_config',
             'n2n_signal',
@@ -196,20 +196,26 @@ class Agent {
     }
 
     _handle_server_change(suggested) {
-        dbg.warn('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list', this.servers);
+        dbg.warn('_handle_server_change',
+            suggested ?
+            'suggested server ' + suggested :
+            'no suggested server, trying next in list',
+            this.servers);
         this.connect_attempts = 0;
         if (!this.servers.length) {
             dbg.error('_handle_server_change no server list');
-            return;
+            return P.resolve();
         }
         const previous_address = this.servers[0].address;
+        dbg.log0('previous_address =', previous_address);
+        dbg.log0('original servers list =', this.servers);
         if (suggested) {
             //Find if the suggested server appears in the list we got from the initial connect
             const current_server = _.remove(this.servers, function(srv) {
                 return srv.address === suggested;
             });
             if (current_server[0]) {
-                this.servers.unshift(current_server);
+                this.servers.unshift(current_server[0]);
             } else {
                 this.servers.push(this.servers.shift());
             }
@@ -217,11 +223,12 @@ class Agent {
             //Skip to the next server in list
             this.servers.push(this.servers.shift());
         }
+        dbg.log0('new servers list =', this.servers);
         dbg.log('Chosen new address', this.servers[0].address, this.servers);
-        return P.resolve(this._update_rpc_config_internal({
+        return this._update_rpc_config_internal({
             base_address: this.servers[0].address,
             old_base_address: previous_address,
-        }));
+        });
     }
 
     _init_node() {
@@ -295,7 +302,11 @@ class Agent {
                 const conn = req.connection;
                 this._server_connection = conn;
                 if (res.redirect) {
-                    return this._handle_server_change(res.redirect);
+                    dbg.log0('got redirect response:', res.redirect);
+                    return this._handle_server_change(res.redirect)
+                        .then(() => {
+                            throw new Error('redirect to ' + res.redirect);
+                        });
                 }
                 if (res.version !== pkg.version) {
                     dbg.warn('exit on version change:',
@@ -313,11 +324,20 @@ class Agent {
             .catch(err => {
                 dbg.error('heartbeat failed', err);
                 if (err.rpc_code === 'DUPLICATE') {
-                    dbg.error('This agent appears to be duplicated. exiting and starting new agent', err);
+                    dbg.error('This agent appears to be duplicated.',
+                        'exiting and starting new agent', err);
                     process.exit(68); // 68 is 'D' in ascii
                 }
+                if (err.rpc_code === 'NODE_NOT_FOUND') {
+                    // we want to reuse the agent_cli INVALID_NODE handling,
+                    // but the fastest way to get there is restart the process,
+                    // maybe better to reuse the code path instead.
+                    dbg.error('This agent appears to be using an old token.',
+                        'restarting to handle invalid node', err);
+                    process.exit(0);
+                }
                 return P.delay(3000).then(() => {
-                    this.connect_attempts++;
+                    this.connect_attempts += 1;
                     this._do_heartbeat();
                 });
 
@@ -458,6 +478,8 @@ class Agent {
                     this._do_heartbeat();
                 });
         }
+
+        return P.resolve();
     }
 
     _fix_storage_limit(storage_info) {
@@ -549,14 +571,17 @@ class Agent {
 
     update_auth_token(req) {
         const auth_token = req.rpc_params.auth_token;
+        dbg.log0('update_auth_token: received new token');
         return P.resolve()
             .then(() => {
                 if (this.storage_path) {
                     const token_path = path.join(this.storage_path, 'token');
+                    dbg.log0('update_auth_token: write new token', token_path);
                     return fs.writeFileAsync(token_path, auth_token);
                 }
             })
             .then(() => {
+                dbg.log0('update_auth_token: using new token');
                 this.client.options.auth_token = auth_token;
             });
     }

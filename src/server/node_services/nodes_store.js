@@ -54,6 +54,7 @@ class NodesStore {
         mongo_client.instance().define_collection(NODES_COLLECTION);
         this._json_validator = new Ajv({
             formats: {
+                date: schema_utils.date_format,
                 idate: schema_utils.idate_format,
                 objectid: val => mongo_utils.is_object_id(val)
             }
@@ -113,7 +114,9 @@ class NodesStore {
         const bulk = this.collection().initializeUnorderedBulkOp();
         let num_update = 0;
         let num_insert = 0;
+        const nodes_to_store = new Map();
         for (const item of items) {
+            nodes_to_store.set(item, _.cloneDeep(item.node));
             if (item.node_from_store) {
                 this.validate(item.node);
                 const diff = mongo_utils.make_object_diff(
@@ -128,11 +131,65 @@ class NodesStore {
                 num_insert += 1;
             }
         }
-        if (!num_update && !num_insert) return;
+        if (!num_update && !num_insert) {
+            return {
+                updated: null,
+                failed: null
+            };
+        }
         dbg.log0('bulk_update:',
             'executing bulk with', num_update, 'updates',
             'and', num_insert, 'inserts');
-        return P.resolve(bulk.execute());
+        return P.resolve()
+            .then(() => new P(resolve => {
+                // execute returns both the err and a result with details on the error
+                // we use the result with details for fine grain error handling per bulk item
+                // returning which items were updated and which failed
+                // but in any case we always resolve the promise and not rejecting
+                bulk.execute((err, result) => {
+                    if (result.getWriteConcernError()) {
+                        dbg.warn('bulk_update: WriteConcernError', result.getWriteConcernError());
+                        return resolve({
+                            updated: null,
+                            failed: items
+                        });
+                    }
+                    if (result.hasWriteErrors()) {
+                        const failed = _.map(result.getWriteErrors(), e => items[e.index]);
+                        dbg.warn('bulk_update:', result.getWriteErrorCount(), 'WriteErrors',
+                            _.map(result.getWriteErrors(), e => ({
+                                code: e.code,
+                                index: e.index,
+                                errmsg: e.errmsg,
+                                item: items[e.index]
+                            })));
+                        return resolve({
+                            updated: _.difference(items, failed),
+                            failed: failed
+                        });
+                    }
+                    if (err) {
+                        dbg.warn('bulk_update: ERROR', err);
+                        return resolve({
+                            updated: null,
+                            failed: items
+                        });
+                    }
+                    dbg.log0('bulk_update: success', _.pick(result, 'nInserted', 'nModified'));
+                    return resolve({
+                        updated: items,
+                        failed: null
+                    });
+                });
+            }))
+            .then(res => {
+                if (res.updated) {
+                    for (const item of res.updated) {
+                        item.node_from_store = nodes_to_store.get(item);
+                    }
+                }
+                return res;
+            });
     }
 
 

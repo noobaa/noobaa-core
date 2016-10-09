@@ -165,6 +165,8 @@ mocha.describe('system_servers', function() {
             .then(() => client.node.list_nodes({}))
             .then(res => {
                 nodes_list = res.nodes;
+                console.log('nodes_list', _.map(nodes_list, 'name'));
+                assert.strictEqual(nodes_list.length, 6);
             })
             .then(() => client.pool.create_nodes_pool({
                 name: POOL,

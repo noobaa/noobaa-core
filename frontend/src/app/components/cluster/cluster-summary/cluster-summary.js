@@ -2,6 +2,7 @@ import template from './cluster-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
+import style from 'style';
 
 class ClusterSummaryViewModel extends Disposable{
     constructor() {
@@ -11,41 +12,72 @@ class ClusterSummaryViewModel extends Disposable{
             () => systemInfo() && systemInfo().cluster.shards[0]
         );
 
-        this.serverCount = ko.pureComputed(
-            () => shard() && shard().servers.length
+        let servers = ko.pureComputed(
+            () => shard() ? shard().servers : []
         );
 
-        this.highlyAvaliable = ko.pureComputed(
-            () => shard() && (
-                shard().high_availabilty ? 'Yes' : 'No'
-            )
+
+        this.serverCount = ko.pureComputed(
+            () => servers().length
+        );
+
+        this.HAStatus = ko.pureComputed(
+            () => (shard() && shard().high_availabilty) ?
+                'Highly Available' :
+                'Not Highly Available'
         );
 
         this.faultTolerance = ko.pureComputed(
             () => {
-                if (!shard()) {
-                    return;
-                }
-
                 let tolerance = this.serverCount() / 3 | 0;
 
                 return tolerance > 0 ?
                     `${tolerance} server${tolerance > 1 ? 's' : ''}` :
-                    'No tolerance';
+                    'No Tolerance';
             }
         );
 
         this.connectedCount = ko.pureComputed(
-            () => shard() && shard().servers
+            () => servers()
                 .filter(
-                    server => server.is_connected
+                    server => server.status === 'CONNECTED'
                 )
                 .length
         );
 
-        this.disconnectedCount = ko.pureComputed(
-            () => shard() && this.serverCount() - this.connectedCount()
+        this.inProcessCount = ko.pureComputed(
+            () => servers()
+                .filter(
+                    server => server.status === 'IN_PROGREES'
+                ).length
         );
+
+        this.disconnectedCount = ko.pureComputed(
+            () => servers()
+                .filter(
+                    server => server.status === 'DISCONNECTED'
+                ).length
+        );
+
+
+        this.chartValues = [
+            {
+                label: 'Used (this bucket)',
+                color: style['color13'],
+                value: this.connectedCount
+            },
+            {
+                label: 'Potential available',
+                color: style['color5'],
+                value: this.disconnectedCount
+            }
+        ];
+
+        this.connectedPercentage = ko.pureComputed(
+            () => this.connectedCount() / this.serverCount()
+        ).extend({
+            formatNumber: { format: '%' }
+        });
     }
 }
 

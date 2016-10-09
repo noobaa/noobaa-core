@@ -18,6 +18,7 @@ function upgrade() {
     upgrade_cluster();
     upgrade_system_access_keys();
     upgrade_object_mds();
+    remove_unnamed_nodes();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -43,14 +44,19 @@ function sync_cluster_upgrade() {
         var max_iterations = 100;
         var i = 0;
         while (i < max_iterations) {
+            print('waiting for master to complete mongo upgrade...');
             i += 1;
-            var master_status = db.clusters.find({
-                "upgrade.mongo_upgrade": true
-            }).toArray()[0].upgrade.status;
-            if (master_status === 'COMPLETED') {
-                print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
-                mark_completed();
-                quit();
+            try {
+                var master_status = db.clusters.find({
+                    "upgrade.mongo_upgrade": true
+                }).toArray()[0].upgrade.status;
+                if (master_status === 'COMPLETED') {
+                    print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
+                    mark_completed();
+                    quit();
+                }
+            } catch (err) {
+                print(err);
             }
             sleep(10000);
         }
@@ -393,4 +399,35 @@ function upgrade_object_mds() {
             }
         });
     });
+}
+
+function remove_unnamed_nodes() {
+    var nodes_ids_to_delete = [];
+    db.nodes.find({
+            name: /^a-node-has-no-name-/
+        })
+        .forEach(function(node) {
+            print('remove_unnamed_nodes: Checking blocks for',
+                node.name, node._id, 'system', node.system);
+            var num_blocks = db.datablocks.count({
+                system: node.system,
+                node: node._id,
+                deleted: null
+            });
+            if (num_blocks > 0) {
+                print('remove_unnamed_nodes: Found', num_blocks, 'blocks (!!!)',
+                    node.name, node._id, 'system', node.system);
+            } else {
+                print('remove_unnamed_nodes: Deleting node',
+                    node.name, node._id, 'system', node.system);
+                nodes_ids_to_delete.push(node._id);
+            }
+        });
+    if (nodes_ids_to_delete.length) {
+        db.nodes.deleteMany({
+            _id: {
+                $in: nodes_ids_to_delete
+            }
+        });
+    }
 }

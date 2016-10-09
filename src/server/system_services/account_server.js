@@ -272,7 +272,7 @@ function update_account(req) {
     }
 
     if (req.rpc_params.new_email) {
-        changes.$set.email = req.rpc_params.new_email;
+        changes.email = req.rpc_params.new_email;
     }
 
     return bcrypt_password(changes)

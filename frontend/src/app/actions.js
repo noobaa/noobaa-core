@@ -292,7 +292,7 @@ export function showCluster() {
 }
 
 export function handleUnknownRoute() {
-    logAction('showCluster');
+    logAction('handleUnknownRoute');
 
     let system = model.sessionInfo().system;
     let uri = realizeUri(routes.system, { system });

@@ -2,7 +2,7 @@ import template from './reset-password-modal.html';
 import userMessageTemplate from './user-message-template.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { updateAccountPassword } from 'actions';
+import { resetAccountPassword } from 'actions';
 import { randomString } from 'utils';
 
 const userMessage = new Function(
@@ -29,11 +29,7 @@ class RestPasswordModalViewModel extends Disposable {
     }
 
     reset() {
-        updateAccountPassword(
-            ko.unwrap(this.email),
-            this.password,
-            true
-        );
+        resetAccountPassword(ko.unwrap(this.email), this.password);
         this.onClose();
     }
 

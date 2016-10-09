@@ -4,7 +4,7 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 
-import { isDefined, isUndefined, last, makeArray, execInOrder, realizeUri,
+import { isDefined, last, makeArray, execInOrder, realizeUri,
     downloadFile, generateAccessKeys, deepFreeze, flatMap } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -43,7 +43,7 @@ export function start() {
                 model.sessionInfo({
                     user: account.email,
                     system: system.name,
-                    mustChangePassowrd: account.must_change_password
+                    mustChangePassword: account.must_change_password
                 });
             }
         })
@@ -112,20 +112,14 @@ export function refresh() {
 export function showLogin() {
     logAction('showLogin');
 
-    let session = model.sessionInfo();
     let ctx = model.routeContext();
 
-    if (session) {
-        redirectTo(routes.system, { system: session.system });
+    model.uiState({
+        layout: 'login-layout',
+        returnUrl: ctx.query.returnUrl
+    });
 
-    } else {
-        model.uiState({
-            layout: 'login-layout',
-            returnUrl: ctx.query.returnUrl
-        });
-
-        loadServerInfo();
-    }
+    loadServerInfo();
 }
 
 export function showOverview() {
@@ -297,6 +291,14 @@ export function showCluster() {
     });
 }
 
+export function handleUnknownRoute() {
+    logAction('showCluster');
+
+    let system = model.sessionInfo().system;
+    let uri = realizeUri(routes.system, { system });
+    redirectTo(uri);
+}
+
 export function openDrawer() {
     logAction('openDrawer');
 
@@ -316,8 +318,8 @@ export function closeDrawer() {
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
-export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
-    logAction('signIn', { email, password, keepSessionAlive, redirectUrl });
+export function signIn(email, password, keepSessionAlive = false) {
+    logAction('signIn', { email, password, keepSessionAlive });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -338,12 +340,7 @@ export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
                         });
 
                         model.loginInfo({ retryCount: 0 });
-
-                        if (isUndefined(redirectUrl)) {
-                            redirectTo(routes.system, { system });
-                        } else {
-                            redirectTo(decodeURIComponent(redirectUrl));
-                        }
+                        refresh();
                     });
             }
         )
@@ -367,6 +364,7 @@ export function signOut(shouldRefresh = true) {
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
     api.options.auth_token = undefined;
+
     if (shouldRefresh) {
         refresh();
     }
@@ -740,18 +738,30 @@ export function deleteAccount(email) {
         .done();
 }
 
-export function updateAccountPassword(email, password, mustChangePassword = false) {
-    logAction('updateAccountPassword', { email, password, mustChangePassword });
+export function resetAccountPassword(email, password) {
+    logAction('resetAccountPassword', { email, password });
 
     api.account.update_account({
         email,
         password,
-        must_change_password: mustChangePassword
+        must_change_password: true
     })
         .then(
             () => notify(`${email} password has been reset successfully`, 'success'),
             () => notify(`Resetting ${email}'s password failed`, 'error')
         )
+        .done();
+}
+
+export function updateAccountPassword (email, password) {
+    logAction('updateAccountPassword', { email, password });
+
+    api.account.update_account({
+        email,
+        password,
+        must_change_password: false
+    })
+        .then(refresh)
         .done();
 }
 

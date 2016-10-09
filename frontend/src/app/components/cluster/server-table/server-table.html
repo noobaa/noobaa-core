@@ -10,6 +10,7 @@
     <data-table params="
         columns: columns,
         rowFactory: rowFactory,
+        rowCssProp: 'debugLevelCss',
         sorting: sorting,
         data: servers,
         subRow: 'sub-row'
@@ -44,6 +45,29 @@
                         click: () => vm.showServerDNSSettingsModal(secret())
                     ">
                         Edit Enviorment DNS
+                    </button>
+                </li>
+                <li class="row">
+                    <span class="c2 push-next">Server Debug Level:</span>
+                    <span class="greedy" data-bind="
+                        text: debugLevelText,
+                        css: { warning: debugLevel() > 0 }
+                    "></span>
+
+                    <button class="link alt-colors no-outline" data-bind="
+                        click: toogleDebugLevel,
+                        text: toogleDebugLevelButtonText
+                    "></button>
+                    </button>
+                </li>
+                <li class="row">
+                    <span class="c2 push-next">Diagnostics:</span>
+                    <span class="greedy"></span>
+
+                    <button class="link alt-colors no-outline" data-bind="
+                        click: () => downloadDiagnosticPack()
+                    ">
+                        Download Diagnostic File
                     </button>
                 </li>
             </ul>

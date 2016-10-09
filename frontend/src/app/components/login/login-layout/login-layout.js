@@ -21,15 +21,13 @@ class LoginLayoutViewModel extends Disposable {
 
                 let { initialized, config } = serverInfo();
                 if (initialized) {
+                    if (!sessionInfo()) {
+                        return 'signin-form';
 
-                    if (sessionInfo() && sessionInfo().mustChangePassword) {
+                    } else if(sessionInfo().mustChangePassword) {
                         return 'change-password-form';
                     }
-
-                    return 'signin-form';
-
                 } else {
-
                     if (config.phone_home_connectivity_status !== 'CONNECTED') {
                         return 'loading-server-information-from';
 

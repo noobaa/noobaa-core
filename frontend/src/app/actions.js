@@ -761,6 +761,11 @@ export function updateAccountPassword (email, password) {
         password,
         must_change_password: false
     })
+        .then(
+            () => model.sessionInfo.assign({
+                mustChangePassword: false
+            })
+        )
         .then(refresh)
         .done();
 }

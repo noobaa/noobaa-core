@@ -25,7 +25,7 @@ const serviceIconMapping = deepFreeze({
 });
 
 export default class CloudResourceRowViewModel extends Disposable {
-    constructor(resource, resourcesToBuckets, deleteGroup, showAfterDeleteAlertModal) {
+    constructor(resource, resourcesToBuckets, deleteGroup) {
         super();
 
         this.state = {
@@ -77,7 +77,6 @@ export default class CloudResourceRowViewModel extends Disposable {
             ),
             onDelete: () => {
                 deleteCloudResource(this.name());
-                showAfterDeleteAlertModal();
             }
         };
     }

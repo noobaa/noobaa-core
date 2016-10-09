@@ -508,16 +508,28 @@ class SystemStore extends EventEmitter {
                     _.each(list, item => {
                         data.check_indexes(col, item);
                         let updates = _.omit(item, '_id');
-                        let first_key;
-                        _.forOwn(updates, (val, key) => {
-                            first_key = key;
-                            return false; // break loop immediately
-                        });
+
+                        // let first_key;
+                        // _.forOwn(updates, (val, key) => {
+                        //     first_key = key;
+                        //     return false; // break loop immediately
+                        // });
+
+                        let first_key = _.keys(updates)[0];
                         if (first_key[0] !== '$') {
                             updates = {
                                 $set: updates
                             };
+                        } else {
+                            if (_.isEmpty(updates.$set)) {
+                                delete updates.$set;
+                            }
+
+                            if (_.isEmpty(updates.$unset)) {
+                                delete updates.$unset;
+                            }
                         }
+
                         // TODO how to _check_schema on update?
                         // if (updates.$set) {
                         //     this._check_schema(col, updates.$set, 'update');

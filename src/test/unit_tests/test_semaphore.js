@@ -9,7 +9,7 @@ var Semaphore = require('../../util/semaphore');
 mocha.describe('semaphore', function() {
 
     mocha.it('should create ok', function() {
-        var sem = new Semaphore();
+        var sem = new Semaphore(0);
         assert.strictEqual(sem.length, 0);
         assert.strictEqual(sem.value, 0);
     });
@@ -17,56 +17,65 @@ mocha.describe('semaphore', function() {
     mocha.it('should handle single item', function() {
         var sem;
         var woke = 0;
-        var do_wake = function() {
-            woke++;
-        };
 
-        return P.resolve().then(function() {
-            sem = new Semaphore(10);
-            assert.strictEqual(sem.length, 0);
-            assert.strictEqual(sem.value, 10);
+        function do_wake() {
+            woke += 1;
+        }
 
-            P.resolve(sem.wait(2)).then(do_wake);
-            assert.strictEqual(sem.length, 0);
-            assert.strictEqual(sem.value, 8);
-            assert.strictEqual(woke, 0);
+        return P.resolve()
+            .then(function() {
+                sem = new Semaphore(10);
+                assert.strictEqual(sem.length, 0);
+                assert.strictEqual(sem.value, 10);
 
-            P.resolve(sem.wait()).then(do_wake);
-            assert.strictEqual(sem.length, 0);
-            assert.strictEqual(sem.value, 7);
-            assert.strictEqual(woke, 0);
+                P.resolve(sem.wait(2)).then(do_wake);
+                assert.strictEqual(sem.length, 0);
+                assert.strictEqual(sem.value, 8);
+                assert.strictEqual(woke, 0);
 
-            P.resolve(sem.wait(8)).then(do_wake);
-            assert.strictEqual(sem.length, 1);
-            assert.strictEqual(sem.value, 7);
-            assert.strictEqual(woke, 0);
+                P.resolve(sem.wait()).then(do_wake);
+                assert.strictEqual(sem.length, 0);
+                assert.strictEqual(sem.value, 7);
+                assert.strictEqual(woke, 0);
 
-            P.resolve(sem.wait(10)).then(do_wake);
-            assert.strictEqual(sem.length, 2);
-            assert.strictEqual(sem.value, 7);
-            assert.strictEqual(woke, 0);
+                P.resolve(sem.wait(8)).then(do_wake);
+                assert.strictEqual(sem.length, 1);
+                assert.strictEqual(sem.value, 7);
+                assert.strictEqual(woke, 0);
 
-            sem.release(1);
+                P.resolve(sem.wait(10)).then(do_wake);
+                assert.strictEqual(sem.length, 2);
+                assert.strictEqual(sem.value, 7);
+                assert.strictEqual(woke, 0);
 
-        }).delay(0).then(function() {
-            assert.strictEqual(sem.length, 1);
-            assert.strictEqual(sem.value, 0);
-            assert.strictEqual(woke, 3);
+                sem.release(1);
 
-            sem.release();
+            })
+            .delay(0)
+            .then(function() {
+                assert.strictEqual(sem.length, 1);
+                assert.strictEqual(sem.value, 0);
+                assert.strictEqual(woke, 3);
 
-        }).delay(0).then(function() {
-            assert.strictEqual(sem.length, 1);
-            assert.strictEqual(sem.value, 1);
-            assert.strictEqual(woke, 3);
+                sem.release();
 
-            sem.release(14);
+            })
+            .delay(0)
+            .then(function() {
+                assert.strictEqual(sem.length, 1);
+                assert.strictEqual(sem.value, 1);
+                assert.strictEqual(woke, 3);
 
-        }).delay(0).delay(0).then(function() {
-            assert.strictEqual(sem.length, 0);
-            assert.strictEqual(sem.value, 5);
-            assert.strictEqual(woke, 4);
-        });
+                sem.release(14);
+
+            })
+            .delay(0)
+            .delay(0)
+            .then(function() {
+                assert.strictEqual(sem.length, 0);
+                assert.strictEqual(sem.value, 5);
+                assert.strictEqual(woke, 4);
+            });
     });
 
     mocha.it('should surround', function() {
@@ -82,12 +91,12 @@ mocha.describe('semaphore', function() {
                     assert.strictEqual(sem.value, 9);
                     return 11;
                 }).reflect(),
-                sem.surround(10, function() {
+                sem.surround_count(10, function() {
                     assert.strictEqual(sem.length, 1);
                     assert.strictEqual(sem.value, 0);
                     throw err;
                 }).reflect(),
-                sem.surround(4, function() {
+                sem.surround_count(4, function() {
                     assert.strictEqual(sem.length, 0);
                     assert.strictEqual(sem.value, 6);
                     return 22;

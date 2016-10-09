@@ -583,7 +583,8 @@ export function calcPasswordStrenght(password) {
 
             let diff = last2.place - last1.place;
             let diff2 = last1.place - currInfo.place;
-            return inc + (Math.abs(diff) === 1 && diff === diff2) ? 3 : 0;
+            let delta = (Math.abs(diff) === 1 && diff === diff2) ? 3 : 0;
+            return inc + delta;
         },
         0
     );
@@ -601,7 +602,8 @@ export function calcPasswordStrenght(password) {
 
             let diff = last2.place - last1.place;
             let diff2 = last1.place - currInfo.place;
-            return inc + (Math.abs(diff) === 1 && diff === diff2) ? 3 : 0;
+            let delta = (Math.abs(diff) === 1 && diff === diff2) ? 3 : 0;
+            return inc + delta;
         },
         0
     );
@@ -618,7 +620,8 @@ export function calcPasswordStrenght(password) {
 
             let diff = last2.place - last1.place;
             let diff2 = last1.place - currInfo.place;
-            return inc + (Math.abs(diff) === 1 && diff === diff2) ? 3 : 0;
+            let delta = (Math.abs(diff) === 1 && diff === diff2) ? 3 : 0;
+            return inc + delta;
         },
         0
     );

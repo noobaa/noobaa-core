@@ -508,26 +508,25 @@ class SystemStore extends EventEmitter {
                     _.each(list, item => {
                         data.check_indexes(col, item);
                         let updates = _.omit(item, '_id');
+                        let keys = _.keys(updates);
 
-                        // let first_key;
-                        // _.forOwn(updates, (val, key) => {
-                        //     first_key = key;
-                        //     return false; // break loop immediately
-                        // });
+                        if (_.first(keys)[0] === '$') {
+                            for (const key of keys) {
+                                // Validate that all update keys are mongo operators.
+                                if (!mongo_utils.mongo_operators.has(key)) {
+                                    throw new Error(`SystemStore: make_changes invalid mix of operators and bare value: ${key}`);
+                                }
 
-                        let first_key = _.keys(updates)[0];
-                        if (first_key[0] !== '$') {
+                                // Delete operators with empty value to comply with
+                                // mongo specification.
+                                if (_.isEmpty(updates[key])) {
+                                    delete updates[key];
+                                }
+                            }
+                        } else {
                             updates = {
                                 $set: updates
                             };
-                        } else {
-                            if (_.isEmpty(updates.$set)) {
-                                delete updates.$set;
-                            }
-
-                            if (_.isEmpty(updates.$unset)) {
-                                delete updates.$unset;
-                            }
                         }
 
                         // TODO how to _check_schema on update?

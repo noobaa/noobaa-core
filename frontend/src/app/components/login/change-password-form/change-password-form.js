@@ -3,6 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { updateAccountPassword } from 'actions';
 import { sessionInfo } from 'model';
+import { calcPasswordStrength } from 'utils';
 
 class ChangePasswordFormViewModel extends Disposable{
     constructor() {
@@ -20,7 +21,7 @@ class ChangePasswordFormViewModel extends Disposable{
                 includesDigit: true
             });
 
-        // this.isPasswordValid = ko.isValidComputed(this.newPassword);
+        this.calcPasswordStrength = calcPasswordStrength;
 
         this.isNewPasswordValid = ko.pureComputed(
             () => Boolean(this.newPassword()) && this.newPassword.isValid()
@@ -55,10 +56,7 @@ class ChangePasswordFormViewModel extends Disposable{
             this.errors.showAllMessages();
             this.shake(true);
         } else {
-            updateAccountPassword(
-                sessionInfo().user,
-                this.password()
-            );
+            updateAccountPassword(sessionInfo().user, this.newPassword());
         }
     }
 }

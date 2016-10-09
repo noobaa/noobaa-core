@@ -5,7 +5,7 @@ import { validateActivationCode, validateActivationEmail, createSystem } from 'a
 import { activationCodeValid, activationEmailValid, serverInfo } from 'model';
 import moment from 'moment';
 import { waitFor } from 'utils';
-import { calcPasswordStrenght } from 'utils';
+import { calcPasswordStrength } from 'utils';
 
 class CreateSystemFormViewModel extends Disposable {
     constructor() {
@@ -106,7 +106,7 @@ class CreateSystemFormViewModel extends Disposable {
                 )
         );
 
-        this.calcPasswordStrenght = calcPasswordStrenght;
+        this.calcPasswordStrength = calcPasswordStrength;
 
         this.name = ko.pureComputed(
             () => this.email() && this.email().split('@')[0]

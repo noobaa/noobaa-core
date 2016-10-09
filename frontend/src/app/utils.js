@@ -455,7 +455,7 @@ const letters = 'abcdefghijklmnopqrstuvwxyz';
 const symbols = ')!@#$%^&*(';
 
 // TODO: Move the section below to password-utils
-export function calcPasswordStrenght(password) {
+export function calcPasswordStrength(password) {
     let charsInfo = Array.from(password).map(
         char => {
             let digit = isDigit(char);

@@ -1,7 +1,5 @@
 /*global setImmediate */
 
-const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
-
 export function noop() {
 }
 
@@ -48,6 +46,9 @@ export function toCammelCase(str) {
 export function toDashedCase(str) {
     return str.replace(/[A-Z]+/g, match => `-${match.toLowerCase()}`);
 }
+
+
+const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
 
 export function formatSize(num) {
     const peta = Math.pow(1024, 5);
@@ -332,8 +333,8 @@ export function bitsToNumber(...bits) {
     );
 }
 
-export function pad(num, size, char = '0') {
-    return (char.repeat(size) + num).substr(-size);
+export function pad(str, size, char = '0') {
+    return (char.repeat(size) + str).substr(-size);
 }
 
 export function deepFreeze(val) {
@@ -436,11 +437,12 @@ export function tweenColors(ratio, ...colors){
     }
 
     let scaledRatio = ratio * (colors.length - 1);
-    let i = scaledRatio | 0;
-    let tweenValue = scaledRatio - i;
+    let lowerBound = Math.floor(scaledRatio);
+    let upperBound = Math.ceil(scaledRatio);
+    let tweenValue = scaledRatio - lowerBound;
 
-    let [r1, g1, b1] = getColorChannels(colors[i]);
-    let [r2, g2, b2] = getColorChannels(colors[i + 1]);
+    let [r1, g1, b1] = getColorChannels(colors[lowerBound]);
+    let [r2, g2, b2] = getColorChannels(colors[upperBound]);
 
     let r = ((r1 + (r2 - r1) * tweenValue) | 0);
     let g = ((g1 + (g2 - g1) * tweenValue) | 0);
@@ -453,7 +455,7 @@ const letters = 'abcdefghijklmnopqrstuvwxyz';
 const symbols = ')!@#$%^&*(';
 
 // TODO: Move the section below to password-utils
-export function calcPasswordStrenght(password) {
+export function calcPasswordStrength(password) {
     let charsInfo = Array.from(password).map(
         char => {
             let digit = isDigit(char);

@@ -40,6 +40,7 @@ const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
+const Semaphore = require('../util/semaphore');
 
 
 const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
@@ -58,6 +59,8 @@ class Agent {
         }];
 
         this.host_id = params.host_id;
+
+        this.agent_conf_sem = params.agent_conf_sem || new Semaphore(1);
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
@@ -449,25 +452,30 @@ class Agent {
         // otherwise it's good
     }
     _update_agent_conf(params) {
-        return fs.readFileAsync('agent_conf.json')
-            .then(data => {
-                const agent_conf = JSON.parse(data);
-                dbg.log0('_update_agent_conf: old values in agent_conf.json:', agent_conf);
-                return agent_conf;
-            }, err => {
-                if (err.code === 'ENOENT') {
-                    dbg.log0('_update_agent_conf: no agent_conf.json file. creating new one...');
-                    return {};
-                } else {
-                    throw err;
-                }
-            })
-            .then(agent_conf => {
-                _.assign(agent_conf, params);
-                const data = JSON.stringify(agent_conf);
-                dbg.log0('_update_agent_conf: writing new values to agent_conf.json:', agent_conf);
-                return fs.writeFileAsync('agent_conf.json', data);
-            });
+        dbg.log0('DZDZ:', 'inside _update_agent_conf, params =', params);
+        // serialize agent_conf updates with Sempahore(1)
+        return this.agent_conf_sem.surround(() => {
+            dbg.log0('DZDZ - updating agent_conf.json with params:', params);
+            return fs.readFileAsync('agent_conf.json')
+                .then(data => {
+                    const agent_conf = JSON.parse(data);
+                    dbg.log0('_update_agent_conf: old values in agent_conf.json:', agent_conf);
+                    return agent_conf;
+                }, err => {
+                    if (err.code === 'ENOENT') {
+                        dbg.log0('_update_agent_conf: no agent_conf.json file. creating new one...');
+                        return {};
+                    } else {
+                        throw err;
+                    }
+                })
+                .then(agent_conf => {
+                    _.assign(agent_conf, params);
+                    const data = JSON.stringify(agent_conf);
+                    dbg.log0('_update_agent_conf: writing new values to agent_conf.json:', agent_conf);
+                    return fs.writeFileAsync('agent_conf.json', data);
+                });
+        });
     }
 
     _update_rpc_config_internal(params) {

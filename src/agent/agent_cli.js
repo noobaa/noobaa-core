@@ -45,6 +45,8 @@ function AgentCLI(params) {
     this.client = rpc.new_client();
     this.s3 = new S3Auth();
     this.agents = {};
+    this.agent_conf_sem = new Semaphore(1);
+
 }
 
 /**
@@ -562,6 +564,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             cloud_info: self.cloud_info,
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
+            agent_conf_sem: self.agent_conf_sem,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

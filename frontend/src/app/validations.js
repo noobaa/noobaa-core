@@ -124,15 +124,15 @@ export default function register(ko) {
         },
         includesUppercase:{
             validator: includesUppercase,
-            message: 'Please enter at least one uppercase letter'
+            message: 'Use at least one uppercased letter'
         },
         includesLowercase:{
             validator: includesLowercase,
-            message: 'Please enter at least one lowercase letter'
+            message: 'Use at least one lowercased letter'
         },
         includesDigit:{
             validator: includesDigit,
-            message: 'Please enter at least one digit'
+            message: 'Use at least one digit'
         }
 
     });

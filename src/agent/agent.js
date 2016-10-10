@@ -264,25 +264,17 @@ class Agent {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
 
-                // test the existing token against the server. if not valid throw error, and let the
-                // agent_cli create new node.
-                return promise_utils.retry(MASTER_MAX_CONNECT_ATTEMPTS, 1000, () => {
-                        this.client.node.test_node_id({})
-                            .timeout(MASTER_RESPONSE_TIMEOUT)
-                            .catch(err => {
-                                return this._handle_server_change()
-                                    .then(() => {
-                                        throw err;
-                                    });
-                            });
-                    })
-                    .then(valid_node => {
-                        if (!valid_node) {
-                            let err = new Error('INVALID_NODE');
-                            err.DO_NOT_RETRY = true;
-                            throw err;
-                        }
-                    });
+                // temporarily removed test_node_id. this should be handled in do_heartbeat
+                // // test the existing token against the server. if not valid throw error, and let the
+                // // agent_cli create new node.
+                // return this.client.node.test_node_id({})
+                //     .then(valid_node => {
+                //         if (!valid_node) {
+                //             let err = new Error('INVALID_NODE');
+                //             err.DO_NOT_RETRY = true;
+                //             throw err;
+                //         }
+                //     });
             })
             .then(() => P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,

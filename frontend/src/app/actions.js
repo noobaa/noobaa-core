@@ -1364,7 +1364,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 }
 
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
-    logAction('downloadServerDiagnosticPack', { targetSecret });
+    logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
     notify('Collecting data... might take a while');
     api.cluster_server.diagnose_system({

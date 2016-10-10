@@ -98,7 +98,7 @@ export default class ServerRowViewModel extends Disposable {
     }
 
     toogleDebugLevel() {
-        let newDebugLevel = this.debuglevel() === 0 ? 5 : 0;
+        let newDebugLevel = this.debugLevel() === 0 ? 5 : 0;
         return setServerDebugLevel(this.secret(), this.hostname(), newDebugLevel);
     }
 

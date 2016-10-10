@@ -281,6 +281,9 @@ module.exports = {
                     items: {
                         type: 'string'
                     },
+                },
+                restart_services: {
+                    type: 'boolean'
                 }
             },
         }

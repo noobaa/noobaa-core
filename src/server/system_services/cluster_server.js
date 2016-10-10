@@ -58,7 +58,7 @@ function new_cluster_info() {
 
             return cluster;
         })
-        .then((cluster) => _attach_server_configuration(cluster));
+        .then(cluster => _attach_server_configuration(cluster));
 }
 
 //Initiate process of adding a server to the cluster
@@ -240,7 +240,8 @@ function redirect_to_cluster_master(req) {
     return P.fcall(function() {
             return MongoCtrl.redirect_to_cluster_master();
         })
-        .catch((err) => {
+        .catch(err => {
+            dbg.log0('redirect_to_cluster_master caught error', err);
             let topology = cutil.get_topology();
             let res_host;
             if (topology && topology.shards) {
@@ -337,11 +338,23 @@ function update_dns_servers(req) {
             if (dns_servers_config.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[dns_servers_config.target_secret];
                 if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', dns_servers_config.target_secret, ' was not found');
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:',
+                        dns_servers_config.target_secret, ' was not found');
                 }
                 target_servers.push(cluster_server);
             } else {
-                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
+                let current;
+                _.each(system_store.data.clusters, cluster => {
+                    //Run current last
+                    if (system_store.get_server_secret() === cluster.owner_secret) {
+                        current = cluster;
+                    } else {
+                        target_servers.push(cluster);
+                    }
+                });
+                if (current) {
+                    target_servers.push(current);
+                }
             }
 
             let updates = _.map(target_servers, server => ({
@@ -356,6 +369,7 @@ function update_dns_servers(req) {
             });
         })
         .then(() => {
+            dns_servers_config.restart_services = true;
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
                     address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
@@ -369,6 +383,12 @@ function update_dns_servers(req) {
 function apply_updated_dns_servers(req) {
     return P.fcall(function() {
             return os_utils.set_dns_server(req.rpc_params.dns_servers);
+        })
+        .then(() => {
+            if (req.rpc_params.restart_services) {
+                return os_utils.restart_services();
+            }
+            return;
         })
         .return();
 }
@@ -447,7 +467,8 @@ function _set_debug_level_internal(req, level) {
             if (req.rpc_params.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
                 if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:',
+                        req.rpc_params.target_secret, ' was not found');
                 }
                 update_object.clusters = [{
                     _id: cluster_server._id,
@@ -498,11 +519,12 @@ function diagnose_system(req) {
                         address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                         auth_token: req.auth_token
                     })
-                    .then((res_data) => {
+                    .then(res_data => {
                         var server_hostname = 'unknown' || (server.heartbeat && server.heartbeat.health.os_info.hostname);
                         // Should never exist since above we delete the root folder
                         return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
-                            .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`, res_data.data));
+                            .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`,
+                                res_data.data));
                     });
             });
         })
@@ -519,7 +541,7 @@ function collect_server_diagnostics(req) {
         .then(() => server_rpc.client.system.diagnose_system(undefined, {
             auth_token: req.auth_token
         }))
-        .then((out_path) => {
+        .then(out_path => {
             dbg.log1('Reading packed file');
             return fs.readFileAsync(`${INNER_PATH}${out_path}`)
                 .then(data => ({
@@ -1107,7 +1129,7 @@ function _update_rs_if_needed(IPs, name, is_config) {
     var config_changes = cutil.rs_array_changes(IPs, name, is_config);
     if (config_changes) {
         return MongoCtrl.is_master(is_config)
-            .then((is_master) => {
+            .then(is_master => {
                 if (is_master.ismaster) {
                     dbg.log0('Current server is master for config RS, Updating to', IPs);
                     return MongoCtrl.add_member_to_replica_set(

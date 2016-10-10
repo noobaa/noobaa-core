@@ -1363,14 +1363,16 @@ export function downloadNodeDiagnosticPack(nodeName) {
         .done();
 }
 
-export function downloadServerDiagnosticPack(target_secret) {
-    logAction('downloadServerDiagnosticPack', { target_secret });
+export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
+    logAction('downloadServerDiagnosticPack', { targetSecret });
 
     notify('Collecting data... might take a while');
-    api.cluster_server.diagnose_system(target_secret)
+    api.cluster_server.diagnose_system({
+        target_secret: targetSecret
+    })
         .catch(
             err => {
-                notify('Packing system diagnostic file failed', 'error');
+                notify(`Packing server diagnostic file for ${targetHostname} failed`, 'error');
                 throw err;
             }
         )
@@ -1421,17 +1423,20 @@ export function setNodeDebugLevel(node, level) {
         .done();
 }
 
-export function setServerDebugLevel(target_secret, hostname, level){
-    logAction('setServerDebugLevel', { target_secret, hostname, level });
+export function setServerDebugLevel(targetSecret, targetHostname, level){
+    logAction('setServerDebugLevel', { targetSecret, targetHostname, level });
 
-    api.cluster_server.set_debug_level({ target_secret, level })
+    api.cluster_server.set_debug_level({
+        target_secret: targetSecret,
+        level: level
+    })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${hostname}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${targetHostname}`,
                 'success'
             ),
             () => notify(
-                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${hostname}`,
+                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${targetHostname}`,
                 'error'
             )
         )

@@ -90,3 +90,7 @@ export const serverTime = ko.observable();
 
 // Hold system activation information.
 export const activationState = ko.observable();
+
+// Hold system name resolution attempt
+export const nameResolutionState = ko.observable();
+

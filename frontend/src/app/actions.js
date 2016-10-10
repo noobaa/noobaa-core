@@ -1751,8 +1751,28 @@ export function validateActivation(code, email) {
 
     api.system.validate_activation({ code, email })
         .then(
+            reply => waitFor(500, reply)
+        )
+        .then(
             ({ valid, reason }) => model.activationState({ code, email, valid, reason })
-        );
+        )
+
+        .done();
+}
+
+export function attemptResolveSystemName(name) {
+    logAction('attemptResolveServerName', { name });
+
+    api.system.attempt_dns_resolve({
+        dns_name: name
+    })
+        .then(
+            reply => waitFor(500, reply)
+        )
+        .then(
+            ({ valid, reason }) => model.nameResolutionState({ name, valid, reason })
+        )
+        .done();
 }
 
 export function dismissUpgradedCapacityNotification() {

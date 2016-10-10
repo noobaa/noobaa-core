@@ -20,7 +20,7 @@
                         data-bind="value: activationCode">
 
                     <svg-icon class="validating-indicator spin"
-                        data-bind="visible: activationCode.isValidating()"
+                        data-bind="visible: activationCode.isValidating"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
@@ -29,7 +29,7 @@
                         data-bind="value: email">
 
                     <svg-icon class="validating-indicator spin"
-                        data-bind="visible: email.isValidating()"
+                        data-bind="visible: email.isValidating"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
@@ -69,6 +69,11 @@
 
                 <editor params="label: 'Server DNS name'">
                     <input type="text" data-bind="value: serverDNSName">
+
+                    <svg-icon class="validating-indicator spin"
+                        data-bind="visible: serverDNSName.isValidating"
+                        params="name: 'in-progress'"></svg-icon>
+
                     <p class="hint">optional</p>
                 </editor>
 

@@ -1,14 +1,14 @@
 import template from './create-system-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { validateActivation, createSystem } from 'actions';
-import { activationState, serverInfo } from 'model';
+import { validateActivation, attemptResolveSystemName, createSystem } from 'actions';
+import { activationState, nameResolutionState, serverInfo } from 'model';
 import moment from 'moment';
 import { deepFreeze, calcPasswordStrength } from 'utils';
 
 const activationFaliureReasonMapping = deepFreeze({
     ACTIVATION_CODE_IN_USE: 'Activation code is already in use',
-    MALFORMED_ACTIVATION_CODE: 'Invalid activation code',
+    UNKNOWN_ACTIVATION_CODE: 'Activation code does not exists',
     ACTIVATION_CODE_EMAIL_MISMATCH: 'Email does not match activation code'
 });
 
@@ -126,7 +126,22 @@ class CreateSystemFormViewModel extends Disposable {
 
         this.serverDNSName = ko.observable()
             .extend({
-                isDNSName: true
+                isDNSName: true,
+                validation: {
+                    async: true,
+                    message: 'Colud not resolve DNS name',
+                    onlyIf: () => this.serverDNSName(),
+                    validator: (name, _, callback) => {
+                        attemptResolveSystemName(name);
+
+                        nameResolutionState.once(
+                            ({ valid }) => callback({
+                                isValid: valid,
+                                message: 'Cloud not resolve dns name'
+                            })
+                        );
+                    }
+                }
             });
 
         // Wizard controls:

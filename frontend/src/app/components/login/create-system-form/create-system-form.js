@@ -8,8 +8,8 @@ import { deepFreeze, calcPasswordStrength } from 'utils';
 
 const activationFaliureReasonMapping = deepFreeze({
     ACTIVATION_CODE_IN_USE: 'Activation code is already in use',
-    INVALID_ACTIVATION_CODE: 'Invalid activation code',
-    EMAIL_MISMATCH: 'Email does not match activation code'
+    MALFORMED_ACTIVATION_CODE: 'Invalid activation code',
+    ACTIVATION_CODE_EMAIL_MISMATCH: 'Email does not match activation code'
 });
 
 class CreateSystemFormViewModel extends Disposable {
@@ -42,7 +42,7 @@ class CreateSystemFormViewModel extends Disposable {
 
                         activationState.once(
                             ({ valid, reason }) => callback({
-                                isValid: valid || reason === 'EMAIL_MISMATCH',
+                                isValid: valid || reason === 'ACTIVATION_CODE_EMAIL_MISMATCH',
                                 message: reason && activationFaliureReasonMapping[reason]
                             })
                         );
@@ -65,7 +65,7 @@ class CreateSystemFormViewModel extends Disposable {
 
                         activationState.once(
                             ({ valid, reason }) => callback({
-                                isValid: valid || reason !== 'EMAIL_MISMATCH',
+                                isValid: valid || reason !== 'ACTIVATION_CODE_EMAIL_MISMATCH',
                                 message: reason && activationFaliureReasonMapping[reason]
                             })
                         );

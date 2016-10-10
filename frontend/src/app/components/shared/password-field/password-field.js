@@ -37,7 +37,7 @@ class PasswordFieldViewModel extends Disposable{
         this.passwordStrength = ko.pureComputed (
             () => {
                 let naked = ko.unwrap(value);
-                return (this.isStrengthVisible && naked ? strengthCalc(naked) : 0 );
+                return (this.isStrengthVisible && naked) ? strengthCalc(naked) : 0;
             }
         ).extend({
             tween: {

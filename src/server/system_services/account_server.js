@@ -261,21 +261,29 @@ function update_account(req) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
 
-    let updates = _.pick(req.rpc_params, 'name', 'password');
-    updates._id = account._id;
+    let changes = _.pick(req.rpc_params, 'name', 'password');
+    let removals = {};
 
-    if (req.rpc_params.must_change_password) {
-        updates.next_password_change = new Date();
+    if (req.rpc_params.must_change_password === true) {
+        changes.next_password_change = new Date();
+
+    } else if (req.rpc_params.must_change_password === false) {
+        removals.next_password_change = 1;
     }
 
     if (req.rpc_params.new_email) {
-        updates.email = req.rpc_params.new_email;
+        changes.email = req.rpc_params.new_email;
     }
-    return bcrypt_password(updates)
+
+    return bcrypt_password(changes)
         .then(() => {
             return system_store.make_changes({
                 update: {
-                    accounts: [updates]
+                    accounts: [{
+                        _id: account._id,
+                        $set: changes,
+                        $unset: removals
+                    }]
                 }
             });
         })

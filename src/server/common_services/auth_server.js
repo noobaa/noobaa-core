@@ -474,12 +474,12 @@ function _get_auth_info(account, system, role, extra) {
     if (account) {
         response.account = _.pick(account, 'name', 'email');
         if (account.is_support) {
-            account.is_support = true;
+            response.account.is_support = true;
         }
 
         let next_password_change = account.next_password_change;
         if (next_password_change && next_password_change < Date.now()) {
-            account.must_change_password = true;
+            response.account.must_change_password = true;
         }
     }
 

@@ -116,15 +116,13 @@ class CloudResourcesTableViewModel extends Disposable {
 
         this.deleteGroup = ko.observable();
         this.isAddCloudResourceModalVisible = ko.observable(false);
-        this.isAfterDeleteAlertModalVisible = ko.observable(false);
     }
 
     newResourceRow(resource) {
         return new CloudResourceRowViewModel(
             resource,
             resourcesToBuckets,
-            this.deleteGroup,
-            () => this.showAfterDeleteAlertModal()
+            this.deleteGroup
         );
     }
 
@@ -134,14 +132,6 @@ class CloudResourcesTableViewModel extends Disposable {
 
     hideCloudReousrceModal() {
         this.isAddCloudResourceModalVisible(false);
-    }
-
-    showAfterDeleteAlertModal() {
-        this.isAfterDeleteAlertModalVisible(true);
-    }
-
-    hideAfterDeleteAlertModal() {
-        this.isAfterDeleteAlertModalVisible(false);
     }
 }
 

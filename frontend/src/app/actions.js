@@ -4,7 +4,7 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 
-import { isDefined, last, makeArray, execInOrder, realizeUri,
+import { isDefined, last, makeArray, execInOrder, realizeUri, waitFor,
     downloadFile, generateAccessKeys, deepFreeze, flatMap } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -1746,33 +1746,13 @@ export function notify(message, severity = 'info') {
     model.lastNotification({ message, severity });
 }
 
-export function validateActivationCode(code) {
-    logAction('validateActivationCode', { code });
-
-    api.system.validate_activation({ code })
-        .then(
-            ({ valid, reason }) => model.activationCodeValid({
-                code: code,
-                isValid: valid,
-                reason: reason
-            })
-        )
-        .done();
-}
-
-export function validateActivationEmail(code, email) {
-    logAction('validateActivationEmail', { code, email });
+export function validateActivation(code, email) {
+    logAction('validateActivation', { code, email });
 
     api.system.validate_activation({ code, email })
         .then(
-            ({ valid, reason }) => model.activationEmailValid({
-                code: code,
-                email: email,
-                isValid: valid,
-                reason: reason
-            })
-        )
-        .done();
+            ({ valid, reason }) => model.activationState({ code, email, valid, reason })
+        );
 }
 
 export function dismissUpgradedCapacityNotification() {

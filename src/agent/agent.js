@@ -207,7 +207,7 @@ class Agent {
         });
     }
 
-    _handle_server_change(suggested, skip_heartbeat) {
+    _handle_server_change(suggested) {
         dbg.warn('_handle_server_change',
             suggested ?
             'suggested server ' + suggested :
@@ -240,7 +240,6 @@ class Agent {
         return this._update_rpc_config_internal({
             base_address: this.servers[0].address,
             old_base_address: previous_address,
-            skip_heartbeat: skip_heartbeat
         });
     }
 
@@ -267,16 +266,23 @@ class Agent {
 
                 // test the existing token against the server. if not valid throw error, and let the
                 // agent_cli create new node.
-                return this._cluster_request(() => {
-                    return this.client.node.test_node_id({})
-                        .then(valid_node => {
-                            if (!valid_node) {
-                                let err = new Error('INVALID_NODE');
-                                err.DO_NOT_RETRY = true;
-                                throw err;
-                            }
-                        });
-                });
+                return promise_utils.retry(MASTER_MAX_CONNECT_ATTEMPTS, 1000, () => {
+                        this.client.node.test_node_id({})
+                            .timeout(MASTER_RESPONSE_TIMEOUT)
+                            .catch(err => {
+                                return this._handle_server_change()
+                                    .then(() => {
+                                        throw err;
+                                    });
+                            });
+                    })
+                    .then(valid_node => {
+                        if (!valid_node) {
+                            let err = new Error('INVALID_NODE');
+                            err.DO_NOT_RETRY = true;
+                            throw err;
+                        }
+                    });
             })
             .then(() => P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
@@ -498,9 +504,6 @@ class Agent {
                 .then(() => {
                     dbg.log0('update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
-
-                    if (params.skip_heartbeat) return;
-
                     // this.rpc.disconnect_all();
                     this._do_heartbeat();
                 });
@@ -516,48 +519,6 @@ class Agent {
         storage_info.total = Math.min(limited_total, storage_info.total);
         storage_info.free = Math.min(limited_free, storage_info.free);
     }
-
-    // retries rpc client request on different servers
-    _cluster_request(client_req_func, skip_heartbeat, total_retries) {
-        dbg.log0('cluster_request:', skip_heartbeat, total_retries);
-        let change_server = false;
-        let redirect;
-        let retries = total_retries || 0;
-        return client_req_func()
-            .timeout(MASTER_RESPONSE_TIMEOUT)
-            .catch(P.TimeoutError, err => {
-                dbg.warn('client request timedout:', err);
-                if (retries < MASTER_MAX_CONNECT_ATTEMPTS) {
-                    dbg.warn('retrying client request from the same server');
-                    return this._cluster_request(client_req_func, skip_heartbeat, retries + 1);
-                } else {
-                    // retried request to many times. try next server
-                    change_server = true;
-                }
-            })
-            .catch(err => {
-                dbg.warn('cluster request failed with error:', err);
-                if (err.rpc_code === 'MONITOR_NOT_STARTED') {
-                    change_server = true;
-                } else {
-                    throw err;
-                }
-            })
-            .then(res => {
-                if (res && res.redirect) {
-                    change_server = true;
-                    redirect = res.redirect;
-                }
-                if (change_server) {
-                    return this._handle_server_change(redirect, skip_heartbeat)
-                        .then(() => this._cluster_request(client_req_func, skip_heartbeat));
-                } else {
-                    return res;
-                }
-            });
-
-    }
-
 
     // AGENT API //////////////////////////////////////////////////////////////////
 

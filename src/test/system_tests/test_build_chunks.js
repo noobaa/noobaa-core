@@ -179,7 +179,6 @@ function prepare_cloud_pool(pool_name) {
 
 function run_test() {
     return authenticate()
-        .then(() => test_tear_down())
         .then(() => test_rebuild_single_unavailable_block()) // at least 4 nodes
         .then(() => test_rebuild_two_unavailable_blocks()) // at least 5 nodes
         .then(() => test_rebuild_unavailable_from_mirror()) // at least 7 nodes.

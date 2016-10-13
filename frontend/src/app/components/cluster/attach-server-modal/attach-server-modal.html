@@ -13,7 +13,15 @@
 
 
     <div class="row content-middle align-end">
-        <button class="link push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn" data-bind="click: attach">Attach</button>
+        <button class="link push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+
+        <button class="btn" data-bind="
+            click: attach,
+            shakeOnClick: errors().length
+        ">
+            Attach
+        </button>
     </div>
 </modal>

@@ -18,7 +18,6 @@ class WizardViewModel extends Disposable {
         super();
 
         this.heading = heading;
-        this.actionLabel = actionLabel;
         this.step = ko.observable(skip);
         this.validateStep = validateStep;
         this.onCancel = onCancel;
@@ -41,41 +40,47 @@ class WizardViewModel extends Disposable {
         );
 
         this.isLastStep = ko.pureComputed(
-            () => this.step() === steps.length -1
+            () => this.step() === steps.length - 1
         );
 
-        this.shake = ko.observable(false);
+        this.prevText = ko.pureComputed(
+            () => this.isFirstStep() ? 'Cancel' : 'Previous'
+        );
+
+        this.nextLabel = ko.pureComputed(
+            () => this.isLastStep() ? ko.unwrap(actionLabel) : 'Next'
+        );
+
+        this.isStepValid = ko.pureComputed(
+            () => this.validateStep(this.step() + 1)
+        );
     }
 
     isInStep(stepNum) {
         return this.step() === stepNum;
     }
 
-    cancel() {
-        this.onCancel();
-        this.onClose();
-    }
-
     prev() {
-        if (this.step() > 0) {
+        if (this.isFirstStep()) {
+            this.onCancel();
+            this.onClose();
+
+        } else {
             this.step(this.step() - 1);
         }
     }
 
     next() {
-        if (!this.isLastStep() && this.validateStep(this.step() + 1)) {
-            this.step(this.step() + 1);
-        } else {
-            this.shake(true);
+        if (!this.isStepValid()) {
+            return;
         }
-    }
 
-    done() {
-        if (this.validateStep(this.step() + 1)) {
+        if (this.isLastStep()) {
             this.onComplete();
             this.onClose();
+
         } else {
-            this.shake(true);
+            this.step(this.step() + 1);
         }
     }
 }

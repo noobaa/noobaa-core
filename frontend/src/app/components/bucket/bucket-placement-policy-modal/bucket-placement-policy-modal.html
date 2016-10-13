@@ -38,8 +38,7 @@
         </button>
         <button class="btn" data-bind="
             click: save,
-            css: { shake: shake },
-            animation: { end: () => shake(false) }
+            shakeOnClick: errors().length
         ">
             Save
         </button>

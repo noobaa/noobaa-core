@@ -139,8 +139,6 @@ class SetCloudSyncModalViewModel extends Disposable {
             this.targetBucket
         ]);
 
-        this.shake = ko.observable(false);
-
         loadCloudConnections();
     }
 
@@ -164,7 +162,6 @@ class SetCloudSyncModalViewModel extends Disposable {
     save() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-            this.shake(true);
 
         } else {
             setCloudSyncPolicy(

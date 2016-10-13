@@ -1236,11 +1236,18 @@ export function updateHostname(hostname) {
     logAction('updateHostname', { hostname });
 
     api.system.update_hostname({ hostname })
+        // The system changed it's name, reload to the new name
         .then(
-            () => notify('Hostname updated successfully', 'success'),
-            () => notify('Hostname update failed', 'error')
+            () => {
+                let { protocol, port } = window.location;
+                let baseAddress = `${protocol}//${hostname}:${port}`;
+
+                reloadTo(
+                    `${baseAddress}${routes.management}`,
+                    { tab: 'settings' }
+                );
+            }
         )
-        .then(loadSystemInfo)
         .done();
 }
 

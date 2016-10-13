@@ -1,9 +1,10 @@
 import template from './server-dns-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo } from 'model';
+import { systemInfo, nameResolutionState } from 'model';
 import { makeRange } from 'utils';
-import { updateHostname } from 'actions';
+import { attemptResolveSystemName } from 'actions';
+import { inputThrottle } from 'config';
 
 const [ IP, DNS ] = makeRange(2);
 const addressOptions = [
@@ -33,11 +34,31 @@ class ServerDNSFormViewModel extends Disposable {
             () => systemInfo() && systemInfo().dns_name
         )
             .extend({
+                rateLimit: {
+                    timeout: inputThrottle,
+                    method: 'notifyWhenChangesStop'
+                }
+            })
+            .extend({
                 required: {
                     onlyIf: this.usingDNS,
                     message: 'Please enter a DNS Name'
                 },
-                isDNSName: true
+                isDNSName: true,
+                validation: {
+                    async: true,
+                    onlyIf: () => this.dnsName(),
+                    validator: (name, _, callback) => {
+                        attemptResolveSystemName(name);
+
+                        nameResolutionState.once(
+                            ({ valid }) => callback({
+                                isValid: valid,
+                                message: 'Cloud not resolve dns name'
+                            })
+                        );
+                    }
+                }
             });
 
         this.baseAddress = ko.pureComputed(
@@ -47,15 +68,23 @@ class ServerDNSFormViewModel extends Disposable {
         this.errors = ko.validation.group([
             this.dnsName
         ]);
+
+        this.isUpdatingSystemNameModalVisible = ko.observable(false);
     }
 
     applyChanges() {
-        if (this.errors().length > 0) {
+        if (this.errors.validatingCount() > 0 || this.errors().length > 0) {
             this.errors.showAllMessages();
 
         } else {
-            updateHostname(this.baseAddress(), systemInfo().ssl_port, true);
+
+            this.isUpdatingSystemNameModalVisible(true);
+            // updateHostname(this.baseAddress());
         }
+    }
+
+    hideUpdatingSystemNameModal() {
+        this.isUpdatingSystemNameModalVisible(false);
     }
 }
 

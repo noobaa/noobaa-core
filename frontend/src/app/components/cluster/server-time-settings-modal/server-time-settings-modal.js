@@ -67,6 +67,10 @@ class ServerTimeSettingsModalViewModel extends Disposable {
             this.ntpServer
         ]);
 
+        this.isValid = ko.pureComputed(
+            () => this.usingManualTime() || this.ntpErrors().length === 0
+        );
+
         loadServerTime(this.serverSecret);
     }
 

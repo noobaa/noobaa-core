@@ -48,13 +48,12 @@ class ChangePasswordFormViewModel extends Disposable{
 
         this.errors = ko.validation.group(this);
 
-        this.shake = ko.observable(false);
     }
 
     change() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-            this.shake(true);
+
         } else {
             updateAccountPassword(sessionInfo().user, this.newPassword());
         }

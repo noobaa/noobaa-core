@@ -21,14 +21,9 @@ class AttachServerModalViewModel extends Disposable {
             });
 
         this.errors = ko.validation.group(this);
-
-        this.shake = ko.observable(false);
     }
 
     attach() {
-
-        this.shake(Boolean(this.errors().length));
-
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
 

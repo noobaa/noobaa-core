@@ -177,17 +177,35 @@ class SystemStoreData {
         return id ? this.idmap[String(id)] : null;
     }
 
+    //Return the mongo record (if found) and an indication if the
+    //object is linkable (not deleted) -> used in the activity log to link the
+    //various entities
     get_by_id_include_deleted(id, name) {
         const res = this.get_by_id(id);
-        if (res) return res;
+        if (res) {
+            return {
+                record: res,
+                linkable: true
+            };
+        }
         //Query deleted !== null
         const collection = mongo_client.instance().db.collection(name);
         return P.resolve(collection.findOne({
-            _id: id,
-            deleted: {
-                $ne: null
-            }
-        }));
+                _id: id,
+                deleted: {
+                    $ne: null
+                }
+            }))
+            .then(res => {
+                if (res) {
+                    return {
+                        record: res,
+                        linkable: false
+                    };
+                } else {
+                    return;
+                }
+            });
     }
 
     resolve_object_ids_paths(item, paths, allow_missing) {
@@ -490,16 +508,27 @@ class SystemStore extends EventEmitter {
                     _.each(list, item => {
                         data.check_indexes(col, item);
                         let updates = _.omit(item, '_id');
-                        let first_key;
-                        _.forOwn(updates, (val, key) => {
-                            first_key = key;
-                            return false; // break loop immediately
-                        });
-                        if (first_key[0] !== '$') {
+                        let keys = _.keys(updates);
+
+                        if (_.first(keys)[0] === '$') {
+                            for (const key of keys) {
+                                // Validate that all update keys are mongo operators.
+                                if (!mongo_utils.mongo_operators.has(key)) {
+                                    throw new Error(`SystemStore: make_changes invalid mix of operators and bare value: ${key}`);
+                                }
+
+                                // Delete operators with empty value to comply with
+                                // mongo specification.
+                                if (_.isEmpty(updates[key])) {
+                                    delete updates[key];
+                                }
+                            }
+                        } else {
                             updates = {
                                 $set: updates
                             };
                         }
+
                         // TODO how to _check_schema on update?
                         // if (updates.$set) {
                         //     this._check_schema(col, updates.$set, 'update');

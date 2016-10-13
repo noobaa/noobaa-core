@@ -5,6 +5,7 @@ import { validateActivationCode, validateActivationEmail, createSystem } from 'a
 import { activationCodeValid, activationEmailValid, serverInfo } from 'model';
 import moment from 'moment';
 import { waitFor } from 'utils';
+import { calcPasswordStrength } from 'utils';
 
 class CreateSystemFormViewModel extends Disposable {
     constructor() {
@@ -82,8 +83,21 @@ class CreateSystemFormViewModel extends Disposable {
                 includesDigit: true
             });
 
+        this.isPasswordValid = ko.pureComputed(
+            () => this.password() && this.password.isValid()
+        ).extend({
+            equal: {
+                params: true,
+                message: 'Please enter a valid password'
+            },
+            isModified: this.password.isModified
+        });
+
         this.passwordValidations = ko.pureComputed(
             () => ko.validation.fullValidationState(this.password)()
+                .filter(
+                    validator => validator.rule !== 'required'
+                )
                 .map(
                     validator => ({
                         message: validator.message,
@@ -91,6 +105,8 @@ class CreateSystemFormViewModel extends Disposable {
                     })
                 )
         );
+
+        this.calcPasswordStrength = calcPasswordStrength;
 
         this.name = ko.pureComputed(
             () => this.email() && this.email().split('@')[0]

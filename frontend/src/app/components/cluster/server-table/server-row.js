@@ -1,6 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
+import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
+import { deepFreeze, isUndefined } from 'utils';
 
 const stateIconMapping = deepFreeze({
     CONNECTED: {
@@ -75,5 +76,33 @@ export default class ServerRowViewModel extends Disposable {
                     'Using local serve time';
             }
         );
+
+        this.debugLevel = ko.pureComputed(
+            () => {
+                let level = server() && server().debug_level;
+                return isUndefined(level) ? 0 : level;
+            }
+        );
+
+        this.debugLevelText = ko.pureComputed(
+            () => this.debugLevel() > 0 ? 'High' : 'Low'
+        );
+
+        this.toogleDebugLevelButtonText = ko.pureComputed(
+            () => `${this.debugLevel() > 0 ? 'Lower' : 'Raise' } Debug Level`
+        );
+
+        this.debugLevelCss = ko.pureComputed(
+            () => ({ 'high-debug-level': this.debugLevel() > 0 })
+        );
+    }
+
+    toogleDebugLevel() {
+        let newDebugLevel = this.debugLevel() === 0 ? 5 : 0;
+        return setServerDebugLevel(this.secret(), this.hostname(), newDebugLevel);
+    }
+
+    downloadDiagnosticPack() {
+        downloadServerDiagnosticPack(this.secret(), this.hostname());
     }
 }

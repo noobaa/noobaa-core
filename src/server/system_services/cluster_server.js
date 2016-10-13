@@ -23,6 +23,7 @@ const upgrade_utils = require('../../util/upgrade_utils');
 const request = require('request');
 const dns = require('dns');
 const cluster_hb = require('../bg_services/cluster_hb');
+const dotenv = require('../../util/dotenv');
 
 function _init() {
     return P.resolve(MongoCtrl.init());
@@ -100,7 +101,8 @@ function add_member_to_cluster(req) {
                 secret: req.rpc_params.secret,
                 role: req.rpc_params.role,
                 shard: req.rpc_params.shard,
-                location: req.rpc_params.location
+                location: req.rpc_params.location,
+                jwt_secret: process.env.JWT_SECRET
             }, {
                 address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
                 timeout: 60000 //60s
@@ -139,6 +141,12 @@ function join_to_cluster(req) {
     // later it will be updated to hold this server's info in the cluster's DB
     req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
     req.rpc_params.topology.owner_address = req.rpc_params.ip;
+    // update jwt secret in dotenv
+    dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
+    dotenv.set({
+        key: 'JWT_SECRET',
+        value: req.rpc_params.jwt_secret
+    });
     return P.resolve(cutil.update_cluster_info(req.rpc_params.topology))
         .then(() => {
             dbg.log0('server new role is', req.rpc_params.role);

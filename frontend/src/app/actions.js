@@ -5,7 +5,7 @@ import config from 'config';
 import * as routes from 'routes';
 
 import { isDefined, last, makeArray, execInOrder, realizeUri, waitFor,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap } from 'utils';
+    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpGetAsync } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -1235,8 +1235,22 @@ export function updateP2PSettings(minPort, maxPort) {
 export function updateHostname(hostname) {
     logAction('updateHostname', { hostname });
 
+    function ping() {
+        // Try GET on '/version', if failed wait for 3s and then try again.
+        return httpGetAsync('./version')
+            .catch(
+                () => waitFor(3000).then(ping)
+            );
+    }
+
     api.system.update_hostname({ hostname })
-        // The system changed it's name, reload to the new name
+        // Grace time for service shoutdown.
+        .then(
+            () => waitFor(5000)
+        )
+        // Pull for web server response.
+        .then(ping)
+        // The system changed it's name and restarted, reload to the new name
         .then(
             () => {
                 let { protocol, port } = window.location;

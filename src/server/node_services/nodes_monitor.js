@@ -154,6 +154,11 @@ class NodesMonitor extends EventEmitter {
     }
 
     start() {
+        if (this._started){
+            dbg.log0('NodesMonitor already started returning.')
+            return P.resolve();
+        }
+        dbg.log0('Starting NodesMonitor');
         this._started = true;
         return this._load_from_store();
     }

@@ -62,8 +62,7 @@ class WizardViewModel extends Disposable {
 
     prev() {
         if (this.isFirstStep()) {
-            this.onCancel();
-            this.onClose();
+            this.cancel();
 
         } else {
             this.step(this.step() - 1);
@@ -76,12 +75,21 @@ class WizardViewModel extends Disposable {
         }
 
         if (this.isLastStep()) {
-            this.onComplete();
-            this.onClose();
+            this.complete();
 
         } else {
             this.step(this.step() + 1);
         }
+    }
+
+    cancel() {
+        this.onCancel();
+        this.onClose();
+    }
+
+    complete() {
+        this.onComplete();
+        this.onClose();
     }
 }
 

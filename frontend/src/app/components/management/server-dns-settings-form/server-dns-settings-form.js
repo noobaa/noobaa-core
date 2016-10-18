@@ -46,7 +46,6 @@ class ServerDnsSettingsFormViewModel extends Disposable{
                 isIPOrDNSName: true
             });
 
-
         this.errors = ko.validation.group(this);
     }
 
@@ -55,7 +54,6 @@ class ServerDnsSettingsFormViewModel extends Disposable{
             this.errors.showAllMessages();
 
         } else {
-            console.warn(this.serverSecret());
             updateServerDNSSettings(
                 this.serverSecret(), this.primaryDNS(), this.secondaryDNS()
             );

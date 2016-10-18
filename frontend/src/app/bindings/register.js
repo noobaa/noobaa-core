@@ -14,4 +14,5 @@ export default function register(ko) {
     ko.bindingHandlers.tooltip      = require('./tooltip');
     ko.bindingHandlers.scrollTo     = require('./scroll-to');
     ko.bindingHandlers.hover        = require('./hover');
+    ko.bindingHandlers.shakeOnClick = require('./shake-on-click');
 }

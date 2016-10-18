@@ -1,5 +1,5 @@
 {
-    "inputThrottle": 400,
+    "inputThrottle": 500,
     "paginationPageSize": 25,
     "infinitScrollPageSize": 25,
     "defaultPoolName": "default_pool",

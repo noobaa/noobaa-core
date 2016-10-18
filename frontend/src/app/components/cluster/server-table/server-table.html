@@ -65,9 +65,12 @@
                     <span class="greedy"></span>
 
                     <button class="link alt-colors no-outline" data-bind="
-                        click: () => downloadDiagnosticPack()
+                        click: () => downloadDiagnosticPack(),
+                        css: { inactive: isCollectingDiagnostics}
                     ">
-                        Download Diagnostic File
+                        <svg-icon class="icon-small spin" params="name: 'in-progress'" data-bind="visible: isCollectingDiagnostics"></svg-icon>
+                        <span data-bind="text: downloadDiagnosticText">
+                        </span>
                     </button>
                 </li>
             </ul>

@@ -1,5 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
+import { collectDiagnosticsState } from 'model';
 import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
 import { deepFreeze, isUndefined } from 'utils';
 
@@ -94,6 +95,16 @@ export default class ServerRowViewModel extends Disposable {
 
         this.debugLevelCss = ko.pureComputed(
             () => ({ 'high-debug-level': this.debugLevel() > 0 })
+        );
+
+        this.isCollectingDiagnostics = ko.pureComputed(
+            () => Boolean(collectDiagnosticsState()[`server:${this.hostname()}`])
+        );
+
+        this.downloadDiagnosticText = ko.pureComputed(
+            () => this.isCollectingDiagnostics() ?
+                'Collecting Data...' :
+                'Download Diagnostic File'
         );
     }
 

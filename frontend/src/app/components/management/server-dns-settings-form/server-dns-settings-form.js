@@ -47,17 +47,21 @@ class ServerDnsSettingsFormViewModel extends Disposable{
             });
 
         this.errors = ko.validation.group(this);
+
+        this.isUpdateServerDNSSettingsModelVisible = ko.observable();
     }
 
-    applyChanges() {
+    update() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
 
         } else {
-            updateServerDNSSettings(
-                this.serverSecret(), this.primaryDNS(), this.secondaryDNS()
-            );
+            this.isUpdateServerDNSSettingsModelVisible(true);
         }
+    }
+
+    hideUpdateDServerDNSSettingsModal() {
+        this.isUpdateServerDNSSettingsModelVisible(false);
     }
 }
 

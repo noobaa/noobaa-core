@@ -209,13 +209,14 @@ is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit y
   while [ "${menu_entry}" -ne "4" ]; do
     dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration" 3 "Password reset" 4 "Exit" 2> choice
     menu_entry=$(cat choice)
-    if [ "${menu_entry}" -eq "1" ]; then
-      configure_networking_dialog
-    elif [ "${menu_entry}" -eq "2" ]; then
-      configure_ntp_dialog
+  if [ "${menu_entry}" -eq "1" ]; then
+    configure_networking_dialog
+    /usr/bin/supervisorctl restart all #Restart services after IP and DNS changes
+  elif [ "${menu_entry}" -eq "2" ]; then
+    configure_ntp_dialog
   elif [ "${menu_entry}" -eq "3" ]; then
-        reset_password
-    fi
+    reset_password
+  fi
   done
   dialog --colors --nocancel --backtitle "NooBaa First Install" --infobox "Finalizing \Z5\ZbNooBaa\Zn first install..." 4 40 ; sleep 2
 

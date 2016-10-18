@@ -1395,22 +1395,38 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
+    model.collectDiagnosticsState.assign({
+        ['node:' + nodeName]: true
+    });
+
     notify('Collecting data... might take a while');
     api.system.diagnose_node({ name: nodeName })
         .catch(
             err => {
                 notify(`Packing diagnostic file for ${nodeName} failed`, 'error');
+                model.collectDiagnosticsState.assign({
+                    ['node:' + nodeName]: false
+                });
                 throw err;
             }
         )
         .then(
             url => downloadFile(url)
         )
+        .then(
+            () => model.collectDiagnosticsState.assign({
+                ['node:' + nodeName]: false
+            })
+        )
         .done();
 }
 
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
+
+    model.collectDiagnosticsState.assign({
+        ['server:' + targetHostname]: true
+    });
 
     notify('Collecting data... might take a while');
     api.cluster_server.diagnose_system({
@@ -1419,25 +1435,39 @@ export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
         .catch(
             err => {
                 notify(`Packing server diagnostic file for ${targetHostname} failed`, 'error');
+                model.collectDiagnosticsState.assign({
+                    ['server:' + targetHostname]: false
+                });
                 throw err;
             }
         )
         .then(downloadFile)
+        .then(
+            () => model.collectDiagnosticsState.assign({
+                ['server:' + targetHostname]: false
+            })
+        )
         .done();
 }
 
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
+    model.collectDiagnosticsState.assign({ system: true });
+
     notify('Collecting data... might take a while');
     api.cluster_server.diagnose_system()
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');
+                model.collectDiagnosticsState.assign({ system: false });
                 throw err;
             }
         )
         .then(downloadFile)
+        .then(
+            () => model.collectDiagnosticsState.assign({ system: false })
+        )
         .done();
 }
 

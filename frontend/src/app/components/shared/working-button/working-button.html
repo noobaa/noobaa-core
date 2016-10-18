@@ -1,4 +1,8 @@
-<button class="btn" data-bind="click: click.bind($parent), css: { inactive: working }">
+<button class="btn" data-bind="
+    click: click.bind($parent),
+    css: { inactive: working },
+    disable: disable
+">
     <div class="content-wrapper" data-bind="template: {
         nodes: $componentTemplateNodes, data: $parent
     }"></div>

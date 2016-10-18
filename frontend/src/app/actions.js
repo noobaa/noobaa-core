@@ -1387,11 +1387,14 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
+    if(model.collectDiagnosticsState['node:' + nodeName] === true) {
+        return;
+    }
+
     model.collectDiagnosticsState.assign({
         ['node:' + nodeName]: true
     });
 
-    notify('Collecting data... might take a while');
     api.system.diagnose_node({ name: nodeName })
         .catch(
             err => {
@@ -1416,11 +1419,14 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
+    if(model.collectDiagnosticsState['server:' + targetHostname] === true) {
+        return;
+    }
+
     model.collectDiagnosticsState.assign({
         ['server:' + targetHostname]: true
     });
 
-    notify('Collecting data... might take a while');
     api.cluster_server.diagnose_system({
         target_secret: targetSecret
     })
@@ -1445,9 +1451,12 @@ export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
+    if(model.collectDiagnosticsState['system'] === true) {
+        return;
+    }
+
     model.collectDiagnosticsState.assign({ system: true });
 
-    notify('Collecting data... might take a while');
     api.cluster_server.diagnose_system()
         .catch(
             err => {

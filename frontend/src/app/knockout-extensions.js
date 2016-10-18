@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, deepFreeze } from 'utils';
+import { isObject, isUndefined, deepFreeze } from 'utils';
 
 ko.subscribable.fn.is = function(value) {
     return ko.pureComputed(
@@ -13,7 +13,12 @@ ko.subscribable.fn.toggle = function() {
 };
 
 ko.subscribable.fn.assign = function(data) {
-    this(Object.assign(this(), ko.unwrap(data)));
+    if(isUndefined(this())) {
+        this(ko.unwrap(data));
+    }
+    else {
+        this(Object.assign(this(), ko.unwrap(data)));
+    }
     return this;
 };
 

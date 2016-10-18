@@ -73,7 +73,7 @@ export default class ServerRowViewModel extends Disposable {
 
                 return ntpServer ?
                     `Using NTP server at ${ntpServer}` :
-                    'Using local serve time';
+                    'Using local server time';
             }
         );
 

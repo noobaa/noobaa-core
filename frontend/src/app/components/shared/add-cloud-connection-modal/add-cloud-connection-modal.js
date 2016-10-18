@@ -165,7 +165,7 @@ class AddCloudConnectionModalViewModel extends Disposable {
 
         this.addToDisposeList(
             isCloudConnectionValid.subscribe(
-                isValid => isValid ? this.save() : this.shake(true)
+                isValid => isValid && this.save()
             )
         );
 

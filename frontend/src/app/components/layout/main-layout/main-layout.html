@@ -11,12 +11,60 @@
     ">
         <main-header class="push-next"></main-header>
 
-        <!-- ko if: panel -->
-        <main class="column greedy bounded push-next" data-bind="
-            component: panel,
-            css: panel
-        "></main>
-        <!-- /ko -->
+        <div class="row greedy push-next">
+
+            <nav class="column side-nav">
+                <a class="link no-outline icon-btn1 pad" data-bind="
+                    href: { route: 'system' },
+                    tooltip: { text: 'Overview', position: 'after' }
+                ">
+                    <svg-icon params="name: 'overview'"></svg-icon>
+                </a>
+
+                <a class="link no-outline icon-btn1 pad" data-bind="
+                    href: { route: 'buckets' },
+                    tooltip: { text: 'Buckets', position: 'after' }
+                ">
+                    <svg-icon params="name: 'buckets'"></svg-icon>
+                </a>
+
+                <a class="link no-outline icon-btn1 pad" data-bind="
+                    href: { route: 'pools' },
+                    tooltip: { text: 'Resources', position: 'after' }
+                ">
+                    <svg-icon params="name: 'resources'"></svg-icon>
+                </a>
+
+                <a class="link no-outline icon-btn1 pad" data-bind="
+                    href: { route: 'management' },
+                    tooltip: { text: 'Management', position: 'after' }
+                ">
+                    <svg-icon params="name: 'manage'"></svg-icon>
+                </a>
+
+                <a class="link no-outline icon-btn1 pad"  data-bind="
+                    href: { route: 'cluster' },
+                    tooltip: { text: 'Cluster', position: 'after' }
+                ">
+                    <svg-icon params="name: 'cluster'"></svg-icon>
+                </a>
+
+                <hr />
+
+                <a href="#" class="link no-outline icon-btn1 pad">
+                    <svg-icon params="name: 'signout'"></svg-icon>
+                </a>
+            </nav>
+
+
+            <!-- ko if: panel -->
+            <main class="column greedy bounded" data-bind="
+                component: panel,
+                css: panel
+            "></main>
+            <!-- /ko -->
+        </div>
+
 
         <notification-box></notification-box>
 

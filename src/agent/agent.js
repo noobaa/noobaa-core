@@ -65,6 +65,8 @@ class Agent {
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
+        this.create_node_token = params.create_node_token;
+
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
             this.storage_limit = params.storage_limit;
@@ -129,6 +131,7 @@ class Agent {
         js_utils.self_bind(this, [
             'get_agent_info_and_update_masters',
             'update_auth_token',
+            'update_create_node_token',
             'update_rpc_config',
             'n2n_signal',
             'test_store_perf',
@@ -347,12 +350,11 @@ class Agent {
                     process.exit(68); // 68 is 'D' in ascii
                 }
                 if (err.rpc_code === 'NODE_NOT_FOUND') {
-                    // we want to reuse the agent_cli INVALID_NODE handling,
-                    // but the fastest way to get there is restart the process,
-                    // maybe better to reuse the code path instead.
                     dbg.error('This agent appears to be using an old token.',
-                        'restarting to handle invalid node', err);
-                    process.exit(0);
+                        'throwing INVALID_NODE to handle in agent_cli.', err);
+                    let invalid_err = new Error('INVALID_NODE');
+                    invalid_err.DO_NOT_RETRY = true;
+                    throw invalid_err;
                 }
                 return P.delay(3000).then(() => {
                     this.connect_attempts += 1;
@@ -452,10 +454,9 @@ class Agent {
         // otherwise it's good
     }
     _update_agent_conf(params) {
-        dbg.log0('DZDZ:', 'inside _update_agent_conf, params =', params);
         // serialize agent_conf updates with Sempahore(1)
         return this.agent_conf_sem.surround(() => {
-            dbg.log0('DZDZ - updating agent_conf.json with params:', params);
+            dbg.log0('updating agent_conf.json with params:', params);
             return fs.readFileAsync('agent_conf.json')
                 .then(data => {
                     const agent_conf = JSON.parse(data);
@@ -537,6 +538,7 @@ class Agent {
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
+            create_node_token: this.create_node_token,
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
@@ -613,6 +615,14 @@ class Agent {
                 dbg.log0('update_auth_token: using new token');
                 this.client.options.auth_token = auth_token;
             });
+    }
+
+    update_create_node_token(req) {
+        this.create_node_token = req.rpc_params.create_node_token;
+        dbg.log0('update_auth_token: received new token');
+        return this._update_agent_conf({
+            create_node_token: this.create_node_token
+        });
     }
 
     update_rpc_config(req) {

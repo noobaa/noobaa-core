@@ -275,16 +275,7 @@ AgentCLI.prototype.load = function() {
                     return P.map(regular_node_names, node_name => {
                         dbg.log0('node_name', node_name, 'storage_path', storage_path);
                         var node_path = path.join(storage_path, node_name);
-                        return self.start(node_name, node_path)
-                            .catch(err => {
-                                if (err.message === 'INVALID_NODE') {
-                                    dbg.log0(`got INVALID_NODE for node_path ${node_path}`);
-                                    return fs_utils.folder_delete(node_path)
-                                        .then(() => 'INVALID_NODE');
-                                } else {
-                                    throw err;
-                                }
-                            });
+                        return self.start(node_name, node_path);
                     });
                 });
         }))
@@ -293,11 +284,9 @@ AgentCLI.prototype.load = function() {
             var number_of_new_paths = 0;
             var existing_nodes_count = 0;
             _.each(storage_path_nodes, function(nodes) {
-                // filter out invalid nodes, so new one will be created instead
-                let valid_nodes = nodes.filter(node => (node !== 'INVALID_NODE'));
                 // assumes same amount of nodes per each HD. we will take the last one.
-                if (valid_nodes.length) {
-                    existing_nodes_count = valid_nodes.length;
+                if (nodes.length) {
+                    existing_nodes_count = nodes.length;
                 } else {
                     number_of_new_paths += 1;
                 }

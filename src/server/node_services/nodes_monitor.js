@@ -242,6 +242,9 @@ class NodesMonitor extends EventEmitter {
     test_node_id(req) {
         // Deprecated
         // this case is handled in heartbeat flow. agent will clean itself when getting NODE_NOT_FOUND
+        // although it is not used by agents in the current version, we need to leave this code for
+        // cases where older versions of the agent call this function on startup.
+        // we can remove it only after we no longer support versions that call test_node_id
         return true;
     }
 
@@ -642,6 +645,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _update_create_node_token(item) {
+        if (!item.connection) return;
         if (item.create_node_token) {
             dbg.log2(`_update_create_node_token: node already has a valid create_node_token. item.create_node_token = ${item.create_node_token}`);
             return;
@@ -650,16 +654,18 @@ class NodesMonitor extends EventEmitter {
         let auth_parmas = {
             system_id: String(item.node.system),
             account_id: system_store.data.get_by_id(item.node.system).owner._id,
-            role: 'admin'
+            role: 'create_node'
         };
         let token = auth_server.make_auth_token(auth_parmas);
         dbg.log0(`new create_node_token: ${token}`);
 
         return this.client.agent.update_create_node_token({
-            create_node_token: token
-        }, {
-            connection: item.connection
-        });
+                create_node_token: token
+            }, {
+                connection: item.connection
+            })
+            .timeout(AGENT_RESPONSE_TIMEOUT);
+
     }
 
 

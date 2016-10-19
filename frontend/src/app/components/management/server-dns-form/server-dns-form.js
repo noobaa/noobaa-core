@@ -69,22 +69,19 @@ class ServerDNSFormViewModel extends Disposable {
             this.dnsName
         ]);
 
-        this.isUpdatingSystemNameModalVisible = ko.observable(false);
+        this.isUpdateSystemNameModalVisible = ko.observable(false);
     }
 
     applyChanges() {
         if (this.errors.validatingCount() > 0 || this.errors().length > 0) {
             this.errors.showAllMessages();
-
         } else {
-
-            this.isUpdatingSystemNameModalVisible(true);
-            // updateHostname(this.baseAddress());
+            this.isUpdateSystemNameModalVisible(true);
         }
     }
 
-    hideUpdatingSystemNameModal() {
-        this.isUpdatingSystemNameModalVisible(false);
+    hideUpdateSystemNameModal() {
+        this.isUpdateSystemNameModalVisible(false);
     }
 }
 

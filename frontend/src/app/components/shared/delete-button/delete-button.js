@@ -22,7 +22,7 @@ class DeleteButtonViewModel extends Disposable {
         });
 
         this.tooltip = ko.pureComputed(
-            () => this.isActive() ? undefined : { text: tooltip, align: 'right' }
+            () => this.isActive() ? undefined : { text: tooltip, align: 'end' }
         );
 
         this.icon = ko.pureComputed(

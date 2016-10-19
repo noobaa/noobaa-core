@@ -285,9 +285,6 @@ module.exports = {
                         type: 'string'
                     },
                 },
-                restart_services: {
-                    type: 'boolean'
-                }
             },
         }
     },

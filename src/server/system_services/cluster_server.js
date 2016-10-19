@@ -378,7 +378,6 @@ function update_dns_servers(req) {
             });
         })
         .then(() => {
-            dns_servers_config.restart_services = true;
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
                     address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
@@ -394,10 +393,7 @@ function apply_updated_dns_servers(req) {
             return os_utils.set_dns_server(req.rpc_params.dns_servers);
         })
         .then(() => {
-            if (req.rpc_params.restart_services) {
-                return os_utils.restart_services();
-            }
-            return;
+            return os_utils.restart_services();
         })
         .return();
 }

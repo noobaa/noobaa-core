@@ -128,6 +128,7 @@ export default function register(ko) {
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
     ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
     ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form'));
+    ko.components.register('updating-system-name-modal', require('./management/updating-system-name-modal/updating-system-name-modal'));
     /** INJECT:management **/
 
     // -------------------------------

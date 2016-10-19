@@ -655,3 +655,22 @@ export function calcPasswordStrength(password) {
 
     return clamp(score/100, 0, 1);
 }
+
+// HTTP GET request as a promise.
+export function httpGetAsync(url) {
+    return new Promise(
+        (resolve, reject) =>  {
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+
+            xhr.onerror = reject;
+            xhr.onabort = reject;
+
+            xhr.onload = function(evt) {
+                xhr.status === 200 ? resolve(evt) : reject(evt);
+            };
+
+            xhr.send();
+        }
+    );
+}

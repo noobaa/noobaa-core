@@ -74,6 +74,10 @@ class ServerTimeFormViewModel extends Disposable{
         this.ntpErrors = ko.validation.group([
             this.ntpServer
         ]);
+
+        this.isValid = ko.pureComputed(
+            () => this.usingManualTime() || this.ntpErrors().length === 0
+        );
     }
 
     applyChanges() {

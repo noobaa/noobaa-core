@@ -32,8 +32,7 @@
             </p>
             <button class="btn" data-bind="
                 click: signIn,
-                css: { shake: shake },
-                animation: { end: () => shake(false) }
+                shakeOnClick: errors().length
             ">
                 Sign In
             </button>

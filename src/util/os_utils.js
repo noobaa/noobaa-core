@@ -132,7 +132,6 @@ function read_windows_drives() {
     return wmic('volume')
         .then(function(volumes) {
             return _.compact(_.map(volumes, function(vol) {
-                dbg.log0('vol:', vol);
                 // drive type codes:
                 // 0 = Unknown
                 // 1 = No Root Directory

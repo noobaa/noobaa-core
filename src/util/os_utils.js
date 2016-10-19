@@ -449,9 +449,17 @@ function reload_syslog_configuration(conf) {
 }
 
 function restart_services() {
-    spawn('nohup', ['supervisorctl restart all'], {
+    var fname = '/tmp/spawn.log';
+    var stdout = fs.openSync(fname, 'a');
+    var stderr = fs.openSync(fname, 'a');
+    spawn('nohup', [
+        '/usr/bin/supervisorctl',
+        'restart',
+        'all'
+    ], {
         detached: true,
-        stdio: ['ignore', 'ignore', 'ignore']
+        stdio: ['ignore', stdout, stderr],
+        cwd: '/usr/bin/'
     });
 }
 

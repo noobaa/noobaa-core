@@ -345,7 +345,8 @@ function update_dns_servers(req) {
             } else {
                 let current;
                 _.each(system_store.data.clusters, cluster => {
-                    //Run current last
+                    //Run current last since we restart the server, we want to make sure
+                    //all other server were dispatched to
                     if (system_store.get_server_secret() === cluster.owner_secret) {
                         current = cluster;
                     } else {

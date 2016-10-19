@@ -33,7 +33,7 @@ module.exports = {
 function authenticate() {
     let auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return P.fcall(function() {
@@ -46,7 +46,7 @@ function authenticate() {
 //     return P.resolve(client.system.create_system({
 //         activation_code: 'bla',
 //         email: 'demo@noobaa.com',
-//         password: 'DeMo',
+//         password: 'DeMo1',
 //         name: 'demo',
 //         access_keys: {
 //             access_key: '123',
@@ -72,7 +72,7 @@ function remove_agents() {
     console.log('removing agents');
     const names = _.times(TEST_CTX.num_of_agents, i => TEST_CTX.nodes_name + (i + 1));
     return P.each(names, name => client.hosted_agents.remove_agent({
-            name: name,
+            name: 'noobaa-internal-agent-' + name,
         }))
         .then(() => names);
 }

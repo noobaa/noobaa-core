@@ -42,7 +42,6 @@ const dbg = require('../util/debug_module')(__filename);
 const pem = require('../util/pem');
 const pkg = require('../../package.json');
 const config = require('../../config.js');
-const time_utils = require('../util/time_utils');
 const mongo_client = require('../util/mongo_client');
 const mongoose_utils = require('../util/mongoose_utils');
 const system_store = require('./system_services/system_store').get_instance();
@@ -75,6 +74,11 @@ var http_port = process.env.PORT = process.env.PORT || 5001;
 var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
+
+// TODO: chang this. a temp fix to block /version until upgrade is finished
+// this is not cleared if upgrade fails, and will block UI until browser refresh.
+// maybe we need to change it to use upgrade status in DB.
+let is_upgrading = false;
 
 P.fcall(function() {
         // we register the rpc before listening on the port
@@ -149,7 +153,8 @@ app.use(function(req, res, next) {
 });
 app.use(function(req, res, next) {
     let current_clustering = system_store.get_local_cluster_info();
-    if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+    if ((current_clustering && current_clustering.is_clusterized) &&
+        !system_store.is_cluster_master && req.url !== '/upload_package') {
         P.fcall(function() {
                 return server_rpc.client.cluster_internal.redirect_to_cluster_master();
             })
@@ -238,20 +243,11 @@ app.post('/upgrade',
     .single('upgrade_file'),
     function(req, res) {
         var upgrade_file = req.file;
-        dbg.log0('UPGRADE file uploaded', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
-        var fsuffix = time_utils.time_suffix();
-        var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
-        var stdout = fs.openSync(fname, 'a');
-        var stderr = fs.openSync(fname, 'a');
-        var spawn = require('child_process').spawn;
-        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file.path);
-        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh',
-            'from_file', upgrade_file.path,
-            'fsuffix', fsuffix
-        ], {
-            detached: true,
-            stdio: ['ignore', stdout, stderr],
-            cwd: '/tmp'
+        dbg.log0('got upgrade file:', upgrade_file);
+        dbg.log0('calling cluster.upgrade_cluster()');
+        is_upgrading = true;
+        server_rpc.client.cluster_internal.upgrade_cluster({
+            filepath: upgrade_file.path
         });
         res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
     });
@@ -318,7 +314,10 @@ app.post('/upload_package',
     .single('upgrade_file'),
     function(req, res) {
         var upgrade_file = req.file;
-        server_rpc.client.system.upload_upgrade_package(upgrade_file.path); //Async
+        server_rpc.client.cluster_internal.member_pre_upgrade({
+            filepath: upgrade_file.path,
+            mongo_upgrade: false
+        }); //Async
         res.end('<html><head></head>Upgrade file uploaded successfully');
     });
 
@@ -387,7 +386,7 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
-    if (server_rpc.is_service_registered('system_api.read_system')) {
+    if (server_rpc.is_service_registered('system_api.read_system') && !is_upgrading) {
         res.send(pkg.version);
         res.end();
     } else {

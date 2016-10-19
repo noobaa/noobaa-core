@@ -330,7 +330,10 @@ module.exports = {
                                     properties: {
                                         name: {
                                             type: 'string'
-                                        }
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 node: {
@@ -339,7 +342,10 @@ module.exports = {
                                     properties: {
                                         name: {
                                             type: 'string'
-                                        }
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 bucket: {
@@ -348,7 +354,10 @@ module.exports = {
                                     properties: {
                                         name: {
                                             type: 'string'
-                                        }
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 pool: {
@@ -357,7 +366,10 @@ module.exports = {
                                     properties: {
                                         name: {
                                             type: 'string'
-                                        }
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 obj: {
@@ -528,26 +540,33 @@ module.exports = {
             }
         },
 
-        upload_upgrade_package: {
+        attempt_dns_resolve: {
+            doc: 'Attempt to resolve a dns name',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['filepath'],
+                required: ['dns_name'],
                 properties: {
-                    filepath: {
+                    dns_name: {
+                        type: 'string'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['valid'],
+                properties: {
+                    valid: {
+                        type: 'boolean'
+                    },
+                    reason: {
                         type: 'string'
                     }
                 }
             },
             auth: {
-                system: 'admin',
-            }
-        },
-
-        do_upgrade: {
-            method: 'POST',
-            auth: {
-                system: 'admin',
+                account: false,
+                system: false,
             }
         },
 
@@ -846,8 +865,9 @@ module.exports = {
                 secret: {
                     type: 'string',
                 },
-                is_connected: {
-                    type: 'boolean'
+                status: {
+                    type: 'string',
+                    enum: ['CONNECTED', 'DISCONNECTED', 'IN_PROGRESS']
                 },
                 hostname: {
                     type: 'string'

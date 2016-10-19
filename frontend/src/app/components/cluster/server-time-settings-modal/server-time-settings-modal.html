@@ -9,51 +9,12 @@
         "></radio-group>
     </editor>
 
-    <editor params="label: 'Timezone'">
-        <dropdown params="
-            options: timezoneOptions,
-            selected: timezone,
-            matchOperator: matchByTimezoneName
-        "></dropdown>
-    </editor>
+    <timezone-chooser params="timezone: timezone"></timezone-chooser>
 
     <div class="forms row push-next greedy">
-        <div class="manual-form" data-bind="visibility: usingManualTime">
-             <editor params="label: 'Date'">
-                <div class="row editor-row">
-                    <dropdown class="small-field text-center push-next" params="
-                        options: monthOptions,
-                        placeholder: 'month',
-                        selected: month
-                    "></dropdown>
-
-                    <dropdown class="small-field text-center push-next" params="
-                        options: dayOptions,
-                        placeholder: 'day',
-                        selected: day
-                    "></dropdown>
-
-                    <dropdown class="small-field text-center" params="
-                        options: yearOptions,
-                        placeholder: 'year',
-                        selected: year
-                    "></dropdown>
-                </div>
-            </editor>
-
-            <editor params="label: 'Time', insertValMessages: false">
-                <div class="row editor-row">
-                    <input type="number" class="small-field push-next" min="0" max="23"
-                        placeholder="hours" data-bind="textInput: hour"/>
-
-                    <input type="number" class="small-field push-next" min="0" max="59"
-                        placeholder="minutes" data-bind="textInput: minute"/>
-
-                    <input type="number" class="small-field" min="0" max="59"
-                        placeholder="seconds" data-bind="textInput: second"/>
-                </div>
-            </editor>
-        </div>
+        <date-time-chooser params="time: time, timezone: timezone"
+            class="manual-form" data-bind="visibility: usingManualTime">
+        </date-time-chooser>
 
         <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
             <input type="text" placeholder="IP or DNS name" data-bind="
@@ -63,7 +24,14 @@
     </div>
 
     <div class="row content-middle align-end push-prev">
-        <button class="link push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn" data-bind="click: save">save</button>
+        <button class="link push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="
+            click: save,
+            shakeOnClick: !isValid()
+        ">
+            save
+        </button>
     </div>
 </modal>

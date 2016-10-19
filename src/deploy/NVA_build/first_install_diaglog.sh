@@ -180,8 +180,8 @@ function reset_password {
 
         local number_of_account=$(/usr/bin/mongo nbcore --eval 'db.accounts.count({_id: {$exists: true}})' --quiet)
         if [ ${number_of_account} -lt 2 ]; then
-          echo "Could not find any account. Please setup a system from the web management first"
-          return 0
+            dialog --colors --nocancel --backtitle "NooBaa First Install" --msgbox "Could not find any account. Please setup a system from the web management first" 8 40
+            return 0
         fi
 
         local user_name=$(/usr/bin/mongo nbcore --eval 'db.accounts.find({email:{$ne:"support@noobaa.com"}},{email:1,_id:0}).sort({_id:-1}).limit(1).map(function(u){return u.email})[0]' --quiet)

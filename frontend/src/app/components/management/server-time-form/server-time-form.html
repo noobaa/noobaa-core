@@ -32,14 +32,15 @@
         </date-time-chooser>
 
         <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
-            <input type="text" placeholder="IP or DNS name" data-bind="
-                value: ntpServer
-            "/>
+            <input type="text" placeholder="IP or DNS name" data-bind="value: ntpServer"/>
         </editor>
     </div>
 
     <div class="row">
-        <button class="btn" data-bind="click: applyChanges">
+        <button class="btn" data-bind="
+            click: applyChanges,
+            shakeOnClick: !isValid()
+        ">
             Apply Changes
         </button>
     </div>

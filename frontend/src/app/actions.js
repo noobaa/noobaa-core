@@ -4,8 +4,8 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 
-import { isDefined, isUndefined, last, makeArray, execInOrder, realizeUri,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap } from 'utils';
+import { isDefined, last, makeArray, execInOrder, realizeUri, waitFor,
+    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpGetAsync } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -38,11 +38,12 @@ export function start() {
 
     return api.auth.read_auth()
         // Try to restore the last session
-        .then(({account, system}) => {
+        .then(({ account, system }) => {
             if (isDefined(account)) {
                 model.sessionInfo({
                     user: account.email,
-                    system: system.name
+                    system: system.name,
+                    mustChangePassword: account.must_change_password
                 });
             }
         })
@@ -111,20 +112,14 @@ export function refresh() {
 export function showLogin() {
     logAction('showLogin');
 
-    let session = model.sessionInfo();
     let ctx = model.routeContext();
 
-    if (session) {
-        redirectTo(routes.system, { system: session.system });
+    model.uiState({
+        layout: 'login-layout',
+        returnUrl: ctx.query.returnUrl
+    });
 
-    } else {
-        model.uiState({
-            layout: 'login-layout',
-            returnUrl: ctx.query.returnUrl
-        });
-
-        loadServerInfo();
-    }
+    loadServerInfo();
 }
 
 export function showOverview() {
@@ -296,6 +291,14 @@ export function showCluster() {
     });
 }
 
+export function handleUnknownRoute() {
+    logAction('handleUnknownRoute');
+
+    let system = model.sessionInfo().system;
+    let uri = realizeUri(routes.system, { system });
+    redirectTo(uri);
+}
+
 export function openDrawer() {
     logAction('openDrawer');
 
@@ -315,8 +318,8 @@ export function closeDrawer() {
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
-export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
-    logAction('signIn', { email, password, keepSessionAlive, redirectUrl });
+export function signIn(email, password, keepSessionAlive = false) {
+    logAction('signIn', { email, password, keepSessionAlive });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -325,18 +328,19 @@ export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
                 let system = systems[0].name;
 
                 return api.create_auth_token({ system, email, password })
-                    .then(({ token }) => {
+                    .then(({ token, info }) => {
                         let storage = keepSessionAlive ? localStorage : sessionStorage;
                         storage.setItem('sessionToken', token);
 
-                        model.sessionInfo({ user: email, system: system });
-                        model.loginInfo({ retryCount: 0 });
+                        let mustChangePassword = info.account.must_change_password;
+                        model.sessionInfo({
+                            user: email,
+                            system: system,
+                            mustChangePassword: mustChangePassword
+                        });
 
-                        if (isUndefined(redirectUrl)) {
-                            redirectTo(routes.system, { system });
-                        } else {
-                            redirectTo(decodeURIComponent(redirectUrl));
-                        }
+                        model.loginInfo({ retryCount: 0 });
+                        refresh();
                     });
             }
         )
@@ -360,6 +364,7 @@ export function signOut(shouldRefresh = true) {
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
     api.options.auth_token = undefined;
+
     if (shouldRefresh) {
         refresh();
     }
@@ -680,8 +685,7 @@ export function createSystem(
                 // Update the session info and redirect to system screen.
                 model.sessionInfo({
                     user: email,
-                    system: systemName,
-                    token: token
+                    system: systemName
                 });
 
                 redirectTo(
@@ -695,12 +699,13 @@ export function createSystem(
 }
 
 export function createAccount(name, email, password, accessKeys, S3AccessList) {
-    logAction('createAccount', { name, email, password, accessKeys,     S3AccessList });
+    logAction('createAccount', { name, email, password, accessKeys, S3AccessList });
 
     api.account.create_account({
         name: name,
         email: email,
         password: password,
+        must_change_password: true,
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })
@@ -736,11 +741,32 @@ export function deleteAccount(email) {
 export function resetAccountPassword(email, password) {
     logAction('resetAccountPassword', { email, password });
 
-    api.account.update_account({ email, password })
+    api.account.update_account({
+        email,
+        password,
+        must_change_password: true
+    })
         .then(
             () => notify(`${email} password has been reset successfully`, 'success'),
             () => notify(`Resetting ${email}'s password failed`, 'error')
         )
+        .done();
+}
+
+export function updateAccountPassword (email, password) {
+    logAction('updateAccountPassword', { email, password });
+
+    api.account.update_account({
+        email,
+        password,
+        must_change_password: false
+    })
+        .then(
+            () => model.sessionInfo.assign({
+                mustChangePassword: false
+            })
+        )
+        .then(refresh)
         .done();
 }
 
@@ -1209,12 +1235,33 @@ export function updateP2PSettings(minPort, maxPort) {
 export function updateHostname(hostname) {
     logAction('updateHostname', { hostname });
 
+    function ping() {
+        // Try GET on '/version', if failed wait for 3s and then try again.
+        return httpGetAsync('./version')
+            .catch(
+                () => waitFor(3000).then(ping)
+            );
+    }
+
     api.system.update_hostname({ hostname })
+        // Grace time for service shoutdown.
         .then(
-            () => notify('Hostname updated successfully', 'success'),
-            () => notify('Hostname update failed', 'error')
+            () => waitFor(5000)
         )
-        .then(loadSystemInfo)
+        // Pull for web server response.
+        .then(ping)
+        // The system changed it's name and restarted, reload to the new name
+        .then(
+            () => {
+                let { protocol, port } = window.location;
+                let baseAddress = `${protocol}//${hostname}:${port}`;
+
+                reloadTo(
+                    `${baseAddress}${routes.management}`,
+                    { tab: 'settings' }
+                );
+            }
+        )
         .done();
 }
 
@@ -1362,11 +1409,28 @@ export function downloadNodeDiagnosticPack(nodeName) {
         .done();
 }
 
+export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
+    logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
+
+    notify('Collecting data... might take a while');
+    api.cluster_server.diagnose_system({
+        target_secret: targetSecret
+    })
+        .catch(
+            err => {
+                notify(`Packing server diagnostic file for ${targetHostname} failed`, 'error');
+                throw err;
+            }
+        )
+        .then(downloadFile)
+        .done();
+}
+
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
     notify('Collecting data... might take a while');
-    api.system.diagnose_system()
+    api.cluster_server.diagnose_system()
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');
@@ -1402,6 +1466,27 @@ export function setNodeDebugLevel(node, level) {
         .then(
             () => loadNodeInfo(node)
         )
+        .done();
+}
+
+export function setServerDebugLevel(targetSecret, targetHostname, level){
+    logAction('setServerDebugLevel', { targetSecret, targetHostname, level });
+
+    api.cluster_server.set_debug_level({
+        target_secret: targetSecret,
+        level: level
+    })
+        .then(
+            () => notify(
+                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${targetHostname}`,
+                'success'
+            ),
+            () => notify(
+                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${targetHostname}`,
+                'error'
+            )
+        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -1720,31 +1805,31 @@ export function notify(message, severity = 'info') {
     model.lastNotification({ message, severity });
 }
 
-export function validateActivationCode(code) {
-    logAction('validateActivationCode', { code });
-
-    api.system.validate_activation({ code })
-        .then(
-            ({ valid, reason }) => model.activationCodeValid({
-                code: code,
-                isValid: valid,
-                reason: reason
-            })
-        )
-        .done();
-}
-
-export function validateActivationEmail(code, email) {
-    logAction('validateActivationEmail', { code, email });
+export function validateActivation(code, email) {
+    logAction('validateActivation', { code, email });
 
     api.system.validate_activation({ code, email })
         .then(
-            ({ valid, reason }) => model.activationEmailValid({
-                code: code,
-                email: email,
-                isValid: valid,
-                reason: reason
-            })
+            reply => waitFor(500, reply)
+        )
+        .then(
+            ({ valid, reason }) => model.activationState({ code, email, valid, reason })
+        )
+
+        .done();
+}
+
+export function attemptResolveSystemName(name) {
+    logAction('attemptResolveServerName', { name });
+
+    api.system.attempt_dns_resolve({
+        dns_name: name
+    })
+        .then(
+            reply => waitFor(500, reply)
+        )
+        .then(
+            ({ valid, reason }) => model.nameResolutionState({ name, valid, reason })
         )
         .done();
 }

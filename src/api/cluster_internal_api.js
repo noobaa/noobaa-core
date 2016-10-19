@@ -17,7 +17,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['topology', 'cluster_id', 'secret', 'role', 'shard'],
+                required: ['topology', 'cluster_id', 'secret', 'role', 'shard', 'jwt_secret'],
                 properties: {
                     ip: {
                         type: 'string',
@@ -26,6 +26,9 @@ module.exports = {
                         type: 'string'
                     },
                     secret: {
+                        type: 'string'
+                    },
+                    jwt_secret: {
                         type: 'string'
                     },
                     role: {
@@ -195,6 +198,58 @@ module.exports = {
                 system: false,
             }
         },
+
+        upgrade_cluster: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['filepath'],
+                properties: {
+                    filepath: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+
+        member_pre_upgrade: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['filepath', 'mongo_upgrade'],
+                properties: {
+                    filepath: {
+                        type: 'string'
+                    },
+                    mongo_upgrade: {
+                        type: 'boolean'
+                    }
+
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+
+        do_upgrade: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    filepath: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        }
+
     },
 
     definitions: {

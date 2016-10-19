@@ -9,7 +9,7 @@ const fs = require('fs');
 const fs_utils = require('../util/fs_utils');
 const base_diagnostics = require('../util/base_diagnostics');
 
-const TMP_WORK_DIR = '/tmp/diag';
+const TMP_WORK_DIR = base_diagnostics.get_tmp_workdir();
 
 function collect_agent_diagnostics() {
     //mkdir c:\tmp ?
@@ -20,14 +20,15 @@ function collect_agent_diagnostics() {
         .then(function() {
             if (fs.existsSync(process.cwd() + '/logs')) {
                 //will take only noobaa.log and the first 9 zipped logs
-                return fs_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR, 'noobaa?[1-9][0-9].log.gz');
+                return fs_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR,
+                    'noobaa?[1-9][0-9].log.gz');
             } else {
                 return;
             }
         })
         .then(function() {
-            if (fs.existsSync('/var/log/noobaa_local_service.log')) {
-                return fs_utils.file_copy('/var/log/noobaa_local_service.log', TMP_WORK_DIR);
+            if (fs.existsSync('/var/log/noobaalocalservice.log')) {
+                return fs_utils.file_copy('/var/log/noobaalocalservice.log', TMP_WORK_DIR);
             } else {
                 return;
             }

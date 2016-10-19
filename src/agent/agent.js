@@ -40,8 +40,11 @@ const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
+const Semaphore = require('../util/semaphore');
 
 
+const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
+const MASTER_MAX_CONNECT_ATTEMPTS = 20;
 
 class Agent {
 
@@ -51,11 +54,13 @@ class Agent {
         this.rpc = api.new_rpc(params.address);
         this.client = this.rpc.new_client();
 
-        this.servers = [{
+        this.servers = params.servers || [{
             address: params.address
         }];
 
         this.host_id = params.host_id;
+
+        this.agent_conf_sem = params.agent_conf_sem || new Semaphore(1);
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
@@ -122,7 +127,7 @@ class Agent {
         // AGENT API methods - bind to self
         // (rpc registration requires bound functions)
         js_utils.self_bind(this, [
-            'get_agent_info',
+            'get_agent_info_and_update_masters',
             'update_auth_token',
             'update_rpc_config',
             'n2n_signal',
@@ -195,21 +200,37 @@ class Agent {
         });
     }
 
+    _update_servers_list(new_list) {
+        let sorted_new = _.sortBy(new_list, srv => srv.address);
+        let sorted_old = _.sortBy(this.servers, srv => srv.address);
+        if (_.isEqual(sorted_new, sorted_old)) return P.resolve();
+        this.servers = new_list;
+        return this._update_agent_conf({
+            servers: this.servers
+        });
+    }
+
     _handle_server_change(suggested) {
-        dbg.warn('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list', this.servers);
+        dbg.warn('_handle_server_change',
+            suggested ?
+            'suggested server ' + suggested :
+            'no suggested server, trying next in list',
+            this.servers);
         this.connect_attempts = 0;
         if (!this.servers.length) {
             dbg.error('_handle_server_change no server list');
-            return;
+            return P.resolve();
         }
         const previous_address = this.servers[0].address;
+        dbg.log0('previous_address =', previous_address);
+        dbg.log0('original servers list =', this.servers);
         if (suggested) {
             //Find if the suggested server appears in the list we got from the initial connect
             const current_server = _.remove(this.servers, function(srv) {
                 return srv.address === suggested;
             });
             if (current_server[0]) {
-                this.servers.unshift(current_server);
+                this.servers.unshift(current_server[0]);
             } else {
                 this.servers.push(this.servers.shift());
             }
@@ -217,11 +238,12 @@ class Agent {
             //Skip to the next server in list
             this.servers.push(this.servers.shift());
         }
+        dbg.log0('new servers list =', this.servers);
         dbg.log('Chosen new address', this.servers[0].address, this.servers);
-        return P.resolve(this._update_rpc_config_internal({
+        return this._update_rpc_config_internal({
             base_address: this.servers[0].address,
             old_base_address: previous_address,
-        }));
+        });
     }
 
     _init_node() {
@@ -245,16 +267,17 @@ class Agent {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
 
-                // test the existing token against the server. if not valid throw error, and let the
-                // agent_cli create new node.
-                return this.client.node.test_node_id({})
-                    .then(valid_node => {
-                        if (!valid_node) {
-                            let err = new Error('INVALID_NODE');
-                            err.DO_NOT_RETRY = true;
-                            throw err;
-                        }
-                    });
+                // temporarily removed test_node_id. this should be handled in do_heartbeat
+                // // test the existing token against the server. if not valid throw error, and let the
+                // // agent_cli create new node.
+                // return this.client.node.test_node_id({})
+                //     .then(valid_node => {
+                //         if (!valid_node) {
+                //             let err = new Error('INVALID_NODE');
+                //             err.DO_NOT_RETRY = true;
+                //             throw err;
+                //         }
+                //     });
             })
             .then(() => P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
@@ -274,10 +297,10 @@ class Agent {
     _do_heartbeat() {
         if (!this.is_started) return;
 
-        /*if (this.connect_attempts > 20) {
+        if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
             dbg.error('too many failure to connect, switching servers');
             return this._handle_server_change();
-        }*/
+        }
 
         let hb_info = {
             version: pkg.version
@@ -289,13 +312,19 @@ class Agent {
         }
         return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true
-            }).then(req => {
+            })
+            .timeout(MASTER_RESPONSE_TIMEOUT)
+            .then(req => {
                 this.connect_attempts = 0;
                 const res = req.reply;
                 const conn = req.connection;
                 this._server_connection = conn;
                 if (res.redirect) {
-                    return this._handle_server_change(res.redirect);
+                    dbg.log0('got redirect response:', res.redirect);
+                    return this._handle_server_change(res.redirect)
+                        .then(() => {
+                            throw new Error('redirect to ' + res.redirect);
+                        });
                 }
                 if (res.version !== pkg.version) {
                     dbg.warn('exit on version change:',
@@ -313,11 +342,20 @@ class Agent {
             .catch(err => {
                 dbg.error('heartbeat failed', err);
                 if (err.rpc_code === 'DUPLICATE') {
-                    dbg.error('This agent appears to be duplicated. exiting and starting new agent', err);
+                    dbg.error('This agent appears to be duplicated.',
+                        'exiting and starting new agent', err);
                     process.exit(68); // 68 is 'D' in ascii
                 }
+                if (err.rpc_code === 'NODE_NOT_FOUND') {
+                    // we want to reuse the agent_cli INVALID_NODE handling,
+                    // but the fastest way to get there is restart the process,
+                    // maybe better to reuse the code path instead.
+                    dbg.error('This agent appears to be using an old token.',
+                        'restarting to handle invalid node', err);
+                    process.exit(0);
+                }
                 return P.delay(3000).then(() => {
-                    this.connect_attempts++;
+                    this.connect_attempts += 1;
                     this._do_heartbeat();
                 });
 
@@ -413,6 +451,32 @@ class Agent {
         }
         // otherwise it's good
     }
+    _update_agent_conf(params) {
+        dbg.log0('DZDZ:', 'inside _update_agent_conf, params =', params);
+        // serialize agent_conf updates with Sempahore(1)
+        return this.agent_conf_sem.surround(() => {
+            dbg.log0('DZDZ - updating agent_conf.json with params:', params);
+            return fs.readFileAsync('agent_conf.json')
+                .then(data => {
+                    const agent_conf = JSON.parse(data);
+                    dbg.log0('_update_agent_conf: old values in agent_conf.json:', agent_conf);
+                    return agent_conf;
+                }, err => {
+                    if (err.code === 'ENOENT') {
+                        dbg.log0('_update_agent_conf: no agent_conf.json file. creating new one...');
+                        return {};
+                    } else {
+                        throw err;
+                    }
+                })
+                .then(agent_conf => {
+                    _.assign(agent_conf, params);
+                    const data = JSON.stringify(agent_conf);
+                    dbg.log0('_update_agent_conf: writing new values to agent_conf.json:', agent_conf);
+                    return fs.writeFileAsync('agent_conf.json', data);
+                });
+        });
+    }
 
     _update_rpc_config_internal(params) {
         if (params.n2n_config) {
@@ -433,24 +497,10 @@ class Agent {
             return P.fcall(() => this.client.node.ping(null, {
                     address: params.base_address
                 }))
-                .then(() => fs.readFileAsync('agent_conf.json')
-                    .then(data => {
-                        const agent_conf = JSON.parse(data);
-                        dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
-                        return agent_conf;
-                    }, err => {
-                        if (err.code === 'ENOENT') {
-                            dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
-                            return {};
-                        } else {
-                            throw err;
-                        }
-                    }))
-                .then(agent_conf => {
-                    agent_conf.address = params.base_address;
-                    const data = JSON.stringify(agent_conf);
-                    return fs.writeFileAsync('agent_conf.json', data);
-                })
+                // TODO: we need to handle the case when multiple agents (multidrive) try to update agent_conf
+                .then(() => this._update_agent_conf({
+                    address: params.base_address
+                }))
                 .then(() => {
                     dbg.log0('update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
@@ -458,6 +508,8 @@ class Agent {
                     this._do_heartbeat();
                 });
         }
+
+        return P.resolve();
     }
 
     _fix_storage_limit(storage_info) {
@@ -475,7 +527,6 @@ class Agent {
         const extended_hb = true;
         const ip = ip_module.address();
         dbg.log('Recieved potential servers list', req.rpc_params.addresses);
-        this.servers = req.rpc_params.addresses;
         const reply = {
             version: pkg.version || '',
             name: this.node_name || '',
@@ -494,7 +545,7 @@ class Agent {
             reply.os_info = os_utils.os_info();
         }
 
-        return P.resolve()
+        return this._update_servers_list(req.rpc_params.addresses)
             .then(() => this.block_store.get_storage_info())
             .then(storage_info => {
                 dbg.log0('storage_info:', storage_info);
@@ -549,14 +600,17 @@ class Agent {
 
     update_auth_token(req) {
         const auth_token = req.rpc_params.auth_token;
+        dbg.log0('update_auth_token: received new token');
         return P.resolve()
             .then(() => {
                 if (this.storage_path) {
                     const token_path = path.join(this.storage_path, 'token');
+                    dbg.log0('update_auth_token: write new token', token_path);
                     return fs.writeFileAsync(token_path, auth_token);
                 }
             })
             .then(() => {
+                dbg.log0('update_auth_token: using new token');
                 this.client.options.auth_token = auth_token;
             });
     }

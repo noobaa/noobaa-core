@@ -128,15 +128,18 @@ function create_auth(req) {
             }
         }
 
-        var token = make_auth_token({
+        let token = make_auth_token({
             account_id: target_account._id,
             system_id: system && system._id,
             role: role_name,
             extra: req.rpc_params.extra,
         });
 
+        let info = _get_auth_info(target_account, system, role_name, req.rpc_params.extra);
+
         return {
-            token: token
+            token: token,
+            info: info
         };
     });
 }
@@ -239,17 +242,7 @@ function read_auth(req) {
         return {};
     }
 
-    var reply = _.pick(req.auth, 'role', 'extra');
-    if (req.account) {
-        reply.account = _.pick(req.account, 'name', 'email');
-        if (req.account.is_support) {
-            reply.account.is_support = true;
-        }
-    }
-    if (req.system) {
-        reply.system = _.pick(req.system, 'name');
-    }
-    return reply;
+    return _get_auth_info(req.account, req.system, req.auth.role, req.auth.extra);
 }
 
 
@@ -472,6 +465,30 @@ function _prepare_auth_request(req) {
 
 }
 
+function _get_auth_info(account, system, role, extra) {
+    let response = {
+        role: role,
+        extra: extra
+    };
+
+    if (account) {
+        response.account = _.pick(account, 'name', 'email');
+        if (account.is_support) {
+            response.account.is_support = true;
+        }
+
+        let next_password_change = account.next_password_change;
+        if (next_password_change && next_password_change < Date.now()) {
+            response.account.must_change_password = true;
+        }
+    }
+
+    if (system) {
+        response.system = _.pick(system, 'name');
+    }
+
+    return response;
+}
 
 /**
  *

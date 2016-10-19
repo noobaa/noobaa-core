@@ -33,6 +33,10 @@ function create_account(req) {
     validate_create_account_params(req);
     account.access_keys = [req.rpc_params.access_keys];
 
+    if (req.rpc_params.must_change_password) {
+        account.next_password_change = new Date();
+    }
+
     let sys_id = req.rpc_params.new_system_parameters ?
         mongo_utils.make_object_id(req.rpc_params.new_system_parameters.new_system_id) :
         req.system._id;
@@ -256,16 +260,30 @@ function update_account(req) {
     if (account.is_support) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
-    let updates = _.pick(req.rpc_params, 'name', 'password');
-    updates._id = account._id;
-    if (req.rpc_params.new_email) {
-        updates.email = req.rpc_params.new_email;
+
+    let changes = _.pick(req.rpc_params, 'name', 'password');
+    let removals = {};
+
+    if (req.rpc_params.must_change_password === true) {
+        changes.next_password_change = new Date();
+
+    } else if (req.rpc_params.must_change_password === false) {
+        removals.next_password_change = 1;
     }
-    return bcrypt_password(updates)
+
+    if (req.rpc_params.new_email) {
+        changes.email = req.rpc_params.new_email;
+    }
+
+    return bcrypt_password(changes)
         .then(() => {
             return system_store.make_changes({
                 update: {
-                    accounts: [updates]
+                    accounts: [{
+                        _id: account._id,
+                        $set: changes,
+                        $unset: removals
+                    }]
                 }
             });
         })
@@ -507,12 +525,12 @@ function list_account_s3_acl(req) {
 
 
 function get_account_info(account) {
-    var info = _.pick(account, 'name', 'email');
+    var info = _.pick(account, 'name', 'email', 'access_keys');
     if (account.is_support) {
         info.is_support = true;
     }
-    if (account.access_keys) {
-        info.access_keys = account.access_keys;
+    if (account.next_password_change) {
+        info.next_password_change = account.next_password_change.getTime();
     }
 
     info.has_s3_access = Boolean(account.allowed_buckets);

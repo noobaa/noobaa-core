@@ -67,7 +67,7 @@ if (!bkt) {
 function init_api() {
     return client.create_auth_token({
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo',
     });
 }

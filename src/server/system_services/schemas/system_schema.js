@@ -13,7 +13,7 @@ module.exports = {
             format: 'objectid'
         },
         deleted: {
-            format: 'idate'
+            format: 'date'
         },
         name: {
             type: 'string'
@@ -113,20 +113,5 @@ module.exports = {
             type: 'integer'
         },
 
-        //Upgrade proccess
-        upgrade: {
-            type: 'object',
-            properties: {
-                path: {
-                    type: 'string'
-                },
-                status: {
-                    type: 'string'
-                },
-                error: {
-                    type: 'string'
-                },
-            },
-        },
     }
 };

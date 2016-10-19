@@ -1,36 +1,39 @@
 server-table {
-    display: block;
+    .column();
 
-    data-table > table::before {
-        content: unset;
-    }
+    .server-data-table {
+        .header-row, .main-row, .sub-row {
+            border-left: 4px solid transparent;
+            transition: border-color 250ms ease;
+        }
 
-    .state-col {
-        min-width: 8em;
-    }
+        .main-row.high-debug-level {
+            border-color: @color11;
+        }
 
-    .hostname-col{
-        text-align: left;
-        width: 100%;
-    }
+        .state-col {
+            min-width: 44px;
+        }
 
-    .address-col{
-        min-width: 9em;
-    }
+        .hostname-col{
+            text-align: left;
+            width: 100%;
+        }
 
-    .memory-usage-col {
-        min-width: 10em;
-    }
+        .address-col{
+            min-width: 110px;
+        }
 
-    .cpu-usage-col {
-        min-width: 10em;
-    }
+        .memory-usage-col {
+            min-width: 110px;
+        }
 
-    .version-col {
-        min-width: 6em;
-    }
+        .cpu-usage-col {
+            min-width: 110px;
+        }
 
-    .actions-col {
-        min-width: 10em;
+        .version-col {
+            min-width: 80px;
+        }
     }
 }

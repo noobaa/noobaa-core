@@ -1,7 +1,7 @@
 <form class="sign-in-from row">
     <section class="row alt-bg double-pad push-next">
         <h1 class="heading1 column align-middle content-middle">
-            <svg-icon class="logo" params="name: 'logo'"></svg-icon>
+            <svg-icon class="icon-xbig" params="name: 'logo'"></svg-icon>
             Welcome to NooBaa
         </h1>
     </section>
@@ -32,8 +32,7 @@
             </p>
             <button class="btn" data-bind="
                 click: signIn,
-                css: { shake: shake },
-                animation: { end: () => shake(false) }
+                shakeOnClick: errors().length
             ">
                 Sign In
             </button>

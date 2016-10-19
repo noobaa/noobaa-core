@@ -45,6 +45,8 @@ function AgentCLI(params) {
     this.client = rpc.new_client();
     this.s3 = new S3Auth();
     this.agents = {};
+    this.agent_conf_sem = new Semaphore(1);
+
 }
 
 /**
@@ -419,9 +421,9 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
                 return fs.writeFileAsync(token_path, self.create_node_token);
             })
             .then(function() {
-                if (!fs.existsSync('./noobaa_service_uninstall.sh')) return;
+                if (!fs.existsSync('./uninstall_noobaa_agent.sh')) return;
                 dbg.log0('Add uninstall command', node_path);
-                return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./noobaa_service_uninstall.sh ');
+                return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./uninstall_noobaa_agent.sh ');
             })
             .then(function() {
                 if (!fs.existsSync('./service_uninstaller.bat')) return;
@@ -555,12 +557,14 @@ AgentCLI.prototype.start = function(node_name, node_path) {
 
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
+            servers: self.params.servers,
             node_name: node_name,
             host_id: self.params.host_id,
             storage_path: node_path,
             cloud_info: self.cloud_info,
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
+            agent_conf_sem: self.agent_conf_sem,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

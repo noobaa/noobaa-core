@@ -158,6 +158,9 @@ class S3Controller {
      */
     get_bucket(req) {
         this.usage_report.s3_usage_info.get_bucket++;
+        if (req.query['list-type'] === '2') {
+            throw s3_errors.NotImplemented;
+        }
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
@@ -169,7 +172,13 @@ class S3Controller {
         if ('delimiter' in req.query) {
             params.delimiter = req.query.delimiter;
         }
-        return req.rpc_client.object.list_objects(params)
+        if ('marker' in req.query) {
+            params.key_marker = req.query.marker;
+        }
+        if ('max-keys' in req.query) {
+            params.limit = parseInt(req.query['max-keys'], 10) || 1000;
+        }
+        return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
                 return {
                     ListBucketResult: [{
@@ -178,7 +187,8 @@ class S3Controller {
                             'Delimiter': req.query.delimiter,
                             'MaxKeys': req.query['max-keys'],
                             'Marker': req.query.marker,
-                            'IsTruncated': false,
+                            'IsTruncated': reply.is_truncated,
+                            'NextMarker': reply.next_marker,
                             'Encoding-Type': req.query['encoding-type'],
                         },
                         _.map(reply.objects, obj => ({
@@ -219,7 +229,13 @@ class S3Controller {
         if ('delimiter' in req.query) {
             params.delimiter = req.query.delimiter;
         }
-        return req.rpc_client.object.list_objects(params)
+        if ('key-marker' in req.query) {
+            params.key_marker = req.query['key-marker'];
+        }
+        if ('max-keys' in req.query) {
+            params.limit = parseInt(req.query['max-keys'], 10) || 1000;
+        }
+        return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
                 return {
                     ListVersionsResult: [{
@@ -229,8 +245,8 @@ class S3Controller {
                             'MaxKeys': req.query['max-keys'],
                             'KeyMarker': req.query['key-marker'],
                             'VersionIdMarker': req.query['version-id-marker'],
-                            'IsTruncated': false,
-                            // 'NextKeyMarker': ...
+                            'IsTruncated': reply.is_truncated,
+                            'NextKeyMarker': reply.next_marker,
                             // 'NextVersionIdMarker': ...
                             'Encoding-Type': req.query['encoding-type'],
                         },
@@ -273,7 +289,13 @@ class S3Controller {
         if ('delimiter' in req.query) {
             params.delimiter = req.query.delimiter;
         }
-        return req.rpc_client.object.list_objects(params)
+        if ('key-marker' in req.query) {
+            params.key_marker = req.query['key-marker'];
+        }
+        if ('max-uploads' in req.query) {
+            params.limit = parseInt(req.query['max-uploads'], 10) || 1000;
+        }
+        return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
                 return {
                     ListMultipartUploadsResult: [{
@@ -283,7 +305,8 @@ class S3Controller {
                             'MaxUploads': req.query['max-uploads'],
                             'KeyMarker': req.query['key-marker'],
                             'UploadIdMarker': req.query['upload-id-marker'],
-                            'IsTruncated': false,
+                            'IsTruncated': reply.is_truncated,
+                            'NextKeyMarker': reply.next_marker,
                             'Encoding-Type': req.query['encoding-type'],
                         },
                         _.map(reply.objects, obj => ({
@@ -311,11 +334,15 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
      * (aka create bucket)
      */
-    put_bucket(req) {
+    put_bucket(req, res) {
         this.usage_report.s3_usage_info.put_bucket++;
         return req.rpc_client.bucket.create_bucket({
             name: req.params.bucket
-        }).return();
+        })
+        .then(() => {
+            res.setHeader('Location', '/' + req.params.bucket);
+        })
+        .return();
     }
 
     /**

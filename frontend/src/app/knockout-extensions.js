@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject } from 'utils';
+import { isObject, deepFreeze } from 'utils';
 
 ko.subscribable.fn.is = function(value) {
     return ko.pureComputed(
@@ -51,3 +51,63 @@ ko.deepUnwrap = function(value) {
         return uw;
     }
 };
+
+// ko.validation specific extentions:
+// ----------------------------------
+if (ko.validation) {
+    let kv = ko.validation;
+
+    const getRuleValidationState = function(observable, appliedRule) {
+        let {
+            rule = 'inline',
+            params,
+            validator = kv.rules[rule].validator,
+            message = kv.rules[rule].message
+        } = appliedRule;
+
+        return {
+            rule: rule,
+            isValid: validator(observable(), params),
+            message:  kv.formatMessage(message, params, observable)
+        };
+    };
+
+    ko.validation.fullValidationState = function(observable) {
+        return ko.pureComputed(
+            () => {
+                let rules = observable.rules;
+
+                if (!rules) {
+                    return [];
+                }
+
+                return rules().map(
+                    rule => getRuleValidationState(observable, rule)
+                );
+            }
+        );
+    };
+
+    const validationGroupExtensions = deepFreeze({
+        validatingCount() {
+            return this.filter( obj => obj.isValidating() ).length;
+        }
+    });
+
+    const kvGroup = ko.validation.group;
+    ko.validation.group = function(obj, options) {
+        return Object.assign(
+            kvGroup(obj, options),
+            validationGroupExtensions
+        );
+    };
+
+    // ko.validation.isValidating = function (validationGroup) {
+    //     return Boolean(
+    //         validationGroup.filter( obs => obs.isValidating() ).length
+    //     );
+    // }
+}
+
+window.ko = ko;
+

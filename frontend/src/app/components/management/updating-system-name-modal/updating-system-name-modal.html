@@ -1,0 +1,35 @@
+<modal class="modal-xsmall" params="
+    title: title,
+    allowBackdropClose: !restarting(),
+    addCloseButton: !restarting(),
+    onClose: () => no()
+">
+
+    <p class="highlight greedy push-next" data-bind="visible: !restarting()">
+        Updating the system name will cause a momentary restart of the NooBaa service.
+        <br>
+        Are you sure you want to continue?
+    </p>
+
+    <p class="highlight greedy push-next" data-bind="visible: restarting">
+        <svg-icon class="spin" params="name: 'in-progress'"></svg-icon>
+        Please wait while the system is restarting...
+    </p>
+
+    <div class="row content-middle align-end">
+        <button class="link alt-color push-next" data-bind="
+            click: no,
+            disable: restarting
+        ">
+            No
+        </button>
+
+        <button class="btn" data-bind="
+            click: yes,
+            disable: restarting
+        ">
+            Yes
+        </button>
+    </div>
+
+</modal>

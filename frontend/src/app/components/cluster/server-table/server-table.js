@@ -9,6 +9,7 @@ import { systemInfo, routeContext } from 'model';
 const columns = deepFreeze([
     {
         name: 'state',
+        type: 'icon',
         sortable: true
     },
     {
@@ -26,21 +27,17 @@ const columns = deepFreeze([
     },
     {
         name: 'cpuUsage',
-        label: 'cpu usage',
+        label: 'CPU usage',
         sortable: true
     },
     {
         name: 'version',
         sortable: true
-    },
-    {
-        name: 'actions',
-        cellTemplate: 'actions'
     }
 ]);
 
 const compareAccessors = deepFreeze({
-    state: server => server.is_connected,
+    state: server => server.status,
     hostname: server => server.hostname,
     address: server => server.address,
     memoryUsage: server => server.memory_usage,
@@ -72,6 +69,7 @@ class ServerTableViewModel extends Disposable {
                     .sort(compareOp);
             }
         );
+
 
         this.actionContext = ko.observable();
         this.isAttachServerModalVisible = ko.observable(false);

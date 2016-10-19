@@ -16,17 +16,17 @@ const columns = deepFreeze([
     {
         name: 's3Access',
         label: 's3 access',
-        cellTemplate: 's3-access'
+        type: 's3-access'
     },
     {
         name: 'password',
-        cellTemplate: 'password'
+        type: 'password'
     },
     {
         name: 'deleteButton',
         label: '',
         css: 'delete-col',
-        cellTemplate: 'delete'
+        type: 'delete'
     }
 ]);
 

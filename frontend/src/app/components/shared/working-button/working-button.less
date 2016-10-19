@@ -1,0 +1,17 @@
+working-button {
+    display: block;
+    position: relative;
+
+    .working-label {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+    }
+
+    .inactive > .content-wrapper {
+        transform: scale(.5, .5);
+        opacity: 0;
+        transition: all 400ms ease-out;
+    }
+}

@@ -4,7 +4,7 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 
-import { isDefined, last, makeArray, execInOrder, realizeUri, waitFor,
+import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
     downloadFile, generateAccessKeys, deepFreeze, flatMap, httpGetAsync } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -1239,14 +1239,14 @@ export function updateHostname(hostname) {
         // Try GET on '/version', if failed wait for 3s and then try again.
         return httpGetAsync('./version')
             .catch(
-                () => waitFor(3000).then(ping)
+                () => sleep(3000).then(ping)
             );
     }
 
     api.system.update_hostname({ hostname })
         // Grace time for service shoutdown.
         .then(
-            () => waitFor(5000)
+            () => sleep(5000)
         )
         // Pull for web server response.
         .then(ping)
@@ -1810,7 +1810,7 @@ export function validateActivation(code, email) {
 
     api.system.validate_activation({ code, email })
         .then(
-            reply => waitFor(500, reply)
+            reply => sleep(500, reply)
         )
         .then(
             ({ valid, reason }) => model.activationState({ code, email, valid, reason })
@@ -1826,7 +1826,7 @@ export function attemptResolveSystemName(name) {
         dns_name: name
     })
         .then(
-            reply => waitFor(500, reply)
+            reply => sleep(500, reply)
         )
         .then(
             ({ valid, reason }) => model.nameResolutionState({ name, valid, reason })

@@ -1,8 +1,11 @@
 <button class="icon-btn"  data-bind="
     click: refresh,
+    css: { 'no-outline': isRefreshSpinning },
     tooltip: 'Refresh'
 ">
-    <svg-icon params="name: 'refresh'"></svg-icon>
+    <svg-icon params="name: 'refresh'" data-bind="
+        css: { 'fast-spin': isRefreshSpinning }
+    "></svg-icon>
 </button>
 
 <a class="icon-btn" data-bind="

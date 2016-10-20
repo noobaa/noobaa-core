@@ -101,7 +101,6 @@ input:not([type=checkbox]):not([type=radio]) {
     /*
     Transition removed because of webkit bug, see the following stackoverflow:
     http://stackoverflow.com/questions/12502234/how-to-prevent-webkit-text-rendering-change-during-css-transition
-
     transition: all 250ms ease-out;
     */
 
@@ -121,7 +120,7 @@ input:not([type=checkbox]):not([type=radio]) {
         cursor: not-allowed;
 
         > svg-icon {
-            fill: @color7;
+            fill: @color15;
         }
     }
 }
@@ -133,7 +132,7 @@ input:not([type=checkbox]):not([type=radio]) {
     cursor: @cursor-pointer;
 
     &:disabled {
-        cursor: not-allowed;
+        cursor: @cursor-not-allowed;
     }
 }
 
@@ -153,10 +152,12 @@ input:not([type=checkbox]):not([type=radio]) {
     background-color: fadeout(@color8, 85%);
     transition: all 350ms ease-out;
 
-    &:hover {
-        color: @color6;
-        background-color: @color8;
-}
+    &.inactive {
+        .no-outline();
+
+        opacity: .5;
+        cursor: @cursor-not-allowed;
+    }
 
     &:disabled {
         color: @color15;
@@ -166,12 +167,17 @@ input:not([type=checkbox]):not([type=radio]) {
         transition: unset;
     }
 
+    &:hover:not(.inactive) {
+        color: @color6;
+        background-color: @color8;
+    }
+
     &.alt-colors {
         color: @color6;
         border-color: @color6;
         background-color: fadeout(@color6, 90%);
 
-        &:hover {
+        &:hover:not(.inactive) {
             color: @color15;
             background-color: @color6;
         }

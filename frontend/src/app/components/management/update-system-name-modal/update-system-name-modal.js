@@ -1,4 +1,4 @@
-import template from './updating-system-name-modal.html';
+import template from './update-system-name-modal.html';
 import Disposable from 'disposable';
 import { updateHostname } from 'actions';
 import ko from 'knockout';
@@ -9,20 +9,15 @@ class UpdatingSystemNameModalViewModel extends Disposable {
 
         this.name = name;
         this.onClose = onClose;
-        this.restarting = ko.observable(false);
-
-        this.title = ko.pureComputed(
-            // () => this.restarting() ? null : 'Updating System Name'
-            () => 'Updating System Name'
-        );
+        this.updating = ko.observable(false);
     }
 
-    yes() {
+    update() {
+        this.updating(true);
         updateHostname(ko.unwrap(this.name));
-        this.restarting(true);
     }
 
-    no() {
+    cancel() {
         this.onClose();
     }
 }

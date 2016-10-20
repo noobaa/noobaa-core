@@ -405,11 +405,11 @@ function main() {
         })
         .then(() => {
             console.log('test_cloud_pools PASSED');
-            return;
+            process.exit(0);
         })
         .catch(function(err) {
             console.error('test_cloud_pools FAILED', err);
-            throw err;
+            process.exit(1);
         })
         .done();
 }

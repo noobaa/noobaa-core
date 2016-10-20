@@ -17,7 +17,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['topology', 'cluster_id', 'secret', 'role', 'shard'],
+                required: ['topology', 'cluster_id', 'secret', 'role', 'shard', 'jwt_secret'],
                 properties: {
                     ip: {
                         type: 'string',
@@ -26,6 +26,9 @@ module.exports = {
                         type: 'string'
                     },
                     secret: {
+                        type: 'string'
+                    },
+                    jwt_secret: {
                         type: 'string'
                     },
                     role: {
@@ -281,7 +284,7 @@ module.exports = {
                     items: {
                         type: 'string'
                     },
-                }
+                },
             },
         }
     },

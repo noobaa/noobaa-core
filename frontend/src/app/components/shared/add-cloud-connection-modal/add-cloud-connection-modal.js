@@ -165,7 +165,7 @@ class AddCloudConnectionModalViewModel extends Disposable {
 
         this.addToDisposeList(
             isCloudConnectionValid.subscribe(
-                isValid => isValid ? this.save() : this.shake(true)
+                isValid => isValid && this.save()
             )
         );
 
@@ -175,14 +175,11 @@ class AddCloudConnectionModalViewModel extends Disposable {
             this.identity,
             this.secret
         ]);
-
-        this.shake = ko.observable(false);
     }
 
     tryConnection() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-            this.shake(true);
 
         } else {
             checkCloudConnection(

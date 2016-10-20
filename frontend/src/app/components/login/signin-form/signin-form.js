@@ -31,24 +31,15 @@ class SignInFormViewModel extends Disposable {
             () => !this.isDirty() && retryCount() > 0
         );
 
-        this.shake = ko.observable(false);
-
         this.errors = ko.validation.group([
             this.email,
             this.password
         ]);
-
-        this.addToDisposeList(
-            retryCount.subscribe(
-                () => this.shake(true)
-            )
-        );
     }
 
     signIn() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-            this.shake(true);
 
         } else {
             this.isDirty(false);

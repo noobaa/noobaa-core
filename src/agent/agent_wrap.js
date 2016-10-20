@@ -31,7 +31,7 @@ fs.readFileAsync('./agent_conf.json')
     .catch(err => {
         if (err.code && err.code === DUPLICATE_RET_CODE) {
             dbg.log0('Duplicate token');
-            return promise_utils.fork('./src/agent/agent_cli', '--duplicate');
+            return promise_utils.fork('./src/agent/agent_cli', ['--duplicate']);
         }
         throw err;
     })

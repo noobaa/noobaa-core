@@ -1,0 +1,33 @@
+<modal class="modal-xsmall" params="
+    title: 'Updating System Name',
+    onClose: () => cancel(),
+    allowBackdropClose: !updating(),
+    disableCloseButton: updating,
+">
+
+    <p class="push-next">
+        Updating the system name will change the current node installation commands. Please make sure to use the new installation commands for future node installations.
+    </p>
+
+    <p class="greedy push-next">
+        Please note that after the update you might be automatically logged out from the system. Are you sure you want to update?
+    </p>
+
+    <div class="row content-middle align-end">
+        <button class="link alt-color push-next" data-bind="
+            click: cancel,
+            disable: updating
+        ">
+            Cancel
+        </button>
+
+        <working-button params="
+            working: updating,
+            workingLabel: 'Updating...',
+            click: update
+        ">
+            Update and Refresh
+        </working-button>
+    </div>
+
+</modal>

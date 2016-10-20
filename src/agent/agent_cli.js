@@ -185,7 +185,7 @@ AgentCLI.prototype.init = function() {
                             });
                     })
                     .then(() => {
-                        dbg.log0('exit agent_cli. will restart with new agnet_storage');
+                        dbg.log0('exit agent_cli. will restart with new agent_storage');
                         process.exit(0);
                     })
                     .catch(err => {
@@ -275,15 +275,7 @@ AgentCLI.prototype.load = function() {
                     return P.map(regular_node_names, node_name => {
                         dbg.log0('node_name', node_name, 'storage_path', storage_path);
                         var node_path = path.join(storage_path, node_name);
-                        return self.start(node_name, node_path)
-                            .catch(err => {
-                                if (err.message === 'INVALID_NODE') {
-                                    return fs_utils.folder_delete(node_path)
-                                        .then(() => 'INVALID_NODE');
-                                } else {
-                                    throw err;
-                                }
-                            });
+                        return self.start(node_name, node_path);
                     });
                 });
         }))
@@ -292,11 +284,9 @@ AgentCLI.prototype.load = function() {
             var number_of_new_paths = 0;
             var existing_nodes_count = 0;
             _.each(storage_path_nodes, function(nodes) {
-                // filter out invalid nodes, so new one will be created instead
-                let valid_nodes = nodes.filter(node => (node !== 'INVALID_NODE'));
                 // assumes same amount of nodes per each HD. we will take the last one.
-                if (valid_nodes.length) {
-                    existing_nodes_count = valid_nodes.length;
+                if (nodes.length) {
+                    existing_nodes_count = nodes.length;
                 } else {
                     number_of_new_paths += 1;
                 }
@@ -388,7 +378,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
 
         return fs_utils.file_must_not_exist(token_path)
             .then(function() {
-                if (self.create_node_token) return;
+                if (self.params.create_node_token) return;
                 // authenticate and create a token for new nodes
 
                 var basic_auth_params = _.pick(self.params,
@@ -411,14 +401,37 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
             .then(function(res) {
                 if (res) {
                     dbg.log0('result create:', res, 'node path:', node_path);
-                    self.create_node_token = res.token;
+                    self.params.create_node_token = res.token;
+                    if (!self.params.internal_agent) {
+                        return self.agent_conf_sem.surround(() => {
+                            // remove access_key and secret_key from agent_conf after a token was acquired and write create_token instead
+                            return fs.readFileAsync('agent_conf.json')
+                                .then(function(data) {
+                                    let agent_conf = JSON.parse(data);
+                                    delete agent_conf.access_key;
+                                    delete agent_conf.secret_key;
+                                    agent_conf.create_node_token = self.params.create_node_token;
+                                    agent_conf.host_id = self.params.host_id;
+                                    var write_data = JSON.stringify(agent_conf);
+                                    return fs.writeFileAsync('agent_conf.json', write_data);
+                                })
+                                .catch(function(err) {
+                                    if (err.code === 'ENOENT') {
+                                        console.warn('No agent_conf.json file exists');
+                                        return;
+                                    }
+                                    throw new Error(err);
+                                });
+                        });
+                    }
                 } else {
-                    dbg.log0('has token', self.create_node_token);
+                    dbg.log0('has token', self.params.create_node_token);
                 }
-                return fs_utils.create_path(node_path, fs_utils.PRIVATE_DIR_PERMISSIONS);
-            }).then(function() {
+            })
+            .then(() => fs_utils.create_path(node_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
+            .then(function() {
                 dbg.log0('writing token', token_path);
-                return fs.writeFileAsync(token_path, self.create_node_token);
+                return fs.writeFileAsync(token_path, self.params.create_node_token);
             })
             .then(function() {
                 if (!fs.existsSync('./uninstall_noobaa_agent.sh')) return;
@@ -431,34 +444,14 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
                 return promise_utils.exec('echo rd /s /q ' + current_node_path + ' >> ./service_uninstaller.bat ');
             })
             .then(function() {
-                if (!self.params.internal_agent) {
-                    // remove access_key and secret_key from agent_conf after a token was acquired
-                    return fs.readFileAsync('agent_conf.json')
-                        .then(function(data) {
-                            let agent_conf = JSON.parse(data);
-                            delete agent_conf.access_key;
-                            delete agent_conf.secret_key;
-                            agent_conf.host_id = self.params.host_id;
-                            var write_data = JSON.stringify(agent_conf);
-                            return fs.writeFileAsync('agent_conf.json', write_data);
-                        })
-                        .catch(function(err) {
-                            if (err.code === 'ENOENT') {
-                                console.warn('No agent_conf.json file exists');
-                                return;
-                            }
-                            throw new Error(err);
-                        });
-
-                }
-            })
-            .then(function() {
                 dbg.log0('about to start node', node_path, 'with node name:', node_name);
                 return self.start(node_name, node_path);
-            }).then(function(res) {
+            })
+            .then(function(res) {
                 dbg.log0('created', node_name);
                 return res;
-            }).then(null, function(err) {
+            })
+            .then(null, function(err) {
                 dbg.log0('create failed', node_name, err, err.stack);
                 throw err;
             });
@@ -565,6 +558,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
             agent_conf_sem: self.agent_conf_sem,
+            create_node_token: self.params.create_node_token
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

@@ -24,7 +24,14 @@
     </div>
 
     <div class="row content-middle align-end push-prev">
-        <button class="link push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn" data-bind="click: save">save</button>
+        <button class="link push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="
+            click: save,
+            shakeOnClick: !isValid()
+        ">
+            save
+        </button>
     </div>
 </modal>

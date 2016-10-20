@@ -41,6 +41,7 @@ const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
 const Semaphore = require('../util/semaphore');
+const fs_utils = require('../util/fs_utils');
 
 
 const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
@@ -65,6 +66,8 @@ class Agent {
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
+        this.create_node_token = params.create_node_token;
+
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
             this.storage_limit = params.storage_limit;
@@ -129,6 +132,7 @@ class Agent {
         js_utils.self_bind(this, [
             'get_agent_info_and_update_masters',
             'update_auth_token',
+            'update_create_node_token',
             'update_rpc_config',
             'n2n_signal',
             'test_store_perf',
@@ -266,18 +270,6 @@ class Agent {
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
-
-                // temporarily removed test_node_id. this should be handled in do_heartbeat
-                // // test the existing token against the server. if not valid throw error, and let the
-                // // agent_cli create new node.
-                // return this.client.node.test_node_id({})
-                //     .then(valid_node => {
-                //         if (!valid_node) {
-                //             let err = new Error('INVALID_NODE');
-                //             err.DO_NOT_RETRY = true;
-                //             throw err;
-                //         }
-                //     });
             })
             .then(() => P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
@@ -347,19 +339,32 @@ class Agent {
                     process.exit(68); // 68 is 'D' in ascii
                 }
                 if (err.rpc_code === 'NODE_NOT_FOUND') {
-                    // we want to reuse the agent_cli INVALID_NODE handling,
-                    // but the fastest way to get there is restart the process,
-                    // maybe better to reuse the code path instead.
                     dbg.error('This agent appears to be using an old token.',
-                        'restarting to handle invalid node', err);
-                    process.exit(0);
+                        'cleaning this agent agent_storage directory', this.storage_path);
+                    return this._start_new_agent()
+                        .catch(err => {
+                            // Failed cleaning and starting a new node. should we do anything here?
+                            dbg.error(`failed starting a new node after previous NODE_NOT_FOUND: ${err}`);
+                            throw err;
+                        });
                 }
-                return P.delay(3000).then(() => {
-                    this.connect_attempts += 1;
-                    this._do_heartbeat();
-                });
+                return P.delay(3000)
+                    .then(() => {
+                        this.connect_attempts += 1;
+                        this._do_heartbeat();
+                    });
 
             });
+    }
+
+    _start_new_agent() {
+        dbg.log0(`cleaning old node data and starting a new agent`);
+        const token_path = path.join(this.storage_path, 'token');
+        this.stop();
+        return fs_utils.folder_delete(this.storage_path)
+            .then(() => fs_utils.create_path(this.storage_path))
+            .then(() => fs.writeFileAsync(token_path, this.create_node_token))
+            .then(() => this.start());
     }
 
     _start_stop_server() {
@@ -537,6 +542,7 @@ class Agent {
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
+            create_node_token: this.create_node_token,
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
@@ -613,6 +619,14 @@ class Agent {
                 dbg.log0('update_auth_token: using new token');
                 this.client.options.auth_token = auth_token;
             });
+    }
+
+    update_create_node_token(req) {
+        this.create_node_token = req.rpc_params.create_node_token;
+        dbg.log0('update_create_node_token: received new token');
+        return this._update_agent_conf({
+            create_node_token: this.create_node_token
+        });
     }
 
     update_rpc_config(req) {

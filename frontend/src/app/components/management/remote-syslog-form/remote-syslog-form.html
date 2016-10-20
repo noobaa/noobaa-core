@@ -50,7 +50,10 @@
         "/>
    </editor>
 
-    <button class="btn align-start push-prev" data-bind="click: applyChanges">
+    <button class="btn align-start push-prev" data-bind="
+        click: applyChanges,
+        shakeOnClick: errors().length
+    ">
         Apply Changes
     </button>
 </section>

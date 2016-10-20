@@ -6,6 +6,7 @@ const fs = require('fs');
 const uuid = require('node-uuid');
 const moment = require('moment-timezone');
 const node_df = require('node-df');
+var spawn = require('child_process').spawn;
 
 const P = require('./promise');
 const config = require('../../config.js');
@@ -447,6 +448,21 @@ function reload_syslog_configuration(conf) {
     }
 }
 
+function restart_services() {
+    var fname = '/tmp/spawn.log';
+    var stdout = fs.openSync(fname, 'a');
+    var stderr = fs.openSync(fname, 'a');
+    spawn('nohup', [
+        '/usr/bin/supervisorctl',
+        'restart',
+        'all'
+    ], {
+        detached: true,
+        stdio: ['ignore', stdout, stderr],
+        cwd: '/usr/bin/'
+    });
+}
+
 
 // EXPORTS
 exports.os_info = os_info;
@@ -467,3 +483,4 @@ exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.set_dns_server = set_dns_server;
+exports.restart_services = restart_services;

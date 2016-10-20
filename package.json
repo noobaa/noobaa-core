@@ -121,13 +121,14 @@
     "serve-favicon": "2.3.0",
     "setimmediate": "1.0.4",
     "ssh2": "0.5.1",
-    "unzip": "0.1.11",
     "utf-8-validate": "1.2.1",
     "vsphere": "https://download3.vmware.com/software/vmw-tools/vsphere-sdk-for-javascript/vsphere-1.0.0_.tgz",
     "which": "1.2.10",
     "winston": "1.1.2",
     "ws": "1.1.1",
-    "xml2js": "0.4.17"
+    "xml2js": "0.4.17",
+    "yauzl": "2.6.0",
+    "yazl": "2.4.1"
   },
   "devDependencies": {
     "chromedriver": "2.22.2",

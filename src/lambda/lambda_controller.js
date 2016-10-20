@@ -1,10 +1,12 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 const vm = require('vm');
-const unzip = require('unzip');
+const crypto = require('crypto');
 
 const P = require('../util/promise');
+const lambda_utils = require('./lambda_utils');
 
 const STORED_FUNC_FIELDS = [
     'FunctionName',
@@ -14,96 +16,69 @@ const STORED_FUNC_FIELDS = [
     'MemorySize',
     'Timeout',
     'Description',
+    // reply
+    'CodeSize',
+    'CodeSha256',
+    'Version',
+    'LastModified',
+    'FunctionArn',
 ];
 
 class LambdaController {
 
     constructor() {
-        this.stored_funcs = new Map();
+        this.functions_by_name = new Map();
     }
 
     create_function(req, res) {
         console.log('create_function', req.params, req.body);
-        const stored_func = req.body;
-        this.stored_funcs.set(stored_func.FunctionName, stored_func);
-        return this._get_func_info(stored_func);
+        const fn = req.body;
+        fn.Version = '$LATEST';
+        fn.LastModified = '2016-07-18T22:05:21.682+0000';
+        fn.FunctionArn = 'arn:aws:lambda:us-east-1:638243541865:function:guy1';
+        this.functions_by_name.set(fn.FunctionName, fn);
+
+        return P.resolve()
+            .then(() => this._load_func_code(fn))
+            .then(() => this._get_func_info(fn));
+    }
+
+    invoke(req, res) {
+        console.log('invoke', req.params);
+        const fn = this.functions_by_name.get(req.params.func_name);
+        if (!fn) throw new Error('NoSuchFunction');
+        const handler_split = fn.Handler.split('.');
+        const module_name = handler_split[0];
+        const export_name = handler_split[1];
+        return lambda_utils.safe_invoke(fn._scripts, module_name, export_name);
     }
 
     list_functions(req, res) {
         console.log('list_functions', req.params, req.body);
         const funcs = [];
-        for (const stored_func of this.stored_funcs.values()) {
-            funcs.push(this._get_func_info(stored_func));
+        for (const fn of this.functions_by_name.values()) {
+            funcs.push(this._get_func_info(fn));
         }
         return {
             Functions: funcs
         };
     }
 
-    invoke(req, res) {
-        console.log('invoke', req.params, req.body);
-        const stored_func = this.stored_funcs.get(req.params.func_name);
-        if (!stored_func) throw new Error('NoSuchFunction');
-        const zip_data = new Buffer(stored_func.Code.ZipFile, 'base64');
-        const unzipper = new unzip.Parse();
-        unzipper.write(zip_data);
-        return new P((resolve, reject) => {
-            unzipper.on('entry', ent => {
-                console.log('ZIP ENTRY', ent.path, ent.type, ent.size);
-                let data = '';
-                ent.setEncoding('utf8');
-                ent.on('data', chunk => {
-                    data += chunk;
-                });
-                ent.on('end', () => {
-                    const code = data;
-                    console.log('code', code);
-                    const main = stored_func.Handler.split('.')[0];
-                    if (main + '.js' !== ent.path) return;
-                    const handler = stored_func.Handler.split('.')[1];
-                    const vm_exports = {};
-                    const vm_context = {
-                        module: {
-                            exports: vm_exports
-                        },
-                        exports: vm_exports,
-                        console: console,
-                    };
-                    vm.runInNewContext(code, vm_context);
-                    vm.runInNewContext(`
-                    var func = module.exports['${handler}'];
-                    var event = {};
-                    var context = {};
-                    func.call(null, event, context, function(err1, reply1) {
-                        if (err1) {
-                            err = new Error(err1);
-                        } else {
-                            reply = reply1;
-                        }
-                    });
-                    `, vm_context);
-                    console.log('err', vm_context.err);
-                    console.log('reply', vm_context.reply);
-                    if (vm_context.err) {
-                        reject(vm_context.err);
-                    } else {
-                        resolve(vm_context.reply);
-                    }
-                });
-            });
-        });
+    _get_func_info(fn) {
+        return _.pick(fn, STORED_FUNC_FIELDS);
     }
 
-    _get_func_info(stored_func) {
-        const f = _.pick(stored_func, STORED_FUNC_FIELDS);
-        _.assign(f, {
-            CodeSize: 246,
-            FunctionArn: 'arn:aws:lambda:us-east-1:638243541865:function:guy1',
-            LastModified: '2016-07-18T22:05:21.682+0000',
-            CodeSha256: '+YJrd5+bVg7H4Dmr6lxAtoj4SbpHH2rRLodCGY+q+Ak=',
-            Version: '$LATEST',
-        });
-        return f;
+    _load_func_code(fn) {
+        const zip_buffer = new Buffer(fn.Code.ZipFile, 'base64');
+        fn.CodeSize = zip_buffer.length;
+        fn.CodeSha256 = crypto.createHash('sha256')
+            .update(zip_buffer)
+            .digest('base64');
+        console.log('_load_func_code:', fn);
+        return lambda_utils.unzip_in_memory(zip_buffer)
+            .then(files => {
+                fn._scripts = _.mapValues(files, f => new vm.Script(f));
+            });
     }
 
 }

@@ -143,7 +143,7 @@ function blocks_exist_on_cloud(need_to_exist, cloud_pool_name, bucket_name, bloc
     var isDone = true;
     // Time in seconds to wait, notice that it will only check once a second.
     // This is done in order to lower the amount of checking requests.
-    var MAX_RETRIES = 3 * 60;
+    var MAX_RETRIES = 10 * 60;
     var wait_counter = 1;
 
     return promise_utils.pwhile(
@@ -151,37 +151,51 @@ function blocks_exist_on_cloud(need_to_exist, cloud_pool_name, bucket_name, bloc
                 return isDone;
             },
             function() {
-                return P.each(blocks, function(block) {
+                return P.all(_.map(blocks, function(block) {
                         console.log(`noobaa_blocks/noobaa-internal-agent-${cloud_pool_name}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`);
                         return P.ninvoke(s3, 'headObject', {
                             Bucket: bucket_name,
                             Key: `noobaa_blocks/noobaa-internal-agent-${cloud_pool_name}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`
-                        });
-                    })
+                        }).reflect();
+                    }))
                     .then(function(response) {
+                        let condition_correct;
                         if (need_to_exist) {
-                            isDone = false;
-                            return;
-                        } else {
-                            wait_counter += 1;
-                            if (wait_counter >= MAX_RETRIES) {
-                                throw new Error('Blocks still exist');
-                            }
-                            return P.delay(1000);
-                        }
-                    })
-                    .catch(function(err) {
-                        if (err.code !== 'NotFound') throw err;
+                            condition_correct = true;
+                            _.forEach(response, promise_result => {
+                                if (promise_result.isRejected()) {
+                                    condition_correct = false;
+                                }
+                            });
 
-                        if (need_to_exist) {
-                            wait_counter += 1;
-                            if (wait_counter >= MAX_RETRIES) {
-                                throw new Error('Blocks do not exist');
+                            if (condition_correct) {
+                                isDone = false;
+                                return;
+                            } else {
+                                wait_counter += 1;
+                                if (wait_counter >= MAX_RETRIES) {
+                                    throw new Error('Blocks do not exist');
+                                }
+                                return P.delay(1000);
                             }
-                            return P.delay(1000);
                         } else {
-                            isDone = false;
-                            return;
+                            condition_correct = true;
+                            _.forEach(response, promise_result => {
+                                if (promise_result.isFulfilled()) {
+                                    condition_correct = false;
+                                }
+                            });
+
+                            if (condition_correct) {
+                                isDone = false;
+                                return;
+                            } else {
+                                wait_counter += 1;
+                                if (wait_counter >= MAX_RETRIES) {
+                                    throw new Error('Blocks still exist');
+                                }
+                                return P.delay(1000);
+                            }
                         }
                     });
             })

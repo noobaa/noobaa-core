@@ -240,27 +240,12 @@ class NodesMonitor extends EventEmitter {
 
     // test the passed node id, to verify that it's a valid node
     test_node_id(req) {
-        this._throw_if_not_started_and_loaded();
-        const extra = req.auth.extra || {};
-        const node_id = String(extra.node_id || '');
-        if (!node_id) {
-            dbg.log0('test_node_id: OK without node_id',
-                'auth', req.auth,
-                'from', req.connection.connid);
-            return true;
-        }
-        const item = this._map_node_id.get(String(node_id));
-        if (item) {
-            dbg.log0('test_node_id: OK node_id', node_id,
-                'node', item.node.name,
-                'auth', req.auth,
-                'from', req.connection.connid);
-            return true;
-        }
-        dbg.warn('test_node_id: INVALID node_id', node_id,
-            'auth', req.auth,
-            'from', req.connection.connid);
-        return false;
+        // Deprecated
+        // this case is handled in heartbeat flow. agent will clean itself when getting NODE_NOT_FOUND
+        // although it is not used by agents in the current version, we need to leave this code for
+        // cases where older versions of the agent call this function on startup.
+        // we can remove it only after we no longer support versions that call test_node_id
+        return true;
     }
 
 
@@ -599,6 +584,7 @@ class NodesMonitor extends EventEmitter {
             P.resolve()
             .then(() => dbg.log0('_run_node:', item.node.name))
             .then(() => this._get_agent_info(item))
+            .then(() => this._update_create_node_token(item))
             .then(() => this._update_rpc_config(item))
             .then(() => this._test_store_perf(item))
             .then(() => this._test_network_perf(item))
@@ -650,12 +636,38 @@ class NodesMonitor extends EventEmitter {
                 }
                 _.extend(item.node, updates);
                 this._set_need_update.add(item);
+                item.create_node_token = info.create_node_token;
             })
             .catch(err => {
                 dbg.error('got error in _get_agent_info:', err);
                 throw err;
             });
     }
+
+    _update_create_node_token(item) {
+        if (!item.connection) return;
+        if (item.create_node_token) {
+            dbg.log2(`_update_create_node_token: node already has a valid create_node_token. item.create_node_token = ${item.create_node_token}`);
+            return;
+        }
+        dbg.log0('node does not have a valid create_node_token. creating new one and sending to agent');
+        let auth_parmas = {
+            system_id: String(item.node.system),
+            account_id: system_store.data.get_by_id(item.node.system).owner._id,
+            role: 'create_node'
+        };
+        let token = auth_server.make_auth_token(auth_parmas);
+        dbg.log0(`new create_node_token: ${token}`);
+
+        return this.client.agent.update_create_node_token({
+                create_node_token: token
+            }, {
+                connection: item.connection
+            })
+            .timeout(AGENT_RESPONSE_TIMEOUT);
+
+    }
+
 
     _update_rpc_config(item) {
         if (!item.connection) return;

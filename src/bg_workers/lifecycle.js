@@ -10,13 +10,6 @@ const dbg = require('../util/debug_module')(__filename);
 const server_rpc = require('../server/server_rpc');
 
 
-
-//TODO: remove!!! handle BG RPC better asap
-var S3Auth = require('aws-sdk/lib/signers/s3');
-var s3 = new S3Auth();
-
-
-
 var LIFECYCLE = {
     schedule_min: 1 //run every 5 minutes
 };

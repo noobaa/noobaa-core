@@ -51,7 +51,7 @@ class ServerDnsSettingsFormViewModel extends Disposable{
         this.isUpdateServerDNSSettingsModelVisible = ko.observable();
     }
 
-    applyChanges() {
+    update() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
 

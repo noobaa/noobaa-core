@@ -72,7 +72,7 @@ class ServerDNSFormViewModel extends Disposable {
         this.isUpdateSystemNameModalVisible = ko.observable(false);
     }
 
-    applyChanges() {
+    update() {
         if (this.errors.validatingCount() > 0 || this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {

@@ -962,7 +962,6 @@ export function uploadFiles(bucketName, files) {
                 let entry = {
                     name: file.name,
                     targetBucket: bucketName,
-                    size: file.size,
                     state: 'UPLOADING',
                     progress: 0,
                     error: null
@@ -983,7 +982,7 @@ export function uploadFiles(bucketName, files) {
                     },
                     error => {
                         if (!error) {
-                            entry.state = 'COMPLETED';
+                            entry.state = 'UPLOADED';
                             entry.progress = 1;
                             resolve(true);
 

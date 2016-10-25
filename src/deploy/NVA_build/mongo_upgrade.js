@@ -13,6 +13,7 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    fix_server_secret();
     sync_cluster_upgrade();
     upgrade_systems();
     upgrade_cluster();
@@ -22,6 +23,19 @@ function upgrade() {
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
+}
+
+
+function fix_server_secret() {
+    let truncated_secret = param_secret.substring(0, param_secret.length - 1);
+    // try to look for a truncated secret and set to the complete one.
+    db.clusters.update({
+        owner_secret: truncated_secret
+    }, {
+        $set: {
+            "owner_secret": param_secret
+        }
+    });
 }
 
 function sync_cluster_upgrade() {

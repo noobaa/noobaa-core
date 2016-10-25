@@ -79,7 +79,7 @@ var https_server;
 // TODO: chang this. a temp fix to block /version until upgrade is finished
 // this is not cleared if upgrade fails, and will block UI until browser refresh.
 // maybe we need to change it to use upgrade status in DB.
-let is_upgrading = false;
+let shutting_down = false;
 
 P.fcall(function() {
         // we register the rpc before listening on the port
@@ -246,7 +246,7 @@ app.post('/upgrade',
         var upgrade_file = req.file;
         dbg.log0('got upgrade file:', upgrade_file);
         dbg.log0('calling cluster.upgrade_cluster()');
-        is_upgrading = true;
+        shutting_down = true;
         server_rpc.client.cluster_internal.upgrade_cluster({
             filepath: upgrade_file.path
         });
@@ -387,7 +387,7 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
-    if (server_rpc.is_service_registered('system_api.read_system') && !is_upgrading) {
+    if (server_rpc.is_service_registered('system_api.read_system') && !shutting_down) {
         res.send(pkg.version);
         res.end();
     } else {

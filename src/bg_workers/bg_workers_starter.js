@@ -104,6 +104,7 @@ function run_master_workers() {
     if (config.LIFECYCLE_DISABLED !== 'true') {
         register_bg_worker({
             name: 'lifecycle',
+            delay: config.LIFECYCLE_INTERVAL,
         }, lifecycle.background_worker);
     }
 }

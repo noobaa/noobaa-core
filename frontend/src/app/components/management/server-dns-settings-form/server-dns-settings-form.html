@@ -39,9 +39,18 @@
     </editor>
 
     <button class="btn align-start push-prev" data-bind="
-        click: applyChanges,
+        click: update,
         shakeOnClick: errors().length
     ">
-        Apply Changes
+        Update
     </button>
 </div>
+
+<!-- ko if: isUpdateServerDNSSettingsModelVisible -->
+<update-server-dns-settings-modal params="
+    onClose: () => hideUpdateDServerDNSSettingsModal(),
+    serverSecret: serverSecret,
+    primaryDNS: primaryDNS,
+    secondaryDNS: secondaryDNS
+"></update-server-dns-settings-modal>
+<!-- /ko -->

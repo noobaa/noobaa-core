@@ -284,7 +284,7 @@ module.exports = {
                     items: {
                         type: 'string'
                     },
-                }
+                },
             },
         }
     },

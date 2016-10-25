@@ -1,12 +1,61 @@
 <modal class="modal-large" params="
-    title: 'Files Uploading',
+    title: 'Uploads',
     onClose: () => close()
 ">
-    <data-table class="push-next greedy" params="
+    <div class="row push-next content-middle">
+        <div class="column greedy push-next">
+            <div class="heading3">
+                Total file uploads: <span data-bind="text: total"></span>
+            </div>
+            <!-- <div class="row" data-bind="visible: showProgress">
+                <bar params="values: barValues, emptyColor: emptyColor"></bar>
+                (<span data-bind="text: completed"></span>% Completed)
+            </div> -->
+        </div>
+        <button class="btn" data-bind="click: clearCompleted">Clear Completed</button>
+    </div>
+
+    <data-table class="greedy" params="
         columns: columns,
         data: requests,
         rowFactory: request => createUploadRow(request)
     "></data-table>
+
+    <section class="alt-bg summary row push-next content-middle">
+
+        <span class="row success push-next content-middle">
+            <svg-icon params="name: 'healthy'" class="success icon-small">
+            </svg-icon>
+            <span>
+                Uploaded
+                <span data-bind="text: uploadState().uploaded"></span>
+            </span>
+        </span>
+
+        <span class="row content-middle error push-both">
+            <svg-icon params="name: 'problem'" class="error icon-small"></svg-icon>
+            <span>
+                Failed
+                <span data-bind="text: uploadState().failed"></span>
+            </span>
+
+        </span>
+
+        <span class="row content-middle push-prev" data-bind="
+            visible: uploadState().uploading
+        ">
+            <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
+            <span>
+                In Process
+                <span data-bind="text: uploadState().uploading"></span>
+            </span>
+        </span>
+
+        <div class="greedy column">
+            <bar class="align-end" params="values: barValues, emptyColor: emptyColor" data-bind="visible: uploadState().uploading"></bar>
+        </div>
+
+    </section>
 
     <button class="btn align-end" data-bind="click: close">Close</button>
 </modal>

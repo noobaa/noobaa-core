@@ -15,9 +15,9 @@ export default class UploadRowViewModel extends Disposable {
             () => request() ? request().targetBucket : ''
         );
 
-        this.size = ko.pureComputed(
-            () => request() ? formatSize(request().size) : ''
-        );
+        // this.size = ko.pureComputed(
+        //     () => request() ? formatSize(request().size) : ''
+        // );
 
         this.progress = ko.pureComputed(
             () => {
@@ -30,7 +30,7 @@ export default class UploadRowViewModel extends Disposable {
                 let tooltip = state === 'FAILED' ? error.message : '';
 
                 let css = '';
-                if (state === 'COMPLETED') {
+                if (state === 'UPLOADED') {
                     css = 'success';
                 } else if (state === 'FAILED') {
                     css = 'error';

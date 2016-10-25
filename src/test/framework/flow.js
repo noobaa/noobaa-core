@@ -70,7 +70,7 @@ var steps = [
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
     }, {
-        //Test Ceph S3
+        //Test Cloud Pools
         name: 'Cloud Pools Test',
         lib_test: '/src/test/system_tests/test_cloud_pools.js',
     }, {

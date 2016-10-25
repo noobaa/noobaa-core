@@ -69,6 +69,14 @@ var steps = [
         //Restore DB to defaults
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
+    }, {
+        //Test Cloud Pools
+        name: 'Cloud Pools Test',
+        lib_test: '/src/test/system_tests/test_cloud_pools.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
     }
 ];
 

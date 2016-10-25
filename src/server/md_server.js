@@ -10,6 +10,7 @@ mongoose_utils.mongoose_connect();
 mongo_client.instance().connect();
 
 server_rpc.register_object_services();
+server_rpc.register_lambda_services();
 server_rpc.register_common_services();
 
 function register_rpc() {

@@ -16,6 +16,7 @@ api_schema.register_api(require('./tier_api'));
 api_schema.register_api(require('./node_api'));
 api_schema.register_api(require('./bucket_api'));
 api_schema.register_api(require('./object_api'));
+api_schema.register_api(require('./lambda_api'));
 api_schema.register_api(require('./agent_api'));
 api_schema.register_api(require('./block_store_api'));
 api_schema.register_api(require('./stats_api'));
@@ -83,6 +84,7 @@ function new_rpc(base_address) {
         router: new_router(base_address),
         api_routes: {
             object_api: 'md',
+            lambda_api: 'md',
             cloud_sync_api: 'bg',
             hosted_agents_api: 'bg'
         }

@@ -66,6 +66,7 @@ var server_rpc = require('./server_rpc');
 server_rpc.register_system_services();
 server_rpc.register_node_services();
 server_rpc.register_object_services();
+server_rpc.register_lambda_services();
 server_rpc.register_common_services();
 server_rpc.rpc.register_http_transport(app);
 server_rpc.rpc.router.default = 'fcall://fcall';

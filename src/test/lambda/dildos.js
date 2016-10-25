@@ -29,8 +29,8 @@ function main() {
     return P.resolve()
         .then(() => create_func(dildos_denial_func))
         .then(() => create_func(dildos_service_func))
-        .then(() => P.each(_.times(1000), run_denial_of_service));
-        // .then(() => run_denial_of_service());
+        .then(() => run_denial_of_service());
+    // .then(() => run_denial_of_service());
 }
 
 function create_func(fn) {
@@ -41,7 +41,7 @@ function create_func(fn) {
     return lambda_utils.zip_in_memory(files)
         .then(zip => P.fromCallback(callback => lambda.createFunction({
             FunctionName: name, // required
-            Runtime: 'nodejs4.3', // required
+            Runtime: 'nodejs6', // required
             Handler: name + '.handler', // required
             Role: 'arn:aws:iam::638243541865:role/lambda-test', // required
             Code: { // required
@@ -55,25 +55,24 @@ function create_func(fn) {
 }
 
 function run_denial_of_service() {
-    return P.resolve()
-        .then(() => P.fromCallback(callback => lambda.invoke({
-            FunctionName: dildos_denial_func.name,
-            // Payload: JSON.stringify({}),
-        }, callback)))
-        .then(res => console.log('Result from dildos_denial_func:', res))
-        .then(() => P.fromCallback(callback => lambda.invoke({
-            FunctionName: dildos_service_func.name,
-            // Payload: JSON.stringify({}),
-        }, callback)))
-        .then(res => console.log('Result from dildos_service_func:', res));
+    return P.each(_.times(100), x => P.resolve()
+        .then(() => P.fromCallback(callback =>
+            lambda.invoke({
+                FunctionName: dildos_denial_func.name,
+                Payload: JSON.stringify({
+                    x
+                }),
+            }, callback)))
+        .then(res => console.log('Result from dildos_denial_func:', res)));
 }
 
 function dildos_denial_func(event, context, callback) {
-    callback(null, '<<<DENIAL>>>');
+    context.invoke_lambda('dildos_service_func', event, callback);
 }
 
 function dildos_service_func(event, context, callback) {
-    callback(null, '<<<SERVICE>>>');
+    event.status = 'SERVICED';
+    callback(null, event);
 }
 
 main();

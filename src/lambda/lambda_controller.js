@@ -2,10 +2,11 @@
 'use strict';
 
 const _ = require('lodash');
-const vm = require('vm');
 const crypto = require('crypto');
 
 const P = require('../util/promise');
+const LambdaIO = require('../api/lambda_io');
+const LambdaVM = require('./lambda_vm');
 const lambda_utils = require('./lambda_utils');
 
 const STORED_FUNC_FIELDS = [
@@ -26,8 +27,11 @@ const STORED_FUNC_FIELDS = [
 
 class LambdaController {
 
-    constructor() {
+    constructor(rpc) {
         this.functions_by_name = new Map();
+        this.rpc_client = rpc.new_client();
+        this.lambda_io = new LambdaIO();
+        this.lambda_io.invoke = (client, name, event) => this._invoke(name, event);
     }
 
     create_function(req, res) {
@@ -44,13 +48,20 @@ class LambdaController {
     }
 
     invoke(req, res) {
-        console.log('invoke', req.params);
-        const fn = this.functions_by_name.get(req.params.func_name);
+        return this._invoke(req.params.func_name, req.body);
+    }
+
+    _invoke(name, event) {
+        console.log('invoke', name, event);
+        const fn = this.functions_by_name.get(name);
         if (!fn) throw new Error('NoSuchFunction');
-        const handler_split = fn.Handler.split('.');
-        const module_name = handler_split[0];
-        const export_name = handler_split[1];
-        return lambda_utils.safe_invoke(fn._scripts, module_name, export_name);
+        const lambda_vm = new LambdaVM({
+            files: fn._files,
+            handler: fn.Handler,
+            lambda_io: this.lambda_io,
+            rpc_client: this.rpc_client,
+        });
+        return lambda_vm.invoke(event);
     }
 
     list_functions(req, res) {
@@ -77,7 +88,7 @@ class LambdaController {
         console.log('_load_func_code:', fn);
         return lambda_utils.unzip_in_memory(zip_buffer)
             .then(files => {
-                fn._scripts = _.mapValues(files, f => new vm.Script(f));
+                fn._files = files;
             });
     }
 

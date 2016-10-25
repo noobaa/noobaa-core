@@ -3,6 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 import { refresh, signOut, openDrawer, closeDrawer } from 'actions';
+import { waitFor } from 'utils';
 
 class CommandBarViewModel extends Disposable {
     constructor() {
@@ -11,10 +12,15 @@ class CommandBarViewModel extends Disposable {
         this.isDrawerOpen = ko.pureComputed(
             () => !!uiState().drawer
         );
+
+        this.isRefreshSpinning = ko.observable(false);
     }
 
     refresh() {
         refresh();
+
+        this.isRefreshSpinning(true);
+        waitFor(1000, false).then(this.isRefreshSpinning);
     }
 
     showAuditLog() {

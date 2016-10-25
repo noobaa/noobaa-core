@@ -75,16 +75,16 @@
     </div>
 
     <button class="btn align-start push-both" data-bind="
-        click: applyChanges,
+        click: update,
         shakeOnClick: errors().length,
     ">
-        Apply Changes
+        update
     </button>
 </div>
 
-<!-- ko if: isUpdatingSystemNameModalVisible -->
-<updating-system-name-modal params="
+<!-- ko if: isUpdateSystemNameModalVisible -->
+<update-system-name-modal params="
     name: baseAddress,
-    onClose: () => hideUpdatingSystemNameModal()
-"></updating-system-name-modal>
+    onClose: () => hideUpdateSystemNameModal()
+"></update-system-name-modal>
 <!-- /ko -->

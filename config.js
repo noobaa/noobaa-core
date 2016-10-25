@@ -79,6 +79,13 @@ config.REBUILD_NODE_OFFLINE_GRACE = 5 * 60000;
 config.SCRUBBER_ENABLED = true;
 config.SCRUBBER_RESTART_DELAY = 30000;
 
+//////////////////////
+// LIFECYCLE CONFIG //
+//////////////////////
+config.LIFECYCLE_INTERVAL = 15 * 60 * 1000;
+
+
+
 //////////////////
 // DEBUG CONFIG //
 //////////////////

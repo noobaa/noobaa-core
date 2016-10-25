@@ -1,0 +1,12 @@
+<modal class="modal-large" params="
+    title: 'Files Uploading',
+    onClose: () => close()
+">
+    <data-table class="push-next greedy" params="
+        columns: columns,
+        data: requests,
+        rowFactory: request => createUploadRow(request)
+    "></data-table>
+
+    <button class="btn align-end" data-bind="click: close">Close</button>
+</modal>

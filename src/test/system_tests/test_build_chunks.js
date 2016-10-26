@@ -1,14 +1,18 @@
 "use strict";
 
-let _ = require('lodash');
-let P = require('../../util/promise');
-let api = require('../../api');
-let ops = require('./basic_server_ops');
-let promise_utils = require('../../util/promise_utils');
-var dotenv = require('dotenv');
-var fs = require('fs');
+const _ = require('lodash');
+const P = require('../../util/promise');
+const api = require('../../api');
+const ops = require('./basic_server_ops');
+const promise_utils = require('../../util/promise_utils');
+const dotenv = require('dotenv');
+const fs = require('fs');
+const crypto = require('crypto');
 const util = require('util');
-var AWS = require('aws-sdk');
+const AWS = require('aws-sdk');
+const ObjectIO = require('../../api/object_io');
+const test_utils = require('./test_utils');
+
 dotenv.load();
 
 
@@ -27,6 +31,10 @@ let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
 let client = rpc.new_client({
     address: 'ws://' + TEST_CTX.ip + ':' + process.env.PORT
 });
+let n2n_agent = rpc.register_n2n_agent(client.node.n2n_signal);
+n2n_agent.set_any_rpc_address();
+
+
 
 module.exports = {
     run_test: run_test
@@ -44,6 +52,18 @@ function authenticate() {
         return client.create_auth_token(auth_params);
     });
 }
+
+const AWS_s3 = new AWS.S3({
+    // endpoint: 'https://s3.amazonaws.com',
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    },
+    s3ForcePathStyle: true,
+    sslEnabled: false,
+    signatureVersion: 'v4',
+    // region: 'eu-central-1'
+});
 
 function upload_random_file(size_mb, bucket_name, extension, content_type) {
     return ops.generate_random_file(size_mb, extension)
@@ -67,13 +87,27 @@ function upload_random_file(size_mb, bucket_name, extension, content_type) {
         });
 }
 
-function verify_object_health(expected_num_blocks, bucket_name, pool_names, cloud_pool, video_optimization) {
+function get_cloud_block_ids(obj_mapping) {
+    let cloud_block_ids = [];
+    _.each(obj_mapping.parts, part => {
+        cloud_block_ids = cloud_block_ids.concat(
+            _.filter(part.chunk.frags[0].blocks,
+                block => block.adminfo && block.adminfo.in_cloud_pool));
+    });
+    return cloud_block_ids;
+}
+
+
+function verify_object_health(expected_num_blocks, bucket_name, pool_names, cloud_pool, video_optimization, test_corruption) {
     console.log(`verifying object ${TEST_CTX.object_key} health. expected num of blocks: ${expected_num_blocks}`);
     let num_blocks = 0;
     let num_parts = 0;
     let num_blocks_per_part = 0;
     let expected_num_vid_blocks = video_optimization ? expected_num_blocks * 4 : 0;
     let num_vid_blocks = 0;
+    let obj_is_invalid = true;
+    let obj_is_verified = !test_corruption;
+    let obj_mapping = {};
     let start_ts = Date.now();
     return client.node.list_nodes({
             query: {
@@ -81,53 +115,110 @@ function verify_object_health(expected_num_blocks, bucket_name, pool_names, clou
                 skip_internal: !cloud_pool
             }
         })
-        .then(node_list => promise_utils.pwhile(() => num_blocks_per_part.toFixed(0) < expected_num_blocks || num_vid_blocks < expected_num_vid_blocks,
+        .then(node_list => promise_utils.pwhile(() => obj_is_invalid || !obj_is_verified,
             () => client.object.read_object_mappings({
                 bucket: bucket_name,
                 key: TEST_CTX.object_key,
-                adminfo: cloud_pool
+                adminfo: Boolean(cloud_pool)
             })
-            .then(obj_mapping => {
-                let node_ids = _.filter(node_list.nodes, node => !node.has_issues).map(node => node._id);
-                let cloud_node_ids = cloud_pool ? (_.filter(node_list.nodes, node => node.is_cloud_node).map(node => node._id)) : undefined;
+            .then(object_mapping => {
+                obj_mapping = object_mapping;
+            })
+            .then(() => {
+                // This checks for tempering
+                if (!obj_is_verified) {
+                    let object_io_verifier = new ObjectIO();
+                    object_io_verifier.set_verification_mode();
+                    return object_io_verifier.read_object({
+                            client: client,
+                            bucket: bucket_name,
+                            key: TEST_CTX.object_key,
+                            start: 0,
+                            end: obj_mapping.object_md.size
+                        })
+                        .then(() => {
+                            obj_is_verified = true;
+                        })
+                        .catch(err => {
+                            console.warn(`object could not be verified.`, err);
+                            obj_is_verified = false;
+                        });
+                }
+            })
+            .then(() => {
+                // This will check the number of distinct nodes that hold the object's blocks are all mapped to expected pools
+                let node_ids = _.filter(node_list.nodes, node => !node.has_issues)
+                    .map(node => node._id);
+                let cloud_node_ids = cloud_pool ?
+                    (_.filter(node_list.nodes, node => node.is_cloud_node)
+                        .map(node => node._id)) :
+                    undefined;
                 num_blocks = 0;
                 num_parts = 0;
-                num_vid_blocks = 0;
-                num_vid_blocks += obj_mapping.parts[0].chunk.frags[0].blocks.length;
-                num_vid_blocks += obj_mapping.parts[obj_mapping.parts.length - 1].chunk.frags[0].blocks.length;
+                num_vid_blocks = obj_mapping.parts[0].chunk.frags[0].blocks.length +
+                    obj_mapping.parts[obj_mapping.parts.length - 1].chunk.frags[0].blocks.length;
                 _.each(obj_mapping.parts, part => {
                     var distinct_nodes_per_part = new Set();
                     num_parts += 1;
                     _.each(part.chunk.frags[0].blocks, block => {
                         if (!distinct_nodes_per_part.has(block.block_md.node)) {
-                            if (cloud_pool && _.includes(cloud_node_ids, block.block_md.node)) num_blocks += expected_num_blocks;
-                            else if (_.includes(node_ids, block.block_md.node)) num_blocks += 1;
+                            if (_.includes(node_ids, block.block_md.node) ||
+                                (cloud_pool && _.includes(cloud_node_ids, block.block_md.node))) {
+                                num_blocks += 1;
+                            }
                         }
                         distinct_nodes_per_part.add(block.block_md.node);
                     });
                 });
                 num_blocks_per_part = num_blocks / num_parts || 1;
-                if (num_blocks_per_part < expected_num_blocks || num_vid_blocks < expected_num_vid_blocks) {
+                obj_is_invalid = !obj_is_verified ||
+                    num_blocks_per_part.toFixed(0) < expected_num_blocks ||
+                    num_vid_blocks < expected_num_vid_blocks ||
+                    (cloud_pool && !cloud_node_ids);
+                if (obj_is_invalid) {
                     let diff = Date.now() - start_ts;
-                    if ((diff / 1000).toFixed(0) % 5 === 0) {
-                        let msg = '';
-                        let elapsed_time = (diff / 1000).toFixed(0);
-                        if (num_blocks_per_part.toFixed(0) < expected_num_blocks) msg += `object has an average ${num_blocks_per_part.toFixed(0)} blocks per part. expected ${expected_num_blocks}. `;
-                        if (num_vid_blocks < expected_num_vid_blocks) msg += `object has ${num_vid_blocks} blocks for video optimization. expected ${expected_num_vid_blocks}. `;
-                        if (elapsed_time > 0 && elapsed_time < TEST_CTX.timeout) msg += `${elapsed_time} seconds passed. retrying for ${TEST_CTX.timeout - elapsed_time} seconds`;
-                        console.warn(msg);
-                    }
+                    print_verification_warning(diff, num_blocks_per_part,
+                        expected_num_blocks, num_vid_blocks, expected_num_vid_blocks, obj_is_verified);
                     if (diff > (TEST_CTX.timeout * 1000)) {
                         throw new Error('aborted test after ' + TEST_CTX.timeout + ' seconds');
                     }
                     return P.delay(1000);
                 }
             })))
-        .then(() => client.object.read_object_mappings({
-            bucket: bucket_name,
-            key: TEST_CTX.object_key,
-            adminfo: cloud_pool
-        }));
+        .then(() => {
+            if (cloud_pool) {
+                return test_utils.blocks_exist_on_cloud(get_cloud_block_ids(obj_mapping), AWS_s3);
+            }
+        })
+        .then(() => {
+            console.log('object health verified');
+            return client.object.read_object_mappings({
+                bucket: bucket_name,
+                key: TEST_CTX.object_key,
+                adminfo: Boolean(cloud_pool)
+            });
+        });
+}
+
+function print_verification_warning(diff, num_blocks_per_part, expected_num_blocks,
+    num_vid_blocks, expected_num_vid_blocks, obj_is_verified) {
+    if ((diff / 1000).toFixed(0) % 5 === 0) {
+        let msg = '';
+        let elapsed_time = (diff / 1000).toFixed(0);
+        if (!obj_is_verified) {
+            msg += `object integrity check failed. `;
+        }
+        if (num_blocks_per_part.toFixed(0) < expected_num_blocks) {
+            msg += `object has an average ${num_blocks_per_part.toFixed(0)} blocks per part. expected ${expected_num_blocks}. `;
+        }
+        if (num_vid_blocks < expected_num_vid_blocks) {
+            msg += `object has ${num_vid_blocks} blocks for video optimization. expected ${expected_num_vid_blocks}. `;
+        }
+        if (elapsed_time > 0 && elapsed_time < TEST_CTX.timeout) {
+            msg += `${elapsed_time} seconds passed. retrying for ${TEST_CTX.timeout - elapsed_time} seconds`;
+        }
+        console.warn(msg);
+    }
 }
 
 function discard_nodes_from_pool(object_mapping, num_nodes, pool_name) {
@@ -179,6 +270,29 @@ function comission_nodes_to_pool(pool_name, num_nodes) {
         }));
 }
 
+function corrupt_a_block(object_mapping, num_blocks) {
+    console.log(`corrupt_a_block: corrupting ${num_blocks} blocks`);
+    num_blocks = num_blocks || 1;
+    const data = crypto.randomBytes(512);
+    let block_mds = [];
+    for (let i = 0; i < num_blocks; i++) {
+        if (object_mapping.parts[0].chunk.frags[0].blocks[i]) {
+            block_mds.push(object_mapping.parts[0].chunk.frags[0].blocks[i].block_md);
+        }
+    }
+    return P.map(block_mds, block_md => {
+        console.log(`corrupt_a_block: corrupted block_md:`, block_md);
+        block_md.digest_type = 'sha1';
+        block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+        return client.block_store.write_block({
+            block_md: block_md,
+            data: data
+        }, {
+            address: block_md.address
+        });
+    });
+}
+
 function main() {
     return run_test()
         .then(function() {
@@ -192,15 +306,15 @@ function main() {
 function run_test() {
     return authenticate()
         .then(() => test_tear_down())
-        .then(() => test_rebuild_single_unavailable_block()) // at least 4 nodes
-        .then(() => test_rebuild_two_unavailable_blocks()) // at least 5 nodes
-        .then(() => test_rebuild_unavailable_from_mirror()) // at least 7 nodes.
-        //    .then(() => test_rebuild_unavailable_from_cloud_pool())
-        //    .then(() => test_rebuild_one_corrupted_block())
-        //    .then(() => test_rebuild_two_corrupted_blocks())
-        //    .then(() => test_rebuild_corrupted_from_mirror_pool())
-        //    .then(() => test_rebuild_corrupted_from_cloud_pool())
-        .then(() => test_double_blocks_on_movie_files())
+        .then(() => test_rebuild_single_unavailable_block()) // at least 4 nodes required
+        .then(() => test_rebuild_two_unavailable_blocks()) // at least 5 nodes required
+        .then(() => test_rebuild_unavailable_from_mirror()) // at least 7 nodes required
+        .then(() => test_rebuild_unavailable_from_cloud_pool()) // at least 6 nodes required // TODO: fix object verification to check if an object actually got stored on the cloud or this won't work
+        .then(() => test_rebuild_one_corrupted_block()) // at least 3 nodes required // TODO: THIS SHALL NOT PASS (until we recover from block corruption)
+        .then(() => test_rebuild_two_corrupted_blocks()) // at least 3 nodes required. corrupts 1 node
+        .then(() => test_rebuild_corrupted_from_mirror()) // at least 6 nodes required. corrupts 2 nodes
+        .then(() => test_rebuild_corrupted_from_cloud_pool()) // at least 3 nodes required. corrupts 3 nodes // This will fail until bug #2090 is fixed
+        .then(() => test_double_blocks_on_movie_files()) // at least 6 nodes required
         .catch(err => {
             console.error('test_build_chunks FAILED: ', err.stack || err);
             throw new Error('test_build_chunks FAILED: ', err);
@@ -266,12 +380,79 @@ function test_rebuild_unavailable_from_cloud_pool() {
             'test4pool1': 3
         })
         .then(() => upload_random_file(1, bucket_name))
-        .then(() => verify_object_health(3, bucket_name, pool_names.concat(cloud_pool_name), true))
+        .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name))
         .then(obj_mapping => [obj_mapping, comission_nodes_to_pool(pool_names[0], 3)])
         .spread(obj_mapping => discard_nodes_from_pool(obj_mapping, 3, pool_names[0]))
-        .then(() => verify_object_health(3, bucket_name, pool_names.concat(cloud_pool_name), true))
+        .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name))
         .then(() => console.log('test test_rebuild_unavailable_from_cloud_pool successful'))
         .catch(err => console.error(`Had error in test test_rebuild_unavailable_from_cloud_pool: ${err}`))
+        .finally(() => test_tear_down());
+}
+
+function test_rebuild_one_corrupted_block() {
+    console.log('running test: test_rebuild_one_corrupted_block');
+    let bucket_name = 'testbucket';
+    let pool_names = ['test5pool'];
+    return test_setup(bucket_name, pool_names, false, false, {
+            'test5pool': 3
+        })
+        .then(() => upload_random_file(1, bucket_name))
+        .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
+        .then(obj_mapping => corrupt_a_block(obj_mapping))
+        .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
+        .then(() => console.log('test test_rebuild_one_corrupted_block successful'))
+        .catch(err => console.error(`Had error in test test_rebuild_one_corrupted_block: ${err}`))
+        .finally(() => test_tear_down());
+}
+
+function test_rebuild_two_corrupted_blocks() {
+    console.log('running test: test_rebuild_two_corrupted_blocks');
+    let bucket_name = 'test6bucket';
+    let pool_names = ['tes6pool'];
+    return test_setup(bucket_name, pool_names, false, false, {
+            'test6pool': 3
+        })
+        .then(() => upload_random_file(2, bucket_name))
+        .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
+        .then(obj_mapping => corrupt_a_block(obj_mapping))
+        .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
+        .then(() => console.log('test test_rebuild_two_corrupted_blocks successful'))
+        .catch(err => console.error(`Had error in test test_rebuild_two_corrupted_blocks: ${err}`))
+        .finally(() => test_tear_down());
+}
+
+function test_rebuild_corrupted_from_mirror() {
+    console.log('running test: test_rebuild_corrupted_from_mirror');
+    let bucket_name = 'test7bucket';
+    let pool_names = ['test7pool1', 'test7pool2'];
+    return test_setup(bucket_name, pool_names, true, false, {
+            'test7pool1': 3,
+            'test7pool2': 3
+        })
+        .then(() => upload_random_file(2, bucket_name))
+        .then(() => verify_object_health(6, bucket_name, pool_names, false, false, true))
+        .then(obj_mapping => corrupt_a_block(obj_mapping), 2)
+        .then(() => verify_object_health(6, bucket_name, pool_names, false, false, true))
+        .then(() => console.log('test test_rebuild_corrupted_from_mirror successful'))
+        .catch(err => console.error(`Had error in test test_rebuild_corrupted_from_mirror: ${err}`))
+        .finally(() => test_tear_down());
+}
+
+function test_rebuild_corrupted_from_cloud_pool() {
+    console.log('running test: test_rebuild_corrupted_from_cloud_pool');
+    let bucket_name = 'test8bucket';
+    let pool_names = ['test8pool1'];
+    let cloud_pool_name = TEST_CTX.cloud_pool_name;
+    return test_setup(bucket_name, pool_names, false, true, {
+            'test8pool1': 3
+        })
+        .then(() => upload_random_file(1, bucket_name))
+        .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name, false, true))
+        .then(obj_mapping => [obj_mapping, comission_nodes_to_pool(pool_names[0], 3)])
+        .spread(obj_mapping => corrupt_a_block(obj_mapping), 3)
+        .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name, false, true))
+        .then(() => console.log('test test_rebuild_corrupted_from_cloud_pool successful'))
+        .catch(err => console.error(`Had error in test test_rebuild_corrupted_from_cloud_pool: ${err}`))
         .finally(() => test_tear_down());
 }
 
@@ -280,7 +461,7 @@ function test_double_blocks_on_movie_files() {
     let bucket_name = 'test9bucket';
     let pool_names = ['test9pool1'];
     return test_setup(bucket_name, pool_names, false, false, {
-            'test1pool': 4
+            'test9pool1': 4
         })
         .then(() => upload_random_file(4, bucket_name, 'mp4', 'video/mp4'))
         .then(() => verify_object_health(3, bucket_name, pool_names, false, true))
@@ -297,7 +478,7 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
                 };
             }), pool_to_create => client.node.list_nodes({
                 query: {
-                    online: true,
+                    has_issues: false,
                     pools: [TEST_CTX.discard_pool_name]
                 }
             })

@@ -120,8 +120,11 @@ function read_mac_linux_drives(include_all) {
             // in order to get only local file systems.
             file: '-l'
         }, callback))
-        .then(volumes => _.compact(volumes.map(vol => linux_volume_to_drive(vol))));
-
+        .then(volumes => _.compact(_.map(volumes, function(vol) {
+            //filter Azure temporary storage
+            if (vol.mount.indexOf('/mnt/resource') === 0) return;
+            return linux_volume_to_drive(vol);
+        })));
 }
 
 
@@ -140,6 +143,8 @@ function read_windows_drives() {
                 // 6 = RAM Disk
                 if (vol.DriveType !== '3') return;
                 if (!vol.DriveLetter) return;
+                //Azure temporary disk
+                if (vol.Label.indexOf('Temporary Storage') === 0) return;
                 return windows_volume_to_drive(vol);
             }));
         }).then(function(local_volumes) {

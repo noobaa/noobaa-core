@@ -33,9 +33,25 @@
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
-                <editor params="label: 'Password'">
-                    <password-field params="value: password, placeholder: 'enter password'"></password-field>
+                <editor params="
+                    label: 'Password',
+                    insertValMessages: false
+                ">
+                    <password-field params="
+                        value: password,
+                        placeholder: 'enter password',
+                        strengthCalc: calcPasswordStrenght
+                    "></password-field>
                 </editor>
+
+                <ul class="bullet-list remark" data-bind="
+                    foreach: passwordValidations
+                ">
+                    <li data-bind="
+                        text: message,
+                        css: { success: isValid }
+                    "></li>
+                </ul>
             </div>
 
             <div class="page column" data-bind="css: { selected: step() === 1 }">
@@ -52,12 +68,6 @@
 
                 <editor params="label: 'Server DNS name'">
                     <input type="text" data-bind="value: serverDNSName">
-                    <p class="hint">optional</p>
-                </editor>
-
-                <editor class="push-next" params="label: 'Primary DNS server IP'">
-                    <input type="text" data-bind="value: primaryDNSServerIP"
-                        placeholder="The IP of your primary DNS server" >
                     <p class="hint">optional</p>
                 </editor>
 
@@ -90,8 +100,4 @@
         </div>
     </div>
 </section>
-
-<!-- ko if: isUnableToActivateModalVisible -->
-<unable-to-activate-modal></unable-to-activate-modal>
-<!-- /ko -->
 

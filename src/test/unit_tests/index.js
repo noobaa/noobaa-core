@@ -10,6 +10,7 @@ require('./test_node_server');
 require('./test_agent');
 require('./test_object_io');
 require('./test_map_utils');
+require('./test_s3_list_objects');
 
 /**
  * UTILS

@@ -248,7 +248,7 @@ MongoCtrl.prototype._refresh_services_list = function() {
 MongoCtrl.prototype.update_dotenv = function(name, IPs) {
     dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
     let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
-    let url = 'mongodb://' + servers_str + '/nbcore?replicaSet=' + name;
+    let url = 'mongodb://' + servers_str + '/nbcore?replicaSet=' + name + '&readPreference=primaryPreferred';
     let old_url = process.env.MONGO_RS_URL || '';
     dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);
     dotenv.set({
@@ -256,16 +256,17 @@ MongoCtrl.prototype.update_dotenv = function(name, IPs) {
         value: url
     });
     // update all processes in the current server of the change in connection string
-    return this._publish_rs_name_current_server(name);
+    return this._publish_rs_name_current_server({
+        rs_name: name,
+        skip_load_system_store: true
+    });
 };
 
-MongoCtrl.prototype._publish_rs_name_current_server = function(name) {
+MongoCtrl.prototype._publish_rs_name_current_server = function(params) {
     return server_rpc.client.redirector.publish_to_cluster({
         method_api: 'server_inter_process_api',
         method_name: 'update_mongo_connection_string',
         target: '', // required but irrelevant
-        request_params: {
-            rs_name: name
-        }
+        request_params: params
     });
 };

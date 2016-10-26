@@ -19,9 +19,10 @@ const promise_utils = require('../../util/promise_utils');
 const diag = require('../utils/server_diagnostics');
 const moment = require('moment');
 const url = require('url');
-const dns = require('dns');
+const upgrade_utils = require('../../util/upgrade_utils');
 const request = require('request');
-
+const dns = require('dns');
+const cluster_hb = require('../bg_services/cluster_hb');
 
 function _init() {
     return P.resolve(MongoCtrl.init());
@@ -109,11 +110,16 @@ function add_member_to_cluster(req) {
             console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
             throw new Error('Failed adding members to cluster');
         })
+        // TODO: solve in a better way
+        // added this delay, otherwise the next system_store.load doesn't catch the new servers HB
+        .delay(500)
         .then(function() {
             dbg.log0('Added member', req.rpc_params.address, 'to cluster. New topology',
                 cutil.pretty_topology(cutil.get_topology()));
-            return;
-        });
+            // reload system_store to update after new member HB
+            return system_store.load();
+        })
+        .return();
 }
 
 
@@ -132,20 +138,23 @@ function join_to_cluster(req) {
     // first thing we update the new topology as the local topoology.
     // later it will be updated to hold this server's info in the cluster's DB
     req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
+    req.rpc_params.topology.owner_address = req.rpc_params.ip;
     return P.resolve(cutil.update_cluster_info(req.rpc_params.topology))
         .then(() => {
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology
-
-                return P.resolve(cutil.update_cluster_info(
-                        cutil.get_topology().shards.push({
-                            shardname: req.rpc_params.shard,
-                            servers: [{
-                                address: req.rpc_params.ip
-                            }]
-                        })
-                    ))
+                let shards = cutil.get_topology().shards;
+                shards.push({
+                    shardname: req.rpc_params.shard,
+                    servers: [{
+                        address: req.rpc_params.ip
+                    }]
+                });
+                return P.resolve(cutil.update_cluster_info({
+                        owner_address: req.rpc_params.ip,
+                        shards: shards
+                    }))
                     .then(() => {
                         //Add the new shard server
                         return _add_new_shard_on_server(req.rpc_params.shard, req.rpc_params.ip, {
@@ -170,6 +179,10 @@ function join_to_cluster(req) {
             //Mongo servers are up, update entire cluster with the new topology
             return _publish_to_cluster('news_updated_topology', topology_to_send);
         })
+        // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
+        .then(() => cluster_hb.do_heartbeat())
+        // restart bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
+        .then(() => _restart_services())
         .return();
 }
 
@@ -216,7 +229,10 @@ function news_updated_topology(req) {
 
     dbg.log0('updating topolgy to the new published topology:', req.rpc_params);
     //Update our view of the topology
-    return P.resolve(cutil.update_cluster_info(req.rpc_params));
+    return P.resolve(cutil.update_cluster_info({
+        is_clusterized: true,
+        shards: req.rpc_params.shards
+    }));
 }
 
 
@@ -410,6 +426,13 @@ function apply_set_debug_level(req) {
         .return();
 }
 
+function _restart_services() {
+    // set timeout to restart services in 1 second
+    setTimeout(() => {
+        promise_utils.exec('supervisorctl restart s3rver bg_workers');
+    }, 1000);
+}
+
 
 function _set_debug_level_internal(req, level) {
     dbg.log0('Recieved _set_debug_level_internal req', req.rpc_params, 'With Level', level);
@@ -549,11 +572,201 @@ function update_server_location(req) {
     }).return();
 }
 
+// UPGRADE ////////////////////////////////////////////////////////
+function member_pre_upgrade(req) {
+    dbg.log0('UPGRADE: received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ?
+        'this server should preform mongo_upgrade' :
+        'this server should not preform mongo_upgrade');
+    let server = system_store.get_local_cluster_info(); //Update path in DB
+    dbg.log0('update upgrade for server: ', cutil.get_cluster_info().owner_address);
+    let upgrade = {
+        path: req.rpc_params.filepath,
+        mongo_upgrade: req.rpc_params.mongo_upgrade,
+        status: 'PENDING',
+        error: ''
+    };
+
+    dbg.log0('UPGRADE:', 'updating cluster for server._id', server._id, 'with upgrade =', upgrade);
+
+    return system_store.make_changes({
+            update: {
+                clusters: [{
+                    _id: server._id,
+                    upgrade: upgrade
+                }]
+            }
+        })
+        .then(() => upgrade_utils.pre_upgrade())
+        .then(res => {
+            //Update result of pre_upgrade and message in DB
+            if (res.result) {
+                dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to CAN_UPGRADE');
+                upgrade.status = 'CAN_UPGRADE';
+            } else {
+                dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to FAILED');
+                upgrade.status = 'FAILED';
+                upgrade.error = res.message;
+            }
+
+            dbg.log0('UPGRADE:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
+
+            return system_store.make_changes({
+                update: {
+                    clusters: [{
+                        _id: server._id,
+                        upgrade: upgrade
+                    }]
+                }
+            });
+        })
+        .return();
+}
+
+function do_upgrade(req) {
+    dbg.log0('UPGRADE:', 'got do_upgrade');
+    let server = system_store.get_local_cluster_info();
+    if (server.upgrade.status !== 'CAN_UPGRADE') {
+        throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '');
+    }
+    if (server.upgrade.path === '') {
+        throw new Error('No package path supplied');
+    }
+    let filepath = server.upgrade.path;
+    //Async as the server will soon be restarted anyway
+    upgrade_utils.do_upgrade(filepath, server.is_clusterized);
+    return;
+}
+
+
+function upgrade_cluster(req) {
+    dbg.log0('UPGRADE got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
+    // get all cluster members other than the master
+    let cinfo = system_store.get_local_cluster_info();
+    let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== cinfo.owner_address);
+    dbg.log0('UPGRADE:', 'secondaries =', secondary_members);
+    // upgrade can only be called from master. throw error otherwise
+    return P.fcall(() => {
+            if (cinfo.is_clusterized) {
+                return MongoCtrl.is_master();
+            }
+            return true;
+
+        })
+        .then(is_master => {
+            if (!is_master) {
+                throw new Error('UPGRADE upgrade must be done on master node');
+            }
+            // upload package to secondaries
+            dbg.log0('UPGRADE:', 'uploading package to all cluster members');
+            // upload package to cluster members
+            return P.all(secondary_members.map(member => _upload_package(req.rpc_params.filepath, member)))
+                .catch(err => {
+                    dbg.error('UPGRADE:', 'failed uploading upgrade package to secondaries - aborting upgrade', err);
+                    throw err;
+                });
+        })
+        .then(() => {
+            dbg.log0('UPGRADE:', 'calling member_pre_upgrade');
+            return server_rpc.client.cluster_internal.member_pre_upgrade({
+                    filepath: req.rpc_params.filepath,
+                    mongo_upgrade: true
+                })
+                .catch(err => {
+                    dbg.error('UPGRADE:', 'pre_upgrade failed on master - aborting upgrade', err);
+                    throw err;
+                });
+        })
+        .then(() => {
+            //wait for all secondaries to reach CAN_UPGRADE. if one failed fail the upgrade
+            dbg.log0('UPGRADE:', 'waiting for secondaries to reach CAN_UPGRADE');
+            // TODO: on multiple shards we can upgrade one at the time in each shard
+            return P.all(secondary_members, ip => {
+                // for each server, wait for it to reach CAN_UPGRADE, then call do_upgrade
+                // wait for UPGRADED status before continuing to next one
+                dbg.log0('UPGRADE:', 'waiting for server', ip, 'to reach CAN_UPGRADE');
+                return _wait_for_upgrade_state(ip, 'CAN_UPGRADE')
+                    .catch(err => {
+                        dbg.error('UPGRADE:', 'timeout: server at', ip, 'did not reach CAN_UPGRADE state. aborting upgrade', err);
+                        throw err;
+                    });
+            });
+        })
+        // after all servers reached CAN_UPGRADE, start upgrading secondaries one by one
+        .then(() => P.each(secondary_members, ip => {
+            dbg.log0('UPGRADE:', 'sending do_upgrade to server', ip, 'and and waiting for DB_READY state');
+            return server_rpc.client.cluster_internal.do_upgrade({}, {
+                    address: 'ws://' + ip + ':' + server_rpc.get_base_port()
+                })
+                .then(() => _wait_for_upgrade_state(ip, 'DB_READY'))
+                .catch(err => {
+                    dbg.error('UPGRADE:', 'got error on upgrade of server', ip, 'aborting upgrade process', err);
+                    throw err;
+                });
+        }))
+        // after all secondaries are upgraded it is safe to upgrade the primary.
+        // secondaries should wait (in upgrade.sh) for primary to complete upgrade and perform mongo_upgrade
+        .then(() => {
+            dbg.log0('UPGRADE:', 'calling do_upgrade on master');
+            return server_rpc.client.cluster_internal.do_upgrade({
+                filepath: req.rpc_params.filepath
+            });
+        });
+}
+
+
+function _wait_for_upgrade_state(ip, state) {
+    const max_retries = 60;
+    const upgrade_retry_delay = 10 * 1000; // the delay between testing upgrade status
+    return promise_utils.retry(max_retries, upgrade_retry_delay, () => system_store.load()
+        .then(() => {
+            dbg.log0('UPGRADE:', 'wating for', ip, 'to reach', state);
+            let status = cutil.get_member_upgrade_status(ip);
+            dbg.log0('UPGRADE:', 'got status:', status);
+            if (status !== state) {
+                dbg.error('UPGRADE:', 'timedout waiting for ' + ip + ' to reach ' + state);
+                throw new Error('timedout waiting for ' + ip + ' to reach ' + state);
+            }
+        })
+    );
+}
+
+//
+//Internals Cluster Control
+//
+
+function _upload_package(pkg_path, ip) {
+    var formData = {
+        upgrade_file: {
+            value: fs.createReadStream(pkg_path),
+            options: {
+                filename: 'noobaa.tar.gz',
+                contentType: 'application/x-gzip'
+            }
+        }
+    };
+    let target = url.format({
+        protocol: 'http',
+        slashes: true,
+        hostname: ip,
+        port: process.env.PORT,
+        pathname: 'upload_package'
+    });
+    return P.ninvoke(request, 'post', {
+            url: target,
+            formData: formData,
+            rejectUnauthorized: false,
+        })
+        .then((httpResponse, body) => {
+            console.log('Upload package successful:', body);
+        });
+}
+
+
 function read_server_config(req) {
     let reply = {};
     let srvconf = {};
 
-    return P.resolve(_attach_server_configuration(srvconf))
+    return P.resolve()
         .then(function() {
             if (DEV_MODE) {
                 reply.using_dhcp = false;
@@ -571,6 +784,7 @@ function read_server_config(req) {
                     }
                 });
         })
+        .then(() => _attach_server_configuration(srvconf, reply.using_dhcp))
         .then(() => _verify_connection_to_phonehome())
         .then(function(connection_reply) {
             reply.phone_home_connectivity_status = connection_reply;
@@ -669,7 +883,9 @@ function _handle_google_get(google_get_result) {
         let google_reply = google_get_result.value();
         dbg.log0('Received Response From https://google.com',
             google_reply && google_reply.response.statusCode);
-        if (_.get(google_reply, 'response.statusCode', 0) === 200) {
+        if (_.get(google_reply, 'response.statusCode', 0)
+            .toString()
+            .startsWith(2)) {
             return 'CANNOT_CONNECT_PHONEHOME_SERVER';
         } else {
             return 'CANNOT_CONNECT_INTERNET';
@@ -911,7 +1127,7 @@ function _update_rs_if_needed(IPs, name, is_config) {
 }
 
 
-function _attach_server_configuration(cluster_server) {
+function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
     if (!fs.existsSync('/etc/ntp.conf') || !fs.existsSync('/etc/resolv.conf')) {
         cluster_server.ntp = {
             timezone: os_utils.get_time_config().timezone
@@ -921,8 +1137,10 @@ function _attach_server_configuration(cluster_server) {
     return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
             os_utils.get_time_config(),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
-            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'))
-        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line) {
+            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'),
+            dhcp_dns_servers && dns.getServers()
+        )
+        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line, dhcp_dns) {
             cluster_server.ntp = {
                 timezone: time_config.timezone
             };
@@ -944,6 +1162,12 @@ function _attach_server_configuration(cluster_server) {
             }
             if (dns_servers.length > 0) {
                 cluster_server.dns_servers = dns_servers;
+            }
+
+            // We are interested in DNS servers of DHCP that's why we override
+            if (dhcp_dns_servers && dhcp_dns) {
+                // We only support up to 2 DNS servers so we slice the first two
+                cluster_server.dns_servers = dhcp_dns.slice(0, 2);
             }
 
             return cluster_server;
@@ -972,3 +1196,6 @@ exports.collect_server_diagnostics = collect_server_diagnostics;
 exports.read_server_time = read_server_time;
 exports.apply_read_server_time = apply_read_server_time;
 exports.read_server_config = read_server_config;
+exports.member_pre_upgrade = member_pre_upgrade;
+exports.do_upgrade = do_upgrade;
+exports.upgrade_cluster = upgrade_cluster;

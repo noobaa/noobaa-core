@@ -25,7 +25,7 @@ const serviceIconMapping = deepFreeze({
 });
 
 export default class CloudResourceRowViewModel extends Disposable {
-    constructor(resource, resourcesToBuckets, deleteGroup, showAfterDeleteAlertModal) {
+    constructor(resource, resourcesToBuckets, deleteGroup) {
         super();
 
         this.state = {
@@ -75,10 +75,7 @@ export default class CloudResourceRowViewModel extends Disposable {
             tooltip: ko.pureComputed(
                 () => undeletable() ? undeletableReasons[undeletable()] : 'delete resources'
             ),
-            onDelete: () => {
-                deleteCloudResource(this.name());
-                showAfterDeleteAlertModal();
-            }
+            onDelete: () => deleteCloudResource(this.name());
         };
     }
 }

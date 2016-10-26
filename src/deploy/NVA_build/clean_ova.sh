@@ -14,6 +14,10 @@ rm -f /var/log/*.log
 rm -f /var/log/*-*
 rm -f /var/log/noobaa*
 rm -f /tmp/supervisor/*
+sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+supervisorctl reread
+supervisorctl reload
+rm -rf /root/node_modules/noobaa-core/agent_storage/
 mongo nbcore --eval 'db.dropDatabase()'
 
 sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40mNONE\x1b[0m.:" /etc/issue

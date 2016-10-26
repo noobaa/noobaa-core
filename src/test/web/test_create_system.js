@@ -29,8 +29,8 @@ mocha.describe('create_system', function() {
             .then(inputs => P.join(
                     inputs[0].sendKeys('123'),
                     inputs[1].sendKeys('demo@noobaa.com'),
-                    inputs[2].sendKeys('DeMo'),
-                    inputs[3].sendKeys('DeMo')
+                    inputs[2].sendKeys('DeMo1'),
+                    inputs[3].sendKeys('DeMo1')
                 )
                 .then(() => d.findElements(wd.By.tagName('button')))
                 .then(buttons => P.delay(500)

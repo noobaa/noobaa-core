@@ -1,5 +1,7 @@
 /* eslint-env mongo */
 /* global setVerboseShell */
+/* global sleep */
+
 'use strict';
 // the following params are set from outside the script
 // using mongo --eval 'var param_ip="..."' and we only declare them here for completeness
@@ -11,11 +13,67 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    sync_cluster_upgrade();
     upgrade_systems();
     upgrade_cluster();
     upgrade_system_access_keys();
     upgrade_object_mds();
+    remove_unnamed_nodes();
+    // cluster upgrade: mark that upgrade is completed for this server
+    mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
+}
+
+function sync_cluster_upgrade() {
+    // find if this server should perform mongo upgrade
+    var is_mongo_upgrade = db.clusters.find({
+        owner_secret: param_secret
+    }).toArray()[0].upgrade.mongo_upgrade;
+
+    // if this server shouldn't run mongo_upgrade, set status to DB_READY,
+    // to indicate that this server is upgraded and with mongo running.
+    // then wait for master to complete upgrade
+    if (!is_mongo_upgrade) {
+        db.clusters.update({
+            owner_secret: param_secret
+        }, {
+            $set: {
+                "upgrade.status": "DB_READY"
+            }
+        });
+        var max_iterations = 100;
+        var i = 0;
+        while (i < max_iterations) {
+            print('waiting for master to complete mongo upgrade...');
+            i += 1;
+            try {
+                var master_status = db.clusters.find({
+                    "upgrade.mongo_upgrade": true
+                }).toArray()[0].upgrade.status;
+                if (master_status === 'COMPLETED') {
+                    print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
+                    mark_completed();
+                    quit();
+                }
+            } catch (err) {
+                print(err);
+            }
+            sleep(10000);
+        }
+        print('\nERROR: master did not finish mongo_upgrade in time!!! finishing upgrade of this server');
+        quit();
+    }
+}
+
+function mark_completed() {
+    // mark upgrade status of this server as completed
+    db.clusters.update({
+        owner_secret: param_secret
+    }, {
+        $set: {
+            "upgrade.status": "COMPLETED"
+        }
+    });
 }
 
 function upgrade_systems() {
@@ -323,7 +381,6 @@ function upgrade_cluster() {
     db.clusters.insert(cluster);
 }
 
-// TODO: JEN AIN'T PROUD OF IT BUT NOBODY PERFECT!, should do the update with 1 db reach
 function upgrade_object_mds() {
     print('\n*** upgrade_object_mds ...');
     db.objectmds.find({
@@ -342,4 +399,35 @@ function upgrade_object_mds() {
             }
         });
     });
+}
+
+function remove_unnamed_nodes() {
+    var nodes_ids_to_delete = [];
+    db.nodes.find({
+            name: /^a-node-has-no-name-/
+        })
+        .forEach(function(node) {
+            print('remove_unnamed_nodes: Checking blocks for',
+                node.name, node._id, 'system', node.system);
+            var num_blocks = db.datablocks.count({
+                system: node.system,
+                node: node._id,
+                deleted: null
+            });
+            if (num_blocks > 0) {
+                print('remove_unnamed_nodes: Found', num_blocks, 'blocks (!!!)',
+                    node.name, node._id, 'system', node.system);
+            } else {
+                print('remove_unnamed_nodes: Deleting node',
+                    node.name, node._id, 'system', node.system);
+                nodes_ids_to_delete.push(node._id);
+            }
+        });
+    if (nodes_ids_to_delete.length) {
+        db.nodes.deleteMany({
+            _id: {
+                $in: nodes_ids_to_delete
+            }
+        });
+    }
 }

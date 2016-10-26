@@ -5,6 +5,7 @@ import { validateActivationCode, validateActivationEmail, createSystem } from 'a
 import { activationCodeValid, activationEmailValid, serverInfo } from 'model';
 import moment from 'moment';
 import { waitFor } from 'utils';
+import { calcPasswordStrenght } from 'utils';
 
 class CreateSystemFormViewModel extends Disposable {
     constructor() {
@@ -75,8 +76,24 @@ class CreateSystemFormViewModel extends Disposable {
 
         this.password = ko.observable()
             .extend({
-                required: { message: 'Please enter a password' }
+                required: { message: 'Please enter a password' },
+                minLength: 5,
+                includesUppercase: true,
+                includesLowercase: true,
+                includesDigit: true
             });
+
+        this.passwordValidations = ko.pureComputed(
+            () => ko.validation.fullValidationState(this.password)()
+                .map(
+                    validator => ({
+                        message: validator.message,
+                        isValid: this.password() && validator.isValid
+                    })
+                )
+        );
+
+        this.calcPasswordStrenght = calcPasswordStrenght;
 
         this.name = ko.pureComputed(
             () => this.email() && this.email().split('@')[0]
@@ -98,13 +115,6 @@ class CreateSystemFormViewModel extends Disposable {
         this.serverDNSName = ko.observable()
             .extend({
                 isDNSName: true
-            });
-
-        this.primaryDNSServerIP = ko.observableWithDefault(
-            () => (serverConfig().dns_servers || [])[0]
-        )
-            .extend({
-                isIP: true
             });
 
         // Wizard controls:
@@ -137,8 +147,7 @@ class CreateSystemFormViewModel extends Disposable {
             // System config validations
             ko.validation.group([
                 this.systemName,
-                this.serverDNSName,
-                this.primaryDNSServerIP
+                this.serverDNSName
             ])
         ];
     }
@@ -172,9 +181,10 @@ class CreateSystemFormViewModel extends Disposable {
     createSystem() {
         let serverConfig = serverInfo().config;
 
-        let dnsServers = this.primaryDNSServerIP() ?
-            Object.assign([], serverConfig.dns_servers, [this.primaryDNSServerIP()]) :
-            serverConfig.dns_servers;
+        let dnsServers = [];
+        if (!serverConfig.using_dhcp && serverConfig.dns_servers) {
+            dnsServers = serverConfig.dns_servers;
+        }
 
         let timeConfig = {
             timezone: serverConfig.timezone || Intl.DateTimeFormat().resolved.timeZone,

@@ -30,6 +30,7 @@ export default function register(ko) {
     ko.components.register('create-system-form',        require('./login/create-system-form/create-system-form'));
     ko.components.register('unsupported-form',          require('./login/unsupported-form/unsupported-form'));
     ko.components.register('unable-to-activate-modal',  require('./login/unable-to-activate-modal/unable-to-activate-modal'));
+    ko.components.register('loading-server-information-from', require('./login/loading-server-information-from/loading-server-information-from'));
     /** INJECT:login **/
 
     // -------------------------------
@@ -84,7 +85,6 @@ export default function register(ko) {
     ko.components.register('create-pool-wizard',                require('./resources/create-pool-wizard/create-pool-wizard'));
     ko.components.register('cloud-resources-table',             require('./resources/cloud-resources-table/cloud-resources-table'));
     ko.components.register('add-cloud-resource-modal',          require('./resources/add-cloud-resource-modal/add-cloud-resource-modal'));
-    ko.components.register('cloud-resource-deleted-alert-modal',require('./resources/cloud-resource-deleted-alert-modal/cloud-resource-deleted-alert-modal'));
     /** INJECT:resources **/
 
     // -------------------------------

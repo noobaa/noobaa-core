@@ -177,17 +177,35 @@ class SystemStoreData {
         return id ? this.idmap[String(id)] : null;
     }
 
+    //Return the mongo record (if found) and an indication if the
+    //object is linkable (not deleted) -> used in the activity log to link the
+    //various entities
     get_by_id_include_deleted(id, name) {
         const res = this.get_by_id(id);
-        if (res) return res;
+        if (res) {
+            return {
+                record: res,
+                linkable: true
+            };
+        }
         //Query deleted !== null
         const collection = mongo_client.instance().db.collection(name);
         return P.resolve(collection.findOne({
-            _id: id,
-            deleted: {
-                $ne: null
-            }
-        }));
+                _id: id,
+                deleted: {
+                    $ne: null
+                }
+            }))
+            .then(res => {
+                if (res) {
+                    return {
+                        record: res,
+                        linkable: false
+                    };
+                } else {
+                    return;
+                }
+            });
     }
 
     resolve_object_ids_paths(item, paths, allow_missing) {
@@ -309,6 +327,7 @@ class SystemStore extends EventEmitter {
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this._json_validator = new Ajv({
             formats: {
+                date: schema_utils.date_format,
                 idate: schema_utils.idate_format,
                 objectid: val => mongo_utils.is_object_id(val)
             }

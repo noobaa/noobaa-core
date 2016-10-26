@@ -371,6 +371,7 @@ export function signOut(shouldRefresh = true) {
 export function loadServerInfo() {
     logAction('loadServerInfo');
 
+    model.serverInfo(null);
     api.account.accounts_status()
         .then(
             reply => reply.has_accounts ?
@@ -694,12 +695,13 @@ export function createSystem(
 }
 
 export function createAccount(name, email, password, accessKeys, S3AccessList) {
-    logAction('createAccount', { name, email, password, accessKeys,     S3AccessList });
+    logAction('createAccount', { name, email, password, accessKeys, S3AccessList });
 
     api.account.create_account({
         name: name,
         email: email,
         password: password,
+        // must_change_password: true,
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })

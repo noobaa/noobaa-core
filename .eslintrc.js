@@ -180,7 +180,7 @@ module.exports = {
         'no-nested-ternary': 'warn',
 
         // prefer to avoid reassigning to function params and use a new variable
-        'no-param-reassign': 'warn',
+        'no-param-reassign': 'off',
 
         // warn on using ++ operator, should replace with +=1
         // to avoid shenanigans of the value returned before/after the action

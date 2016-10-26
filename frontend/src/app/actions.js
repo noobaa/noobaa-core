@@ -1418,11 +1418,13 @@ export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
         .done();
 }
 
-export function downloadSystemDiagnosticPack() {
+export function downloadSystemDiagnosticPack(targetSecret) {
     logAction('downloadSystemDiagnosticPack');
 
     notify('Collecting data... might take a while');
-    api.cluster_server.diagnose_system()
+    api.cluster_server.diagnose_system({
+        target_secret: targetSecret
+    })
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');

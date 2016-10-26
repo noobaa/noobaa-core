@@ -244,7 +244,9 @@ function pre_upgrade {
     echo "root soft nofile 102400" >> /etc/security/limits.conf
   fi
 
+  echo "64000" > /proc/sys/kernel/threads-max
   sysctl -w fs.file-max=102400
+  sysctl -w net.ipv4.tcp_keepalive_time=120
   sysctl -e -p
   agent_conf=${CORE_DIR}/agent_conf.json
   if [ -f "$agent_conf" ]

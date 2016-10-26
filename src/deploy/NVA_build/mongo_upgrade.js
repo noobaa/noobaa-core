@@ -27,7 +27,7 @@ function upgrade() {
 
 
 function fix_server_secret() {
-    let truncated_secret = param_secret.substring(0, param_secret.length - 1);
+    var truncated_secret = param_secret.substring(0, param_secret.length - 1);
     // try to look for a truncated secret and set to the complete one.
     db.clusters.update({
         owner_secret: truncated_secret

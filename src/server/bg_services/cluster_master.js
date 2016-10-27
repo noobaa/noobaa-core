@@ -38,7 +38,7 @@ function background_worker() {
                         .then(() => {
 
                             // Need to run the workers only if the server still master
-                            if (system_store.is_cluster_master) {
+                            if (is_cluster_master) {
                                 dbg.log0(`still master - start services`);
                                 return bg_workers_starter.run_master_workers();
                             }

@@ -38,7 +38,19 @@
         <input type="text" data-bind="value: secondaryDNS" />
     </editor>
 
-    <button class="btn align-start push-prev" data-bind="click: applyChanges">
-        Apply Changes
+    <button class="btn align-start push-prev" data-bind="
+        click: update,
+        shakeOnClick: errors().length
+    ">
+        Update
     </button>
 </div>
+
+<!-- ko if: isUpdateServerDNSSettingsModelVisible -->
+<update-server-dns-settings-modal params="
+    onClose: () => hideUpdateDServerDNSSettingsModal(),
+    serverSecret: serverSecret,
+    primaryDNS: primaryDNS,
+    secondaryDNS: secondaryDNS
+"></update-server-dns-settings-modal>
+<!-- /ko -->

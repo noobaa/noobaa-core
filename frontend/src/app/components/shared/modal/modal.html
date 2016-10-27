@@ -4,8 +4,9 @@
     <h1 class="row heading2 modal-heading content-middle">
         <span class="greedy push-next" data-bind="text: title"></span>
 
-        <button class="close-btn icon-btn no-outline" data-bind="
-            visible: addCloseButton,
+        <button class="close-btn icon-btn no-outline" tabindex="-1" data-bind="
+            visible: !ko.unwrap(hideCloseButton),
+            disable: disableCloseButton,
             click: onClose
         ">
             <svg-icon params="name: 'x'"></svg-icon>

@@ -17,15 +17,14 @@
 
     <div class="row buttons align-end content-middle">
         <button class="link alt-colors push-next" data-bind="
-            click: isFirstStep() ? cancel : prev,
-            text: isFirstStep() ? 'Cancel' : 'Previous'
+            click: prev,
+            text: prevText
         "></button>
 
         <button class="btn" data-bind="
-            click: isLastStep() ? done : next,
-            text: isLastStep() ? actionLabel : 'Next',
-            css: { shake: shake },
-            animation: { end: () => shake(false) }
+            click: next,
+            text: nextLabel,
+            shakeOnClick: !isStepValid()
         "></button>
     </div>
 </modal>

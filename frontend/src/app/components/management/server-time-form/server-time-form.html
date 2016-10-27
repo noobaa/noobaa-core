@@ -37,7 +37,10 @@
     </div>
 
     <div class="row">
-        <button class="btn" data-bind="click: applyChanges">
+        <button class="btn" data-bind="
+            click: applyChanges,
+            shakeOnClick: !isValid()
+        ">
             Apply Changes
         </button>
     </div>

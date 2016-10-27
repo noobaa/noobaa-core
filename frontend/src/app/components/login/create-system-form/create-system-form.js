@@ -1,11 +1,16 @@
 import template from './create-system-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { validateActivationCode, validateActivationEmail, createSystem } from 'actions';
-import { activationCodeValid, activationEmailValid, serverInfo } from 'model';
+import { validateActivation, attemptResolveSystemName, createSystem } from 'actions';
+import { activationState, nameResolutionState, serverInfo } from 'model';
 import moment from 'moment';
-import { waitFor } from 'utils';
-import { calcPasswordStrenght } from 'utils';
+import { deepFreeze, calcPasswordStrength } from 'utils';
+
+const activationFaliureReasonMapping = deepFreeze({
+    ACTIVATION_CODE_IN_USE: 'Activation code is already in use',
+    UNKNOWN_ACTIVATION_CODE: 'Activation code does not exists',
+    ACTIVATION_CODE_EMAIL_MISMATCH: 'Email does not match activation code'
+});
 
 class CreateSystemFormViewModel extends Disposable {
     constructor() {
@@ -29,47 +34,41 @@ class CreateSystemFormViewModel extends Disposable {
 
         this.activationCode = ko.observable()
             .extend({
-                required: {
-                    message: 'Please enter your activation code'
-                },
+                required: { message: 'Please enter your activation code' },
                 validation: {
-                    message: 'Invalid code - register at www.noobaa.com',
                     async: true,
-                    validator: (value, __, callback) => {
-                        activationCodeValid.once(
-                            ({ isValid }) => {
-                                waitFor(500).then(
-                                    () => callback(isValid)
-                                );
-                            }
+                    validator: (code, _, callback) => {
+                        validateActivation(code);
+
+                        activationState.once(
+                            ({ valid, reason }) => callback({
+                                isValid: valid || reason === 'ACTIVATION_CODE_EMAIL_MISMATCH',
+                                message: reason && activationFaliureReasonMapping[reason]
+                            })
                         );
-                        validateActivationCode(value);
                     }
                 }
             });
-
-        // the email validation depends on activationCode,
-        // se we re-trigger the email validation when the code changes
-        this.activationCode.subscribe(
-            () => ko.validation.validateObservable(this.email)
-        );
 
         this.email = ko.observable()
             .extend({
                 required: { message: 'Please enter an email address' },
                 email: true,
                 validation: {
-                    message: 'Email does not match the activation code',
                     async: true,
-                    validator: (value, __, callback) => {
-                        activationEmailValid.once(
-                            ({ isValid }) => {
-                                waitFor(500).then(
-                                    () => callback(isValid)
-                                );
-                            }
+                    onlyIf: () => {
+                        return this.activationCode.isValid() &&
+                            !this.activationCode.isValidating();
+                    },
+                    validator: (email, _, callback) => {
+                        validateActivation(this.activationCode(), email);
+
+                        activationState.once(
+                            ({ valid, reason }) => callback({
+                                isValid: valid || reason !== 'ACTIVATION_CODE_EMAIL_MISMATCH',
+                                message: reason && activationFaliureReasonMapping[reason]
+                            })
                         );
-                        validateActivationEmail(this.activationCode(), value);
                     }
                 }
             });
@@ -83,8 +82,21 @@ class CreateSystemFormViewModel extends Disposable {
                 includesDigit: true
             });
 
+        this.isPasswordValid = ko.pureComputed(
+            () => this.password() && this.password.isValid()
+        ).extend({
+            equal: {
+                params: true,
+                message: 'Please enter a valid password'
+            },
+            isModified: this.password.isModified
+        });
+
         this.passwordValidations = ko.pureComputed(
             () => ko.validation.fullValidationState(this.password)()
+                .filter(
+                    validator => validator.rule !== 'required'
+                )
                 .map(
                     validator => ({
                         message: validator.message,
@@ -93,7 +105,7 @@ class CreateSystemFormViewModel extends Disposable {
                 )
         );
 
-        this.calcPasswordStrenght = calcPasswordStrenght;
+        this.calcPasswordStrength = calcPasswordStrength;
 
         this.name = ko.pureComputed(
             () => this.email() && this.email().split('@')[0]
@@ -114,7 +126,22 @@ class CreateSystemFormViewModel extends Disposable {
 
         this.serverDNSName = ko.observable()
             .extend({
-                isDNSName: true
+                isDNSName: true,
+                validation: {
+                    async: true,
+                    message: 'Colud not resolve DNS name',
+                    onlyIf: () => this.serverDNSName(),
+                    validator: (name, _, callback) => {
+                        attemptResolveSystemName(name);
+
+                        nameResolutionState.once(
+                            ({ valid }) => callback({
+                                isValid: valid,
+                                message: 'Cloud not resolve dns name'
+                            })
+                        );
+                    }
+                }
             });
 
         // Wizard controls:

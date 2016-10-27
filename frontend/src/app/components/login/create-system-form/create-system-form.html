@@ -1,7 +1,7 @@
 <section class="row create-system-form">
     <div class="row double-pad alt-bg push-next">
         <div class="column align-middle">
-            <svg-icon class="logo align-middle" params="name: 'logo'"></svg-icon>
+            <svg-icon class="logo icon-xbig align-middle" params="name: 'logo'"></svg-icon>
 
            <h1 class="heading1">Welcome to NooBaa</h1>
             <p>Two quick steps and we are ready to go</p>
@@ -20,7 +20,7 @@
                         data-bind="value: activationCode">
 
                     <svg-icon class="validating-indicator spin"
-                        data-bind="visible: activationCode.isValidating()"
+                        data-bind="visible: activationCode.isValidating"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
@@ -29,19 +29,20 @@
                         data-bind="value: email">
 
                     <svg-icon class="validating-indicator spin"
-                        data-bind="visible: email.isValidating()"
+                        data-bind="visible: email.isValidating"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
-                <editor params="
-                    label: 'Password',
-                    insertValMessages: false
-                ">
-                    <password-field params="
+                <editor class="push-next" params="label: 'Password'">
+                    <password-field data-bind="
+                        validationOptions: { insertMessages: false }
+                    " params="
                         value: password,
                         placeholder: 'enter password',
-                        strengthCalc: calcPasswordStrenght
+                        strengthCalc: calcPasswordStrength
                     "></password-field>
+
+                    <input type="hidden"  data-bind="value: isPasswordValid" />
                 </editor>
 
                 <ul class="bullet-list remark" data-bind="
@@ -68,6 +69,11 @@
 
                 <editor params="label: 'Server DNS name'">
                     <input type="text" data-bind="value: serverDNSName">
+
+                    <svg-icon class="validating-indicator spin"
+                        data-bind="visible: serverDNSName.isValidating"
+                        params="name: 'in-progress'"></svg-icon>
+
                     <p class="hint">optional</p>
                 </editor>
 

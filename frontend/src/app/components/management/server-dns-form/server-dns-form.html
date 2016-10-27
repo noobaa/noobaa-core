@@ -30,6 +30,10 @@
 
         <editor params="label: 'DNS Name'" data-bind="visible: usingDNS">
             <input type="text" data-bind="textInput: dnsName" />
+
+            <svg-icon class="validating-indicator spin"
+                data-bind="visible: dnsName.isValidating"
+                params="name: 'in-progress'"></svg-icon>
         </editor>
     </div>
 
@@ -70,7 +74,17 @@
         </p>
     </div>
 
-    <button class="btn align-start push-both" data-bind="click: applyChanges">
-        Apply Changes
+    <button class="btn align-start push-both" data-bind="
+        click: update,
+        shakeOnClick: errors().length,
+    ">
+        update
     </button>
 </div>
+
+<!-- ko if: isUpdateSystemNameModalVisible -->
+<update-system-name-modal params="
+    name: baseAddress,
+    onClose: () => hideUpdateSystemNameModal()
+"></update-system-name-modal>
+<!-- /ko -->

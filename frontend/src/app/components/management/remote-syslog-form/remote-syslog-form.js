@@ -83,8 +83,10 @@ class RemoteSyslogFormViewModel extends Disposable {
     applyChanges() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
+
         } else if (this.enabled()) {
             enableRemoteSyslog(this.protocol(), this.address(), this.port());
+
         } else {
             disableRemoteSyslog();
         }

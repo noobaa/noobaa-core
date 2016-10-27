@@ -206,10 +206,12 @@ function general_settings {
     echo "alias nlog='logger -p local0.warn -t NooBaaBash[1]'"
     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
 
-    #Fix file descriptor limits
+    #Fix file descriptor limits, tcp timeout
     echo "root hard nofile 102400" >> /etc/security/limits.conf
     echo "root soft nofile 102400" >> /etc/security/limits.conf
+    echo "64000" > /proc/sys/kernel/threads-max
     sysctl -w fs.file-max=102400
+    sysctl -w net.ipv4.tcp_keepalive_time=120
     sysctl -e -p
 
     #noobaa user & first install wizard

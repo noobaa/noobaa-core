@@ -291,7 +291,10 @@ class Agent {
 
         if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
             dbg.error('too many failure to connect, switching servers');
-            return this._handle_server_change();
+            return this._handle_server_change()
+                .then(() => {
+                    throw new Error('server change after too many attempts');
+                });
         }
 
         let hb_info = {

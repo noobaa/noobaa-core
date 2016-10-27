@@ -13,6 +13,7 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    fix_server_secret();
     sync_cluster_upgrade();
     upgrade_systems();
     upgrade_cluster();
@@ -24,11 +25,26 @@ function upgrade() {
     print('\nUPGRADE DONE.');
 }
 
+
+function fix_server_secret() {
+    var truncated_secret = param_secret.substring(0, param_secret.length - 1);
+    // try to look for a truncated secret and set to the complete one.
+    db.clusters.update({
+        owner_secret: truncated_secret
+    }, {
+        $set: {
+            "owner_secret": param_secret
+        }
+    });
+}
+
 function sync_cluster_upgrade() {
     // find if this server should perform mongo upgrade
     var is_mongo_upgrade = db.clusters.find({
         owner_secret: param_secret
-    }).toArray()[0].upgrade.mongo_upgrade;
+    }).toArray()[0].upgrade ? db.clusters.find({
+        owner_secret: param_secret
+    }).toArray()[0].upgrade.mongo_upgrade : false;
 
     // if this server shouldn't run mongo_upgrade, set status to DB_READY,
     // to indicate that this server is upgraded and with mongo running.
@@ -49,7 +65,9 @@ function sync_cluster_upgrade() {
             try {
                 var master_status = db.clusters.find({
                     "upgrade.mongo_upgrade": true
-                }).toArray()[0].upgrade.status;
+                }).toArray()[0] ? db.clusters.find({
+                    "upgrade.mongo_upgrade": true
+                }).toArray()[0].upgrade.status : 'COMPLETED';
                 if (master_status === 'COMPLETED') {
                     print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
                     mark_completed();

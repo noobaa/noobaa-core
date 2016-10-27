@@ -5,7 +5,7 @@ import config from 'config';
 import * as routes from 'routes';
 
 import { isDefined, last, makeArray, execInOrder, realizeUri, waitFor,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpGetAsync } from 'utils';
+    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -85,6 +85,12 @@ export function redirectTo(route = model.routeContext().pathname, params = {}, q
             realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
         )
     );
+}
+
+export function reload() {
+    logAction('reload');
+
+    window.location.reload();
 }
 
 export function reloadTo(route = model.routeContext().pathname, params = {},  query = {}) {
@@ -1235,22 +1241,8 @@ export function updateP2PSettings(minPort, maxPort) {
 export function updateHostname(hostname) {
     logAction('updateHostname', { hostname });
 
-    function ping() {
-        // Try GET on '/version', if failed wait for 3s and then try again.
-        return httpGetAsync('./version')
-            .catch(
-                () => waitFor(3000).then(ping)
-            );
-    }
-
     api.system.update_hostname({ hostname })
-        // Grace time for service shoutdown.
-        .then(
-            () => waitFor(5000)
-        )
-        // Pull for web server response.
-        .then(ping)
-        // The system changed it's name and restarted, reload to the new name
+        // The system changed it's name, reload the page using the new IP/Name
         .then(
             () => {
                 let { protocol, port } = window.location;
@@ -1430,7 +1422,7 @@ export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
     notify('Collecting data... might take a while');
-    api.cluster_server.diagnose_system()
+    api.cluster_server.diagnose_system({})
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');
@@ -1731,19 +1723,13 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) 
         server => server
     );
 
-    let { address } = model.systemInfo().cluster.shards[0].servers.find(
-        server => server.secret === serverSecret
-    );
-
     api.cluster_server.update_dns_servers({
         target_secret: serverSecret,
         dns_servers: dnsServers
     })
-        .then(
-            () => notify(`${address} DNS settings updated successfully`, 'success'),
-            () => notify(`Updating ${address} DNS settings failed`, 'error')
-        )
-        .then(loadSystemInfo)
+        .then( () => waitFor(5000) )
+        .then( () => httpWaitForResponse('/version') )
+        .then(reload)
         .done();
 }
 

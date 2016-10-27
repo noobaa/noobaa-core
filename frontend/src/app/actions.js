@@ -1422,7 +1422,7 @@ export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
     notify('Collecting data... might take a while');
-    api.cluster_server.diagnose_system()
+    api.cluster_server.diagnose_system({})
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');

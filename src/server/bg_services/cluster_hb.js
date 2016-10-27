@@ -22,7 +22,7 @@ function do_heartbeat() {
         };
         return P.resolve().then(() => {
                 if (current_clustering.is_clusterized) {
-                    return MongoCtrl.get_mongo_rs_status();
+                    return MongoCtrl.get_hb_rs_status();
                 } else {
                     dbg.log0('server is not part of a cluster. skipping rs status');
                 }

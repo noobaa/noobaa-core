@@ -121,6 +121,11 @@ class MongoClient extends EventEmitter {
         }
     }
 
+    reconnect() {
+        this.disconnect();
+        return this.connect();
+    }
+
     define_collection(col) {
         if (col.name in this.collections) {
             throw new Error('Collection already defined ' + col.name);
@@ -168,40 +173,6 @@ class MongoClient extends EventEmitter {
                     throw err;
                 });
         }
-    }
-
-    get_mongo_rs_status() {
-        return P.resolve().then(() => {
-            if (this.db) {
-                return P.ninvoke(this.db.admin(), 'replSetGetStatus')
-                    .then(status => {
-                        dbg.log0('got rs status from mongo:', status);
-                        if (status.ok) {
-                            // return rs status fields specified in HB schema (cluster_schema)
-                            let rs_status = {
-                                set: status.set,
-                                members: status.members.map(member => {
-                                    let member_status = {
-                                        name: member.name,
-                                        health: member.health,
-                                        uptime: member.uptime,
-                                        stateStr: member.stateStr
-                                    };
-                                    if (member.syncingTo) {
-                                        member_status.syncingTo = member.syncingTo;
-                                    }
-                                    return member_status;
-                                })
-                            };
-                            return rs_status;
-                        }
-
-                    })
-                    .catch(err => {
-                        dbg.warn('got error when trying to get mongo rs status for HB', err.errmsg);
-                    });
-            }
-        });
     }
 
     replica_update_members(set, members, is_config_set) {
@@ -255,17 +226,33 @@ class MongoClient extends EventEmitter {
         this.url = process.env.MONGO_RS_URL;
     }
 
-    is_master(is_config_set, set_name) {
+    get_mongo_rs_status(params) {
+
+        let options = params || {};
+
+        const is_config_set = options.is_config_set;
+        const COMMAND_TIMEOUT = options.timeout || 5000;
+
         var command = {
-            //isMaster: 1,
             replSetGetStatus: 1
         };
 
-        if (is_config_set) {
-            return P.resolve(this._send_command_config_rs(command));
-        } else {
-            return P.resolve(this.db.admin().command(command));
-        }
+        return P.resolve()
+            .then(() => {
+                if (is_config_set) {
+                    return this._send_command_config_rs(command);
+                } else {
+                    return this.db.admin().command(command);
+                }
+            })
+            .timeout(COMMAND_TIMEOUT)
+            .catch(P.TimeoutError, err => {
+                dbg.error(`running replSetGetStatus command got TimeoutError`);
+                return this.reconnect()
+                    .then(() => {
+                        throw err;
+                    });
+            });
     }
 
     get_rs_version(is_config_set) {

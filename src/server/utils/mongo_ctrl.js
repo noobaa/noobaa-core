@@ -104,7 +104,7 @@ MongoCtrl.prototype.is_master = function(is_config_set) {
 };
 
 MongoCtrl.prototype.redirect_to_cluster_master = function() {
-    return mongo_client.instance().is_master()
+    return mongo_client.instance().get_mongo_rs_status()
         .then((mongo_res) => {
             let res_address;
             _.forEach(mongo_res.members, member => {

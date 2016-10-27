@@ -6,7 +6,12 @@ function clean_ifcfg() {
   sudo sed -i 's:.*GATEWAY=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
   sudo sed -i 's:.*BOOTPROTO=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
 }
-clean_ifcfg
+if [ "$1" == "azure" ]; then
+    echo "make sure no swap entry in fstab!"
+    cat /etc/fstab
+else
+    clean_ifcfg
+fi
 sudo rm /etc/noobaa_sec
 sudo rm /etc/first_install.mrk
 echo Passw0rd | passwd noobaaroot --stdin

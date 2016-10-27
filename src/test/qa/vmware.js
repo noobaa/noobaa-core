@@ -18,7 +18,9 @@ var vm_ip = argv.guest_ip || '192.168.1.211';
 var vm_user = argv.guest_user || 'noobaaroot';
 var vm_password = argv.guest_password || '2ea29727';
 var snap_name = argv.base_snapshot || 'NooBaa-after-wizard';
-var upgrade_file = argv.upgrade_package || '/Users/jacky/Downloads/noobaa-NVA-0.5.1-e3707c4.tar.gz';
+var ova_name = argv.ova_name || 'noobaa-community';
+var upgrade_file = argv.upgrade_package || '/Users/jacky/Downloads/noobaa-NVA-0.5.1-50679c2.tar.gz';
+var description = argv.description || 'NooBaa Community Edition - Build ' + get_build_number(upgrade_file);
 var service;
 var sessionManager;
 var vimPort;
@@ -29,6 +31,17 @@ function ssh_connect(client, options) {
         .once('ready', resolve)
         .once('error', reject)
         .connect(options));
+}
+
+function get_build_number(upgrade_pack) {
+    var filename;
+    if (upgrade_pack.indexOf('/') === -1) {
+        filename = upgrade_pack;
+    } else {
+        filename = upgrade_pack.substring(upgrade_pack.indexOf('/'));
+    }
+    var version_match = filename.match(/noobaa-NVA-(.*)\.tar\.gz/);
+    return version_match && version_match[1];
 }
 
 function ssh_exec(client, command, options) {
@@ -81,13 +94,13 @@ vsphere.vimService(host_ip)
     .then(() => console.log('cleaned the OVA'))
     .then(() => console.log('powering machine OFF'))
     .then(() => vimPort.powerOffVMTask(vm_obj, null))
-    // .then(() => vimPort.exportVm(vm_obj))
-    // .then(nfcLease => vm_helper.downloadOVF(service, vm_obj, nfcLease))
-    // .then(console.log)
     .then(task => vm_helper.completeTask(service, task))
     .then(() => console.log('machine is OFF'))
+    .then(() => P.delay(500))
+    .then(() => vimPort.exportVm(vm_obj))
+    .then(nfcLease => vm_helper.downloadOVF(service, vm_obj, nfcLease, host_ip, ova_name, description))
     .then(() => vimPort.logout(sessionManager))
     .then(() => console.log('All done.'))
     .catch(function(err) {
-        console.log(err.message);
+        console.log('jacky !', err.stack);
     });

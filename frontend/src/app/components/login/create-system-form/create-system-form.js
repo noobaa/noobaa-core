@@ -214,7 +214,7 @@ class CreateSystemFormViewModel extends Disposable {
         }
 
         let timeConfig = {
-            timezone: serverConfig.timezone || Intl.DateTimeFormat().resolved.timeZone,
+            timezone: serverConfig.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
             ntp_server: serverConfig.ntp_server,
             epoch: !serverConfig.ntp_server ? moment().unix() : undefined
         };

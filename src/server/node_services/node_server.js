@@ -21,13 +21,11 @@ let monitor;
 // called on rpc server init
 function _init() {
     monitor = new nodes_monitor.NodesMonitor();
-    let clustering = system_store.get_local_cluster_info();
-    let is_clusterized = clustering && clustering.is_clusterized;
-    if (system_store.is_cluster_master || !is_clusterized) {
+    if (system_store.is_cluster_master) {
         dbg.log0('this is master. starting nodes_monitor');
         return monitor.start();
     } else {
-        dbg.log0('this is not master. nodes_monitor iw not started');
+        dbg.log0('this is not master. nodes_monitor is not started');
     }
 }
 

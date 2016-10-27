@@ -146,12 +146,6 @@ function find_shard_index(shardname) {
 
 function get_cluster_info() {
     let local_info = system_store.get_local_cluster_info();
-    if (!local_info) {
-        return {
-            master_secret: system_store.get_server_secret(),
-            shards: []
-        };
-    }
     let shards = local_info.shards.map(shard => ({
         shardname: shard.shardname,
         servers: []

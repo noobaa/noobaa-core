@@ -46,7 +46,7 @@ var machineCount = 4;
 var publisher = 'Canonical';
 var offer = 'UbuntuServer';
 var sku = '14.04.3-LTS';
-var osType = 'Linux';
+// var osType = 'Linux';
 var extName = 'CustomScriptForLinux';
 
 // Windows config
@@ -54,7 +54,7 @@ if (argv.os === 'windows') {
     publisher = 'microsoftwindowsserver';
     offer = 'windowsserver';
     sku = '2012-r2-datacenter';
-    osType = 'Windows';
+    // osType = 'Windows';
 }
 
 var adminUsername = 'notadmin';
@@ -187,18 +187,18 @@ function createNICPromise(subnetInfo, publicIPInfo, networkInterfaceName, ipConf
         nicParameters, callback));
 }
 
-function createPublicIPPromise(domainNameLabel, publicIPName) {
-    var publicIPParameters = {
-        location: location,
-        publicIPAllocationMethod: 'Dynamic',
-        dnsSettings: {
-            domainNameLabel: domainNameLabel
-        }
-    };
-    console.log('\nCreating public IP: ' + publicIPName);
-    return P.fromCallback(callback => networkClient.publicIPAddresses.createOrUpdate(resourceGroupName, publicIPName,
-        publicIPParameters, callback));
-}
+// function createPublicIPPromise(domainNameLabel, publicIPName) {
+//     var publicIPParameters = {
+//         location: location,
+//         publicIPAllocationMethod: 'Dynamic',
+//         dnsSettings: {
+//             domainNameLabel: domainNameLabel
+//         }
+//     };
+//     console.log('\nCreating public IP: ' + publicIPName);
+//     return P.fromCallback(callback => networkClient.publicIPAddresses.createOrUpdate(resourceGroupName, publicIPName,
+//         publicIPParameters, callback));
+// }
 
 function findVMImagePromise() {
     console.log(util.format('\nFinding a VM Image for location %s from ' +

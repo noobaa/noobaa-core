@@ -76,7 +76,7 @@ function downloadOVF(service, vmObj, nfcLease, host_ip, ova_name, description) {
     return getProperty(service, nfcLease, 'info')
         .then(function(info) {
             info.leaseTimeout = 300 * 1000 * 1000;
-            var diskCapacity = info.totalDiskCapacityInKB * 1024;
+            // var diskCapacity = info.totalDiskCapacityInKB * 1024;
             var vmdk_url = info.deviceUrl[0].url.replace('*', host_ip);
             var diskFileName = ova_name + "-disk1.vmdk";
             var ovfFileName = ova_name + ".ovf";

@@ -22,10 +22,6 @@ class DiagnosticsFormViewModel extends Disposable {
         ];
 
 
-        this.secret = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.master_secret
-        );
-
         this.debugLevel = ko.pureComputed(
             () => systemInfo() && systemInfo().debug_level
         );
@@ -50,7 +46,7 @@ class DiagnosticsFormViewModel extends Disposable {
     }
 
     downloadDiagnosticPack() {
-        downloadSystemDiagnosticPack(this.secret());
+        downloadSystemDiagnosticPack();
     }
 }
 

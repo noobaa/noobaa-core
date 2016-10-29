@@ -8,7 +8,7 @@ class LambdaIO {
         name,
         event,
     }) {
-        return client.lambda.invoke_function({
+        return client.lambda.invoke_func({
             name,
             event,
         });

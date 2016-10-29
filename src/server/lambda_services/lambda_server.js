@@ -1,31 +1,168 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
+const stream = require('stream');
+const crypto = require('crypto');
 
+const P = require('../../util/promise');
+const RpcError = require('../../rpc/rpc_error');
+const server_rpc = require('../server_rpc');
+const lambda_store = require('./lambda_store');
+const system_store = require('../system_services/system_store').get_instance();
+const node_allocator = require('../node_services/node_allocator');
 
-function create_function(req) {
+const FUNC_CONFIG_FIELDS_MUTABLE = [
+    'description',
+    'role',
+    'handler',
+    'runtime',
+    'memory_size',
+    'timeout',
+];
+const FUNC_CONFIG_FIELDS_IMMUTABLE = [
+    'code_size',
+    'code_sha256',
+    'last_modified',
+];
 
+function create_func(req) {
+    const func_config = req.params.config;
+    const func_code = req.params.code;
+    const code_sha256 = crypto.createHash('sha256');
+    const func = _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE);
+    func.system = req.system._id;
+    func.name = func_config.name;
+    func.version = null;
+    func.last_modified = new Date();
+    func.code_size = 0;
+
+    return P.resolve()
+        .then(() => {
+            if (func_code.zipfile) {
+                return new stream.Readable({
+                    read(size) {
+                        this.push(func_code.zipfile);
+                        this.push(null);
+                    }
+                });
+            } else if (func_code.s3_key) {
+                // TODO
+            }
+            throw new Error('Unsupported code');
+        })
+        .then(code_stream => lambda_store.instance().create_code_gridfs({
+            system_id: func.system,
+            name: func.name,
+            version: func.version,
+            code_stream: code_stream.pipe(new stream.Transform({
+                transform(buf, encoding, callback) {
+                    func.code_size += buf.length;
+                    code_sha256.update(buf);
+                    callback(null, buf);
+                }
+            }))
+        }))
+        .then(gridfs_id => {
+            func.code_sha256 = code_sha256.digest('base64');
+            func.code_gridfs_id = gridfs_id;
+        })
+        .then(() => lambda_store.instance().create_func(func))
+        .then(() => _get_func_info(func));
 }
 
-function delete_function(req) {
-
+function update_func(req) {
+    const config_updates = _.pick(req.params, FUNC_CONFIG_FIELDS_MUTABLE);
+    if (req.params.code) {
+        // TODO update_func: missing handling for code update
+        throw new RpcError('TODO', 'Update function code is not yet implemented');
+    }
+    return _load_func(req)
+        .then(() => lambda_store.instance().update_func(
+            req.lambda_func._id,
+            config_updates
+        ));
 }
 
-function read_function(req) {
-
+function delete_func(req) {
+    return _load_func(req)
+        .then(() => lambda_store.instance().delete_code_gridfs(req.lambda_func.code_gridfs_id))
+        .then(() => lambda_store.instance().delete_func(req.lambda_func._id));
 }
 
-function list_functions(req) {
-
+function read_func(req) {
+    return _load_func(req)
+        .then(() => _get_func_info(req.lambda_func));
 }
 
-function invoke_function(req) {
+function list_funcs(req) {
+    return P.resolve()
+        .then(() => lambda_store.instance().list_funcs(req.system._id))
+        .then(funcs => ({
+            functions: _.map(funcs, _get_func_info)
+        }));
+}
 
+function list_func_versions(req) {
+    return P.resolve()
+        .then(() => lambda_store.instance().list_func_versions(
+            req.system._id,
+            req.params.name
+        ))
+        .then(funcs => ({
+            versions: _.map(funcs, _get_func_info)
+        }));
+}
+
+function invoke_func(req) {
+    return _load_func(req)
+        .then(() => P.map(req.lambda_func.pools,
+            pool => node_allocator.refresh_pool_alloc(pool)))
+        .then(() => {
+            const func = req.lambda_func;
+            let node = node_allocator.allocate_node(func.pools);
+            if (!node) throw new Error('invoke_func: no nodes for allocation');
+            return server_rpc.client.compute_node.invoke_func({
+                name: func.name,
+                version: func.version,
+                code_size: func.code_size,
+                code_sha256: func.code_sha256,
+                event: req.params.event,
+            }, {
+                address: node.rpc_address
+            });
+        });
+}
+
+function _load_func(req) {
+    return P.resolve()
+        .then(() => lambda_store.instance().read_func(
+            req.system._id,
+            req.params.name,
+            req.params.version
+        ))
+        .then(func => {
+            req.lambda_func = func;
+            func.pools = _.map(func.pools, pool_id => system_store.data.get_by_id(pool_id));
+            return func;
+        });
+}
+
+function _get_func_info(func) {
+    return {
+        config: _.pick(func, FUNC_CONFIG_FIELDS_MUTABLE, FUNC_CONFIG_FIELDS_IMMUTABLE),
+        code_location: {
+            url: '',
+            repository: ''
+        }
+    };
 }
 
 
-exports.create_function = create_function;
-exports.delete_function = delete_function;
-exports.read_function = read_function;
-exports.list_functions = list_functions;
-exports.invoke_function = invoke_function;
+exports.create_func = create_func;
+exports.update_func = update_func;
+exports.delete_func = delete_func;
+exports.read_func = read_func;
+exports.list_funcs = list_funcs;
+exports.list_func_versions = list_func_versions;
+exports.invoke_func = invoke_func;

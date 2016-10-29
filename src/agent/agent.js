@@ -34,6 +34,7 @@ const RpcError = require('../rpc/rpc_error');
 const url_utils = require('../util/url_utils');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
+const ComputeNode = require('./compute_node');
 const BlockStoreFs = require('./block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_s3').BlockStoreS3;
 const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
@@ -110,6 +111,10 @@ class Agent {
             this.block_store = new BlockStoreMem(block_store_options);
         }
 
+        this.compute_node = new ComputeNode({
+            rpc_client: this.client
+        });
+
         this.agent_app = (() => {
             const app = express();
             app.use(express_morgan_logger('dev'));
@@ -151,6 +156,12 @@ class Agent {
         this.rpc.register_service(
             this.rpc.schema.block_store_api,
             this.block_store, {
+                // TODO verify requests for block store?
+                // middleware: [ ... ]
+            });
+        this.rpc.register_service(
+            this.rpc.schema.compute_node_api,
+            this.compute_node, {
                 // TODO verify requests for block store?
                 // middleware: [ ... ]
             });

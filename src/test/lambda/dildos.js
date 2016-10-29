@@ -30,7 +30,6 @@ function main() {
         .then(() => create_func(dildos_denial_func))
         .then(() => create_func(dildos_service_func))
         .then(() => run_denial_of_service());
-    // .then(() => run_denial_of_service());
 }
 
 function create_func(fn) {
@@ -55,15 +54,35 @@ function create_func(fn) {
 }
 
 function run_denial_of_service() {
-    return P.each(_.times(100), x => P.resolve()
-        .then(() => P.fromCallback(callback =>
-            lambda.invoke({
-                FunctionName: dildos_denial_func.name,
-                Payload: JSON.stringify({
-                    x
-                }),
-            }, callback)))
-        .then(res => console.log('Result from dildos_denial_func:', res)));
+    const state = {
+        start: Date.now(),
+        index: 0,
+        count: 100,
+        concur: 4,
+    };
+
+    return P.map(_.times(state.concur), denial_worker)
+        .then(() => {
+            const took = Date.now() - state.start;
+            console.log('Done. Average invoke took:', (took / state.count).toFixed(3), 'ms');
+        });
+
+    function denial_worker() {
+        state.index += 1;
+        if (state.index > state.count) return;
+        return P.fromCallback(callback =>
+                lambda.invoke({
+                    FunctionName: dildos_denial_func.name,
+                    Payload: JSON.stringify({
+                        index: state.index,
+                        hash_type: 'sha256',
+                        num_bytes: 1024 * 1024,
+                        encoding: 'hex',
+                    }),
+                }, callback))
+            .then(res => console.log('Result from dildos_denial_func:', res))
+            .then(() => denial_worker());
+    }
 }
 
 function dildos_denial_func(event, context, callback) {
@@ -71,7 +90,10 @@ function dildos_denial_func(event, context, callback) {
 }
 
 function dildos_service_func(event, context, callback) {
-    event.status = 'SERVICED';
+    const crypto = require('crypto');
+    event.hash = crypto.createHash(event.hash_type)
+        .update(crypto.randomBytes(event.num_bytes))
+        .digest(event.encoding);
     callback(null, event);
 }
 

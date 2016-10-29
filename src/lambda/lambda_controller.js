@@ -28,68 +28,70 @@ const STORED_FUNC_FIELDS = [
 class LambdaController {
 
     constructor(rpc) {
-        this.functions_by_name = new Map();
-        this.rpc_client = rpc.new_client();
-        this.lambda_io = new LambdaIO();
-        this.lambda_io.invoke = (client, name, event) => this._invoke(name, event);
+        this.rpc = rpc;
+        let signal_client = this.rpc.new_client();
+        let n2n_agent = this.rpc.register_n2n_agent(signal_client.node.n2n_signal);
+        n2n_agent.set_any_rpc_address();
     }
 
-    create_function(req, res) {
+    prepare_request(req) {
+        req.rpc_client = this.rpc.new_client();
+        req.rpc_client.options.auth_token = {
+            access_key: req.access_key,
+            string_to_sign: req.string_to_sign,
+            signature: req.signature,
+            extra: req.noobaa_v4
+        };
+    }
+
+    create_func(req, res) {
         console.log('create_function', req.params, req.body);
         const fn = req.body;
-        fn.Version = '$LATEST';
-        fn.LastModified = '2016-07-18T22:05:21.682+0000';
-        fn.FunctionArn = 'arn:aws:lambda:us-east-1:638243541865:function:guy1';
-        this.functions_by_name.set(fn.FunctionName, fn);
 
-        return P.resolve()
-            .then(() => this._load_func_code(fn))
-            .then(() => this._get_func_info(fn));
+        return req.rpc_client.lambda.create_func({
+                config: _.omitBy({
+                    name: fn.FunctionName,
+                    description: fn.Description,
+                    role: fn.Role,
+                    runtime: fn.Runtime,
+                    handler: fn.Handler,
+                    memory_size: fn.MemorySize,
+                    timeout: fn.Timeout,
+                }, _.isUndefined),
+                code: _.omitBy({
+                    zipfile: fn.Code.ZipFile,
+                    s3_bucket: fn.Code.S3Bucket,
+                    s3_key: fn.Code.S3Key,
+                    s3_obj_version: fn.Code.S3ObjectVersion,
+                }, _.isUndefined),
+                publish: fn.Publish,
+            })
+            .then(info => this._get_func_info(info));
     }
 
-    invoke(req, res) {
-        return this._invoke(req.params.func_name, req.body);
-    }
-
-    _invoke(name, event) {
+    invoke_func(req, res) {
+        const name = req.params.func_name;
+        const event = req.body;
         console.log('invoke', name, event);
-        const fn = this.functions_by_name.get(name);
-        if (!fn) throw new Error('NoSuchFunction');
-        const lambda_vm = new LambdaVM({
-            files: fn._files,
-            handler: fn.Handler,
-            lambda_io: this.lambda_io,
-            rpc_client: this.rpc_client,
-        });
-        return lambda_vm.invoke(event);
+        return req.rpc_client.lambda.invoke_func({
+                name: req.params,
+                event: event,
+            })
+            .then(res => {
+                // if (res.error)
+            });
     }
 
-    list_functions(req, res) {
+    list_funcs(req, res) {
         console.log('list_functions', req.params, req.body);
-        const funcs = [];
-        for (const fn of this.functions_by_name.values()) {
-            funcs.push(this._get_func_info(fn));
-        }
-        return {
-            Functions: funcs
-        };
+        return req.rpc_client.lambda.list_funcs()
+            .then(res => ({
+                Functions: _.map(res.functions, _get_func_info)
+            }));
     }
 
     _get_func_info(fn) {
         return _.pick(fn, STORED_FUNC_FIELDS);
-    }
-
-    _load_func_code(fn) {
-        const zip_buffer = new Buffer(fn.Code.ZipFile, 'base64');
-        fn.CodeSize = zip_buffer.length;
-        fn.CodeSha256 = crypto.createHash('sha256')
-            .update(zip_buffer)
-            .digest('base64');
-        console.log('_load_func_code:', fn);
-        return lambda_utils.unzip_in_memory(zip_buffer)
-            .then(files => {
-                fn._files = files;
-            });
     }
 
 }

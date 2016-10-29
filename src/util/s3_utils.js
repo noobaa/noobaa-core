@@ -1,9 +1,9 @@
-// module targets: nodejs & browserify
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
 // var P = require('../util/promise');
-// var dbg = require('../util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var s3_util = require('aws-sdk/lib/util');
 var moment = require('moment');
 
@@ -16,7 +16,8 @@ module.exports = {
     canonicalizedResource: canonicalizedResource,
     canonicalizedAmzHeaders: canonicalizedAmzHeaders,
     noobaa_string_to_sign_v4: noobaa_string_to_sign_v4,
-    noobaa_signature_v4: noobaa_signature_v4
+    noobaa_signature_v4: noobaa_signature_v4,
+    authenticate_request: authenticate_request,
 };
 
 
@@ -267,11 +268,8 @@ function hexEncodedBodyHash(req) {
 function isSignableHeader(req, key) {
     // If Signed Headers param doesn't exist we sign everything in order to support
     // chunked upload: http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
-    if (!req.noobaa_v4.signedheaders || req.noobaa_v4.signedheaders.indexOf(key.toLowerCase()) > -1) {
-        return true;
-    } else {
-        return false;
-    }
+    return !req.noobaa_v4.signedheaders ||
+        req.noobaa_v4.signedheaders.has(key.toLowerCase());
 }
 
 function isPresigned(req) {
@@ -345,4 +343,73 @@ function checkExpired(date, expiry_seconds) {
     if (moment().diff(req_date) > 0) {
         throw new Error('Signature Expired');
     }
+}
+
+// Using noobaa's extraction function,
+// due to compatibility problem in aws library with express.
+function authenticate_request(req) {
+    const auth_header = req.headers.authorization;
+    if (auth_header) {
+        // See: http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-auth-using-authorization-header.html
+        // Example:
+        //      Authorization: AWS4-HMAC-SHA256
+        //          Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,
+        //          SignedHeaders=host;range;x-amz-date,
+        //          Signature=fe5f80f77d5fa3beca038a248ff027d0445342fe2855ddc963176630326f1024
+        // Notes:
+        // - Cyberduck does not include spaces after the commas
+        const v4 = auth_header.match(/^AWS4-HMAC-SHA256 Credential=(\S+), ?SignedHeaders=(\S+), ?Signature=(\S+)$/);
+        if (v4) {
+            const credentials = v4[1].split('/', 5);
+            req.access_key = credentials[0];
+            req.signature = v4[3];
+            req.noobaa_v4 = {
+                xamzdate: req.headers['x-amz-date'],
+                signedheaders: v4[2] ? new Set(v4[2].split(';')) : null,
+                region: credentials[2],
+                service: credentials[3],
+            };
+            req.string_to_sign = noobaa_string_to_sign_v4(req);
+        } else {
+            const v2 = auth_header.match(/^AWS (\w+):(\S+)$/);
+            if (!v2) {
+                throw new Error('Unauthorized request!');
+            }
+            req.access_key = v2[1];
+            req.signature = v2[2];
+            req.string_to_sign = noobaa_string_to_sign(req);
+        }
+    } else if (req.query.AWSAccessKeyId && req.query.Signature) {
+        req.access_key = req.query.AWSAccessKeyId;
+        req.signature = req.query.Signature;
+        req.string_to_sign = noobaa_string_to_sign(req);
+    } else if (req.query['X-Amz-Credential']) {
+        // See: http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
+        // Example:
+        //      https://s3.amazonaws.com/examplebucket/test.txt
+        //          ?X-Amz-Algorithm=AWS4-HMAC-SHA256
+        //          &X-Amz-Credential=<your-access-key-id>/20130721/us-east-1/s3/aws4_request
+        //          &X-Amz-Date=20130721T201207Z
+        //          &X-Amz-Expires=86400
+        //          &X-Amz-SignedHeaders=host
+        //          &X-Amz-Signature=<signature-value>
+        const credentials = req.query['X-Amz-Credential'].split('/', 5);
+        req.access_key = credentials[0];
+        req.signature = req.query['X-Amz-Signature'];
+        req.noobaa_v4 = {
+            xamzdate: req.query['X-Amz-Date'],
+            signedheaders: req.query['X-Amz-SignedHeaders'] ?
+                new Set(req.query['X-Amz-SignedHeaders'].split(';')) : null,
+            region: credentials[2],
+            service: credentials[3],
+        };
+        req.string_to_sign = noobaa_string_to_sign_v4(req);
+    } else {
+        throw new Error('Unauthorized request!');
+    }
+    dbg.log0('authenticated request',
+        'access_key', req.access_key,
+        'signature', req.signature,
+        req.noobaa_v4 ? 'v4' : 'v2', req.noobaa_v4 || '',
+        'string_to_sign', req.string_to_sign);
 }

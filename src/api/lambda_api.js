@@ -12,17 +12,47 @@ module.exports = {
 
     methods: {
 
-        create_function: {
+        create_func: {
             method: 'POST',
             params: {
-                $ref: '#/definitions/function_info'
+                type: 'object',
+                required: ['config', 'code'],
+                properties: {
+                    config: {
+                        $ref: '#/definitions/func_config'
+                    },
+                    code: {
+                        $ref: '#/definitions/func_code'
+                    },
+                    publish: {
+                        type: 'boolean'
+                    },
+                }
             },
             auth: {
                 system: 'admin'
             }
         },
 
-        delete_function: {
+        update_func: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                properties: {
+                    config: {
+                        $ref: '#/definitions/func_config'
+                    },
+                    code: {
+                        $ref: '#/definitions/func_code'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_func: {
             method: 'PUT',
             params: {
                 type: 'object',
@@ -30,7 +60,10 @@ module.exports = {
                 properties: {
                     name: {
                         type: 'string'
-                    }
+                    },
+                    version: {
+                        type: 'string'
+                    },
                 },
             },
             auth: {
@@ -38,7 +71,7 @@ module.exports = {
             }
         },
 
-        read_function: {
+        read_func: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -46,18 +79,21 @@ module.exports = {
                 properties: {
                     name: {
                         type: 'string'
-                    }
+                    },
+                    version: {
+                        type: 'string'
+                    },
                 },
             },
             reply: {
-                $ref: '#/definitions/function_info'
+                $ref: '#/definitions/func_info'
             },
             auth: {
                 system: 'admin'
             }
         },
 
-        list_functions: {
+        list_funcs: {
             method: 'GET',
             reply: {
                 type: 'object',
@@ -65,7 +101,7 @@ module.exports = {
                     functions: {
                         type: 'array',
                         items: {
-                            $ref: '#/definitions/function_info'
+                            $ref: '#/definitions/func_info'
                         }
                     },
                 },
@@ -75,13 +111,43 @@ module.exports = {
             }
         },
 
-        invoke_function: {
+        list_func_versions: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    versions: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/func_info'
+                        }
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        invoke_func: {
             method: 'PUT',
             params: {
                 type: 'object',
                 required: ['name'],
                 properties: {
                     name: {
+                        type: 'string'
+                    },
+                    version: {
                         type: 'string'
                     },
                     event: {
@@ -106,7 +172,7 @@ module.exports = {
         },
 
         /*
-        allocate_function_maps: {
+        allocate_func_maps: {
             method: 'PUT',
             params: {
                 type: 'object',
@@ -117,7 +183,7 @@ module.exports = {
                 },
             },
             reply: {
-                $ref: '#/definitions/function_info'
+                $ref: '#/definitions/lambda_func_info'
             },
             auth: {
                 system: 'admin'
@@ -129,25 +195,18 @@ module.exports = {
 
     definitions: {
 
-        function_info: {
+        func_config: {
             type: 'object',
-            required: [
-                'name',
-                'runtime',
-                'handler',
-            ],
+            required: ['name'],
             properties: {
                 name: {
                     type: 'string'
                 },
-                runtime: {
-                    type: 'string',
-                    enum: [
-                        'nodejs',
-                        'nodejs4.3',
-                        // 'java8',
-                        // 'python2.7',
-                    ]
+                version: {
+                    type: 'string'
+                },
+                description: {
+                    type: 'string'
                 },
                 role: {
                     type: 'string'
@@ -155,8 +214,15 @@ module.exports = {
                 handler: {
                     type: 'string'
                 },
-                description: {
-                    type: 'string'
+                runtime: {
+                    type: 'string',
+                    enum: [
+                        'nodejs6',
+                        // 'nodejs',
+                        // 'nodejs4.3',
+                        // 'java8',
+                        // 'python2.7',
+                    ]
                 },
                 memory_size: {
                     type: 'integer'
@@ -164,28 +230,66 @@ module.exports = {
                 timeout: {
                     type: 'integer'
                 },
-                code: {
-                    type: 'object',
-                    properties: {
-                        zipfile: {
-                            buffer: true
-                        },
-                        s3_bucket: {
-                            type: 'string'
-                        },
-                        s3_key: {
-                            type: 'string'
-                        },
-                        s3_obj_version: {
-                            type: 'string'
-                        },
-                        s3_endpoint: {
-                            type: 'string'
-                        },
-                        url: {
-                            type: 'string'
-                        },
-                    }
+                // the following fields are not configurable,
+                // and will be returned as info
+                code_size: {
+                    type: 'integer'
+                },
+                code_sha256: {
+                    type: 'string'
+                },
+                last_modified: {
+                    format: 'date'
+                },
+            }
+        },
+
+        func_code: {
+            type: 'object',
+            properties: {
+                zipfile: {
+                    buffer: true
+                },
+                s3_bucket: {
+                    type: 'string'
+                },
+                s3_key: {
+                    type: 'string'
+                },
+                s3_obj_version: {
+                    type: 'string'
+                },
+                s3_endpoint: {
+                    type: 'string'
+                },
+                url: {
+                    type: 'string'
+                },
+            }
+        },
+
+        func_code_location: {
+            type: 'object',
+            required: ['url', 'repository'],
+            properties: {
+                url: {
+                    type: 'string'
+                },
+                repository: {
+                    type: 'string'
+                },
+            }
+        },
+
+        func_info: {
+            type: 'object',
+            required: ['config', 'code_location'],
+            properties: {
+                config: {
+                    $ref: '#/definitions/func_config'
+                },
+                code_location: {
+                    $ref: '#/definitions/func_code_location'
                 },
             }
         },

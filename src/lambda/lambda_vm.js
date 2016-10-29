@@ -48,7 +48,7 @@ class LambdaVM {
             console: console, // TODO sandbox console
             process: process, // TODO sandbox process
         });
-        // global is recursive
+        // global is recursively pointing to itself
         this.vm_global.global = this.vm_global;
         this.modules = new Map(_.map(files,
             (code, filename) => [filename, {
@@ -118,6 +118,9 @@ class LambdaVM {
         const t = this.timers.get(local);
         this.timers.delete(local);
         if (t) t.clearer(t.timer);
+        if (!this.timers.size) {
+            // should we reject running function?
+        }
         return null;
     }
 
@@ -149,21 +152,25 @@ class LambdaVM {
                         .nodeify(callback);
                 },
             };
+            const func_callback = (err, reply) => {
+                if (err) {
+                    console.log('err', err);
+                    reject(err);
+                } else {
+                    console.log('reply', reply);
+                    resolve(reply);
+                }
+                if (!func_context.callbackWaitsForEmptyEventLoop) {
+                    this._clear_all_timers();
+                    setImmediate(() => this._clear_all_timers());
+                }
+            };
             // generate a random name since we hang it on the global object
             const hidden_key = '__' + crypto.randomBytes(16).toString('hex');
             const hidden = {
                 context: func_context,
                 event: event,
-                callback: function(err, reply) {
-                    // TODO if (!callbackWaitsForEmptyEventLoop) stop script
-                    if (err) {
-                        console.log('err', err);
-                        reject(err);
-                    } else {
-                        console.log('reply', reply);
-                        resolve(reply);
-                    }
-                }
+                callback: func_callback,
             };
             const main = this.vm_require.main;
             this.vm_global[hidden_key] = hidden;

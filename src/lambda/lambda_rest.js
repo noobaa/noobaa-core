@@ -7,24 +7,25 @@ const express = require('express');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const s3_utils = require('../util/s3_utils');
 
 function lambda_rest(controller) {
 
     let app = new express.Router();
     app.use(handle_options);
     // app.use(check_headers);
-    // app.use(authenticate_request);
+    app.use(authenticate_lambda_request);
 
     app.get('/:api_version/functions',
-        lambda_action('list_functions'));
+        lambda_action('list_funcs'));
 
     app.post('/:api_version/functions',
         read_json_body,
-        lambda_action('create_function'));
+        lambda_action('create_func'));
 
     app.post('/:api_version/functions/:func_name/invocations',
         read_json_body,
-        lambda_action('invoke'));
+        lambda_action('invoke_func'));
 
     app.use(handle_common_lambda_errors);
     return app;
@@ -55,40 +56,61 @@ function lambda_rest(controller) {
         }
         P.fcall(() => action.call(controller, req, res))
             .then(reply => {
-                if (reply === false) {
-                    // in this case the controller already replied
-                    return;
-                }
                 dbg.log1('LAMBDA REPLY', action_name, req.method, req.url, reply);
+                if (!res.statusCode) {
+                    if (req.method === 'POST') {
+                        // HTTP Created is the common reply to POST method
+                        // BUT some APIs might require 200 or 202
+                        res.statusCode = 201;
+                    } else if (req.method === 'DELETE') {
+                        // HTTP No Content is the common reply to DELETE method
+                        // BUT some APIs might require 200 or 202
+                        res.statusCode = 204;
+                    } else {
+                        // HTTP OK for GET, PUT, HEAD, OPTIONS
+                        res.statusCode = 200;
+                    }
+                }
                 if (reply) {
                     dbg.log0('LAMBDA REPLY', action_name, req.method, req.url,
                         JSON.stringify(req.headers), reply);
-                    res.status(200).send(reply);
+                    res.send(reply);
                 } else {
                     dbg.log0('LAMBDA EMPTY REPLY', action_name, req.method, req.url,
                         JSON.stringify(req.headers));
-                    if (req.method === 'DELETE') {
-                        res.status(204).end();
-                    } else {
-                        res.status(200).end();
-                    }
+                    res.end();
                 }
             })
             .catch(err => next(err));
     }
 
+
     /**
      * handle s3 errors and send the response xml
      */
     function handle_common_lambda_errors(err, req, res, next) {
-        if (!err && next) {
-            dbg.log0('LAMBDA DONE.', req.method, req.url);
-            next();
+        if (!err) {
+            dbg.log0('LAMBDA InvalidURI.', req.method, req.url);
+            err = new Error('InvalidURI');
         }
         dbg.error('LAMBDA ERROR', JSON.stringify(req.headers), err.stack || err);
         res.status(500).send('The AWS Lambda service encountered an internal error.');
     }
 
+    /**
+     * check the signature of the request
+     */
+    function authenticate_lambda_request(req, res, next) {
+        P.fcall(function() {
+                s3_utils.authenticate_request(req);
+                return controller.prepare_request(req);
+            })
+            .then(() => next())
+            .catch(err => {
+                dbg.error('authenticate_s3_request: ERROR', err.stack || err);
+                next(new Error('Unauthorized Lambda Request!'));
+            });
+    }
 
 }
 
@@ -131,9 +153,9 @@ function read_json_body(req, res, next) {
             if (data) {
                 req.body = JSON.parse(data);
             }
-            next();
+            return next();
         } catch (err) {
-            next(err);
+            return next(err);
         }
     });
 }

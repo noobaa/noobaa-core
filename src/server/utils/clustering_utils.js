@@ -8,7 +8,6 @@ const util = require('util');
 const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
 const dbg = require('../../util/debug_module')(__filename);
-const config = require('../../../config');
 const os = require('os');
 const moment = require('moment');
 

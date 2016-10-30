@@ -776,6 +776,9 @@ module.exports = {
                         },
                     },
                 },
+                last_upgrade: {
+                    format: 'idate'
+                },
                 cluster: {
                     $ref: '#/definitions/cluster_info'
                 },

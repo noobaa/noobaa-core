@@ -65,8 +65,9 @@ function run_denial_of_service() {
     const state = {
         start: Date.now(),
         index: 0,
-        count: 100,
-        concur: 4,
+        count: 1024,
+        concur: 128,
+        num_bytes: 0,
     };
     console.log('DILDOS Starting:', state);
 
@@ -76,10 +77,11 @@ function run_denial_of_service() {
         return P.fromCallback(callback =>
                 lambda.invoke({
                     FunctionName: dildos_denial_func.name,
+                    // FunctionName: dildos_service_func.name,
                     Payload: JSON.stringify({
                         index: state.index,
                         hash_type: 'sha256',
-                        num_bytes: 1024 * 1024,
+                        num_bytes: state.num_bytes,
                         encoding: 'hex',
                     }),
                 }, callback))
@@ -90,7 +92,16 @@ function run_denial_of_service() {
     return P.map(_.times(state.concur), denial_worker)
         .then(() => {
             const took = Date.now() - state.start;
-            console.log('Done. Average invoke took:', (took / state.count).toFixed(3), 'ms');
+            console.log('Done.');
+            console.log('Total time         :',
+                (took / 1000).toFixed(3), 'sec');
+            console.log('Latency (average)  :',
+                (took / state.count).toFixed(3), 'ms');
+            console.log('Calls per second   :',
+                (state.count * 1000 / took).toFixed(3));
+            console.log('Throughput (sha256):',
+                (state.count * state.num_bytes * 1000 / took / 1024 / 1024).toFixed(3),
+                'MB/sec');
         });
 }
 
@@ -100,9 +111,22 @@ function dildos_denial_func(event, context, callback) {
 
 function dildos_service_func(event, context, callback) {
     const crypto = require('crypto');
-    event.hash = crypto.createHash(event.hash_type)
-        .update(crypto.randomBytes(event.num_bytes))
-        .digest(event.encoding);
+    const hasher = crypto.createHash(event.hash_type);
+    if (event.num_bytes) {
+        // fast random bytes by encrypting zeros with random key/iv
+        const cipher = crypto.createCipheriv('aes-128-gcm',
+            crypto.randomBytes(16), crypto.randomBytes(12));
+        const zero_buffer = Buffer.alloc(16 * 1024);
+        var pos = 0;
+        while (pos + zero_buffer.length <= event.num_bytes) {
+            hasher.update(cipher.update(zero_buffer));
+            pos += zero_buffer.length;
+        }
+        if (pos < event.num_bytes) {
+            hasher.update(cipher.update(zero_buffer.slice(0, event.num_bytes - pos)));
+        }
+    }
+    event.hash = hasher.digest(event.encoding);
     callback(null, event);
 }
 

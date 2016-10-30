@@ -24,6 +24,7 @@ const FUNC_CONFIG_FIELDS_IMMUTABLE = [
     'code_size',
     'code_sha256',
     'last_modified',
+    'resource_name',
 ];
 
 function create_func(req) {
@@ -32,10 +33,11 @@ function create_func(req) {
     const code_sha256 = crypto.createHash('sha256');
     const func = _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE);
     func.system = req.system._id;
+    func.pools = _.map(req.system.pools_by_name, pool => pool._id);
     func.name = func_config.name;
-    func.version = null;
     func.last_modified = new Date();
     func.code_size = 0;
+    func.resource_name = `arn:noobaa:lambda:region:${func.system}:function:${func.name}:$LATEST`;
 
     return P.resolve()
         .then(() => {
@@ -47,12 +49,12 @@ function create_func(req) {
                     }
                 });
             } else if (func_code.s3_key) {
-                // TODO
+                // TODO func_code.s3_key
             }
             throw new Error('Unsupported code');
         })
         .then(code_stream => lambda_store.instance().create_code_gridfs({
-            system_id: func.system,
+            system: func.system,
             name: func.name,
             version: func.version,
             code_stream: code_stream.pipe(new stream.Transform({
@@ -81,7 +83,9 @@ function update_func(req) {
         .then(() => lambda_store.instance().update_func(
             req.lambda_func._id,
             config_updates
-        ));
+        ))
+        .then(() => _load_func(req))
+        .then(() => _get_func_info(req.lambda_func));
 }
 
 function delete_func(req) {
@@ -92,7 +96,17 @@ function delete_func(req) {
 
 function read_func(req) {
     return _load_func(req)
-        .then(() => _get_func_info(req.lambda_func));
+        .then(() => _get_func_info(req.lambda_func))
+        .then(reply => {
+            if (!req.params.read_code) return reply;
+            return lambda_store.instance().read_code_gridfs(req.lambda_func.code_gridfs_id)
+                .then(buffer => {
+                    reply.code = {
+                        zipfile: buffer
+                    };
+                    return reply;
+                });
+        });
 }
 
 function list_funcs(req) {
@@ -135,12 +149,11 @@ function invoke_func(req) {
 }
 
 function _load_func(req) {
+    const system = req.system._id;
+    const name = req.params.name || _.get(req, 'params.config.name');
+    const version = req.params.version || _.get(req, 'params.config.version');
     return P.resolve()
-        .then(() => lambda_store.instance().read_func(
-            req.system._id,
-            req.params.name,
-            req.params.version
-        ))
+        .then(() => lambda_store.instance().read_func(system, name, version))
         .then(func => {
             req.lambda_func = func;
             func.pools = _.map(func.pools, pool_id => system_store.data.get_by_id(pool_id));
@@ -149,12 +162,19 @@ function _load_func(req) {
 }
 
 function _get_func_info(func) {
+    const config = _.pick(func,
+        'name',
+        'version',
+        FUNC_CONFIG_FIELDS_MUTABLE,
+        FUNC_CONFIG_FIELDS_IMMUTABLE);
+    config.last_modified = func.last_modified.getTime();
+    const code_location = {
+        url: '',
+        repository: ''
+    };
     return {
-        config: _.pick(func, FUNC_CONFIG_FIELDS_MUTABLE, FUNC_CONFIG_FIELDS_IMMUTABLE),
-        code_location: {
-            url: '',
-            repository: ''
-        }
+        config,
+        code_location
     };
 }
 

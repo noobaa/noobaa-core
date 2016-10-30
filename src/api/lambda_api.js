@@ -29,6 +29,9 @@ module.exports = {
                     },
                 }
             },
+            reply: {
+                $ref: '#/definitions/func_info'
+            },
             auth: {
                 system: 'admin'
             }
@@ -46,6 +49,9 @@ module.exports = {
                         $ref: '#/definitions/func_code'
                     },
                 }
+            },
+            reply: {
+                $ref: '#/definitions/func_info'
             },
             auth: {
                 system: 'admin'
@@ -83,13 +89,28 @@ module.exports = {
                     version: {
                         type: 'string'
                     },
+                    read_code: {
+                        type: 'boolean'
+                    },
                 },
             },
             reply: {
-                $ref: '#/definitions/func_info'
+                type: 'object',
+                required: ['config', 'code_location'],
+                properties: {
+                    config: {
+                        $ref: '#/definitions/func_config'
+                    },
+                    code_location: {
+                        $ref: '#/definitions/func_code_location'
+                    },
+                    code: {
+                        $ref: '#/definitions/func_code'
+                    },
+                }
             },
             auth: {
-                system: 'admin'
+                system: ['admin', 'agent']
             }
         },
 
@@ -167,7 +188,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: 'admin'
+                system: ['admin', 'agent']
             }
         },
 
@@ -239,7 +260,10 @@ module.exports = {
                     type: 'string'
                 },
                 last_modified: {
-                    format: 'date'
+                    format: 'idate'
+                },
+                resource_name: {
+                    type: 'string'
                 },
             }
         },

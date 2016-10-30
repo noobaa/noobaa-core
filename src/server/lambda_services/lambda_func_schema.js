@@ -6,10 +6,15 @@ module.exports = {
     type: 'object',
     required: [
         '_id',
-        'name',
         'system',
+        'pools',
+        'name',
+        'runtime',
+        'handler',
         'last_modified',
-        'code',
+        'code_size',
+        'code_sha256',
+        'code_gridfs_id',
     ],
     properties: {
         _id: {

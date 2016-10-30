@@ -3,12 +3,8 @@
 
 class LambdaIO {
 
-    invoke({
-        client,
-        name,
-        event,
-    }) {
-        return client.lambda.invoke_func({
+    invoke(rpc_client, name, event) {
+        return rpc_client.lambda.invoke_func({
             name,
             event,
         });

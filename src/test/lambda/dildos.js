@@ -37,7 +37,14 @@ function create_func(fn) {
     const code = `exports.handler = ${fn};`;
     const files = {};
     files[name + '.js'] = new Buffer(code);
-    return lambda_utils.zip_in_memory(files)
+    console.log('Creating Function:', name);
+    return P.fromCallback(callback => lambda.deleteFunction({
+            FunctionName: name,
+        }, callback))
+        .catch(err => {
+            // ignore errors
+        })
+        .then(() => lambda_utils.zip_in_memory(files))
         .then(zip => P.fromCallback(callback => lambda.createFunction({
             FunctionName: name, // required
             Runtime: 'nodejs6', // required
@@ -50,7 +57,8 @@ function create_func(fn) {
             // MemorySize: 0,
             // Timeout: 0,
             // Description: '',
-        }, callback)));
+        }, callback)))
+        .then(() => console.log('created.'));
 }
 
 function run_denial_of_service() {
@@ -60,12 +68,7 @@ function run_denial_of_service() {
         count: 100,
         concur: 4,
     };
-
-    return P.map(_.times(state.concur), denial_worker)
-        .then(() => {
-            const took = Date.now() - state.start;
-            console.log('Done. Average invoke took:', (took / state.count).toFixed(3), 'ms');
-        });
+    console.log('DILDOS Starting:', state);
 
     function denial_worker() {
         state.index += 1;
@@ -81,8 +84,14 @@ function run_denial_of_service() {
                     }),
                 }, callback))
             .then(res => console.log('Result from dildos_denial_func:', res))
-            .then(() => denial_worker());
+            .then(denial_worker);
     }
+
+    return P.map(_.times(state.concur), denial_worker)
+        .then(() => {
+            const took = Date.now() - state.start;
+            console.log('Done. Average invoke took:', (took / state.count).toFixed(3), 'ms');
+        });
 }
 
 function dildos_denial_func(event, context, callback) {

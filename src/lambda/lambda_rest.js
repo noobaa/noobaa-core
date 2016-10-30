@@ -8,6 +8,15 @@ const express = require('express');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const s3_utils = require('../util/s3_utils');
+const lambda_errors = require('./lambda_errors');
+
+const RPC_ERRORS_TO_LAMBDA = Object.freeze({
+    UNAUTHORIZED: lambda_errors.AccessDenied,
+    FORBIDDEN: lambda_errors.AccessDenied,
+    NO_SUCH_LAMBDA_FUNC: lambda_errors.ResourceNotFoundException,
+    CONFLICT: lambda_errors.ResourceConflictException,
+});
+
 
 function lambda_rest(controller) {
 
@@ -22,6 +31,12 @@ function lambda_rest(controller) {
     app.post('/:api_version/functions',
         read_json_body,
         lambda_action('create_func'));
+
+    app.get('/:api_version/functions/:func_name',
+        lambda_action('read_func'));
+
+    app.delete('/:api_version/functions/:func_name',
+        lambda_action('delete_func'));
 
     app.post('/:api_version/functions/:func_name/invocations',
         read_json_body,
@@ -90,11 +105,17 @@ function lambda_rest(controller) {
      */
     function handle_common_lambda_errors(err, req, res, next) {
         if (!err) {
-            dbg.log0('LAMBDA InvalidURI.', req.method, req.url);
-            err = new Error('InvalidURI');
+            dbg.log0('LAMBDA Unknown API', req.method, req.url);
+            err = lambda_errors.ServiceException;
         }
-        dbg.error('LAMBDA ERROR', JSON.stringify(req.headers), err.stack || err);
-        res.status(500).send('The AWS Lambda service encountered an internal error.');
+        let lambda_err =
+            ((err instanceof lambda_errors.LambdaError) && err) ||
+            RPC_ERRORS_TO_LAMBDA[err.rpc_code] ||
+            lambda_errors.ServiceException;
+        dbg.error('LAMBDA ERROR', lambda_err,
+            JSON.stringify(req.headers),
+            err.stack || err);
+        res.status(lambda_err.http_code).send(lambda_err.message);
     }
 
     /**

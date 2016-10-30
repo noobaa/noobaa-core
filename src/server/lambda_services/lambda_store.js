@@ -70,7 +70,7 @@ class LambdaStore {
     validate(lambda_func, fail) {
         if (!this._lambda_func_validator(lambda_func)) {
             dbg.warn('BAD LAMBDA FUNC SCHEMA', lambda_func,
-                'ERRORS', this._lambda_validator.errors);
+                'ERRORS', this._lambda_func_validator.errors);
             if (fail) {
                 throw new Error('BAD LAMBDA FUNC SCHEMA');
             }
@@ -172,6 +172,17 @@ class LambdaStore {
 
     stream_code_gridfs(id) {
         return this.code_gridfs().openDownloadStream(id);
+    }
+
+    read_code_gridfs(id) {
+        return new P((resolve, reject) => {
+            const download_stream = this.stream_code_gridfs(id);
+            const chunks = [];
+            download_stream
+                .on('data', chunk => chunks.push(chunk))
+                .once('error', reject)
+                .once('end', () => resolve(Buffer.concat(chunks)));
+        });
     }
 
     code_filename(system, name, version) {

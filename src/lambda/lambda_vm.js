@@ -146,6 +146,7 @@ class LambdaVM {
                 logStreamName: '',
                 identity: null,
                 clientContext: null,
+                getRemainingTimeInMillis: () => 60 * 1000,
                 // hacking the context to invoke another lambda
                 invoke_lambda: (name, ev, callback) => {
                     this.lambda_io.invoke(this.rpc_client, name, ev)

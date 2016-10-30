@@ -35,9 +35,7 @@ class RpcSchema {
             inline: (it, keyword, schema, parent) => {
                 if (this._buffer_paths) {
                     const buf_path = it.dataPathArr
-                        .slice(1, it.dataLevel + 1)
-                        .map(x => '[' + x + ']')
-                        .join('');
+                        .slice(1, it.dataLevel + 1);
                     this._buffer_paths.add(buf_path);
                 }
                 return 'Buffer.isBuffer(data' + (it.dataLevel || '') + ')';

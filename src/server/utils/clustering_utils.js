@@ -165,6 +165,10 @@ function get_cluster_info() {
         let time_epoch = moment().unix();
         let location = cinfo.location;
         let single_server = system_store.data.clusters.length === 1;
+        let storage = {
+            total: 0,
+            free: 0
+        };
         if (single_server) {
             is_connected = 'CONNECTED';
         }
@@ -176,6 +180,7 @@ function get_cluster_info() {
                 is_connected = 'CONNECTED';
             }
             hostname = cinfo.heartbeat.health.os_info.hostname;
+            storage = cinfo.heartbeat.health.storage;
         }
         let server_info = {
             version: version,
@@ -184,6 +189,7 @@ function get_cluster_info() {
             address: cinfo.owner_address,
             status: is_connected,
             memory_usage: memory_usage,
+            storage: storage,
             cpu_usage: cpu_usage,
             location: location,
             debug_level: cinfo.debug_level,

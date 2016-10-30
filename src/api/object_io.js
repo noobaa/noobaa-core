@@ -764,7 +764,6 @@ class ObjectIO {
             name: 'RangesCache',
             max_usage: 256 * 1024 * 1024, // 128 MB
             item_usage: (data, params) => (data && data.buffer && data.buffer.length) || 1024,
-            expiry_ms: 600000, // 10 minutes
             make_key: params => {
                 let start = range_utils.align_down(
                     params.start, config.IO_OBJECT_RANGE_ALIGN);

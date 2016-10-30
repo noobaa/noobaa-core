@@ -19,7 +19,6 @@ class BlockStoreBase {
             name: 'BlockStoreCache',
             max_usage: 200 * 1024 * 1024, // 200 MB
             item_usage: block => block.data.length,
-            expiry_ms: 0, // no expiry
             make_key: block_md => block_md.id,
             load: block_md => {
                 return P.resolve(this._read_block(block_md))

@@ -14,7 +14,8 @@ const promise_utils = require('./promise_utils');
 const is_windows = (process.platform === "win32");
 const is_mac = (process.platform === "darwin");
 
-const PRIVATE_DIR_PERMISSIONS = parseInt('0700', 8);
+const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
+
 /**
  *
  * file_must_not_exist

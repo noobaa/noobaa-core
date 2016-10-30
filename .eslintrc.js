@@ -39,6 +39,9 @@ module.exports = {
         // prefer to always return when calling callbacks to avoid double calls
         'callback-return': 'warn',
 
+        // not enforcing all class methods to use 'this'
+        'class-methods-use-this': 'off',
+
         // dangling commas are great for arrays and object properties
         'comma-dangle': 'off',
 
@@ -92,6 +95,12 @@ module.exports = {
         // expect empty line before comment to create visual relation to the relevant code
         'lines-around-comment': 'warn',
 
+        // directive means 'use strict', we don't enforce lines around
+        'lines-around-directive': 'off',
+
+        // we don't enforce comments to above/after the line, both work ok
+        'line-comment-position': 'off',
+
         // max depth of blocks in a function
         // TODO eslint max-depth of blocks should be reduced to ~3 instead of 5
         'max-depth': ['error', 5],
@@ -103,6 +112,7 @@ module.exports = {
             tabWidth: 4,
             ignoreComments: true,
             ignoreUrls: true,
+            ignoreTemplateLiterals: true,
         }],
 
         // max file length is 300 by default, we accept longer files
@@ -219,6 +229,8 @@ module.exports = {
 
         // constructors that do nothing can be deleted
         'no-useless-constructor': 'warn',
+        'no-useless-escape': 'warn',
+        'no-useless-return': 'warn',
 
         // do not allow code using varibles before they are defined and initialized,
         // but ok for functions since function declerations are loaded before the code runs
@@ -276,6 +288,8 @@ module.exports = {
             'words': false,
             'nonwords': false
         }],
+
+        'sort-keys': 'off',
 
         // don't verify the structure of jsdoc comments. let them be for now.
         'valid-jsdoc': ['off', {

@@ -2,8 +2,10 @@
 
 var request = require('request');
 var fs = require('fs');
+var stream = require('stream');
 var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
+var crypto = require('crypto');
 
 function findVMbyName(vmName, service) {
     var propertyCollector = service.serviceContent.propertyCollector;
@@ -63,47 +65,84 @@ function findVMipAddress(service, vmObj) {
     return getProperty(service, vmObj, 'guest');
 }
 
-function downloadOVF(service, vmObj, nfcLease) {
+function downloadOVF(service, vmObj, nfcLease, host_ip, ova_name, description) {
     var vim = service.vim;
     var vimPort = service.vimPort;
     var ovfManager = service.serviceContent.ovfManager;
+    var vmdk_hash = crypto.createHash('sha1');
+    vmdk_hash.setEncoding('hex');
+    var ovf_hash = crypto.createHash('sha1');
+    ovf_hash.setEncoding('hex');
     return getProperty(service, nfcLease, 'info')
         .then(function(info) {
-            var vmdk_url = info.deviceUrl[0].url;
-            var diskFileName = vmdk_url.substring(vmdk_url.lastIndexOf("/") + 1);
-            var ovfFileName = diskFileName.split(".")[0] + ".ovf";
+            info.leaseTimeout = 300 * 1000 * 1000;
+            var diskCapacity = info.totalDiskCapacityInKB * 1024;
+            var vmdk_url = info.deviceUrl[0].url.replace('*', host_ip);
+            var diskFileName = ova_name + "-disk1.vmdk";
+            var ovfFileName = ova_name + ".ovf";
+            var ovaFileName = ova_name + ".ova";
+            var mfFileName = ova_name + ".mf";
             var ovf_file = new vim.OvfFile();
+            var update = 0;
             var size = 0;
             // ovf_file.size = 1024;
             console.log('Downloading: ', vmdk_url);
             var file = fs.createWriteStream(diskFileName);
-            return new P((resolve, reject) => {
+            return vimPort.httpNfcLeaseProgress(nfcLease, 0)
+                .then(() => new P((resolve, reject) => {
                     request.get({
                             url: vmdk_url,
-                            rejectUnauthorized: false,
-                        })
-                        .on('data', function(chunk) {
-                            size += chunk.length;
-                            process.stdout.write('.');
+                            rejectUnauthorized: false
                         })
                         .on('error', reject)
+                        .pipe(new stream.Transform({
+                            transform: function(chunk, encoding, next) {
+                                vmdk_hash.write(chunk);
+                                size += chunk.length;
+                                update += 1;
+                                var percantage = Math.floor(100 * (size / (3 * 1024 * 1024 * 1024)));
+                                if (update === 2500) {
+                                    update = 0;
+                                    process.stdout.write('.');
+                                    return vimPort.httpNfcLeaseProgress(nfcLease, percantage).then(() => {
+                                        this.push(chunk);
+                                        next();
+                                    });
+                                }
+                                this.push(chunk);
+                                next();
+                            }
+                        }))
                         .pipe(file)
                         .on('error', reject)
                         .on('finish', resolve);
-                })
-                .then(() => vimPort.httpNfcLeaseProgress(nfcLease, 100))
+                }))
+                //.then(() => console.log('finished download. size = ', size, 'capacity on disk=', diskCapacity))
+                .then(() => vmdk_hash.end())
                 .then(() => vimPort.httpNfcLeaseComplete(nfcLease))
                 .then(function() {
                     process.stdout.write('\r\n');
+                    console.log('creating OVF file:', ovfFileName);
                     ovf_file.path = diskFileName;
                     ovf_file.deviceId = info.deviceUrl[0].key;
                     ovf_file.size = size;
                     var ovfDescParams = new vim.OvfCreateDescriptorParams();
                     ovfDescParams.ovfFiles = [ovf_file];
+                    ovfDescParams.description = description;
+                    console.log(description);
                     return vimPort.createDescriptor(ovfManager, vmObj, ovfDescParams);
                 })
                 .then(function(descriptor) {
                     fs.writeFile(ovfFileName, descriptor.ovfDescriptor);
+                    ovf_hash.write(descriptor.ovfDescriptor);
+                    ovf_hash.end();
+                    console.log('creating MF file:', mfFileName);
+                    fs.writeFile(mfFileName, 'SHA1(' + ovfFileName + ')= ' + ovf_hash.read() + '\n' +
+                        'SHA1(' + diskFileName + ')= ' + vmdk_hash.read() + '\n');
+                })
+                .then(() => {
+                    console.log('Taring into OVA file:', ovaFileName);
+                    promise_utils.exec('tar -cvf ' + ovaFileName + ' ' + ovfFileName + ' ' + mfFileName + ' ' + diskFileName);
                 });
         });
 }

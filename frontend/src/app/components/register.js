@@ -11,6 +11,7 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('main-layout',                           require('./layout/main-layout/main-layout'));
     ko.components.register('main-header',                           require('./layout/main-header/main-header'));
+    ko.components.register('main-nav',                              require('./layout/main-nav/main-nav'));
     ko.components.register('commands-bar',                          require('./layout/commands-bar/commands-bar'));
     ko.components.register('breadcrumbs',                           require('./layout/breadcrumbs/breadcrumbs'));
     ko.components.register('notification-box',                      require('./layout/notification-box/notification-box'));
@@ -128,7 +129,8 @@ export default function register(ko) {
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
     ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
     ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form'));
-    ko.components.register('updating-system-name-modal', require('./management/updating-system-name-modal/updating-system-name-modal'));
+    ko.components.register('update-system-name-modal',  require('./management/update-system-name-modal/update-system-name-modal'));
+    ko.components.register('update-server-dns-settings-modal', require('./management/update-server-dns-settings-modal/update-server-dns-settings-modal'));
     /** INJECT:management **/
 
     // -------------------------------
@@ -185,5 +187,6 @@ export default function register(ko) {
     ko.components.register('chart-legend',              require('./shared/chart-legend/chart-legend'));
     ko.components.register('copy-to-clipboard-button',  require('./shared/copy-to-clipboard-button/copy-to-clipboard-button'));
     ko.components.register('password-field',            require('./shared/password-field/password-field'));
+    ko.components.register('working-button',            require('./shared/working-button/working-button'));
     /** INJECT:shared **/
 }

@@ -1,6 +1,11 @@
 .main-layout  {
     height: 100%;
 
+    /* Creates a new plane sub-indexes which allow the background to be sent to
+    back without going behind the body's background */
+    position: relative;
+    z-index: 1;
+
     .sticky-wrapper {
         max-height: 34px;
     }
@@ -8,6 +13,8 @@
     .content-wrapper {
         position: relative;
 
+        /* Using a before element allow us to set the opacity of the image
+        without changing the opacity of the content */
         &.background-image::before {
             content: '';
             position: absolute;
@@ -17,6 +24,7 @@
             right: 0;
             background-size: cover;
             opacity: .3;
+            z-index: -1;
 
             /*
             https://unsplash.com/license
@@ -26,98 +34,13 @@
         }
     }
 
-    main-header, main {
+    main-header, main-nav {
         z-index: 1;
     }
 
     main {
         align-self: stretch;
         margin: 0 auto;
-        padding: 0 24px + @gutter;
-    }
-
-    .side-nav {
-        background: @color5;
-/*        box-shadow: 0px 2px 6px @shadow-color;*/
-        z-index: 1;
-        margin: -@gutter 0;
-        padding: @gutter/2 0;
-
-        hr {
-            margin:  @gutter/2;
-            margin-top: auto;
-        }
-
-        .logo {
-            padding: 12px;
-            padding-bottom: 0;
-
-            > svg-icon {
-                width: 32px;
-                height: 32px;
-            }
-        }
-
-        .link:not(.logo) {
-            cursor: @cursor-pointer;
-            transition: background 250ms ease-in-out;
-
-            > svg-icon {
-                transition: opacity 250ms ease-in-out;
-            }
-
-            &:hover {
-                background: @color2;
-
-                > svg-icon {
-                    fill: @color8;
-                    transform: scale(1.3, 1.3);
-                }
-            }
-        }
-
-
-
-/*        position: relative;
-        white-space: nowrap;
-        display: block;
-        z-index: 2;
-        background-color: @bg-color;
-        box-shadow: 2px 2px 2px @shadow-color;
-
-
-        > .side-nav-head {
-            background-color: @color3;
-            line-height: 44px;
-        }
-
-        .link {
-            margin-right: @gutter;
-        }
-
-
-        > .slip {
-            display: none;
-            position: absolute;
-            right: -24px;
-            top: 44px;
-            background: @bg-color;
-            width: 24px;
-            height: 24px * 3;
-            box-shadow: 2px 2px 2px @shadow-color;
-
-            &::before {
-                content: '';
-                display: block;
-                height: 24px;
-                width: 24px;
-                background-image: url('http://www.lakewoodcollege.edu/images/hamburger.png');
-                background-repeat: no-repeat;
-                background-size: contain;
-                padding: 0 24px;
-                transform:  rotate(-90deg);
-                transform-origin: 24px 24px;
-            }
-        }*/
+        padding: 0 @gutter;
     }
 }

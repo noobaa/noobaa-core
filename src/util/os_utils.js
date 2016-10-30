@@ -6,6 +6,7 @@ const fs = require('fs');
 const uuid = require('node-uuid');
 const moment = require('moment-timezone');
 const node_df = require('node-df');
+var spawn = require('child_process').spawn;
 
 const P = require('./promise');
 const config = require('../../config.js');
@@ -119,8 +120,11 @@ function read_mac_linux_drives(include_all) {
             // in order to get only local file systems.
             file: '-l'
         }, callback))
-        .then(volumes => _.compact(volumes.map(vol => linux_volume_to_drive(vol))));
-
+        .then(volumes => _.compact(_.map(volumes, function(vol) {
+            //filter Azure temporary storage
+            if (vol.mount.indexOf('/mnt/resource') === 0) return;
+            return linux_volume_to_drive(vol);
+        })));
 }
 
 
@@ -139,6 +143,8 @@ function read_windows_drives() {
                 // 6 = RAM Disk
                 if (vol.DriveType !== '3') return;
                 if (!vol.DriveLetter) return;
+                //Azure temporary disk
+                if (vol.Label.indexOf('Temporary Storage') === 0) return;
                 return windows_volume_to_drive(vol);
             }));
         }).then(function(local_volumes) {
@@ -383,7 +389,7 @@ function read_server_secret() {
         return fs.readFileAsync(config.CLUSTERING_PATHS.SECRET_FILE)
             .then(function(data) {
                 var sec = data.toString();
-                return sec.substring(0, sec.length - 1);
+                return sec.trim();
             })
             .catch(err => {
                 //For Azure Market Place only, if file does not exist, create it
@@ -400,7 +406,7 @@ function read_server_secret() {
     } else if (os.type() === 'Darwin') {
         return fs.readFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)
             .then(function(data) {
-                return data.toString();
+                return data.toString().trim();
             })
             .catch(err => {
                 //For Darwin only, if file does not exist, create it
@@ -447,6 +453,21 @@ function reload_syslog_configuration(conf) {
     }
 }
 
+function restart_services() {
+    var fname = '/tmp/spawn.log';
+    var stdout = fs.openSync(fname, 'a');
+    var stderr = fs.openSync(fname, 'a');
+    spawn('nohup', [
+        '/usr/bin/supervisorctl',
+        'restart',
+        'all'
+    ], {
+        detached: true,
+        stdio: ['ignore', stdout, stderr],
+        cwd: '/usr/bin/'
+    });
+}
+
 
 // EXPORTS
 exports.os_info = os_info;
@@ -467,3 +488,4 @@ exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.set_dns_server = set_dns_server;
+exports.restart_services = restart_services;

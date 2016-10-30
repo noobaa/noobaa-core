@@ -674,3 +674,12 @@ export function httpGetAsync(url) {
         }
     );
 }
+
+export function httpWaitForResponse(url, retryDelay = 3000) {
+    return (function tryGet() {
+        // Try GET on url, if failed wait for retryDelay seconds and then try again.
+        return httpGetAsync(url).catch(
+            () => sleep(retryDelay).then(tryGet)
+        );
+    })();
+}

@@ -1,0 +1,17 @@
+<nav class="column greedy">
+    <!-- ko foreach: items -->
+    <a class="row link alt-colors no-outline pad content-middle" data-bind="
+        href: { route: route },
+        css: { selected: $component.isSelected(name) }
+    ">
+        <svg-icon params="name: icon"></svg-icon>
+        <span class="pad" data-bind="text: label"></span>
+    </a>
+    <!-- /ko -->
+</nav>
+
+<hr />
+
+<a href="#" class="link no-outline pad">
+    <svg-icon params="name: 'signout'"></svg-icon>
+</a>

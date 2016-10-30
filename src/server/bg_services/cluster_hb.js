@@ -20,16 +20,28 @@ function do_heartbeat() {
                 os_info: os_utils.os_info(),
             }
         };
-        return P.resolve().then(() => {
-                if (current_clustering.is_clusterized) {
-                    return MongoCtrl.get_hb_rs_status();
-                } else {
-                    dbg.log0('server is not part of a cluster. skipping rs status');
-                }
+        return P.join(
+                P.resolve().then(() => {
+                    if (current_clustering.is_clusterized) {
+                        return MongoCtrl.get_hb_rs_status();
+                    } else {
+                        dbg.log0('server is not part of a cluster. skipping rs status');
+                    }
+                }),
+                os_utils.read_drives())
+            .spread((mongo_status, drives) => {
+                let root = drives.find(drive => drive.mount === '/');
+                return {
+                    mongo_status: mongo_status,
+                    storage: root.storage
+                };
             })
-            .then(mongo_status => {
-                if (mongo_status) {
-                    heartbeat.health.mongo_rs_status = mongo_status;
+            .then(info => {
+                if (info.mongo_status) {
+                    heartbeat.health.mongo_rs_status = info.mongo_status;
+                }
+                if (info.storage) {
+                    heartbeat.health.storage = info.storage;
                 }
                 let update = {
                     _id: current_clustering._id,

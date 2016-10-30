@@ -21,7 +21,8 @@ let monitor;
 // called on rpc server init
 function _init() {
     monitor = new nodes_monitor.NodesMonitor();
-    if (system_store.is_cluster_master) {
+    // start nodes_monitor if this is master, or this is not part of a rplica set
+    if (system_store.is_cluster_master || !process.env.MONGO_RS_URL) {
         dbg.log0('this is master. starting nodes_monitor');
         return monitor.start();
     } else {

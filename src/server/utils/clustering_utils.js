@@ -151,7 +151,10 @@ function get_cluster_info() {
         servers: []
     }));
     // list online members accoring to local mongo rs status
-    let online_members = _get_online_members(local_info.heartbeat.health.mongo_rs_status);
+    let online_members = [local_info.owner_address];
+    if (local_info.is_clusterized && local_info.heartbeat) {
+        online_members = _get_online_members(local_info.heartbeat.health.mongo_rs_status);
+    }
     _.each(system_store.data.clusters, cinfo => {
         let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
         let memory_usage = 0;

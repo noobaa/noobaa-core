@@ -730,6 +730,17 @@ function upgrade_cluster(req) {
                     throw err;
                 });
         }))
+        .then(() => {
+            let update = {
+                _id: system_store.data.systems[0]._id,
+                upgrade_date: Date.now(),
+            };
+            return system_store.make_changes({
+                update: {
+                    systems: [update]
+                }
+            });
+        })
         // after all secondaries are upgraded it is safe to upgrade the primary.
         // secondaries should wait (in upgrade.sh) for primary to complete upgrade and perform mongo_upgrade
         .then(() => {

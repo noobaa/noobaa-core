@@ -659,7 +659,7 @@ class S3Controller {
         let params = {
             bucket: req.params.bucket,
             key: req.params.key,
-            size: req.content_length,
+            size: req.content_length||0,
             content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
         };

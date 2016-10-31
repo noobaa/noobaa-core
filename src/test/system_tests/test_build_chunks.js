@@ -239,14 +239,12 @@ function discard_nodes_from_pool(object_mapping, num_nodes, pool_name) {
         })
         .then(node_list => client.pool.assign_nodes_to_pool({
             name: TEST_CTX.discard_pool_name,
-            nodes: _.slice(_.filter(node_list.nodes.map(node_info => {
-                return {
-                    id: node_info._id,
-                    name: node_info.name,
-                    peer_id: node_info.peer_id,
-                    rpc_address: node_info.rpc_address
-                };
-            }), node => _.includes(node_ids, node.id)), 0, num_nodes)
+            nodes: _.slice(_.filter(node_list.nodes.map(node_info => ({
+                id: node_info._id,
+                name: node_info.name,
+                peer_id: node_info.peer_id,
+                rpc_address: node_info.rpc_address
+            })), node => _.includes(node_ids, node.id)), 0, num_nodes)
         }));
 }
 
@@ -259,14 +257,12 @@ function comission_nodes_to_pool(pool_name, num_nodes) {
         })
         .then(node_list => client.pool.assign_nodes_to_pool({
             name: pool_name,
-            nodes: _.slice((node_list.nodes.map(node_info => {
-                return {
-                    id: node_info._id,
-                    name: node_info.name,
-                    peer_id: node_info.peer_id,
-                    rpc_address: node_info.rpc_address
-                };
-            })), 0, num_nodes)
+            nodes: _.slice((node_list.nodes.map(node_info => ({
+                id: node_info._id,
+                name: node_info.name,
+                peer_id: node_info.peer_id,
+                rpc_address: node_info.rpc_address
+            }))), 0, num_nodes)
         }));
 }
 
@@ -283,7 +279,9 @@ function corrupt_a_block(object_mapping, num_blocks) {
     return P.map(block_mds, block_md => {
         console.log(`corrupt_a_block: corrupted block_md:`, block_md);
         block_md.digest_type = 'sha1';
-        block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+        block_md.digest_b64 = crypto.createHash(block_md.digest_type)
+            .update(data)
+            .digest('base64');
         return client.block_store.write_block({
             block_md: block_md,
             data: data
@@ -293,12 +291,14 @@ function corrupt_a_block(object_mapping, num_blocks) {
     });
 }
 
+
 function main() {
     return run_test()
         .then(function() {
             process.exit(0);
         })
         .catch(function(err) {
+            console.warn('error while running test. ', err);
             process.exit(1);
         });
 }
@@ -309,11 +309,11 @@ function run_test() {
         .then(() => test_rebuild_single_unavailable_block()) // at least 4 nodes required
         .then(() => test_rebuild_two_unavailable_blocks()) // at least 5 nodes required
         .then(() => test_rebuild_unavailable_from_mirror()) // at least 7 nodes required
-        // .then(() => test_rebuild_unavailable_from_cloud_pool()) // at least 6 nodes required                     // TODO: fix #2116
-        // .then(() => test_rebuild_one_corrupted_block()) // at least 3 nodes required                             // TODO: fix #2114
-        // .then(() => test_rebuild_two_corrupted_blocks()) // at least 3 nodes required. corrupts 2 node           // TODO: fix #2114
-        // .then(() => test_rebuild_corrupted_from_mirror()) // at least 6 nodes required. corrupts 3 nodes         // TODO: fix #2114
-        // .then(() => test_rebuild_corrupted_from_cloud_pool()) // at least 3 nodes required. corrupts 3 nodes     // TODO: fix #2114 && #2090
+        .then(() => false && test_rebuild_unavailable_from_cloud_pool()) // at least 6 nodes required                     // TODO: fix #2116
+        .then(() => false && test_rebuild_one_corrupted_block()) // at least 3 nodes required                             // TODO: fix #2114
+        .then(() => false && test_rebuild_two_corrupted_blocks()) // at least 3 nodes required. corrupts 2 node           // TODO: fix #2114
+        .then(() => false && test_rebuild_corrupted_from_mirror()) // at least 6 nodes required. corrupts 3 nodes         // TODO: fix #2114
+        .then(() => false && test_rebuild_corrupted_from_cloud_pool()) // at least 3 nodes required. corrupts 3 nodes     // TODO: fix #2114 && #2090
         .then(() => test_double_blocks_on_movie_files()) // at least 6 nodes required
         .catch(err => {
             console.error('test_build_chunks FAILED: ', err.stack || err);
@@ -472,25 +472,21 @@ function test_double_blocks_on_movie_files() {
 
 function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_per_pool) {
     console.log(`test setup: bucket name: ${bucket_name}, pool names: ${pool_names}${mirrored ? ", mirrored" : ""}${cloud_pool ? ", from cloud pool" : ""}${num_of_nodes_per_pool ? ", node configuration: " + util.inspect(num_of_nodes_per_pool) : ""}`);
-    return P.map(pool_names.map(pool_name => {
-                return {
-                    name: pool_name
-                };
-            }), pool_to_create => client.node.list_nodes({
+    return P.map(pool_names.map(pool_name => ({
+                name: pool_name
+            })), pool_to_create => client.node.list_nodes({
                 query: {
                     has_issues: false,
                     pools: [TEST_CTX.discard_pool_name]
                 }
             })
             .then(node_list => {
-                pool_to_create.nodes = _.slice(node_list.nodes, 0, num_of_nodes_per_pool[pool_to_create.name]).map(node_info => {
-                    return {
-                        id: node_info._id,
-                        name: node_info.name,
-                        peer_id: node_info.peer_id,
-                        rpc_address: node_info.rpc_address
-                    };
-                });
+                pool_to_create.nodes = _.slice(node_list.nodes, 0, num_of_nodes_per_pool[pool_to_create.name]).map(node_info => ({
+                    id: node_info._id,
+                    name: node_info.name,
+                    peer_id: node_info.peer_id,
+                    rpc_address: node_info.rpc_address
+                }));
                 return client.pool.create_nodes_pool(pool_to_create);
             }), {
                 concurrency: 1
@@ -578,14 +574,12 @@ function test_tear_down() {
                         .then(node_list => pool.cloud_info || // making sure not to assign cloud pool nodes to default_pool
                             client.pool.assign_nodes_to_pool({
                                 name: TEST_CTX.discard_pool_name,
-                                nodes: node_list.nodes.map(node_object => {
-                                    return {
-                                        id: node_object._id,
-                                        name: node_object.name,
-                                        peer_id: node_object.peer_id,
-                                        rpc_address: node_object.rpc_address
-                                    };
-                                })
+                                nodes: node_list.nodes.map(node_object => ({
+                                    id: node_object._id,
+                                    name: node_object.name,
+                                    peer_id: node_object.peer_id,
+                                    rpc_address: node_object.rpc_address
+                                }))
                             })
                         )
                         .then(() => client.pool.delete_pool({

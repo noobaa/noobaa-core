@@ -736,7 +736,9 @@ function upgrade_cluster(req) {
                 upgrade_data: Date.now(),
             };
             return system_store.make_changes({
-                systems: update
+                update: {
+                    systems: [update]
+                }
             });
         })
         // after all secondaries are upgraded it is safe to upgrade the primary.

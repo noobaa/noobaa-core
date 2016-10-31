@@ -122,7 +122,10 @@ function read_mac_linux_drives(include_all) {
         }, callback))
         .then(volumes => _.compact(_.map(volumes, function(vol) {
             //filter Azure temporary storage
-            if (vol.mount.indexOf('/mnt/resource') === 0) return;
+            if (vol.mount.indexOf('/mnt/resource') === 0) {
+                console.log('skipping /mnt/resource mount');
+                return;
+            }
             return linux_volume_to_drive(vol);
         })));
 }

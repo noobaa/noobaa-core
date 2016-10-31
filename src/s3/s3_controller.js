@@ -337,12 +337,12 @@ class S3Controller {
     put_bucket(req, res) {
         this.usage_report.s3_usage_info.put_bucket++;
         return req.rpc_client.bucket.create_bucket({
-            name: req.params.bucket
-        })
-        .then(() => {
-            res.setHeader('Location', '/' + req.params.bucket);
-        })
-        .return();
+                name: req.params.bucket
+            })
+            .then(() => {
+                res.setHeader('Location', '/' + req.params.bucket);
+            })
+            .return();
     }
 
     /**
@@ -658,7 +658,7 @@ class S3Controller {
         let params = {
             bucket: req.params.bucket,
             key: req.params.key,
-            size: req.content_length,
+            size: req.content_length || 0,
             content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
         };
@@ -1015,7 +1015,7 @@ class S3Controller {
         // TODO: Maybe we should plus both prepare_request and total_errors and check their limit?
         // TODO: Maybe we should change from 10 seconds to a higher number cycle? Like minutes/hours?
         if ((this.usage_report.s3_usage_info.prepare_request > 10 ||
-            this.usage_report.s3_errors_info.total_errors > 10) &&
+                this.usage_report.s3_errors_info.total_errors > 10) &&
             Math.abs(moment().diff(this.usage_report.last_updated, 'Seconds')) > 10) {
             return req.rpc_client.object.add_s3_usage_report({
                     s3_usage_info: this.usage_report.s3_usage_info,

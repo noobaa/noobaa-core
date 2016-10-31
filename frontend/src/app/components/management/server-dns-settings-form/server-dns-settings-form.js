@@ -2,7 +2,6 @@ import template from './server-dns-settings-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { updateServerDNSSettings } from 'actions';
 
 class ServerDnsSettingsFormViewModel extends Disposable{
     constructor() {

@@ -5,12 +5,13 @@
     <div class="row push-next content-middle">
         <div class="column greedy push-next">
             <div class="heading3">
-                Total file uploads: <span data-bind="text: total"></span>
+                Total file uploads: <span data-bind="text: uploadState().totalCount"></span>
             </div>
-            <!-- <div class="row" data-bind="visible: showProgress">
-                <bar params="values: barValues, emptyColor: emptyColor"></bar>
-                (<span data-bind="text: completed"></span>% Completed)
-            </div> -->
+            <div class="row content-middle" data-bind="visible: Boolean(uploadState().uploadingCount)">
+                Completed
+                <bar class="push-prev" params="values: barValues, emptyColor: emptyColor"></bar>
+                <span data-bind="text: progressText"></span>
+            </div>
         </div>
         <button class="btn" data-bind="click: clearCompleted">Clear Completed</button>
     </div>
@@ -28,7 +29,7 @@
             </svg-icon>
             <span>
                 Uploaded
-                <span data-bind="text: uploadState().uploaded"></span>
+                <span data-bind="text: uploadState().uploadedCount"></span>
             </span>
         </span>
 
@@ -36,25 +37,20 @@
             <svg-icon params="name: 'problem'" class="error icon-small"></svg-icon>
             <span>
                 Failed
-                <span data-bind="text: uploadState().failed"></span>
+                <span data-bind="text: uploadState().failedCount"></span>
             </span>
 
         </span>
 
         <span class="row content-middle push-prev" data-bind="
-            visible: uploadState().uploading
+            visible: uploadState().uploadingCount
         ">
             <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
             <span>
-                In Process
-                <span data-bind="text: uploadState().uploading"></span>
+                Uploading
+                <span data-bind="text: uploadState().uploadingCount"></span>
             </span>
         </span>
-
-        <div class="greedy column">
-            <bar class="align-end" params="values: barValues, emptyColor: emptyColor" data-bind="visible: uploadState().uploading"></bar>
-        </div>
-
     </section>
 
     <button class="btn align-end" data-bind="click: close">Close</button>

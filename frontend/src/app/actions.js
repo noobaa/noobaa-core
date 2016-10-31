@@ -321,6 +321,12 @@ export function closeDrawer() {
     );
 }
 
+export function clearCompletedUploads() {
+    model.recentUploads.remove(
+        upload => upload.state === 'UPLOADED' || upload.state === 'FAILED'
+    );
+}
+
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------

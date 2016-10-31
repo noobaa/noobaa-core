@@ -66,12 +66,12 @@
 
                     <button class="link alt-colors no-outline" data-bind="
                         click: () => downloadDiagnosticPack(),
-                        css: { inactive: isCollectingDiagnostics}
-                    ">
+                        visible: !isCollectingDiagnostics
+                    ">Download Diagnostic File</button>
+                    <div data-bind="visible: isCollectingDiagnostics">
                         <svg-icon class="icon-small spin" params="name: 'in-progress'" data-bind="visible: isCollectingDiagnostics"></svg-icon>
-                        <span data-bind="text: downloadDiagnosticText">
-                        </span>
-                    </button>
+                        <span class="collecting-diagnostics">Collecting Data...</span>
+                    </div>
                 </li>
             </ul>
         </template>

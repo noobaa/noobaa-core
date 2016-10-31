@@ -5,13 +5,13 @@ import Disposable from 'disposable';
 // import moment from 'moment';
 
 class WorkingBtnViewModel extends Disposable{
-    constructor({ working, workingLabel, click, disable }) {
+    constructor({ working, workingLabel, click, disabled }) {
         super();
 
         this.working = working;
         this.label = workingLabel;
         this.click = click;
-        this.disable = disable;
+        this.disabled = disabled;
 
     }
 }

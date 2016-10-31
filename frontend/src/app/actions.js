@@ -1387,12 +1387,13 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
-    if(model.collectDiagnosticsState['node:' + nodeName] === true) {
+    let currentNodeKey = `node:${nodeName}`;
+    if(model.collectDiagnosticsState[currentNodeKey] === true) {
         return;
     }
 
     model.collectDiagnosticsState.assign({
-        ['node:' + nodeName]: true
+        [currentNodeKey]: true
     });
 
     api.system.diagnose_node({ name: nodeName })
@@ -1400,18 +1401,18 @@ export function downloadNodeDiagnosticPack(nodeName) {
             err => {
                 notify(`Packing diagnostic file for ${nodeName} failed`, 'error');
                 model.collectDiagnosticsState.assign({
-                    ['node:' + nodeName]: false
+                    [currentNodeKey]: false
                 });
                 throw err;
             }
         )
         .then(
-            url => downloadFile(url)
-        )
-        .then(
-            () => model.collectDiagnosticsState.assign({
-                ['node:' + nodeName]: false
-            })
+            url => {
+                downloadFile(url);
+                model.collectDiagnosticsState.assign({
+                    [currentNodeKey]: false
+                });
+            }
         )
         .done();
 }
@@ -1419,12 +1420,13 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
-    if(model.collectDiagnosticsState['server:' + targetHostname] === true) {
+    let currentServerKey = `server:${targetHostname}`;
+    if(model.collectDiagnosticsState[currentServerKey] === true) {
         return;
     }
 
     model.collectDiagnosticsState.assign({
-        ['server:' + targetHostname]: true
+        [currentServerKey]: true
     });
 
     api.cluster_server.diagnose_system({
@@ -1434,16 +1436,18 @@ export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
             err => {
                 notify(`Packing server diagnostic file for ${targetHostname} failed`, 'error');
                 model.collectDiagnosticsState.assign({
-                    ['server:' + targetHostname]: false
+                    [currentServerKey]: false
                 });
                 throw err;
             }
         )
-        .then(downloadFile)
         .then(
-            () => model.collectDiagnosticsState.assign({
-                ['server:' + targetHostname]: false
-            })
+            url => {
+                downloadFile(url);
+                model.collectDiagnosticsState.assign({
+                    [currentServerKey]: false
+                });
+            }
         )
         .done();
 }
@@ -1465,9 +1469,11 @@ export function downloadSystemDiagnosticPack() {
                 throw err;
             }
         )
-        .then(downloadFile)
         .then(
-            () => model.collectDiagnosticsState.assign({ system: false })
+            url => {
+                downloadFile(url);
+                model.collectDiagnosticsState.assign({ system: false });
+            }
         )
         .done();
 }

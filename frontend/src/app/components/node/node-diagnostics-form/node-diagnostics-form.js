@@ -17,7 +17,9 @@ class NodeDiagnosticsFormViewModel extends Disposable {
             () => Boolean(node() && (!node().online || node().demo_node))
         );
         this.isCollectingDiagnostics = ko.pureComputed(
-            () => Boolean(collectDiagnosticsState()[`node:${this.nodeName()}`])
+            () => Boolean(collectDiagnosticsState()[
+                `node:${this.nodeName()}`
+            ])
         );
 
         this.actionsTooltip = ko.pureComputed(

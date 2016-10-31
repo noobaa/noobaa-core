@@ -98,13 +98,9 @@ export default class ServerRowViewModel extends Disposable {
         );
 
         this.isCollectingDiagnostics = ko.pureComputed(
-            () => Boolean(collectDiagnosticsState()[`server:${this.hostname()}`])
-        );
-
-        this.downloadDiagnosticText = ko.pureComputed(
-            () => this.isCollectingDiagnostics() ?
-                'Collecting Data...' :
-                'Download Diagnostic File'
+            () => Boolean(collectDiagnosticsState()[
+                `server:${this.hostname()}`
+            ])
         );
     }
 

@@ -13,12 +13,9 @@ ko.subscribable.fn.toggle = function() {
 };
 
 ko.subscribable.fn.assign = function(data) {
-    if(isUndefined(this())) {
-        this(ko.unwrap(data));
-    }
-    else {
-        this(Object.assign(this(), ko.unwrap(data)));
-    }
+    let changes = ko.unwrap(data);
+    let value = isUndefined(this()) ? changes : Object.assign(this(), changes);
+    this(value);
     return this;
 };
 

@@ -7,7 +7,7 @@ const http = require('http');
 const argv = require('minimist')(process.argv);
 
 const P = require('../../util/promise');
-const lambda_utils = require('../../lambda/lambda_utils');
+const zip_utils = require('../../util/zip_utils');
 
 const lambda = new AWS.Lambda({
     region: argv.region || 'us-east-1',
@@ -44,7 +44,7 @@ function create_func(fn) {
         .catch(err => {
             // ignore errors
         })
-        .then(() => lambda_utils.zip_in_memory(files))
+        .then(() => zip_utils.zip_in_memory(files))
         .then(zip => P.fromCallback(callback => lambda.createFunction({
             FunctionName: name, // required
             Runtime: 'nodejs6', // required

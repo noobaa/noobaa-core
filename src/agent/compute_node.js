@@ -2,20 +2,25 @@
 'use strict';
 
 const _ = require('lodash');
+const path = require('path');
 // const crypto = require('crypto');
+
 // const P = require('../util/promise');
 const RpcError = require('../rpc/rpc_error');
 const LambdaIO = require('../api/lambda_io');
 const LambdaVM = require('../lambda/lambda_vm');
 const LRUCache = require('../util/lru_cache');
-const lambda_utils = require('../lambda/lambda_utils');
+const zip_utils = require('../util/zip_utils');
 
 class ComputeNode {
 
     constructor({
-        rpc_client
+        rpc_client,
+        storage_path,
     }) {
         this.rpc_client = rpc_client;
+        this.storage_path = storage_path;
+        this.func_path = path.join(this.storage_path, 'functions');
         this.lambda_io = new LambdaIO();
         this.func_cache = new LRUCache({
             name: 'FuncCache',
@@ -71,7 +76,7 @@ class ComputeNode {
                 func = func_arg;
                 console.log('_load_func: loaded', func);
             })
-            .then(() => lambda_utils.unzip_in_memory(func.code.zipfile))
+            .then(() => zip_utils.unzip_in_memory(func.code.zipfile))
             .then(files => {
                 console.log('_load_func: unzipped', files);
                 func._files = files;

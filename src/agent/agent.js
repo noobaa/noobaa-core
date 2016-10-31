@@ -112,7 +112,8 @@ class Agent {
         }
 
         this.compute_node = new ComputeNode({
-            rpc_client: this.client
+            rpc_client: this.client,
+            storage_path: this.storage_path,
         });
 
         this.agent_app = (() => {

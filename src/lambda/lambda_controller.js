@@ -6,8 +6,6 @@ const _ = require('lodash');
 
 // const P = require('../util/promise');
 // const LambdaIO = require('../api/lambda_io');
-// const LambdaVM = require('./lambda_vm');
-// const lambda_utils = require('./lambda_utils');
 
 class LambdaController {
 

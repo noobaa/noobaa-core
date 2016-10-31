@@ -733,7 +733,7 @@ function upgrade_cluster(req) {
         .then(() => {
             let update = {
                 _id: system_store.data.systems[0]._id,
-                upgrade_data: Date.now(),
+                upgrade_date: Date.now(),
             };
             return system_store.make_changes({
                 update: {

@@ -114,7 +114,7 @@ module.exports = {
         },
 
         //Last upgrade date
-        upgrade_data: {
+        upgrade_date: {
             format: 'idate'
         }
 

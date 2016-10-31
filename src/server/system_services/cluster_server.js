@@ -732,11 +732,11 @@ function upgrade_cluster(req) {
         }))
         .then(() => {
             let update = {
-                _id: req.system._id,
+                _id: system_store.data.systems[0]._id,
                 upgrade_data: Date.now(),
             };
             return system_store.make_changes({
-                update: update
+                systems: update
             });
         })
         // after all secondaries are upgraded it is safe to upgrade the primary.

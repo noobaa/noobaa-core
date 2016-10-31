@@ -210,8 +210,13 @@ function verify_upload_download(ip, path) {
         });
 }
 
-function generate_random_file(size_mb) {
-    var suffix = Date.now() + '.' + Math.round(Math.random() * 1000) + '.dat';
+
+function generate_random_file(size_mb, extension) {
+    extension = extension || '.dat';
+    let ext_regex = /^\.[A-Za-z0-9_]{1,4}$/;
+    if (!extension.startsWith('.')) extension = '.' + extension;
+    if (!ext_regex.test(extension)) return P.reject();
+    var suffix = Date.now() + '.' + Math.round(Math.random() * 1000) + extension;
     var fname = test_file + suffix;
     var dd_cmd;
 

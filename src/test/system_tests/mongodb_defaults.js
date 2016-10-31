@@ -55,6 +55,9 @@ db.getSiblingDB("nbcore").nodes.update({}, {
         pool: db.getSiblingDB("nbcore").pools.find({
             name: 'default_pool'
         })[0]._id
+    },
+    $unset: {
+        issues_report: 1
     }
 }, {
     multi: true

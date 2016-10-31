@@ -11,6 +11,7 @@ var basic_server_ops = require('./basic_server_ops');
 var dotenv = require('dotenv');
 dotenv.load();
 var promise_utils = require('../../util/promise_utils');
+var test_utils = require('test_utils');
 
 const s3 = new AWS.S3({
     // endpoint: 'https://s3.amazonaws.com',
@@ -138,75 +139,7 @@ function put_object(s3_obj, bucket, key) {
 }
 
 
-function blocks_exist_on_cloud(need_to_exist, cloud_pool_name, bucket_name, blocks) {
-    console.log('blocks_exist_on_cloud::', need_to_exist, cloud_pool_name, bucket_name);
-    var isDone = true;
-    // Time in seconds to wait, notice that it will only check once a second.
-    // This is done in order to lower the amount of checking requests.
-    var MAX_RETRIES = 10 * 60;
-    var wait_counter = 1;
 
-    return promise_utils.pwhile(
-            function() {
-                return isDone;
-            },
-            function() {
-                return P.all(_.map(blocks, function(block) {
-                        console.log(`noobaa_blocks/noobaa-internal-agent-${cloud_pool_name}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`);
-                        return P.ninvoke(s3, 'headObject', {
-                            Bucket: bucket_name,
-                            Key: `noobaa_blocks/noobaa-internal-agent-${cloud_pool_name}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`
-                        }).reflect();
-                    }))
-                    .then(function(response) {
-                        let condition_correct;
-                        if (need_to_exist) {
-                            condition_correct = true;
-                            _.forEach(response, promise_result => {
-                                if (promise_result.isRejected()) {
-                                    condition_correct = false;
-                                }
-                            });
-
-                            if (condition_correct) {
-                                isDone = false;
-                                return;
-                            } else {
-                                wait_counter += 1;
-                                if (wait_counter >= MAX_RETRIES) {
-                                    throw new Error('Blocks do not exist');
-                                }
-                                return P.delay(1000);
-                            }
-                        } else {
-                            condition_correct = true;
-                            _.forEach(response, promise_result => {
-                                if (promise_result.isFulfilled()) {
-                                    condition_correct = false;
-                                }
-                            });
-
-                            if (condition_correct) {
-                                isDone = false;
-                                return;
-                            } else {
-                                wait_counter += 1;
-                                if (wait_counter >= MAX_RETRIES) {
-                                    throw new Error('Blocks still exist');
-                                }
-                                return P.delay(1000);
-                            }
-                        }
-                    });
-            })
-        .then(function() {
-            return true;
-        })
-        .catch(function(err) {
-            console.error('blocks_exist_on_cloud::Final Error', err);
-            throw err;
-        });
-}
 
 
 function authenticate() {
@@ -340,8 +273,8 @@ function main() {
         .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
             file_names[0], ['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name]))
         .then(function(block_ids) {
-            return blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id))
+            return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
+                    _.map(block_ids['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3)
                 .then(() => block_ids);
         })
         .then(function(block_ids) {
@@ -360,8 +293,8 @@ function main() {
                     Key: file_names[0]
                 })
                 // This is used in order to make sure that the blocks will be deleted from the cloud
-                .then(() => blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id)))
+                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
+                    _.map(block_ids['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3))
                 .catch(err => {
                     console.error(err);
                     throw new Error('deleteObject::Blocks still on cloud');
@@ -380,8 +313,8 @@ function main() {
                 });
         })
         .then(function(block_ids) {
-            return blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids.first_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id))
+            return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
+                    _.map(block_ids.first_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3)
                 .then(() => block_ids);
         })
         .then(function(block_ids) {
@@ -390,10 +323,10 @@ function main() {
                     name: files_bucket_tier.name,
                     cloud_pools: []
                 })
-                .then(() => blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids.first_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id)))
-                .then(() => blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids.second_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id)))
+                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
+                    _.map(block_ids.first_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3))
+                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
+                    _.map(block_ids.second_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3))
                 .catch(err => {
                     console.error(err);
                     throw new Error('Remove Cloud Resource Policy::Blocks still on cloud');

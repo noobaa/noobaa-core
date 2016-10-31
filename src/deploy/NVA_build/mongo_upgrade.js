@@ -138,6 +138,11 @@ function upgrade_systems() {
             updates.access_keys = updated_access_keys;
         }
 
+        //Add last upgrade time if not exists
+        if (!system.upgrade_date) {
+            updates.upgrade_date = Date.now();
+        }
+
         // optional fix - convert to idate format from ISO date
         if (typeof(system.last_stats_report) !== 'number') {
             updates.last_stats_report = new Date(system.last_stats_report).getTime() || 0;

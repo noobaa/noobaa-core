@@ -447,6 +447,7 @@ function read_system(req) {
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
+            last_upgrade: system.upgrade_date,
             debug_level: debug_level,
             upgrade: upgrade,
             system_cap: system_cap,

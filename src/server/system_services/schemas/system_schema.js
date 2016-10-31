@@ -113,5 +113,10 @@ module.exports = {
             type: 'integer'
         },
 
+        //Last upgrade date
+        upgrade_date: {
+            format: 'idate'
+        }
+
     }
 };

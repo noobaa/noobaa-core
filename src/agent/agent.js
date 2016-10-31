@@ -460,6 +460,7 @@ class Agent {
         // otherwise it's good
     }
     _update_agent_conf(params) {
+        dbg.log0('waiting to update agent_conf.json. params =', params);
         // serialize agent_conf updates with Sempahore(1)
         return this.agent_conf_sem.surround(() => {
             dbg.log0('updating agent_conf.json with params:', params);

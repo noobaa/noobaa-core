@@ -980,9 +980,9 @@
       "resolved": "https://registry.npmjs.org/escope/-/escope-3.6.0.tgz"
     },
     "eslint": {
-      "version": "3.9.0",
-      "from": "eslint@3.9.0",
-      "resolved": "https://registry.npmjs.org/eslint/-/eslint-3.9.0.tgz"
+      "version": "3.9.1",
+      "from": "eslint@3.9.1",
+      "resolved": "https://registry.npmjs.org/eslint/-/eslint-3.9.1.tgz"
     },
     "eslint-plugin-header": {
       "version": "0.1.0",

@@ -3,7 +3,7 @@
 const promise_utils = require('../util/promise_utils');
 const P = require('../util/promise');
 const argv = require('minimist')(process.argv);
-var promises = [];
+var file_names = [];
 
 var prefix = argv.prefix || 'File';
 var file_name = prefix + (Math.floor(Date.now() / 1000));
@@ -18,19 +18,32 @@ function main() {
             process.exit(0);
         })
         .catch(function(err) {
+            console.log('Got error', err);
             process.exit(1);
         });
 }
 
 function run_test() {
-    for (let i = 0, j = 0; j < num_of_threads; j++) {
-        promises[i] = promise_utils.pwhile(() => i < num_of_files, () => {
-            i++;
-            console.info('> Uploading file number ' + i + ' out of ' + num_of_files + ' named: ' + (file_name + i));
-            return promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + (file_name + i) + ' --size ' + size_of_files);
-        });
+    // for (let i = 0, j = 0; j < num_of_threads; j++) {
+    //     promises[i] = promise_utils.pwhile(() => i < num_of_files, () => {
+    //         i++;
+    //         console.info('> Uploading file number ' + i + ' out of ' + num_of_files + ' named: ' + (file_name + i));
+    //         return promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + (file_name + i) + ' --size ' + size_of_files);
+    //     });
+    // }
+    for (let i = 0; i < num_of_files; i++) {
+        file_names[i] = {
+            index: i,
+            name: file_name
+        };
     }
-    return P.all(promises)
+    return P.map(file_names, file => {
+            console.info('> Uploading file number ' + file.index + ' out of ' + num_of_files + ' named: ' + file.name);
+            return promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + file.name + ' --size ' + size_of_files);
+        }, {
+            // limit concurrency with semaphore
+            concurrency: num_of_threads
+        })
         .delay(10000)
         .then(() => {
             console.info('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --ls --prefix ' + file_name);

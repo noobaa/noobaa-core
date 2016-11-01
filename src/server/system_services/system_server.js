@@ -124,6 +124,7 @@ function new_system_defaults(name, owner_account_id) {
             error: '',
         },
         last_stats_report: 0,
+        upgrade_date: Date.now(),
         freemium_cap: {
             phone_home_upgraded: false,
             phone_home_notified: false,
@@ -447,7 +448,7 @@ function read_system(req) {
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
-            last_upgrade: system.upgrade_date,
+            last_upgrade: system.upgrade_date || 0,
             debug_level: debug_level,
             upgrade: upgrade,
             system_cap: system_cap,

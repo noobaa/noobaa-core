@@ -10,6 +10,7 @@ const chance = require('chance')();
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../../util/promise');
+const api = require('../../api');
 const util = require('util');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -41,6 +42,7 @@ const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 30;
 const AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // 10 minutes grace period before an agent is consideref offline
 const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
+const AGENT_TEST_CONNECTION_TIMEOUT = 10 * 1000;
 const NO_NAME_PREFIX = 'a-node-has-no-name-';
 
 const AGENT_INFO_FIELDS = [
@@ -157,6 +159,13 @@ class NodesMonitor extends EventEmitter {
         this._num_running_rebuilds = 0;
         this._run_serial = new Semaphore(1);
         this._update_nodes_store_serial = new Semaphore(1);
+
+        // This is used in order to test n2n connection from node_monitor to agents
+        this.n2n_rpc = api.new_rpc();
+        this.n2n_client = this.n2n_rpc.new_client();
+        this.n2n_agent = this.n2n_rpc.register_n2n_agent(this.n2n_client.node.n2n_signal);
+        // Notice that this is a mock up address just to ensure n2n connection authorization
+        this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
     }
 
     start() {
@@ -586,8 +595,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._get_agent_info(item))
             .then(() => this._update_create_node_token(item))
             .then(() => this._update_rpc_config(item))
-            .then(() => this._test_store_perf(item))
-            .then(() => this._test_network_perf(item))
+            .then(() => this._test_nodes_validity(item))
             .then(() => this._update_status(item))
             .then(() => this._update_nodes_store())
             .catch(err => {
@@ -711,8 +719,8 @@ class NodesMonitor extends EventEmitter {
 
     _test_store_perf(item) {
         if (!item.connection) return;
-        // TODO check how much time passed since last test
-        dbg.log0('_test_store_perf:', item.node.name);
+
+        dbg.log0('_test_store_perf::', item.node.name);
         return this.client.agent.test_store_perf({
                 count: 5
             }, {
@@ -728,13 +736,96 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
+
+    _test_network_to_server(item) {
+        if (!item.connection) return;
+
+        const start = Date.now();
+
+        dbg.log0('_test_network_to_server::', item.node.name);
+        return this.n2n_client.agent.test_network_perf({
+                source: this.n2n_agent.rpc_address,
+                target: item.node.rpc_address,
+                data: new Buffer(1),
+                response_length: 1,
+            }, {
+                address: item.node.rpc_address,
+                return_rpc_req: true // we want to check req.connection
+            })
+            .timeout(AGENT_TEST_CONNECTION_TIMEOUT)
+            .then(req => {
+                var took = Date.now() - start;
+                this._set_need_update.add(item);
+                item.node.latency_to_server = js_utils.array_push_keep_latest(
+                    item.node.latency_to_server, [took], MAX_NUM_LATENCIES);
+                dbg.log0('_test_network_to_server:: Succeeded in sending n2n rpc to ',
+                    item.node.name, 'took', took);
+                req.connection.close();
+            });
+    }
+
+
+    // Test with few other nodes and detect if we have a NAT preventing TCP to this node
     _test_network_perf(item) {
         if (!item.connection) return;
-        // TODO GUYM _test_network_perf with few other nodes
-        // and detect if we have a NAT preventing TCP to this node
-        this._set_need_update.add(item);
-        item.node.latency_to_server = js_utils.array_push_keep_latest(
-            item.node.latency_to_server, [0], MAX_NUM_LATENCIES);
+
+        const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
+        return P.each(items_without_issues, item_without_issues => {
+            dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
+                item.node.rpc_address, item_without_issues.node.rpc_address);
+            return this.client.agent.test_network_perf_to_peer({
+                    source: item_without_issues.node.rpc_address,
+                    target: item.node.rpc_address,
+                    request_length: 1,
+                    response_length: 1,
+                    count: 1,
+                    concur: 1
+                }, {
+                    connection: item_without_issues.connection
+                })
+                .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
+        });
+    }
+
+    _test_nodes_validity(item) {
+        dbg.log0('_test_nodes_validity::', item.node.name);
+        return P.resolve()
+            .then(() => P.join(
+                this._test_network_perf(item),
+                this._test_store_perf(item),
+                this._test_network_to_server(item)
+            ))
+            .then(() => {
+                dbg.log0('_test_nodes_validity:: success in test', item.node.name);
+                if (item.io_detention &&
+                    Date.now() - item.io_detention > config.NODE_IO_DETENTION_THRESHOLD) {
+                    dbg.log0('_test_nodes_validity:: turning off detention in node', item.node.name);
+                    item.io_detention = 0;
+                }
+            })
+            .catch(() => {
+                if (!item.io_detention) {
+                    dbg.log0('_test_nodes_validity:: node in io_detention', item.node.name);
+                    item.io_detention = Date.now();
+                }
+            });
+    }
+
+
+    _get_detention_test_nodes(item, limit) {
+        this._throw_if_not_started_and_loaded();
+        const filter_res = this._filter_nodes({
+            name: {
+                $ne: item.name
+            },
+            has_issues: false
+        });
+        const list = filter_res.list;
+        this._sort_nodes_list(list, {
+            sort: 'shuffle'
+        });
+        dbg.log0('_get_detention_test_nodes::', item.node.name, list, limit);
+        return _.isUndefined(limit) ? list : _.take(list, limit);
     }
 
 
@@ -969,6 +1060,8 @@ class NodesMonitor extends EventEmitter {
 
         // to decide the node trusted status we check the reported issues
         item.trusted = true;
+        let io_detention_recent_issues = 0;
+
         if (item.node.issues_report) {
             for (const issue of item.node.issues_report) {
                 // tampering is a trust issue, but maybe we need to refine this
@@ -977,7 +1070,21 @@ class NodesMonitor extends EventEmitter {
                 if (issue.reason === 'TAMPERING') {
                     item.trusted = false;
                 }
+
+                if (issue.action === 'write' ||
+                    issue.action === 'replicate' ||
+                    issue.action === 'read') {
+                    if (now - issue.time < config.NODE_IO_DETENTION_THRESHOLD) {
+                        io_detention_recent_issues += 1;
+                    }
+                }
             }
+        }
+
+        if (!item.io_detention &&
+            io_detention_recent_issues >= config.NODE_IO_DETENTION_RECENT_ISSUES) {
+            dbg.log0('_update_status:: Node in io_detention', item.node.name);
+            item.io_detention = now;
         }
 
         // TODO GUYM implement node n2n_connectivity & connectivity status
@@ -997,6 +1104,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            !item.io_detention &&
             !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
             !item.node.decommissioned &&
@@ -1007,6 +1115,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            !item.io_detention &&
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted);
@@ -1015,6 +1124,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            !item.io_detention &&
             !item.storage_full &&
             !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
@@ -1053,22 +1163,26 @@ class NodesMonitor extends EventEmitter {
         if (item.node.decommissioned) return '';
         if (item.node.decommissioning) return ACT_DECOMMISSIONING;
         if (item.node.migrating_to_pool) return ACT_MIGRATING;
-        if (!item.online) return ACT_RESTORING;
+        if (!item.online || !item.trusted || item.io_detention) return ACT_RESTORING;
         return '';
     }
 
     _update_data_activity_stage(item, now) {
         const act = item.data_activity;
+        const start_of_grace = item.io_detention || item.node.heartbeat || 0;
+        const end_of_grace = start_of_grace + config.REBUILD_NODE_OFFLINE_GRACE;
 
-        if (now < item.node.heartbeat + config.REBUILD_NODE_OFFLINE_GRACE) {
+        // Notice that there are only two types of GRACE, one for io_detention and heartbeat
+        // Which means that in case of untrusted node we will not restore/rebuild it
+        if (now < end_of_grace) {
             if (act.reason === ACT_RESTORING) {
                 dbg.log0('_update_data_activity_stage: WAIT OFFLINE GRACE',
                     item.node.name, act);
                 act.stage = {
                     name: STAGE_OFFLINE_GRACE,
                     time: {
-                        start: item.node.heartbeat,
-                        end: item.node.heartbeat + config.REBUILD_NODE_OFFLINE_GRACE,
+                        start: start_of_grace,
+                        end: end_of_grace,
                     },
                     size: {},
                 };
@@ -1743,7 +1857,7 @@ class NodesMonitor extends EventEmitter {
         const item = this._get_node({
             rpc_address: proxy_params.target
         });
-        const api = proxy_params.method_api.slice(0, -4); //Remove _api suffix
+        const server_api = proxy_params.method_api.slice(0, -4); //Remove _api suffix
         const method_name = proxy_params.method_name;
         const method = server_rpc.rpc.schema[proxy_params.method_api].methods[method_name];
         if (method.params_import_buffers) {
@@ -1751,7 +1865,7 @@ class NodesMonitor extends EventEmitter {
             method.params_import_buffers(proxy_params.request_params, proxy_params.proxy_buffer);
         }
 
-        return this.client[api][method_name](proxy_params.request_params, {
+        return this.client[server_api][method_name](proxy_params.request_params, {
                 connection: item.connection,
             })
             .then(reply => {

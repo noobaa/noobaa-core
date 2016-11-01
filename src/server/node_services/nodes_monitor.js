@@ -822,6 +822,7 @@ class NodesMonitor extends EventEmitter {
             name: {
                 $ne: item.name
             },
+            pool: item.node.pool,
             has_issues: false
         });
         const list = filter_res.list;

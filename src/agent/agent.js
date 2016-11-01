@@ -63,6 +63,8 @@ class Agent {
 
         this.agent_conf_sem = params.agent_conf_sem || new Semaphore(1);
 
+        this.connect_attempts = 0;
+
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
@@ -289,14 +291,6 @@ class Agent {
     _do_heartbeat() {
         if (!this.is_started) return;
 
-        if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
-            dbg.error('too many failure to connect, switching servers');
-            return this._handle_server_change()
-                .then(() => {
-                    throw new Error('server change after too many attempts');
-                });
-        }
-
         let hb_info = {
             version: pkg.version
         };
@@ -305,9 +299,20 @@ class Agent {
         } else if (this.is_demo_agent) {
             hb_info.pool_name = config.DEMO_DEFAULTS.POOL_NAME;
         }
-        return this.client.node.heartbeat(hb_info, {
-                return_rpc_req: true
+
+        return P.resolve()
+            .then(() => {
+                if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
+                    dbg.error('too many failure to connect, switching servers');
+                    return this._handle_server_change()
+                        .then(() => {
+                            throw new Error('server change after too many attempts');
+                        });
+                }
             })
+            .then(() => this.client.node.heartbeat(hb_info, {
+                return_rpc_req: true
+            }))
             .timeout(MASTER_RESPONSE_TIMEOUT)
             .then(req => {
                 this.connect_attempts = 0;
@@ -354,7 +359,7 @@ class Agent {
                 return P.delay(3000)
                     .then(() => {
                         this.connect_attempts += 1;
-                        this._do_heartbeat();
+                        return this._do_heartbeat();
                     });
 
             });

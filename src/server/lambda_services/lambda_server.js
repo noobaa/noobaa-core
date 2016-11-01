@@ -33,11 +33,16 @@ function create_func(req) {
     const code_sha256 = crypto.createHash('sha256');
     const func = _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE);
     func.system = req.system._id;
-    func.pools = _.map(req.system.pools_by_name, pool => pool._id);
     func.name = func_config.name;
     func.last_modified = new Date();
     func.code_size = 0;
     func.resource_name = `arn:noobaa:lambda:region:${func.system}:function:${func.name}:$LATEST`;
+    if (req.params.pools) {
+        func.pools = _.map(req.params.pools, pool_name =>
+            req.system.pools_by_name[pool_name]._id);
+    } else {
+        func.pools = [req.system.pools_by_name.default_pool._id];
+    }
 
     return P.resolve()
         .then(() => {
@@ -70,11 +75,16 @@ function create_func(req) {
             func.code_gridfs_id = gridfs_id;
         })
         .then(() => lambda_store.instance().create_func(func))
-        .then(() => _get_func_info(func));
+        .then(() => _load_func(req))
+        .then(() => _get_func_info(req.lambda_func));
 }
 
 function update_func(req) {
     const config_updates = _.pick(req.params, FUNC_CONFIG_FIELDS_MUTABLE);
+    if (req.params.pools) {
+        config_updates.pools = _.map(req.params.pools, pool_name =>
+            req.system.pools_by_name[pool_name]._id);
+    }
     if (req.params.code) {
         // TODO update_func: missing handling for code update
         throw new RpcError('TODO', 'Update function code is not yet implemented');
@@ -168,6 +178,10 @@ function _get_func_info(func) {
         FUNC_CONFIG_FIELDS_MUTABLE,
         FUNC_CONFIG_FIELDS_IMMUTABLE);
     config.last_modified = func.last_modified.getTime();
+    config.pools = _.map(func.pools, pool => {
+        if (pool.name) return pool.name;
+        return system_store.data.get_by_id(pool).name;
+    });
     const code_location = {
         url: '',
         repository: ''

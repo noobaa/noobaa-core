@@ -150,15 +150,20 @@ class LambdaVM {
                 // hacking the context to invoke another lambda
                 invoke_lambda: (name, ev, callback) => {
                     this.lambda_io.invoke(this.rpc_client, name, ev)
-                        .nodeify(callback);
+                        .then(res => callback(null, {
+                            StatusCode: 200,
+                            // skip stringify of Payload and just return the parsed response
+                            Response: res.result,
+                        }))
+                        .catch(err => callback(err));
                 },
             };
             const func_callback = (err, reply) => {
                 if (err) {
-                    console.log('err', err);
+                    console.log('LambdaVM err', err);
                     reject(err);
                 } else {
-                    console.log('reply', reply);
+                    console.log('LambdaVM reply', reply);
                     resolve(reply);
                 }
                 if (!func_context.callbackWaitsForEmptyEventLoop) {

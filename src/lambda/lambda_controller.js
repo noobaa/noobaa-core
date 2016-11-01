@@ -38,6 +38,7 @@ class LambdaController {
                     handler: fn.Handler,
                     memory_size: fn.MemorySize,
                     timeout: fn.Timeout,
+                    pools: fn.VpcConfig && fn.VpcConfig.SubnetIds,
                 }, _.isUndefined),
                 code: _.omitBy({
                     zipfile: new Buffer(fn.Code.ZipFile, 'base64'),

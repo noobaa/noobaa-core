@@ -251,6 +251,12 @@ module.exports = {
                 timeout: {
                     type: 'integer'
                 },
+                pools: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
                 // the following fields are not configurable,
                 // and will be returned as info
                 code_size: {

@@ -1,0 +1,57 @@
+<modal class="modal-large" params="
+    title: 'Uploads',
+    onClose: () => close()
+">
+    <div class="row push-next content-middle">
+        <div class="column greedy push-next">
+            <div class="heading3">
+                Total file uploads: <span data-bind="text: uploadState().totalCount"></span>
+            </div>
+            <div class="row content-middle" data-bind="visible: Boolean(uploadState().uploadingCount)">
+                Completed
+                <bar class="push-prev" params="values: barValues, emptyColor: emptyColor"></bar>
+                <span data-bind="text: progressText"></span>
+            </div>
+        </div>
+        <button class="btn" data-bind="click: clearCompleted">Clear Completed</button>
+    </div>
+
+    <data-table class="greedy" params="
+        columns: columns,
+        data: requests,
+        rowFactory: request => createUploadRow(request)
+    "></data-table>
+
+    <section class="alt-bg summary row push-next content-middle">
+
+        <span class="row success push-next content-middle">
+            <svg-icon params="name: 'healthy'" class="success icon-small">
+            </svg-icon>
+            <span>
+                Uploaded
+                <span data-bind="text: uploadState().uploadedCount"></span>
+            </span>
+        </span>
+
+        <span class="row content-middle error push-both">
+            <svg-icon params="name: 'problem'" class="error icon-small"></svg-icon>
+            <span>
+                Failed
+                <span data-bind="text: uploadState().failedCount"></span>
+            </span>
+
+        </span>
+
+        <span class="row content-middle push-prev" data-bind="
+            visible: uploadState().uploadingCount
+        ">
+            <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
+            <span>
+                Uploading
+                <span data-bind="text: uploadState().uploadingCount"></span>
+            </span>
+        </span>
+    </section>
+
+    <button class="btn align-end" data-bind="click: close">Close</button>
+</modal>

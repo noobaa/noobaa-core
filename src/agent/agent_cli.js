@@ -25,6 +25,7 @@ const Agent = require('./agent');
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
 const Semaphore = require('../util/semaphore');
+const json_utils = require('../util/json_utils');
 const promise_utils = require('../util/promise_utils');
 
 module.exports = AgentCLI;
@@ -45,7 +46,7 @@ function AgentCLI(params) {
     this.client = rpc.new_client();
     this.s3 = new S3Auth();
     this.agents = {};
-    this.agent_conf_sem = new Semaphore(1);
+    this.agent_conf = new json_utils.JsonWrapper('agent_conf.json');
 
 }
 
@@ -83,9 +84,8 @@ AgentCLI.prototype.init = function() {
     // for now node name is passed only for internal agents.
     self.params.internal_agent = Boolean(self.params.node_name);
 
-    return fs.readFileAsync('agent_conf.json')
-        .then(function(data) {
-            var agent_conf = JSON.parse(data);
+    return self.agent_conf.read()
+        .then(function(agent_conf) {
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
             _.defaults(self.params, agent_conf);
             if (!self.params.host_id) {
@@ -173,17 +173,10 @@ AgentCLI.prototype.init = function() {
                         dbg.log0('moving', storage_path, 'to', target_path);
                         return fs.renameAsync(storage_path, target_path);
                     }))
-                    .then(() => {
-                        // remove host_id from agent_conf
-                        dbg.log0('removing host_id from agnet_conf');
-                        return fs.readFileAsync('agent_conf.json')
-                            .then(function(data) {
-                                let agent_conf = JSON.parse(data);
-                                if (agent_conf.host_id) delete agent_conf.host_id;
-                                var write_data = JSON.stringify(agent_conf);
-                                return fs.writeFileAsync('agent_conf.json', write_data);
-                            });
-                    })
+                    // remove host_id from agent_conf
+                    .then(() => self.agent_conf.update({
+                        host_id: undefined
+                    }))
                     .then(() => {
                         dbg.log0('exit agent_cli. will restart with new agent_storage');
                         process.exit(0);
@@ -403,25 +396,11 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
                     dbg.log0('result create:', res, 'node path:', node_path);
                     self.params.create_node_token = res.token;
                     if (!self.params.internal_agent) {
-                        return self.agent_conf_sem.surround(() => {
-                            // remove access_key and secret_key from agent_conf after a token was acquired and write create_token instead
-                            return fs.readFileAsync('agent_conf.json')
-                                .then(function(data) {
-                                    let agent_conf = JSON.parse(data);
-                                    delete agent_conf.access_key;
-                                    delete agent_conf.secret_key;
-                                    agent_conf.create_node_token = self.params.create_node_token;
-                                    agent_conf.host_id = self.params.host_id;
-                                    var write_data = JSON.stringify(agent_conf);
-                                    return fs.writeFileAsync('agent_conf.json', write_data);
-                                })
-                                .catch(function(err) {
-                                    if (err.code === 'ENOENT') {
-                                        console.warn('No agent_conf.json file exists');
-                                        return;
-                                    }
-                                    throw new Error(err);
-                                });
+                        // replace access_key\secret_key with create_node_token in agnet_conf
+                        return self.agent_conf.update({
+                            access_key: undefined,
+                            secret_key: undefined,
+                            create_node_token: self.params.create_node_token
                         });
                     }
                 } else {
@@ -557,7 +536,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             cloud_info: self.cloud_info,
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
-            agent_conf_sem: self.agent_conf_sem,
+            agent_conf: self.agent_conf,
             create_node_token: self.params.create_node_token
         });
 

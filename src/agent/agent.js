@@ -40,7 +40,7 @@ const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
-const Semaphore = require('../util/semaphore');
+const json_utils = require('../util/json_utils');
 const fs_utils = require('../util/fs_utils');
 
 
@@ -61,7 +61,7 @@ class Agent {
 
         this.host_id = params.host_id;
 
-        this.agent_conf_sem = params.agent_conf_sem || new Semaphore(1);
+        this.agent_conf = params.agent_conf || new json_utils.JsonWrapper();
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
@@ -209,7 +209,7 @@ class Agent {
         let sorted_old = _.sortBy(this.servers, srv => srv.address);
         if (_.isEqual(sorted_new, sorted_old)) return P.resolve();
         this.servers = new_list;
-        return this._update_agent_conf({
+        return this.agent_conf.update({
             servers: this.servers
         });
     }
@@ -459,32 +459,6 @@ class Agent {
         }
         // otherwise it's good
     }
-    _update_agent_conf(params) {
-        dbg.log0('waiting to update agent_conf.json. params =', params);
-        // serialize agent_conf updates with Sempahore(1)
-        return this.agent_conf_sem.surround(() => {
-            dbg.log0('updating agent_conf.json with params:', params);
-            return fs.readFileAsync('agent_conf.json')
-                .then(data => {
-                    const agent_conf = JSON.parse(data);
-                    dbg.log0('_update_agent_conf: old values in agent_conf.json:', agent_conf);
-                    return agent_conf;
-                }, err => {
-                    if (err.code === 'ENOENT') {
-                        dbg.log0('_update_agent_conf: no agent_conf.json file. creating new one...');
-                        return {};
-                    } else {
-                        throw err;
-                    }
-                })
-                .then(agent_conf => {
-                    _.assign(agent_conf, params);
-                    const data = JSON.stringify(agent_conf);
-                    dbg.log0('_update_agent_conf: writing new values to agent_conf.json:', agent_conf);
-                    return fs.writeFileAsync('agent_conf.json', data);
-                });
-        });
-    }
 
     _update_rpc_config_internal(params) {
         if (params.n2n_config) {
@@ -505,8 +479,7 @@ class Agent {
             return P.fcall(() => this.client.node.ping(null, {
                     address: params.base_address
                 }))
-                // TODO: we need to handle the case when multiple agents (multidrive) try to update agent_conf
-                .then(() => this._update_agent_conf({
+                .then(() => this.agent_conf.update({
                     address: params.base_address
                 }))
                 .then(() => {
@@ -627,7 +600,7 @@ class Agent {
     update_create_node_token(req) {
         this.create_node_token = req.rpc_params.create_node_token;
         dbg.log0('update_create_node_token: received new token');
-        return this._update_agent_conf({
+        return this.agent_conf.update({
             create_node_token: this.create_node_token
         });
     }

@@ -819,9 +819,7 @@ class NodesMonitor extends EventEmitter {
     _get_detention_test_nodes(item, limit) {
         this._throw_if_not_started_and_loaded();
         const filter_res = this._filter_nodes({
-            name: {
-                $ne: item.name
-            },
+            skip_address: item.node.rpc_address,
             pool: item.node.pool,
             has_issues: false
         });
@@ -829,8 +827,9 @@ class NodesMonitor extends EventEmitter {
         this._sort_nodes_list(list, {
             sort: 'shuffle'
         });
-        dbg.log0('_get_detention_test_nodes::', item.node.name, list, limit);
-        return _.isUndefined(limit) ? list : _.take(list, limit);
+        const selected = _.take(list, limit);
+        dbg.log0('_get_detention_test_nodes::', item.node.name, selected, limit);
+        return _.isUndefined(limit) ? list : selected;
     }
 
 

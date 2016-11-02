@@ -321,6 +321,12 @@ export function closeDrawer() {
     );
 }
 
+export function clearCompletedUploads() {
+    model.recentUploads.remove(
+        upload => upload.state === 'UPLOADED' || upload.state === 'FAILED'
+    );
+}
+
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
@@ -982,7 +988,7 @@ export function uploadFiles(bucketName, files) {
                     },
                     error => {
                         if (!error) {
-                            entry.state = 'COMPLETED';
+                            entry.state = 'UPLOADED';
                             entry.progress = 1;
                             resolve(true);
 

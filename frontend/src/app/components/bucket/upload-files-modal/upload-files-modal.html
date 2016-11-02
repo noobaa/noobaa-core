@@ -2,16 +2,9 @@
     title: 'Upload Files',
     onClose: () => close()
 ">
-    <file-selector class="push-next" params="
-        allowMultiSelect: true,
-        onFilesReady: files => upload(files)
-    "></file-selector>
-
-    <h2 class="heading3">Recently Uploaded</h2>
-
     <data-table class="push-next greedy" params="
         columns: columns,
-        data: requests,
+        data: uploads,
         rowFactory: request => createUploadRow(request)
     "></data-table>
 

@@ -4,7 +4,8 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse } from 'utils';
+    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
+    stringifyAmount } from 'utils';
 
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -943,7 +944,10 @@ export function deleteCloudResource(name) {
 export function uploadFiles(bucketName, files) {
     logAction('uploadFiles', { bucketName, files });
 
-    let recentUploads = model.recentUploads;
+    const requestSettings = deepFreeze({
+        partSize: 64 * 1024 * 1024,
+        queueSize: 4
+    });
 
     let { access_key , secret_key } = model.systemInfo().owner.access_keys[0];
     let s3 = new AWS.S3({
@@ -956,119 +960,78 @@ export function uploadFiles(bucketName, files) {
         sslEnabled: false
     });
 
-    let uploadRequests = Array.from(files).map(
-        file => new Promise(
-            resolve => {
-                // Create an entry in the recent uploaded list.
-                let entry = {
-                    name: file.name,
-                    targetBucket: bucketName,
-                    state: 'UPLOADING',
-                    progress: 0,
-                    error: null
-                };
-                recentUploads.unshift(entry);
+    for (const file of files) {
+        // Create an entry in the recent uploaded list.
+        let upload = {
+            name: file.name,
+            targetBucket: bucketName,
+            completed: false,
+            archived: false,
+            error: false,
+            size: file.size,
+            progress: 0
+        };
 
-                // Start the upload.
-                s3.upload(
-                    {
-                        Key: file.name,
-                        Bucket: bucketName,
-                        Body: file,
-                        ContentType: file.type
-                    },
-                    {
-                        partSize: 64 * 1024 * 1024,
-                        queueSize: 4
-                    },
-                    error => {
-                        if (!error) {
-                            entry.state = 'COMPLETED';
-                            entry.progress = 1;
-                            resolve(true);
+        // Add the new upload to the uploads model.
+        let uploads = model.uploads;
+        uploads.unshift(upload);
 
-                        } else {
-                            entry.state = 'FAILED';
-                            entry.error = error;
+        // Start the upload.
+        s3.upload(
+            {
+                Key: file.name,
+                Bucket: bucketName,
+                Body: file,
+                ContentType: file.type
+            },
+            requestSettings,
+            error => {
+                upload.completed = true;
+                if (error) {
+                    upload.error = error;
+                } else {
+                    upload.progress = upload.size;
+                }
 
-                            // This is not a bug we want to resolve failed uploads
-                            // in order to finalize the entire upload process.
-                            resolve(false);
-                        }
-
-                        // Use replace to trigger change event.
-                        recentUploads.replace(entry, entry);
-                    }
-                )
-                //  Report on progress.
-                .on('httpUploadProgress',
-                    ({ loaded, total }) => {
-                        entry.progress = loaded / total;
-
-                        // Use replace to trigger change event.
-                        recentUploads.replace(entry, entry);
-                    }
+                let currentBatch = uploads().filter(
+                    upload => !upload.archived
                 );
+
+                let noMoreUploads = currentBatch.every(
+                    upload => upload.completed
+                );
+
+                // If this is the last running upload to completed, notify the
+                // user and archive recent uploads.
+                if (noMoreUploads) {
+                    let failedCount = 0;
+                    for (const uploadInBatch of currentBatch) {
+                        // Archive the upload.
+                        uploadInBatch.archived = true;
+
+                        if (uploadInBatch.error) {
+                            ++failedCount;
+                        }
+                    }
+
+                    notifyUploadCompleted(
+                        currentBatch.length - failedCount,
+                        failedCount
+                    );
+                }
+
+                // Notify uploads changes.
+                uploads.valueHasMutated();
             }
         )
-    );
-
-    Promise.all(uploadRequests).then(
-        results => {
-            let { completed, failed } = results.reduce(
-                (stats, result) => {
-                    result ? ++stats.completed : ++stats.failed;
-                    return stats;
-                },
-                { completed: 0, failed: 0 }
-            );
-
-            if (failed === 0) {
-                notify(
-                    `Uploading ${
-                        completed
-                    } file${
-                        completed === 1 ? '' : 's'
-                    } to ${
-                        bucketName
-                    } completed successfully`,
-                    'success'
-                );
-
-            } else if (completed === 0) {
-                notify(
-                    `Uploading ${
-                        failed
-                    } file${
-                        failed === 1 ? '' : 's'
-                    } to ${
-                        bucketName
-                    } failed`,
-                    'error'
-                );
-
-            } else {
-                notify(
-                    `Uploading to ${
-                        bucketName
-                    } completed. ${
-                        completed
-                    } file${
-                        completed === 1 ? '' : 's'
-                    } uploaded successfully, ${
-                        failed
-                    } file${
-                        failed === 1 ? '' : 's'
-                    } failed`,
-                    'warning'
-                );
+        //  Report on progress.
+        .on('httpUploadProgress',
+            ({ loaded }) => {
+                upload.progress = loaded;
+                uploads.valueHasMutated();
             }
-
-            if (completed > 0) {
-                refresh();
-            }
-        }
-    );
+        );
+    }
 }
 
 export function testNode(source, testSet) {
@@ -1851,4 +1814,32 @@ export function recommissionNode(name) {
         )
         .then(refresh)
         .done();
+}
+
+// ------------------------------------------
+// Helper functions:
+// ------------------------------------------
+function notifyUploadCompleted(uploaded, failed) {
+    if (failed === 0) {
+        notify(
+            `Uploading ${stringifyAmount('file', uploaded)} completed successfully`,
+            'success'
+        );
+
+    } else if (uploaded === 0) {
+        notify(
+            `Uploading ${stringifyAmount('file', failed)} failed`,
+            'error'
+        );
+
+    } else {
+        notify(
+            `Uploading completed. ${
+                stringifyAmount('file', uploaded)
+            } uploaded successfully, ${
+                stringifyAmount('file', failed)
+            } failed`,
+            'warning'
+        );
+    }
 }

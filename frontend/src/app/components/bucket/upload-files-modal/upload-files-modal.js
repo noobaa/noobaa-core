@@ -1,9 +1,7 @@
 import template from './upload-files-modal.html';
 import Disposable from 'disposable';
-import ko from 'knockout';
 import UploadRowViewModel from './upload-row';
-import { recentUploads } from 'model';
-import { uploadFiles } from 'actions';
+import { uploads } from 'model';
 import { deepFreeze } from 'utils';
 
 const columns = deepFreeze([
@@ -12,26 +10,16 @@ const columns = deepFreeze([
 ]);
 
 class UploadFilesModalViewModel extends Disposable {
-    constructor({ bucketName, onClose }){
+    constructor({ onClose }){
         super();
 
         this.columns = columns;
-        this.bucketName = bucketName;
         this.onClose = onClose;
-
-        this.requests = ko.pureComputed(
-            () => recentUploads().filter(
-                ({ targetBucket }) => targetBucket === ko.unwrap(bucketName)
-            )
-        );
+        this.uploads = uploads;
     }
 
     createUploadRow(file) {
         return new UploadRowViewModel(file);
-    }
-
-    upload(files) {
-        uploadFiles(ko.unwrap(this.bucketName), files);
     }
 
     close() {

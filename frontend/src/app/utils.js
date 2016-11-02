@@ -683,3 +683,21 @@ export function httpWaitForResponse(url, retryDelay = 3000) {
         );
     })();
 }
+
+export function averageBy(array, predicate) {
+    let sum = array
+        .map(predicate)
+        .reduce(
+            (sum, value) => sum + value
+        );
+
+    return sum / array.length;
+}
+
+export function pluralize(word, amount) {
+    return `${word}${amount === 1 ? '' : 's'}`;
+}
+
+export function stringifyAmount(subject, amount) {
+    return `${amount} ${pluralize(subject, amount)}`;
+}

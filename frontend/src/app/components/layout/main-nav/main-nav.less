@@ -11,10 +11,9 @@ main-nav {
 
     hr {
         margin:  @gutter/2;
-        margin-top: auto;
     }
 
-    .link {
+    .nav-link {
         cursor: @cursor-pointer;
         position: relative;
         padding-left: @gutter - @border-width;
@@ -31,6 +30,7 @@ main-nav {
         > span {
             position: absolute;
             left: 100%;
+            top: 0;
             background-color: @color15;
             line-height: 24px;
             width: 150px;
@@ -60,6 +60,34 @@ main-nav {
             > span {
                 transform:  translateX(-@gutter/2);
             }
+        }
+    }
+
+    .uploads {
+        position: relative;
+        margin: 0 @gutter/2;
+
+        > bar {
+            margin: @gutter/2 0;
+            height: 1px;
+            width: 42px;
+        }
+
+        &.show-count::after {
+            @size : 10px;
+            content: attr(data-count);
+            position: absolute;
+            top: -7px;
+            left: 0;
+            display: block;
+            min-width: @size;
+            height: @size;
+            line-height: 100%;
+            padding: 2px;
+            background-color: @color6;
+            border-radius: @size;
+            color: @color8;
+            text-align: center;
         }
     }
 }

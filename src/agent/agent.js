@@ -69,7 +69,7 @@ class Agent {
         this.node_name = params.node_name;
         this.token = params.token;
 
-        this.token_wrapper = params.token_wrapper;
+        this.token_wrapper = params.token_wrapper || {};
 
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
@@ -331,7 +331,12 @@ class Agent {
                     dbg.warn('exit on version change:',
                         'res.version', res.version,
                         'pkg.version', pkg.version);
-                    process.exit(0);
+                    if (this.cloud_info) {
+                        dbg.error(`shouldnt be here. found version mismatch for cloud pool!!`);
+                        throw new Error('exit on version change');
+                    } else {
+                        process.exit(0);
+                    }
                 }
                 conn.on('close', () => {
                     if (this._server_connection === conn) {
@@ -345,7 +350,12 @@ class Agent {
                 if (err.rpc_code === 'DUPLICATE') {
                     dbg.error('This agent appears to be duplicated.',
                         'exiting and starting new agent', err);
-                    process.exit(68); // 68 is 'D' in ascii
+                    if (this.cloud_info) {
+                        dbg.error(`shouldnt be here. found duplicated node for cloud pool!!`);
+                        throw new Error('found duplicated cloud node');
+                    } else {
+                        process.exit(68); // 68 is 'D' in ascii
+                    }
                 }
                 if (err.rpc_code === 'NODE_NOT_FOUND') {
                     dbg.error('This agent appears to be using an old token.',

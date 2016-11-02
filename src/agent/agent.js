@@ -66,7 +66,8 @@ class Agent {
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
-        this.create_node_token = params.create_node_token;
+
+        this.token_wrapper = params.token_wrapper;
 
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
@@ -264,8 +265,8 @@ class Agent {
                 if (!this.storage_path) return this.token;
 
                 // load the token file
-                const token_path = path.join(this.storage_path, 'token');
-                return fs.readFileAsync(token_path);
+                return this.token_wrapper.read();
+
             })
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
@@ -362,11 +363,11 @@ class Agent {
 
     _start_new_agent() {
         dbg.log0(`cleaning old node data and starting a new agent`);
-        const token_path = path.join(this.storage_path, 'token');
+        // const token_path = path.join(this.storage_path, 'token');
         this.stop();
         return fs_utils.folder_delete(this.storage_path)
             .then(() => fs_utils.create_path(this.storage_path))
-            .then(() => fs.writeFileAsync(token_path, this.create_node_token))
+            .then(() => this.token_wrapper.write(this.token_wrapper.create_node_token))
             .then(() => this.start());
     }
 
@@ -518,7 +519,7 @@ class Agent {
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
-            create_node_token: this.create_node_token,
+            create_node_token: this.token_wrapper.create_node_token,
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
@@ -588,7 +589,7 @@ class Agent {
                 if (this.storage_path) {
                     const token_path = path.join(this.storage_path, 'token');
                     dbg.log0('update_auth_token: write new token', token_path);
-                    return fs.writeFileAsync(token_path, auth_token);
+                    return this.token_wrapper.write(auth_token);
                 }
             })
             .then(() => {
@@ -598,11 +599,9 @@ class Agent {
     }
 
     update_create_node_token(req) {
-        this.create_node_token = req.rpc_params.create_node_token;
+        this.token_wrapper.create_node_token = req.rpc_params.create_node_token;
         dbg.log0('update_create_node_token: received new token');
-        return this.agent_conf.update({
-            create_node_token: this.create_node_token
-        });
+        return this.token_wrapper.update_create_node_token(this.token_wrapper.create_node_token);
     }
 
     update_rpc_config(req) {

@@ -527,6 +527,17 @@ AgentCLI.prototype.start = function(node_name, node_path) {
     var agent = self.agents[node_name];
     if (!agent) {
 
+        // token wrapper is used by agent to read\write token
+        let token_path = path.join(node_path, 'token');
+        let token_wrapper = {
+            read: () => fs.readFileAsync(token_path),
+            write: token => fs.writeFileAsync(token_path, token),
+            create_node_token: self.params.create_node_token,
+            update_create_node_token: new_token => this.agent_conf.update({
+                create_node_token: new_token
+            })
+        };
+
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             servers: self.params.servers,
@@ -537,7 +548,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
             agent_conf: self.agent_conf,
-            create_node_token: self.params.create_node_token
+            token_wrapper: token_wrapper
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

@@ -56,6 +56,8 @@ class ServerRpc {
             require('./system_services/cluster_server'), options);
         rpc.register_service(schema.stats_api,
             require('./system_services/stats_aggregator'), options);
+        rpc.register_service(schema.events_api,
+            require('./notifications/event_server.js'), options);
         rpc.register_service(schema.redirector_api,
             require('./system_services/redirector'), {
                 // the redirector should not try refresh system_store

@@ -569,7 +569,7 @@ export function loadAuditEntries(categories, count) {
         .join('|');
 
     if (filter !== '') {
-        api.system.read_activity_log({
+        api.events.read_activity_log({
             event: filter || '^$',
             limit: count
         })
@@ -599,7 +599,7 @@ export function loadMoreAuditEntries(count) {
         .join('|');
 
     if (filter !== '') {
-        api.system.read_activity_log({
+        api.events.read_activity_log({
             event: filter,
             till: lastEntryTime,
             limit: count
@@ -620,7 +620,7 @@ export function exportAuditEnteries(categories) {
         )
         .join('|');
 
-    api.system.export_activity_log({ event: filter || '^$' })
+    api.events.export_activity_log({ event: filter || '^$' })
         .catch(
             err => {
                 notify('Exporting activity log failed', 'error');

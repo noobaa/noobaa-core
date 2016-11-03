@@ -15,6 +15,7 @@ api_schema.register_api(require('./system_api'));
 api_schema.register_api(require('./tier_api'));
 api_schema.register_api(require('./node_api'));
 api_schema.register_api(require('./bucket_api'));
+api_schema.register_api(require('./events_api'));
 api_schema.register_api(require('./object_api'));
 api_schema.register_api(require('./agent_api'));
 api_schema.register_api(require('./block_store_api'));

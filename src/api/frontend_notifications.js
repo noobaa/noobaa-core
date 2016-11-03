@@ -18,7 +18,7 @@ module.exports = {
                 required: ['severity', 'id'],
                 properties: {
                     severity: {
-                        $ref: 'frontend_notifications_api#/definitions/alert_severity'
+                        $ref: 'events_api#/definitions/alert_severity_enum'
                     },
                     id: {
                         type: 'integer',
@@ -31,9 +31,5 @@ module.exports = {
         },
     },
     definitions: {
-        alert_severity: {
-            enum: ['CRIT', 'MAJOR', 'INFO'],
-            type: 'string',
-        },
     }
 };

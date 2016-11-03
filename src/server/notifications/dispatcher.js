@@ -142,7 +142,7 @@ class Dispatcher {
     }
 
     mark_alerts_read(req) {
-        return AlertsLog.updateOne({
+        return AlertsLog.update({
             _id: {
                 $in: req.rpc_params.ids
             }

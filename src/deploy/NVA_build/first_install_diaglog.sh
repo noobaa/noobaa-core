@@ -6,7 +6,6 @@ trap "" 2 20
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
 FIRST_INSTALL_MARK="/etc/first_install.mrk"
-NOOBAASEC="/etc/noobaa_sec"
 
 function clean_ifcfg() {
   sudo sed -i 's:.*IPADDR=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
@@ -228,20 +227,6 @@ function end_wizard {
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
   date | sudo tee -a ${FIRST_INSTALL_MARK}
   clear
-  if [ ! -f ${NOOBAASEC} ]; then
-    local sec=$(uuidgen | sudo cut -f 1 -d'-')
-    echo ${sec} |sudo tee -a ${NOOBAASEC}
-    #dev/null to avoid output with user name
-    echo ${sec} |sudo passwd noobaaroot --stdin >/dev/null
-    sudo sed -i "s:No Server Secret.*:This server's secret is \x1b[0;32;40m${sec}\x1b[0m:" /etc/issue
-  fi
-
-  #verify JWT_SECRET exists in .env, if not create it
-
-  if ! sudo -s grep -q JWT_SECRET /root/node_modules/noobaa-core/.env; then
-      local jwt=$(cat /etc/noobaa_sec | openssl sha512 -hmac | cut -c10-44)
-      echo "JWT_SECRET=${jwt}" | sudo tee -a /root/node_modules/noobaa-core/.env
-  fi
 
   sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m:" /etc/issue
 

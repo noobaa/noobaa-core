@@ -7,8 +7,10 @@ const md_store = require('../object_services/md_store');
 const mongo_utils = require('../../util/mongo_utils');
 const native_core = require('../../util/native_core')();
 const ActivityLog = require('../analytic_services/activity_log');
+const AlertsLog = require('./alerts_log.js');
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_client = require('../node_services/nodes_client');
+const server_rpc = require('../server_rpc');
 
 var NotificationTypes = Object.freeze({
     ALERT: 1,
@@ -30,8 +32,9 @@ class Dispatcher {
         this._pid = process.pid;
     }
 
+    //Activity Log
     activity(item) {
-        dbg.log0('Adding ActivityLog entry', item);
+        dbg.log2('Adding ActivityLog entry', item);
         return ActivityLog.create(item);
     }
 
@@ -99,14 +102,81 @@ class Dispatcher {
             });
     }
 
+    //Remote Syslog
     send_syslog(item) {
-        dbg.log0('Sending external syslog', item);
+        dbg.log3('Sending external syslog', item);
         const INFO_LEVEL = 5;
         this._ext_syslog.log(INFO_LEVEL, item.description);
     }
 
-    //Internals
+    //Alerts
+    alert(sev, sysid, alert) {
+        dbg.log3('Sending alert', alert);
+        let id = system_store.generate_id();
+        return AlertsLog.create({
+                _id: id,
+                system: sysid,
+                severity: sev,
+                alert: alert
+            })
+            .then(() => {
+                this.send_syslog({
+                    description: alert
+                });
+                //TODO:: need to suppress alerts of the same kind
+                return server_rpc.client.frontend_notifications_api.alert({
+                    severity: sev,
+                    id: id
+                });
+            });
+    }
 
+    get_unread_alerts_count(sysid) {
+        var q = AlertsLog.count({
+            system: sysid,
+            read: false
+        });
+
+        return P.resolve(q.lean().exec())
+            .then(num => num);
+    }
+
+    mark_alerts_read(req) {
+        return AlertsLog.updateOne({
+            _id: {
+                $in: req.rpc_params.ids
+            }
+        }, {
+            read: true
+        }).exec();
+    }
+
+    read_alerts(req) {
+        var q = AlertsLog.find({
+            system: req.system._id,
+        });
+
+        if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
+        q.limit(req.rpc_params.limit || 10);
+
+        return P.resolve(q.lean().exec())
+            .then(alerts => P.map(alerts, function(alert_item) {
+                var l = {
+                    id: String(alert_item._id),
+                    severity: alert_item.severity,
+                    alert: alert_item.alert,
+                    time: alert_item.time.getTime(),
+                };
+                return l;
+            }))
+            .then(alerts => {
+                return {
+                    alerts: alerts
+                };
+            });
+    }
+
+    //Internals
     _resolve_activity_item(log_item, l) {
         return P.resolve()
             .then(() => nodes_client.instance().populate_nodes(

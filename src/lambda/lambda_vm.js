@@ -163,7 +163,7 @@ class LambdaVM {
                     console.log('LambdaVM err', err);
                     reject(err);
                 } else {
-                    console.log('LambdaVM reply', reply);
+                    // console.log('LambdaVM reply', reply);
                     resolve(reply);
                 }
                 if (!func_context.callbackWaitsForEmptyEventLoop) {

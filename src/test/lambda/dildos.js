@@ -2,8 +2,10 @@
 'use strict';
 
 const _ = require('lodash');
+const fs = require('fs');
 const AWS = require('aws-sdk');
 const http = require('http');
+const path = require('path');
 const argv = require('minimist')(process.argv);
 
 const P = require('../../util/promise');
@@ -25,128 +27,31 @@ const lambda = new AWS.Lambda({
     }
 });
 
-const url_hash_func = {
-    FunctionName: 'url_hash_func',
-    Description: 'Get from URL and calculate HASH',
+const ROLE_ARN = 'arn:aws:iam::638243541865:role/lambda-test';
+
+const word_count_func = {
+    FunctionName: 'word_count_func',
+    Description: 'Word Count of a web page',
     Runtime: 'nodejs6',
-    Handler: 'index.handler',
-    Role: 'arn:aws:iam::638243541865:role/lambda-test',
+    Handler: 'word_count_func.handler',
+    Role: ROLE_ARN,
     VpcConfig: {
-        SubnetIds: _.isArray(argv.pool) ? argv.pool : [argv.pool]
+        SubnetIds: argv.pools ? argv.pools.split(',') : []
     },
-    Files: {
-        'index.js': function() {
-            const http = require('http');
-            const crypto = require('crypto');
-            exports.handler = function(event, context, callback) {
-                event = event || {};
-                // var url = event.url || 'http://lorempixel.com/256/256/';
-                var url = event.url || 'http://www.google.com';
-                var hash = event.hash || 'sha1';
-                var encoding = event.encoding || 'hex';
-                var h = crypto.createHash(hash);
-                var num_bytes = 0;
-                http.get(url, res => res
-                        .once('error', err => callback(err))
-                        .on('data', data => {
-                            num_bytes += data.length;
-                            h.update(data);
-                        })
-                        .once('end', () => callback(null, {
-                            num_bytes: num_bytes,
-                            hash: h.digest(encoding)
-                        }))
-                    )
-                    .once('error', err => callback(err));
-            };
-        }
-    }
+    Files: ['word_count_func.js']
 };
 
-const denial_func = {
-    FunctionName: 'denial_func',
-    Description: 'Denial of service',
+const dos_func = {
+    FunctionName: 'dos_func',
+    Description: 'Denial of Service',
     Runtime: 'nodejs6',
-    Handler: 'index.handler',
-    Role: 'arn:aws:iam::638243541865:role/lambda-test',
+    Handler: 'denial_of_service_func.handler',
+    Role: ROLE_ARN,
     VpcConfig: {
-        SubnetIds: _.isArray(argv.pool) ? argv.pool : [argv.pool]
+        SubnetIds: argv.pools ? argv.pools.split(',') : []
     },
-    Files: {
-        'index.js': function() {
-            exports.handler = function(event, context, callback) {
-                event = event || {};
-                var func_name = event.func_name || 'url_hash_func';
-                var args = event.args || {};
-                var max_millis = event.max_millis || 1000;
-                var max_calls = event.max_calls || 1000;
-                var concur = event.concur || 1;
-                var start = Date.now();
-                var end = start + max_millis;
-                var num_calls = 0;
-                var num_bytes = 0;
-                var num_errors = 0;
-                for (var i = 0; i < concur; ++i) {
-                    worker();
-                }
-
-                function worker() {
-                    var now = Date.now();
-                    if (num_calls >= max_calls || now >= end) {
-                        return callback(null, {
-                            num_calls: num_calls,
-                            num_bytes: num_bytes,
-                            num_errors: num_errors,
-                            took: now - start,
-                        });
-                    }
-                    num_calls += 1;
-                    context.invoke_lambda(func_name, args, function(err, res) {
-                        if (err) {
-                            num_errors += 1;
-                        }
-                        if (res) {
-                            var reply = res.Response || JSON.parse(res.Payload);
-                            num_bytes += reply.num_bytes;
-                        }
-                        setImmediate(worker);
-                    });
-                }
-            };
-        }
-    }
+    Files: ['denial_of_service_func.js']
 };
-
-/*
-const image_resize_func = {
-    FunctionName: 'image_resize_func',
-    Description: 'image_resize_func',
-    Runtime: 'nodejs6',
-    Handler: 'index.handler',
-    Role: 'arn:aws:iam::638243541865:role/lambda-test',
-    Files: {
-        'package.json': {
-            // TODO support deps install
-            dependencies: {
-                jimp: '0.2.27'
-            },
-        },
-        'index.js': function() {
-            const jimp = require('jimp');
-            exports.handler = function(event, context, callback) {
-                var url = event.url || 'http://lorempixel.com/256/256/';
-                var x = event.x || 64;
-                var y = event.y || 64;
-                jimp.read(url, function(err, image) {
-                    if (err) return callback(err);
-                    image.resize(x, y);
-                    // TODO encode and return the image
-                });
-            };
-        }
-    }
-};
-*/
 
 
 function main() {
@@ -158,19 +63,30 @@ function main() {
 }
 
 function show() {
-    console.error('TODO: implement --show');
+    return P.fromCallback(callback => lambda.listFunctions({}, callback))
+        .then(res => {
+            _.each(res.Functions, f => {
+                console.log(`${f.FunctionName}`);
+                console.log(`\tPools        : ${f.VpcConfig.SubnetIds}`);
+                console.log(`\tVersion      : ${f.Version}`);
+                console.log(`\tLastModified : ${f.LastModified}`);
+                console.log(`\tCodeSha256   : ${f.CodeSha256}`);
+                console.log(`\tCodeSize     : ${f.CodeSize}`);
+                console.log(`\t`);
+            });
+        });
 }
 
 function install() {
-    if (argv.install === 'denial') {
-        return install_func(denial_func);
+    if (argv.install === 'wc') {
+        return install_func(word_count_func);
     }
-    if (argv.install === 'service') {
-        return install_func(url_hash_func);
+    if (argv.install === 'dos') {
+        return install_func(dos_func);
     }
     return P.resolve()
-        .then(() => install_func(url_hash_func))
-        .then(() => install_func(denial_func));
+        .then(() => install_func(word_count_func))
+        .then(() => install_func(dos_func));
 }
 
 function install_func(fn) {
@@ -178,26 +94,20 @@ function install_func(fn) {
     return P.resolve()
         .then(() => prepare_func(fn))
         .then(() => P.fromCallback(callback => lambda.deleteFunction({
-            FunctionName: fn.FunctionName,
-        }, callback)).catch(err => {
-            // ignore errors
-        }))
+                FunctionName: fn.FunctionName,
+            }, callback))
+            .catch(err => {
+                console.log('Delete function if exist:', err.message);
+            }))
         .then(() => P.fromCallback(callback => lambda.createFunction(fn, callback)))
         .then(() => console.log('created.'));
 }
 
 function prepare_func(fn) {
-    if (fn.Code) return;
     return P.resolve()
-        .then(() => zip_utils.zip_in_memory(
-            _.mapValues(fn.Files, f => {
-                if (!_.isFunction(f)) {
-                    return Buffer.from(JSON.stringify(f));
-                }
-                const s = f.toString();
-                return Buffer.from(s.slice(s.indexOf('{') + 1, s.length - 1));
-            })
-        ))
+        .then(() => P.map(fn.Files, f => fs.readFileAsync(path.join(__dirname, f))))
+        .then(files_data => _.zipObject(fn.Files, files_data))
+        .then(files_map => zip_utils.zip_in_memory(files_map))
         .then(zipfile => {
             delete fn.Files;
             fn.Code = {
@@ -207,65 +117,101 @@ function prepare_func(fn) {
 }
 
 function test() {
-    const params = {
-        FunctionName: denial_func.FunctionName,
-        // FunctionName: url_hash_func.FunctionName,
-        // Payload: JSON.stringify({}),
+    const wc_event = {
+        url: argv.url || 'http://127.0.0.1:5001',
+        return_text: argv.return_text,
     };
+    const params = argv.test === 'dos' ? {
+        FunctionName: dos_func.FunctionName,
+        Payload: JSON.stringify({
+            func_name: word_count_func.FunctionName,
+            func_event: wc_event,
+            time: 1000,
+            concur: 1,
+        }),
+    } : {
+        FunctionName: word_count_func.FunctionName,
+        Payload: JSON.stringify(wc_event)
+    };
+    console.log('Testing', params);
     return P.fromCallback(callback => lambda.invoke(params, callback))
-        .then(res => console.log('Result:', res, 'from', params));
+        .then(res => console.log('Result:', res));
 }
 
 function dildos() {
-    const max_calls = argv.max_calls || 10000;
-    const max_millis = argv.max_millis || 10000;
-    const concur = argv.concur || 1;
+    const concur = Number(argv.dildos) || 1;
+    const timeout = argv.timeout || 10000;
     const start = Date.now();
-    const end = start + max_millis;
-    let num_calls = 0;
-    let num_bytes = 0;
-    let num_errors = 0;
-    let took_sum = 0;
-    console.log(`DILDOS Starting: concur ${concur} max_millis ${max_millis} max_calls ${max_calls}`);
+    const end = start + timeout;
+    let total_calls = 0;
+    let total_errors = 0;
+    let total_took = 0;
+    let last_report = 0;
+    let last_calls = 0;
+    let last_took = 0;
+    console.log(`Starting ${concur} DILDOS`);
 
     const params = {
-        FunctionName: denial_func.FunctionName,
-        // FunctionName: url_hash_func.FunctionName,
-        // Payload: JSON.stringify({}),
+        FunctionName: dos_func.FunctionName,
+        Payload: JSON.stringify({
+            func_name: word_count_func.FunctionName,
+            func_event: {
+                random: 1024,
+            },
+            time: 1000,
+            concur: 1,
+        }),
     };
 
     function worker() {
         const now = Date.now();
-        if (num_calls >= max_calls || now >= end) return;
+        if (now >= end) return;
         return P.fromCallback(callback => lambda.invoke(params, callback))
             .then(res => {
                 if (argv.debug) {
                     console.log('Result:', res, 'from', params);
                 }
                 const reply = res.Response || JSON.parse(res.Payload);
-                num_calls += reply.num_calls;
-                num_bytes += reply.num_bytes;
-                num_errors += reply.num_errors;
-                took_sum += reply.took;
-                report();
+                total_calls += reply.num_calls;
+                total_errors += reply.num_errors;
+                total_took += reply.took;
+                const now_report = Date.now();
+                if (now_report - last_report >= 1000) {
+                    report({
+                        title: 'Report',
+                        calls: total_calls - last_calls,
+                        took: total_took - last_took,
+                        time: now_report - last_report,
+                    });
+                    last_report = now_report;
+                    last_calls = total_calls;
+                    last_took = total_took;
+                }
             })
             .then(worker);
     }
 
-    function report() {
-        const took = Date.now() - start;
-        const calls_per_sec = (num_calls * 1000 / took).toFixed(3);
-        const avg_latency = (took_sum / num_calls).toFixed(3);
-        console.log(`Averages: Calls per second ${calls_per_sec} Latency ${avg_latency}ms`);
+    function report({
+        title,
+        calls,
+        took,
+        time
+    }) {
+        const calls_per_sec = (calls * 1000 / time).toFixed(3);
+        const avg_latency = (took / calls).toFixed(3);
+        console.log(`${title}: Latency ${avg_latency}ms | Calls per second ${calls_per_sec} | Calls ${calls} | Errors ${total_errors}`);
     }
 
     return P.map(_.times(concur), worker)
         .then(() => {
-            report();
-            const took = Date.now() - start;
-            // const time = (took / 1000).toFixed(3);
-            const throughput = (num_bytes * 1000 / took / 1024).toFixed(3);
-            console.log(`Done: Total number of Calls ${num_calls} Throughput ${throughput} KB/sec Num Errors ${num_errors}`);
+            const now = Date.now();
+            report({
+                title: 'Final',
+                calls: total_calls,
+                took: total_took,
+                time: now - start,
+            });
+            console.log(`Done.`);
         });
 }
 

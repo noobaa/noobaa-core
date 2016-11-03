@@ -115,7 +115,9 @@ function lambda_rest(controller) {
         dbg.error('LAMBDA ERROR', lambda_err,
             JSON.stringify(req.headers),
             err.stack || err);
-        res.status(lambda_err.http_code).send(lambda_err.message);
+        res.status(lambda_err.http_code).send({
+            Message: lambda_err.message
+        });
     }
 
     /**

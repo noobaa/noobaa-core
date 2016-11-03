@@ -112,6 +112,9 @@ class LambdaController {
             CodeSha256: info.config.code_sha256,
             LastModified: new Date(info.config.last_modified).toISOString(),
             FunctionArn: info.config.resource_name,
+            VpcConfig: {
+                SubnetIds: info.config.pools
+            }
         };
     }
 

@@ -37,11 +37,14 @@ function create_func(req) {
     func.last_modified = new Date();
     func.code_size = 0;
     func.resource_name = `arn:noobaa:lambda:region:${func.system}:function:${func.name}:$LATEST`;
-    if (req.params.pools) {
-        func.pools = _.map(req.params.pools, pool_name =>
+    if (req.params.config.pools) {
+        func.pools = _.map(req.params.config.pools, pool_name =>
             req.system.pools_by_name[pool_name]._id);
     } else {
         func.pools = [req.system.pools_by_name.default_pool._id];
+    }
+    if (!func.pools.length) {
+        throw new Error('No pools');
     }
 
     return P.resolve()
@@ -81,8 +84,8 @@ function create_func(req) {
 
 function update_func(req) {
     const config_updates = _.pick(req.params, FUNC_CONFIG_FIELDS_MUTABLE);
-    if (req.params.pools) {
-        config_updates.pools = _.map(req.params.pools, pool_name =>
+    if (req.params.config.pools) {
+        config_updates.pools = _.map(req.params.config.pools, pool_name =>
             req.system.pools_by_name[pool_name]._id);
     }
     if (req.params.code) {
@@ -144,8 +147,9 @@ function invoke_func(req) {
             pool => node_allocator.refresh_pool_alloc(pool)))
         .then(() => {
             const func = req.lambda_func;
-            let node = node_allocator.allocate_node(func.pools);
+            const node = node_allocator.allocate_node(func.pools);
             if (!node) throw new Error('invoke_func: no nodes for allocation');
+            console.log('invoke_func allocate_node', node.name, node.pool);
             return server_rpc.client.compute_node.invoke_func({
                 name: func.name,
                 version: func.version,

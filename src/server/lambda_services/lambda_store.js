@@ -134,19 +134,21 @@ class LambdaStore {
     list_funcs(system) {
         return P.resolve()
             .then(() => this.collection().find({
-                system: system,
-                version: null,
-                deleted: null,
-            }));
+                    system: system,
+                    version: null,
+                    deleted: null,
+                })
+                .toArray());
     }
 
     list_func_versions(system, name) {
         return P.resolve()
             .then(() => this.collection().find({
-                system: system,
-                name: name,
-                deleted: null,
-            }));
+                    system: system,
+                    name: name,
+                    deleted: null,
+                })
+                .toArray());
     }
 
     create_code_gridfs({

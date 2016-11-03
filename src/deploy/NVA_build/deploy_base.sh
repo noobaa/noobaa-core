@@ -6,7 +6,6 @@ ENV_FILE="${CORE_DIR}/.env"
 LOG_FILE="/var/log/noobaa_deploy.log"
 SUPERD="/usr/bin/supervisord"
 SUPERCTL="/usr/bin/supervisorctl"
-NOOBAASEC="/etc/noobaa_sec"
 NOOBAA_ROOTPWD="/etc/nbpwd"
 
 function deploy_log {
@@ -268,10 +267,6 @@ function fix_security_issues {
 	fi
 	echo ${rootpwd} | passwd root --stdin
 
-	# set noobaaroot password
-	secret=$(cat ${NOOBAASEC})
-	echo ${secret} | passwd noobaaroot --stdin
-
 	# disable root login from ssh
 	if ! grep -q 'PermitRootLogin no' /etc/ssh/sshd_config; then
 		echo 'PermitRootLogin no' >> /etc/ssh/sshd_config
@@ -282,6 +277,11 @@ function fix_security_issues {
 		echo 'Match User noobaa'  >> /etc/ssh/sshd_config
 		echo '	PasswordAuthentication no'  >> /etc/ssh/sshd_config
 	fi
+
+    # copy fix_server_sec to
+    if ! grep -q 'fix_server_sec' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
+    fi
 }
 
 function setup_supervisors {

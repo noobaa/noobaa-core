@@ -47,11 +47,13 @@ const mongoose_utils = require('../util/mongoose_utils');
 const system_store = require('./system_services/system_store').get_instance();
 const promise_utils = require('../util/promise_utils');
 const SupervisorCtl = require('./utils/supervisor_ctrl');
+const account_server = require('./system_services/account_server');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const app = express();
 
+system_store.once('load', account_server.ensure_support_account);
 
 dbg.set_process_name('WebServer');
 mongoose_utils.mongoose_connect();

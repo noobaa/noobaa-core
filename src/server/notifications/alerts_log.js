@@ -11,10 +11,6 @@ var types = mongoose.Schema.Types;
  *
  */
 var alerts_log_schema = new Schema({
-    _id: {
-        format: 'objectid'
-    },
-
     system: {
         ref: 'System',
         type: types.ObjectId,

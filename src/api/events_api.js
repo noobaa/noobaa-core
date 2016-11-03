@@ -198,11 +198,13 @@ module.exports = {
             params: {
                 type: 'object',
                 required: ['ids'],
-                ids: {
-                    type: 'array',
-                    items: {
-                        type: 'string',
-                    },
+                properties: {
+                    ids: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    }
                 }
             },
             auth: {
@@ -225,24 +227,27 @@ module.exports = {
             },
             reply: {
                 required: ['alerts'],
-                type: 'array',
-                alerts: {
-                    items: {
-                        type: 'object',
-                        required: ['id', 'time', 'severity', 'alert'],
-                        properties: {
-                            id: {
-                                type: 'string',
-                            },
-                            time: {
-                                format: 'idate'
-                            },
-                            severity: {
-                                $ref: '#/definitions/alert_severity_enum'
-                            },
-                            alert: {
-                                type: 'string',
-                            },
+                type: 'object',
+                properties: {
+                    alerts: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['id', 'time', 'severity', 'alert'],
+                            properties: {
+                                id: {
+                                    type: 'string',
+                                },
+                                time: {
+                                    format: 'idate'
+                                },
+                                severity: {
+                                    $ref: '#/definitions/alert_severity_enum'
+                                },
+                                alert: {
+                                    type: 'string',
+                                },
+                            }
                         }
                     }
                 }

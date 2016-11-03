@@ -112,9 +112,7 @@ class Dispatcher {
     //Alerts
     alert(sev, sysid, alert) {
         dbg.log3('Sending alert', alert);
-        let id = system_store.generate_id();
         return AlertsLog.create({
-                _id: id,
                 system: sysid,
                 severity: sev,
                 alert: alert
@@ -126,7 +124,7 @@ class Dispatcher {
                 //TODO:: need to suppress alerts of the same kind
                 return server_rpc.client.frontend_notifications_api.alert({
                     severity: sev,
-                    id: id
+                    id: 0 //TODO:: NBNB send actual id
                 });
             });
     }

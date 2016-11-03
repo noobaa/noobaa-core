@@ -77,8 +77,8 @@ function read_alerts(req) {
 
 
 // EXPORTS
-exports.new_tier_defaults = read_activity_log;
-exports.new_policy_defaults = export_activity_log;
+exports.read_activity_log = read_activity_log;
+exports.export_activity_log = export_activity_log;
 exports.get_unread_alerts_count = get_unread_alerts_count;
 exports.mark_alerts_read = mark_alerts_read;
 exports.read_alerts = read_alerts;

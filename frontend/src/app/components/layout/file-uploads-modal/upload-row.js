@@ -1,7 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze, formatSize } from 'utils';
+import { formatSize } from 'utils';
 
 export default class UploadRowViewModel extends Disposable {
     constructor(upload) {

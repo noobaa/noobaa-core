@@ -323,6 +323,14 @@ export function closeDrawer() {
     );
 }
 
+export function clearCompletedUploads() {
+    model.uploads(
+        model.uploads().filter(
+            upload => !upload.completed
+        )
+    );
+}
+
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
@@ -949,6 +957,8 @@ export function uploadFiles(bucketName, files) {
         queueSize: 4
     });
 
+    let uploads = model.uploads;
+
     let { access_key , secret_key } = model.systemInfo().owner.access_keys[0];
     let s3 = new AWS.S3({
         endpoint: endpoint,
@@ -973,7 +983,6 @@ export function uploadFiles(bucketName, files) {
         };
 
         // Add the new upload to the uploads model.
-        let uploads = model.uploads;
         uploads.unshift(upload);
 
         // Start the upload.
@@ -1032,6 +1041,9 @@ export function uploadFiles(bucketName, files) {
             }
         );
     }
+
+    // Save the request size.
+    uploads.lastRequestFileCount(files.length);
 }
 
 export function testNode(source, testSet) {
@@ -1351,16 +1363,32 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
-    notify('Collecting data... might take a while');
+    let currentNodeKey = `node:${nodeName}`;
+    if(model.collectDiagnosticsState[currentNodeKey] === true) {
+        return;
+    }
+
+    model.collectDiagnosticsState.assign({
+        [currentNodeKey]: true
+    });
+
     api.system.diagnose_node({ name: nodeName })
         .catch(
             err => {
                 notify(`Packing diagnostic file for ${nodeName} failed`, 'error');
+                model.collectDiagnosticsState.assign({
+                    [currentNodeKey]: false
+                });
                 throw err;
             }
         )
         .then(
-            url => downloadFile(url)
+            url => {
+                downloadFile(url);
+                model.collectDiagnosticsState.assign({
+                    [currentNodeKey]: false
+                });
+            }
         )
         .done();
 }
@@ -1368,32 +1396,61 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
-    notify('Collecting data... might take a while');
+    let currentServerKey = `server:${targetHostname}`;
+    if(model.collectDiagnosticsState[currentServerKey] === true) {
+        return;
+    }
+
+    model.collectDiagnosticsState.assign({
+        [currentServerKey]: true
+    });
+
     api.cluster_server.diagnose_system({
         target_secret: targetSecret
     })
         .catch(
             err => {
                 notify(`Packing server diagnostic file for ${targetHostname} failed`, 'error');
+                model.collectDiagnosticsState.assign({
+                    [currentServerKey]: false
+                });
                 throw err;
             }
         )
-        .then(downloadFile)
+        .then(
+            url => {
+                downloadFile(url);
+                model.collectDiagnosticsState.assign({
+                    [currentServerKey]: false
+                });
+            }
+        )
         .done();
 }
 
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
-    notify('Collecting data... might take a while');
-    api.cluster_server.diagnose_system({})
+    if(model.collectDiagnosticsState['system'] === true) {
+        return;
+    }
+
+    model.collectDiagnosticsState.assign({ system: true });
+
+    api.cluster_server.diagnose_system()
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');
+                model.collectDiagnosticsState.assign({ system: false });
                 throw err;
             }
         )
-        .then(downloadFile)
+        .then(
+            url => {
+                downloadFile(url);
+                model.collectDiagnosticsState.assign({ system: false });
+            }
+        )
         .done();
 }
 

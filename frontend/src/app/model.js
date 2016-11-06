@@ -119,3 +119,5 @@ export const activationState = ko.observable();
 // Hold system name resolution attempt
 export const nameResolutionState = ko.observable();
 
+// Hold diagnostics information
+export const collectDiagnosticsState = ko.observable({});

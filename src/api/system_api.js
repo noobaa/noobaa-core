@@ -776,6 +776,9 @@ module.exports = {
                         },
                     },
                 },
+                last_upgrade: {
+                    format: 'idate'
+                },
                 cluster: {
                     $ref: '#/definitions/cluster_info'
                 },
@@ -877,6 +880,9 @@ module.exports = {
                 },
                 memory_usage: {
                     type: 'number'
+                },
+                storage: {
+                    $ref: 'common_api#/definitions/storage_info'
                 },
                 cpu_usage: {
                     type: 'number'

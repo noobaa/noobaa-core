@@ -17,8 +17,12 @@
         click: toogleDebugLevel,
         text: toogleDebugLevelButtonText
     "></button>
-    <button class="btn align-start" data-bind="click: downloadDiagnosticPack">
+    <working-button class="align-start push-next" params="
+        working: isCollectingDiagnostics,
+        workingLabel: 'Collecting Data...',
+        click: downloadDiagnosticPack
+    ">
         Download Diagnostics
-    </button>
+    </working-button>
 </section>
 

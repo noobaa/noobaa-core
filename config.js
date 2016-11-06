@@ -20,6 +20,10 @@ config.LONG_BUILD_THRESHOLD = 300000;
 config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
 config.DEMO_NODES_STORAGE_LIMIT = 500 * 1024 * 1024;
 config.NUM_DEMO_NODES = 3;
+config.NODE_IO_DETENTION_THRESHOLD = 60000;
+config.NODE_IO_DETENTION_RECENT_ISSUES = 5;
+// Picked two because minimum of nodes per pool is three
+config.NODE_IO_DETENTION_TEST_NODES = 2;
 
 ////////////////
 // RPC CONFIG //

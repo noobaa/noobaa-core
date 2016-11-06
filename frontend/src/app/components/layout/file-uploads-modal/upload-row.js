@@ -1,7 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze } from 'utils';
+import { deepFreeze, formatSize } from 'utils';
 
 const stateMapping = deepFreeze({
     UPLOADED: 'success',
@@ -9,27 +9,40 @@ const stateMapping = deepFreeze({
 });
 
 export default class UploadRowViewModel extends Disposable {
-    constructor(request) {
+    constructor(upload) {
         super();
 
         this.fileName = ko.pureComputed(
-            () => request() ? request().name : ''
+            () => upload() ? upload().name : ''
         );
 
         this.bucketName = ko.pureComputed(
-            () => request() ? request().targetBucket : ''
+            () => upload() ? upload().targetBucket : ''
+        );
+
+        this.size = ko.pureComputed(
+            () => upload() ? formatSize(upload().size) : ''
         );
 
         this.progress = ko.pureComputed(
             () => {
-                if (!request()) {
-                    return '';
+                if (!upload()) {
+                    return {};
                 }
 
-                let { state, progress, error } = request();
-                let text = state === 'UPLOADING' ? numeral(progress).format('0%') : state;
-                let tooltip = state === 'FAILED' ? error.message : '';
-                let css = stateMapping[state];
+                let { completed, error, size, progress } = upload();
+                let text = completed ?
+                    (error ? 'FAILED' : 'UPLOADED') :
+                    numeral(progress/size).format('0%');
+
+                let tooltip = error || '';
+
+                let css = '';
+                if (error) {
+                    css = 'error';
+                } else if (completed) {
+                    css = 'success';
+                }
 
                 return { text, css, tooltip };
             }

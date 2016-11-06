@@ -62,13 +62,14 @@ objectPartList.count = ko.observable(0);
 objectPartList.page = ko.observable(0);
 
 export const uploads = ko.observableArray();
+uploads.lastRequestFileCount = ko.observable(0);
 uploads.stats = ko.pureComputed(
     () => uploads().reduce(
         (stats, upload) => {
             let { archived, completed, error } = upload;
             stats.count += 1;
             stats.uploading += Number(!completed);
-            stats.failed += Number(completed && error);
+            stats.failed += Number(completed && Boolean(error));
             stats.uploaded += Number(completed && !error);
 
             if (!archived) {

@@ -145,7 +145,7 @@ class Dispatcher {
                 $in: req.rpc_params.ids
             }
         }, {
-            read: true
+            read: req.rpc_params.state
         }).exec();
     }
 

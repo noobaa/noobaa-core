@@ -197,13 +197,16 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['ids'],
+                required: ['ids', 'state'],
                 properties: {
                     ids: {
                         type: 'array',
                         items: {
                             type: 'string'
                         },
+                    },
+                    state: {
+                        type: 'boolean'
                     }
                 }
             },

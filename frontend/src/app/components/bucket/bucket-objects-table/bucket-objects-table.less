@@ -5,6 +5,21 @@ bucket-objects-table {
         margin-left: auto;
     }
 
+    .file-selector-wrapper  {
+        position: relative;
+
+        > .icon-btn {
+            position: absolute;
+            top: 1.5 * @gutter;
+            right: @gutter/2;
+
+            svg-icon {
+                height: 12px;
+                width: 12px;
+            }
+        }
+    }
+
     data-table {
         .name-col {
             text-align: left;

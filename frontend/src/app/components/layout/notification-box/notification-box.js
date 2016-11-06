@@ -2,7 +2,7 @@ import template from './notification-box.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { lastNotification } from 'model';
-import { waitFor } from 'utils';
+import { sleep } from 'utils';
 import { notificaitons as config } from 'config';
 
 class NotificationBarViewModel extends Disposable {
@@ -38,7 +38,7 @@ class NotificationBarViewModel extends Disposable {
                 }
             )
             .then(
-                () => waitFor(
+                () => sleep(
                     Math.max(
                         config.minTimeOnScreen,
                         config.charTimeContribution * message.length

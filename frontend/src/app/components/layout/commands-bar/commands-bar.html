@@ -8,13 +8,6 @@
     "></svg-icon>
 </button>
 
-<a class="icon-btn" data-bind="
-    href: { route: 'management', params: { tab: null } },
-    tooltip: 'Management'
-">
-    <svg-icon params="name: 'manage'"></svg-icon>
-</a>
-
 <button class="icon-btn" data-bind="
     click: showAuditLog,
     tooltip: 'Audit'
@@ -24,7 +17,7 @@
 
 <button class="icon-btn" data-bind="
     click: signOut,
-    tooltip: { text: 'Sign Out', align: 'right' }
+    tooltip: { text: 'Sign Out', align: 'end' }
 ">
     <svg-icon params="name: 'signout'"></svg-icon>
 </button>

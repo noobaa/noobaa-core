@@ -1,12 +1,20 @@
 import ko from 'knockout';
-import { isObject, isString } from 'utils';
+import { isObject, isString, deepFreeze } from 'utils';
 
 const tooltip = document.createElement('p');
 const delay = 350;
-const alignments = Object.freeze({
-    left: 0,
+
+const positions = deepFreeze({
+    above: 0,
+    after: 1,
+    below: 2,
+    before: 3
+});
+
+const alignments = deepFreeze({
+    start: 0,
     center: .5,
-    right: 1
+    end: 1
 });
 
 function toHtmlList(arr) {
@@ -21,16 +29,16 @@ function normalizeValue(value) {
     if (isString(value)) {
         return {
             text: value,
-            css: 'center',
-            align: alignments.center,
+            position: 'below',
+            align: 'center',
             breakWords: false
         };
 
     } else if (value instanceof Array) {
         return {
             text: value.length === 1 ? value : toHtmlList(value),
-            css: 'center',
-            align: alignments.center,
+            position: 'below',
+            align: 'center',
             breakWords: false
         };
 
@@ -40,34 +48,61 @@ function normalizeValue(value) {
             text = value.length === 1 ? value : toHtmlList(value);
         } else if (isObject(text)) {
             let { title  = '', list = [] } = text;
-            //text = `<p>${title}:</p>${list[0]}`;
             text = `<p>${title}:</p>${toHtmlList(list)}`;
         }
 
-        let pos = ko.unwrap(value.align);
-        if (!Object.keys(alignments).includes(pos)) {
-            pos = 'center';
+        let position = ko.unwrap(value.position);
+        if (!Object.keys(positions).includes(position)) {
+            position = 'below';
+        }
+
+        let align = ko.unwrap(value.align);
+        if (!Object.keys(alignments).includes(align)) {
+            align = 'center';
         }
 
         return {
             text: text,
-            css: pos,
-            align: alignments[pos],
+            position: position,
+            align: align,
             breakWords: Boolean(ko.unwrap(value.breakWords))
         };
+
     } else {
         return {};
     }
 }
 
-function showTooltip(target, { text, css, align, breakWords }) {
+function showTooltip(target, { text, align, position, breakWords }) {
     tooltip.innerHTML = text;
-    tooltip.className = `tooltip ${css} ${breakWords ? 'break-words' : ''}`;
+    tooltip.className = `tooltip ${align} ${position} ${breakWords ? 'break-words' : ''}`;
     document.body.appendChild(tooltip);
 
-    let { left, top } = target.getBoundingClientRect();
-    top += target.offsetHeight;
-    left += target.offsetWidth / 2 - tooltip.offsetWidth * align;
+    let alignFactor = alignments[align];
+    let { left, top, bottom, right } = target.getBoundingClientRect();
+
+    switch (positions[position]) {
+        case positions.above:
+            top -= tooltip.offsetHeight;
+            left += target.offsetWidth / 2 - tooltip.offsetWidth * alignFactor;
+            break;
+
+        case positions.after:
+            top += target.offsetHeight / 2 - tooltip.offsetHeight * alignFactor;
+            left = right;
+            break;
+
+        case positions.below:
+            left += target.offsetWidth / 2 - tooltip.offsetWidth * alignFactor;
+            top = bottom;
+            break;
+
+        case positions.before:
+            top += target.offsetHeight / 2 - tooltip.offsetHeight * alignFactor;
+            left -= tooltip.offsetWidth;
+            break;
+    }
+
     tooltip.style.top = `${Math.ceil(top)}px`;
     tooltip.style.left = `${Math.ceil(left)}px`;
 }

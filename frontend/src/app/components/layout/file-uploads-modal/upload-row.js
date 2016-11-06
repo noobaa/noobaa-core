@@ -3,11 +3,6 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze, formatSize } from 'utils';
 
-const stateMapping = deepFreeze({
-    UPLOADED: 'success',
-    FAILED: 'error'
-});
-
 export default class UploadRowViewModel extends Disposable {
     constructor(upload) {
         super();

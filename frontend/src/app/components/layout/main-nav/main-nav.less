@@ -73,7 +73,24 @@ main-nav {
             width: 42px;
         }
 
-        &.show-count::after {
+        > .anim {
+            position: absolute;
+            display: block;
+            top: 3px;
+            left: 8px;
+            background: transparent;
+            border: 1px solid @color6;
+            border-radius: 1px;
+            padding: 4px 2px;
+            color: @color8;
+            animation: swoosh 1000ms ease-out forwards;
+
+            &::before {
+                content: '+';
+            }
+        }
+
+        &.uploading::after {
             @size : 10px;
             content: attr(data-count);
             position: absolute;
@@ -90,4 +107,19 @@ main-nav {
             text-align: center;
         }
     }
+}
+
+@keyframes swoosh {
+  0% {
+    transform: translateX(100px) scale(4);
+    opacity: .8;
+  }
+
+  70% {
+    transform: translateX(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+  }
 }

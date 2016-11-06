@@ -1,7 +1,7 @@
 import template from './main-nav.html';
 import Disposable from 'disposable';
 import { uiState, uploads } from 'model';
-import { deepFreeze } from 'utils';
+import { deepFreeze, sleep } from 'utils';
 import ko from 'knockout';
 import style from 'style';
 
@@ -49,6 +49,17 @@ class NavMenuViewModel extends Disposable{
 
         this.uploadsCount = ko.pureComputed(
             () => uploads.stats().uploading
+        );
+
+        this.animateUploadCount = ko.observable(false);
+        this.lastUploadCount = uploads.lastRequestFileCount;
+        this.addToDisposeList(
+            this.lastUploadCount.subscribe(
+                () => {
+                    this.animateUploadCount(false);
+                    sleep(100, true).then(this.animateUploadCount);
+                }
+            )
         );
 
         let uploadProgress = ko.pureComputed(

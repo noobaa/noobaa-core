@@ -13,18 +13,20 @@
 <button class="uploads icon-btn no-outline column content-middle"
     tabindex="-1"
     data-bind="
-        tooltip: { text: 'Uploads', position: 'after' },
+        tooltip: { text: 'Upload transactions', position: 'after' },
         click: () => showUploadsModal(),
-        attr: { 'data-count': uploadsCount },
-        css: { 'show-count': uploadsCount() }
+        css: { 'uploading': uploadsCount },
+        attr: { 'data-count': uploadsCount }
     ">
     <svg-icon params="name: 'upload'"></svg-icon>
     <bar params="values: uploadStateValues"></bar>
+    <span class="anim" data-bind="
+        visible: animateUploadCount,
+        text: lastUploadCount
+    "></span>
 </button>
 
 <!-- ko if: isUploadsModalVisible -->
-<upload-files-modal params="
-    buckets: 'files',
-    onClose: () => hideUploadsModal()
-"></upload-files-modal>
+<file-uploads-modal params="onClose: () => hideUploadsModal()">
+</file-uploads-modal>
 <!-- /ko -->

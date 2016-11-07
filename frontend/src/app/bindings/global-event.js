@@ -25,7 +25,7 @@ export default {
     },
 
     update: function(element, valueAccessor) {
-        let handlers = valueAccessor() || {};
+        let handlers = ko.unwrap(valueAccessor()) || {};
         let oldHandlers = domData.get(element, 'globalEvent') || {};
 
         // Remove old handlers which are not used anymore.

@@ -1,6 +1,6 @@
 import ko from 'knockout';
 
-const { domData } = ko.utils;
+const { domData, domNodeDisposal } = ko.utils;
 
 function addGlobalListener(event, handler) {
     document.documentElement.addEventListener(event, handler, false);
@@ -13,7 +13,7 @@ function removeGlobalListener(event, handler) {
 export default {
     init: function(element) {
         // Cleanup registered handlers.
-        ko.utils.domNodeDisposal.addDisposeCallback(
+        domNodeDisposal.addDisposeCallback(
             element,
             () => {
                 let handlers = domData.get(element, 'globalEvent') || {};

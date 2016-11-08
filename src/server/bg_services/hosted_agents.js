@@ -2,19 +2,17 @@
 
 const _ = require('lodash');
 const uuid = require('node-uuid');
-// const child_process = require('child_process');
 const path = require('path');
-// const fs = require('fs');
+const fs = require('fs');
 var util = require('util');
 
 const dbg = require('../../util/debug_module')(__filename);
-// const supervisor = require('../utils/supervisor_ctrl.js');
-// const os_utils = require('../../util/os_utils');
 const P = require('../../util/promise');
 const fs_utils = require('../../util/fs_utils');
 const Agent = require('../../agent/agent');
 const system_store = require('../system_services/system_store').get_instance();
 const auth_server = require('../common_services/auth_server');
+const json_utils = require('../../util/json_utils');
 
 
 
@@ -34,6 +32,7 @@ class HostedAgents {
 
     start() {
         let system = system_store.data.systems[0];
+        if (!system) return;
         let cloud_pools = _.filter(system.pools_by_name, pool => Boolean(pool.cloud_pool_info));
         // start agent for all cloud pools that doesn't already have a running agent
         let pools_to_start = _.filter(cloud_pools, pool => _.isUndefined(this._started_agents[pool.name]));
@@ -43,18 +42,25 @@ class HostedAgents {
         dbg.log0(`stopping the following agents: ${agents_to_stop}`);
         _.each(agents_to_stop, (agent, name) => this.stop_agent(name));
 
+        this._started = true;
         dbg.log0(`starting agents for the following pools: ${pools_to_start.map(pool => pool.name)}`);
-        return P.map(pools_to_start, pool => this.start_cloud_agent(pool));
+        return P.map(pools_to_start, pool => this.start_cloud_agent(pool))
+            .catch(err => {
+                this._started = false;
+                dbg.error(`failed starting hosted_agents: `);
+            });
     }
 
 
     stop() {
+        this._started = false;
         //stop all running agents
         _.each(this._started_agents, (agent, name) => this.stop_agent(name));
     }
 
 
     start_cloud_agent(cloud_pool) {
+        if (!this._started) return;
         if (this._started_agents[cloud_pool.name]) {
             dbg.warn(`agent ${cloud_pool.name} already started. skipping start_cloud_agent`);
             return;
@@ -153,6 +159,53 @@ class HostedAgents {
             });
     }
 
+    // Currently this is used for tests only. if we want to use it for real purposes
+    // we need to review it more carefully.
+    start_local_agent(params) {
+        if (!this._started) return;
+
+        let port = process.env.SSL_PORT || 5443;
+        let host_id = uuid();
+        let node_name = 'noobaa-internal-agent-' + params.name;
+        let storage_path = path.join(process.cwd(), 'agent_storage', node_name);
+
+        let system = system_store.data.systems[0];
+        let auth_parmas = {
+            system_id: String(system._id),
+            account_id: system.owner._id,
+            role: 'create_node'
+        };
+
+        // read/write token functions to pass to agent. for cloud agents the token is stored in DB
+        let local_create_node_token = auth_server.make_auth_token(auth_parmas);
+
+        let token_wrapper = {
+            read: () => fs.readFileAsync(path.join(storage_path, 'token')),
+            write: token => fs.writeFileAsync(path.join(storage_path, 'token'), token),
+            create_node_token: local_create_node_token,
+            update_create_node_token: new_token => this.agent_conf.update({
+                create_node_token: new_token
+            })
+        };
+
+
+        let agent_params = {
+            address: 'wss://127.0.0.1:' + port,
+            node_name: node_name,
+            host_id: host_id,
+            storage_path: storage_path,
+            token_wrapper: token_wrapper,
+            agent_conf: new json_utils.JsonWrapper('agent_conf.json')
+        };
+
+        dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
+        let agent = new Agent(agent_params);
+        this._started_agents[params.name] = agent;
+        return fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS)
+            .then(() => token_wrapper.write(local_create_node_token))
+            .then(() => agent.start());
+    }
+
 
     stop_agent(name) {
         dbg.log0(`stopping agent ${name}`);
@@ -171,7 +224,7 @@ function create_agent(req) {
         let cloud_pool = system_store.data.systems[0].pools_by_name[req.params.name];
         return HostedAgents.instance().start_cloud_agent(cloud_pool);
     }
-    throw new Error('NOT IMPLEMENTED');
+    return HostedAgents.instance().start_local_agent(req.params);
 }
 
 

@@ -1,5 +1,7 @@
 import ko from 'knockout';
 
+export const previewMode = ko.observable(false);
+
 // Hold the current ui state.
 export const uiState = ko.observable({
     layout: 'empty'

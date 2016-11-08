@@ -329,8 +329,8 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
-  #if noobaa supervisor.conf is pre clustering, fix it
-  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | wc -l)
+  #if noobaa supervisor.conf is pre clustering, or contains a cloiud agent fix it
+  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1\|agent_" /etc/noobaa_supervisor.conf | wc -l)
   if [ ${FOUND} -eq 0 ]; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi

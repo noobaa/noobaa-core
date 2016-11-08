@@ -1,8 +1,12 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
+import numeral from 'numeral';
 import { collectDiagnosticsState, systemInfo } from 'model';
 import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
-import { deepFreeze, isUndefined } from 'utils';
+import { deepFreeze, isUndefined, formatSize } from 'utils';
+
+const diskUsageErrorBound = .95;
+const diskUsageWarningBound = .85;
 
 const stateIconMapping = deepFreeze({
     CONNECTED: {
@@ -43,6 +47,21 @@ export default class ServerRowViewModel extends Disposable {
 
         this.address = ko.pureComputed(
             () => server() ? server().address : ''
+        );
+
+        this.diskUsage = ko.pureComputed(
+            () => {
+                let { free, total } = server().storage;
+                let used = total - free;
+                let text = numeral(used / total).format('0%');
+                let tooltip = `${formatSize(used)} used of ${formatSize(total)}`;
+                let css = '';
+                if(used / total >= diskUsageWarningBound) {
+                    css = used / total >= diskUsageErrorBound ? 'error' : 'warning';
+                }
+
+                return { text, tooltip, css };
+            }
         );
 
         this.memoryUsage = ko.pureComputed(

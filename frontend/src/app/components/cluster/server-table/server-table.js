@@ -21,6 +21,11 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'diskUsage',
+        label: 'disk usage',
+        sortable: true
+    },
+    {
         name: 'memoryUsage',
         label: 'memroy usage',
         sortable: true
@@ -40,6 +45,7 @@ const compareAccessors = deepFreeze({
     state: server => server.status,
     hostname: server => server.hostname,
     address: server => server.address,
+    diskUsage: server => 1 - server.storage.free / server.storage.total,
     memoryUsage: server => server.memory_usage,
     cpuUsage: server => server.cpu_usage,
     version: server => server.version

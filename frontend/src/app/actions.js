@@ -37,6 +37,10 @@ export function start() {
         sessionStorage.getItem('sessionToken') ||
         localStorage.getItem('sessionToken');
 
+    model.previewMode(
+        localStorage.getItem('previewMode')
+    );
+
     return api.auth.read_auth()
         // Try to restore the last session
         .then(({ account, system }) => {

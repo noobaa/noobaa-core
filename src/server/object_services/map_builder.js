@@ -107,7 +107,7 @@ class MapBuilder {
             let avoid_nodes = chunk.blocks.map(block => String(block.node._id));
             let allocated_hosts = chunk.blocks.map(block => block.node.host_id);
             _.each(chunk.status.allocations, alloc => {
-                let f = alloc.fragment;
+                let f = alloc.alloc_set.fragment;
                 let block = _.pick(f,
                     'layer',
                     'layer_n',
@@ -118,14 +118,14 @@ class MapBuilder {
                 block._id = md_store.make_md_id();
                 // We send an additional flag in order to allocate
                 // replicas of content tiering feature on the best read latency nodes
-                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts, {
+                let node = node_allocator.allocate_node(alloc.alloc_set.pools, avoid_nodes, allocated_hosts, {
                     special_replica: chunk.is_special
                 });
                 if (!node) {
                     // In case of special chunks replication we consider it opportunistic
                     // Which means that they will be replicated when there are enough nodes
                     // They do not need to fail the rebuilding process
-                    if (chunk.is_special) {
+                    if (alloc.special_replica) {
                         dbg.error('MapBuilder: special chunk no nodes for allocation');
                         return;
                     }
@@ -138,7 +138,7 @@ class MapBuilder {
                 block.node = node; // keep the node ref, same when populated
                 block.system = chunk.system;
                 block.chunk = chunk;
-                alloc.block = block;
+                alloc.alloc_set.block = block;
                 avoid_nodes.push(String(node._id));
                 allocated_hosts.push(node.host_id);
             });
@@ -148,13 +148,13 @@ class MapBuilder {
     replicate_blocks() {
         return P.all(_.map(this.chunks, chunk => {
             return P.all(_.map(chunk.status.allocations, alloc => {
-                let block = alloc.block;
+                let block = alloc.alloc_set.block;
                 if (!block) {
                     // block that failed to allocate - skip replicate.
                     return;
                 }
 
-                let f = alloc.fragment;
+                let f = alloc.alloc_set.fragment;
                 f.accessible_blocks = f.accessible_blocks ||
                     _.filter(f.blocks, b => map_utils.is_block_accessible(b));
                 f.next_source = f.next_source || 0;

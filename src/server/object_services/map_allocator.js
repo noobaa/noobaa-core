@@ -91,12 +91,12 @@ class MapAllocator {
             let allocated_hosts = [];
 
             _.each(status.allocations, alloc => {
-                let f = alloc.fragment;
+                let f = alloc.alloc_set.fragment;
                 let block = _.pick(f,
                     'digest_type',
                     'digest_b64');
                 block._id = md_store.make_md_id();
-                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts);
+                let node = node_allocator.allocate_node(alloc.alloc_set.pools, avoid_nodes, allocated_hosts);
                 if (!node) {
                     throw new Error('MapAllocator: no nodes for allocation');
                 }

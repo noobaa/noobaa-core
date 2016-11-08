@@ -34,7 +34,6 @@ export default class ServerRowViewModel extends Disposable {
 
         this.hostname = ko.pureComputed(
             () => {
-                console.log(server());
                 let masterSecret = systemInfo() && systemInfo().cluster['master_secret'];
                 return server() ?
                     `${server().hostname} ${server().secret === masterSecret ? '(Master)' : ''}` :

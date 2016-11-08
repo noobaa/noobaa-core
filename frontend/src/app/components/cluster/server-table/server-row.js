@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { collectDiagnosticsState } from 'model';
+import { collectDiagnosticsState, systemInfo } from 'model';
 import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
 import { deepFreeze, isUndefined } from 'utils';
 
@@ -33,7 +33,13 @@ export default class ServerRowViewModel extends Disposable {
         );
 
         this.hostname = ko.pureComputed(
-            () => server() ? server().hostname : ''
+            () => {
+                console.log(server());
+                let masterSecret = systemInfo() && systemInfo().cluster['master_secret'];
+                return server() ?
+                    `${server().hostname} ${server().secret === masterSecret ? '(Master)' : ''}` :
+                    '';
+            }
         );
 
         this.address = ko.pureComputed(

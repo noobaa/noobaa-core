@@ -30,8 +30,14 @@ let columns = deepFreeze([
         sortable: 'used',
         type: 'capacity'
     },
-    'trustLevel',
-    'dataActivity'
+    {
+        name: 'trustLevel',
+        sortable: 'trusted'
+    },
+    {
+        name: 'dataActivity',
+        sortable: 'data_activity'
+    }
 ]);
 
 class PoolNodesTableViewModel extends Disposable {

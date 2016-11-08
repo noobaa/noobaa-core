@@ -106,15 +106,14 @@ function get_chunk_status(chunk, tiering, async_mirror) {
         });
         if (alloc && alloc.pools.length) {
             let num_missing = Math.max(0, required_replicas - num_good);
+            // These are the minimum required replicas
             let num_must_missing = Math.max(0, tier.replicas - num_good);
-            _.times(num_must_missing, () => allocations.push({
-                alloc_set: _.clone(alloc),
-                special_replica: false
-            }));
-            _.times(num_missing - num_must_missing, () => allocations.push({
-                alloc_set: _.clone(alloc),
+            // Notice that we push the minimum required replicas in higher priority
+            // This is done in order to insure that we will allocate them before the additional replicas
+            _.times(num_must_missing, () => allocations.push(_.clone(alloc)));
+            _.times(num_missing - num_must_missing, () => allocations.push(_.defaults(_.clone(alloc), {
                 special_replica: true
-            }));
+            })));
         }
         return num_accessible;
     }

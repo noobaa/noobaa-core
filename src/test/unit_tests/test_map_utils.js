@@ -38,8 +38,8 @@ mocha.describe('map_utils', function() {
                     assert.strictEqual(status.deletions.length, 0);
                     assert(!status.accessible, '!accessible');
                     _.each(status.allocations, alloc => {
-                        _.each(alloc.alloc_set.pools, pool => {
-                            assert(_.includes(pools, pool), 'alloc.alloc_set.pool');
+                        _.each(alloc.pools, pool => {
+                            assert(_.includes(pools, pool), 'alloc.pool');
                         });
                     });
                 });
@@ -95,8 +95,8 @@ mocha.describe('map_utils', function() {
                     assert.strictEqual(status.deletions.length, 0);
                     assert(status.accessible, 'accessible');
                     _.each(status.allocations, alloc => {
-                        _.each(alloc.alloc_set.pools, pool => {
-                            assert(_.includes(pools, pool), 'alloc.alloc_set.pool');
+                        _.each(alloc.pools, pool => {
+                            assert(_.includes(pools, pool), 'alloc.pool');
                         });
                     });
                 });
@@ -123,9 +123,9 @@ mocha.describe('map_utils', function() {
                     assert(status.accessible, 'accessible');
                     _.each(status.allocations, alloc => {
                         blocks.push({
-                            layer: alloc.alloc_set.fragment.layer,
-                            frag: alloc.alloc_set.fragment.frag,
-                            node: mock_node(alloc.alloc_set.pools[0]._id)
+                            layer: alloc.fragment.layer,
+                            frag: alloc.fragment.frag,
+                            node: mock_node(alloc.pools[0]._id)
                         });
                     });
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);

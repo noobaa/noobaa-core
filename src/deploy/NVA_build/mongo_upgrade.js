@@ -27,7 +27,7 @@ function upgrade() {
 
 
 function fix_server_secret() {
-    let truncated_secret = param_secret.substring(0, param_secret.length - 1);
+    var truncated_secret = param_secret.substring(0, param_secret.length - 1);
     // try to look for a truncated secret and set to the complete one.
     db.clusters.update({
         owner_secret: truncated_secret
@@ -42,7 +42,9 @@ function sync_cluster_upgrade() {
     // find if this server should perform mongo upgrade
     var is_mongo_upgrade = db.clusters.find({
         owner_secret: param_secret
-    }).toArray()[0].upgrade.mongo_upgrade;
+    }).toArray()[0].upgrade ? db.clusters.find({
+        owner_secret: param_secret
+    }).toArray()[0].upgrade.mongo_upgrade : false;
 
     // if this server shouldn't run mongo_upgrade, set status to DB_READY,
     // to indicate that this server is upgraded and with mongo running.
@@ -63,7 +65,9 @@ function sync_cluster_upgrade() {
             try {
                 var master_status = db.clusters.find({
                     "upgrade.mongo_upgrade": true
-                }).toArray()[0].upgrade.status;
+                }).toArray()[0] ? db.clusters.find({
+                    "upgrade.mongo_upgrade": true
+                }).toArray()[0].upgrade.status : 'COMPLETED';
                 if (master_status === 'COMPLETED') {
                     print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
                     mark_completed();
@@ -132,6 +136,11 @@ function upgrade_systems() {
                 }
             }
             updates.access_keys = updated_access_keys;
+        }
+
+        //Add last upgrade time if not exists
+        if (!system.upgrade_date) {
+            updates.upgrade_date = Date.now();
         }
 
         // optional fix - convert to idate format from ISO date

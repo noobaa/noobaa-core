@@ -21,8 +21,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../../util/cloud_utils');
 const azure = require('azure-storage');
 
-system_store.on('load', ensure_support_account);
-
 /**
  *
  * CREATE_ACCOUNT

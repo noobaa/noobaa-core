@@ -49,7 +49,6 @@ var offer = 'UbuntuServer';
 var sku = '14.04.3-LTS';
 var osType = 'Linux';
 
-
 // Windows config
 if (argv.os === 'windows') {
     publisher = 'MicrosoftWindowsServer';

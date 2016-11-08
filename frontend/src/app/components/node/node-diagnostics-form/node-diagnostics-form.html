@@ -20,12 +20,14 @@
     </div>
 
     <div data-bind="tooltip: actionsTooltip">
-        <button class="btn" data-bind="
-            disable: areActionsDisabled,
-            click: downloadDiagnosticPack
+        <working-button params="
+            working: isCollectingDiagnostics,
+            workingLabel: 'Collecting Data...',
+            click: downloadDiagnosticPack,
+            disable: areActionsDisabled
         ">
             Download Diagnostics
-        </button>
+        </working-button>
     </div>
 </section>
 

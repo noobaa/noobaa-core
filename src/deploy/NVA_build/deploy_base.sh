@@ -6,7 +6,6 @@ ENV_FILE="${CORE_DIR}/.env"
 LOG_FILE="/var/log/noobaa_deploy.log"
 SUPERD="/usr/bin/supervisord"
 SUPERCTL="/usr/bin/supervisorctl"
-NOOBAASEC="/etc/noobaa_sec"
 NOOBAA_ROOTPWD="/etc/nbpwd"
 
 function deploy_log {
@@ -206,10 +205,12 @@ function general_settings {
     echo "alias nlog='logger -p local0.warn -t NooBaaBash[1]'"
     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
 
-    #Fix file descriptor limits
+    #Fix file descriptor limits, tcp timeout
     echo "root hard nofile 102400" >> /etc/security/limits.conf
     echo "root soft nofile 102400" >> /etc/security/limits.conf
+    echo "64000" > /proc/sys/kernel/threads-max
     sysctl -w fs.file-max=102400
+    sysctl -w net.ipv4.tcp_keepalive_time=120
     sysctl -e -p
 
     #noobaa user & first install wizard
@@ -266,10 +267,6 @@ function fix_security_issues {
 	fi
 	echo ${rootpwd} | passwd root --stdin
 
-	# set noobaaroot password
-	secret=$(cat ${NOOBAASEC})
-	echo ${secret} | passwd noobaaroot --stdin
-
 	# disable root login from ssh
 	if ! grep -q 'PermitRootLogin no' /etc/ssh/sshd_config; then
 		echo 'PermitRootLogin no' >> /etc/ssh/sshd_config
@@ -280,6 +277,11 @@ function fix_security_issues {
 		echo 'Match User noobaa'  >> /etc/ssh/sshd_config
 		echo '	PasswordAuthentication no'  >> /etc/ssh/sshd_config
 	fi
+
+    # copy fix_server_sec to
+    if ! grep -q 'fix_server_sec' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
+    fi
 }
 
 function setup_supervisors {

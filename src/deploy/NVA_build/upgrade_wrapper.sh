@@ -244,7 +244,9 @@ function pre_upgrade {
     echo "root soft nofile 102400" >> /etc/security/limits.conf
   fi
 
+  echo "64000" > /proc/sys/kernel/threads-max
   sysctl -w fs.file-max=102400
+  sysctl -w net.ipv4.tcp_keepalive_time=120
   sysctl -e -p
   agent_conf=${CORE_DIR}/agent_conf.json
   if [ -f "$agent_conf" ]
@@ -254,6 +256,11 @@ function pre_upgrade {
         cp ${agent_conf} /tmp/agent_conf.json
     else
         deploy_log "$agent_conf not found."
+    fi
+
+	# copy fix_server_sec to
+    if ! grep -q 'fix_server_sec' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
     fi
 
 	#install nvm use v4.4.4

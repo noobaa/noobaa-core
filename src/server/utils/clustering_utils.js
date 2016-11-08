@@ -8,7 +8,6 @@ const util = require('util');
 const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
 const dbg = require('../../util/debug_module')(__filename);
-const config = require('../../../config');
 const os = require('os');
 const moment = require('moment');
 
@@ -145,11 +144,17 @@ function find_shard_index(shardname) {
 }
 
 function get_cluster_info() {
-    let local_info = system_store.get_local_cluster_info();
+    const get_hb = true;
+    let local_info = system_store.get_local_cluster_info(get_hb);
     let shards = local_info.shards.map(shard => ({
         shardname: shard.shardname,
         servers: []
     }));
+    // list online members accoring to local mongo rs status
+    let online_members = [local_info.owner_address];
+    if (local_info.is_clusterized && local_info.heartbeat) {
+        online_members = _get_online_members(local_info.heartbeat.health.mongo_rs_status);
+    }
     _.each(system_store.data.clusters, cinfo => {
         let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
         let memory_usage = 0;
@@ -160,6 +165,10 @@ function get_cluster_info() {
         let time_epoch = moment().unix();
         let location = cinfo.location;
         let single_server = system_store.data.clusters.length === 1;
+        let storage = {
+            total: 0,
+            free: 0
+        };
         if (single_server) {
             is_connected = 'CONNECTED';
         }
@@ -167,12 +176,11 @@ function get_cluster_info() {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
             cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
-            let now = Date.now();
-            let diff = now - cinfo.heartbeat.time;
-            if (diff < config.CLUSTER_NODE_MISSING_TIME) {
+            if (online_members.indexOf(cinfo.owner_address) !== -1) {
                 is_connected = 'CONNECTED';
             }
             hostname = cinfo.heartbeat.health.os_info.hostname;
+            storage = cinfo.heartbeat.health.storage;
         }
         let server_info = {
             version: version,
@@ -181,6 +189,7 @@ function get_cluster_info() {
             address: cinfo.owner_address,
             status: is_connected,
             memory_usage: memory_usage,
+            storage: storage,
             cpu_usage: cpu_usage,
             location: location,
             debug_level: cinfo.debug_level,
@@ -207,6 +216,20 @@ function get_cluster_info() {
     };
     return cluster_info;
 }
+
+function _get_online_members(rs_status) {
+    let online_members = [];
+    if (rs_status && rs_status.members) {
+        _.each(rs_status.members, member => {
+            if (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY') {
+                let res_address = member.name.substring(0, member.name.indexOf(':'));
+                online_members.push(res_address);
+            }
+        });
+    }
+    return online_members;
+}
+
 
 function get_potential_masters() {
     //TODO: For multiple shards, this should probably change?

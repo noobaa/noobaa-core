@@ -1,8 +1,8 @@
 file-uploads-modal {
-    bar {
-        height: 4px;
-        width: 120px;
-
+    .progress-bar {
+        height: 3px;
+        width: 180px;
+/*        margin: @gutter/2 0;*/
     }
 
     data-table {
@@ -17,6 +17,10 @@ file-uploads-modal {
             min-width: 90px;
         }
 
+        .size-col {
+            min-width: 70px;
+        }
+
         .progress-col {
             min-width: 90px;
         }
@@ -29,6 +33,10 @@ file-uploads-modal {
 
         svg-icon {
             margin-right: @gutter/2;
+        }
+
+        .file-counter {
+            margin-left: auto;
         }
     }
 }

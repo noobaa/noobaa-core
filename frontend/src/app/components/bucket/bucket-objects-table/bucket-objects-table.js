@@ -4,7 +4,7 @@ import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils';
 import ObjectRowViewModel from './object-row';
-import { redirectTo } from 'actions';
+import { navigateTo, uploadFiles } from 'actions';
 import { routeContext, systemInfo } from 'model';
 
 const columns = deepFreeze([
@@ -80,6 +80,8 @@ class BucketObjectsTableViewModel extends Disposable {
                 'Cannot upload, not enough healthy nodes in bucket storage'
         );
 
+        this.fileSelectorExpanded = ko.observable(false);
+
         this.objectCount = ko.pureComputed(
             () => bucket() && bucket().num_objects
         );
@@ -113,20 +115,15 @@ class BucketObjectsTableViewModel extends Disposable {
         this.hasObjects = ko.pureComputed(
             () => this.objects().length > 0
         );
+    }
 
-        this.isUploadFilesModalVisible = ko.observable(false);
+    uploadFiles(files) {
+        uploadFiles(this.bucketName(), files);
+        this.fileSelectorExpanded(false);
     }
 
     createObjectRow(obj) {
         return new ObjectRowViewModel(obj);
-    }
-
-    showUploadFilesModal() {
-        this.isUploadFilesModalVisible(true);
-    }
-
-    hideUploadFilesModal() {
-        this.isUploadFilesModalVisible(false);
     }
 
     pageTo(page) {
@@ -138,7 +135,7 @@ class BucketObjectsTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     filterObjects(phrase) {
@@ -150,7 +147,7 @@ class BucketObjectsTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     orderBy(sorting) {
@@ -162,7 +159,7 @@ class BucketObjectsTableViewModel extends Disposable {
             sorting
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 }
 

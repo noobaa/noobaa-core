@@ -3,9 +3,10 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
+import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
+    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
+    stringifyAmount } from 'utils';
 
-import { isDefined, last, makeArray, execInOrder, realizeUri, waitFor,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -35,6 +36,10 @@ export function start() {
     api.options.auth_token =
         sessionStorage.getItem('sessionToken') ||
         localStorage.getItem('sessionToken');
+
+    model.previewMode(
+        localStorage.getItem('previewMode')
+    );
 
     return api.auth.read_auth()
         // Try to restore the last session
@@ -137,6 +142,7 @@ export function showOverview() {
         breadcrumbs: [
             { route: 'system', label: 'Overview' }
         ],
+        selectedNavItem: 'overview',
         panel: 'overview',
         useBackground: true
     });
@@ -149,9 +155,9 @@ export function showBuckets() {
         layout: 'main-layout',
         title: 'Buckets',
         breadcrumbs: [
-            { route: 'system', label: 'Overview' },
             { route: 'buckets', label: 'Buckets' }
         ],
+        selectedNavItem: 'buckets',
         panel: 'buckets'
     });
 }
@@ -167,10 +173,10 @@ export function showBucket() {
         layout: 'main-layout',
         title: bucket,
         breadcrumbs: [
-            { route: 'system', label: 'Overview' },
             { route: 'buckets', label: 'Buckets' },
             { route: 'bucket', label: bucket }
         ],
+        selectedNavItem: 'buckets',
         panel: 'bucket',
         tab: tab
     });
@@ -189,11 +195,11 @@ export function showObject() {
         layout: 'main-layout',
         title: object,
         breadcrumbs: [
-            { route: 'system', label: 'Overview' },
             { route: 'buckets', label: 'Buckets' },
             { route: 'bucket', label: bucket },
             { route: 'object', label: object }
         ],
+        selectedNavItem: 'buckets',
         panel: 'object',
         tab: tab
     });
@@ -211,9 +217,9 @@ export function showResources() {
         layout: 'main-layout',
         title: 'Resources',
         breadcrumbs: [
-            { route: 'system', label: 'Overview' },
             { route: 'pools', label: 'Resources' }
         ],
+        selectedNavItem: 'resources',
         panel: 'resources',
         tab: tab
     });
@@ -229,10 +235,10 @@ export function showPool() {
         layout: 'main-layout',
         title: pool,
         breadcrumbs: [
-            { route: 'system', label: 'Overview' },
             { route: 'pools', label: 'Resources'},
             { route: 'pool', label: pool }
         ],
+        selectedNavItem: 'resources',
         panel: 'pool',
         tab: tab
     });
@@ -252,11 +258,11 @@ export function showNode() {
         layout: 'main-layout',
         title: node,
         breadcrumbs: [
-            { route: 'system', label: 'Overview' },
             { route: 'pools', label: 'Resources'},
             { route: 'pool', label: pool },
             { route: 'node', label: node }
         ],
+        selectedNavItem: 'resources',
         panel: 'node',
         tab: tab
     });
@@ -274,9 +280,9 @@ export function showManagement() {
         layout: 'main-layout',
         title: 'System Management',
         breadcrumbs: [
-            { route: 'system', label: 'Overview' },
             { route: 'management', label: 'System Management' }
         ],
+        selectedNavItem: 'management',
         panel: 'management',
         tab: tab,
         working: model.uiState().working
@@ -290,9 +296,9 @@ export function showCluster() {
         layout: 'main-layout',
         title: 'Cluster',
         breadcrumbs: [
-            { route: 'system', label: 'Overview' },
             { route: 'cluster', label: 'Cluster' }
         ],
+        selectedNavItem: 'cluster',
         panel: 'cluster'
     });
 }
@@ -322,8 +328,10 @@ export function closeDrawer() {
 }
 
 export function clearCompletedUploads() {
-    model.recentUploads.remove(
-        upload => upload.state === 'UPLOADED' || upload.state === 'FAILED'
+    model.uploads(
+        model.uploads().filter(
+            upload => !upload.completed
+        )
     );
 }
 
@@ -948,7 +956,12 @@ export function deleteCloudResource(name) {
 export function uploadFiles(bucketName, files) {
     logAction('uploadFiles', { bucketName, files });
 
-    let recentUploads = model.recentUploads;
+    const requestSettings = deepFreeze({
+        partSize: 64 * 1024 * 1024,
+        queueSize: 4
+    });
+
+    let uploads = model.uploads;
 
     let { access_key , secret_key } = model.systemInfo().owner.access_keys[0];
     let s3 = new AWS.S3({
@@ -961,119 +974,80 @@ export function uploadFiles(bucketName, files) {
         sslEnabled: false
     });
 
-    let uploadRequests = Array.from(files).map(
-        file => new Promise(
-            resolve => {
-                // Create an entry in the recent uploaded list.
-                let entry = {
-                    name: file.name,
-                    targetBucket: bucketName,
-                    state: 'UPLOADING',
-                    progress: 0,
-                    error: null
-                };
-                recentUploads.unshift(entry);
+    for (const file of files) {
+        // Create an entry in the recent uploaded list.
+        let upload = {
+            name: file.name,
+            targetBucket: bucketName,
+            completed: false,
+            archived: false,
+            error: false,
+            size: file.size,
+            progress: 0
+        };
 
-                // Start the upload.
-                s3.upload(
-                    {
-                        Key: file.name,
-                        Bucket: bucketName,
-                        Body: file,
-                        ContentType: file.type
-                    },
-                    {
-                        partSize: 64 * 1024 * 1024,
-                        queueSize: 4
-                    },
-                    error => {
-                        if (!error) {
-                            entry.state = 'UPLOADED';
-                            entry.progress = 1;
-                            resolve(true);
+        // Add the new upload to the uploads model.
+        uploads.unshift(upload);
 
-                        } else {
-                            entry.state = 'FAILED';
-                            entry.error = error;
+        // Start the upload.
+        s3.upload(
+            {
+                Key: file.name,
+                Bucket: bucketName,
+                Body: file,
+                ContentType: file.type
+            },
+            requestSettings,
+            error => {
+                upload.completed = true;
+                if (error) {
+                    upload.error = error;
+                } else {
+                    upload.progress = upload.size;
+                }
 
-                            // This is not a bug we want to resolve failed uploads
-                            // in order to finalize the entire upload process.
-                            resolve(false);
-                        }
-
-                        // Use replace to trigger change event.
-                        recentUploads.replace(entry, entry);
-                    }
-                )
-                //  Report on progress.
-                .on('httpUploadProgress',
-                    ({ loaded, total }) => {
-                        entry.progress = loaded / total;
-
-                        // Use replace to trigger change event.
-                        recentUploads.replace(entry, entry);
-                    }
+                let currentBatch = uploads().filter(
+                    upload => !upload.archived
                 );
+
+                let noMoreUploads = currentBatch.every(
+                    upload => upload.completed
+                );
+
+                // If this is the last running upload to completed, notify the
+                // user and archive recent uploads.
+                if (noMoreUploads) {
+                    let failedCount = 0;
+                    for (const uploadInBatch of currentBatch) {
+                        // Archive the upload.
+                        uploadInBatch.archived = true;
+
+                        if (uploadInBatch.error) {
+                            ++failedCount;
+                        }
+                    }
+
+                    notifyUploadCompleted(
+                        currentBatch.length - failedCount,
+                        failedCount
+                    );
+                }
+
+                // Notify uploads changes.
+                uploads.valueHasMutated();
             }
         )
-    );
-
-    Promise.all(uploadRequests).then(
-        results => {
-            let { completed, failed } = results.reduce(
-                (stats, result) => {
-                    result ? ++stats.completed : ++stats.failed;
-                    return stats;
-                },
-                { completed: 0, failed: 0 }
-            );
-
-            if (failed === 0) {
-                notify(
-                    `Uploading ${
-                        completed
-                    } file${
-                        completed === 1 ? '' : 's'
-                    } to ${
-                        bucketName
-                    } completed successfully`,
-                    'success'
-                );
-
-            } else if (completed === 0) {
-                notify(
-                    `Uploading ${
-                        failed
-                    } file${
-                        failed === 1 ? '' : 's'
-                    } to ${
-                        bucketName
-                    } failed`,
-                    'error'
-                );
-
-            } else {
-                notify(
-                    `Uploading to ${
-                        bucketName
-                    } completed. ${
-                        completed
-                    } file${
-                        completed === 1 ? '' : 's'
-                    } uploaded successfully, ${
-                        failed
-                    } file${
-                        failed === 1 ? '' : 's'
-                    } failed`,
-                    'warning'
-                );
+        //  Report on progress.
+        .on('httpUploadProgress',
+            ({ loaded }) => {
+                upload.progress = loaded;
+                uploads.valueHasMutated();
             }
+        );
+    }
 
-            if (completed > 0) {
-                refresh();
-            }
-        }
-    );
+    // Save the request size.
+    uploads.lastRequestFileCount(files.length);
 }
 
 export function testNode(source, testSet) {
@@ -1778,7 +1752,7 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) 
         target_secret: serverSecret,
         dns_servers: dnsServers
     })
-        .then( () => waitFor(5000) )
+        .then( () => sleep(5000) )
         .then( () => httpWaitForResponse('/version') )
         .then(reload)
         .done();
@@ -1847,7 +1821,7 @@ export function validateActivation(code, email) {
 
     api.system.validate_activation({ code, email })
         .then(
-            reply => waitFor(500, reply)
+            reply => sleep(500, reply)
         )
         .then(
             ({ valid, reason }) => model.activationState({ code, email, valid, reason })
@@ -1863,7 +1837,7 @@ export function attemptResolveSystemName(name) {
         dns_name: name
     })
         .then(
-            reply => waitFor(500, reply)
+            reply => sleep(500, reply)
         )
         .then(
             ({ valid, reason }) => model.nameResolutionState({ name, valid, reason })
@@ -1901,4 +1875,32 @@ export function recommissionNode(name) {
         )
         .then(refresh)
         .done();
+}
+
+// ------------------------------------------
+// Helper functions:
+// ------------------------------------------
+function notifyUploadCompleted(uploaded, failed) {
+    if (failed === 0) {
+        notify(
+            `Uploading ${stringifyAmount('file', uploaded)} completed successfully`,
+            'success'
+        );
+
+    } else if (uploaded === 0) {
+        notify(
+            `Uploading ${stringifyAmount('file', failed)} failed`,
+            'error'
+        );
+
+    } else {
+        notify(
+            `Uploading completed. ${
+                stringifyAmount('file', uploaded)
+            } uploaded successfully, ${
+                stringifyAmount('file', failed)
+            } failed`,
+            'warning'
+        );
+    }
 }

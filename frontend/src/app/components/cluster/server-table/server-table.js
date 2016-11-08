@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
 import { createCompareFunc, deepFreeze } from 'utils';
-import { redirectTo } from 'actions';
+import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 
 const columns = deepFreeze([
@@ -62,7 +62,7 @@ class ServerTableViewModel extends Disposable {
                 sortBy: routeContext().query.sortBy || 'hostname',
                 order: Number(routeContext().query.order) || 1
             }),
-            write: value => redirectTo(undefined, undefined, value)
+            write: value => navigateTo(undefined, undefined, value)
         });
 
         this.servers = ko.pureComputed(

@@ -4,7 +4,7 @@ import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils';
 import ObjectRowViewModel from './object-row';
-import { redirectTo, uploadFiles } from 'actions';
+import { navigateTo, uploadFiles } from 'actions';
 import { routeContext, systemInfo } from 'model';
 
 const columns = deepFreeze([
@@ -136,7 +136,7 @@ class BucketObjectsTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     filterObjects(phrase) {
@@ -148,7 +148,7 @@ class BucketObjectsTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     orderBy(sorting) {
@@ -160,7 +160,7 @@ class BucketObjectsTableViewModel extends Disposable {
             sorting
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 }
 

@@ -22,6 +22,7 @@ export default function register(ko) {
     ko.components.register('license-sticky',                        require('./layout/license-sticky/license-sticky'));
     ko.components.register('phone-home-connectivity-sticky',        require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky'));
     ko.components.register('file-uploads-modal', require('./layout/file-uploads-modal/file-uploads-modal'));
+    ko.components.register('account-menu', require('./layout/account-menu/account-menu'));
     /** INJECT:layout **/
 
     // -------------------------------

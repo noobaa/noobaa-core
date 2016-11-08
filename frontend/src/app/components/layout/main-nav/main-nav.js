@@ -29,14 +29,14 @@ const navItems = deepFreeze([
         route: 'management',
         icon: 'manage',
         label: 'Management'
-    }//,
-    // TODO: uncomment when we decide to publish the H/A feature to customers
-    // {
-    //     name: 'cluster',
-    //     route: 'cluster',
-    //     icon: 'cluster',
-    //     label: 'Cluster'
-    // }
+    },
+    {
+        name: 'cluster',
+        route: 'cluster',
+        icon: 'cluster',
+        label: 'Cluster',
+        preview: true
+    }
 ]);
 
 class NavMenuViewModel extends Disposable{

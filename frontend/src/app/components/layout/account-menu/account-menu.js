@@ -1,6 +1,7 @@
 import template from './account-menu.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
+import { sessionInfo } from 'model';
 import { support } from 'config';
 import { signOut } from 'actions';
 
@@ -11,7 +12,9 @@ class AccountMenuViewModel extends Disposable{
         this.isOpen = ko.observable(false);
         this.isLocalClick = ko.observable(false);
 
-        this.userEmail = ko.observable('ohad.mitrani@noobaa.com');
+        this.userEmail = ko.pureComputed(
+            () => sessionInfo().user
+        );
         this.supportEmailUri = `mailto:${support.email}`;
         this.helpDeskUri = support.helpDesk;
     }

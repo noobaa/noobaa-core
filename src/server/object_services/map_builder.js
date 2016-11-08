@@ -119,9 +119,17 @@ class MapBuilder {
                 // We send an additional flag in order to allocate
                 // replicas of content tiering feature on the best read latency nodes
                 let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts, {
-                    special_replica: true
+                    special_replica: chunk.is_special
                 });
                 if (!node) {
+                    // In case of special chunks replication we consider it opportunistic
+                    // Which means that they will be replicated when there are enough nodes
+                    // They do not need to fail the rebuilding process
+                    if (chunk.is_special) {
+                        dbg.error('MapBuilder: special chunk no nodes for allocation');
+                        return;
+                    }
+
                     dbg.error('MapBuilder: no nodes for allocation');
                     chunk.had_errors = true;
                     this.had_errors = true;

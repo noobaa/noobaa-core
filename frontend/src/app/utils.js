@@ -175,11 +175,26 @@ export function throttle(func, grace, owner) {
 }
 
 export function compare(a, b) {
-    return a < b ? -1 : ( b < a ? 1 : 0);
+    return a < b ? -1 : (b < a ? 1 : 0);
+}
+
+export function compareArray(a, b) {
+    let result = 0;
+    for( let i = 0; i < a.length && result === 0; ++i ) {
+        result = a[i] < b[i] ? -1 : (b[i] < a[i] ? 1 : 0);
+    }
+    return result;
 }
 
 export function createCompareFunc(accessor, factor = 1) {
-    return (a,b) => factor * compare(accessor(a), accessor(b));
+    return (a,b) => {
+        let key1 = accessor(a);
+        let key2 = accessor(b);
+
+        return factor * (
+            isArray(key1) ? compareArray(key1, key2) : compare(key1, key2)
+        );
+    };
 }
 
 export function equalNoCase(str1, str2) {

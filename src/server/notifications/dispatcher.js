@@ -122,9 +122,11 @@ class Dispatcher {
                     description: alert
                 });
                 //TODO:: need to suppress alerts of the same kind
-                return server_rpc.client.frontend_notifications.alert({
-                    severity: sev,
-                    id: 0 //TODO:: NBNB send actual id
+                return server_rpc.client.redirector.publish_alerts({
+                    request_params: {
+                        severity: sev,
+                        id: 0 //TODO:: NBNB send actual id
+                    }
                 });
             });
     }

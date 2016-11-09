@@ -38,9 +38,10 @@ export default class ServerRowViewModel extends Disposable {
 
         this.hostname = ko.pureComputed(
             () => {
-                let masterSecret = systemInfo() && systemInfo().cluster['master_secret'];
+                let masterSecret = systemInfo() && systemInfo().cluster.master_secret;
+                let isMaster = server().secret === masterSecret;
                 return server() ?
-                    `${server().hostname} ${server().secret === masterSecret ? '(Master)' : ''}` :
+                    `${server().hostname} ${ isMaster ? '(Master)' : '' }` :
                     '';
             }
         );
@@ -53,11 +54,12 @@ export default class ServerRowViewModel extends Disposable {
             () => {
                 let { free, total } = server().storage;
                 let used = total - free;
-                let text = numeral(used / total).format('0%');
-                let tooltip = `${formatSize(used)} used of ${formatSize(total)}`;
+                let usedPercents = used / total;
+                let text = numeral(usedPercents).format('0%');
+                let tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
                 let css = '';
-                if(used / total >= diskUsageWarningBound) {
-                    css = used / total >= diskUsageErrorBound ? 'error' : 'warning';
+                if(usedPercents >= diskUsageWarningBound) {
+                    css = usedPercents >= diskUsageErrorBound ? 'error' : 'warning';
                 }
 
                 return { text, tooltip, css };

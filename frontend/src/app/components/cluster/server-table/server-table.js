@@ -22,12 +22,10 @@ const columns = deepFreeze([
     },
     {
         name: 'diskUsage',
-        label: 'disk usage',
         sortable: true
     },
     {
         name: 'memoryUsage',
-        label: 'memroy usage',
         sortable: true
     },
     {

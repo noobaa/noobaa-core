@@ -179,11 +179,12 @@ export function compare(a, b) {
 }
 
 export function compareArray(a, b) {
-    let result = 0;
-    for( let i = 0; i < a.length && result === 0; ++i ) {
-        result = a[i] < b[i] ? -1 : (b[i] < a[i] ? 1 : 0);
+    for(let i = 0; i < a.length; ++i) {
+        let result = compare(a[i], b[i]);
+        if (result !== 0) return result;
     }
-    return result;
+
+    return 0;
 }
 
 export function createCompareFunc(accessor, factor = 1) {

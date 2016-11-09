@@ -4,17 +4,15 @@ const _ = require('lodash');
 const uuid = require('node-uuid');
 const path = require('path');
 const fs = require('fs');
-var util = require('util');
+const util = require('util');
 
-const dbg = require('../../util/debug_module')(__filename);
-const P = require('../../util/promise');
-const fs_utils = require('../../util/fs_utils');
-const Agent = require('../../agent/agent');
-const system_store = require('../system_services/system_store').get_instance();
-const auth_server = require('../common_services/auth_server');
-const json_utils = require('../../util/json_utils');
-
-
+const dbg = require('../util/debug_module')(__filename);
+const P = require('../util/promise');
+const fs_utils = require('../util/fs_utils');
+const Agent = require('../agent/agent');
+const system_store = require('../server/system_services/system_store').get_instance();
+const auth_server = require('../server/common_services/auth_server');
+const json_utils = require('../util/json_utils');
 
 class HostedAgents {
 
@@ -47,8 +45,10 @@ class HostedAgents {
         return P.map(pools_to_start, pool => this.start_cloud_agent(pool))
             .catch(err => {
                 this._started = false;
-                dbg.error(`failed starting hosted_agents: `);
-            });
+                dbg.error(`failed starting hosted_agents: ${err.stack}`);
+                throw err;
+            })
+            .return();
     }
 
 

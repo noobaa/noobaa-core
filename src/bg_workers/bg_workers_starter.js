@@ -25,7 +25,6 @@ var stats_aggregator = require('../server/system_services/stats_aggregator');
 var cluster_hb = require('../server/bg_services/cluster_hb');
 var cluster_master = require('../server/bg_services/cluster_master');
 var bucket_storage_fetch = require('../server/bg_services/bucket_storage_fetch');
-let hosted_agents = require('../server/bg_services/hosted_agents');
 var cloud_sync = require('../server/bg_services/cloud_sync');
 var server_rpc = require('../server/server_rpc');
 var mongo_client = require('../util/mongo_client');
@@ -76,7 +75,6 @@ function remove_master_workers() {
         background_scheduler.remove_background_worker(worker_name);
     });
 
-    hosted_agents.stop();
 }
 
 function run_master_workers() {
@@ -110,9 +108,6 @@ function run_master_workers() {
             delay: config.LIFECYCLE_INTERVAL,
         }, lifecycle.background_worker);
     }
-
-    hosted_agents.start();
-
 }
 
 register_bg_worker({

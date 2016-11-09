@@ -1,7 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { deepFreeze, capitalize } from 'utils';
+import { deepFreeze, capitalize, stringifyAmount } from 'utils';
 import { deleteBucket } from'actions';
 
 const stateIconMapping = deepFreeze({
@@ -121,9 +121,7 @@ export default class BucketRowViewModel extends Disposable {
                 let text = `${
                         placementPolicyTypeMapping[data_placement]
                     } on ${
-                        count
-                    } pool${
-                        count === 1 ? '' : 's'
+                        stringifyAmount('pool', count)
                     }`;
 
                 return {

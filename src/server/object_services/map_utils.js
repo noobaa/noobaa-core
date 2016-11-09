@@ -35,6 +35,11 @@ function select_prefered_pools(tier) {
     // first filter out cloud_pools.
     let regular_pools = tier.pools.filter(pool => _.isUndefined(pool.cloud_pool_info));
 
+    // In case that we don't have any regular pools in our policy, we return cloud pools
+    if (!regular_pools.length) {
+        return tier.pools;
+    }
+
     // from the regular pools we should select the best pool
     // for now we just take the first pool in the list.
     if (tier.data_placement === 'MIRROR') {
@@ -99,9 +104,16 @@ function get_chunk_status(chunk, tiering, async_mirror) {
                 deletions.push(block);
             }
         });
-        if (alloc) {
+        if (alloc && alloc.pools.length) {
             let num_missing = Math.max(0, required_replicas - num_good);
-            _.times(num_missing, () => allocations.push(_.clone(alloc)));
+            // These are the minimum required replicas
+            let num_must_missing = Math.max(0, tier.replicas - num_good);
+            // Notice that we push the minimum required replicas in higher priority
+            // This is done in order to insure that we will allocate them before the additional replicas
+            _.times(num_must_missing, () => allocations.push(_.clone(alloc)));
+            _.times(num_missing - num_must_missing, () => allocations.push(_.defaults(_.clone(alloc), {
+                special_replica: true
+            })));
         }
         return num_accessible;
     }
@@ -140,10 +152,13 @@ function get_chunk_status(chunk, tiering, async_mirror) {
                 block => !block.node.is_cloud_node);
             let regular_pools = pools_partitions[0];
             let regular_blocks = blocks_partitions[0];
-            num_accessible += check_blocks_group(regular_blocks, {
-                pools: regular_pools, // only spread data on regular pools, and not cloud_pools
-                fragment: f
-            });
+
+            if (regular_pools.length || regular_blocks.length) {
+                num_accessible += check_blocks_group(regular_blocks, {
+                    pools: regular_pools, // only spread data on regular pools, and not cloud_pools
+                    fragment: f
+                });
+            }
 
             // cloud pools are always used for mirroring.
             // if there are any cloud pools or blocks written to cloud pools, handle them

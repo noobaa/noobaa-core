@@ -41,11 +41,14 @@ module.exports = {
         publish_alerts: {
             method: 'POST',
             params: {
-                request_params: {
-                    type: 'object',
-                    additionalProperties: true,
-                    properties: {}
-                },
+                type: 'object',
+                properties: {
+                    request_params: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    },
+                }
             },
             auth: {
                 system: 'admin'

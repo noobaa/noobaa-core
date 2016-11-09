@@ -1,6 +1,11 @@
 .main-layout  {
     height: 100%;
 
+    /* Creates a new plane sub-indexes which allow the background to be sent to
+    back without going behind the body's background */
+    position: relative;
+    z-index: 1;
+
     .sticky-wrapper {
         max-height: 34px;
     }
@@ -8,6 +13,8 @@
     .content-wrapper {
         position: relative;
 
+        /* Using a before element allow us to set the opacity of the image
+        without changing the opacity of the content */
         &.background-image::before {
             content: '';
             position: absolute;
@@ -17,6 +24,7 @@
             right: 0;
             background-size: cover;
             opacity: .3;
+            z-index: -1;
 
             /*
             https://unsplash.com/license
@@ -26,7 +34,13 @@
         }
     }
 
-    main-header, main {
+    main-header, main-nav {
         z-index: 1;
+    }
+
+    main {
+        align-self: stretch;
+        margin: 0 auto;
+        padding: 0 @gutter;
     }
 }

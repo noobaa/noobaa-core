@@ -43,6 +43,8 @@ export default class NodeRowViewModel extends Disposable {
                     } else {
                         return stateIconMapping.online;
                     }
+                } else {
+                    return '';
                 }
             }
         );
@@ -62,7 +64,7 @@ export default class NodeRowViewModel extends Disposable {
         });
 
         this.pool = ko.pureComputed(
-            () =>  node() ? { text:  node().pool, tooltip : node().pool } : ''
+            () => node() ? { text:  node().pool, tooltip : node().pool } : ''
         );
 
         this.recommended = ko.pureComputed(

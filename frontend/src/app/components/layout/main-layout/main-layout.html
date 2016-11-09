@@ -11,12 +11,17 @@
     ">
         <main-header class="push-next"></main-header>
 
-        <!-- ko if: panel -->
-        <main class="column greedy bounded push-next" data-bind="
-            component: panel,
-            css: panel
-        "></main>
-        <!-- /ko -->
+        <div class="row greedy push-next">
+            <main-nav></main-nav>
+
+            <!-- ko if: panel -->
+            <main class="column greedy bounded" data-bind="
+                component: panel,
+                css: panel
+            "></main>
+            <!-- /ko -->
+        </div>
+
 
         <notification-box></notification-box>
 

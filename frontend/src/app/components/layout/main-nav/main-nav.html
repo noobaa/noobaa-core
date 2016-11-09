@@ -1,0 +1,35 @@
+<nav class="column greedy">
+    <!-- ko foreach: items -->
+    <a class="nav-link link row alt-colors no-outline pad content-middle" data-bind="
+        href: { route: route, params: { tab: null } },
+        css: {
+            selected: $component.isSelected(name),
+            'preview-only': $data.preview
+        }
+    ">
+        <svg-icon params="name: icon"></svg-icon>
+        <span class="pad" data-bind="text: label"></span>
+    </a>
+    <!-- /ko -->
+</nav>
+
+<button class="uploads icon-btn no-outline column content-middle"
+    tabindex="-1"
+    data-bind="
+        tooltip: { text: 'Upload transactions', position: 'after' },
+        click: () => showUploadsModal(),
+        css: { 'uploading': uploadsCount },
+        attr: { 'data-count': uploadsCount }
+    ">
+    <svg-icon params="name: 'upload'"></svg-icon>
+    <bar params="values: uploadStateValues"></bar>
+    <span class="anim shrink-in" data-bind="
+        visible: animateUploadCount,
+        text: lastUploadCount
+    "></span>
+</button>
+
+<!-- ko if: isUploadsModalVisible -->
+<file-uploads-modal params="onClose: () => hideUploadsModal()">
+</file-uploads-modal>
+<!-- /ko -->

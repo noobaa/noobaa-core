@@ -3,7 +3,7 @@ import BucketRowViewModel from './bucket-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze, createCompareFunc } from 'utils';
-import { redirectTo } from 'actions';
+import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 
 const columns = deepFreeze([
@@ -69,7 +69,7 @@ class BucketsTableViewModel extends Disposable {
             }),
             write: value => {
                 this.deleteGroup(null);
-                redirectTo(undefined, undefined, value);
+                navigateTo(undefined, undefined, value);
             }
         });
 

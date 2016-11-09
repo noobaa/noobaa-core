@@ -348,10 +348,10 @@ export function deepFreeze(val) {
     }
 }
 
-export function waitFor(miliseconds, value) {
+export function sleep(miliseconds, wakeValue) {
     return new Promise(
         resolve => setTimeout(
-            () => resolve(value),
+            () => resolve(wakeValue),
             miliseconds
         )
     );
@@ -679,7 +679,25 @@ export function httpWaitForResponse(url, retryDelay = 3000) {
     return (function tryGet() {
         // Try GET on url, if failed wait for retryDelay seconds and then try again.
         return httpGetAsync(url).catch(
-            () => waitFor(retryDelay).then(tryGet)
+            () => sleep(retryDelay).then(tryGet)
         );
     })();
+}
+
+export function averageBy(array, predicate) {
+    let sum = array
+        .map(predicate)
+        .reduce(
+            (sum, value) => sum + value
+        );
+
+    return sum / array.length;
+}
+
+export function pluralize(word, amount) {
+    return `${word}${amount === 1 ? '' : 's'}`;
+}
+
+export function stringifyAmount(subject, amount) {
+    return `${amount} ${pluralize(subject, amount)}`;
 }

@@ -1,21 +1,32 @@
-<div class="row content-middle pad alt-bg">
-    <h3 class="heading3 push-next">
-        Files in this bucket:
-        <span data-bind="text: objectCount"></span>
-    </h3>
+<div class="column pad alt-bg">
+    <div class="row content-middle">
+        <h3 class="heading3 push-next">
+            Files in this bucket:
+            <span data-bind="text: objectCount"></span>
+        </h3>
 
-    <div class="greedy push-next">
-        <input type="search" placeholder="Search by file name"
-            data-bind="textInput: filter" />
+        <div class="greedy push-next">
+            <input type="search" placeholder="Search by file name"
+                data-bind="textInput: filter" />
+        </div>
+
+        <div data-bind="tooltip: uploadTooltip">
+            <button class="upload-btn btn" data-bind="
+                disable: uploadDisabled,
+                click: () => fileSelectorExpanded.toggle()
+            ">
+                Upload Files
+            </button>
+        </div>
     </div>
 
-    <div data-bind="tooltip: uploadTooltip">
-        <button class="upload-btn btn" data-bind="
-            disable: uploadDisabled,
-            click: () => showUploadFilesModal()
-        ">
-            Upload Files
-        </button>
+    <div class="file-selector-wrapper column" data-bind="
+        expand: fileSelectorExpanded
+    ">
+        <file-selector class="push-prev" params="
+            allowMultiSelect: true,
+            onFilesReady: files => uploadFiles(files)
+        "></file-selector>
     </div>
 </div>
 
@@ -33,9 +44,3 @@
     page: page
 "></paginator>
 
-<!-- ko if: isUploadFilesModalVisible -->
-<upload-files-modal params="
-    bucketName: bucketName,
-    onClose: () => hideUploadFilesModal()
-"></upload-files-modal>
-<!-- /ko -->

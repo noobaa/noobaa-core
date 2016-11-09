@@ -258,6 +258,11 @@ function pre_upgrade {
         deploy_log "$agent_conf not found."
     fi
 
+	# copy fix_server_sec to
+    if ! grep -q 'fix_server_sec' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
+    fi
+
 	#install nvm use v4.4.4
 	rm -rf ~/.nvm
 	mkdir ~/.nvm

@@ -331,12 +331,7 @@ class Agent {
                     dbg.warn('exit on version change:',
                         'res.version', res.version,
                         'pkg.version', pkg.version);
-                    if (this.cloud_info) {
-                        dbg.error(`shouldnt be here. found version mismatch for cloud pool!!`);
-                        throw new Error('exit on version change');
-                    } else {
-                        process.exit(0);
-                    }
+                    process.exit(0);
                 }
                 conn.on('close', () => {
                     if (this._server_connection === conn) {

@@ -117,7 +117,7 @@ class Dispatcher {
                 severity: sev,
                 alert: alert
             })
-            .then(() => {
+            .then((res) => {
                 this.send_syslog({
                     description: alert
                 });
@@ -125,7 +125,7 @@ class Dispatcher {
                 return server_rpc.client.redirector.publish_alerts({
                     request_params: {
                         severity: sev,
-                        id: 0 //TODO:: NBNB send actual id
+                        id: res._id
                     }
                 });
             });

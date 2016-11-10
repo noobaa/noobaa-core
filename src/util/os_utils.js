@@ -395,16 +395,7 @@ function read_server_secret() {
                 return sec.trim();
             })
             .catch(err => {
-                //For Azure Market Place only, if file does not exist, create it
-                //The reason is that we don't run the first time wizard in the market place.
-                if (err.code === 'ENOENT') {
-                    var id = uuid().substring(0, 8);
-                    return fs.writeFileAsync(config.CLUSTERING_PATHS.SECRET_FILE,
-                            id)
-                        .then(() => id);
-                } else {
-                    throw new Error('Failed reading secret with ' + err);
-                }
+                throw new Error('Failed reading secret with ' + err);
             });
     } else if (os.type() === 'Darwin') {
         return fs.readFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)

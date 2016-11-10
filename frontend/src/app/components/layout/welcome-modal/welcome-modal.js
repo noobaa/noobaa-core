@@ -1,7 +1,7 @@
 import template from './welcome-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { waitFor } from 'utils';
+import { sleep } from 'utils';
 
 const loadingDelay = 2000;
 
@@ -12,7 +12,7 @@ class WelcomeModalViewModel extends Disposable {
         this.onClose = onClose;
 
         this.loading = ko.observable(true);
-        waitFor(loadingDelay).then(
+        sleep(loadingDelay).then(
             () => this.loading(false)
         );
     }

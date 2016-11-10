@@ -70,10 +70,13 @@ function new_router(base_address) {
     let md_addr = url.format(base_url);
     base_url.port = parseInt(base_url.port, 10) + 1;
     let bg_addr = url.format(base_url);
+    base_url.port = parseInt(base_url.port, 10) + 1;
+    let hosted_agents_addr = url.format(base_url);
     let router = {
         default: base_addr,
         md: md_addr,
-        bg: bg_addr
+        bg: bg_addr,
+        hosted_agents: hosted_agents_addr
     };
     console.log('ROUTER', router);
     return router;
@@ -86,7 +89,7 @@ function new_rpc(base_address) {
         api_routes: {
             object_api: 'md',
             cloud_sync_api: 'bg',
-            hosted_agents_api: 'bg'
+            hosted_agents_api: 'hosted_agents'
         }
     });
     return rpc;

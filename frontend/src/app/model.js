@@ -1,5 +1,7 @@
 import ko from 'knockout';
 
+export const previewMode = ko.observable(false);
+
 // Hold the current ui state.
 export const uiState = ko.observable({
     layout: 'empty'
@@ -61,8 +63,34 @@ export const objectPartList = ko.observableArray();
 objectPartList.count = ko.observable(0);
 objectPartList.page = ko.observable(0);
 
-// Hold the recent uploads.
-export const recentUploads = ko.observableArray();
+export const uploads = ko.observableArray();
+uploads.lastRequestFileCount = ko.observable(0);
+uploads.stats = ko.pureComputed(
+    () => uploads().reduce(
+        (stats, upload) => {
+            let { archived, completed, error } = upload;
+            stats.count += 1;
+            stats.uploading += Number(!completed);
+            stats.failed += Number(completed && Boolean(error));
+            stats.uploaded += Number(completed && !error);
+
+            if (!archived) {
+                let { size, progress } = upload;
+                stats.batch.size += size;
+                stats.batch.progress += progress;
+            }
+
+            return stats;
+        },
+        {
+            count: 0,
+            uploading: 0,
+            uploaded: 0,
+            failed: 0,
+            batch: { size: 0, progress: 0 }
+        }
+    )
+);
 
 // Hold the audit log
 export const auditLog = ko.observableArray();
@@ -94,3 +122,5 @@ export const activationState = ko.observable();
 // Hold system name resolution attempt
 export const nameResolutionState = ko.observable();
 
+// Hold diagnostics information
+export const collectDiagnosticsState = ko.observable({});

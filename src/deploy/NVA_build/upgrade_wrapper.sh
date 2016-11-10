@@ -258,6 +258,11 @@ function pre_upgrade {
         deploy_log "$agent_conf not found."
     fi
 
+	# copy fix_server_sec to
+    if ! grep -q 'fix_server_sec' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
+    fi
+
 	#install nvm use v4.4.4
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
@@ -329,8 +334,8 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
-  #if noobaa supervisor.conf is pre clustering, fix it
-  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | wc -l)
+  #if noobaa supervisor.conf is pre hosted_agents
+  local FOUND=$(grep "hosted_agents" /etc/noobaa_supervisor.conf | wc -l)
   if [ ${FOUND} -eq 0 ]; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi

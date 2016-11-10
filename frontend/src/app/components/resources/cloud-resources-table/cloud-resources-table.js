@@ -2,9 +2,9 @@ import template from './cloud-resources-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
-import { systemInfo, routeContext } from 'model';
+import { systemInfo, uiState, routeContext } from 'model';
 import { deepFreeze, createCompareFunc } from 'utils';
-import { redirectTo } from 'actions';
+import { navigateTo } from 'actions';
 
 const columns = deepFreeze([
     {
@@ -86,8 +86,8 @@ class CloudResourcesTableViewModel extends Disposable {
 
         this.sorting = ko.pureComputed({
             read: () => {
-                let { params, query } = routeContext();
-                let isOnScreen = params.tab === 'cloud';
+                let { query } = routeContext();
+                let isOnScreen = uiState().tab === 'cloud';
 
                 return {
                     sortBy: (isOnScreen && query.sortBy) || 'name',
@@ -96,7 +96,7 @@ class CloudResourcesTableViewModel extends Disposable {
             },
             write: value => {
                 this.deleteGroup(null);
-                redirectTo(undefined, undefined, value);
+                navigateTo(undefined, undefined, value);
             }
         });
 

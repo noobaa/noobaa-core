@@ -1,7 +1,12 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
+import numeral from 'numeral';
+import { collectDiagnosticsState, systemInfo } from 'model';
 import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
-import { deepFreeze, isUndefined } from 'utils';
+import { deepFreeze, isUndefined, formatSize } from 'utils';
+
+const diskUsageErrorBound = .95;
+const diskUsageWarningBound = .85;
 
 const stateIconMapping = deepFreeze({
     CONNECTED: {
@@ -32,11 +37,33 @@ export default class ServerRowViewModel extends Disposable {
         );
 
         this.hostname = ko.pureComputed(
-            () => server() ? server().hostname : ''
+            () => {
+                let masterSecret = systemInfo() && systemInfo().cluster.master_secret;
+                let isMaster = server().secret === masterSecret;
+                return server() ?
+                    `${server().hostname} ${ isMaster ? '(Master)' : '' }` :
+                    '';
+            }
         );
 
         this.address = ko.pureComputed(
             () => server() ? server().address : ''
+        );
+
+        this.diskUsage = ko.pureComputed(
+            () => {
+                let { free, total } = server().storage;
+                let used = total - free;
+                let usedPercents = used / total;
+                let text = numeral(usedPercents).format('0%');
+                let tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
+                let css = '';
+                if(usedPercents >= diskUsageWarningBound) {
+                    css = usedPercents >= diskUsageErrorBound ? 'error' : 'warning';
+                }
+
+                return { text, tooltip, css };
+            }
         );
 
         this.memoryUsage = ko.pureComputed(
@@ -94,6 +121,12 @@ export default class ServerRowViewModel extends Disposable {
 
         this.debugLevelCss = ko.pureComputed(
             () => ({ 'high-debug-level': this.debugLevel() > 0 })
+        );
+
+        this.isCollectingDiagnostics = ko.pureComputed(
+            () => Boolean(collectDiagnosticsState()[
+                `server:${this.hostname()}`
+            ])
         );
     }
 

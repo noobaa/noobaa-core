@@ -1,6 +1,6 @@
 {
   "name": "noobaa-core",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "private": true,
   "description": "noobaa-core ===========",
   "engines": {
@@ -26,6 +26,7 @@
     "web": "node src/server/web_server",
     "bg": "node src/bg_workers/bg_workers_starter",
     "s3": "node src/s3/s3rver",
+    "hosted_agents": "node src/hosted_agents/hosted_agents_starter",
     "lambda": "node src/lambda",
     "tunnel": "sudo node src/tools/tcp_tunnel --ssl",
     "agent": "node src/agent/agent_cli",

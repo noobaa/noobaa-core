@@ -4,7 +4,6 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const server_rpc = require('../server_rpc');
-const node_server = require('./node_server');
 const auth_server = require('../common_services/auth_server');
 const mongo_utils = require('../../util/mongo_utils');
 const node_allocator = require('./node_allocator');
@@ -30,34 +29,63 @@ class NodesClient {
     // LOCAL CALLS
 
     list_nodes_by_system(system_id) {
-        return P.resolve(node_server.get_local_monitor().list_nodes({
-                system: system_id
-            }))
+        return server_rpc.client.node.list_nodes({}, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_id,
+                    role: 'admin'
+                }),
+                address: this._master_address
+            })
             .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
-    list_nodes_by_pool(pool_id) {
-        return P.resolve(node_server.get_local_monitor().list_nodes({
-                pools: new Set([pool_id])
-            }))
+    list_nodes_by_pool(pool_id, system_id) {
+        return server_rpc.client.node.list_nodes({
+                query: {
+                    pools: new Set([pool_id])
+                }
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_id,
+                    role: 'admin'
+                }),
+                address: this._master_address
+            })
             .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
-    aggregate_nodes_by_pool(pool_ids, system_id, skip_cloud_nodes) {
-        const nodes_aggregate_pool = node_server.get_local_monitor().aggregate_nodes({
-            system: system_id && String(system_id),
-            pools: pool_ids && new Set(_.map(pool_ids, String)),
-            skip_cloud_nodes: skip_cloud_nodes
-        }, 'pool');
+    aggregate_nodes_by_pool(pool_names, system_id, skip_cloud_nodes) {
+        const nodes_aggregate_pool = server_rpc.client.node.aggregate_nodes({
+            query: {
+                pools: pool_names || undefined,
+                skip_cloud_nodes: skip_cloud_nodes
+            },
+            group_by: 'pool'
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            }),
+            address: this._master_address
+        });
         return nodes_aggregate_pool;
     }
 
-    migrate_nodes_to_pool(node_identities, pool_id) {
-        return node_server.get_local_monitor().migrate_nodes_to_pool(node_identities, pool_id);
+    migrate_nodes_to_pool(system_id, node_identities, pool_id) {
+        return server_rpc.client.node.migrate_nodes_to_pool({
+            nodes: node_identities,
+            pool_id: String(pool_id)
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            }),
+            address: this._master_address
+        });
     }
 
     collect_agent_diagnostics(node_identity) {
-        return node_server.get_local_monitor().collect_agent_diagnostics(node_identity);
+        return server_rpc.client.node.collect_agent_diagnostics(node_identity);
     }
 
     // REMOTE CALLS
@@ -73,7 +101,8 @@ class NodesClient {
                 auth_token: auth_server.make_auth_token({
                     system_id: system_id,
                     role: 'admin'
-                })
+                }),
+                address: this._master_address
             })
             .tap(node => mongo_utils.fix_id_type(node));
     }
@@ -89,7 +118,8 @@ class NodesClient {
             auth_token: auth_server.make_auth_token({
                 system_id: system_id,
                 role: 'admin'
-            })
+            }),
+            address: this._master_address
         });
     }
 
@@ -105,7 +135,8 @@ class NodesClient {
                 auth_token: auth_server.make_auth_token({
                     system_id: system_id,
                     role: 'admin'
-                })
+                }),
+                address: this._master_address
             }))
             .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
@@ -131,7 +162,8 @@ class NodesClient {
                 auth_token: auth_server.make_auth_token({
                     system_id: system_id,
                     role: 'admin'
-                })
+                }),
+                address: this._master_address
             }))
             .then(res => {
                 const idmap = _.keyBy(res.nodes, '_id');
@@ -175,7 +207,8 @@ class NodesClient {
             auth_token: auth_server.make_auth_token({
                 system_id: system_id,
                 role: 'admin'
-            })
+            }),
+            address: this._master_address
         });
     }
 

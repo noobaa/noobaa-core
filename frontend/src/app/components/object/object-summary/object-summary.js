@@ -4,8 +4,6 @@ import ko from 'knockout';
 import moment from 'moment';
 import style from 'style';
 
-const timeFormat = 'DD MMM YYYY hh:mm:ss';
-
 class ObjectSummaryViewModel extends Disposable {
     constructor({ obj }) {
         super();
@@ -24,15 +22,19 @@ class ObjectSummaryViewModel extends Disposable {
 
         this.creationTime = ko.pureComputed(
             () => obj() && (
-                obj().create_time ? moment(obj().create_time).format(timeFormat) : 'N/A'
+                obj().create_time ? moment(obj().create_time) : 'N/A'
             )
-        );
+        ).extend({
+            formatTime: true
+        });
 
         this.lastRead = ko.pureComputed(
             () => obj() && (
-                obj().stats.last_read ? moment(obj().stats.last_read).format(timeFormat) : 'N/A'
+                obj().stats.last_read ? moment(obj().stats.last_read) : 'N/A'
             )
-        );
+        ).extend({
+            formatTime: true
+        });
 
         this.readCount = ko.pureComputed(
             () => obj() ? obj().stats.reads : 0

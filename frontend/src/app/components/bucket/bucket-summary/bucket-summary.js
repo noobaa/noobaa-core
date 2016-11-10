@@ -39,8 +39,6 @@ const graphOptions = deepFreeze([
     }
 ]);
 
-const timeFormat = 'MMM, DD [at] hh:mm:ss';
-
 const avaliableForWriteTooltip = 'This number is calculated according to the bucket\'s available capacity and the number of replicas defined in its placement policy';
 
 class BucketSummrayViewModel extends Disposable {
@@ -170,16 +168,20 @@ class BucketSummrayViewModel extends Disposable {
         this.lastRead = ko.pureComputed(
             () => {
                 let lastRead = stats().last_read;
-                return lastRead ? moment(lastRead).format(timeFormat) : 'N/A';
+                return lastRead ? moment(lastRead) : 'N/A';
             }
-        );
+        ).extend({
+            formatTime: true
+        });
 
         this.lastWrite = ko.pureComputed(
             () => {
                 let lastWrite = stats().last_write;
-                return lastWrite ? moment(lastWrite).format(timeFormat) : 'N/A';
+                return lastWrite ? moment(lastWrite) : 'N/A';
             }
-        );
+        ).extend({
+            formatTime: true
+        });
 
         this.isPolicyModalVisible = ko.observable(false);
         this.isSetCloudSyncModalVisible = ko.observable(false);

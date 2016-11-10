@@ -51,8 +51,6 @@ function publish_to_cluster(req) {
 }
 
 function register_for_alerts(req) {
-    //TODO:: NBNB
-    //on reconnet on FE
     var conn = req.connection;
     if (!alerts_connections.has(conn)) {
         dbg.log0('register_for_alerts', conn.url.href);
@@ -64,20 +62,19 @@ function register_for_alerts(req) {
 }
 
 function publish_alerts(req) {
-    var addresses = []; // also call on myself
+    var connections = [];
     alerts_connections.forEach(function(conn) {
-        addresses.push(conn.url.href);
+        connections.push(conn);
     });
-    addresses = _.uniq(addresses);
-    dbg.log1('publish_alerts:', addresses);
-    return P.map(addresses, function(address) {
+    connections = _.uniq(connections);
+    dbg.log3('publish_alerts:', req.rpc_params.request_params, connections);
+    return P.map(connections, function(conn) {
             return server_rpc.client.frontend_notifications.alert(req.rpc_params.request_params, {
-                address: address,
-                auth_token: req.auth_token,
+                connection: conn,
             });
         })
         .then(() => {
-            dbg.log3('published alerts to:', addresses);
+            dbg.log3('published');
         });
 }
 

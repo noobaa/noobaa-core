@@ -26,7 +26,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: 'admin'
+                system: false
             }
         },
     },

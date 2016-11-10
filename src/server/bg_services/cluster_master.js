@@ -65,12 +65,14 @@ function background_worker() {
                 dbg.error(`got error: ${err}. retry in 5 seconds`);
                 return RETRY_DELAY;
             });
-    } else if (!is_cluster_master) {
+    } else {
         dbg.log0('no local cluster info or server is not part of a cluster. therefore will be cluster master');
         return send_master_update(true)
             .then(() => {
-                bg_workers_starter.run_master_workers();
-                is_cluster_master = true;
+                if (!is_cluster_master) {
+                    bg_workers_starter.run_master_workers();
+                    is_cluster_master = true;
+                }
             })
             .catch(err => {
                 dbg.error('send_master_update had an error:', err.stack || err);
@@ -82,15 +84,17 @@ function background_worker() {
 function send_master_update(is_master) {
     let system = system_store.data.systems[0];
     if (!system) return P.resolve();
-    return P.fcall(function() {
-            return server_rpc.client.system.set_webserver_master_state({
+    let hosted_agents_promise = is_master ? server_rpc.client.hosted_agents.start() : server_rpc.client.hosted_agents.stop();
+    return P.join(
+            server_rpc.client.system.set_webserver_master_state({
                 is_master: is_master
             }, {
                 auth_token: auth_server.make_auth_token({
                     system_id: system._id,
                     role: 'admin'
                 })
-            });
-        })
+            }),
+            hosted_agents_promise
+        )
         .return();
 }

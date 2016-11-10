@@ -21,17 +21,13 @@ class ObjectSummaryViewModel extends Disposable {
         );
 
         this.creationTime = ko.pureComputed(
-            () => obj() && (
-                obj().create_time ? moment(obj().create_time) : 'N/A'
-            )
+            () => obj() && obj().create_time
         ).extend({
             formatTime: true
         });
 
         this.lastRead = ko.pureComputed(
-            () => obj() && (
-                obj().stats.last_read ? moment(obj().stats.last_read) : 'N/A'
-            )
+            () => obj() && obj().stats.last_read
         ).extend({
             formatTime: true
         });

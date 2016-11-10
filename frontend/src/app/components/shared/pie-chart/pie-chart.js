@@ -29,13 +29,9 @@ function valuesToRatios(values) {
         (sum, value) => sum + value
     );
 
-    return values
-        .filter(
-            value => value > 0
-        )
-        .map(
-            value => value / sum
-        );
+    return values.map(
+        value => value / sum
+    );
 }
 
 function normalizeValues(values) {
@@ -43,7 +39,7 @@ function normalizeValues(values) {
 
     let underThreshold = ratios.reduce(
         (stats, ratio) => {
-            if (ratio < threshold) {
+            if (0 < ratio && ratio < threshold) {
                 stats.sum += ratio;
                 ++stats.count;
             }

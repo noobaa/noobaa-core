@@ -166,19 +166,13 @@ class BucketSummrayViewModel extends Disposable {
         );
 
         this.lastRead = ko.pureComputed(
-            () => {
-                let lastRead = stats().last_read;
-                return lastRead ? moment(lastRead) : 'N/A';
-            }
+            () => stats().last_read
         ).extend({
             formatTime: true
         });
 
         this.lastWrite = ko.pureComputed(
-            () => {
-                let lastWrite = stats().last_write;
-                return lastWrite ? moment(lastWrite) : 'N/A';
-            }
+            () => stats().last_write
         ).extend({
             formatTime: true
         });

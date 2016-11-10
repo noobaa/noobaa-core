@@ -45,6 +45,7 @@ export function start() {
                     system: system.name,
                     mustChangePassword: account.must_change_password
                 });
+                api.redirector.register_for_alerts();
             }
         })
         .catch(err => {
@@ -343,8 +344,8 @@ export function signIn(email, password, keepSessionAlive = false) {
                             user: email,
                             system: system,
                             mustChangePassword: mustChangePassword
-                        });
-
+                        });                        
+                        api.redirector.register_for_alerts();
                         model.loginInfo({ retryCount: 0 });
                         refresh();
                     });

@@ -19,6 +19,9 @@ const SERVICES = [{
     name: 's3',
     fork: './src/s3/s3rver.js'
 }, {
+    name: 'hosted_agents',
+    fork: './src/hosted_agents/hosted_agents_starter.js'
+}, {
     name: 'agents',
     fork: './src/agent/agent_cli.js',
     args: ['--scale', '20'],

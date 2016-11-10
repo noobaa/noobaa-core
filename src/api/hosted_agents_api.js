@@ -83,6 +83,20 @@ module.exports = {
                 system: false
             }
         },
+
+        start: {
+            method: 'POST',
+            auth: {
+                system: false
+            }
+        },
+
+        stop: {
+            method: 'POST',
+            auth: {
+                system: false
+            }
+        },
     },
 
 };

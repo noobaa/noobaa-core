@@ -160,6 +160,22 @@ class Dispatcher {
             system: req.system._id,
         });
 
+        if (req.rpc_params.till) {
+            // query backwards from given time
+            req.rpc_params.till = new Date(req.rpc_params.till);
+            q.where('time').lt(req.rpc_params.till)
+                .sort('-time');
+
+        } else if (req.rpc_params.since) {
+            // query forward from given time
+            req.rpc_params.since = new Date(req.rpc_params.since);
+            q.where('time').gte(req.rpc_params.since)
+                .sort('time');
+        } else {
+            // query backward from last time
+            q.sort('-time');
+        }
+
         if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
         q.limit(req.rpc_params.limit || 10);
 

@@ -224,6 +224,12 @@ module.exports = {
                 type: 'object',
                 required: [],
                 properties: {
+                    till: {
+                        format: 'idate'
+                    },
+                    since: {
+                        format: 'idate'
+                    },
                     skip: {
                         type: 'integer',
                     },

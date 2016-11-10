@@ -142,11 +142,15 @@ class Dispatcher {
     }
 
     mark_alerts_read(req) {
-        return AlertsLog.update({
-            _id: {
-                $in: req.rpc_params.ids
-            }
-        }, {
+        let query = {};
+        if (req.rpc_params.ids) {
+            query = {
+                _id: {
+                    $in: req.rpc_params.ids
+                }
+            };
+        }
+        return AlertsLog.update(query, {
             read: req.rpc_params.state
         }).exec();
     }

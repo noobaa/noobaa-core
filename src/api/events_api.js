@@ -200,10 +200,14 @@ module.exports = {
                 required: ['ids', 'state'],
                 properties: {
                     ids: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'array',
+                            items: {
+                                type: 'string'
+                            },
+                        }]
                     },
                     state: {
                         type: 'boolean'

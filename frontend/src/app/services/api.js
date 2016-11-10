@@ -16,8 +16,3 @@ rpc.register_service(rpc.schema.frontend_notifications_api,
 
 const client = window.api = rpc.new_client();
 export default client;
-
-//register for recieving alerts from the BE
-client.redirector.register_for_alerts();
-//For now no need for reconnect, rpc is re-created
-//rpc.on('reconnect', () => rpc.client.redirector.register_for_alerts());

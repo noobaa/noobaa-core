@@ -20,6 +20,7 @@ function upgrade() {
     upgrade_system_access_keys();
     upgrade_object_mds();
     remove_unnamed_nodes();
+    upgrade_cloud_agents();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -403,6 +404,40 @@ function upgrade_cluster() {
     //global param_secret:true, params_cluster_id:true, param_ip:true
     db.clusters.insert(cluster);
 }
+
+function upgrade_cloud_agents() {
+    // go over cloud pools and copy
+    db.pools.find({
+        "deleted": {
+            $exists: false
+        },
+        "cloud_pool_info.agent_info": {
+            $exists: false
+        },
+        "cloud_pool_info": {
+            $exists: true
+        }
+    }).forEach(function(pool) {
+        var path = '/root/node_modules/noobaa-core/agent_storage/noobaa-internal-agent-' + pool.name + '/token';
+        var token;
+        try {
+            token = cat(path);
+            db.pools.update({
+                _id: pool._id
+            }, {
+                $set: {
+                    "cloud_pool_info.agent_info": {
+                        "node_token": token
+                    }
+                }
+            });
+        } catch (err) {
+            print('encountered error when upgrading cloud pool ' + pool.name + ' ', err);
+        }
+    });
+
+}
+
 
 function upgrade_object_mds() {
     print('\n*** upgrade_object_mds ...');

@@ -53,6 +53,18 @@ module.exports = {
                 endpoint_type: {
                     type: 'string',
                     enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                },
+
+                agent_info: {
+                    type: 'object',
+                    properties: {
+                        create_node_token: {
+                            type: 'string'
+                        },
+                        node_token: {
+                            type: 'string'
+                        }
+                    }
                 }
 
             }

@@ -5,17 +5,6 @@ const _ = require('lodash');
 const AWS = require('aws-sdk');
 const dbg = require('../util/debug_module')(__filename);
 
-const HEADERS_MAP_FOR_AWS_SDK = {
-    'authorization': 'Authorization',
-    'content-md5': 'Content-MD5',
-    'content-type': 'Content-Type',
-    'cache-control': 'Cache-Control',
-    'x-amz-date': 'X-Amz-Date',
-    'x-amz-content-sha256': 'X-Amz-Content-Sha256',
-    'x-amz-security-token': 'x-amz-security-token',
-    'presigned-expires': 'presigned-expires',
-};
-
 /**
  *
  * Calculates AWS signature based on auth_server request
@@ -77,6 +66,10 @@ function authenticate_request(req) {
     dbg.log0('authenticate_request:', _.pick(req,
         'access_key', 'signature', 'string_to_sign', 'noobaa_v4'));
 }
+
+////////
+// V4 //
+////////
 
 /**
  * See: http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-auth-using-authorization-header.html
@@ -141,9 +134,12 @@ function _string_to_sign_v4(req, signed_headers) {
     // chunked upload: http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
     const signed_headers_set = signed_headers ?
         new Set(signed_headers.split(';')) : null;
+
     v4.isSignableHeader = key =>
         !signed_headers_set ||
         signed_headers_set.has(key.toLowerCase());
+
+    v4.hexEncodedBodyHash = () => req.content_sha256.toString('hex');
 
     const canonical_str = v4.canonicalString();
     const string_to_sign = v4.stringToSign(req.noobaa_v4.xamzdate);
@@ -153,11 +149,24 @@ function _string_to_sign_v4(req, signed_headers) {
         'search', aws_request.search(),
         'headers', aws_request.headers,
         'region', aws_request.region,
-        'canonical_str', canonical_str,
-        'string_to_sign', string_to_sign);
+        'canonical_str', '\n' + canonical_str + '\n',
+        'string_to_sign', '\n' + string_to_sign + '\n');
 
     return string_to_sign;
 }
+
+function _expiry_query_v4(request_date, expires_seconds) {
+    const now = Date.now();
+    const expires = (new Date(request_date).getTime()) + (Number(expires_seconds) * 1000);
+    if (now > expires) {
+        throw new Error('Authentication Expired (V4)');
+    }
+}
+
+
+////////
+// S3 //
+////////
 
 function _authenticate_header_s3(req) {
     const s3 = req.headers.authorization.match(/^AWS (\w+):(\S+)$/);
@@ -183,9 +192,28 @@ function _string_to_sign_s3(req) {
     return s3.stringToSign();
 }
 
+function _expiry_query_s3(expires_epoch) {
+    const now = Date.now();
+    const expires = Number(expires_epoch) * 1000;
+    if (now > expires) {
+        throw new Error('Authentication Expired (S3)');
+    }
+}
+
+
+const HEADERS_MAP_FOR_AWS_SDK = {
+    'authorization': 'Authorization',
+    'content-md5': 'Content-MD5',
+    'content-type': 'Content-Type',
+    'cache-control': 'Cache-Control',
+    'x-amz-date': 'X-Amz-Date',
+    'x-amz-content-sha256': 'X-Amz-Content-Sha256',
+    'x-amz-security-token': 'x-amz-security-token',
+    'presigned-expires': 'presigned-expires',
+};
 
 function _aws_request(req) {
-    const pathname = req.baseUrl + req.path;
+    const pathname = req.originalUrl.split('?', 1)[0];
     const search_string = AWS.util.queryParamsToString(req.query);
     const headers_for_sdk = _.mapKeys(req.headers, (value, key) =>
         // mapping the headers from nodejs lowercase keys to AWS SDK capilization
@@ -204,21 +232,6 @@ function _aws_request(req) {
     return aws_request;
 }
 
-function _expiry_query_v4(request_date, expires_seconds) {
-    const now = Date.now();
-    const expires = (new Date(request_date).getTime()) + (Number(expires_seconds) * 1000);
-    if (now > expires) {
-        throw new Error('Authentication Expired (V4)');
-    }
-}
-
-function _expiry_query_s3(expires_epoch) {
-    const now = Date.now();
-    const expires = Number(expires_epoch) * 1000;
-    if (now > expires) {
-        throw new Error('Authentication Expired (S3)');
-    }
-}
 
 exports.signature = signature;
 exports.authenticate_request = authenticate_request;

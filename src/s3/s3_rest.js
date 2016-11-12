@@ -175,10 +175,10 @@ function s3_rest(controller) {
             }
 
             var bodyless_requests = ['UNSIGNED-PAYLOAD', 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'];
-            let content_sha256_b64 = req.headers['x-amz-content-sha256'];
-            if (!_.isUndefined(content_sha256_b64) &&
-                bodyless_requests.indexOf(content_sha256_b64.toString()) < 0) {
-                req.content_sha256 = new Buffer(content_sha256_b64, 'hex');
+            let content_sha256_hex = req.headers['x-amz-content-sha256'];
+            if (!_.isUndefined(content_sha256_hex) &&
+                bodyless_requests.indexOf(content_sha256_hex.toString()) < 0) {
+                req.content_sha256 = new Buffer(content_sha256_hex, 'hex');
                 if (req.content_sha256.length !== 32) {
                     throw s3_errors.InvalidDigest;
                 }

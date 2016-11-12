@@ -3,6 +3,7 @@
 
 // const _ = require('lodash');
 // const moment = require('moment');
+const crypto = require('crypto');
 const express = require('express');
 
 const P = require('../util/promise');
@@ -23,13 +24,13 @@ function lambda_rest(controller) {
     let app = new express.Router();
     app.use(handle_options);
     // app.use(check_headers);
+    app.use(read_json_body);
     app.use(authenticate_lambda_request);
 
     app.get('/',
         lambda_action('list_funcs'));
 
     app.post('/',
-        read_json_body,
         lambda_action('create_func'));
 
     app.get('/:func_name',
@@ -39,7 +40,6 @@ function lambda_rest(controller) {
         lambda_action('delete_func'));
 
     app.post('/:func_name/invocations',
-        read_json_body,
         lambda_action('invoke_func'));
 
     app.use(handle_common_lambda_errors);
@@ -176,6 +176,13 @@ function read_json_body(req, res, next) {
             if (data) {
                 req.body = JSON.parse(data);
             }
+            const content_sha256_hex = req.headers['x-amz-content-sha256'];
+            req.content_sha256 =
+                content_sha256_hex ? new Buffer(content_sha256_hex, 'hex') :
+                (crypto.createHash('sha256')
+                    .update(data)
+                    .digest());
+            console.log('GGG', req.content_sha256, data);
             return next();
         } catch (err) {
             return next(err);

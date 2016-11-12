@@ -828,7 +828,8 @@ class NodesMonitor extends EventEmitter {
             sort: 'shuffle'
         });
         const selected = _.take(list, limit);
-        dbg.log0('_get_detention_test_nodes::', item.node.name, selected, limit);
+        dbg.log0('_get_detention_test_nodes::', item.node.name,
+            _.map(selected, 'node.name'), limit);
         return _.isUndefined(limit) ? list : selected;
     }
 

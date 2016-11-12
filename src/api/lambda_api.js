@@ -239,10 +239,10 @@ module.exports = {
                     type: 'string',
                     enum: [
                         'nodejs6',
+                        'nodejs4.3',
                         // 'nodejs',
-                        // 'nodejs4.3',
-                        // 'java8',
                         // 'python2.7',
+                        // 'java8',
                     ]
                 },
                 memory_size: {

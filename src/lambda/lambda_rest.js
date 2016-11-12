@@ -8,8 +8,8 @@ const express = require('express');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
-const s3_utils = require('../util/s3_utils');
 const lambda_errors = require('./lambda_errors');
+const signature_utils = require('../util/signature_utils');
 
 const RPC_ERRORS_TO_LAMBDA = Object.freeze({
     UNAUTHORIZED: lambda_errors.AccessDenied,
@@ -125,7 +125,7 @@ function lambda_rest(controller) {
      */
     function authenticate_lambda_request(req, res, next) {
         P.fcall(function() {
-                s3_utils.authenticate_request(req);
+                signature_utils.authenticate_request(req);
                 return controller.prepare_request(req);
             })
             .then(() => next())
@@ -182,7 +182,6 @@ function read_json_body(req, res, next) {
                 (crypto.createHash('sha256')
                     .update(data)
                     .digest());
-            console.log('GGG', req.content_sha256, data);
             return next();
         } catch (err) {
             return next(err);

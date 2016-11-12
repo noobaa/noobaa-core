@@ -7,9 +7,9 @@ const bcrypt = require('bcrypt');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const s3_utils = require('../../util/s3_utils');
 const RpcError = require('../../rpc/rpc_error');
 const system_store = require('../system_services/system_store').get_instance();
+const signature_utils = require('../../util/signature_utils');
 
 
 /**
@@ -305,7 +305,7 @@ function _authorize_signature_token(req) {
         role: role.role,
     };
 
-    const signature = s3_utils.signature({
+    const signature = signature_utils.signature({
         secret_key: secret_key,
         access_key: auth_token_obj.access_key,
         string_to_sign: auth_token_obj.string_to_sign,

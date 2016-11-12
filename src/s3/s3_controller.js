@@ -89,7 +89,7 @@ class S3Controller {
             dbg.log0('Could not register error:', s3_error,
                 'Request Headers:', req.headers,
                 'Request Method:', req.method,
-                'Request Url:', req.url);
+                'Request Url:', req.originalUrl);
             return;
         }
         this.usage_report.s3_errors_info.total_errors += 1;
@@ -696,7 +696,7 @@ class S3Controller {
                         Bucket: req.params.bucket,
                         Key: req.params.key,
                         ETag: reply.etag,
-                        Location: req.url,
+                        Location: req.originalUrl,
                     }
                 };
             });

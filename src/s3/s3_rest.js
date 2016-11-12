@@ -99,10 +99,10 @@ function s3_rest(controller) {
      * to send as xml.
      */
     function s3_call(func_name, req, res, next) {
-        dbg.log0('S3 REQUEST', func_name, req.method, req.url, req.headers);
+        dbg.log0('S3 REQUEST', func_name, req.method, req.originalUrl, req.headers);
         let func = controller[func_name];
         if (!func) {
-            dbg.error('S3 TODO (NotImplemented)', func_name, req.method, req.url);
+            dbg.error('S3 TODO (NotImplemented)', func_name, req.method, req.originalUrl);
             next(s3_errors.NotImplemented);
             return;
         }
@@ -112,18 +112,18 @@ function s3_rest(controller) {
                     // in this case the controller already replied
                     return;
                 }
-                dbg.log1('S3 REPLY', func_name, req.method, req.url, reply);
+                dbg.log1('S3 REPLY', func_name, req.method, req.originalUrl, reply);
                 if (reply) {
                     let xml_root = _.mapValues(reply, val => ({
                         _attr: S3_XML_ATTRS,
                         _content: val
                     }));
                     let xml_reply = xml_utils.encode_xml(xml_root);
-                    dbg.log0('S3 XML REPLY', func_name, req.method, req.url,
+                    dbg.log0('S3 XML REPLY', func_name, req.method, req.originalUrl,
                         JSON.stringify(req.headers), xml_reply);
                     res.status(200).send(xml_reply);
                 } else {
-                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.url,
+                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.originalUrl,
                         JSON.stringify(req.headers));
                     if (req.method === 'DELETE') {
                         res.status(204).end();
@@ -203,14 +203,14 @@ function s3_rest(controller) {
      */
     function handle_common_s3_errors(err, req, res, next) {
         if (!err) {
-            dbg.log0('S3 InvalidURI.', req.method, req.url);
+            dbg.log0('S3 InvalidURI.', req.method, req.originalUrl);
             err = s3_errors.InvalidURI;
         }
         let s3err =
             ((err instanceof s3_errors.S3Error) && err) ||
             RPC_ERRORS_TO_S3[err.rpc_code] ||
             s3_errors.InternalError;
-        let reply = s3err.reply(req.url, req.request_id);
+        let reply = s3err.reply(req.originalUrl, req.request_id);
         dbg.error('S3 ERROR', reply,
             JSON.stringify(req.headers),
             err.stack || err);

@@ -13,7 +13,7 @@ const zip_utils = require('../../util/zip_utils');
 
 const lambda = new AWS.Lambda({
     region: argv.region || 'us-east-1',
-    endpoint: argv.aws ? undefined : (argv.endpoint || 'http://127.0.0.1:6002'),
+    endpoint: argv.aws ? undefined : (argv.endpoint || 'http://127.0.0.1:6001'),
     accessKeyId: argv.access_key || process.env.AWS_ACCESS_KEY_ID || '123',
     secretAccessKey: argv.secret_key || process.env.AWS_SECRET_ACCESS_KEY || 'abc',
     signatureVersion: argv.sigver || 'v4', // use s3/v4, v2 seems irrelevant

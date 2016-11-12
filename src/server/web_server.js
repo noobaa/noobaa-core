@@ -150,20 +150,18 @@ app.use(function(req, res, next) {
     // var fwd_start = req.get('X-Request-Start');
     if (fwd_proto === 'http') {
         var host = req.get('Host');
-        return res.redirect('https://' + host + req.url);
+        return res.redirect('https://' + host + req.originalUrl);
     }
     return next();
 });
 app.use(function(req, res, next) {
     let current_clustering = system_store.get_local_cluster_info();
     if ((current_clustering && current_clustering.is_clusterized) &&
-        !system_store.is_cluster_master && req.url !== '/upload_package') {
-        P.fcall(function() {
-                return server_rpc.client.cluster_internal.redirect_to_cluster_master();
-            })
+        !system_store.is_cluster_master && req.originalUrl !== '/upload_package') {
+        P.fcall(() => server_rpc.client.cluster_internal.redirect_to_cluster_master())
             .then(host => {
                 res.status(307);
-                return res.redirect(`http://${host}:8080` + req.url);
+                return res.redirect(`http://${host}:8080` + req.originalUrl);
             })
             .catch(err => {
                 res.status(500);

@@ -899,7 +899,8 @@ RPC.prototype.register_nudp_transport = function(port) {
  */
 RPC.prototype.register_n2n_agent = function(send_signal_func) {
     if (this.n2n_agent) {
-        throw new Error('RPC N2N already registered');
+        console.log('RPC N2N already registered. ignoring');
+        return this.n2n_agent;
     }
     dbg.log0('RPC register_n2n_agent');
     var n2n_agent = new RpcN2NAgent({

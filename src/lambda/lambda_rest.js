@@ -25,20 +25,20 @@ function lambda_rest(controller) {
     // app.use(check_headers);
     app.use(authenticate_lambda_request);
 
-    app.get('/:api_version/functions',
+    app.get('/',
         lambda_action('list_funcs'));
 
-    app.post('/:api_version/functions',
+    app.post('/',
         read_json_body,
         lambda_action('create_func'));
 
-    app.get('/:api_version/functions/:func_name',
+    app.get('/:func_name',
         lambda_action('read_func'));
 
-    app.delete('/:api_version/functions/:func_name',
+    app.delete('/:func_name',
         lambda_action('delete_func'));
 
-    app.post('/:api_version/functions/:func_name/invocations',
+    app.post('/:func_name/invocations',
         read_json_body,
         lambda_action('invoke_func'));
 
@@ -62,16 +62,16 @@ function lambda_rest(controller) {
      * call a function in the controller, and send the result
      */
     function lambda_call(action_name, req, res, next) {
-        dbg.log0('LAMBDA REQUEST', action_name, req.method, req.url, req.headers);
+        dbg.log0('LAMBDA REQUEST', action_name, req.method, req.originalUrl, req.headers);
         let action = controller[action_name];
         if (!action) {
-            dbg.error('LAMBDA TODO (NotImplemented)', action_name, req.method, req.url);
+            dbg.error('LAMBDA TODO (NotImplemented)', action_name, req.method, req.originalUrl);
             next(new Error('NotImplemented'));
             return;
         }
         P.fcall(() => action.call(controller, req, res))
             .then(reply => {
-                dbg.log1('LAMBDA REPLY', action_name, req.method, req.url, reply);
+                dbg.log1('LAMBDA REPLY', action_name, req.method, req.originalUrl, reply);
                 if (!res.statusCode) {
                     if (req.method === 'POST') {
                         // HTTP Created is the common reply to POST method
@@ -87,11 +87,11 @@ function lambda_rest(controller) {
                     }
                 }
                 if (reply) {
-                    dbg.log0('LAMBDA REPLY', action_name, req.method, req.url,
+                    dbg.log0('LAMBDA REPLY', action_name, req.method, req.originalUrl,
                         JSON.stringify(req.headers), reply);
                     res.send(reply);
                 } else {
-                    dbg.log0('LAMBDA EMPTY REPLY', action_name, req.method, req.url,
+                    dbg.log0('LAMBDA EMPTY REPLY', action_name, req.method, req.originalUrl,
                         JSON.stringify(req.headers));
                     res.end();
                 }
@@ -105,7 +105,7 @@ function lambda_rest(controller) {
      */
     function handle_common_lambda_errors(err, req, res, next) {
         if (!err) {
-            dbg.log0('LAMBDA Unknown API', req.method, req.url);
+            dbg.log0('LAMBDA Unknown API', req.method, req.originalUrl);
             err = lambda_errors.ServiceException;
         }
         let lambda_err =

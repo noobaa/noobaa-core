@@ -93,7 +93,7 @@ function run_server() {
                 return api.new_rpc(params.address);
             }
         })
-        .then(rpc => app.use(lambda_rest(new LambdaController(rpc))))
+        .then(rpc => app.use('/2015-03-31/functions/', lambda_rest(new LambdaController(rpc))))
         .then(() => dbg.log0('Starting HTTP', params.port))
         .then(() => listen_http(params.port, http.createServer(app)))
         .then(() => dbg.log0('Starting HTTPS', params.ssl_port))

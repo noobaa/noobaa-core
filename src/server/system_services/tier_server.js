@@ -84,7 +84,7 @@ function read_tier(req) {
     var tier = find_tier_by_name(req);
     var pool_names = tier.pools.map(pool => pool.name);
     return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_names))
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id))
         .then(nodes_aggregate_pool => get_tier_info(tier, nodes_aggregate_pool));
 }
 
@@ -247,7 +247,7 @@ function read_policy(req) {
     ));
     var pool_names = pools.map(pool => pool.name);
     return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_names))
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id))
         .then(nodes_aggregate_pool => get_tiering_policy_info(policy, nodes_aggregate_pool));
 }
 

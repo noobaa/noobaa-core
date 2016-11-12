@@ -39,10 +39,10 @@ class NodesClient {
             .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
-    list_nodes_by_pool(pool_id, system_id) {
+    list_nodes_by_pool(pool_name, system_id) {
         return server_rpc.client.node.list_nodes({
                 query: {
-                    pools: new Set([pool_id])
+                    pools: [pool_name]
                 }
             }, {
                 auth_token: auth_server.make_auth_token({

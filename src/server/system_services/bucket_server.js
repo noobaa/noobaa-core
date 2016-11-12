@@ -134,7 +134,7 @@ function read_bucket(req) {
     ));
     let pool_names = pools.map(pool => pool.name);
     return P.join(
-        nodes_client.instance().aggregate_nodes_by_pool(pool_names),
+        nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
         md_store.ObjectMD.collection.count({
             system: req.system._id,
             bucket: bucket._id,

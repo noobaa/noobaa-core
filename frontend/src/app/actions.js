@@ -50,7 +50,7 @@ export function start() {
                     system: system.name,
                     mustChangePassword: account.must_change_password
                 });
-                api.redirector.register_for_alerts();
+                //api.redirector.register_for_alerts(); //For now comment this out until add it properly
             }
         })
         .catch(err => {
@@ -358,8 +358,8 @@ export function signIn(email, password, keepSessionAlive = false) {
                             user: email,
                             system: system,
                             mustChangePassword: mustChangePassword
-                        });                        
-                        api.redirector.register_for_alerts();
+                        });
+                        //api.redirector.register_for_alerts(); ////For now comment this out until add it properly
                         model.loginInfo({ retryCount: 0 });
                         refresh();
                     });

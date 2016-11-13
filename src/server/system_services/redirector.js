@@ -61,6 +61,14 @@ function register_for_alerts(req) {
     }
 }
 
+function unregister_from_alerts(req) {
+    var conn = req.connection;
+    if (!alerts_connections.has(conn)) {
+        return;
+    }
+    alerts_connections.delete(conn);
+}
+
 function publish_alerts(req) {
     var connections = [];
     alerts_connections.forEach(function(conn) {
@@ -81,6 +89,7 @@ function publish_alerts(req) {
 
 // EXPORTS
 exports.register_for_alerts = register_for_alerts;
+exports.unregister_from_alerts = unregister_from_alerts;
 exports.register_to_cluster = register_to_cluster;
 exports.publish_to_cluster = publish_to_cluster;
 exports.publish_alerts = publish_alerts;

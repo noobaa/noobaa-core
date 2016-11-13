@@ -38,6 +38,13 @@ module.exports = {
             }
         },
 
+        unregister_from_alerts: {
+            method: 'POST',
+            auth: {
+                system: 'admin'
+            }
+        },
+
         publish_alerts: {
             method: 'POST',
             params: {

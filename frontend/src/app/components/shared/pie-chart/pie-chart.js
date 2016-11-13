@@ -24,34 +24,29 @@ const secondaryTextStyle = deepFreeze({
     color: style['color7']
 });
 
-function valuesToRatios(values) {
+function normalizeValues(values) {
+    let delta = 0, overhead = 0;
     let sum = values.reduce(
         (sum, value) => sum + value
     );
 
-    return values.map(
-        value => value / sum
-    );
-}
-
-function normalizeValues(values) {
-    let ratios = valuesToRatios(values);
-
-    let underThreshold = ratios.reduce(
-        (stats, ratio) => {
-            if (0 < ratio && ratio < threshold) {
-                stats.sum += ratio;
-                ++stats.count;
+    let thresholdSize = threshold * sum;
+    values.forEach(
+        value => {
+            if(value !== 0){
+                if(value < thresholdSize) {
+                    delta += thresholdSize - value;
+                } else {
+                    overhead += value - thresholdSize;
+                }
             }
-
-            return stats;
-        },
-        { count: 0, sum: 0 }
+        }
     );
 
-    let factor = (1 - underThreshold.count * threshold) / (1 - underThreshold.sum);
-    return ratios.map(
-        ratio => ratio < threshold ? threshold : factor * ratio
+    return values.map(
+        value => thresholdSize < value ?
+            (value - delta * (value - thresholdSize) / overhead) / sum :
+            (value > 0 ? threshold : 0)
     );
 }
 

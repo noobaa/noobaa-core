@@ -8,7 +8,7 @@ const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const mongo_utils = require('../../util/mongo_utils');
 const node_allocator = require('./node_allocator');
-const utils = require('util');
+
 
 const NODE_FIELDS_FOR_MAP = [
     'name',
@@ -26,11 +26,15 @@ const NODE_FIELDS_FOR_MAP = [
     // ... more?
 ];
 
+
+const MASTER_CHANGE_RETRIES = 10;
+
 class NodesClient {
 
 
+
     list_nodes_by_system(system_id) {
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             return server_rpc.client.node.list_nodes({}, {
                     auth_token: auth_server.make_auth_token({
                         system_id: system_id,
@@ -44,7 +48,7 @@ class NodesClient {
     }
 
     list_nodes_by_pool(pool_name, system_id) {
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             return server_rpc.client.node.list_nodes({
                     query: {
                         pools: [pool_name]
@@ -62,7 +66,7 @@ class NodesClient {
     }
 
     aggregate_nodes_by_pool(pool_names, system_id, skip_cloud_nodes) {
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             const nodes_aggregate_pool = server_rpc.client.node.aggregate_nodes({
                     query: {
                         pools: pool_names || undefined,
@@ -82,7 +86,7 @@ class NodesClient {
     }
 
     migrate_nodes_to_pool(system_id, node_identities, pool_id) {
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             return server_rpc.client.node.migrate_nodes_to_pool({
                 nodes: node_identities,
                 pool_id: String(pool_id)
@@ -97,7 +101,7 @@ class NodesClient {
     }
 
     collect_agent_diagnostics(node_identity) {
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             return server_rpc.client.node.collect_agent_diagnostics(node_identity)
                 .catch(err => this._handle_master_change(err));
 
@@ -111,7 +115,7 @@ class NodesClient {
             dbg.error('read_node_by_name: expected system_id. node_name', node_name);
             throw new Error('read_node_by_name: expected system_id');
         }
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             return server_rpc.client.node.read_node({
                     name: node_name
                 }, {
@@ -131,7 +135,7 @@ class NodesClient {
             dbg.error('read_node_by_name: expected system_id. node_name', node_name);
             throw new Error('read_node_by_name: expected system_id');
         }
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             return server_rpc.client.node.delete_node({
                     name: node_name
                 }, {
@@ -150,7 +154,7 @@ class NodesClient {
             dbg.error('allocate_nodes: expected system_id. pool_id', pool_id);
             throw new Error('allocate_nodes: expected system_id');
         }
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             return P.resolve(server_rpc.client.node.allocate_nodes({
                     pool_id: String(pool_id),
                     fields: NODE_FIELDS_FOR_MAP
@@ -183,7 +187,7 @@ class NodesClient {
             throw new Error('populate_nodes: expected system_id');
         }
         return P.resolve()
-            .then(() => promise_utils.retry(10, 1, () =>
+            .then(() => promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () =>
                 server_rpc.client.node.list_nodes(params, {
                     auth_token: auth_server.make_auth_token({
                         system_id: system_id,
@@ -228,7 +232,7 @@ class NodesClient {
             node_allocator.report_error_on_node_alloc(node_id);
         });
 
-        return promise_utils.retry(10, 1, () => {
+        return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
             return server_rpc.client.node.report_error_on_node_blocks({
                     blocks_report: blocks_report
                 }, {
@@ -243,10 +247,13 @@ class NodesClient {
     }
 
     _handle_master_change(err) {
-        if (err.rpc_code === 'MONITOR_NOT_LOADED' || err.rpc_code === 'MONITOR_NOT_LOADED') {
+        dbg.log0(`_handle_master_change with err.rpc_code = ${err.rpc_code}`);
+        if (err.rpc_code === 'MONITOR_NOT_LOADED' || err.rpc_code === 'MONITOR_NOT_STARTED') {
             return server_rpc.client.cluster_internal.redirect_to_cluster_master()
                 .then(addr => {
-                    this._master_address = addr;
+                    let new_address = 'ws://' + addr + ':' + server_rpc.get_base_port();
+                    dbg.log0(`nodes_client: changing _master_address from ${this._master_address}, to ${new_address}`);
+                    this._master_address = new_address;
                     throw err;
                 });
         }

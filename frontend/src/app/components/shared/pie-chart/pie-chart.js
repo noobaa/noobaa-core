@@ -61,7 +61,7 @@ function normalizeValues(values) {
                 return threshold;
             }
 
-            return (value - delta * (value - thresholdSize) / overhead) / sum :
+            return (value - delta * (value - thresholdSize) / overhead) / sum;
         }
     );
 }

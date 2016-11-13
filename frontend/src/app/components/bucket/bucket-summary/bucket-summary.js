@@ -1,7 +1,6 @@
 import template from './bucket-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import moment from 'moment';
 import style from 'style';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils';

@@ -1,7 +1,6 @@
 import template from './object-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import moment from 'moment';
 import style from 'style';
 
 class ObjectSummaryViewModel extends Disposable {

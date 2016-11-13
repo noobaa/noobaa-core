@@ -25,28 +25,44 @@ const secondaryTextStyle = deepFreeze({
 });
 
 function normalizeValues(values) {
-    let delta = 0, overhead = 0;
     let sum = values.reduce(
         (sum, value) => sum + value
     );
 
     let thresholdSize = threshold * sum;
-    values.forEach(
-        value => {
-            if(value !== 0){
-                if(value < thresholdSize) {
-                    delta += thresholdSize - value;
-                } else {
-                    overhead += value - thresholdSize;
-                }
+    let { delta, overhead } = values.reduce(
+        (stats, value) => {
+            if(value === 0){
+                return stats;
             }
-        }
+
+            if(value < thresholdSize) {
+                return {
+                    delta: delta + thresholdSize - value,
+                    overhead: overhead
+                };
+            } else {
+                return {
+                    delta: delta,
+                    overhead: overhead + value - thresholdSize
+                };
+            }
+        },
+        { delta: 0, overhead: 0 }
     );
 
     return values.map(
-        value => thresholdSize < value ?
-            (value - delta * (value - thresholdSize) / overhead) / sum :
-            (value > 0 ? threshold : 0)
+        value => {
+            if (value === 0) {
+                return 0;
+            }
+
+            if (value <= thresholdSize){
+                return threshold;
+            }
+
+            return (value - delta * (value - thresholdSize) / overhead) / sum :
+        }
     );
 }
 

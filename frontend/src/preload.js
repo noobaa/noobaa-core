@@ -6,12 +6,12 @@ prelaod process (the process must be self contained);
 
 const base = '/fe/assets';
 const assets = [
+    'loader.gif',
+    'stars.jpg',
     'checkbox.png',
     'radiobtn.png',
     'search.png',
-    'step-done.png',
-    'loader.gif',
-    'stars.jpg'
+    'step-done.png'
 ];
 
 const prefix = 'PRELOAD';

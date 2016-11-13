@@ -11,4 +11,8 @@ rpc.set_request_logger(
     (...args) => console.info(...args)
 );
 
-export default window.api = rpc.new_client();
+rpc.register_service(rpc.schema.frontend_notifications_api,
+    require('./notifications.js'), {}/*options*/);
+
+const client = window.api = rpc.new_client();
+export default client;

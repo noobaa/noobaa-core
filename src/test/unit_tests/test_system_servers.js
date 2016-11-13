@@ -99,7 +99,7 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.system.read_system())
             .then(() => client.system.list_systems())
-            .then(() => client.system.read_activity_log({
+            .then(() => client.events.read_activity_log({
                 limit: 2016
             }))
             ////////////

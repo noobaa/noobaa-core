@@ -151,7 +151,7 @@ function dildos() {
     let last_took = 0;
     console.log(`Starting ${concur} DILDOS`);
 
-    const params = {
+    const invoke_params = {
         FunctionName: dos_func.FunctionName,
         Payload: JSON.stringify({
             func_name: word_count_func.FunctionName,
@@ -166,10 +166,10 @@ function dildos() {
     function worker() {
         const now = Date.now();
         if (now >= end) return;
-        return P.fromCallback(callback => lambda.invoke(params, callback))
+        return P.fromCallback(callback => lambda.invoke(invoke_params, callback))
             .then(res => {
                 if (argv.debug) {
-                    console.log('Result:', res, 'from', params);
+                    console.log('Result:', res, 'from', invoke_params);
                 }
                 const reply = res.Response || JSON.parse(res.Payload);
                 total_calls += reply.num_calls;
@@ -191,15 +191,10 @@ function dildos() {
             .then(worker);
     }
 
-    function report({
-        title,
-        calls,
-        took,
-        time
-    }) {
-        const calls_per_sec = (calls * 1000 / time).toFixed(3);
-        const avg_latency = (took / calls).toFixed(3);
-        console.log(`${title}: Latency ${avg_latency}ms | Calls per second ${calls_per_sec} | Calls ${calls} | Errors ${total_errors}`);
+    function report(params) {
+        const calls_per_sec = (params.calls * 1000 / params.time).toFixed(3);
+        const avg_latency = (params.took / params.calls).toFixed(3);
+        console.log(`${params.title}: Latency ${avg_latency}ms | Calls per second ${calls_per_sec} | Calls ${params.calls} | Errors ${total_errors}`);
     }
 
     return P.map(_.times(concur), worker)

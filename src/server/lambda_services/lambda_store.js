@@ -151,12 +151,11 @@ class LambdaStore {
                 .toArray());
     }
 
-    create_code_gridfs({
-        system,
-        name,
-        version,
-        code_stream,
-    }) {
+    create_code_gridfs(params) {
+        const system = params.system;
+        const name = params.name;
+        const version = params.version;
+        const code_stream = params.code_stream;
         return new P((resolve, reject) => {
             const upload_stream = this.code_gridfs().openUploadStream(
                 this.code_filename(system, name, version));

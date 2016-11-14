@@ -17,7 +17,7 @@ const BUILTIN_MODULES_MAP = new Map(_.map(BUILTIN_MODULES_NAMES,
     name => [name, {
         id: name,
         filename: name,
-        exports: require(name),
+        exports: require(name), // eslint-disable-line global-require
         loaded: true,
         parent: null,
         children: [],
@@ -26,20 +26,15 @@ const BUILTIN_MODULES_MAP = new Map(_.map(BUILTIN_MODULES_NAMES,
 
 class LambdaVM {
 
-    constructor({
-        files,
-        handler,
-        lambda_io,
-        rpc_client,
-    }) {
-        this.lambda_io = lambda_io;
-        this.rpc_client = rpc_client;
+    constructor(params) {
+        this.lambda_io = params.lambda_io;
+        this.rpc_client = params.rpc_client;
         this.vm_require = mod_name => this._require(mod_name);
         this.timers = new WeakMap();
         this.vm_global = vm.createContext({
-            setTimeout: (...args) => this._set_timer(setTimeout, clearTimeout, ...args),
-            setInterval: (...args) => this._set_timer(setInterval, clearInterval, ...args),
-            setImmediate: (...args) => this._set_timer(setImmediate, clearImmediate, ...args),
+            setTimeout: (/*...*/args) => this._set_timer(setTimeout, clearTimeout, /*...*/args),
+            setInterval: (/*...*/args) => this._set_timer(setInterval, clearInterval, /*...*/args),
+            setImmediate: (/*...*/args) => this._set_timer(setImmediate, clearImmediate, /*...*/args),
             clearTimeout: local => this._clear_timer(local),
             clearInterval: local => this._clear_timer(local),
             clearImmediate: local => this._clear_timer(local),
@@ -50,7 +45,7 @@ class LambdaVM {
         });
         // global is recursively pointing to itself
         this.vm_global.global = this.vm_global;
-        this.modules = new Map(_.map(files,
+        this.modules = new Map(_.map(params.files,
             (code, filename) => [filename, {
                 // https://nodejs.org/api/modules.html
                 id: filename,
@@ -65,7 +60,7 @@ class LambdaVM {
                 }),
             }]
         ));
-        const handler_split = handler.split('.');
+        const handler_split = params.handler.split('.');
         this.module_name = handler_split[0] + '.js';
         this.export_name = handler_split[1];
         this.vm_require.main = this.modules.get(this.module_name);
@@ -82,7 +77,7 @@ class LambdaVM {
         const builtin = BUILTIN_MODULES_MAP.get(name);
         if (builtin) return builtin;
         const mod = this.modules.get(name);
-        if (!mod) throw new Error(`Cannot find module \'${name}\'`);
+        if (!mod) throw new Error(`Cannot find module '${name}'`);
         if (mod.loaded) return mod;
         this.vm_global.module = mod;
         this.vm_global.exports = mod.exports;
@@ -93,12 +88,12 @@ class LambdaVM {
         return mod;
     }
 
-    _set_timer(setter, clearer, callback, ...args) {
+    _set_timer(setter, clearer, callback, /*...*/args) {
         let local;
         const timer = setter(() => {
             this.timers.delete(local);
-            return callback(...args);
-        }, ...args);
+            return callback(/*...*/args);
+        }, /*...*/args);
         local = {
             ref() {
                 return timer.ref();

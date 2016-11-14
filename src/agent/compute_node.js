@@ -14,14 +14,15 @@ const zip_utils = require('../util/zip_utils');
 
 class ComputeNode {
 
-    constructor({
-        rpc_client,
-        storage_path,
-    }) {
-        this.rpc_client = rpc_client;
-        this.storage_path = storage_path;
+    constructor(params) {
+        this.rpc_client = params.rpc_client;
+        this.storage_path = params.storage_path;
         this.func_path = path.join(this.storage_path, 'functions');
         this.lambda_io = new LambdaIO();
+        this._init_func_cache();
+    }
+
+    _init_func_cache() {
         this.func_cache = new LRUCache({
             name: 'FuncCache',
             max_usage: 128 * 1024 * 1024,

@@ -10,12 +10,11 @@ const dbg = require('../util/debug_module')(__filename);
  * Calculates AWS signature based on auth_server request
  *
  */
-function signature({
-    access_key,
-    secret_key,
-    string_to_sign,
-    noobaa_v4,
-}) {
+function signature(params) {
+    const access_key = params.access_key;
+    const secret_key = params.secret_key;
+    const string_to_sign = params.string_to_sign;
+    const noobaa_v4 = params.noobaa_v4;
 
     // using S3 signer unless V4
     if (!noobaa_v4) {
@@ -224,7 +223,7 @@ function _aws_request(req) {
     const aws_request = {
         region: req.noobaa_v4 && req.noobaa_v4.region,
         method: req.method,
-        path: pathname,
+        path: req.originalUrl,
         headers: headers_for_sdk,
         search: () => search_string,
         pathname: () => pathname,

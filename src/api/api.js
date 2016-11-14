@@ -15,6 +15,7 @@ api_schema.register_api(require('./system_api'));
 api_schema.register_api(require('./tier_api'));
 api_schema.register_api(require('./node_api'));
 api_schema.register_api(require('./bucket_api'));
+api_schema.register_api(require('./events_api'));
 api_schema.register_api(require('./object_api'));
 api_schema.register_api(require('./agent_api'));
 api_schema.register_api(require('./block_store_api'));
@@ -28,6 +29,7 @@ api_schema.register_api(require('./cluster_server_api'));
 api_schema.register_api(require('./cluster_internal_api'));
 api_schema.register_api(require('./server_inter_process_api'));
 api_schema.register_api(require('./hosted_agents_api'));
+api_schema.register_api(require('./frontend_notifications_api'));
 api_schema.compile();
 
 /**

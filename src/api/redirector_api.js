@@ -31,6 +31,37 @@ module.exports = {
             }
         },
 
+        register_for_alerts: {
+            method: 'POST',
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        unregister_from_alerts: {
+            method: 'POST',
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        publish_alerts: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    request_params: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        }
+
     },
 
     definitions: {

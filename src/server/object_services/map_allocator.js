@@ -86,7 +86,8 @@ class MapAllocator {
     allocate_blocks() {
         _.each(this.parts, part => {
             if (part.chunk_dedup) return; // already found dup
-            let status = map_utils.get_chunk_status(part.chunk, this.bucket.tiering, /*async_mirror=*/ true);
+            let tiering_pools_status = node_allocator.get_tiering_pools_status(this.bucket.tiering);
+            let status = map_utils.get_chunk_status(part.chunk, this.bucket.tiering, /*async_mirror=*/ true, tiering_pools_status);
             var avoid_nodes = [];
             let allocated_hosts = [];
 

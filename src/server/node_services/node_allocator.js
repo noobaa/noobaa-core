@@ -60,6 +60,35 @@ function refresh_pool_alloc(pool) {
     return group.promise;
 }
 
+
+// TODO TODO TODO
+function get_tiering_pools_status(tiering) {
+    let pools = _.flatten(_.map(tiering.tiers,
+        tier_and_order => tier_and_order.tier.pools));
+    return _get_tiering_pools_status(pools);
+}
+
+
+function _get_tiering_pools_status(pools) {
+    let pools_status_by_name = [];
+    _.each(pools, pool => {
+        let valid_for_allocation = true;
+        let alloc_group = alloc_group_by_pool[String(pool._id)];
+        let num_nodes = alloc_group ? alloc_group.nodes.length : 0;
+        if (pool.cloud_pool_info) {
+            if (num_nodes !== config.NODES_PER_CLOUD_POOL) {
+                valid_for_allocation = false;
+            }
+        } else if (num_nodes < config.NODES_MIN_COUNT) {
+            valid_for_allocation = false;
+        }
+        pools_status_by_name[pool.name] = valid_for_allocation;
+    });
+    return pools_status_by_name;
+}
+
+
+
 /**
  *
  * allocate_node
@@ -164,6 +193,7 @@ function report_error_on_node_alloc(node_id) {
 
 
 // EXPORTS
+exports.get_tiering_pools_status = get_tiering_pools_status;
 exports.refresh_tiering_alloc = refresh_tiering_alloc;
 exports.refresh_pool_alloc = refresh_pool_alloc;
 exports.allocate_node = allocate_node;

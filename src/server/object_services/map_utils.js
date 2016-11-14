@@ -31,29 +31,42 @@ function analyze_special_chunks(chunks, parts, objects) {
 }
 
 
-function select_prefered_pools(tier) {
-    // first filter out cloud_pools.
-    let regular_pools = tier.pools.filter(pool => _.isUndefined(pool.cloud_pool_info));
+function select_prefered_pools(tier, tiering_pools_status) {
+    const WEIGHTS = {
+        non_writable_pool: 10,
+        on_premise_pool: 1,
+        cloud_pool: 2
+    };
+    let sorted_pools = _.sortBy(tier.pools, pool => {
+        let pool_weight = 0;
 
-    // In case that we don't have any regular pools in our policy, we return cloud pools
-    if (!regular_pools.length) {
-        return tier.pools;
-    }
+        if (!tiering_pools_status[pool.name]) {
+            pool_weight += WEIGHTS.non_writable_pool;
+        }
 
-    // from the regular pools we should select the best pool
-    // for now we just take the first pool in the list.
+        if (_.isUndefined(pool.cloud_pool_info)) {
+            pool_weight += WEIGHTS.on_premise_pool;
+        } else {
+            pool_weight += WEIGHTS.cloud_pool;
+        }
+
+        return pool_weight;
+    });
+
+
+    // We should select the best pool for now we just take the first pool in the list.
     if (tier.data_placement === 'MIRROR') {
-        if (!regular_pools[0]) {
+        if (!sorted_pools[0]) {
             throw new Error('could not find a pool for async mirroring');
         }
-        return [regular_pools[0]];
+        return [sorted_pools[0]];
     } else {
-        return regular_pools;
+        return sorted_pools;
     }
-
 }
 
-function get_chunk_status(chunk, tiering, async_mirror) {
+
+function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -65,7 +78,7 @@ function get_chunk_status(chunk, tiering, async_mirror) {
     // so the client is not blocked until all blocks are uploded to the cloud.
     // on build_chunks flow we will not ignore cloud pools.
     const participating_pools = async_mirror ?
-        select_prefered_pools(tier) :
+        select_prefered_pools(tier, tiering_pools_status) :
         tier.pools;
     const tier_pools_by_name = _.keyBy(participating_pools, 'name');
     const replicas = chunk.is_special ?
@@ -87,7 +100,8 @@ function get_chunk_status(chunk, tiering, async_mirror) {
 
     function check_blocks_group(blocks, alloc) {
         let required_replicas = replicas;
-        if (alloc && alloc.pools && alloc.pools[0] && alloc.pools[0].cloud_pool_info) {
+        if (_.get(alloc, 'pools.length', 0) &&
+            _.filter(alloc.pools, pool => !pool.cloud_pool_info).length === 0) {
             // for cloud_pools we only need one replica
             required_replicas = 1;
         }
@@ -104,10 +118,10 @@ function get_chunk_status(chunk, tiering, async_mirror) {
                 deletions.push(block);
             }
         });
-        if (alloc && alloc.pools.length) {
+        if (_.get(alloc, 'pools.length', 0)) {
             let num_missing = Math.max(0, required_replicas - num_good);
             // These are the minimum required replicas
-            let num_must_missing = Math.max(0, tier.replicas - num_good);
+            let num_must_missing = Math.max(0, Math.min(required_replicas, tier.replicas) - num_good);
             // Notice that we push the minimum required replicas in higher priority
             // This is done in order to insure that we will allocate them before the additional replicas
             _.times(num_must_missing, () => allocations.push(_.clone(alloc)));

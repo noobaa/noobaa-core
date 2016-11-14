@@ -107,7 +107,14 @@ gulp.task('compile-styles', () => {
 });
 
 gulp.task('copy', () => {
-    return gulp.src(['src/index.html', 'src/assets/**/*'], { base: 'src' })
+    return gulp.src(
+        [
+            'src/index.html',
+            'src/preload.js',
+            'src/assets/**/*'
+        ],
+        { base: 'src' }
+    )
         .pipe(gulp.dest(buildPath));
 });
 
@@ -181,11 +188,18 @@ gulp.task('watch-styles', ['compile-styles'], () => {
 });
 
 gulp.task('watch-assets', ['copy'], () => {
-    return $.watch(['src/index.html', 'src/assets/**/*'], function(vinyl) {
-        // Copy the file that changed.
-        gulp.src(vinyl.path, { base: 'src' })
-            .pipe(gulp.dest(buildPath));
-    });
+    return $.watch(
+        [
+            'src/index.html',
+            'src/preload.js',
+            'src/assets/**/*'
+        ],
+        function(vinyl) {
+            // Copy the file that changed.
+            gulp.src(vinyl.path, { base: 'src' })
+                .pipe(gulp.dest(buildPath));
+        }
+    );
 });
 
 // ----------------------------------

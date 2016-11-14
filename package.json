@@ -80,7 +80,7 @@
     "eslint": "3.9.1",
     "eslint-plugin-header": "0.1.0",
     "event-stream": "3.3.2",
-    "express": "4.13.4",
+    "express": "4.14.0",
     "forever": "0.15.2",
     "forever-service": "0.5.7",
     "form-data": "0.2.0",

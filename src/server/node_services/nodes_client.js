@@ -100,9 +100,15 @@ class NodesClient {
         });
     }
 
-    collect_agent_diagnostics(node_identity) {
+    collect_agent_diagnostics(node_identity, system_id) {
         return promise_utils.retry(MASTER_CHANGE_RETRIES, 1, () => {
-            return server_rpc.client.node.collect_agent_diagnostics(node_identity)
+            return server_rpc.client.node.collect_agent_diagnostics(node_identity, {
+                    auth_token: auth_server.make_auth_token({
+                        system_id: system_id,
+                        role: 'admin'
+                    }),
+                    address: this._master_address
+                })
                 .catch(err => this._handle_master_change(err));
 
         });

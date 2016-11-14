@@ -7,23 +7,24 @@ import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
     downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
     stringifyAmount } from 'utils';
 
-
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
 import 'aws-sdk';
-let AWS = window.AWS;
+const AWS = window.AWS;
 
 // Use preconfigured hostname or the addrcess of the serving computer.
-let endpoint = window.location.hostname;
+const endpoint = window.location.hostname;
 
 // -----------------------------------------------------
 // Utility function to log actions.
 // -----------------------------------------------------
+const prefix = 'ACTION DISPATHCED';
+
 function logAction(action, payload) {
     if (typeof payload !== 'undefined') {
-        console.info(`action dispatched: ${action} with`, payload);
+        console.info(`${prefix} ${action} with`, payload);
     } else {
-        console.info(`action dispatched: ${action}`);
+        console.info(`${prefix} ${action}`);
     }
 }
 

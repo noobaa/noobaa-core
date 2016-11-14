@@ -477,7 +477,7 @@ function apply_set_debug_level(req) {
 function _restart_services() {
     // set timeout to restart services in 1 second
     setTimeout(() => {
-        promise_utils.exec('supervisorctl restart s3rver bg_workers');
+        promise_utils.exec('supervisorctl restart s3rver bg_workers hosted_agents');
     }, 1000);
 }
 

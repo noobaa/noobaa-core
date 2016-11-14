@@ -74,6 +74,7 @@ function remove_master_workers() {
     MASTER_BG_WORKERS.forEach(worker_name => {
         background_scheduler.remove_background_worker(worker_name);
     });
+
 }
 
 function run_master_workers() {

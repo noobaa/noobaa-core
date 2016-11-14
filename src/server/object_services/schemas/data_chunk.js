@@ -51,6 +51,12 @@ const data_chunk_schema = new Schema({
         type: Number,
     },
 
+    // Used in extra replication for video type chunks
+    // Currently only the first and the last chunks of the video
+    special_replica: {
+        type: Boolean
+    },
+
     // cipher used to provide confidentiality - computed on the plain data
     cipher_type: {
         type: String,

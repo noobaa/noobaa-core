@@ -1518,7 +1518,7 @@ class NodesMonitor extends EventEmitter {
         } else if (options.sort === 'connectivity') {
             list.sort(js_utils.sort_compare_by(item => item.connectivity, options.order));
         } else if (options.sort === 'data_activity') {
-            list.sort(js_utils.sort_compare_by(item => item.data_activity.reason, options.order));
+            list.sort(js_utils.sort_compare_by(item => _.get(item, 'data_activity.reason', ''), options.order));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }

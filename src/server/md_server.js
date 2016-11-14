@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const url = require('url');
@@ -15,6 +16,7 @@ server_rpc.register_common_services();
 
 function register_rpc() {
     let http_port = url.parse(server_rpc.rpc.router.md).port;
+    // TODO missing? server_rpc.rpc.router.md = 'fcall://fcall';
     return server_rpc.rpc.start_http_server({
         port: http_port,
         ws: true,

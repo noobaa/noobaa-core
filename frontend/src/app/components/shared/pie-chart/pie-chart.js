@@ -38,13 +38,13 @@ function normalizeValues(values) {
 
             if(value < thresholdSize) {
                 return {
-                    delta: delta + thresholdSize - value,
-                    overhead: overhead
+                    delta: stats.delta + thresholdSize - value,
+                    overhead: stats.overhead
                 };
             } else {
                 return {
-                    delta: delta,
-                    overhead: overhead + value - thresholdSize
+                    delta: stats.delta,
+                    overhead: stats.overhead + value - thresholdSize
                 };
             }
         },

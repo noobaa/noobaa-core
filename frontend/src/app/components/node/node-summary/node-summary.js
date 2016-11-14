@@ -168,9 +168,9 @@ class NodeSummaryViewModel extends Disposable {
                 let { stage } = dataActivity();
                 switch (stage.name) {
                     case 'OFFLINE_GRACE':
-                        return `Waiting for heartbeat, ${
-                            moment(stage.time.end).fromNow()
-                        } until restore`;
+                        return `Waiting for heartbeat, start restoring ${
+                            moment(stage.time.end).fromNow(true)
+                        }`;
 
                     case 'REBUILDING':
                         return `Rebuilding ${

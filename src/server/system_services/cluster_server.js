@@ -124,7 +124,7 @@ function add_member_to_cluster(req) {
                             owner_address: response.caller_address
                         }]
                     }
-                }).catch(err => console.error('Failed to update owner ip', err));
+                }).catch(err => dbg.warn("Failed to update adding-server's ip", err));
             }
         })
         // TODO: solve in a better way
@@ -1102,6 +1102,8 @@ function _add_new_server_to_replica_set(shardname, ip, caller_internal_ip, calle
             new_topology.shards[shard_idx].servers[idx] = {
                 address: caller_external_ip
             };
+        } else {
+            dbg.warn("the adding server's ip was not stored as expected in the db");
         }
     }
 

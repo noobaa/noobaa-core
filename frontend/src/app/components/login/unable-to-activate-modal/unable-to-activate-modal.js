@@ -11,7 +11,8 @@ const messages = deepFreeze({
     CANNOT_RESOLVE_PHONEHOME_NAME: 'Cannot resolve <span class="highlight">phonehome.noobaa.com</span>, please verify that your DNS server can resolve public names.',
     CANNOT_CONNECT_INTERNET: 'Cannot connect to the internet, please verify that your internet connection settings are correct and then retry.',
     CANNOT_CONNECT_PHONEHOME_SERVER: 'Cannot connect to <span class="highlight">phonehome.noobaa.com</span>, please verify that your internet connection settings are correct and then retry.',
-    MALFORMED_RESPONSE: 'Malformed response, this may be the result of using a proxy. Try to configure direct access for the create system process (after activation you can reactivate the proxy)'});
+    MALFORMED_RESPONSE: 'Malformed response, this may be the result of using a proxy. Try to configure direct access for the create system process (after activation you can reactivate the proxy)'
+});
 
 class UnableToActivateModalViewModel extends Disposable {
     constructor() {

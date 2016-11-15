@@ -45,6 +45,18 @@ module.exports = {
                         additionalProperties: true,
                         properties: {}
                     },
+                    first_server_internal_ip: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['caller_address'],
+                properties: {
+                    caller_address: {
+                        type: 'string'
+                    }
                 }
             },
             auth: {

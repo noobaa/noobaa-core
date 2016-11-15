@@ -37,6 +37,8 @@ class HostedAgents {
         // stop all running agents that doesn't have a cloud pool in the DB
         let agents_to_stop = _.filter(this._started_agents, (agent, name) => _.isUndefined(system.pools_by_name[name]));
 
+        if (!pools_to_start.length && !agents_to_stop.length) return;
+
         dbg.log0(`stopping the following agents: ${agents_to_stop}`);
         _.each(agents_to_stop, (agent, name) => this.stop_agent(name));
 

@@ -170,37 +170,8 @@ module.exports = {
             reply: {
                 type: 'object',
                 required: ['nodes', 'storage'],
-                properties: {
-                    nodes: {
-                        $ref: '#/definitions/nodes_aggregate_info'
-                    },
-                    storage: {
-                        $ref: 'common_api#/definitions/storage_info'
-                    },
-                    data_activities: {
-                        $ref: '#/definitions/data_activities'
-                    },
-                    groups: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                name: {
-                                    type: 'string',
-                                },
-                                nodes: {
-                                    $ref: '#/definitions/nodes_aggregate_info'
-                                },
-                                storage: {
-                                    $ref: 'common_api#/definitions/storage_info'
-                                },
-                                data_activities: {
-                                    $ref: '#/definitions/data_activities'
-                                },
-                            }
-                        }
-                    },
-                }
+                additionalProperties: true,
+                properties: {}
             },
             auth: {
                 system: 'admin'
@@ -353,6 +324,28 @@ module.exports = {
                         }
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        migrate_nodes_to_pool: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['nodes', 'pool_id'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/node_identity'
+                        }
+                    },
+                    pool_id: {
+                        type: 'string'
+                    },
+                },
             },
             auth: {
                 system: 'admin'
@@ -582,6 +575,9 @@ module.exports = {
                 skip_internal: {
                     type: 'boolean'
                 },
+                skip_cloud_nodes: {
+                    type: 'boolean'
+                },
                 accessibility: {
                     $ref: '#/definitions/accessibility_type'
                 },
@@ -601,6 +597,7 @@ module.exports = {
                 'online',
                 'has_issues'
             ],
+            additionalProperties: true,
             properties: {
                 count: {
                     type: 'integer'

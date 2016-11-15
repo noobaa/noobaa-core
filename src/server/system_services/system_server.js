@@ -693,12 +693,14 @@ function diagnose_system(req) {
 }
 
 function diagnose_node(req) {
-    dbg.log0('Recieved diag with agent req');
+    dbg.log0('Recieved diag with agent req', req.rpc_params);
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return P.resolve()
         .then(() => diag.collect_server_diagnostics(req))
-        .then(() => nodes_client.instance().collect_agent_diagnostics(req.rpc_params))
+        .then(() => nodes_client.instance().collect_agent_diagnostics({
+            name: req.rpc_params.name
+        }, req.system._id))
         .then(res => diag.write_agent_diag_file(res.data))
         .then(() => diag.pack_diagnostics(inner_path))
         .then(() => {

@@ -44,8 +44,22 @@ module.exports = {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}
-                    },
-                    first_server_internal_ip: {
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        verify_join_conditions: {
+            doc: 'check join conditions to the cluster and return caller ip (stun)',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['secret'],
+                properties: {
+                    secret: {
                         type: 'string'
                     }
                 }

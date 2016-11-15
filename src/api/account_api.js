@@ -117,9 +117,6 @@ module.exports = {
                     email: {
                         type: 'string',
                     },
-                    password: {
-                        type: 'string',
-                    },
                     must_change_password: {
                         type: 'boolean',
                     },
@@ -130,6 +127,29 @@ module.exports = {
             },
             auth: {
                 system: false
+            }
+        },
+
+        reset_password: {
+            doc: 'Reset an account password',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email', 'verification_password', 'password'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    verification_password: {
+                        type: 'string',
+                    },
+                    password: {
+                        type: 'string',
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
             }
         },
 

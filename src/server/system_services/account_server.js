@@ -4,14 +4,14 @@
  *
  */
 'use strict';
+const P = require('../../util/promise');
 
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const https = require('https');
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
+const bcrypt = P.promisifyAll(require('bcrypt'));
 
-const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
 const auth_server = require('../common_services/auth_server');
@@ -44,10 +44,10 @@ function create_account(req) {
     } else {
         account._id = system_store.generate_id();
     }
-    return P.fcall(function() {
-            return bcrypt_password(account);
-        })
-        .then(function() {
+    return bcrypt_password(account.password)
+        .then(password_hash => {
+            account.password = password_hash;
+
             if (req.rpc_params.allowed_buckets) {
                 account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
                     bucket => req.system.buckets_by_name[bucket]._id);
@@ -248,9 +248,11 @@ function update_account_s3_acl(req) {
  *
  */
 function update_account(req) {
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    let params = req.rpc_params;
+    let account = system_store.data.accounts_by_email[params.email];
+
     if (!account) {
-        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + params.email);
     }
     if (!is_support_or_admin_or_me(req.system, req.account, account)) {
         throw new RpcError('UNAUTHORIZED', 'Cannot update account');
@@ -259,29 +261,67 @@ function update_account(req) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
 
-    let changes = _.pick(req.rpc_params, 'name', 'password');
-    let removals = {};
+    let updates = {
+        name: params.name,
+        email: params.new_email,
+        next_password_change: params.must_change_password === true ? new Date() : undefined
+    };
 
-    if (req.rpc_params.must_change_password === true) {
-        changes.next_password_change = new Date();
+    let removals = {
+        next_password_change: params.must_change_password === false ? true : undefined
+    };
 
-    } else if (req.rpc_params.must_change_password === false) {
-        removals.next_password_change = 1;
+    return system_store.make_changes({
+        update: {
+            accounts: [{
+                _id: account._id,
+                $set: _.omitBy(updates, _.isUndefined),
+                $unset: _.omitBy(removals, _.isUndefined)
+            }]
+        }
+    })
+        .then(() => Dispatcher.instance().activity({
+            event: 'account.update',
+            level: 'info',
+            system: req.system && req.system._id,
+            actor: req.account && req.account._id,
+            account: account._id,
+            desc: `${account.email} was updated by ${req.account && req.account.email}`,
+        }))
+        .return();
     }
 
-    if (req.rpc_params.new_email) {
-        changes.email = req.rpc_params.new_email;
+
+function reset_password(req) {
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+        throw new RpcError('UNAUTHORIZED', 'Cannot change password');
+    }
+    if (account.is_support) {
+        throw new RpcError('FORBIDDEN', 'Cannot change support password');
     }
 
-    return bcrypt_password(changes)
-        .then(() => {
+    return bcrypt.compareAsync(req.rpc_params.verification_password, req.account.password)
+        .then(match => {
+            if (!match) {
+                throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
+            }
+        })
+        .then(() => bcrypt_password(req.rpc_params.password))
+        .then(password => {
+            let update = {
+                _id: account._id,
+                $set: {
+                    password: password
+                }
+            };
+
             return system_store.make_changes({
                 update: {
-                    accounts: [{
-                        _id: account._id,
-                        $set: changes,
-                        $unset: removals
-                    }]
+                    accounts: [update]
                 }
             });
         })
@@ -291,11 +331,11 @@ function update_account(req) {
             system: req.system && req.system._id,
             actor: req.account && req.account._id,
             account: account._id,
-            desc: `${account.email} was updated by ${req.account && req.account.email}: reset password`,
+            desc: `${account.email} was updated by ${req.account.email}: reset password`,
         }))
         .return();
-}
 
+}
 
 
 /**
@@ -563,20 +603,24 @@ function ensure_support_account() {
             if (support_account) {
                 return;
             }
+
             console.log('CREATING SUPPORT ACCOUNT...');
-            support_account = {
-                _id: system_store.generate_id(),
-                name: 'Support',
-                email: 'support@noobaa.com',
-                password: system_store.get_server_secret(),
-                is_support: true
-            };
-            return bcrypt_password(support_account)
-                .then(() => system_store.make_changes({
-                    insert: {
-                        accounts: [support_account]
-                    }
-                }))
+            return bcrypt_password(system_store.get_server_secret())
+                .then(password => {
+                    let support_account = {
+                        _id: system_store.generate_id(),
+                        name: 'Support',
+                        email: 'support@noobaa.com',
+                        password: password,
+                        is_support: true
+                    };
+
+                    return system_store.make_changes({
+                        insert: {
+                            accounts: [support_account]
+                        }
+                    });
+                })
                 .then(() => console.log('SUPPORT ACCOUNT CREATED'));
         })
         .catch(function(err) {
@@ -585,18 +629,14 @@ function ensure_support_account() {
 }
 
 
-function bcrypt_password(account) {
-    if (!account.password) {
+
+function bcrypt_password(password) {
+    if (!password) {
         return P.resolve();
     }
-    return P.resolve()
-        .then(() => P.fromCallback(callback =>
-            bcrypt.genSalt(10, callback)))
-        .then(salt => P.fromCallback(callback =>
-            bcrypt.hash(account.password, salt, callback)))
-        .then(password_hash => {
-            account.password = password_hash;
-        });
+
+    return bcrypt.genSaltAsync(10)
+        .then(salt => bcrypt.hashAsync(password, salt));
 }
 
 function is_support_or_admin_or_me(system, account, target_account) {
@@ -619,6 +659,7 @@ function validate_create_account_params(req) {
 exports.create_account = create_account;
 exports.read_account = read_account;
 exports.update_account = update_account;
+exports.reset_password = reset_password;
 exports.delete_account = delete_account;
 exports.generate_account_keys = generate_account_keys;
 exports.list_account_s3_acl = list_account_s3_acl;

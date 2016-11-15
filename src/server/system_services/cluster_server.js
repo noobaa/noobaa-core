@@ -68,14 +68,46 @@ function add_member_to_cluster(req) {
         console.warn('Environment is not a supervised one, currently not allowing clustering operations');
         throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
     }
-
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
     let topology = cutil.get_topology();
     var id = topology.cluster_id;
     let is_clusterized = topology.is_clusterized;
 
-    return P.fcall(function() {
+    return server_rpc.client.cluster_internal.verify_join_conditions({
+            secret: req.rpc_params.secret
+        }, {
+            address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
+            timeout: 60000 //60s
+        })
+        .then(response => {
+            if (!is_clusterized && response && response.caller_address) {
+                dbg.log1('updating adding server ip in db');
+                let shard_idx = cutil.find_shard_index(req.rpc_params.shard);
+                let server_idx = _.findIndex(topology.shards[shard_idx].servers,
+                    server => server.address === os_utils.get_local_ipv4_ips()[0]);
+                if (server_idx === -1) {
+                    dbg.warn("db does not contain internal ip of master server");
+                } else {
+                    let new_shards = topology.shards;
+                    new_shards[shard_idx].servers[server_idx] = {
+                        address: response.caller_address
+                    };
+                    // if this is the first server in the cluster, adding the 2nd one we update the
+                    // ip of this server to be the external ip instead of internal in cluster schema
+                    return system_store.make_changes({
+                        update: {
+                            clusters: [{
+                                _id: system_store.get_local_cluster_info()._id,
+                                owner_address: response.caller_address,
+                                shards: new_shards
+                            }]
+                        }
+                    }).catch(err => dbg.warn("Failed to update adding-server's ip", err));
+                }
+            }
+        })
+        .then(() => P.fcall(function() {
             //If this is the first time we are adding to the cluster, special handling is required
             if (!is_clusterized) {
                 dbg.log0('Current server is first on cluster and has single mongo running, updating');
@@ -89,7 +121,7 @@ function add_member_to_cluster(req) {
                 //If adding shard, and current server does not have config on it, add
                 //This is the case on the addition of the first shard
             }
-        })
+        }))
         .then(function() {
             // after a cluster was initiated, join the new member
             dbg.log0('Sending join_to_cluster to', req.rpc_params.address, cutil.get_topology());
@@ -102,7 +134,7 @@ function add_member_to_cluster(req) {
                 role: req.rpc_params.role,
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location,
-                jwt_secret: process.env.JWT_SECRET
+                jwt_secret: process.env.JWT_SECRET,
             }, {
                 address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
                 timeout: 60000 //60s
@@ -124,11 +156,23 @@ function add_member_to_cluster(req) {
         .return();
 }
 
+function verify_join_conditions(req) {
+    dbg.log0('Got verify_join_conditions request');
+    let response = {};
+    if (req.connection && req.connection.url) {
+        response.caller_address = req.connection.url.hostname.includes('ffff') ?
+            req.connection.url.hostname.replace(/^.*:/, '') :
+            req.connection.url.hostname;
+    }
+    _verify_join_preconditons(req);
+
+    return response;
+}
+
 
 function join_to_cluster(req) {
     dbg.log0('Got join_to_cluster request with topology', cutil.pretty_topology(req.rpc_params.topology),
         'existing topology is:', cutil.pretty_topology(cutil.get_topology()));
-
 
     _verify_join_preconditons(req);
 
@@ -163,21 +207,21 @@ function join_to_cluster(req) {
                         owner_address: req.rpc_params.ip,
                         shards: shards
                     }))
-                    .then(() => {
+                    .then(() =>
                         //Add the new shard server
-                        return _add_new_shard_on_server(req.rpc_params.shard, req.rpc_params.ip, {
+                        _add_new_shard_on_server(req.rpc_params.shard, req.rpc_params.ip, {
                             first_shard: false,
                             remote_server: true
-                        });
-                    });
+                        })
+                    );
             } else if (req.rpc_params.role === 'REPLICA') {
                 //Server is joining as a replica set member to an existing shard, update shard chain topology
                 //And add an appropriate server
-                return _add_new_server_to_replica_set(req.rpc_params.shard, req.rpc_params.ip);
-            } else {
-                dbg.error('Unknown role', req.rpc_params.role, 'recieved, ignoring');
-                throw new Error('Unknown server role ' + req.rpc_params.role);
+                return _add_new_server_to_replica_set(req.rpc_params.shard,
+                    req.rpc_params.ip);
             }
+            dbg.error('Unknown role', req.rpc_params.role, 'recieved, ignoring');
+            throw new Error('Unknown server role ' + req.rpc_params.role);
         })
         //.then(() => _attach_server_configuration({}))
         //.then((res_params) => cutil.update_cluster_info(res_params))
@@ -454,7 +498,7 @@ function apply_set_debug_level(req) {
 function _restart_services() {
     // set timeout to restart services in 1 second
     setTimeout(() => {
-        promise_utils.exec('supervisorctl restart s3rver bg_workers');
+        promise_utils.exec('supervisorctl restart s3rver bg_workers hosted_agents');
     }, 1000);
 }
 
@@ -1074,7 +1118,6 @@ function _add_new_server_to_replica_set(shardname, ip) {
         address: ip
     });
 
-
     return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
         .then(() => system_store.load())
         .then(() => _attach_server_configuration(new_topology))
@@ -1237,3 +1280,4 @@ exports.read_server_config = read_server_config;
 exports.member_pre_upgrade = member_pre_upgrade;
 exports.do_upgrade = do_upgrade;
 exports.upgrade_cluster = upgrade_cluster;
+exports.verify_join_conditions = verify_join_conditions;

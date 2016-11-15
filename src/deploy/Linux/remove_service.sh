@@ -4,7 +4,7 @@
 PATH=/usr/local/noobaa:$PATH;
 
 #attempting to remove old service installations
-/usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service &> /dev/null
+/usr/local/noobaa/node_modules/forever-service/bin/forever-service stop noobaa_local_service &> /dev/null
 
 echo "Uninstalling NooBaa local service"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then

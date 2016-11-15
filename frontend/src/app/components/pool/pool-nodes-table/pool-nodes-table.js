@@ -4,7 +4,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle} from 'utils';
-import { redirectTo } from 'actions';
+import { navigateTo } from 'actions';
 import { routeContext } from 'model';
 
 let columns = deepFreeze([
@@ -30,8 +30,14 @@ let columns = deepFreeze([
         sortable: 'used',
         type: 'capacity'
     },
-    'trustLevel',
-    'dataActivity'
+    {
+        name: 'trustLevel',
+        sortable: 'trusted'
+    },
+    {
+        name: 'dataActivity',
+        sortable: 'data_activity'
+    }
 ]);
 
 class PoolNodesTableViewModel extends Disposable {
@@ -144,7 +150,7 @@ class PoolNodesTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     filterObjects(phrase) {
@@ -157,7 +163,7 @@ class PoolNodesTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     orderBy(sorting) {
@@ -170,7 +176,7 @@ class PoolNodesTableViewModel extends Disposable {
             sorting
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     toggleIssues(value) {
@@ -183,7 +189,7 @@ class PoolNodesTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     showAssignNodesModal() {

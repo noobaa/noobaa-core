@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
 import { createCompareFunc, deepFreeze } from 'utils';
-import { redirectTo } from 'actions';
+import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 
 const columns = deepFreeze([
@@ -21,8 +21,11 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'diskUsage',
+        sortable: true
+    },
+    {
         name: 'memoryUsage',
-        label: 'memroy usage',
         sortable: true
     },
     {
@@ -40,6 +43,7 @@ const compareAccessors = deepFreeze({
     state: server => server.status,
     hostname: server => server.hostname,
     address: server => server.address,
+    diskUsage: server => 1 - server.storage.free / server.storage.total,
     memoryUsage: server => server.memory_usage,
     cpuUsage: server => server.cpu_usage,
     version: server => server.version
@@ -56,7 +60,7 @@ class ServerTableViewModel extends Disposable {
                 sortBy: routeContext().query.sortBy || 'hostname',
                 order: Number(routeContext().query.order) || 1
             }),
-            write: value => redirectTo(undefined, undefined, value)
+            write: value => navigateTo(undefined, undefined, value)
         });
 
         this.servers = ko.pureComputed(

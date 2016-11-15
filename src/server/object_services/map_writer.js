@@ -9,8 +9,6 @@ const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('./md_store');
 const mongo_utils = require('../../util/mongo_utils');
 const time_utils = require('../../util/time_utils');
-const string_utils = require('../../util/string_utils');
-// const map_utils = require('./map_utils');
 
 
 /**
@@ -191,8 +189,6 @@ function set_multipart_part_md5(params) {
  *
  */
 function calc_multipart_md5(obj) {
-    var aggregated_nobin_md5 = '';
-    var aggregated_bin_md5 = '';
     return P.fcall(function() {
         // find part that need update of start and end offsets
         dbg.warn('calc_multipart_md5: SLOW QUERY',
@@ -213,14 +209,11 @@ function calc_multipart_md5(obj) {
             }
         }).toArray();
     }).then(function(upload_parts) {
+        var digester = crypto.createHash('md5');
         _.each(upload_parts, function(part) {
             var part_md5 = part.etag;
-            aggregated_nobin_md5 += part_md5;
-            aggregated_bin_md5 += string_utils.toBinary(part_md5);
-            dbg.log1('part', part, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
+            digester.update(part_md5, 'hex');
         });
-        var digester = crypto.createHash('md5');
-        digester.update(aggregated_bin_md5);
         var aggregated_md5 = digester.digest('hex') + '-' + upload_parts.length;
         dbg.log0('aggregated etag:', aggregated_md5, ' for ', obj.key);
         return aggregated_md5;

@@ -341,7 +341,7 @@ export function clearCompletedUploads() {
 // Sign In/Out actions.
 // -----------------------------------------------------
 export function signIn(email, password, keepSessionAlive = false) {
-    logAction('signIn', { email, password, keepSessionAlive });
+    logAction('signIn', { email, password: '****', keepSessionAlive });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -681,7 +681,7 @@ export function createSystem(
     timeConfig
 ) {
     logAction('createSystem', {
-        activationCode, email, password, systemName, dnsName,
+        activationCode, email, password: '****', systemName, dnsName,
         dnsServers, timeConfig
     });
 
@@ -721,7 +721,7 @@ export function createSystem(
 }
 
 export function createAccount(name, email, password, accessKeys, S3AccessList) {
-    logAction('createAccount', { name, email, password, accessKeys, S3AccessList });
+    logAction('createAccount', { name, email, password: '****', accessKeys, S3AccessList });
 
     api.account.create_account({
         name: name,
@@ -760,23 +760,34 @@ export function deleteAccount(email) {
         .done();
 }
 
-export function resetAccountPassword(email, password) {
-    logAction('resetAccountPassword', { email, password });
+export function resetAccountPassword(verificationPassword, email, password) {
+    logAction('resetAccountPassword', { verificationPassword: '****', email, password: '****' });
 
-    api.account.update_account({
-        email,
-        password,
-        must_change_password: true
+    model.resetPasswordState('RESETTING');
+    api.account.reset_password({
+        verification_password: verificationPassword,
+        email: email,
+        password: password
     })
         .then(
-            () => notify(`${email} password has been reset successfully`, 'success'),
-            () => notify(`Resetting ${email}'s password failed`, 'error')
+            () => api.account.update_account({
+                email: email,
+                must_change_password: true
+            })
         )
+        .then(
+            () => 'OK',
+            err => err.rpc_code
+        )
+        .then(
+            code => sleep(2000, code)
+        )
+        .then(model.resetPasswordState)
         .done();
 }
 
 export function updateAccountPassword (email, password) {
-    logAction('updateAccountPassword', { email, password });
+    logAction('updateAccountPassword', { email, password: '****' });
 
     api.account.update_account({
         email,

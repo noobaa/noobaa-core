@@ -124,3 +124,6 @@ export const nameResolutionState = ko.observable();
 
 // Hold diagnostics information
 export const collectDiagnosticsState = ko.observable({});
+
+// Hold last rest password attampt result.
+export const resetPasswordState = ko.observable();

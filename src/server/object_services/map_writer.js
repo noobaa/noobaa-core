@@ -9,8 +9,6 @@ const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('./md_store');
 const mongo_utils = require('../../util/mongo_utils');
 const time_utils = require('../../util/time_utils');
-const string_utils = require('../../util/string_utils');
-// const map_utils = require('./map_utils');
 
 
 /**

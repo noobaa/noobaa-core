@@ -7,7 +7,6 @@
 require('../../util/dotenv').load();
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
-const fs = require('fs');
 const url = require('url');
 const net = require('net');
 const request = require('request');
@@ -674,55 +673,6 @@ function set_last_stats_report_time(req) {
     }).return();
 }
 
-function export_activity_log(req) {
-    req.rpc_params.csv = true;
-
-    // generate csv file name:
-    const file_name = 'audit.csv';
-    const out_path = `/public/${file_name}`;
-    const inner_path = `${process.cwd()}/build${out_path}`;
-
-    return Dispatcher.instance().read_activity_log(req)
-        .then(logs => {
-            let lines = logs.logs.reduce(
-                (lines, entry) => {
-                    let time = (new Date(entry.time)).toISOString();
-                    let entity_type = entry.event.split('.')[0];
-                    let account = entry.actor ? entry.actor.email : '';
-                    let entity = entry[entity_type];
-                    let description = entry.desc.join(' ');
-                    let entity_name = entity ?
-                        (entity_type === 'obj' ? entity.key : entity.name) :
-                        '';
-
-                    lines.push(`"${time}",${entry.level},${account},${entry.event},${entity_name},"${description}"`);
-                    return lines;
-                }, ['time,level,account,event,entity,description']
-            );
-
-            return fs.writeFileAsync(inner_path, lines.join('\n'), 'utf8');
-        })
-        .then(() => out_path)
-        .catch(err => {
-            dbg.error('received error when writing to audit csv file:', inner_path, err);
-            throw err;
-        });
-}
-
-
-
-/**
- *
- * READ_ACTIVITY_LOG
- *
- */
-function read_activity_log(req) {
-    return Dispatcher.instance().read_activity_log(req);
-}
-
-
-
-
 function diagnose_system(req) {
     dbg.log0('Recieved diag req');
     var out_path = '/public/diagnostics.tgz';
@@ -1025,9 +975,6 @@ exports.list_systems_int = list_systems_int;
 
 exports.add_role = add_role;
 exports.remove_role = remove_role;
-
-exports.read_activity_log = read_activity_log;
-exports.export_activity_log = export_activity_log;
 
 exports.diagnose_system = diagnose_system;
 exports.diagnose_node = diagnose_node;

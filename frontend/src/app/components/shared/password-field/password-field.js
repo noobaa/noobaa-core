@@ -18,10 +18,11 @@ const iconMapping = deepFreeze({
 const barTweenDuration = 250;
 
 class PasswordFieldViewModel extends Disposable{
-    constructor({ value, placeholder = '', strengthCalc}) {
+    constructor({ value, disabled, placeholder = '', strengthCalc}) {
         super();
 
         this.value = value;
+        this.disabled = disabled;
         this.type = ko.observable('password');
         this.placeholder = placeholder;
 

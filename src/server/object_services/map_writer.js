@@ -192,7 +192,7 @@ function set_multipart_part_md5(params) {
  */
 function calc_multipart_md5(obj) {
     var aggregated_nobin_md5 = '';
-    var aggregated_bin_md5 = '';
+    var aggregated_bin_md5 = new Buffer('');
     return P.fcall(function() {
         // find part that need update of start and end offsets
         dbg.warn('calc_multipart_md5: SLOW QUERY',
@@ -216,7 +216,7 @@ function calc_multipart_md5(obj) {
         _.each(upload_parts, function(part) {
             var part_md5 = part.etag;
             aggregated_nobin_md5 += part_md5;
-            aggregated_bin_md5 += string_utils.toBinary(part_md5);
+            aggregated_bin_md5 = Buffer.concat([aggregated_bin_md5, new Buffer(part_md5, "hex")]);
             dbg.log1('part', part, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
         });
         var digester = crypto.createHash('md5');

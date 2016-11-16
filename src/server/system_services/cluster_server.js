@@ -24,6 +24,9 @@ const request = require('request');
 const dns = require('dns');
 const cluster_hb = require('../bg_services/cluster_hb');
 const dotenv = require('../../util/dotenv');
+const pkg = require('../../../package.json');
+const md_store = require('../object_services/md_store');
+
 
 function _init() {
     return P.resolve(MongoCtrl.init());
@@ -75,7 +78,8 @@ function add_member_to_cluster(req) {
     let is_clusterized = topology.is_clusterized;
 
     return server_rpc.client.cluster_internal.verify_join_conditions({
-            secret: req.rpc_params.secret
+            secret: req.rpc_params.secret,
+            version: pkg.version
         }, {
             address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
             timeout: 60000 //60s
@@ -164,9 +168,10 @@ function verify_join_conditions(req) {
             req.connection.url.hostname.replace(/^.*:/, '') :
             req.connection.url.hostname;
     }
-    _verify_join_preconditons(req);
 
-    return response;
+    return P.resolve()
+        .then(() => _verify_join_preconditons(req))
+        .then(() => response);
 }
 
 
@@ -174,24 +179,26 @@ function join_to_cluster(req) {
     dbg.log0('Got join_to_cluster request with topology', cutil.pretty_topology(req.rpc_params.topology),
         'existing topology is:', cutil.pretty_topology(cutil.get_topology()));
 
-    _verify_join_preconditons(req);
+    return P.resolve()
+        .then(() => _verify_join_preconditons(req))
+        .then(() => {
+            req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
+            req.rpc_params.topology.owner_address = req.rpc_params.ip;
+            // update jwt secret in dotenv
+            dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
+            dotenv.set({
+                key: 'JWT_SECRET',
+                value: req.rpc_params.jwt_secret
+            });
+            //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
+            //different ReplicaSet Chains)
+            //Easy path -> don't support it, make admin detach and re-attach as new role,
+            //though this creates more hassle for the admin and overall lengthier process
 
-    //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
-    //different ReplicaSet Chains)
-    //Easy path -> don't support it, make admin detach and re-attach as new role,
-    //though this creates more hassle for the admin and overall lengthier process
-
-    // first thing we update the new topology as the local topoology.
-    // later it will be updated to hold this server's info in the cluster's DB
-    req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
-    req.rpc_params.topology.owner_address = req.rpc_params.ip;
-    // update jwt secret in dotenv
-    dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
-    dotenv.set({
-        key: 'JWT_SECRET',
-        value: req.rpc_params.jwt_secret
-    });
-    return P.resolve(cutil.update_cluster_info(req.rpc_params.topology))
+            // first thing we update the new topology as the local topoology.
+            // later it will be updated to hold this server's info in the cluster's DB
+            return cutil.update_cluster_info(req.rpc_params.topology);
+        })
         .then(() => {
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
@@ -997,17 +1004,37 @@ function _handle_ph_dns(ph_dns_result, google_get_result) {
 function _verify_join_preconditons(req) {
     //Verify secrets match
     if (req.rpc_params.secret !== system_store.get_server_secret()) {
-        console.error('Secrets do not match!');
+        dbg.error('Secrets do not match!');
         throw new Error('Secrets do not match!');
+    }
+
+    if (req.rpc_params.version && req.rpc_params.version !== pkg.version) {
+        dbg.error(`versions does not match - master version = ${req.rpc_params.version}  joined version = ${pkg.version}`);
+        throw new Error('versions do not match');
     }
 
     //Verify we are not already joined to a cluster
     //TODO:: think how do we want to handle it, if at all
     if (cutil.get_topology().shards.length !== 1 ||
         cutil.get_topology().shards[0].servers.length !== 1) {
-        console.error('Server already joined to a cluster');
+        dbg.error('Server already joined to a cluster');
         throw new Error('Server joined to a cluster');
     }
+
+    // verify there are no objects on the system
+    let system = system_store.data.systems[0];
+    if (system) {
+        return (md_store.aggregate_objects_count({
+                system: system._id,
+                deleted: null
+            }))
+            .then(obj_count => {
+                if (obj_count[''] > 0) {
+                    throw new Error('Server contains objects');
+                }
+            });
+    }
+
 
 }
 

@@ -19,7 +19,6 @@ const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
-const mongo_utils = require('../../util/mongo_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -133,9 +132,9 @@ function read_bucket(req) {
     var pools = _.flatten(_.map(bucket.tiering.tiers,
         tier_and_order => tier_and_order.tier.pools
     ));
-    var pool_ids = mongo_utils.uniq_ids(pools, '_id');
+    let pool_names = pools.map(pool => pool.name);
     return P.join(
-        nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
+        nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
         md_store.ObjectMD.collection.count({
             system: req.system._id,
             bucket: bucket._id,

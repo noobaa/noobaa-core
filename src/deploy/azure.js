@@ -6,17 +6,18 @@
 'use strict';
 
 var util = require('util');
-var P = require('../../util/promise');
+var P = require('../util/promise');
 var msRestAzure = require('ms-rest-azure');
 var ComputeManagementClient = require('azure-arm-compute');
 var NetworkManagementClient = require('azure-arm-network');
+var crypto = require('crypto');
 var argv = require('minimist')(process.argv);
 var _ = require('lodash');
 // var SubscriptionManagementClient = require('azure-arm-resource').SubscriptionClient;
 
 
 // Environment Setup
-require('../../util/dotenv').load();
+require('../util/dotenv').load();
 _validateEnvironmentVariables();
 var clientId = process.env.CLIENT_ID;
 var domain = process.env.DOMAIN;
@@ -46,15 +47,14 @@ var machineCount = 4;
 var publisher = 'Canonical';
 var offer = 'UbuntuServer';
 var sku = '14.04.3-LTS';
-// var osType = 'Linux';
-var extName = 'CustomScriptForLinux';
+var osType = 'Linux';
 
 // Windows config
 if (argv.os === 'windows') {
-    publisher = 'microsoftwindowsserver';
-    offer = 'windowsserver';
-    sku = '2012-r2-datacenter';
-    // osType = 'Windows';
+    publisher = 'MicrosoftWindowsServer';
+    offer = 'WindowsServer';
+    sku = '2012-R2-Datacenter';
+    osType = 'Windows';
 }
 
 var adminUsername = 'notadmin';
@@ -65,12 +65,24 @@ var networkClient;
 ///////////////////////////////////////
 //Entrypoint for the vm-sample script//
 ///////////////////////////////////////
-
-vmOperations();
+if (argv.help) {
+    print_usage();
+} else {
+    vmOperations();
+}
 
 function args_builder(idx) {
     var publicIPName = 'testpip' + timestamp + idx;
     var vmName = 'agent-' + timestamp + idx + '-for-' + serverName.replace(/\./g, "-");
+    if (osType === 'Windows') {
+        var octets = serverName.split(".");
+        var shasum = crypto.createHash('sha1');
+        shasum.update(timestamp.toString() + idx);
+        var dateSha = shasum.digest('hex');
+        var postfix = dateSha.substring(dateSha.length - 7);
+        vmName = octets[2] + '-' + octets[3] + 'W' + postfix;
+        console.log('the windows machine name is: ', vmName);
+    }
     vmName  = vmName.substring(0,64);
     var networkInterfaceName = 'testnic' + timestamp + idx;
     var ipConfigName = 'testcrpip' + timestamp + idx;
@@ -156,7 +168,11 @@ function createVM(publicIPName, vmName, networkInterfaceName, ipConfigName, doma
         })
         .then(() => {
             console.log('\nStarted the Virtual Machine\n');
-            return createVirtualMachineExtensionPromise(vmName);
+            if (osType === 'Linux') {
+                return createVirtualMachineLinuxExtensionPromise(vmName);
+            } else {
+                return createVirtualMachineWindowsExtensionPromise(vmName);
+            }
         })
         .then(result => {
             console.log(result);
@@ -222,14 +238,15 @@ function createVirtualMachinePromise(nicId, vmImageVersionNumber, vmName, osDisk
             adminPassword: adminPassword
         },
         hardwareProfile: {
-            vmSize: 'Standard_DS11_v2'
+            vmSize: 'Standard_A2'
         },
         storageProfile: {
             imageReference: {
                 publisher: publisher,
                 offer: offer,
                 sku: sku,
-                version: vmImageVersionNumber
+                // version: vmImageVersionNumber
+                version: 'latest'
             },
             osDisk: {
                 name: osDiskName,
@@ -252,7 +269,7 @@ function createVirtualMachinePromise(nicId, vmImageVersionNumber, vmName, osDisk
     return P.fromCallback(callback => computeClient.virtualMachines.createOrUpdate(resourceGroupName, vmName, vmParameters, callback));
 }
 
-function createVirtualMachineExtensionPromise(vmName) {
+function createVirtualMachineLinuxExtensionPromise(vmName) {
     var extensionParameters = {
         publisher: 'Microsoft.OSTCExtensions',
         virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
@@ -268,7 +285,28 @@ function createVirtualMachineExtensionPromise(vmName) {
         },
         location: location,
     };
-    console.log('\nRunning Virtual Machine Startup Script: ' + extName);
+    console.log('\nRunning Virtual Machine Startup Script for Linux');
+    return P.fromCallback(callback => computeClient.virtualMachineExtensions.createOrUpdate(resourceGroupName, vmName,
+        'CustomScriptForLinux', extensionParameters, callback));
+}
+
+function createVirtualMachineWindowsExtensionPromise(vmName) {
+    var extensionParameters = {
+        publisher: 'Microsoft.Compute',
+        virtualMachineExtensionType: 'CustomScriptExtension', // it's a must - don't beleive Microsoft
+        typeHandlerVersion: '1.7',
+        autoUpgradeMinorVersion: true,
+        settings: {
+            fileUris: ["https://capacitystorage.blob.core.windows.net/agentscripts/init_agent.ps1"],
+            commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + serverName + ' ' + agentConf
+        },
+        protectedSettings: {
+            storageAccountName: "capacitystorage",
+            storageAccountKey: "2kMy7tNY8wm/PQdv0vdXOFnnAXhL77/jidKw6QfGt2q/vhfswRKAG5aUGqNamv8Bs6PEZ36SAw6AYVKePZwM9g=="
+        },
+        location: location,
+    };
+    console.log('\nRunning Virtual Machine Startup Script for Windows');
     return P.fromCallback(callback => computeClient.virtualMachineExtensions.createOrUpdate(resourceGroupName, vmName,
         'CustomScriptForLinux', extensionParameters, callback));
 }
@@ -281,4 +319,19 @@ function _validateEnvironmentVariables() {
     if (envs.length > 0) {
         throw new Error(util.format('please set/export the following environment variables: %s', envs.toString()));
     }
+}
+
+function print_usage() {
+    console.log(`
+Usage:
+  --help                      show this usage
+  --app <noobaa-ip>           the IP of noobaa server to add agents to
+  --scale <agents-number>     the number of agents to add
+  --agent_conf <agent_conf>   the base64 configuration from the server
+  --location <location>       the azure location you want to use (default is eastus)
+  --resource <resource-group> the azure resource group to use (default is capacity)
+  --storage <storage-account> the azure storage account to use (default is capacitystorage)
+  --vnet <vnet>               the azure virtual network to use (default is capacity-vnet)
+  --os <linux/windows>        the desired os for the agent (default is linux - ubuntu)
+`);
 }

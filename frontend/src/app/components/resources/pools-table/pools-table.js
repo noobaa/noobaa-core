@@ -3,8 +3,8 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
 import { deepFreeze, createCompareFunc } from 'utils';
-import { redirectTo } from 'actions';
-import { routeContext, systemInfo } from 'model';
+import { navigateTo } from 'actions';
+import { uiState, routeContext, systemInfo } from 'model';
 
 const columns = deepFreeze([
     {
@@ -104,8 +104,8 @@ class PoolsTableViewModel extends Disposable {
 
         this.sorting = ko.pureComputed({
             read: () => {
-                let { params, query } = routeContext();
-                let isOnScreen = params.tab === 'pools';
+                let { query } = routeContext();
+                let isOnScreen = uiState().tab === 'pools';
 
                 return {
                     sortBy: (isOnScreen && query.sortBy) || 'name',
@@ -114,7 +114,7 @@ class PoolsTableViewModel extends Disposable {
             },
             write: value => {
                 this.deleteGroup(null);
-                redirectTo(undefined, undefined, value);
+                navigateTo(undefined, undefined, value);
             }
         });
 

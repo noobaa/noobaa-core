@@ -15,4 +15,6 @@ export default function register(ko) {
     ko.bindingHandlers.scrollTo     = require('./scroll-to');
     ko.bindingHandlers.hover        = require('./hover');
     ko.bindingHandlers.shakeOnClick = require('./shake-on-click');
+    ko.bindingHandlers.childEvent   = require('./child-event');
+    ko.bindingHandlers.globalEvent  = require('./global-event');
 }

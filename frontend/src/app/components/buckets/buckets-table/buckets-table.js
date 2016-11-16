@@ -3,7 +3,7 @@ import BucketRowViewModel from './bucket-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze, createCompareFunc } from 'utils';
-import { redirectTo } from 'actions';
+import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 
 const columns = deepFreeze([
@@ -24,7 +24,8 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'placementPolicy'
+        name: 'placementPolicy',
+        sortable: true
     },
     {
         name: 'cloudStorage',
@@ -48,12 +49,24 @@ const columns = deepFreeze([
     }
 ]);
 
+function generatePlacementSortValue(bucket) {
+    let tierName = bucket.tiering.tiers[0].tier;
+    let { data_placement, node_pools } = systemInfo() && systemInfo().tiers.find(
+        tier => tier.name === tierName
+    );
+    return [
+        data_placement === 'SPREAD' ? 0 : 1,
+        node_pools.length
+    ];
+}
+
 const compareAccessors = deepFreeze({
     state: bucket => bucket.state,
     name: bucket => bucket.name,
     fileCount: bucket => bucket.num_objects,
     capacity: bucket => bucket.storage.used,
-    cloudSync: bucket => bucket.cloud_sync_status
+    cloudSync: bucket => bucket.cloud_sync_status,
+    placementPolicy: generatePlacementSortValue
 });
 
 class BucketsTableViewModel extends Disposable {
@@ -69,7 +82,7 @@ class BucketsTableViewModel extends Disposable {
             }),
             write: value => {
                 this.deleteGroup(null);
-                redirectTo(undefined, undefined, value);
+                navigateTo(undefined, undefined, value);
             }
         });
 

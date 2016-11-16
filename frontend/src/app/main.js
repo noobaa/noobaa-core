@@ -8,7 +8,7 @@ import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
 import page from 'page';
 import configureRouter from 'routing';
-import { uiState } from 'model';
+import { previewMode, uiState } from 'model';
 import { start } from 'actions';
 
 // Enable knockout 3.4 deferred updates.
@@ -35,6 +35,7 @@ configureRouter(page);
 
 // Bind the ui to the
 ko.applyBindings({
+    previewMode: previewMode,
     layout: ko.pureComputed( () => uiState().layout ),
     modal: ko.pureComputed( () => uiState().modal )
 });

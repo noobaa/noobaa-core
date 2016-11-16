@@ -31,4 +31,4 @@ sudo sed -i "s:This server's secret is.*:No Server Secret:" /etc/issue
 #reduce VM size
 /sbin/swapoff -a
 dd if=/dev/zero of=zeroFile.tmp
-rm zeroFile.tmp
+rm -f zeroFile.tmp

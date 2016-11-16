@@ -71,6 +71,7 @@ vmOperations();
 function args_builder(idx) {
     var publicIPName = 'testpip' + timestamp + idx;
     var vmName = 'agent-' + timestamp + idx + '-for-' + serverName.replace(/\./g, "-");
+    vmName  = vmName.substring(0,64);
     var networkInterfaceName = 'testnic' + timestamp + idx;
     var ipConfigName = 'testcrpip' + timestamp + idx;
     var domainNameLabel = 'testdomainname' + timestamp + idx;
@@ -221,7 +222,7 @@ function createVirtualMachinePromise(nicId, vmImageVersionNumber, vmName, osDisk
             adminPassword: adminPassword
         },
         hardwareProfile: {
-            vmSize: 'Basic_A2'
+            vmSize: 'Standard_DS11_v2'
         },
         storageProfile: {
             imageReference: {

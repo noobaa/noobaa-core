@@ -3,28 +3,22 @@
 
 const _ = require('lodash');
 const AWS = require('aws-sdk');
-const http = require('http');
+// const http = require('http');
 const path = require('path');
 const argv = require('minimist')(process.argv);
 
 const P = require('../../util/promise');
 const zip_utils = require('../../util/zip_utils');
 
-const lambda = new AWS.Lambda({
+const LAMBDA_CONF = {
     region: argv.region || 'us-east-1',
     endpoint: argv.aws ? undefined : (argv.endpoint || 'http://127.0.0.1:6001'),
     accessKeyId: argv.access_key || process.env.AWS_ACCESS_KEY_ID || '123',
     secretAccessKey: argv.secret_key || process.env.AWS_SECRET_ACCESS_KEY || 'abc',
-    signatureVersion: argv.sigver || 'v4', // use s3/v4, v2 seems irrelevant
     sslEnabled: argv.ssl || false,
-    computeChecksums: argv.checksum || false,
-    s3ForcePathStyle: !argv.aws,
-    httpOptions: {
-        agent: new http.Agent({
-            keepAlive: true
-        })
-    }
-});
+};
+
+const lambda = new AWS.Lambda(LAMBDA_CONF);
 
 const ROLE_ARN = 'arn:aws:iam::638243541865:role/lambda-test';
 
@@ -58,7 +52,21 @@ const dos_func = {
             path: path.join(__dirname, 'denial_of_service_func.js')
         },
     }
+};
 
+const WC_EVENT = {
+    text: '',
+    // random: 20,
+    // url: argv.url || 'http://127.0.0.1:5001',
+    // return_text: argv.return_text,
+};
+
+const DOS_EVENT = {
+    lambda_conf: LAMBDA_CONF,
+    func_name: word_count_func.FunctionName,
+    func_event: WC_EVENT,
+    time: 5000,
+    concur: 1,
 };
 
 
@@ -124,21 +132,12 @@ function prepare_func(fn) {
 }
 
 function test() {
-    const wc_event = {
-        url: argv.url || 'http://127.0.0.1:5001',
-        return_text: argv.return_text,
-    };
     const params = argv.test === 'dos' ? {
         FunctionName: dos_func.FunctionName,
-        Payload: JSON.stringify({
-            func_name: word_count_func.FunctionName,
-            func_event: wc_event,
-            time: 1000,
-            concur: 1,
-        }),
+        Payload: JSON.stringify(DOS_EVENT),
     } : {
         FunctionName: word_count_func.FunctionName,
-        Payload: JSON.stringify(wc_event)
+        Payload: JSON.stringify(WC_EVENT)
     };
     console.log('Testing', params);
     return P.fromCallback(callback => lambda.invoke(params, callback))
@@ -160,14 +159,7 @@ function dildos() {
 
     const invoke_params = {
         FunctionName: dos_func.FunctionName,
-        Payload: JSON.stringify({
-            func_name: word_count_func.FunctionName,
-            func_event: {
-                random: 1024,
-            },
-            time: 1000,
-            concur: 1,
-        }),
+        Payload: JSON.stringify(DOS_EVENT),
     };
 
     function worker() {

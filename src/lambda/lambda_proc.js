@@ -9,7 +9,8 @@ try {
 
     process.once('message', msg => {
 
-        console.log('lambda_proc: received message', msg);
+        // console.log('lambda_proc: received message', msg);
+
         const handler_arg = msg.config.handler;
         const handler_split = handler_arg.split('.', 2);
         const module_name = handler_split[0] + '.js';

@@ -8,6 +8,7 @@ const child_process = require('child_process');
 // const crypto = require('crypto');
 
 const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
 const RpcError = require('../rpc/rpc_error');
 const fs_utils = require('../util/fs_utils');
 const Semaphore = require('../util/semaphore');
@@ -35,7 +36,7 @@ class ComputeNode {
                     .once('error', reject)
                     .once('exit', code => reject(new Error(`Lambda process exit code ${code}`)))
                     .once('message', msg => {
-                        console.log('invoke_func: received message', msg);
+                        dbg.log1('invoke_func: received message', msg);
                         if (msg.error) {
                             return resolve({
                                 error: {
@@ -53,7 +54,7 @@ class ComputeNode {
                     config: func.config,
                     event: req.params.event
                 };
-                console.log('invoke_func: send message', msg);
+                dbg.log1('invoke_func: send message', msg);
                 proc.send(msg);
             }))
             .catch(err => ({
@@ -80,7 +81,7 @@ class ComputeNode {
                 if (err.code !== 'ENOENT') throw err;
                 const loading_dir = path.join(this.functions_loading_path, Date.now().toString(36));
                 let func;
-                console.log('_load_func_code: loading', loading_dir, code_dir);
+                dbg.log0('_load_func_code: loading', loading_dir, code_dir);
                 return P.resolve()
                     .then(() => this.rpc_client.lambda.read_func({
                         name: name,
@@ -107,7 +108,7 @@ class ComputeNode {
             })
             .then(func => {
                 func.code_dir = code_dir;
-                console.log('_load_func_code: loaded', func.config, code_dir);
+                dbg.log1('_load_func_code: loaded', func.config, code_dir);
                 return func;
             }));
     }

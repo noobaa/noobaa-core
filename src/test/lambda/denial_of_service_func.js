@@ -9,12 +9,7 @@ exports.handler = function(event, context, callback) {
     var num_calls = 0;
     var num_errors = 0;
     var took = 0;
-    var lambda = new AWS.Lambda({
-        endpoint: 'http://127.0.0.1:6001',
-        accessKeyId: event.access_key,
-        secretAccessKey: event.secret_key,
-        sslEnabled: false,
-    });
+    var lambda = new AWS.Lambda(event.lambda_conf);
 
     for (var i = 0; i < event.concur; ++i) {
         worker();

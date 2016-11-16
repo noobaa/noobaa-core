@@ -1402,7 +1402,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
-    let currentServerKey = `server:${targetHostname}`;
+    let currentServerKey = `server:${targetSecret}`;
     if(model.collectDiagnosticsState[currentServerKey] === true) {
         return;
     }

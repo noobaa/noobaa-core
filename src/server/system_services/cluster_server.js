@@ -296,6 +296,15 @@ function news_updated_topology(req) {
 
 
 function redirect_to_cluster_master(req) {
+    let current_clustering = system_store.get_local_cluster_info();
+    if (!current_clustering) {
+        let address = system_store.data.systems[0].base_address || os_utils.get_local_ipv4_ips()[0];
+        return address;
+    }
+    if (!current_clustering.is_clusterized) {
+        let address = system_store.data.systems[0].base_address || current_clustering.owner_address;
+        return address;
+    }
     return P.fcall(function() {
             return MongoCtrl.redirect_to_cluster_master();
         })

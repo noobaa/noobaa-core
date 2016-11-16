@@ -62,7 +62,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'version'],
                 properties: {
                     name: {
                         type: 'string'
@@ -81,7 +81,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'version'],
                 properties: {
                     name: {
                         type: 'string'
@@ -163,7 +163,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'version'],
                 properties: {
                     name: {
                         type: 'string'
@@ -218,7 +218,7 @@ module.exports = {
 
         func_config: {
             type: 'object',
-            required: ['name'],
+            required: ['name', 'version'],
             properties: {
                 name: {
                     type: 'string'
@@ -342,6 +342,9 @@ module.exports = {
                     type: 'string'
                 },
                 stack: {
+                    type: 'string'
+                },
+                code: {
                     type: 'string'
                 },
             },

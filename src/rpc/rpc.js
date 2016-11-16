@@ -775,7 +775,7 @@ RPC.prototype._proxy = function(api, method, params, options) {
 
     // if we have buffer, add it as raw data.
     if (method.params_export_buffers) {
-        req.proxy_buffer = buffer_utils.get_single(method.params_export_buffers(params));
+        req.proxy_buffer = buffer_utils.concatify(method.params_export_buffers(params));
         // dbg.log5('_proxy: params_export_buffers', req);
     }
 

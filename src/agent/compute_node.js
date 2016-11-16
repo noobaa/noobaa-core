@@ -1,88 +1,115 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
+// const _ = require('lodash');
+const fs = require('fs');
 const path = require('path');
+const child_process = require('child_process');
 // const crypto = require('crypto');
 
-// const P = require('../util/promise');
+const P = require('../util/promise');
 const RpcError = require('../rpc/rpc_error');
-const LambdaIO = require('../api/lambda_io');
-const LambdaVM = require('../lambda/lambda_vm');
-const LRUCache = require('../util/lru_cache');
+const fs_utils = require('../util/fs_utils');
+const Semaphore = require('../util/semaphore');
 const zip_utils = require('../util/zip_utils');
+
+const LAMBDA_PROC_PATH = path.resolve(__dirname, '..', 'lambda', 'lambda_proc.js');
 
 class ComputeNode {
 
     constructor(params) {
         this.rpc_client = params.rpc_client;
         this.storage_path = params.storage_path;
-        this.func_path = path.join(this.storage_path, 'functions');
-        this.lambda_io = new LambdaIO();
-        this._init_func_cache();
-    }
-
-    _init_func_cache() {
-        this.func_cache = new LRUCache({
-            name: 'FuncCache',
-            max_usage: 128 * 1024 * 1024,
-            item_usage: (func, params) => func.config.code_size,
-            validate: (func, params) => this._validate_func(func, params),
-            make_key: params => params.name + '\0' + (params.version || '$LATEST'),
-            load: params => this._load_func(params),
-        });
+        this.functions_path = path.join(this.storage_path, 'functions');
+        this.functions_loading_path = path.join(this.storage_path, 'functions_loading');
+        this.loading_serial = new Semaphore(1);
     }
 
     invoke_func(req) {
-        return this.func_cache.get_with_cache(_.pick(req.params, 'name', 'version'))
-            .then(func => {
-                if (req.params.code_size !== func.config.code_size ||
-                    req.params.code_sha256 !== func.config.code_sha256) {
-                    throw new RpcError('FUNC_CODE_MISMATCH',
-                        `Function code does not match for ${func.name} version ${func.version} code_size ${func.config.code_size} code_sha256 ${func.config.code_sha256} requested code_size ${req.params.code_size} code_sha256 ${req.params.code_sha256}`);
-                }
-                const lambda_vm = new LambdaVM({
-                    files: func._files,
-                    handler: func.config.handler,
-                    lambda_io: this.lambda_io,
-                    rpc_client: this.rpc_client,
-                });
-                return lambda_vm.invoke(req.params.event);
-            })
-            .then(res => ({
-                result: res
+        return this._load_func_code(req)
+            .then(func => new P((resolve, reject) => {
+                const proc = child_process.fork(LAMBDA_PROC_PATH, [], {
+                        cwd: func.code_dir,
+                        stdio: 'inherit',
+                    })
+                    .once('error', reject)
+                    .once('exit', code => reject(new Error(`Lambda process exit code ${code}`)))
+                    .once('message', msg => {
+                        console.log('invoke_func: received message', msg);
+                        if (msg.error) {
+                            return resolve({
+                                error: {
+                                    message: msg.error.message || 'Unknown error from lambda process',
+                                    stack: msg.error.stack,
+                                    code: msg.error.code,
+                                }
+                            });
+                        }
+                        return resolve({
+                            result: msg.result
+                        });
+                    });
+                const msg = {
+                    config: func.config,
+                    event: req.params.event
+                };
+                console.log('invoke_func: send message', msg);
+                proc.send(msg);
             }))
             .catch(err => ({
-                error: _.pick(err, 'message', 'stack')
+                error: {
+                    message: err.message || 'Unknown error from invoke_func',
+                    stack: err.stack,
+                    code: err.code,
+                }
             }));
     }
 
-    _validate_func(func, params) {
-        return this.rpc_client.lambda.read_func(params)
-            .then(res => {
-                const validated = res.config.code_size === func.config.code_size &&
-                    res.config.code_sha256 === func.config.code_sha256;
-                if (!validated) {
-                    console.log('_validate_func: invalidated', func, 'result', res);
-                }
-                return validated;
-            });
-    }
-
-    _load_func(params) {
-        let func;
-        params.read_code = true;
-        return this.rpc_client.lambda.read_func(params)
-            .then(func_arg => {
-                func = func_arg;
-                console.log('_load_func: loaded', func);
+    _load_func_code(req) {
+        const name = req.params.name;
+        const version = req.params.version;
+        const code_sha256 = req.params.code_sha256;
+        const version_dir = path.join(this.functions_path, name, version);
+        const func_json_path = path.join(version_dir, 'func.json');
+        const code_dir = path.join(version_dir, code_sha256);
+        return this.loading_serial.surround(() => P.resolve()
+            .then(() => fs.statAsync(code_dir))
+            .then(() => fs.readFileAsync(func_json_path))
+            .then(func_json_buf => JSON.parse(func_json_buf))
+            .catch(err => {
+                if (err.code !== 'ENOENT') throw err;
+                const loading_dir = path.join(this.functions_loading_path, Date.now().toString(36));
+                let func;
+                console.log('_load_func_code: loading', loading_dir, code_dir);
+                return P.resolve()
+                    .then(() => this.rpc_client.lambda.read_func({
+                        name: name,
+                        version: version,
+                        read_code: true
+                    }))
+                    .then(res => {
+                        func = res;
+                        if (code_sha256 !== func.config.code_sha256 ||
+                            req.params.code_size !== func.config.code_size) {
+                            throw new RpcError('FUNC_CODE_MISMATCH',
+                                `Function code does not match for ${func.name} version ${func.version} code_size ${func.config.code_size} code_sha256 ${func.config.code_sha256} requested code_size ${req.params.code_size} code_sha256 ${req.params.code_sha256}`);
+                        }
+                    })
+                    .then(() => zip_utils.unzip_from_buffer(func.code.zipfile))
+                    .then(zipfile => zip_utils.unzip_to_dir(zipfile, loading_dir))
+                    .then(() => fs_utils.create_fresh_path(version_dir))
+                    .then(() => fs_utils.create_fresh_path(code_dir))
+                    .then(() => fs.writeFileAsync(
+                        func_json_path,
+                        JSON.stringify(func)))
+                    .then(() => fs.renameAsync(loading_dir, code_dir))
+                    .then(() => func);
             })
-            .then(() => zip_utils.unzip_in_memory(func.code.zipfile))
-            .then(files => {
-                console.log('_load_func: unzipped', files);
-                func._files = files;
+            .then(func => {
+                func.code_dir = code_dir;
+                console.log('_load_func_code: loaded', func.config, code_dir);
                 return func;
-            });
+            }));
     }
 
 }

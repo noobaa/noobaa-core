@@ -18,6 +18,7 @@ module.exports = {
                 type: 'object',
                 required: [
                     'name',
+                    'version',
                     'code_size',
                     'code_sha256'
                 ],

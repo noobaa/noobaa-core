@@ -9,6 +9,7 @@ module.exports = {
         'system',
         'pools',
         'name',
+        'version',
         'runtime',
         'handler',
         'last_modified',

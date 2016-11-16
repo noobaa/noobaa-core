@@ -144,6 +144,10 @@ module.exports = {
         // don't assign inside a condition, separate the lines for clarity
         'no-cond-assign': ['error', 'always'],
 
+        'no-confusing-arrow': ['error', {
+            allowParens: true
+        }],
+
         // using console in node.js is cool
         'no-console': 'off',
 

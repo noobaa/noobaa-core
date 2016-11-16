@@ -125,7 +125,7 @@ class LambdaStore {
             .then(() => this.collection().findOne({
                 system: system,
                 name: name,
-                version: version || null,
+                version: version,
                 deleted: null,
             }))
             .then(res => mongo_utils.check_entity_not_deleted(res, 'lambda_func'));
@@ -135,7 +135,7 @@ class LambdaStore {
         return P.resolve()
             .then(() => this.collection().find({
                     system: system,
-                    version: null,
+                    version: '$LATEST',
                     deleted: null,
                 })
                 .toArray());
@@ -187,7 +187,7 @@ class LambdaStore {
     }
 
     code_filename(system, name, version) {
-        return system + '/' + name + '/' + (version || '$LATEST');
+        return system + '/' + name + '/' + version;
     }
 
 }

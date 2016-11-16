@@ -2,49 +2,113 @@
 'use strict';
 
 const _ = require('lodash');
+const path = require('path');
 const yazl = require('yazl');
 const yauzl = require('yauzl');
 
-const P = require('../util/promise');
+const P = require('./promise');
+const fs_utils = require('./fs_utils');
+const buffer_utils = require('./buffer_utils');
 
-function zip_in_memory(files) {
-    const chunks = [];
-    return new P((resolve, reject) => {
-            const zipfile = new yazl.ZipFile();
-            zipfile.once('error', reject);
-            zipfile.outputStream.on('data', chunk => chunks.push(chunk));
-            zipfile.outputStream.once('error', reject);
-            zipfile.outputStream.once('end', resolve);
-            _.each(files, (buffer, name) => zipfile.addBuffer(buffer, name));
-            zipfile.end();
-        })
-        .then(() => Buffer.concat(chunks));
+function zip_from_files(files) {
+    const zipfile = new yazl.ZipFile();
+    return P.resolve()
+        .then(() => _.each(files, (file, name) => {
+            if (file.data) {
+                zipfile.addBuffer(buffer_utils.to_buffer(file.data), name);
+            } else if (file.stream) {
+                zipfile.addReadStream(file.stream, name);
+            } else if (file.path) {
+                zipfile.addFile(file.path, name);
+            }
+        }))
+        .then(() => zipfile.end())
+        .return(zipfile);
 }
 
-function unzip_in_memory(zip_buffer) {
-    const files = {};
-    return P.fromCallback(callback => yauzl.fromBuffer(zip_buffer, {
-            lazyEntries: true
-        }, callback))
-        .then(zipfile => new P((resolve, reject) => {
-            zipfile.once('error', reject);
-            zipfile.once('end', resolve);
-            zipfile.on('entry', ent => {
-                zipfile.openReadStream(ent, function(err, read_stream) {
-                    if (err) return reject(err);
-                    const chunks = [];
-                    read_stream.on('data', chunk => chunks.push(chunk));
-                    read_stream.once('error', reject);
-                    read_stream.once('end', () => {
-                        files[ent.fileName] = Buffer.concat(chunks);
-                        zipfile.readEntry(); // read next entry
-                    });
-                });
-            });
-            zipfile.readEntry(); // start reading entries
+function zip_from_dir(dir) {
+    const zipfile = new yazl.ZipFile();
+    return P.resolve()
+        .then(() => fs_utils.read_dir_recursive({
+            root: dir,
+            on_entry: entry => {
+                const relative_path = path.relative(dir, entry.path);
+                if (entry.stat.isFile()) {
+                    zipfile.addFile(entry.path, relative_path);
+                } else if (entry.stat.isDirectory()) {
+                    zipfile.addEmptyDirectory(relative_path);
+                }
+            }
         }))
+        .then(() => zipfile.end())
+        .return(zipfile);
+}
+
+function zip_to_buffer(zipfile) {
+    return buffer_utils.buffer_from_stream(zipfile.outputStream);
+}
+
+function zip_to_file(zipfile, file_path) {
+    return fs_utils.write_file_from_stream(file_path, zipfile.outputStream);
+}
+
+const UNZIP_OPTIONS = Object.freeze({
+    lazyEntries: true
+});
+
+function unzip_from_buffer(zip_buffer) {
+    return P.fromCallback(cb => yauzl.fromBuffer(zip_buffer, UNZIP_OPTIONS, cb));
+}
+
+function unzip_from_file(file_path) {
+    return P.fromCallback(cb => yauzl.open(file_path, UNZIP_OPTIONS, cb));
+}
+
+function unzip_to_func(zipfile, on_entry) {
+    return new P((resolve, reject) => zipfile
+        .once('error', reject)
+        .once('end', resolve)
+        .on('entry', entry => P.resolve()
+            .then(() => P.fromCallback(cb => zipfile.openReadStream(entry, cb)))
+            .then(stream => on_entry(entry, stream))
+            .then(() => zipfile.readEntry())
+            .catch(err => zipfile.emit('error', err)))
+        .readEntry()); // start reading entries
+}
+
+function unzip_to_buffers(zipfile) {
+    const files = {};
+    return unzip_to_func(zipfile, (entry, stream) =>
+            buffer_utils.buffer_from_stream(stream)
+            .then(buffer => {
+                files[entry.fileName] = {
+                    path: entry.fileName,
+                    data: buffer,
+                };
+            }))
         .return(files);
 }
 
-exports.zip_in_memory = zip_in_memory;
-exports.unzip_in_memory = unzip_in_memory;
+function unzip_to_dir(zipfile, dir) {
+    return unzip_to_func(zipfile, (entry, stream) => {
+        const path_name = path.resolve(dir, '.' + path.sep + entry.fileName);
+        // directory ends with '/'
+        if (path_name.endsWith('/')) {
+            return fs_utils.create_path(path_name);
+        }
+        return P.resolve()
+            .then(() => fs_utils.create_path(path.dirname(path_name)))
+            .then(() => fs_utils.write_file_from_stream(path_name, stream));
+    });
+}
+
+
+exports.zip_from_files = zip_from_files;
+exports.zip_from_dir = zip_from_dir;
+exports.zip_to_buffer = zip_to_buffer;
+exports.zip_to_file = zip_to_file;
+
+exports.unzip_from_buffer = unzip_from_buffer;
+exports.unzip_from_file = unzip_from_file;
+exports.unzip_to_buffers = unzip_to_buffers;
+exports.unzip_to_dir = unzip_to_dir;

@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const fs = require('fs');
 const AWS = require('aws-sdk');
 const http = require('http');
 const path = require('path');
@@ -38,7 +37,11 @@ const word_count_func = {
     VpcConfig: {
         SubnetIds: argv.pools ? argv.pools.split(',') : []
     },
-    Files: ['word_count_func.js']
+    Files: {
+        'word_count_func.js': {
+            path: path.join(__dirname, 'word_count_func.js')
+        },
+    }
 };
 
 const dos_func = {
@@ -50,7 +53,12 @@ const dos_func = {
     VpcConfig: {
         SubnetIds: argv.pools ? argv.pools.split(',') : []
     },
-    Files: ['denial_of_service_func.js']
+    Files: {
+        'denial_of_service_func.js': {
+            path: path.join(__dirname, 'denial_of_service_func.js')
+        },
+    }
+
 };
 
 
@@ -105,13 +113,12 @@ function install_func(fn) {
 
 function prepare_func(fn) {
     return P.resolve()
-        .then(() => P.map(fn.Files, f => fs.readFileAsync(path.join(__dirname, f))))
-        .then(files_data => _.zipObject(fn.Files, files_data))
-        .then(files_map => zip_utils.zip_in_memory(files_map))
-        .then(zipfile => {
+        .then(() => zip_utils.zip_from_files(fn.Files))
+        .then(zipfile => zip_utils.zip_to_buffer(zipfile))
+        .then(zip_buffer => {
             delete fn.Files;
             fn.Code = {
-                ZipFile: zipfile
+                ZipFile: zip_buffer
             };
         });
 }

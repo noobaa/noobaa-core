@@ -34,9 +34,10 @@ function create_func(req) {
     const func = _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE);
     func.system = req.system._id;
     func.name = func_config.name;
+    func.version = '$LATEST';
     func.last_modified = new Date();
     func.code_size = 0;
-    func.resource_name = `arn:noobaa:lambda:region:${func.system}:function:${func.name}:$LATEST`;
+    func.resource_name = `arn:noobaa:lambda:region:${func.system}:function:${func.name}:${func.version}`;
     if (req.params.config.pools) {
         func.pools = _.map(req.params.config.pools, pool_name =>
             req.system.pools_by_name[pool_name]._id);

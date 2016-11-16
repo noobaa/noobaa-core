@@ -229,6 +229,14 @@ function tar_pack(tar_file_name, source, ignore_file_changes) {
     return promise_utils.exec(cmd);
 }
 
+function write_file_from_stream(file_path, read_stream) {
+    return new P((resolve, reject) => read_stream
+        .once('error', reject)
+        .pipe(fs.createWriteStream(file_path))
+        .once('error', reject)
+        .once('finish', resolve)
+    );
+}
 
 // EXPORTS
 exports.file_must_not_exist = file_must_not_exist;
@@ -243,4 +251,5 @@ exports.file_copy = file_copy;
 exports.file_delete = file_delete;
 exports.folder_delete = folder_delete;
 exports.tar_pack = tar_pack;
+exports.write_file_from_stream = write_file_from_stream;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;

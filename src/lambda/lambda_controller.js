@@ -32,6 +32,7 @@ class LambdaController {
         return req.rpc_client.lambda.create_func({
                 config: _.omitBy({
                     name: fn.FunctionName,
+                    version: '$LATEST',
                     description: fn.Description,
                     role: fn.Role,
                     runtime: fn.Runtime,
@@ -55,7 +56,7 @@ class LambdaController {
         console.log('read_func', req.params, req.query);
         return req.rpc_client.lambda.read_func({
                 name: req.params.func_name,
-                version: req.query.Qualifier
+                version: req.query.Qualifier || '$LATEST'
             })
             .then(func => ({
                 Configuration: this._get_func_config(func),
@@ -69,7 +70,7 @@ class LambdaController {
     delete_func(req) {
         return req.rpc_client.lambda.delete_func({
             name: req.params.func_name,
-            version: req.query.Qualifier
+            version: req.query.Qualifier || '$LATEST'
         }).return();
     }
 
@@ -87,6 +88,7 @@ class LambdaController {
         console.log('invoke_func', name, event);
         return req.rpc_client.lambda.invoke_func({
                 name: req.params.func_name,
+                version: req.query.Qualifier || '$LATEST',
                 event: event,
             })
             .then(func_res => {

@@ -83,6 +83,7 @@ function args_builder(idx) {
         vmName = octets[2] + '-' + octets[3] + 'W' + postfix;
         console.log('the windows machine name is: ', vmName);
     }
+    vmName  = vmName.substring(0,64);
     var networkInterfaceName = 'testnic' + timestamp + idx;
     var ipConfigName = 'testcrpip' + timestamp + idx;
     var domainNameLabel = 'testdomainname' + timestamp + idx;

@@ -16,7 +16,7 @@ const zip_utils = require('../util/zip_utils');
 
 const LAMBDA_PROC_PATH = path.resolve(__dirname, '..', 'lambda', 'lambda_proc.js');
 
-class ComputeNode {
+class LambdaNode {
 
     constructor(params) {
         this.rpc_client = params.rpc_client;
@@ -115,4 +115,4 @@ class ComputeNode {
 
 }
 
-module.exports = ComputeNode;
+module.exports = LambdaNode;

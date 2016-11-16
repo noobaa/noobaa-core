@@ -29,7 +29,7 @@ api_schema.register_api(require('./cluster_internal_api'));
 api_schema.register_api(require('./server_inter_process_api'));
 api_schema.register_api(require('./hosted_agents_api'));
 api_schema.register_api(require('./lambda_api'));
-api_schema.register_api(require('./compute_node_api'));
+api_schema.register_api(require('./lambda_node_api'));
 api_schema.compile();
 
 /**

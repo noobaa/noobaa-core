@@ -23,8 +23,8 @@ try {
         }
 
         // http://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html
-        const func_context = {
-            callbackWaitsForEmptyEventLoop: true,
+        const context = {
+            callbackWaitsForEmptyEventLoop: false,
             functionName: '',
             functionVersion: '',
             invokedFunctionArn: '',
@@ -37,10 +37,10 @@ try {
             getRemainingTimeInMillis: () => 60 * 1000, // TODO calculate timeout
         };
 
-        const func_callback = (err, reply) => {
+        const callback = (err, reply) => {
             if (err) {
                 console.log('lambda_proc: callback', err);
-                if (func_context.callbackWaitsForEmptyEventLoop) {
+                if (context.callbackWaitsForEmptyEventLoop) {
                     process.on('beforeExit', () => fail(err));
                 } else {
                     fail(err);
@@ -48,14 +48,14 @@ try {
                 return;
             }
             // console.log('lambda_proc: callback reply', reply);
-            if (func_context.callbackWaitsForEmptyEventLoop) {
+            if (context.callbackWaitsForEmptyEventLoop) {
                 process.on('beforeExit', () => success(reply));
             } else {
                 success(reply);
             }
         };
 
-        handler(msg.event, func_context, func_callback);
+        handler(msg.event, context, callback);
     });
 
 } catch (err) {

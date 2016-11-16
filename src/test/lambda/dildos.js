@@ -55,7 +55,7 @@ const dos_func = {
 };
 
 const WC_EVENT = {
-    text: '',
+    text: 'a',
     // random: 20,
     // url: argv.url || 'http://127.0.0.1:5001',
     // return_text: argv.return_text,
@@ -65,8 +65,8 @@ const DOS_EVENT = {
     lambda_conf: LAMBDA_CONF,
     func_name: word_count_func.FunctionName,
     func_event: WC_EVENT,
-    time: 5000,
-    concur: 1,
+    time: 3000,
+    concur: 2,
 };
 
 

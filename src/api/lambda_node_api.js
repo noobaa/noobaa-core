@@ -3,12 +3,12 @@
 
 /**
  *
- * LAMBDA API
+ * LAMBDA NODE API
  *
  */
 module.exports = {
 
-    id: 'compute_node_api',
+    id: 'lambda_node_api',
 
     methods: {
 

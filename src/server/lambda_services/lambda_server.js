@@ -151,7 +151,7 @@ function invoke_func(req) {
             const node = node_allocator.allocate_node(func.pools);
             if (!node) throw new Error('invoke_func: no nodes for allocation');
             console.log('invoke_func allocate_node', node.name, node.pool);
-            return server_rpc.client.compute_node.invoke_func({
+            return server_rpc.client.lambda_node.invoke_func({
                 name: func.name,
                 version: func.version,
                 code_size: func.code_size,

@@ -1,0 +1,56 @@
+<!-- ko if: ready -->
+<lambda-summary class="push-next" params="lambda: lambda"></lambda-summary>
+
+<div class="tabs greedy">
+    <nav>
+        <a data-bind="
+            href: { route: 'lambda', params: { tab: 'data-placement' } },
+            css: { selected: isTabSelected('data-placement') }
+        ">
+            Data Placement
+        </a>
+
+        <a data-bind="
+            href: { route: 'lambda', params: { tab: 'objects' } },
+            css: { selected: isTabSelected('objects') }
+        ">
+            Files
+        </a>
+        <a data-bind="
+            href: { route: 'lambda', params: { tab: 's3-access' } },
+            css: { selected: isTabSelected('s3-access') }
+        ">
+            S3 Access
+        </a>
+
+        <a data-bind="
+            href: { route: 'lambda', params: { tab: 'cloud-sync' } },
+            css: { selected: isTabSelected('cloud-sync') }
+        ">
+            Cloud sync
+        </a>
+    </nav>
+
+    <div class="tabs-row">
+        <!-- <lambda-data-placement-form class="tab"
+            params="lambda: lambda"
+            data-bind="css: { selected: isTabSelected('data-placement') }">
+        </lambda-data-placement-form>
+
+        <lambda-objects-table class="tab"
+            params="lambda: lambda, objectList: objectList"
+            data-bind="css: { selected: isTabSelected('objects') }">
+        </lambda-objects-table>
+
+        <lambda-s3-access-list class="tab"
+            params="lambdaName: lambdaName"
+            data-bind="css: { selected: isTabSelected('s3-access') }">
+        </lambda-s3-access-list>
+
+        <lambda-cloud-sync-form class="tab"
+            params="lambda: lambda"
+            data-bind="css: { selected: isTabSelected('cloud-sync') }">
+        </lambda-cloud-sync-form> -->
+    </div>
+</div>
+<!-- /ko -->

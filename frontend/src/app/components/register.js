@@ -146,6 +146,21 @@ export default function register(ko) {
     /** INJECT:cluster **/
 
     // -------------------------------
+    // Lambdas
+    // -------------------------------
+    ko.components.register('lambdas-panel', require('./lambdas/lambdas-panel/lambdas-panel'));
+    ko.components.register('lambdas-table', require('./lambdas/lambdas-table/lambdas-table'));
+    // ko.components.register('create-lambda-wizard', require('./lambdas/create-lambda-wizard/create-lambda-wizard'));
+    /** INJECT:lambdas **/
+
+    // -------------------------------
+    // Lambda
+    // -------------------------------
+    ko.components.register('lambda-panel', require('./lambda/lambda-panel/lambda-panel'));
+    ko.components.register('lambda-summary', require('./lambda/lambda-summary/lambda-summary'));
+    /** INJECT:lambda **/
+
+    // -------------------------------
     // Admin
     // -------------------------------
     ko.components.register('audit-pane',         require('./admin/audit-pane/audit-pane'));

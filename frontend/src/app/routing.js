@@ -43,8 +43,9 @@ export default function routing(page) {
     page(routes.node, saveContext, actions.showNode);
     page(routes.management, saveContext, actions.showManagement);
     page(routes.cluster, saveContext, actions.showCluster);
+    page(routes.lambdas, saveContext, actions.showLambdas);
+    page(routes.lambda, saveContext, actions.showLambda);
 
     // Unknown paths
     page('*', actions.handleUnknownRoute);
 }
-

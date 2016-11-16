@@ -1,0 +1,21 @@
+<div class="column pad alt-bg">
+    <button class="btn align-end" data-bind="
+        click: () => showCreateLambdaWizard(),
+        disable: true
+    ">
+        Create Lambda Function
+    </button>
+</div>
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: lambdas,
+    rowFactory: lambda => newLambdaRow(lambda),
+    emptyMessage: ''
+">
+</data-table>
+
+<!-- ko if: isCreateLambdaWizardVisible -->
+<create-lambda-wizard params="onClose: () => hideCreateLambdaWizard()">
+</create-lambda-wizard>
+<!-- /ko -->

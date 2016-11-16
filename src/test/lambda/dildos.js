@@ -21,6 +21,7 @@ const LAMBDA_CONF = {
 const lambda = new AWS.Lambda(LAMBDA_CONF);
 
 const ROLE_ARN = 'arn:aws:iam::638243541865:role/lambda-test';
+const POOLS = argv.pools ? argv.pools.split(',') : ['default_pool'];
 
 const word_count_func = {
     FunctionName: 'word_count_func',
@@ -29,7 +30,7 @@ const word_count_func = {
     Handler: 'word_count_func.handler',
     Role: ROLE_ARN,
     VpcConfig: {
-        SubnetIds: argv.pools ? argv.pools.split(',') : []
+        SubnetIds: POOLS
     },
     Files: {
         'word_count_func.js': {
@@ -45,7 +46,7 @@ const dos_func = {
     Handler: 'denial_of_service_func.handler',
     Role: ROLE_ARN,
     VpcConfig: {
-        SubnetIds: argv.pools ? argv.pools.split(',') : []
+        SubnetIds: POOLS
     },
     Files: {
         'denial_of_service_func.js': {

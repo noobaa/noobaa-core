@@ -31,6 +31,13 @@ const navItems = deepFreeze([
         label: 'Management'
     },
     {
+        name: 'lambdas',
+        route: 'lambdas',
+        icon: 'working',
+        label: 'Lambda Functions'
+        // preview: true
+    },
+    {
         name: 'cluster',
         route: 'cluster',
         icon: 'cluster',

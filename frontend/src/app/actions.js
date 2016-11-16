@@ -305,6 +305,80 @@ export function showCluster() {
     });
 }
 
+export function showLambdas() {
+    logAction('showLambdas');
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Lambda Functions',
+        breadcrumbs: [
+            { route: 'lambdas', label: 'Lambda Functions' }
+        ],
+        selectedNavItem: 'lambdas',
+        panel: 'lambdas'
+    });
+
+    loadLambdas();
+}
+
+export function showLambda(name) {
+    logAction('showLambda');
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Lambda Function',
+        breadcrumbs: [
+            { route: 'lambda', label: 'Lambda Function' }
+        ],
+        selectedNavItem: 'lambda',
+        panel: 'lambda'
+    });
+
+    loadLambda(name);
+}
+
+export function loadLambdas() {
+    logAction('loadLambdas');
+
+    api.lambda.list_funcs({})
+        .then(
+            reply => model.lambdaFunctions(
+                deepFreeze(reply.functions)
+            )
+        )
+        .done();
+}
+
+export function loadLambda(name) {
+    logAction('loadLambda');
+
+    api.lambda.read_func({
+        name: name(),
+        version: '$LATEST'
+    })
+        .then(
+            reply => model.lambdaFunction(
+                deepFreeze(reply)
+            )
+        )
+        .done();
+}
+
+export function deleteLambda({ name, version }) {
+    logAction('deleteLambda');
+
+    api.lambda.delete_func({
+        name: name,
+        version: version
+    })
+        .then(
+            () => notify(`Lambda ${name} deleted successfully`, 'success'),
+            () => notify(`Lambda ${name} deletion failed`, 'error')
+        )
+        .then(loadLambdas)
+        .done();
+}
+
 export function handleUnknownRoute() {
     logAction('handleUnknownRoute');
 

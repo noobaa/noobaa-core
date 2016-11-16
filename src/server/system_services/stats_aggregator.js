@@ -233,7 +233,7 @@ function get_bucket_sizes_stats(req) {
 
 function get_pool_stats(req) {
     return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool())
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool(null, req.system._id))
         .then(nodes_aggregate_pool => _.map(system_store.data.pools,
             pool => _.get(nodes_aggregate_pool, [
                 'groups', String(pool._id), 'nodes', 'count'

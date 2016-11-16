@@ -23,7 +23,13 @@ sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor
 supervisorctl reread
 supervisorctl reload
 rm -rf /root/node_modules/noobaa-core/agent_storage/
+sleep 15
 mongo nbcore --eval 'db.dropDatabase()'
 
 sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40mNONE\x1b[0m.:" /etc/issue
 sudo sed -i "s:This server's secret is.*:No Server Secret:" /etc/issue
+#reduce VM size
+/sbin/swapoff -a
+dd if=/dev/zero of=zeroFile.tmp
+rm -f zeroFile.tmp
+history -c

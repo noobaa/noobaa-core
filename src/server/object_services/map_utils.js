@@ -37,13 +37,18 @@ function select_prefered_pools(tier, tiering_pools_status) {
         on_premise_pool: 1,
         cloud_pool: 2
     };
+
+    // This sort is mainly relevant to mirror allocations on uploads
+    // The purpose of it is to pick a valid pool in order for upload to succeed
     let sorted_pools = _.sortBy(tier.pools, pool => {
         let pool_weight = 0;
 
+        // Checking if the pool is writable
         if (!_.get(tiering_pools_status[pool.name], 'valid_for_allocation', false)) {
             pool_weight += WEIGHTS.non_writable_pool;
         }
 
+        // On premise pools are in higher priority than cloud pools
         if (pool.cloud_pool_info) {
             pool_weight += WEIGHTS.cloud_pool;
         } else {
@@ -96,8 +101,11 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
     }
 
     function check_blocks_group(blocks, alloc) {
+        // This is the optimal maximum number of replicas that are required
+        // Currently this is mainly used to special replica chunks which are allocated opportunistically
         let max_replicas;
 
+        // Currently we pick the highest replicas in our alloocation pools, which are on premise pools
         if (_.get(alloc, 'pools.length', 0) &&
             _.every(alloc.pools, 'cloud_pool_info')) {
             // for cloud_pools we only need one replica
@@ -123,7 +131,7 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
         });
         if (_.get(alloc, 'pools.length', 0)) {
             let num_missing = Math.max(0, max_replicas - num_good);
-            // These are the minimum required replicas
+            // These are the minimum required replicas, which are a must to have for the chunk
             let min_replicas = Math.max(0, Math.min(max_replicas, tier.replicas) - num_good);
             // Notice that we push the minimum required replicas in higher priority
             // This is done in order to insure that we will allocate them before the additional replicas

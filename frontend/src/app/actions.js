@@ -1801,6 +1801,7 @@ export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress
     );
 
     api.cluster_server.update_time_config({
+        target_secret: serverSecret,
         timezone: timezone,
         ntp_server: ntpServerAddress
     })

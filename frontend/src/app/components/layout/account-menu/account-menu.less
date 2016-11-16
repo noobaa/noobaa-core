@@ -1,0 +1,51 @@
+account-menu {
+    display: block;
+    position: relative;
+
+    .menu-header {
+        background-color: @color4;
+        height: 60px;
+
+        > .user-email {
+            min-width: 100px;
+            max-width: 150px;
+        }
+    }
+
+    .menu-items {
+        background: @color4;
+        top: 100%;
+        left: 0;
+        right: 0;
+        position: absolute;
+        max-height: 0;
+        transition: max-height 250ms ease-out;
+        overflow-y: hidden;
+
+        > hr {
+            margin: 0;
+        }
+
+        .menu-item {
+            padding:  0 @gutter;
+            line-height: 44px;
+            display: block;
+            border: none;
+            background: none;
+
+            &:hover {
+                background-color: @color1;
+            }
+        }
+    }
+
+    .open {
+        > .menu-header, > .menu-items {
+            box-shadow: -2px 2px 2px @shadow-color;
+        }
+
+        > .menu-items {
+            max-height: 250px;
+        }
+    }
+}

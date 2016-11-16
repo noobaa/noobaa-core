@@ -2,80 +2,78 @@ import template from './file-uploads-modal.html';
 import Disposable from 'disposable';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
-import { recentUploads } from 'model';
-import { deepFreeze } from 'utils';
+import { uploads } from 'model';
+import { deepFreeze, stringifyAmount, formatSize } from 'utils';
 import { clearCompletedUploads } from 'actions';
 import style from 'style';
+import numeral from 'numeral';
 
 const columns = deepFreeze([
     'fileName',
     'bucketName',
+    'size',
     'progress'
 ]);
 
-class RecentFileUploadingModalViewModel extends Disposable {
+class FileUploadsModalViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 
-        this.requests = recentUploads;
+        this.uploads = uploads;
         this.columns = columns;
         this.onClose = onClose;
 
-        this.uploadState = ko.pureComputed(
+        this.countText = ko.pureComputed(
+            () => stringifyAmount('file', uploads.stats().count)
+        );
+
+        let uploadStats = uploads.stats;
+
+        this.uploaded = ko.pureComputed(
+            () => uploadStats().uploaded
+        );
+
+        this.failed = ko.pureComputed(
+            () => uploadStats().failed
+        );
+
+        this.uploading = ko.pureComputed(
+            () => uploadStats().uploading
+        );
+
+        let progress = ko.pureComputed(
             () => {
-                let progressAcc = 0;
-                let state = recentUploads().reduce(
-                    (state, upload) => {
-                        switch (upload.state){
-                            case 'UPLOADING':
-                                ++state.uploadingCount;
-                                progressAcc += upload.progress;
-                                break;
-                            case 'UPLOADED':
-                                ++state.uploadedCount;
-                                progressAcc += 1;
-                                break;
-                            case 'FAILED':
-                                ++state.failedCount;
-                                progressAcc += 1;
-                                break;
-                        }
-                        return state;
-                    },
-                    {
-                        uploadingCount: 0,
-                        uploadedCount: 0,
-                        failedCount: 0
-                    }
-                );
-                state['progress'] = progressAcc / recentUploads().length;
-                state['totalCount'] = recentUploads().length;
-                return state;
+                let { size, progress } = uploadStats().batch;
+                return progress / size;
             }
         );
 
         this.progressText = ko.pureComputed(
-            () => `(${
-                Math.floor(this.uploadState()['progress'] * 100)
-            }%)`
+            () => {
+                if (uploadStats().uploading === 0) {
+                    return '';
+                }
+
+                return `Uploading ${
+                    formatSize(uploadStats().batch.progress)
+                } of ${
+                    formatSize(uploadStats().batch.size)
+                } (${
+                    numeral(progress()).format('%')
+                })`;
+            }
         );
 
-        // let uploadsProgress = ko.pureComputed(
-        //     () => this.uploadState().progress
-        // );
-        this.emptyColor = style['color7'];
         this.barValues = [
             {
-                value: ko.pureComputed(
-                    () => this.uploadState().progress
-                ),
+                value: progress,
                 color: style['color8']
             },
             {
                 value: ko.pureComputed(
-                    () => 1 - this.uploadState().progress
+                    () => 1 - progress()
                 ),
-                color: this.emptyColor
+                color: style['color7']
             }
         ];
     }
@@ -94,6 +92,6 @@ class RecentFileUploadingModalViewModel extends Disposable {
 }
 
 export default {
-    viewModel: RecentFileUploadingModalViewModel,
+    viewModel: FileUploadsModalViewModel,
     template: template
 };

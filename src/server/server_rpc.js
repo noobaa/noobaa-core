@@ -56,6 +56,8 @@ class ServerRpc {
             require('./system_services/cluster_server'), options);
         rpc.register_service(schema.stats_api,
             require('./system_services/stats_aggregator'), options);
+        rpc.register_service(schema.events_api,
+            require('./notifications/event_server.js'), options);
         rpc.register_service(schema.redirector_api,
             require('./system_services/redirector'), {
                 // the redirector should not try refresh system_store
@@ -97,8 +99,14 @@ class ServerRpc {
         let options = this.get_server_options();
         rpc.register_service(schema.cloud_sync_api,
             require('./bg_services/cloud_sync'), options);
+    }
+
+    register_hosted_agents_services() {
+        let rpc = this.rpc;
+        let schema = rpc.schema;
+        let options = this.get_server_options();
         rpc.register_service(schema.hosted_agents_api,
-            require('./bg_services/hosted_agents'), options);
+            require('../hosted_agents/hosted_agents'), options);
     }
 
     register_common_services() {

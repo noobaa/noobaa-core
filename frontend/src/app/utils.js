@@ -175,11 +175,27 @@ export function throttle(func, grace, owner) {
 }
 
 export function compare(a, b) {
-    return a < b ? -1 : ( b < a ? 1 : 0);
+    return a < b ? -1 : (b < a ? 1 : 0);
+}
+
+export function compareArray(a, b) {
+    for(let i = 0; i < a.length; ++i) {
+        let result = compare(a[i], b[i]);
+        if (result !== 0) return result;
+    }
+
+    return 0;
 }
 
 export function createCompareFunc(accessor, factor = 1) {
-    return (a,b) => factor * compare(accessor(a), accessor(b));
+    return (a,b) => {
+        let key1 = accessor(a);
+        let key2 = accessor(b);
+
+        return factor * (
+            isArray(key1) ? compareArray(key1, key2) : compare(key1, key2)
+        );
+    };
 }
 
 export function equalNoCase(str1, str2) {
@@ -348,10 +364,10 @@ export function deepFreeze(val) {
     }
 }
 
-export function waitFor(miliseconds, value) {
+export function sleep(miliseconds, wakeValue) {
     return new Promise(
         resolve => setTimeout(
-            () => resolve(value),
+            () => resolve(wakeValue),
             miliseconds
         )
     );
@@ -679,7 +695,25 @@ export function httpWaitForResponse(url, retryDelay = 3000) {
     return (function tryGet() {
         // Try GET on url, if failed wait for retryDelay seconds and then try again.
         return httpGetAsync(url).catch(
-            () => waitFor(retryDelay).then(tryGet)
+            () => sleep(retryDelay).then(tryGet)
         );
     })();
+}
+
+export function averageBy(array, predicate) {
+    let sum = array
+        .map(predicate)
+        .reduce(
+            (sum, value) => sum + value
+        );
+
+    return sum / array.length;
+}
+
+export function pluralize(word, amount) {
+    return `${word}${amount === 1 ? '' : 's'}`;
+}
+
+export function stringifyAmount(subject, amount) {
+    return `${amount} ${pluralize(subject, amount)}`;
 }

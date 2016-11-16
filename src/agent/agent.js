@@ -41,7 +41,7 @@ const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
-const Semaphore = require('../util/semaphore');
+const json_utils = require('../util/json_utils');
 const fs_utils = require('../util/fs_utils');
 
 
@@ -62,14 +62,15 @@ class Agent {
 
         this.host_id = params.host_id;
 
-        this.agent_conf_sem = params.agent_conf_sem || new Semaphore(1);
+        this.agent_conf = params.agent_conf || new json_utils.JsonWrapper();
 
         this.connect_attempts = 0;
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
-        this.create_node_token = params.create_node_token;
+
+        this.token_wrapper = params.token_wrapper || {};
 
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
@@ -223,7 +224,7 @@ class Agent {
         let sorted_old = _.sortBy(this.servers, srv => srv.address);
         if (_.isEqual(sorted_new, sorted_old)) return P.resolve();
         this.servers = new_list;
-        return this._update_agent_conf({
+        return this.agent_conf.update({
             servers: this.servers
         });
     }
@@ -278,8 +279,8 @@ class Agent {
                 if (!this.storage_path) return this.token;
 
                 // load the token file
-                const token_path = path.join(this.storage_path, 'token');
-                return fs.readFileAsync(token_path);
+                return this.token_wrapper.read();
+
             })
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
@@ -356,7 +357,12 @@ class Agent {
                 if (err.rpc_code === 'DUPLICATE') {
                     dbg.error('This agent appears to be duplicated.',
                         'exiting and starting new agent', err);
-                    process.exit(68); // 68 is 'D' in ascii
+                    if (this.cloud_info) {
+                        dbg.error(`shouldnt be here. found duplicated node for cloud pool!!`);
+                        throw new Error('found duplicated cloud node');
+                    } else {
+                        process.exit(68); // 68 is 'D' in ascii
+                    }
                 }
                 if (err.rpc_code === 'NODE_NOT_FOUND') {
                     dbg.error('This agent appears to be using an old token.',
@@ -379,11 +385,11 @@ class Agent {
 
     _start_new_agent() {
         dbg.log0(`cleaning old node data and starting a new agent`);
-        const token_path = path.join(this.storage_path, 'token');
+        // const token_path = path.join(this.storage_path, 'token');
         this.stop();
         return fs_utils.folder_delete(this.storage_path)
             .then(() => fs_utils.create_path(this.storage_path))
-            .then(() => fs.writeFileAsync(token_path, this.create_node_token))
+            .then(() => this.token_wrapper.write(this.token_wrapper.create_node_token))
             .then(() => this.start());
     }
 
@@ -476,32 +482,6 @@ class Agent {
         }
         // otherwise it's good
     }
-    _update_agent_conf(params) {
-        dbg.log0('waiting to update agent_conf.json. params =', params);
-        // serialize agent_conf updates with Sempahore(1)
-        return this.agent_conf_sem.surround(() => {
-            dbg.log0('updating agent_conf.json with params:', params);
-            return fs.readFileAsync('agent_conf.json')
-                .then(data => {
-                    const agent_conf = JSON.parse(data);
-                    dbg.log0('_update_agent_conf: old values in agent_conf.json:', agent_conf);
-                    return agent_conf;
-                }, err => {
-                    if (err.code === 'ENOENT') {
-                        dbg.log0('_update_agent_conf: no agent_conf.json file. creating new one...');
-                        return {};
-                    } else {
-                        throw err;
-                    }
-                })
-                .then(agent_conf => {
-                    _.assign(agent_conf, params);
-                    const data = JSON.stringify(agent_conf);
-                    dbg.log0('_update_agent_conf: writing new values to agent_conf.json:', agent_conf);
-                    return fs.writeFileAsync('agent_conf.json', data);
-                });
-        });
-    }
 
     _update_rpc_config_internal(params) {
         if (params.n2n_config) {
@@ -522,8 +502,7 @@ class Agent {
             return P.fcall(() => this.client.node.ping(null, {
                     address: params.base_address
                 }))
-                // TODO: we need to handle the case when multiple agents (multidrive) try to update agent_conf
-                .then(() => this._update_agent_conf({
+                .then(() => this.agent_conf.update({
                     address: params.base_address
                 }))
                 .then(() => {
@@ -562,7 +541,7 @@ class Agent {
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
-            create_node_token: this.create_node_token,
+            create_node_token: this.token_wrapper.create_node_token,
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
@@ -632,7 +611,7 @@ class Agent {
                 if (this.storage_path) {
                     const token_path = path.join(this.storage_path, 'token');
                     dbg.log0('update_auth_token: write new token', token_path);
-                    return fs.writeFileAsync(token_path, auth_token);
+                    return this.token_wrapper.write(auth_token);
                 }
             })
             .then(() => {
@@ -642,11 +621,9 @@ class Agent {
     }
 
     update_create_node_token(req) {
-        this.create_node_token = req.rpc_params.create_node_token;
+        this.token_wrapper.create_node_token = req.rpc_params.create_node_token;
         dbg.log0('update_create_node_token: received new token');
-        return this._update_agent_conf({
-            create_node_token: this.create_node_token
-        });
+        return this.token_wrapper.update_create_node_token(this.token_wrapper.create_node_token);
     }
 
     update_rpc_config(req) {

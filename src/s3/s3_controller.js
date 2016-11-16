@@ -5,6 +5,7 @@ const _ = require('lodash');
 const xml2js = require('xml2js');
 
 const P = require('../util/promise');
+const promise_utils = require('../util/promise_utils');
 const dbg = require('../util/debug_module')(__filename);
 const ObjectIO = require('../api/object_io');
 const s3_errors = require('./s3_errors');
@@ -59,7 +60,31 @@ class S3Controller {
         this.rpc = rpc;
         this.object_io = new ObjectIO();
         let signal_client = this.rpc.new_client();
-        let n2n_agent = this.rpc.register_n2n_agent(signal_client.node.n2n_signal);
+        let send_signal_func = param => {
+            // ugly hack for now to retry on master change
+            // we should really handle it in the RPC level by changing the route
+            // on master change
+            return promise_utils.retry(10, 1, () => {
+                return signal_client.node.n2n_signal(param, {
+                        address: this._master_address
+                    })
+                    .catch(err => {
+                        dbg.log0(`got error in send_signal_func with err.rpc_code ${err.rpc_code}`);
+                        if (err.rpc_code === 'MONITOR_NOT_LOADED' || err.rpc_code === 'MONITOR_NOT_STARTED') {
+                            return signal_client.cluster_internal.redirect_to_cluster_master()
+                                .then(addr => {
+                                    dbg.log0(`changing _master_address from ${this._master_address}, to ${addr}`);
+                                    let base_port = parseInt(process.env.PORT, 10) || 5001;
+                                    this._master_address = 'ws://' + addr + ':' + base_port;
+                                    throw err;
+                                });
+                        }
+                        err.DO_NOT_RETRY = true;
+                        throw err;
+                    });
+            });
+        };
+        let n2n_agent = this.rpc.register_n2n_agent(send_signal_func);
         n2n_agent.set_any_rpc_address();
     }
 

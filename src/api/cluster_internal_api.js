@@ -44,7 +44,33 @@ module.exports = {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}
-                    },
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        verify_join_conditions: {
+            doc: 'check join conditions to the cluster and return caller ip (stun)',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['secret'],
+                properties: {
+                    secret: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['caller_address'],
+                properties: {
+                    caller_address: {
+                        type: 'string'
+                    }
                 }
             },
             auth: {

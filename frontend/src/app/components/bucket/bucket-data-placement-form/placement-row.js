@@ -12,7 +12,7 @@ export default class PlacementRowViewModel {
                 let isHealthy = count - has_issues >= 3;
                 let tooltip = {
                     text: isHealthy ? 'Healthy' : 'Not enough healthy nodes',
-                    align: 'left'
+                    align: 'start'
                 };
 
                 return {

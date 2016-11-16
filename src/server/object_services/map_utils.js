@@ -40,14 +40,14 @@ function select_prefered_pools(tier, tiering_pools_status) {
     let sorted_pools = _.sortBy(tier.pools, pool => {
         let pool_weight = 0;
 
-        if (!tiering_pools_status[pool.name]) {
+        if (!_.get(tiering_pools_status[pool.name], 'valid_for_allocation', false)) {
             pool_weight += WEIGHTS.non_writable_pool;
         }
 
-        if (_.isUndefined(pool.cloud_pool_info)) {
-            pool_weight += WEIGHTS.on_premise_pool;
-        } else {
+        if (pool.cloud_pool_info) {
             pool_weight += WEIGHTS.cloud_pool;
+        } else {
+            pool_weight += WEIGHTS.on_premise_pool;
         }
 
         return pool_weight;
@@ -81,9 +81,6 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
         select_prefered_pools(tier, tiering_pools_status) :
         tier.pools;
     const tier_pools_by_name = _.keyBy(participating_pools, 'name');
-    const replicas = chunk.is_special ?
-        tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER :
-        tier.replicas;
 
     let allocations = [];
     let deletions = [];
@@ -99,19 +96,25 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
     }
 
     function check_blocks_group(blocks, alloc) {
-        let required_replicas = replicas;
+        let max_replicas;
+
         if (_.get(alloc, 'pools.length', 0) &&
-            _.filter(alloc.pools, pool => !pool.cloud_pool_info).length === 0) {
+            _.every(alloc.pools, 'cloud_pool_info')) {
             // for cloud_pools we only need one replica
-            required_replicas = 1;
+            max_replicas = 1;
+        } else if (chunk.is_special) {
+            max_replicas = tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER;
+        } else {
+            max_replicas = tier.replicas;
         }
+
         let num_good = 0;
         let num_accessible = 0;
         _.each(blocks, block => {
             if (is_block_accessible(block)) {
                 num_accessible += 1;
             }
-            if (num_good < required_replicas &&
+            if (num_good < max_replicas &&
                 is_block_good(block, tier_pools_by_name)) {
                 num_good += 1;
             } else {
@@ -119,13 +122,13 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
             }
         });
         if (_.get(alloc, 'pools.length', 0)) {
-            let num_missing = Math.max(0, required_replicas - num_good);
+            let num_missing = Math.max(0, max_replicas - num_good);
             // These are the minimum required replicas
-            let num_must_missing = Math.max(0, Math.min(required_replicas, tier.replicas) - num_good);
+            let min_replicas = Math.max(0, Math.min(max_replicas, tier.replicas) - num_good);
             // Notice that we push the minimum required replicas in higher priority
             // This is done in order to insure that we will allocate them before the additional replicas
-            _.times(num_must_missing, () => allocations.push(_.clone(alloc)));
-            _.times(num_missing - num_must_missing, () => allocations.push(_.defaults(_.clone(alloc), {
+            _.times(min_replicas, () => allocations.push(_.clone(alloc)));
+            _.times(num_missing - min_replicas, () => allocations.push(_.defaults(_.clone(alloc), {
                 special_replica: true
             })));
         }

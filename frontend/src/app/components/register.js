@@ -146,19 +146,19 @@ export default function register(ko) {
     /** INJECT:cluster **/
 
     // -------------------------------
-    // Lambdas
+    // Funcs
     // -------------------------------
-    ko.components.register('lambdas-panel', require('./lambdas/lambdas-panel/lambdas-panel'));
-    ko.components.register('lambdas-table', require('./lambdas/lambdas-table/lambdas-table'));
-    // ko.components.register('create-lambda-wizard', require('./lambdas/create-lambda-wizard/create-lambda-wizard'));
-    /** INJECT:lambdas **/
+    ko.components.register('funcs-panel', require('./funcs/funcs-panel/funcs-panel'));
+    ko.components.register('funcs-table', require('./funcs/funcs-table/funcs-table'));
+    // ko.components.register('create-func-wizard', require('./funcs/create-func-wizard/create-func-wizard'));
+    /** INJECT:funcs **/
 
     // -------------------------------
-    // Lambda
+    // Func
     // -------------------------------
-    ko.components.register('lambda-panel', require('./lambda/lambda-panel/lambda-panel'));
-    ko.components.register('lambda-summary', require('./lambda/lambda-summary/lambda-summary'));
-    /** INJECT:lambda **/
+    ko.components.register('func-panel', require('./func/func-panel/func-panel'));
+    ko.components.register('func-summary', require('./func/func-summary/func-summary'));
+    /** INJECT:func **/
 
     // -------------------------------
     // Admin

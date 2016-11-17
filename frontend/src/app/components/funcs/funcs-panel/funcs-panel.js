@@ -1,4 +1,4 @@
-import template from './lambdas-panel.html';
+import template from './funcs-panel.html';
 
 export default {
     template: template

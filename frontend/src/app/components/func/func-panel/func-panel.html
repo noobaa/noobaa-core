@@ -1,16 +1,16 @@
 <!-- ko if: ready -->
-<lambda-summary class="push-next" params="lambda: lambda"></lambda-summary>
+<func-summary class="push-next" params="func: func"></func-summary>
 
 <div class="tabs greedy">
     <nav>
         <a data-bind="
-            href: { route: 'lambda', params: { tab: 'code' } },
+            href: { route: 'func', params: { tab: 'code' } },
             css: { selected: isTabSelected('code') }
         ">
             Code
         </a>
         <a data-bind="
-            href: { route: 'lambda', params: { tab: 'placement' } },
+            href: { route: 'func', params: { tab: 'placement' } },
             css: { selected: isTabSelected('placement') }
         ">
             Placement
@@ -18,14 +18,14 @@
     </nav>
 
     <div class="tabs-row">
-        <!-- <lambda-placement-form class="tab"
-            params="lambda: lambda"
+        <!-- <func-placement-form class="tab"
+            params="func: func"
             data-bind="css: { selected: isTabSelected('placement') }">
-        </lambda-placement-form> -->
-        <!-- <lambda-code-table class="tab"
-            params="lambda: lambda"
+        </func-placement-form> -->
+        <!-- <func-code-table class="tab"
+            params="func: func"
             data-bind="css: { selected: isTabSelected('code') }">
-        </lambda-code-table> -->
+        </func-code-table> -->
     </div>
 </div>
 <!-- /ko -->

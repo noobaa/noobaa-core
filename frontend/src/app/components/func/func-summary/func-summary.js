@@ -1,4 +1,4 @@
-import template from './lambda-summary.html';
+import template from './func-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils';
@@ -16,12 +16,12 @@ const stateMapping = deepFreeze({
     }
 });
 
-class LambdaSummaryViewModel extends Disposable {
-    constructor({ lambda }) {
+class FuncSummaryViewModel extends Disposable {
+    constructor({ func }) {
         super();
 
         this.dataReady = ko.pureComputed(
-            () => !!lambda()
+            () => !!func()
         );
 
         this.state = ko.pureComputed(
@@ -30,11 +30,11 @@ class LambdaSummaryViewModel extends Disposable {
 
         this.dataPlacement = ko.pureComputed(
             () => {
-                if (!lambda()) {
+                if (!func()) {
                     return;
                 }
 
-                let { pools } = lambda().config;
+                let { pools } = func().config;
 
                 return `on ${
                     pools.length
@@ -45,17 +45,17 @@ class LambdaSummaryViewModel extends Disposable {
         );
 
         this.codeSize = ko.pureComputed(
-            () => lambda() ? lambda().config.code_size : {}
+            () => func() ? func().config.code_size : {}
         ).extend({
             formatSize: true
         });
 
         this.codeSha256 = ko.pureComputed(
-            () => lambda() ? lambda().config.code_sha256 : {}
+            () => func() ? func().config.code_sha256 : {}
         );
 
         let stats = ko.pureComputed(
-            () => lambda() ? lambda().stats : {}
+            () => func() ? func().stats : {}
         );
 
         this.lastRead = ko.pureComputed(
@@ -77,6 +77,6 @@ class LambdaSummaryViewModel extends Disposable {
 }
 
 export default {
-    viewModel: LambdaSummaryViewModel,
+    viewModel: FuncSummaryViewModel,
     template: template
 };

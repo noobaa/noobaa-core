@@ -305,82 +305,82 @@ export function showCluster() {
     });
 }
 
-export function showLambdas() {
-    logAction('showLambdas');
+export function showFuncs() {
+    logAction('showFuncs');
 
     model.uiState({
         layout: 'main-layout',
-        title: 'Lambda Functions',
+        title: 'Functions',
         breadcrumbs: [
-            { route: 'lambdas', label: 'Functions' }
+            { route: 'funcs', label: 'Functions' }
         ],
-        selectedNavItem: 'lambdas',
-        panel: 'lambdas'
+        selectedNavItem: 'funcs',
+        panel: 'funcs'
     });
 
-    loadLambdas();
+    loadFuncs();
 }
 
-export function showLambda() {
-    logAction('showLambda');
+export function showFunc() {
+    logAction('showFunc');
 
     let ctx = model.routeContext();
-    let { lambda, tab = 'code' } = ctx.params;
+    let { func, tab = 'code' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
         title: 'Function',
         breadcrumbs: [
-            { route: 'lambdas', label: 'Functions' },
-            { route: 'lambda', label: lambda }
+            { route: 'funcs', label: 'Functions' },
+            { route: 'func', label: func }
         ],
-        selectedNavItem: 'lambda',
-        panel: 'lambda',
+        selectedNavItem: 'func',
+        panel: 'func',
         tab: tab
     });
 
-    loadLambda(lambda);
+    loadFunc(func);
 }
 
-export function loadLambdas() {
-    logAction('loadLambdas');
+export function loadFuncs() {
+    logAction('loadFuncs');
 
-    api.lambda.list_funcs({})
+    api.func.list_funcs({})
         .then(
-            reply => model.lambdaFunctions(
+            reply => model.funcFunctions(
                 deepFreeze(reply.functions)
             )
         )
         .done();
 }
 
-export function loadLambda(name) {
-    logAction('loadLambda');
+export function loadFunc(name) {
+    logAction('loadFunc');
 
-    api.lambda.read_func({
+    api.func.read_func({
         name: name,
         version: '$LATEST'
     })
         .then(
-            reply => model.lambdaFunction(
+            reply => model.funcFunction(
                 deepFreeze(reply)
             )
         )
         .done();
 }
 
-export function deleteLambda({ name, version }) {
-    logAction('deleteLambda');
+export function deleteFunc({ name, version }) {
+    logAction('deleteFunc');
 
-    api.lambda.delete_func({
+    api.func.delete_func({
         name: name,
         version: version
     })
         .then(
-            () => notify(`Lambda ${name} deleted successfully`, 'success'),
-            () => notify(`Lambda ${name} deletion failed`, 'error')
+            () => notify(`Func ${name} deleted successfully`, 'success'),
+            () => notify(`Func ${name} deletion failed`, 'error')
         )
-        .then(loadLambdas)
+        .then(loadFuncs)
         .done();
 }
 

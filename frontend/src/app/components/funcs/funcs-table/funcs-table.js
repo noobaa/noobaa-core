@@ -1,9 +1,9 @@
-import template from './lambdas-table.html';
-import LambdaRowViewModel from './lambda-row';
+import template from './funcs-table.html';
+import FuncRowViewModel from './func-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils';
-import { lambdaFunctions } from 'model';
+import { funcFunctions } from 'model';
 
 const columns = deepFreeze([
     {
@@ -38,33 +38,33 @@ const columns = deepFreeze([
     }
 ]);
 
-class LambdasTableViewModel extends Disposable {
+class FuncsTableViewModel extends Disposable {
     constructor() {
         super();
 
         this.columns = columns;
 
-        this.lambdas = ko.pureComputed(
-            () => lambdaFunctions()
+        this.funcs = ko.pureComputed(
+            () => funcFunctions()
         );
 
-        this.isCreateLambdaWizardVisible = ko.observable(false);
+        this.isCreateFuncWizardVisible = ko.observable(false);
     }
 
-    newLambdaRow(lambda) {
-        return new LambdaRowViewModel(lambda);
+    newFuncRow(func) {
+        return new FuncRowViewModel(func);
     }
 
-    showCreateLambdaWizard() {
-        this.isCreateLambdaWizardVisible(true);
+    showCreateFuncWizard() {
+        this.isCreateFuncWizardVisible(true);
     }
 
-    hideCreateLambdaWizard() {
-        this.isCreateLambdaWizardVisible(false);
+    hideCreateFuncWizard() {
+        this.isCreateFuncWizardVisible(false);
     }
 }
 
 export default {
-    viewModel: LambdasTableViewModel,
+    viewModel: FuncsTableViewModel,
     template: template
 };

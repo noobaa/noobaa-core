@@ -1,15 +1,15 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { stringifyAmount } from 'utils';
-import { deleteLambda } from 'actions';
+import { deleteFunc } from 'actions';
 
 
-export default class LambdaRowViewModel extends Disposable {
-    constructor(lambda) {
+export default class FuncRowViewModel extends Disposable {
+    constructor(func) {
         super();
 
         this.state = ko.pureComputed(
-            () => lambda() ? {
+            () => func() ? {
                 name: 'healthy',
                 css: 'success',
                 tooltip: 'Healthy'
@@ -18,37 +18,37 @@ export default class LambdaRowViewModel extends Disposable {
 
         this.name = ko.pureComputed(
             () => {
-                if (!lambda()) {
+                if (!func()) {
                     return {};
                 }
 
-                let { name } = lambda().config;
+                let { name } = func().config;
                 return {
                     text: name,
-                    href: { route: 'lambda', params: { lambda: name } }
+                    href: { route: 'func', params: { func: name } }
                 };
             }
         );
 
         this.version = ko.pureComputed(
-            () => lambda() && lambda().config.version
+            () => func() && func().config.version
         );
 
         this.description = ko.pureComputed(
-            () => lambda() && lambda().config.description
+            () => func() && func().config.description
         );
 
         this.codeSize = ko.pureComputed(
-            () => lambda() && lambda().config.code_size
+            () => func() && func().config.code_size
         );
 
         this.placementPolicy = ko.pureComputed(
             () => {
-                if (!lambda()) {
+                if (!func()) {
                     return {};
                 }
 
-                let { pools } = lambda().config;
+                let { pools } = func().config;
                 let count = pools && pools.length || 0;
 
                 let text = `on ${
@@ -63,9 +63,9 @@ export default class LambdaRowViewModel extends Disposable {
         );
 
         this.deleteButton = {
-            subject: 'lambda',
-            tooltip: 'delete lambda function',
-            onDelete: () => deleteLambda(lambda().config)
+            subject: 'func',
+            tooltip: 'delete func function',
+            onDelete: () => deleteFunc(func().config)
         };
 
     }

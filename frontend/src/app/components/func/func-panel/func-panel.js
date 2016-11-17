@@ -1,14 +1,14 @@
-import template from './lambda-panel.html';
+import template from './func-panel.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { lambdaFunction, uiState } from 'model';
+import { funcFunction, uiState } from 'model';
 
-class LambdaPanelViewModel extends Disposable {
+class FuncPanelViewModel extends Disposable {
     constructor() {
         super();
 
-        this.lambda = ko.pureComputed(
-            () => lambdaFunction()
+        this.func = ko.pureComputed(
+            () => funcFunction()
         );
 
         this.selectedTab = ko.pureComputed(
@@ -22,6 +22,6 @@ class LambdaPanelViewModel extends Disposable {
 }
 
 export default {
-    viewModel: LambdaPanelViewModel,
+    viewModel: FuncPanelViewModel,
     template: template
 };

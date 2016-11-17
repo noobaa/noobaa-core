@@ -4,53 +4,28 @@
 <div class="tabs greedy">
     <nav>
         <a data-bind="
-            href: { route: 'lambda', params: { tab: 'data-placement' } },
-            css: { selected: isTabSelected('data-placement') }
+            href: { route: 'lambda', params: { tab: 'code' } },
+            css: { selected: isTabSelected('code') }
         ">
-            Data Placement
-        </a>
-
-        <a data-bind="
-            href: { route: 'lambda', params: { tab: 'objects' } },
-            css: { selected: isTabSelected('objects') }
-        ">
-            Files
+            Code
         </a>
         <a data-bind="
-            href: { route: 'lambda', params: { tab: 's3-access' } },
-            css: { selected: isTabSelected('s3-access') }
+            href: { route: 'lambda', params: { tab: 'placement' } },
+            css: { selected: isTabSelected('placement') }
         ">
-            S3 Access
-        </a>
-
-        <a data-bind="
-            href: { route: 'lambda', params: { tab: 'cloud-sync' } },
-            css: { selected: isTabSelected('cloud-sync') }
-        ">
-            Cloud sync
+            Placement
         </a>
     </nav>
 
     <div class="tabs-row">
-        <!-- <lambda-data-placement-form class="tab"
+        <!-- <lambda-placement-form class="tab"
             params="lambda: lambda"
-            data-bind="css: { selected: isTabSelected('data-placement') }">
-        </lambda-data-placement-form>
-
-        <lambda-objects-table class="tab"
-            params="lambda: lambda, objectList: objectList"
-            data-bind="css: { selected: isTabSelected('objects') }">
-        </lambda-objects-table>
-
-        <lambda-s3-access-list class="tab"
-            params="lambdaName: lambdaName"
-            data-bind="css: { selected: isTabSelected('s3-access') }">
-        </lambda-s3-access-list>
-
-        <lambda-cloud-sync-form class="tab"
+            data-bind="css: { selected: isTabSelected('placement') }">
+        </lambda-placement-form> -->
+        <!-- <lambda-code-table class="tab"
             params="lambda: lambda"
-            data-bind="css: { selected: isTabSelected('cloud-sync') }">
-        </lambda-cloud-sync-form> -->
+            data-bind="css: { selected: isTabSelected('code') }">
+        </lambda-code-table> -->
     </div>
 </div>
 <!-- /ko -->

@@ -1,4 +1,5 @@
 <div class="row" data-bind="if: dataReady">
+
     <section class="c3 column pad borders">
         <div class="greedy row content-middle">
             <svg-icon class="push-next" params="name: state().icon"
@@ -8,7 +9,7 @@
         </div>
         <hr />
         <div class="greedy row content-middle">
-            <span class="c5 highlight push-next">Data Placement:</span>
+            <span class="c5 highlight push-next">Placement:</span>
             <span class="c7" data-bind="text: dataPlacement"></span>
         </div>
         <hr />
@@ -28,18 +29,6 @@
 
                 <chart-legend params="items: legend"></chart-legend>
             </div>
-
-            <!-- ko if: selectedGraph() === 'STORAGE' -->
-            <pie-chart class="push-prev" params="
-                values: storageValues,
-                primaryText: totalStorage,
-                secondaryText: 'Total'
-            "></pie-chart>
-            <!-- /ko -->
-
-            <!-- ko if: selectedGraph() === 'DATA' -->
-            <bar-chart class="push-prev" params="values: dataValues"></bar-chart>
-            <!-- /ko -->
         </div>
     </section>
 

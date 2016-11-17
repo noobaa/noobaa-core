@@ -312,7 +312,7 @@ export function showLambdas() {
         layout: 'main-layout',
         title: 'Lambda Functions',
         breadcrumbs: [
-            { route: 'lambdas', label: 'Lambda Functions' }
+            { route: 'lambdas', label: 'Functions' }
         ],
         selectedNavItem: 'lambdas',
         panel: 'lambdas'
@@ -321,20 +321,25 @@ export function showLambdas() {
     loadLambdas();
 }
 
-export function showLambda(name) {
+export function showLambda() {
     logAction('showLambda');
+
+    let ctx = model.routeContext();
+    let { lambda, tab = 'code' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
-        title: 'Lambda Function',
+        title: 'Function',
         breadcrumbs: [
-            { route: 'lambda', label: 'Lambda Function' }
+            { route: 'lambdas', label: 'Functions' },
+            { route: 'lambda', label: lambda }
         ],
         selectedNavItem: 'lambda',
-        panel: 'lambda'
+        panel: 'lambda',
+        tab: tab
     });
 
-    loadLambda(name);
+    loadLambda(lambda);
 }
 
 export function loadLambdas() {
@@ -353,7 +358,7 @@ export function loadLambda(name) {
     logAction('loadLambda');
 
     api.lambda.read_func({
-        name: name(),
+        name: name,
         version: '$LATEST'
     })
         .then(

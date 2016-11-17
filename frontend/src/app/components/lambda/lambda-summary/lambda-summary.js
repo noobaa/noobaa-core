@@ -1,8 +1,6 @@
 import template from './lambda-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import style from 'style';
-import { systemInfo } from 'model';
 import { deepFreeze } from 'utils';
 
 const stateMapping = deepFreeze({
@@ -18,34 +16,12 @@ const stateMapping = deepFreeze({
     }
 });
 
-const cloudSyncStatusMapping = deepFreeze({
-    PENDING: 'Pending',
-    SYNCING: 'Syncing',
-    PAUSED: 'Paused',
-    UNABLE: 'Unable to Sync',
-    SYNCED: 'Completed',
-    NOTSET: 'not set'
-});
-
-const graphOptions = deepFreeze([
-    {
-        label: 'Storage',
-        value: 'STORAGE'
-    },
-    {
-        label: 'Data',
-        value: 'DATA'
-    }
-]);
-
-const avaliableForWriteTooltip = 'This number is calculated according to the bucket\'s available capacity and the number of replicas defined in its placement policy';
-
 class LambdaSummaryViewModel extends Disposable {
-    constructor({ bucket }) {
+    constructor({ lambda }) {
         super();
 
         this.dataReady = ko.pureComputed(
-            () => !!bucket()
+            () => !!lambda()
         );
 
         this.state = ko.pureComputed(
@@ -54,114 +30,32 @@ class LambdaSummaryViewModel extends Disposable {
 
         this.dataPlacement = ko.pureComputed(
             () => {
-                if (!bucket() || !systemInfo()) {
+                if (!lambda()) {
                     return;
                 }
 
-                let tierName = bucket().tiering.tiers[0].tier;
-                let { data_placement , node_pools } = systemInfo().tiers.find(
-                    tier => tier.name === tierName
-                );
+                let { pools } = lambda().config;
 
-                return `${
-                    data_placement === 'SPREAD' ? 'Spread' : 'Mirrored'
-                } on ${
-                    node_pools.length
+                return `on ${
+                    pools.length
                 } pool${
-                    node_pools.length !== 1 ? 's' : ''
+                    pools.length !== 1 ? 's' : ''
                 }`;
             }
         );
 
-        this.cloudSyncStatus = ko.pureComputed(
-            () => {
-                if (!bucket()) {
-                    return;
-                }
-
-                let { cloud_sync } = bucket();
-                return cloudSyncStatusMapping[
-                    cloud_sync ? cloud_sync.status : 'NOTSET'
-                ];
-            }
-        );
-
-        this.graphOptions = graphOptions;
-
-        this.selectedGraph = ko.observable(graphOptions[0].value);
-
-        let storage = ko.pureComputed(
-            () => bucket() ? bucket().storage : {}
-        );
-
-        let data = ko.pureComputed(
-            () => bucket() ? bucket().data : {}
-        );
-
-        this.totalStorage = ko.pureComputed(
-            () => storage().total
+        this.codeSize = ko.pureComputed(
+            () => lambda() ? lambda().config.code_size : {}
         ).extend({
             formatSize: true
         });
 
-        this.storageValues = [
-            {
-                label: 'Used (this bucket)',
-                color: style['color13'],
-                value: ko.pureComputed(
-                    () => storage().used
-                )
-            },
-            {
-                label: 'Used (other buckets)',
-                color: style['color14'],
-                value: ko.pureComputed(
-                    () => storage().used_other
-                )
-            },
-            {
-                label: 'Potential available',
-                color: style['color5'],
-                value: ko.pureComputed(
-                    () => storage().free
-                )
-            }
-        ];
-
-        this.dataValues = [
-            {
-                label: 'Reduced',
-                value: ko.pureComputed(
-                    () => data().size_reduced
-                ),
-                color: style['color13']
-            },
-            {
-                label: 'Size',
-                value: ko.pureComputed(
-                    () => data().size
-                ),
-                color: style['color7']
-            }
-        ];
-
-
-        this.legend = ko.pureComputed(
-            () => this.selectedGraph() === 'STORAGE' ?
-                this.storageValues :
-                this.dataValues
+        this.codeSha256 = ko.pureComputed(
+            () => lambda() ? lambda().config.code_sha256 : {}
         );
-
-        this.avaliableForWrite = ko.pureComputed(
-            () => data().actual_free
-        ).extend({
-            formatSize: true
-        });
-
-        this.avaliableForWriteTooltip = avaliableForWriteTooltip;
 
         let stats = ko.pureComputed(
-            () => bucket() ? bucket().stats : {}
+            () => lambda() ? lambda().stats : {}
         );
 
         this.lastRead = ko.pureComputed(

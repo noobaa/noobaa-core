@@ -1474,7 +1474,7 @@ export function setNodeDebugLevel(node, level) {
         )
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for node ${node}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for node ${node}`,
                 'success'
             ),
             () => notify(
@@ -1497,7 +1497,7 @@ export function setServerDebugLevel(targetSecret, targetHostname, level){
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${targetHostname}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${targetHostname}`,
                 'success'
             ),
             () => notify(

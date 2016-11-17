@@ -54,7 +54,7 @@ function create_nodes_pool(req) {
                 pools: [pool]
             }
         })
-        .then(() => nodes_client.instance().migrate_nodes_to_pool(nodes, pool._id))
+        .then(() => nodes_client.instance().migrate_nodes_to_pool(req.system._id, nodes, pool._id))
         .then(res => {
             Dispatcher.instance().activity({
                 event: 'pool.create',
@@ -137,7 +137,7 @@ function update_pool(req) {
 function list_pool_nodes(req) {
     var pool = find_pool_by_name(req);
     return P.resolve()
-        .then(() => nodes_client.instance().list_nodes_by_pool(pool._id))
+        .then(() => nodes_client.instance().list_nodes_by_pool(pool.name, req.system._id))
         .then(res => ({
             name: pool.name,
             nodes: _.map(res.nodes, node =>
@@ -148,7 +148,7 @@ function list_pool_nodes(req) {
 function read_pool(req) {
     var pool = find_pool_by_name(req);
     return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool.name], req.system._id))
         .then(nodes_aggregate_pool => get_pool_info(pool, nodes_aggregate_pool));
 }
 
@@ -165,7 +165,7 @@ function delete_pool(req) {
 function _delete_nodes_pool(system, pool, account) {
     dbg.log0('Deleting pool', pool.name);
     return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool.name], system._id))
         .then(nodes_aggregate_pool => {
             var reason = check_pool_deletion(pool, nodes_aggregate_pool);
             if (reason) {
@@ -206,7 +206,7 @@ function _delete_cloud_pool(system, pool, account) {
                 }
             });
         })
-        .then(() => nodes_client.instance().list_nodes_by_pool(pool._id))
+        .then(() => nodes_client.instance().list_nodes_by_pool(pool.name, system._id))
         .then(function(pool_nodes) {
             return P.each(pool_nodes && pool_nodes.nodes, node => {
                 nodes_client.instance().delete_node_by_name(system._id, node.name);
@@ -229,8 +229,7 @@ function _delete_cloud_pool(system, pool, account) {
 function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
-    return nodes_client.instance().migrate_nodes_to_pool(
-        req.rpc_params.nodes, pool._id);
+    return nodes_client.instance().migrate_nodes_to_pool(req.system._id, req.rpc_params.nodes, pool._id);
 }
 
 

@@ -7,23 +7,24 @@ import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
     downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
     stringifyAmount } from 'utils';
 
-
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
 import 'aws-sdk';
-let AWS = window.AWS;
+const AWS = window.AWS;
 
 // Use preconfigured hostname or the addrcess of the serving computer.
-let endpoint = window.location.hostname;
+const endpoint = window.location.hostname;
 
 // -----------------------------------------------------
 // Utility function to log actions.
 // -----------------------------------------------------
+const prefix = 'ACTION DISPATHCED';
+
 function logAction(action, payload) {
     if (typeof payload !== 'undefined') {
-        console.info(`action dispatched: ${action} with`, payload);
+        console.info(`${prefix} ${action} with`, payload);
     } else {
-        console.info(`action dispatched: ${action}`);
+        console.info(`${prefix} ${action}`);
     }
 }
 
@@ -1402,7 +1403,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
-    let currentServerKey = `server:${targetHostname}`;
+    let currentServerKey = `server:${targetSecret}`;
     if(model.collectDiagnosticsState[currentServerKey] === true) {
         return;
     }
@@ -1474,7 +1475,7 @@ export function setNodeDebugLevel(node, level) {
         )
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for node ${node}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for node ${node}`,
                 'success'
             ),
             () => notify(
@@ -1497,7 +1498,7 @@ export function setServerDebugLevel(targetSecret, targetHostname, level){
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${targetHostname}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${targetHostname}`,
                 'success'
             ),
             () => notify(
@@ -1801,6 +1802,7 @@ export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress
     );
 
     api.cluster_server.update_time_config({
+        target_secret: serverSecret,
         timezone: timezone,
         ntp_server: ntpServerAddress
     })

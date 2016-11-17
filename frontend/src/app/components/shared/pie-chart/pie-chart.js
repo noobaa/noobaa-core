@@ -29,27 +29,39 @@ function normalizeValues(values) {
         (sum, value) => sum + value
     );
 
-    let ratios = values.map(
-        value => value / sum
+    let thresholdSize = threshold * sum;
+    let { delta, overhead } = values.reduce(
+        (stats, value) => {
+            if(value === 0){
+                return stats;
+            }
+
+            if(value < thresholdSize) {
+                return {
+                    delta: stats.delta + thresholdSize - value,
+                    overhead: stats.overhead
+                };
+            } else {
+                return {
+                    delta: stats.delta,
+                    overhead: stats.overhead + value - thresholdSize
+                };
+            }
+        },
+        { delta: 0, overhead: 0 }
     );
 
-    let underThreshold = ratios
-        .filter(
-            ratio => 0 < ratio && ratio < threshold
-        )
-        .length;
-
-    return ratios.map(
-        ratio => {
-            if (ratio == 0) {
+    return values.map(
+        value => {
+            if (value === 0) {
                 return 0;
-
-            } else if (ratio < threshold) {
-                return threshold;
-
-            } else  {
-                return ratio * (1 - threshold * underThreshold);
             }
+
+            if (value <= thresholdSize){
+                return threshold;
+            }
+
+            return (value - delta * (value - thresholdSize) / overhead) / sum;
         }
     );
 }

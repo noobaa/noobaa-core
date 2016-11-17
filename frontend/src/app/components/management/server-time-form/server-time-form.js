@@ -56,7 +56,7 @@ class ServerTimeFormViewModel extends Disposable{
         );
 
         this.formattedTime = this.time.extend({
-            formatTime: { format: 'MM/DD/YYYY HH:mm:ss ([GMT]Z)' }
+            formatTime: { format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)' }
         });
 
         this.configTypes = configTypes;

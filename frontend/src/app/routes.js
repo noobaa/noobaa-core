@@ -10,6 +10,6 @@ export const object         = `${root}/systems/:system/buckets/:bucket/objects/:
 export const pools          = `${root}/systems/:system/resources/:tab?`;
 export const pool           = `${root}/systems/:system/resources/pools/:pool/:tab?`;
 export const node           = `${root}/systems/:system/resources/pools/:pool/nodes/:node/:tab?`;
-export const management     = `${root}/systems/:system/management/:tab?`;
+export const management     = `${root}/systems/:system/management/:tab?/:section?`;
 export const cluster        = `${root}/systems/:system/cluster`;
 

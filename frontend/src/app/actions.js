@@ -275,7 +275,7 @@ export function showNode() {
 export function showManagement() {
     logAction('showManagement');
 
-    let { tab = 'accounts' } = model.routeContext().params;
+    let { tab = 'accounts', section } = model.routeContext().params;
 
     model.uiState({
         layout: 'main-layout',
@@ -286,6 +286,7 @@ export function showManagement() {
         selectedNavItem: 'management',
         panel: 'management',
         tab: tab,
+        section: section,
         working: model.uiState().working
     });
 }

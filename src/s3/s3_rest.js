@@ -275,10 +275,11 @@ function read_post_body(req, res, next) {
     //We need this body in this case, and want to avoid reading the body for
     //other requests, like put_object
 
-    if ((req.method === 'POST' ||
-            (req.method === 'PUT' && 'lifecycle' in req.query)) &&
-        (req.headers['content-type'] === 'application/xml' ||
-            req.headers['content-type'] === 'application/octet-stream')) {
+    if (req.headers['content-type'] === 'application/xml' ||
+        req.headers['content-type'] === 'text/xml' ||
+        (req.headers['content-type'] === 'application/octet-stream' &&
+            (req.method === 'POST' ||
+            (req.method === 'PUT' && 'lifecycle' in req.query)))) {
 
         let data = '';
         req.setEncoding('utf8');

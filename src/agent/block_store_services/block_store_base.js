@@ -1,13 +1,14 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 const crypto = require('crypto');
 
-const P = require('../util/promise');
-const dbg = require('../util/debug_module')(__filename);
-const js_utils = require('../util/js_utils');
-const LRUCache = require('../util/lru_cache');
-const RpcError = require('../rpc/rpc_error');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const js_utils = require('../../util/js_utils');
+const LRUCache = require('../../util/lru_cache');
+const RpcError = require('../../rpc/rpc_error');
 
 class BlockStoreBase {
 

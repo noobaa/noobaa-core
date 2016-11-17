@@ -1,10 +1,4 @@
-/**
- *
- * BLOCK STORE S3
- *
- * block store which uses s3 cloud storage
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -12,8 +6,8 @@ const AWS = require('aws-sdk');
 const path = require('path');
 const https = require('https');
 
-const P = require('../util/promise');
-const dbg = require('../util/debug_module')(__filename);
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 
 const https_agent = new https.Agent({

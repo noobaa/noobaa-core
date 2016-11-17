@@ -2,9 +2,11 @@ import template from './server-time-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment-timezone';
-import { systemInfo } from 'model';
-import { updateServerClock, updateServerNTPSettings } from 'actions';
+import * as routes from 'routes';
+import { systemInfo, routeContext } from 'model';
+import { updateServerClock, updateServerNTPSettings, navigateTo } from 'actions';
 
+const sectionName = 'server-time';
 const configTypes =  Object.freeze([
     { label: 'Manual Time', value: 'MANUAL' },
     { label: 'Network Time (NTP)', value: 'NTP' }
@@ -28,7 +30,18 @@ class ServerTimeFormViewModel extends Disposable{
             () => server() && server().secret
         );
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = ko.pureComputed({
+            read: () => {
+                return routeContext().params['section'] !== sectionName;
+            },
+            write: value => {
+                let params = {
+                    tab: 'settings',
+                    section: value ? null : sectionName
+                };
+                navigateTo(routes.management, params, undefined);
+            }
+        });
 
         this.time = ko.observableWithDefault(
             () => server() && server().time_epoch * 1000

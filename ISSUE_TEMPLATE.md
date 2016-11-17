@@ -3,7 +3,7 @@
 - Deployment: **N/A** | **Dev** | **VBox** | **ESX** | **GCloud** | **AWS**
 - Customer: **N/A** | **QA** | **name**
 
-### Actual behaviour
+### Actual behavior
 1.
 
 ### Expected behavior

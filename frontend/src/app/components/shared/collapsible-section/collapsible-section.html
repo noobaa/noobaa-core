@@ -1,0 +1,27 @@
+<div class="row content-middle cursor-pointer" data-bind="
+    click: () => intent.toggle()
+">
+    <h2 class="greedy heading3" data-bind="text: title">
+    </h2>
+
+    <button class="btn-flat expand-btn no-outline" >
+        <svg-icon class="icon-small rotate"
+            params="name: 'chevron'"
+            data-bind="css: { 'deg-90': intent() }">
+        </svg-icon>
+    </button>
+</div>
+
+<div data-bind="
+    visible: result() && intent(),
+    template: { nodes: $componentTemplateNodes.filter( node => node.className === 'collapsible-collapsed-section'), data: $parent }
+">
+</div>
+
+<div class="column" data-bind="
+    expand: !intent(),
+    transition: { end: onTransitionEnd },
+    template: { nodes: $componentTemplateNodes.filter( node => node.className === 'collapsible-expanded-section'), data: $parent }
+">
+</div>
+

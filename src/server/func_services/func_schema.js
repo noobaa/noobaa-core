@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'lambda_func_schema',
+    id: 'func_schema',
     type: 'object',
     required: [
         '_id',

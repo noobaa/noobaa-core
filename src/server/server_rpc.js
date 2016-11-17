@@ -1,4 +1,7 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
+
+/* eslint-disable global-require */
 
 const api = require('../api');
 
@@ -85,12 +88,12 @@ class ServerRpc {
             require('./object_services/object_server'), options);
     }
 
-    register_lambda_services() {
+    register_func_services() {
         let rpc = this.rpc;
         let schema = rpc.schema;
         let options = this.get_server_options();
-        rpc.register_service(schema.lambda_api,
-            require('./lambda_services/lambda_server'), options);
+        rpc.register_service(schema.func_api,
+            require('./func_services/func_server'), options);
     }
 
     register_bg_services() {

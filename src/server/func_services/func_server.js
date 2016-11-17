@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const P = require('../../util/promise');
 const RpcError = require('../../rpc/rpc_error');
 const server_rpc = require('../server_rpc');
-const lambda_store = require('./lambda_store');
+const func_store = require('./func_store');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 
@@ -62,7 +62,7 @@ function create_func(req) {
             }
             throw new Error('Unsupported code');
         })
-        .then(code_stream => lambda_store.instance().create_code_gridfs({
+        .then(code_stream => func_store.instance().create_code_gridfs({
             system: func.system,
             name: func.name,
             version: func.version,
@@ -78,9 +78,9 @@ function create_func(req) {
             func.code_sha256 = code_sha256.digest('base64');
             func.code_gridfs_id = gridfs_id;
         })
-        .then(() => lambda_store.instance().create_func(func))
+        .then(() => func_store.instance().create_func(func))
         .then(() => _load_func(req))
-        .then(() => _get_func_info(req.lambda_func));
+        .then(() => _get_func_info(req.func));
 }
 
 function update_func(req) {
@@ -94,26 +94,26 @@ function update_func(req) {
         throw new RpcError('TODO', 'Update function code is not yet implemented');
     }
     return _load_func(req)
-        .then(() => lambda_store.instance().update_func(
-            req.lambda_func._id,
+        .then(() => func_store.instance().update_func(
+            req.func._id,
             config_updates
         ))
         .then(() => _load_func(req))
-        .then(() => _get_func_info(req.lambda_func));
+        .then(() => _get_func_info(req.func));
 }
 
 function delete_func(req) {
     return _load_func(req)
-        .then(() => lambda_store.instance().delete_code_gridfs(req.lambda_func.code_gridfs_id))
-        .then(() => lambda_store.instance().delete_func(req.lambda_func._id));
+        .then(() => func_store.instance().delete_code_gridfs(req.func.code_gridfs_id))
+        .then(() => func_store.instance().delete_func(req.func._id));
 }
 
 function read_func(req) {
     return _load_func(req)
-        .then(() => _get_func_info(req.lambda_func))
+        .then(() => _get_func_info(req.func))
         .then(reply => {
             if (!req.params.read_code) return reply;
-            return lambda_store.instance().read_code_gridfs(req.lambda_func.code_gridfs_id)
+            return func_store.instance().read_code_gridfs(req.func.code_gridfs_id)
                 .then(buffer => {
                     reply.code = {
                         zipfile: buffer
@@ -125,7 +125,7 @@ function read_func(req) {
 
 function list_funcs(req) {
     return P.resolve()
-        .then(() => lambda_store.instance().list_funcs(req.system._id))
+        .then(() => func_store.instance().list_funcs(req.system._id))
         .then(funcs => ({
             functions: _.map(funcs, _get_func_info)
         }));
@@ -133,7 +133,7 @@ function list_funcs(req) {
 
 function list_func_versions(req) {
     return P.resolve()
-        .then(() => lambda_store.instance().list_func_versions(
+        .then(() => func_store.instance().list_func_versions(
             req.system._id,
             req.params.name
         ))
@@ -144,14 +144,14 @@ function list_func_versions(req) {
 
 function invoke_func(req) {
     return _load_func(req)
-        .then(() => P.map(req.lambda_func.pools,
+        .then(() => P.map(req.func.pools,
             pool => node_allocator.refresh_pool_alloc(pool)))
         .then(() => {
-            const func = req.lambda_func;
+            const func = req.func;
             const node = node_allocator.allocate_node(func.pools);
             if (!node) throw new Error('invoke_func: no nodes for allocation');
             console.log('invoke_func allocate_node', node.name, node.pool);
-            return server_rpc.client.lambda_node.invoke_func({
+            return server_rpc.client.func_node.invoke_func({
                 name: func.name,
                 version: func.version,
                 code_size: func.code_size,
@@ -168,9 +168,9 @@ function _load_func(req) {
     const name = req.params.name || _.get(req, 'params.config.name');
     const version = req.params.version || _.get(req, 'params.config.version');
     return P.resolve()
-        .then(() => lambda_store.instance().read_func(system, name, version))
+        .then(() => func_store.instance().read_func(system, name, version))
         .then(func => {
-            req.lambda_func = func;
+            req.func = func;
             func.pools = _.map(func.pools, pool_id => system_store.data.get_by_id(pool_id));
             return func;
         });

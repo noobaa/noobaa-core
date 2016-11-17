@@ -7,16 +7,16 @@ const path = require('path');
 const child_process = require('child_process');
 // const crypto = require('crypto');
 
-const P = require('../util/promise');
-const dbg = require('../util/debug_module')(__filename);
-const RpcError = require('../rpc/rpc_error');
-const fs_utils = require('../util/fs_utils');
-const Semaphore = require('../util/semaphore');
-const zip_utils = require('../util/zip_utils');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const RpcError = require('../../rpc/rpc_error');
+const fs_utils = require('../../util/fs_utils');
+const Semaphore = require('../../util/semaphore');
+const zip_utils = require('../../util/zip_utils');
 
-const LAMBDA_PROC_PATH = path.resolve(__dirname, '..', 'lambda', 'lambda_proc.js');
+const FUNC_PROC_PATH = path.resolve(__dirname, 'func_proc.js');
 
-class LambdaNode {
+class FuncNode {
 
     constructor(params) {
         this.rpc_client = params.rpc_client;
@@ -29,18 +29,18 @@ class LambdaNode {
     invoke_func(req) {
         return this._load_func_code(req)
             .then(func => new P((resolve, reject) => {
-                const proc = child_process.fork(LAMBDA_PROC_PATH, [], {
+                const proc = child_process.fork(FUNC_PROC_PATH, [], {
                         cwd: func.code_dir,
                         stdio: 'inherit',
                     })
                     .once('error', reject)
-                    .once('exit', code => reject(new Error(`Lambda process exit code ${code}`)))
+                    .once('exit', code => reject(new Error(`Func process exit code ${code}`)))
                     .once('message', msg => {
                         dbg.log1('invoke_func: received message', msg);
                         if (msg.error) {
                             return resolve({
                                 error: {
-                                    message: msg.error.message || 'Unknown error from lambda process',
+                                    message: msg.error.message || 'Unknown error from func process',
                                     stack: msg.error.stack,
                                     code: msg.error.code,
                                 }
@@ -83,7 +83,7 @@ class LambdaNode {
                 let func;
                 dbg.log0('_load_func_code: loading', loading_dir, code_dir);
                 return P.resolve()
-                    .then(() => this.rpc_client.lambda.read_func({
+                    .then(() => this.rpc_client.func.read_func({
                         name: name,
                         version: version,
                         read_code: true
@@ -115,4 +115,4 @@ class LambdaNode {
 
 }
 
-module.exports = LambdaNode;
+module.exports = FuncNode;

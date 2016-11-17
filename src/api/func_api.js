@@ -3,12 +3,12 @@
 
 /**
  *
- * LAMBDA API
+ * FUNC API
  *
  */
 module.exports = {
 
-    id: 'lambda_api',
+    id: 'func_api',
 
     methods: {
 
@@ -204,7 +204,7 @@ module.exports = {
                 },
             },
             reply: {
-                $ref: '#/definitions/lambda_func_info'
+                $ref: '#/definitions/func_info'
             },
             auth: {
                 system: 'admin'

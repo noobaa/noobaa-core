@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-class LambdaIO {
+class FuncIO {
 
     invoke(rpc_client, name, event) {
-        return rpc_client.lambda.invoke_func({
+        return rpc_client.func.invoke_func({
             name,
             event,
         });
@@ -12,4 +12,4 @@ class LambdaIO {
 
 }
 
-module.exports = LambdaIO;
+module.exports = FuncIO;

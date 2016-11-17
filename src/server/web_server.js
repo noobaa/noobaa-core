@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // load .env file before any other modules so that it will contain
@@ -12,6 +13,7 @@ for (let i = 0; i < process.argv.length; ++i) {
     }
 }
 if (process.env.TESTRUN === 'true') {
+    // eslint-disable-next-line global-require
     var ist = require('../test/framework/istanbul_coverage');
     ist.start_istanbul_coverage();
 }
@@ -68,7 +70,7 @@ var server_rpc = require('./server_rpc');
 server_rpc.register_system_services();
 server_rpc.register_node_services();
 server_rpc.register_object_services();
-server_rpc.register_lambda_services();
+server_rpc.register_func_services();
 server_rpc.register_common_services();
 server_rpc.rpc.register_http_transport(app);
 server_rpc.rpc.router.default = 'fcall://fcall';

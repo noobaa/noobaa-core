@@ -3,12 +3,12 @@
 
 /**
  *
- * LAMBDA NODE API
+ * FUNC NODE API
  *
  */
 module.exports = {
 
-    id: 'lambda_node_api',
+    id: 'func_node_api',
 
     methods: {
 
@@ -36,7 +36,7 @@ module.exports = {
                         type: 'string'
                     },
                     event: {
-                        $ref: 'lambda_api#/definitions/event_type'
+                        $ref: 'func_api#/definitions/event_type'
                     }
                 },
             },
@@ -44,10 +44,10 @@ module.exports = {
                 type: 'object',
                 properties: {
                     result: {
-                        $ref: 'lambda_api#/definitions/event_type'
+                        $ref: 'func_api#/definitions/event_type'
                     },
                     error: {
-                        $ref: 'lambda_api#/definitions/error_type'
+                        $ref: 'func_api#/definitions/error_type'
                     }
                 }
             },

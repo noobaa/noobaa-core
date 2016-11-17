@@ -11,11 +11,11 @@ const js_utils = require('../../util/js_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
 const schema_utils = require('../../util/schema_utils');
-const lambda_func_schema = require('./lambda_func_schema');
+const func_schema = require('./func_schema');
 
-const LAMBDA_FUNCS_COLLECTION = js_utils.deep_freeze({
-    name: 'lambda_funcs',
-    schema: schema_utils.strictify(lambda_func_schema),
+const FUNCS_COLLECTION = js_utils.deep_freeze({
+    name: 'funcs',
+    schema: schema_utils.strictify(func_schema),
     db_indexes: [{
         fields: {
             system: 1,
@@ -29,17 +29,17 @@ const LAMBDA_FUNCS_COLLECTION = js_utils.deep_freeze({
     }]
 });
 
-class LambdaStore {
+class FuncStore {
 
     static instance() {
-        if (!LambdaStore._instance) {
-            LambdaStore._instance = new LambdaStore();
+        if (!FuncStore._instance) {
+            FuncStore._instance = new FuncStore();
         }
-        return LambdaStore._instance;
+        return FuncStore._instance;
     }
 
     constructor() {
-        mongo_client.instance().define_collection(LAMBDA_FUNCS_COLLECTION);
+        mongo_client.instance().define_collection(FUNCS_COLLECTION);
         this._json_validator = new Ajv({
             formats: {
                 date: schema_utils.date_format,
@@ -47,7 +47,7 @@ class LambdaStore {
                 objectid: val => mongo_utils.is_object_id(val)
             }
         });
-        this._lambda_func_validator = this._json_validator.compile(LAMBDA_FUNCS_COLLECTION.schema);
+        this._func_validator = this._json_validator.compile(FUNCS_COLLECTION.schema);
     }
 
     connect() {
@@ -55,46 +55,46 @@ class LambdaStore {
     }
 
     collection() {
-        return mongo_client.instance().db.collection(LAMBDA_FUNCS_COLLECTION.name);
+        return mongo_client.instance().db.collection(FUNCS_COLLECTION.name);
     }
 
     code_gridfs() {
-        if (!this._lambda_code_gridfs) {
-            this._lambda_code_gridfs = new mongodb.GridFSBucket(mongo_client.instance().db, {
-                bucketName: 'lambda_code_gridfs'
+        if (!this._func_code_gridfs) {
+            this._func_code_gridfs = new mongodb.GridFSBucket(mongo_client.instance().db, {
+                bucketName: 'func_code_gridfs'
             });
         }
-        return this._lambda_code_gridfs;
+        return this._func_code_gridfs;
     }
 
-    validate(lambda_func, fail) {
-        if (!this._lambda_func_validator(lambda_func)) {
-            dbg.warn('BAD LAMBDA FUNC SCHEMA', lambda_func,
-                'ERRORS', this._lambda_func_validator.errors);
+    validate(func, fail) {
+        if (!this._func_validator(func)) {
+            dbg.warn('BAD FUNC SCHEMA', func,
+                'ERRORS', this._func_validator.errors);
             if (fail) {
-                throw new Error('BAD LAMBDA FUNC SCHEMA');
+                throw new Error('BAD FUNC SCHEMA');
             }
         }
-        return lambda_func;
+        return func;
     }
 
-    validate_list(lambda_funcs, fail) {
-        _.each(lambda_funcs, lambda_func => this.validate(lambda_func, fail));
-        return lambda_funcs;
+    validate_list(funcs, fail) {
+        _.each(funcs, func => this.validate(func, fail));
+        return funcs;
     }
 
-    make_lambda_id(id_str) {
+    make_func_id(id_str) {
         return new mongodb.ObjectId(id_str);
     }
 
     create_func(func) {
         if (!func._id) {
-            func._id = this.make_lambda_id();
+            func._id = this.make_func_id();
         }
         return P.resolve()
             .then(() => this.validate(func, 'fail'))
             .then(() => this.collection().insertOne(func))
-            .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'lambda_func'))
+            .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'func'))
             .return(func);
     }
 
@@ -128,7 +128,7 @@ class LambdaStore {
                 version: version,
                 deleted: null,
             }))
-            .then(res => mongo_utils.check_entity_not_deleted(res, 'lambda_func'));
+            .then(res => mongo_utils.check_entity_not_deleted(res, 'func'));
     }
 
     list_funcs(system) {
@@ -194,5 +194,5 @@ class LambdaStore {
 
 
 // EXPORTS
-exports.LambdaStore = LambdaStore;
-exports.instance = LambdaStore.instance;
+exports.FuncStore = FuncStore;
+exports.instance = FuncStore.instance;

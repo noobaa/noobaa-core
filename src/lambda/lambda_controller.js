@@ -5,7 +5,7 @@ const _ = require('lodash');
 // const crypto = require('crypto');
 
 // const P = require('../util/promise');
-// const LambdaIO = require('../api/lambda_io');
+// const FuncIO = require('../api/func_io');
 
 class LambdaController {
 
@@ -29,7 +29,7 @@ class LambdaController {
     create_func(req) {
         const fn = req.body;
         console.log('create_func', req.params, fn);
-        return req.rpc_client.lambda.create_func({
+        return req.rpc_client.func.create_func({
                 config: _.omitBy({
                     name: fn.FunctionName,
                     version: '$LATEST',
@@ -54,7 +54,7 @@ class LambdaController {
 
     read_func(req) {
         console.log('read_func', req.params, req.query);
-        return req.rpc_client.lambda.read_func({
+        return req.rpc_client.func.read_func({
                 name: req.params.func_name,
                 version: req.query.Qualifier || '$LATEST'
             })
@@ -68,7 +68,7 @@ class LambdaController {
     }
 
     delete_func(req) {
-        return req.rpc_client.lambda.delete_func({
+        return req.rpc_client.func.delete_func({
             name: req.params.func_name,
             version: req.query.Qualifier || '$LATEST'
         }).return();
@@ -76,7 +76,7 @@ class LambdaController {
 
     list_funcs(req) {
         console.log('list_funcs', req.params, req.query);
-        return req.rpc_client.lambda.list_funcs()
+        return req.rpc_client.func.list_funcs()
             .then(res => ({
                 Functions: _.map(res.functions, func => this._get_func_config(func))
             }));
@@ -86,7 +86,7 @@ class LambdaController {
         const name = req.params.func_name;
         const event = req.body;
         console.log('invoke_func', name, event);
-        return req.rpc_client.lambda.invoke_func({
+        return req.rpc_client.func.invoke_func({
                 name: req.params.func_name,
                 version: req.query.Qualifier || '$LATEST',
                 event: event,

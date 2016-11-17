@@ -9,7 +9,7 @@ try {
 
     process.once('message', msg => {
 
-        // console.log('lambda_proc: received message', msg);
+        // console.log('func_proc: received message', msg);
 
         const handler_arg = msg.config.handler;
         const handler_split = handler_arg.split('.', 2);
@@ -19,7 +19,7 @@ try {
         const handler = module_exports[export_name];
 
         if (typeof(handler) !== 'function') {
-            fail(new Error(`Lambda handler not a function ${handler_arg}`));
+            fail(new Error(`Func handler not a function ${handler_arg}`));
         }
 
         // http://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html
@@ -39,7 +39,7 @@ try {
 
         const callback = (err, reply) => {
             if (err) {
-                console.log('lambda_proc: callback', err);
+                console.log('func_proc: callback', err);
                 if (context.callbackWaitsForEmptyEventLoop) {
                     process.on('beforeExit', () => fail(err));
                 } else {
@@ -47,7 +47,7 @@ try {
                 }
                 return;
             }
-            // console.log('lambda_proc: callback reply', reply);
+            // console.log('func_proc: callback reply', reply);
             if (context.callbackWaitsForEmptyEventLoop) {
                 process.on('beforeExit', () => success(reply));
             } else {
@@ -63,7 +63,7 @@ try {
 }
 
 function fail(err) {
-    console.error('lambda_proc: fail', err);
+    console.error('func_proc: fail', err);
     process.send({
         error: {
             message: err.message,
@@ -74,7 +74,7 @@ function fail(err) {
 }
 
 function success(result) {
-    // console.log('lambda_proc: success', result);
+    // console.log('func_proc: success', result);
     process.send({
         result: result
     }, () => process.exit(1));

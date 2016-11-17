@@ -1257,7 +1257,7 @@ class NodesMonitor extends EventEmitter {
     _update_data_activity_progress(item, now) {
         const act = item.data_activity;
 
-        if (act.stage && act.stage.size) {
+        if (act.stage && !_.isEmpty(act.stage.size)) {
             act.stage.size.remaining = Math.max(0,
                 act.stage.size.total - act.stage.size.completed) || 0;
             const completed_time = now - act.stage.time.start;

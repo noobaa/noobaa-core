@@ -31,29 +31,47 @@ function analyze_special_chunks(chunks, parts, objects) {
 }
 
 
-function select_prefered_pools(tier) {
-    // first filter out cloud_pools.
-    let regular_pools = tier.pools.filter(pool => _.isUndefined(pool.cloud_pool_info));
+function select_prefered_pools(tier, tiering_pools_status) {
+    const WEIGHTS = {
+        non_writable_pool: 10,
+        on_premise_pool: 1,
+        cloud_pool: 2
+    };
 
-    // In case that we don't have any regular pools in our policy, we return cloud pools
-    if (!regular_pools.length) {
-        return tier.pools;
-    }
+    // This sort is mainly relevant to mirror allocations on uploads
+    // The purpose of it is to pick a valid pool in order for upload to succeed
+    let sorted_pools = _.sortBy(tier.pools, pool => {
+        let pool_weight = 0;
 
-    // from the regular pools we should select the best pool
-    // for now we just take the first pool in the list.
+        // Checking if the pool is writable
+        if (!_.get(tiering_pools_status[pool.name], 'valid_for_allocation', false)) {
+            pool_weight += WEIGHTS.non_writable_pool;
+        }
+
+        // On premise pools are in higher priority than cloud pools
+        if (pool.cloud_pool_info) {
+            pool_weight += WEIGHTS.cloud_pool;
+        } else {
+            pool_weight += WEIGHTS.on_premise_pool;
+        }
+
+        return pool_weight;
+    });
+
+
+    // We should select the best pool for now we just take the first pool in the list.
     if (tier.data_placement === 'MIRROR') {
-        if (!regular_pools[0]) {
+        if (!sorted_pools[0]) {
             throw new Error('could not find a pool for async mirroring');
         }
-        return [regular_pools[0]];
+        return [sorted_pools[0]];
     } else {
-        return regular_pools;
+        return sorted_pools;
     }
-
 }
 
-function get_chunk_status(chunk, tiering, async_mirror) {
+
+function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -65,12 +83,9 @@ function get_chunk_status(chunk, tiering, async_mirror) {
     // so the client is not blocked until all blocks are uploded to the cloud.
     // on build_chunks flow we will not ignore cloud pools.
     const participating_pools = async_mirror ?
-        select_prefered_pools(tier) :
+        select_prefered_pools(tier, tiering_pools_status) :
         tier.pools;
     const tier_pools_by_name = _.keyBy(participating_pools, 'name');
-    const replicas = chunk.is_special ?
-        tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER :
-        tier.replicas;
 
     let allocations = [];
     let deletions = [];
@@ -86,32 +101,42 @@ function get_chunk_status(chunk, tiering, async_mirror) {
     }
 
     function check_blocks_group(blocks, alloc) {
-        let required_replicas = replicas;
-        if (alloc && alloc.pools && alloc.pools[0] && alloc.pools[0].cloud_pool_info) {
+        // This is the optimal maximum number of replicas that are required
+        // Currently this is mainly used to special replica chunks which are allocated opportunistically
+        let max_replicas;
+
+        // Currently we pick the highest replicas in our alloocation pools, which are on premise pools
+        if (_.get(alloc, 'pools.length', 0) &&
+            _.every(alloc.pools, 'cloud_pool_info')) {
             // for cloud_pools we only need one replica
-            required_replicas = 1;
+            max_replicas = 1;
+        } else if (chunk.is_special) {
+            max_replicas = tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER;
+        } else {
+            max_replicas = tier.replicas;
         }
+
         let num_good = 0;
         let num_accessible = 0;
         _.each(blocks, block => {
             if (is_block_accessible(block)) {
                 num_accessible += 1;
             }
-            if (num_good < required_replicas &&
+            if (num_good < max_replicas &&
                 is_block_good(block, tier_pools_by_name)) {
                 num_good += 1;
             } else {
                 deletions.push(block);
             }
         });
-        if (alloc && alloc.pools.length) {
-            let num_missing = Math.max(0, required_replicas - num_good);
-            // These are the minimum required replicas
-            let num_must_missing = Math.max(0, tier.replicas - num_good);
+        if (_.get(alloc, 'pools.length', 0)) {
+            let num_missing = Math.max(0, max_replicas - num_good);
+            // These are the minimum required replicas, which are a must to have for the chunk
+            let min_replicas = Math.max(0, Math.min(max_replicas, tier.replicas) - num_good);
             // Notice that we push the minimum required replicas in higher priority
             // This is done in order to insure that we will allocate them before the additional replicas
-            _.times(num_must_missing, () => allocations.push(_.clone(alloc)));
-            _.times(num_missing - num_must_missing, () => allocations.push(_.defaults(_.clone(alloc), {
+            _.times(min_replicas, () => allocations.push(_.clone(alloc)));
+            _.times(num_missing - min_replicas, () => allocations.push(_.defaults(_.clone(alloc), {
                 special_replica: true
             })));
         }

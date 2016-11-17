@@ -1481,7 +1481,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
-    let currentServerKey = `server:${targetHostname}`;
+    let currentServerKey = `server:${targetSecret}`;
     if(model.collectDiagnosticsState[currentServerKey] === true) {
         return;
     }
@@ -1553,7 +1553,7 @@ export function setNodeDebugLevel(node, level) {
         )
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for node ${node}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for node ${node}`,
                 'success'
             ),
             () => notify(
@@ -1576,7 +1576,7 @@ export function setServerDebugLevel(targetSecret, targetHostname, level){
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${targetHostname}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${targetHostname}`,
                 'success'
             ),
             () => notify(
@@ -1880,6 +1880,7 @@ export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress
     );
 
     api.cluster_server.update_time_config({
+        target_secret: serverSecret,
         timezone: timezone,
         ntp_server: ntpServerAddress
     })

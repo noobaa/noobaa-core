@@ -1,14 +1,18 @@
 import template from './func-panel.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { funcFunction, uiState } from 'model';
+import { funcInfo, uiState } from 'model';
 
 class FuncPanelViewModel extends Disposable {
     constructor() {
         super();
 
         this.func = ko.pureComputed(
-            () => funcFunction()
+            () => funcInfo()
+        );
+
+        this.ready = ko.pureComputed(
+            () => !!this.func()
         );
 
         this.selectedTab = ko.pureComputed(

@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
@@ -169,7 +170,6 @@ function generate_schema_import_buffers(buffer_paths) {
                 var end = 0;
                 var len;
                 var obj;
-                buf = buf || new Buffer(0);
     `;
     for (const buf_path of buffer_paths) {
         const last = buf_path[buf_path.length - 1];
@@ -186,7 +186,7 @@ function generate_schema_import_buffers(buffer_paths) {
                 if (typeof(len) === "number") {
                     start = end;
                     end = start + len;
-                    obj[${last}] = buf.slice(start, end);
+                    obj[${last}] = buf && buf.slice(start, end);
                 }
         `;
     }

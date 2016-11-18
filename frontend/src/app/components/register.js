@@ -158,6 +158,7 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('func-panel', require('./func/func-panel/func-panel'));
     ko.components.register('func-summary', require('./func/func-summary/func-summary'));
+    ko.components.register('func-code', require('./func/func-code/func-code'));
     /** INJECT:func **/
 
     // -------------------------------

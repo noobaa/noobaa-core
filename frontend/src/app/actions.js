@@ -6,6 +6,7 @@ import * as routes from 'routes';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
     downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
     stringifyAmount } from 'utils';
+import JSZip from 'jszip';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -339,7 +340,7 @@ export function showFunc() {
         tab: tab
     });
 
-    loadFunc(func);
+    loadFunc(func, 'readCode');
 }
 
 export function loadFuncs() {
@@ -347,24 +348,55 @@ export function loadFuncs() {
 
     api.func.list_funcs({})
         .then(
-            reply => model.funcFunctions(
+            reply => model.funcList(
                 deepFreeze(reply.functions)
             )
         )
         .done();
 }
 
-export function loadFunc(name) {
+export function loadFunc(name, readCode) {
     logAction('loadFunc');
 
     api.func.read_func({
         name: name,
-        version: '$LATEST'
+        version: '$LATEST',
+        read_code: !!readCode
     })
         .then(
-            reply => model.funcFunction(
-                deepFreeze(reply)
-            )
+            reply => {
+                const code = reply.code;
+                reply.code = null;
+                model.funcInfo(
+                    deepFreeze(reply)
+                );
+
+                if (!code) {
+                    model.funcCodeContent(null);
+                    return;
+                }
+                return JSZip.loadAsync(code.zipfile)
+                    .then(zip => {
+                        const files = [];
+                        const promises = [];
+                        zip.forEach((relativePath, file) => {
+                            console.log('reading func code:', relativePath);
+                            files.push({
+                                path: relativePath
+                            });
+                            promises.push(file.async('string'));
+                        });
+                        return Promise.all(promises).then(contents => {
+                            for (let i = 0; i < files.length; ++i) {
+                                files[i].content = contents[i];
+                            }
+                            console.log('func code files', files);
+                            model.funcCodeFiles(
+                                deepFreeze(files)
+                            );
+                        });
+                    });
+            }
         )
         .done();
 }

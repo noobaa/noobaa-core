@@ -9,23 +9,25 @@
         ">
             Code
         </a>
-        <a data-bind="
+
+        <!-- <a data-bind="
             href: { route: 'func', params: { tab: 'placement' } },
             css: { selected: isTabSelected('placement') }
         ">
             Placement
-        </a>
+        </a> -->
     </nav>
 
     <div class="tabs-row">
+        <func-code class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('code') }">
+        </func-code>
+
         <!-- <func-placement-form class="tab"
             params="func: func"
             data-bind="css: { selected: isTabSelected('placement') }">
         </func-placement-form> -->
-        <!-- <func-code-table class="tab"
-            params="func: func"
-            data-bind="css: { selected: isTabSelected('code') }">
-        </func-code-table> -->
     </div>
 </div>
 <!-- /ko -->

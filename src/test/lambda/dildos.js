@@ -29,6 +29,7 @@ const word_count_func = {
     Runtime: 'nodejs6',
     Handler: 'word_count_func.handler',
     Role: ROLE_ARN,
+    MemorySize: 128,
     VpcConfig: {
         SubnetIds: POOLS
     },
@@ -45,6 +46,7 @@ const dos_func = {
     Runtime: 'nodejs6',
     Handler: 'denial_of_service_func.handler',
     Role: ROLE_ARN,
+    MemorySize: 128,
     VpcConfig: {
         SubnetIds: POOLS
     },

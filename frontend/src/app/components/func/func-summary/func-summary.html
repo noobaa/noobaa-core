@@ -10,50 +10,56 @@
         <hr />
         <div class="greedy row content-middle">
             <span class="c5 highlight push-next">Placement:</span>
-            <span class="c7" data-bind="text: dataPlacement"></span>
+            <span class="c7" data-bind="
+                text: placementPolicy().text,
+                tooltip: placementPolicy().tooltip
+                "></span>
         </div>
         <hr />
         <div class="greedy row content-middle" >
-            <span class="c5 highlight push-next">Cloud Sync:</span>
-            <span class="c7" data-bind="text: cloudSyncStatus"></span>
+            <span class="c5 highlight push-next">Last Modified</span>
+            <span class="c7" data-bind="text: lastModified"></span>
         </div>
     </section>
 
     <section class="c6 column push-both">
         <div class="row align-middle">
             <div class="column greedy push-next">
-                <toggle-filter class="push-next" params="
+
+                <!-- height placeholder -->
+                <div style="height: 168px"></div>
+
+                <!-- <toggle-filter class="push-next" params="
                     options: graphOptions,
                     selected: selectedGraph
                 "></toggle-filter>
 
-                <chart-legend params="items: legend"></chart-legend>
+                <chart-legend params="items: legend"></chart-legend> -->
             </div>
         </div>
     </section>
 
     <section class="c3 column">
-        <p class="borders pad highlight row content-middle push-next">
-            <svg-icon class="push-next" params="name: 'notif-info'" data-bind="
-                tooltip: avaliableForWriteTooltip
-            "></svg-icon>
-            <span>
-                <span data-bind="text: avaliableForWrite"></span>
-                of data can be uploaded
-            </span>
-        </p>
-
         <div class="greedy borders pad column">
             <p class="row">
-                <span class="c4 highlight">Last read:</span>
-                <span class="c8 text-right" data-bind="text: lastRead"></span>
+                <span class="c4 highlight">Version:</span>
+                <span class="c8 text-right" data-bind="text: version"></span>
             </p>
             <hr />
             <p class="row">
-                <span class="c4 highlight">Last write:</span>
-                <span class="c8 text-right" data-bind="text: lastWrite"></span>
+                <span class="c4 highlight">Runtime:</span>
+                <span class="c8 text-right" data-bind="text: runtime"></span>
+            </p>
+            <hr />
+            <p class="row">
+                <span class="c4 highlight">Code Size:</span>
+                <span class="c8 text-right" data-bind="text: codeSize"></span>
+            </p>
+            <hr />
+            <p class="row">
+                <span class="c4 highlight">Memory Size:</span>
+                <span class="c8 text-right" data-bind="text: memorySize"></span>
             </p>
         </div>
-
     </section>
 </div>

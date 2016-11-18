@@ -1,20 +1,7 @@
 import template from './func-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
-
-const stateMapping = deepFreeze({
-    true: {
-        text: 'Healthy',
-        css: 'success',
-        icon: 'healthy'
-    },
-    false: {
-        text: 'Offline',
-        css: 'error',
-        icon: 'problem'
-    }
-});
+import { stringifyAmount } from 'utils';
 
 class FuncSummaryViewModel extends Disposable {
     constructor({ func }) {
@@ -25,23 +12,23 @@ class FuncSummaryViewModel extends Disposable {
         );
 
         this.state = ko.pureComputed(
-            () => stateMapping[true]
+            () => ({
+                text: 'Ready',
+                css: 'success',
+                icon: 'healthy'
+            })
         );
 
-        this.dataPlacement = ko.pureComputed(
-            () => {
-                if (!func()) {
-                    return;
-                }
+        this.version = ko.pureComputed(
+            () => func() && func().config.version
+        );
 
-                let { pools } = func().config;
+        this.description = ko.pureComputed(
+            () => func() && func().config.description
+        );
 
-                return `on ${
-                    pools.length
-                } pool${
-                    pools.length !== 1 ? 's' : ''
-                }`;
-            }
+        this.runtime = ko.pureComputed(
+            () => func() && func().config.runtime
         );
 
         this.codeSize = ko.pureComputed(
@@ -50,29 +37,38 @@ class FuncSummaryViewModel extends Disposable {
             formatSize: true
         });
 
-        this.codeSha256 = ko.pureComputed(
-            () => func() ? func().config.code_sha256 : {}
-        );
+        this.memorySize = ko.pureComputed(
+            () => func() ? func().config.memory_size * 1024 * 1024 : {}
+        ).extend({
+            formatSize: true
+        });
 
-        let stats = ko.pureComputed(
-            () => func() ? func().stats : {}
-        );
-
-        this.lastRead = ko.pureComputed(
-            () => stats().last_read
+        this.lastModified = ko.pureComputed(
+            () => func() ? func().config.last_modified : {}
         ).extend({
             formatTime: true
         });
 
-        this.lastWrite = ko.pureComputed(
-            () => stats().last_write
-        ).extend({
-            formatTime: true
-        });
+        this.placementPolicy = ko.pureComputed(
+            () => {
+                if (!func()) {
+                    return {};
+                }
 
-        this.isPolicyModalVisible = ko.observable(false);
-        this.isSetCloudSyncModalVisible = ko.observable(false);
-        this.isViewCloudSyncModalVisible = ko.observable(false);
+                let { pools } = func().config;
+                let count = pools && pools.length || 0;
+
+                let text = `on ${
+                        stringifyAmount('pool', count)
+                    }`;
+
+                return {
+                    text: text,
+                    tooltip: pools
+                };
+            }
+        );
+
     }
 }
 

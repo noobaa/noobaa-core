@@ -38,7 +38,7 @@ class RpcSchema {
                         .slice(1, it.dataLevel + 1);
                     this._buffer_paths.add(buf_path);
                 }
-                return 'Buffer.isBuffer(data' + (it.dataLevel || '') + ')';
+                return '"readInt32BE" in (data' + (it.dataLevel || '') + ')';
             }
         });
     }

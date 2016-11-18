@@ -3,7 +3,7 @@ import FuncRowViewModel from './func-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils';
-import { funcFunctions } from 'model';
+import { funcList } from 'model';
 
 const columns = deepFreeze([
     {
@@ -45,7 +45,7 @@ class FuncsTableViewModel extends Disposable {
         this.columns = columns;
 
         this.funcs = ko.pureComputed(
-            () => funcFunctions()
+            () => funcList()
         );
 
         this.isCreateFuncWizardVisible = ko.observable(false);

@@ -25,16 +25,10 @@
     <section class="c6 column push-both">
         <div class="row align-middle">
             <div class="column greedy push-next">
-
-                <!-- height placeholder -->
-                <div style="height: 168px"></div>
-
-                <!-- <toggle-filter class="push-next" params="
-                    options: graphOptions,
-                    selected: selectedGraph
-                "></toggle-filter>
-
-                <chart-legend params="items: legend"></chart-legend> -->
+                <h3 class="heading3 greedy">
+                    <span data-bind="text: name"></span>:
+                </h3>
+                <code data-bind="text: description"></code>
             </div>
         </div>
     </section>
@@ -42,23 +36,23 @@
     <section class="c3 column">
         <div class="greedy borders pad column">
             <p class="row">
-                <span class="c4 highlight">Version:</span>
-                <span class="c8 text-right" data-bind="text: version"></span>
+                <span class="c6 highlight">Version:</span>
+                <span class="c6 text-right" data-bind="text: version"></span>
             </p>
             <hr />
             <p class="row">
-                <span class="c4 highlight">Runtime:</span>
-                <span class="c8 text-right" data-bind="text: runtime"></span>
+                <span class="c6 highlight">Runtime:</span>
+                <span class="c6 text-right" data-bind="text: runtime"></span>
             </p>
             <hr />
             <p class="row">
-                <span class="c4 highlight">Code Size:</span>
-                <span class="c8 text-right" data-bind="text: codeSize"></span>
+                <span class="c6 highlight">Code Size (zip):</span>
+                <span class="c6 text-right" data-bind="text: codeSize"></span>
             </p>
             <hr />
             <p class="row">
-                <span class="c4 highlight">Memory Size:</span>
-                <span class="c8 text-right" data-bind="text: memorySize"></span>
+                <span class="c6 highlight">Memory Size:</span>
+                <span class="c6 text-right" data-bind="text: memorySize"></span>
             </p>
         </div>
     </section>

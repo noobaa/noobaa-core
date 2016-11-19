@@ -19,6 +19,10 @@ class FuncSummaryViewModel extends Disposable {
             })
         );
 
+        this.name = ko.pureComputed(
+            () => func() && func().config.name
+        );
+
         this.version = ko.pureComputed(
             () => func() && func().config.version
         );

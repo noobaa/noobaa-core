@@ -13,7 +13,7 @@ class FuncSummaryViewModel extends Disposable {
 
         this.state = ko.pureComputed(
             () => ({
-                text: 'Ready',
+                text: 'Deployed',
                 css: 'success',
                 icon: 'healthy'
             })

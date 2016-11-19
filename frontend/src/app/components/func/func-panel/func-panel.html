@@ -10,12 +10,34 @@
             Code
         </a>
 
-        <!-- <a data-bind="
-            href: { route: 'func', params: { tab: 'placement' } },
-            css: { selected: isTabSelected('placement') }
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'invoke' } },
+            css: { selected: isTabSelected('invoke') }
         ">
-            Placement
-        </a> -->
+            Invoke
+        </a>
+
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'config' } },
+            css: { selected: isTabSelected('config') }
+        ">
+            Configuration
+        </a>
+
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'triggers' } },
+            css: { selected: isTabSelected('triggers') }
+        ">
+            Triggers
+        </a>
+
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'monitoring' } },
+            css: { selected: isTabSelected('monitoring') }
+        ">
+            Monitoring
+        </a>
+
     </nav>
 
     <div class="tabs-row">
@@ -24,10 +46,26 @@
             data-bind="css: { selected: isTabSelected('code') }">
         </func-code>
 
-        <!-- <func-placement-form class="tab"
+        <func-invoke class="tab"
             params="func: func"
-            data-bind="css: { selected: isTabSelected('placement') }">
-        </func-placement-form> -->
+            data-bind="css: { selected: isTabSelected('invoke') }">
+        </func-invoke>
+
+        <func-config class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('config') }">
+        </func-config>
+
+        <func-triggers class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('triggers') }">
+        </func-triggers>
+
+        <func-monitoring class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('monitoring') }">
+        </func-monitoring>
+
     </div>
 </div>
 <!-- /ko -->

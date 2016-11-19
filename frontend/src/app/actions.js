@@ -401,6 +401,33 @@ export function loadFunc(name, readCode) {
         .done();
 }
 
+export function invokeFunc({ name, version, event }) {
+    logAction('invokeFunc');
+
+    try {
+        event = JSON.parse(event);
+    } catch(err) {
+        event = String(event || '');
+    }
+
+    api.func.invoke_func({
+        name: name,
+        version: version,
+        event: event
+    })
+        .then(
+            res => {
+                if (res.error) {
+                    notify(`Func ${name} invoked but returned error: ${res.error.message}`, 'warning');
+                } else {
+                    notify(`Func ${name} invoked successfully result: ${JSON.stringify(res.result)}`, 'success');
+                }
+            },
+            () => notify(`Func ${name} invocation failed`, 'error')
+        )
+        .done();
+}
+
 export function deleteFunc({ name, version }) {
     logAction('deleteFunc');
 

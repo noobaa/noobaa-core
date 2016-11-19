@@ -16,7 +16,7 @@ try {
         const module_name = handler_split[0] + '.js';
         const export_name = handler_split[1];
         const module_exports = require(path.resolve(module_name)); // eslint-disable-line global-require
-        const handler = module_exports[export_name];
+        const handler = export_name ? module_exports[export_name] : module_exports;
 
         if (typeof(handler) !== 'function') {
             fail(new Error(`Func handler not a function ${handler_arg}`));

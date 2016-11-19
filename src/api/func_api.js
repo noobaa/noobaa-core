@@ -41,6 +41,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
+                required: ['config'],
                 properties: {
                     config: {
                         $ref: '#/definitions/func_config'

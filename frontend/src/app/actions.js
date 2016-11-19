@@ -428,6 +428,20 @@ export function invokeFunc({ name, version, event }) {
         .done();
 }
 
+export function updateFunc(config) {
+    logAction('updateFunc');
+
+    api.func.update_func({
+        config: config
+    })
+        .then(
+            () => notify(`Func ${config.name} updated successfully`, 'success'),
+            () => notify(`Func ${config.name} update failed`, 'error')
+        )
+        .then(() => loadFunc(config.name, 'readCode'))
+        .done();
+}
+
 export function deleteFunc({ name, version }) {
     logAction('deleteFunc');
 

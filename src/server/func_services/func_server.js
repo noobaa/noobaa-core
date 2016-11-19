@@ -20,6 +20,12 @@ const FUNC_CONFIG_FIELDS_MUTABLE = [
     'memory_size',
     'timeout',
 ];
+const FUNC_CONFIG_DEFAULTS = {
+    handler: 'index',
+    runtime: 'nodejs6',
+    memory_size: 128,
+    timeout: 60,
+};
 const FUNC_CONFIG_FIELDS_IMMUTABLE = [
     'code_size',
     'code_sha256',
@@ -31,7 +37,9 @@ function create_func(req) {
     const func_config = req.params.config;
     const func_code = req.params.code;
     const code_sha256 = crypto.createHash('sha256');
-    const func = _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE);
+    const func = _.defaults(
+        _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE),
+        FUNC_CONFIG_DEFAULTS);
     func.system = req.system._id;
     func.name = func_config.name;
     func.version = '$LATEST';
@@ -84,9 +92,10 @@ function create_func(req) {
 }
 
 function update_func(req) {
-    const config_updates = _.pick(req.params, FUNC_CONFIG_FIELDS_MUTABLE);
-    if (req.params.config.pools) {
-        config_updates.pools = _.map(req.params.config.pools, pool_name =>
+    const func_config = req.params.config;
+    const config_updates = _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE);
+    if (func_config.pools) {
+        config_updates.pools = _.map(func_config.pools, pool_name =>
             req.system.pools_by_name[pool_name]._id);
     }
     if (req.params.code) {

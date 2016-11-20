@@ -60,7 +60,7 @@ class Agent {
         }];
 
         this.base_address = params.address || this.rpc.router.default;
-        dbg.log0(`DZDZ: this.base_address=${this.base_address}`);
+        dbg.log0(`this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
 
         this.agent_conf = params.agent_conf || new json_utils.JsonWrapper();
@@ -308,6 +308,8 @@ class Agent {
         } else if (this.is_demo_agent) {
             hb_info.pool_name = config.DEMO_DEFAULTS.POOL_NAME;
         }
+
+        dbg.log0(`_do_heartbeat called`);
 
         return P.resolve()
             .then(() => {

@@ -11,6 +11,7 @@ var spawn = require('child_process').spawn;
 const P = require('./promise');
 const config = require('../../config.js');
 const promise_utils = require('./promise_utils');
+const fs_utils = require('./fs_utils');
 const dbg = require('./debug_module')(__filename);
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
@@ -122,14 +123,15 @@ function read_mac_linux_drives(include_all) {
             // in order to get only local file systems.
             file: '-l'
         }, callback))
-        .then(volumes => _.compact(_.map(volumes, function(vol) {
-            return fs.statAync(vol + '/' + AZURE_TMP_DISK_README)
-                .catch(err => linux_volume_to_drive(vol)) //Means no such file
-                .then(() => {
-                    dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
-                    return;
-                });
-        })));
+        .then(volumes => P.all(_.map(volumes, function(vol) {
+                return fs_utils.file_must_not_exist(vol + '/' + AZURE_TMP_DISK_README)
+                    .then(() => linux_volume_to_drive(vol))
+                    .catch(err => {
+                        dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
+                        return;
+                    });
+            }))
+            .then(res => _.compact(res)));
 }
 
 

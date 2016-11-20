@@ -77,7 +77,10 @@ gulp.task('build-api', () => {
         paths: ['./node_modules'],
         debug: true
     })
-        .transform(babelify, { optional: ['runtime'] });
+        .transform(babelify, {
+            presets: ['es2015'],
+            plugins: ['transform-runtime']
+        });
 
     b.require('../src/api/index.js', { expose: 'nb-api' });
 
@@ -236,7 +239,10 @@ function bundleApp(watch) {
     let bundler = createBundler(watch);
     bundler
         .require(buildPath + '/style.json', { expose: 'style' })
-        .transform(babelify, { optional: ['runtime', 'es7.decorators'] })
+        .transform(babelify, {
+            presets: ['es2015'],
+            plugins: ['transform-runtime']
+        })
         .transform(stringify({ minify: uglify }))
         .add('src/app/main');
 

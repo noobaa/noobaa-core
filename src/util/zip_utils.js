@@ -93,15 +93,19 @@ function unzip_to_dir(zipfile, dir) {
     return unzip_to_func(zipfile, (entry, stream) => {
         const path_name = path.resolve(dir, '.' + path.sep + entry.fileName);
         // directory ends with '/'
-        if (path_name.endsWith('/')) {
-            return fs_utils.create_path(path_name);
+        if (entry.fileName.endsWith('/')) {
+            return fs_utils.create_path(path_name).catch(ignore_eexist);
         }
         return P.resolve()
-            .then(() => fs_utils.create_path(path.dirname(path_name)))
+            .then(() => fs_utils.create_path(path.dirname(path_name)).catch(ignore_eexist))
             .then(() => fs_utils.write_file_from_stream(path_name, stream));
     });
 }
 
+function ignore_eexist(err) {
+    if (err.code === 'EEXIST') return;
+    throw err;
+}
 
 exports.zip_from_files = zip_from_files;
 exports.zip_from_dir = zip_from_dir;

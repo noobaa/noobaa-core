@@ -32,7 +32,8 @@ let libs = [
     { name: 'moment-timezone',      path: './src/lib/moment-timezone/builds/moment-timezone-with-data.js' },
     { name: 'shifty',               path: './src/lib/shifty/dist/shifty.js' },
     { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
-    { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' }
+    { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' },
+    { name: 'chart.js',             path: './src/lib/chart.js/dist/Chart.js' }
 ];
 
 // ----------------------------------

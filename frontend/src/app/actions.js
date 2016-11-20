@@ -326,7 +326,7 @@ export function showFunc() {
     logAction('showFunc');
 
     let ctx = model.routeContext();
-    let { func, tab = 'code' } = ctx.params;
+    let { func, tab = 'monitoring' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
@@ -364,41 +364,41 @@ export function loadFunc(name) {
         read_code: true,
         read_stats: true
     })
-        .then(
-            reply => {
-                const code = reply.code;
-                reply.code = null;
-                model.funcInfo(
-                    deepFreeze(reply)
-                );
-
-                if (!code) {
-                    model.funcCodeContent(null);
-                    return;
-                }
-                return JSZip.loadAsync(code.zipfile)
-                    .then(zip => {
-                        const files = [];
-                        const promises = [];
-                        zip.forEach((relativePath, file) => {
-                            console.log('reading func code:', relativePath);
-                            files.push({
-                                path: relativePath
-                            });
-                            promises.push(file.async('string'));
-                        });
-                        return Promise.all(promises).then(contents => {
-                            for (let i = 0; i < files.length; ++i) {
-                                files[i].content = contents[i];
-                            }
-                            console.log('func code files', files);
-                            model.funcCodeFiles(
-                                deepFreeze(files)
-                            );
-                        });
-                    });
+        .then(reply => {
+            reply.codeFiles = [];
+            const code_zip_data = reply.code && reply.code.zipfile;
+            if (!code_zip_data) {
+                return reply;
             }
-        )
+            // we nullify the buffer since we can't freeze it
+            // and don't need it after reading the zip entries
+            reply.code.zipfile = null;
+            return JSZip.loadAsync(code_zip_data)
+                .then(zip => {
+                    const promises = [];
+                    zip.forEach((relativePath, file) => {
+                        const codeFile = {
+                            path: relativePath,
+                            size: file._data.uncompressedSize, // hacky
+                            dir: file.dir,
+                            content: null
+                        };
+                        reply.codeFiles.push(codeFile);
+                        // only reading files in package root
+                        if (relativePath.includes('/')) return;
+                        promises.push(file.async('string')
+                            .then(content => {
+                                codeFile.content = content;
+                            })
+                        );
+                    });
+                    return Promise.all(promises)
+                        .then(() => reply);
+                });
+        })
+        .then(reply => model.funcInfo(
+            deepFreeze(reply)
+        ))
         .done();
 }
 

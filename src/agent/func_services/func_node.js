@@ -34,7 +34,12 @@ class FuncNode {
                         stdio: 'inherit',
                     })
                     .once('error', reject)
-                    .once('exit', code => reject(new Error(`Func process exit code ${code}`)))
+                    .once('exit', code => resolve({
+                        error: {
+                            message: `Func process exit code ${code}`,
+                            code: code,
+                        }
+                    }))
                     .once('message', msg => {
                         dbg.log1('invoke_func: received message', msg);
                         if (msg.error) {
@@ -56,13 +61,6 @@ class FuncNode {
                 };
                 dbg.log1('invoke_func: send message', msg);
                 proc.send(msg);
-            }))
-            .catch(err => ({
-                error: {
-                    message: err.message || 'Unknown error from invoke_func',
-                    stack: err.stack,
-                    code: err.code,
-                }
             }));
     }
 
@@ -110,6 +108,10 @@ class FuncNode {
                 func.code_dir = code_dir;
                 dbg.log1('_load_func_code: loaded', func.config, code_dir);
                 return func;
+            })
+            .catch(err => {
+                console.error('_load_func_code: FAILED', err.stack || err);
+                throw err;
             }));
     }
 

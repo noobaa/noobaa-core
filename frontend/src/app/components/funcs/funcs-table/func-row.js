@@ -12,7 +12,7 @@ export default class FuncRowViewModel extends Disposable {
             () => func() ? {
                 name: 'healthy',
                 css: 'success',
-                tooltip: 'Healthy'
+                tooltip: 'Deployed'
             } : {}
         );
 
@@ -31,15 +31,15 @@ export default class FuncRowViewModel extends Disposable {
         );
 
         this.version = ko.pureComputed(
-            () => func() && func().config.version
+            () => func() && func().config.version || '$LATEST'
         );
 
         this.description = ko.pureComputed(
-            () => func() && func().config.description
+            () => func() && func().config.description || ''
         );
 
         this.codeSize = ko.pureComputed(
-            () => func() && func().config.code_size
+            () => func() && func().config.code_size || 0
         );
 
         this.placementPolicy = ko.pureComputed(

@@ -1,27 +1,7 @@
 <!-- ko if: ready -->
+
 <div class="row greedy pad">
-
-    <div class="column c6">
-        <h2 class="heading3">Last 10 Minutes</h2>
-        <p>Invocations: <span data-bind="text: stats_last_10_minutes().invoke_count"></span></p>
-        <ul class="column" data-bind="foreach: stats_last_10_minutes().latency_percentiles">
-            <li>
-                Percentile <span data-bind="text: index"></span>:
-                <span data-bind="text: value"></span>ms
-            </li>
-        </ul>
-    </div>
-
-    <div class="column c6">
-        <h2 class="heading3">Last Hour</h2>
-        <p>Invocations: <span data-bind="text: stats_last_hour().invoke_count"></span></p>
-        <ul class="column" data-bind="foreach: stats_last_hour().latency_percentiles">
-            <li>
-                Percentile <span data-bind="text: index"></span>:
-                <span data-bind="text: value"></span>ms
-            </li>
-        </ul>
-    </div>
-
+    <canvas height="300" class="no-select" data-bind="chartjs: chartOptions"></canvas>
 </div>
+
 <!-- /ko -->

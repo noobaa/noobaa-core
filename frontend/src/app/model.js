@@ -128,4 +128,3 @@ export const collectDiagnosticsState = ko.observable({});
 // Hold funcs information
 export const funcInfo = ko.observable();
 export const funcList = ko.observableArray();
-export const funcCodeFiles = ko.observableArray();

@@ -196,7 +196,7 @@ function invoke_func(req) {
                 func_id: req.func._id,
                 start_time: start_time,
                 latency_ms: Date.now() - start_time,
-                error: res.error,
+                error: res.error ? true : undefined,
             })
             .return(res)
         );

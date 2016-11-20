@@ -1,4 +1,3 @@
-<!-- ko if: ready -->
 <ul class="column" data-bind="foreach: files">
 
     <div class="row content-middle cursor-pointer" data-bind="
@@ -6,7 +5,7 @@
     ">
         <h2 class="heading3 greedy">
             <span data-bind="text: path"></span>
-            (<span data-bind="text: size"></span>)
+            (<span data-bind="text: formatted_size"></span>)
         </h2>
 
         <button class="btn-flat expand-btn no-outline">
@@ -17,9 +16,13 @@
     </div>
 
     <section class="column" data-bind="expand: expanded">
-        <pre class="alt-bg pad"><code class="greedy" data-bind="text: content"></code></pre>
+        <div data-bind="if: content">
+            <pre class="alt-bg pad"><code class="greedy" data-bind="text: content"></code></pre>
+        </div>
+        <div data-bind="if: !content">
+            <pre class="alt-bg pad"><code class="greedy">(Only top level files were loaded)</code></pre>
+        </div>
         <!-- <textarea readonly class="greedy" data-bind="text: content"></textarea> -->
     </section>
 
 </ul>
-<!-- /ko -->

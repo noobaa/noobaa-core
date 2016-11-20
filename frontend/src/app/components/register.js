@@ -148,20 +148,20 @@ export default function register(ko) {
     // -------------------------------
     // Funcs
     // -------------------------------
-    ko.components.register('funcs-panel', require('./funcs/funcs-panel/funcs-panel'));
-    ko.components.register('funcs-table', require('./funcs/funcs-table/funcs-table'));
+    ko.components.register('funcs-panel', require('./funcs/funcs-panel/funcs-panel').default);
+    ko.components.register('funcs-table', require('./funcs/funcs-table/funcs-table').default);
     /** INJECT:funcs **/
 
     // -------------------------------
     // Func
     // -------------------------------
-    ko.components.register('func-panel', require('./func/func-panel/func-panel'));
-    ko.components.register('func-summary', require('./func/func-summary/func-summary'));
-    ko.components.register('func-code', require('./func/func-code/func-code'));
-    ko.components.register('func-invoke', require('./func/func-invoke/func-invoke'));
-    ko.components.register('func-config', require('./func/func-config/func-config'));
-    ko.components.register('func-triggers', require('./func/func-triggers/func-triggers'));
-    ko.components.register('func-monitoring', require('./func/func-monitoring/func-monitoring'));
+    ko.components.register('func-panel', require('./func/func-panel/func-panel').default);
+    ko.components.register('func-summary', require('./func/func-summary/func-summary').default);
+    ko.components.register('func-code', require('./func/func-code/func-code').default);
+    ko.components.register('func-invoke', require('./func/func-invoke/func-invoke').default);
+    ko.components.register('func-config', require('./func/func-config/func-config').default);
+    ko.components.register('func-triggers', require('./func/func-triggers/func-triggers').default);
+    ko.components.register('func-monitoring', require('./func/func-monitoring/func-monitoring').default);
     /** INJECT:func **/
 
     // -------------------------------

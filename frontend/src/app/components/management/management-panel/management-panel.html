@@ -53,10 +53,6 @@
             <remote-syslog-form class="pad" params="isCollapsed: isSectionSelected('remote-syslog')"></remote-syslog-form>
             <hr />
             <server-ssl-form class="pad" params="isCollapsed: isSectionSelected('server-ssl')"></server-ssl-form>
-            <hr />
-            <p2p-form class="pad" params="isCollapsed: isSectionSelected('p2p')"></p2p-form>
-
-
         </section>
 
         <diagnostics-form class="tab" data-bind="
@@ -71,6 +67,8 @@
             css: { selected: isTabSelected('advanced-options') }
         ">
             <maintenance-form class="pad" params="isCollapsed: isSectionSelected('maintenance')"></maintenance-form>
+            <hr />
+            <p2p-form class="pad" params="isCollapsed: isSectionSelected('p2p')"></p2p-form>
             <hr>
         </section>
     </div>

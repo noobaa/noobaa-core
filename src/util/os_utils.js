@@ -11,6 +11,9 @@ var spawn = require('child_process').spawn;
 const P = require('./promise');
 const config = require('../../config.js');
 const promise_utils = require('./promise_utils');
+const dbg = require('./debug_module')(__filename);
+
+const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 
 function os_info() {
 
@@ -113,7 +116,6 @@ function remove_linux_readonly_drives(volumes) {
 }
 
 
-
 function read_mac_linux_drives(include_all) {
     return P.fromCallback(callback => node_df({
             // this is a hack to make node_df append the -l flag to the df command
@@ -121,12 +123,12 @@ function read_mac_linux_drives(include_all) {
             file: '-l'
         }, callback))
         .then(volumes => _.compact(_.map(volumes, function(vol) {
-            //filter Azure temporary storage
-            if (vol.mount.indexOf('/mnt/resource') === 0) {
-                console.log('skipping /mnt/resource mount');
-                return;
-            }
-            return linux_volume_to_drive(vol);
+            return fs.statAync(vol + '/' + AZURE_TMP_DISK_README)
+                .catch(err => linux_volume_to_drive(vol)) //Means no such file
+                .then(() => {
+                    dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
+                    return;
+                });
         })));
 }
 

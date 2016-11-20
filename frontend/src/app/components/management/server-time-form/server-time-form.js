@@ -2,18 +2,16 @@ import template from './server-time-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment-timezone';
-import * as routes from 'routes';
-import { systemInfo, routeContext } from 'model';
-import { updateServerClock, updateServerNTPSettings, navigateTo } from 'actions';
+import { systemInfo } from 'model';
+import { updateServerClock, updateServerNTPSettings } from 'actions';
 
-const sectionName = 'server-time';
 const configTypes =  Object.freeze([
     { label: 'Manual Time', value: 'MANUAL' },
     { label: 'Network Time (NTP)', value: 'NTP' }
 ]);
 
 class ServerTimeFormViewModel extends Disposable{
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
         let cluster = ko.pureComputed(
@@ -30,18 +28,7 @@ class ServerTimeFormViewModel extends Disposable{
             () => server() && server().secret
         );
 
-        this.isCollapsed = ko.pureComputed({
-            read: () => {
-                return routeContext().params['section'] !== sectionName;
-            },
-            write: value => {
-                let params = {
-                    tab: 'settings',
-                    section: value ? null : sectionName
-                };
-                navigateTo(routes.management, params, undefined);
-            }
-        });
+        this.isCollapsed = isCollapsed;
 
         this.time = ko.observableWithDefault(
             () => server() && server().time_epoch * 1000

@@ -1,33 +1,33 @@
 <div class="greedy tabs">
     <nav>
         <a data-bind="
-            href: { route: 'management', params: { tab:'accounts' } },
+            href: generateTabUrl('accounts'),
             css: { selected: isTabSelected('accounts') }
         ">
             Accounts
         </a>
         <a data-bind="
-            href: { route: 'management', params: { tab: 'settings' } },
+            href: generateTabUrl('settings'),
             css: { selected: isTabSelected('settings') }
         ">
             Configuration
         </a>
 
         <a data-bind="
-            href: { route: 'management', params: { tab: 'diagnostics' } },
+            href: generateTabUrl('diagnostics'),
             css: { selected: isTabSelected('diagnostics') }
         ">
             Support &amp; Diagnostics
         </a>
 
         <a data-bind="
-            href: { route: 'management', params: { tab: 'version' } },
+            href: generateTabUrl('version'),
             css: { selected: isTabSelected('version') }
         ">
             Version
         </a>
         <a data-bind="
-            href: { route: 'management', params: { tab: 'advanced-options' } },
+            href: generateTabUrl('advanced-options'),
             css: { selected: isTabSelected('advanced-options') }
         ">
             Advanced Options
@@ -42,9 +42,9 @@
         <section class="tab" data-bind="
             css: { selected: isTabSelected('settings') }
         ">
-            <server-time-form class="pad"></server-time-form>
+            <server-time-form class="pad" params="isCollapsed: isSectionSelected('server-time')"></server-time-form>
             <hr />
-            <server-dns-form class="pad"></server-dns-form>
+            <server-dns-form class="pad" params="isCollapsed: isSectionSelected('server-dns')"></server-dns-form>
             <hr />
             <server-dns-settings-form class="pad"></server-dns-settings-form>
             <hr />

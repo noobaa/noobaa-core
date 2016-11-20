@@ -1,90 +1,86 @@
-<h2 class="row heading3 cursor-pointer" data-bind="click: () => expanded.toggle()">
-    <span class="greedy align-middle">NooBaa DNS Name / Address</span>
+<collapsible-section params="
+    title: 'NooBaa DNS Name / Address',
+    collapsed: isCollapsed
+">
+    <section name="collapsed">
+        <p class="summary" data-bind="visible: !expanded()">
+            Server Address:
+            <output class="text-tech" data-bind="text: baseAddress"></output>
+        </p>
+    </section>
 
-    <button class="btn-flat expand-btn no-outline" >
-        <svg-icon class="icon-small rotate"
-            params="name: 'chevron'"
-            data-bind="css: { 'deg-90': !expanded() }">
-        </svg-icon>
-    </button>
-</h2>
-
-<p class="summary" data-bind="visible: !expanded()">
-    Server Address:
-    <output class="text-tech" data-bind="text: baseAddress"></output>
-</p>
-
-<div class="column" data-bind="expand: expanded">
-    <p class="push-next">
-        Domain Name System: The Internet's system for converting alphabetic names into numeric addresses.
-    </p>
-
-    <div class="column push-next">
-        <editor params="label: 'Server Address'">
-            <radio-group params="selected: addressType, options: addressOptions"></radio-group>
-        </editor>
-
-        <editor params="label: 'IP Address'" data-bind="visible: usingIP">
-            <input type="text" disabled data-bind="value: ipAddress" />
-        </editor>
-
-        <editor params="label: 'DNS Name'" data-bind="visible: usingDNS">
-            <input type="text" data-bind="textInput: dnsName" />
-
-            <svg-icon class="validating-indicator spin"
-                data-bind="visible: dnsName.isValidating"
-                params="name: 'in-progress'"></svg-icon>
-        </editor>
-    </div>
-
-    <div class="column push-next" data-bind="
-        visible: usingDNS,
-        validationOptions: { insertMessages: false }
-    ">
+    <section name="expanded">
         <p class="push-next">
-            Before you apply changes, add the following entry to your DNS:
+            Domain Name System: The Internet's system for converting alphabetic names into numeric addresses.
         </p>
 
-        <div class="alt-bg pad config">
-            <span>
-                <span class="highlight">IP:</span>
-                <output class="text-tech" data-bind="value: ipAddress"></output>
-            </span>
+        <div class="column push-next">
+            <editor params="label: 'Server Address'">
+                <radio-group params="selected: addressType, options: addressOptions"></radio-group>
+            </editor>
 
-            <span>
-                <span class="highlight">Name:</span>
-                <output class="text-tech" data-bind="value: dnsName"></output>
-            </span>
+            <editor params="label: 'IP Address'" data-bind="visible: usingIP">
+                <input type="text" disabled data-bind="value: ipAddress" />
+            </editor>
+
+            <editor params="label: 'DNS Name'" data-bind="visible: usingDNS">
+                <input type="text" data-bind="textInput: dnsName" />
+
+                <svg-icon class="validating-indicator spin"
+                    data-bind="visible: dnsName.isValidating"
+                    params="name: 'in-progress'"></svg-icon>
+            </editor>
         </div>
-    </div>
 
-    <div class="column push-next">
-        Changing DNS name procedure:
+        <div class="column push-next" data-bind="
+            visible: usingDNS,
+            validationOptions: { insertMessages: false }
+        ">
+            <p class="push-next">
+                Before you apply changes, add the following entry to your DNS:
+            </p>
 
-        <ol class="remark bullet-list push-next">
-            <li>Add the new name in your DNS to have both old and new names avaliable</li>
-            <li>Apply the changes in the forms above</li>
-            <li>Once all nodes are updated with the new name, the old name can be removed from the DNS</li>
-        </ol>
+            <div class="alt-bg pad config">
+                <span>
+                    <span class="highlight">IP:</span>
+                    <output class="text-tech" data-bind="value: ipAddress"></output>
+                </span>
 
-        <p class="remark">
-            In any case, reinstalling a node (from the install node wizard) will update the server address used by that node.
-            <br>
-            note: make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change, the nodes will lose connectivity.
-        </p>
-    </div>
+                <span>
+                    <span class="highlight">Name:</span>
+                    <output class="text-tech" data-bind="value: dnsName"></output>
+                </span>
+            </div>
+        </div>
 
-    <button class="btn align-start push-both" data-bind="
-        click: update,
-        shakeOnClick: errors().length,
-    ">
-        update
-    </button>
-</div>
+        <div class="column push-next">
+            Changing DNS name procedure:
 
-<!-- ko if: isUpdateSystemNameModalVisible -->
-<update-system-name-modal params="
-    name: baseAddress,
-    onClose: () => hideUpdateSystemNameModal()
-"></update-system-name-modal>
-<!-- /ko -->
+            <ol class="remark bullet-list push-next">
+                <li>Add the new name in your DNS to have both old and new names avaliable</li>
+                <li>Apply the changes in the forms above</li>
+                <li>Once all nodes are updated with the new name, the old name can be removed from the DNS</li>
+            </ol>
+
+            <p class="remark">
+                In any case, reinstalling a node (from the install node wizard) will update the server address used by that node.
+                <br>
+                note: make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change, the nodes will lose connectivity.
+            </p>
+        </div>
+
+        <button class="btn align-start push-both" data-bind="
+            click: update,
+            shakeOnClick: errors().length,
+        ">
+            update
+        </button>
+    </section>
+
+    <!-- ko if: isUpdateSystemNameModalVisible -->
+    <update-system-name-modal params="
+        name: baseAddress,
+        onClose: () => hideUpdateSystemNameModal()
+    "></update-system-name-modal>
+    <!-- /ko -->
+</collapsible-section>

@@ -2,14 +2,14 @@
     title: 'Date & Time',
     collapsed: isCollapsed
 ">
-    <section class="collapsible-collapsed-section">
+    <section name="collapsed">
         <p>
             Server time:
             <output class="text-tech" data-bind="value: formattedTime"></output>
         </p>
     </section>
 
-    <section class="collapsible-expanded-section">
+    <section name="expanded">
         <radio-group params="
             options: configTypes,
             selected: selectedConfigType

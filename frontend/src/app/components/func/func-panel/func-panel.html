@@ -11,31 +11,31 @@
         </a>
 
         <a data-bind="
-            href: { route: 'func', params: { tab: 'invoke' } },
-            css: { selected: isTabSelected('invoke') }
-        ">
-            Invoke
-        </a>
-
-        <a data-bind="
             href: { route: 'func', params: { tab: 'config' } },
             css: { selected: isTabSelected('config') }
         ">
             Configuration
         </a>
 
-        <a data-bind="
+        <!-- <a data-bind="
             href: { route: 'func', params: { tab: 'triggers' } },
             css: { selected: isTabSelected('triggers') }
         ">
             Triggers
-        </a>
+        </a> -->
 
         <a data-bind="
             href: { route: 'func', params: { tab: 'monitoring' } },
             css: { selected: isTabSelected('monitoring') }
         ">
             Monitoring
+        </a>
+
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'invoke' } },
+            css: { selected: isTabSelected('invoke') }
+        ">
+            Invoke
         </a>
 
     </nav>
@@ -46,25 +46,25 @@
             data-bind="css: { selected: isTabSelected('code') }">
         </func-code>
 
-        <func-invoke class="tab"
-            params="func: func"
-            data-bind="css: { selected: isTabSelected('invoke') }">
-        </func-invoke>
-
         <func-config class="tab"
             params="func: func"
             data-bind="css: { selected: isTabSelected('config') }">
         </func-config>
 
-        <func-triggers class="tab"
+        <!-- <func-triggers class="tab"
             params="func: func"
             data-bind="css: { selected: isTabSelected('triggers') }">
-        </func-triggers>
+        </func-triggers> -->
 
         <func-monitoring class="tab"
             params="func: func"
             data-bind="css: { selected: isTabSelected('monitoring') }">
         </func-monitoring>
+
+        <func-invoke class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('invoke') }">
+        </func-invoke>
 
     </div>
 </div>

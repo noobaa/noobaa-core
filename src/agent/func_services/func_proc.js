@@ -1,11 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const path = require('path');
 
 try {
     process.on('uncaughtException', fail);
     process.on('unhandledRejection', fail);
+
+    const path = require('path'); // eslint-disable-line global-require
+    const AWS = require('aws-sdk'); // eslint-disable-line global-require
+    AWS.config.update({
+        region: 'us-east-1',
+        endpoint: 'http://127.0.0.1:6001',
+        accessKeyId: '123',
+        secretAccessKey: 'abc',
+        sslEnabled: false,
+    });
 
     process.once('message', msg => {
 
@@ -15,8 +24,11 @@ try {
         const handler_split = handler_arg.split('.', 2);
         const module_name = handler_split[0] + '.js';
         const export_name = handler_split[1];
-        const module_exports = require(path.resolve(module_name)); // eslint-disable-line global-require
-        const handler = export_name ? module_exports[export_name] : module_exports;
+        // eslint-disable-next-line global-require
+        const module_exports = require(path.resolve(module_name));
+        const handler = export_name ?
+            module_exports[export_name] :
+            module_exports;
 
         if (typeof(handler) !== 'function') {
             fail(new Error(`Func handler not a function ${handler_arg}`));

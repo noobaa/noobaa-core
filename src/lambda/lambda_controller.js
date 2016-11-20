@@ -5,7 +5,7 @@ const _ = require('lodash');
 // const crypto = require('crypto');
 
 // const P = require('../util/promise');
-// const FuncIO = require('../api/func_io');
+const FuncIO = require('../api/func_io');
 
 class LambdaController {
 
@@ -14,6 +14,7 @@ class LambdaController {
         let signal_client = this.rpc.new_client();
         let n2n_agent = this.rpc.register_n2n_agent(signal_client.node.n2n_signal);
         n2n_agent.set_any_rpc_address();
+        this.func_io = new FuncIO();
     }
 
     prepare_request(req) {
@@ -83,13 +84,11 @@ class LambdaController {
     }
 
     invoke_func(req, res) {
-        const name = req.params.func_name;
-        const event = req.body;
-        console.log('invoke_func', name, event);
-        return req.rpc_client.func.invoke_func({
+        return this.func_io.invoke({
+                rpc_client: req.rpc_client,
                 name: req.params.func_name,
                 version: req.query.Qualifier || '$LATEST',
-                event: event,
+                event: req.body,
             })
             .then(func_res => {
                 if (func_res.error) {

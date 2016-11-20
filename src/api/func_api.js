@@ -93,6 +93,9 @@ module.exports = {
                     read_code: {
                         type: 'boolean'
                     },
+                    read_stats: {
+                        type: 'boolean'
+                    },
                 },
             },
             reply: {
@@ -107,6 +110,12 @@ module.exports = {
                     },
                     code: {
                         $ref: '#/definitions/func_code'
+                    },
+                    stats_last_10_minutes: {
+                        $ref: '#/definitions/func_stats'
+                    },
+                    stats_last_hour: {
+                        $ref: '#/definitions/func_stats'
                     },
                 }
             },
@@ -349,6 +358,38 @@ module.exports = {
                     type: 'string'
                 },
             },
+        },
+
+        func_stats: {
+            type: 'object',
+            required: [
+                'invoke_count',
+                'latency_percentiles',
+            ],
+            properties: {
+                invoke_count: {
+                    type: 'integer'
+                },
+                latency_percentiles: {
+                    $ref: '#/definitions/percentiles'
+                }
+            }
+        },
+
+        percentiles: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['index', 'value'],
+                properties: {
+                    index: {
+                        type: 'integer'
+                    },
+                    value: {
+                        type: 'number'
+                    },
+                }
+            }
         },
 
     }

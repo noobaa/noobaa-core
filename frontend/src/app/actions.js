@@ -340,7 +340,7 @@ export function showFunc() {
         tab: tab
     });
 
-    loadFunc(func, 'readCode');
+    loadFunc(func);
 }
 
 export function loadFuncs() {
@@ -355,13 +355,14 @@ export function loadFuncs() {
         .done();
 }
 
-export function loadFunc(name, readCode) {
+export function loadFunc(name) {
     logAction('loadFunc');
 
     api.func.read_func({
         name: name,
         version: '$LATEST',
-        read_code: !!readCode
+        read_code: true,
+        read_stats: true
     })
         .then(
             reply => {
@@ -438,7 +439,7 @@ export function updateFunc(config) {
             () => notify(`Func ${config.name} updated successfully`, 'success'),
             () => notify(`Func ${config.name} update failed`, 'error')
         )
-        .then(() => loadFunc(config.name, 'readCode'))
+        .then(() => loadFunc(config.name))
         .done();
 }
 

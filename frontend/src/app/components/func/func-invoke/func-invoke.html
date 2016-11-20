@@ -6,7 +6,10 @@
     </editor>
 
     <div class="row content-middle">
-        <button class="btn" data-bind="click: invoke">
+        <button class="btn" data-bind="
+            click: invoke,
+            shakeOnClick: errors().length
+        ">
             Invoke
         </button>
     </div>

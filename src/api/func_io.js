@@ -3,9 +3,16 @@
 
 class FuncIO {
 
-    invoke(rpc_client, name, event) {
+    invoke({
+        rpc_client,
+        name,
+        version,
+        event,
+    }) {
+        console.log('invoke_func', name, event);
         return rpc_client.func.invoke_func({
             name,
+            version,
             event,
         });
     }

@@ -9,6 +9,7 @@ const P = require('../../util/promise');
 const RpcError = require('../../rpc/rpc_error');
 const server_rpc = require('../server_rpc');
 const func_store = require('./func_store');
+const func_stats_store = require('./func_stats_store');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 
@@ -129,6 +130,25 @@ function read_func(req) {
                     };
                     return reply;
                 });
+        })
+        .then(reply => {
+            if (!req.params.read_stats) return reply;
+            return P.join(
+                    func_stats_store.instance().query_stats_percentiles({
+                        system: req.func.system,
+                        func_id: req.func._id,
+                        since_time: Date.now() - (10 * 60 * 1000),
+                    }),
+                    func_stats_store.instance().query_stats_percentiles({
+                        system: req.func.system,
+                        func_id: req.func._id,
+                        since_time: Date.now() - (60 * 60 * 1000),
+                    }))
+                .spread((stats_last_10_minutes, stats_last_hour) => {
+                    reply.stats_last_10_minutes = stats_last_10_minutes;
+                    reply.stats_last_hour = stats_last_hour;
+                    return reply;
+                });
         });
 }
 
@@ -152,6 +172,7 @@ function list_func_versions(req) {
 }
 
 function invoke_func(req) {
+    const start_time = Date.now();
     return _load_func(req)
         .then(() => P.map(req.func.pools,
             pool => node_allocator.refresh_pool_alloc(pool)))
@@ -169,7 +190,16 @@ function invoke_func(req) {
             }, {
                 address: node.rpc_address
             });
-        });
+        })
+        .then(res => func_stats_store.instance().create_func_stat({
+                system: req.func.system,
+                func_id: req.func._id,
+                start_time: start_time,
+                latency_ms: Date.now() - start_time,
+                error: res.error,
+            })
+            .return(res)
+        );
 }
 
 function _load_func(req) {

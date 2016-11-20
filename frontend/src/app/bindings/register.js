@@ -1,21 +1,21 @@
 export default function register(ko) {
     // Extending existing handlers
-    ko.bindingHandlers.template        = require('./template-ex');
+    ko.bindingHandlers.template        = require('./template-ex').default;
 
     // Registering new handlers
-    ko.bindingHandlers.let          = require('./let');
-    ko.bindingHandlers.visibility   = require('./visibility');
-    ko.bindingHandlers.href         = require('./href');
-    ko.bindingHandlers.scroll       = require('./scroll');
-    ko.bindingHandlers.canvas       = require('./canvas');
-    ko.bindingHandlers.transition   = require('./transition');
-    ko.bindingHandlers.animation    = require('./animation');
-    ko.bindingHandlers.expand       = require('./expand');
-    ko.bindingHandlers.tooltip      = require('./tooltip');
-    ko.bindingHandlers.scrollTo     = require('./scroll-to');
-    ko.bindingHandlers.hover        = require('./hover');
-    ko.bindingHandlers.shakeOnClick = require('./shake-on-click');
-    ko.bindingHandlers.childEvent   = require('./child-event');
-    ko.bindingHandlers.globalEvent  = require('./global-event');
-    ko.bindingHandlers.chartjs      = require('./chartjs');
+    ko.bindingHandlers.let          = require('./let').default;
+    ko.bindingHandlers.visibility   = require('./visibility').default;
+    ko.bindingHandlers.href         = require('./href').default;
+    ko.bindingHandlers.scroll       = require('./scroll').default;
+    ko.bindingHandlers.canvas       = require('./canvas').default;
+    ko.bindingHandlers.transition   = require('./transition').default;
+    ko.bindingHandlers.animation    = require('./animation').default;
+    ko.bindingHandlers.expand       = require('./expand').default;
+    ko.bindingHandlers.tooltip      = require('./tooltip').default;
+    ko.bindingHandlers.scrollTo     = require('./scroll-to').default;
+    ko.bindingHandlers.hover        = require('./hover').default;
+    ko.bindingHandlers.shakeOnClick = require('./shake-on-click').default;
+    ko.bindingHandlers.childEvent   = require('./child-event').default;
+    ko.bindingHandlers.globalEvent  = require('./global-event').default;
+    ko.bindingHandlers.chartjs      = require('./chartjs').default;
 }

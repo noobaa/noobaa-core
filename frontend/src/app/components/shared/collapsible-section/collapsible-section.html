@@ -14,14 +14,14 @@
 
 <div data-bind="
     visible: result() && intent(),
-    template: { nodes: $componentTemplateNodes.filter( node => node.className === 'collapsible-collapsed-section'), data: $parent }
+    template: { html: templates.collapsed, data: $parent }
 ">
 </div>
 
 <div class="column" data-bind="
     expand: !intent(),
     transition: { end: onTransitionEnd },
-    template: { nodes: $componentTemplateNodes.filter( node => node.className === 'collapsible-expanded-section'), data: $parent }
+    template: { html: templates.expanded, data: $parent }
 ">
 </div>
 

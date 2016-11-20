@@ -5,10 +5,10 @@ import { systemInfo } from 'model';
 import { updatePhoneHomeConfig } from 'actions';
 
 class PhoneHomeFormViewModel extends Disposable {
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
 
         let config = ko.pureComputed(
             () => systemInfo() && systemInfo().phone_home_config

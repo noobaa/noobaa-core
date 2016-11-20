@@ -46,15 +46,15 @@
             <hr />
             <server-dns-form class="pad" params="isCollapsed: isSectionSelected('server-dns')"></server-dns-form>
             <hr />
-            <server-dns-settings-form class="pad"></server-dns-settings-form>
+            <server-dns-settings-form class="pad" params="isCollapsed: isSectionSelected('dns-settings')"></server-dns-settings-form>
             <hr />
-            <phone-home-form class="pad"></phone-home-form>
+            <phone-home-form class="pad" params="isCollapsed: isSectionSelected('phone-home')"></phone-home-form>
             <hr />
-            <remote-syslog-form class="pad"></remote-syslog-form>
+            <remote-syslog-form class="pad" params="isCollapsed: isSectionSelected('remote-syslog')"></remote-syslog-form>
             <hr />
-            <server-ssl-form class="pad"></server-ssl-form>
+            <server-ssl-form class="pad" params="isCollapsed: isSectionSelected('server-ssl')"></server-ssl-form>
             <hr />
-            <p2p-form class="pad"></p2p-form>
+            <p2p-form class="pad" params="isCollapsed: isSectionSelected('p2p')"></p2p-form>
 
 
         </section>
@@ -70,7 +70,7 @@
         <section class="tab" data-bind="
             css: { selected: isTabSelected('advanced-options') }
         ">
-            <maintenance-form class="pad"></maintenance-form>
+            <maintenance-form class="pad" params="isCollapsed: isSectionSelected('maintenance')"></maintenance-form>
             <hr>
         </section>
     </div>

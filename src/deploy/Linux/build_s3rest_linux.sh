@@ -85,19 +85,14 @@ else
         sed -i '/rebuild/d' package.json
         sed -i '/nodetime/d' package.json
         sed -i '/newrelic/d' package.json
-        sed -i '/selenium-standalone/d' package.json
-        sed -i '/selenium-webdriver/d' package.json
         sed -i '/istanbul/d' package.json
         sed -i '/npm-run-all/d' package.json
-        sed -i '/babel-preset/d' package.json
         sed -i '/heapdump/d' package.json
         sed -i '/selectize/d' package.json
         sed -i '/jsonwebtoken/d' package.json
         sed -i '/googleapis/d' package.json
-        sed -i '/chromedriver/d' package.json
-        sed -i '/phantomjs-prebuilt/d' package.json
         sed -i '/vsphere/d' package.json
-        npm install -dd
+        npm install -dd --production
 
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh

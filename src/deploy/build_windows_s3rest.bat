@@ -50,7 +50,7 @@ del version.txt
 sed -i 's/%current_version_line%/\"version\": \"%current_package_version%-%GIT_COMMIT%\",/' package.json
 
 REM remove irrelevant packages
-type package.json  | findstr /v npm-run-all | findstr /v forever-service | findstr /v istanbul | findstr /v eslint | findstr /v babel-preset | findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v nodetime| findstr /v chromedriver| findstr /v selenium-webdriver| findstr /v selenium-standalone| findstr /v phantomjs-prebuilt| findstr /v newrelic| findstr /v vsphere > package.json_s
+type package.json  | findstr /v npm-run-all | findstr /v forever-service | findstr /v istanbul | findstr /v eslint | findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v nodetime| findstr /v newrelic| findstr /v vsphere > package.json_s
 del /Q package.json
 rename package.json_s package.json
 copy ..\..\binding.gyp .
@@ -66,7 +66,7 @@ nvm use 6.9.1 32
 call nvm list
 
 rem fail build if failed to install and build
-call npm install || exit 1
+call npm install --production || exit 1
 if not exist ".\build\Release" exit 1
 
 xcopy /Y/I/E .\build\Release .\build\Release-32
@@ -80,7 +80,7 @@ REM call .\node_modules\.bin\node-gyp --arch=x64 configure
 REM call .\node_modules\.bin\node-gyp --arch=x64 build
 REM rd /q/s .\node_modules\node-gyp
 
-call npm install
+call npm install --production
 xcopy /Y/I/E .\build\Release .\build\Release-64
 
 call curl -L https://nodejs.org/dist/v6.9.1/win-x86/node.exe > node-32.exe

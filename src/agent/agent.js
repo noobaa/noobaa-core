@@ -60,7 +60,7 @@ class Agent {
         }];
 
         this.base_address = params.address || this.rpc.router.default;
-
+        dbg.log0(`DZDZ: this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
 
         this.agent_conf = params.agent_conf || new json_utils.JsonWrapper();
@@ -236,7 +236,7 @@ class Agent {
             dbg.error('_handle_server_change no server list');
             return P.resolve();
         }
-        const previous_address = this.servers[0].address;
+        const previous_address = this.rpc.router.default;
         dbg.log0('previous_address =', previous_address);
         dbg.log0('original servers list =', this.servers);
         if (suggested) {

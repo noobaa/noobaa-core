@@ -1,0 +1,8 @@
+{
+    "time": 1000,
+    "concur": 10,
+    "func_name": "word_count_func",
+    "func_event": {
+        "text": "The enemy is anybody who's going to get you killed, no matter which side he is on."
+    }
+}

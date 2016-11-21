@@ -1,0 +1,59 @@
+<div class="row" data-bind="if: dataReady">
+
+    <section class="c3 column pad borders">
+        <div class="greedy row content-middle">
+            <svg-icon class="push-next" params="name: state().icon"
+                data-bind="css: state().css">
+            </svg-icon>
+            <span class="heading3" data-bind="text: state().text"></span>
+        </div>
+        <hr />
+        <div class="greedy row content-middle">
+            <span class="c5 highlight push-next">Placement:</span>
+            <span class="c7" data-bind="
+                text: placementPolicy().text,
+                tooltip: placementPolicy().tooltip
+                "></span>
+        </div>
+        <hr />
+        <div class="greedy row content-middle" >
+            <span class="c5 highlight push-next">Last Modified</span>
+            <span class="c7" data-bind="text: lastModified"></span>
+        </div>
+    </section>
+
+    <section class="c6 column push-both">
+        <div class="row align-middle">
+            <div class="column greedy push-next">
+                <h3 class="heading3 greedy push-next">
+                    <span data-bind="text: name"></span>
+                </h3>
+                <span data-bind="text: description"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="c3 column">
+        <div class="greedy borders pad column">
+            <p class="row">
+                <span class="c6 highlight">Version:</span>
+                <span class="c6 text-right" data-bind="text: version"></span>
+            </p>
+            <hr />
+            <p class="row">
+                <span class="c6 highlight">Runtime:</span>
+                <span class="c6 text-right" data-bind="text: runtime"></span>
+            </p>
+            <hr />
+            <p class="row">
+                <span class="c6 highlight">Code Size (zip):</span>
+                <span class="c6 text-right" data-bind="text: codeSize"></span>
+            </p>
+            <hr />
+            <p class="row">
+                <span class="c6 highlight">Memory Size:</span>
+                <span class="c6 text-right" data-bind="text: memorySize"></span>
+            </p>
+        </div>
+    </section>
+</div>

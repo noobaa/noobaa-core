@@ -1,10 +1,4 @@
-/**
- *
- * AGENT
- *
- * the glorious noobaa agent.
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -34,10 +28,11 @@ const RpcError = require('../rpc/rpc_error');
 const url_utils = require('../util/url_utils');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
-const BlockStoreFs = require('./block_store_fs').BlockStoreFs;
-const BlockStoreS3 = require('./block_store_s3').BlockStoreS3;
-const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
-const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
+const FuncNode = require('./func_services/func_node');
+const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
+const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
+const BlockStoreMem = require('./block_store_services/block_store_mem').BlockStoreMem;
+const BlockStoreAzure = require('./block_store_services/block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
 const json_utils = require('../util/json_utils');
@@ -113,6 +108,11 @@ class Agent {
             this.block_store = new BlockStoreMem(block_store_options);
         }
 
+        this.func_node = new FuncNode({
+            rpc_client: this.client,
+            storage_path: this.storage_path,
+        });
+
         this.agent_app = (() => {
             const app = express();
             app.use(express_morgan_logger('dev'));
@@ -154,6 +154,12 @@ class Agent {
         this.rpc.register_service(
             this.rpc.schema.block_store_api,
             this.block_store, {
+                // TODO verify requests for block store?
+                // middleware: [ ... ]
+            });
+        this.rpc.register_service(
+            this.rpc.schema.func_node_api,
+            this.func_node, {
                 // TODO verify requests for block store?
                 // middleware: [ ... ]
             });

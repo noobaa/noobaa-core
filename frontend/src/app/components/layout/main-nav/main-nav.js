@@ -19,6 +19,12 @@ const navItems = deepFreeze([
         label: 'Buckets'
     },
     {
+        name: 'funcs',
+        route: 'funcs',
+        icon: 'working',
+        label: 'Functions'
+    },
+    {
         name: 'resources',
         route: 'pools',
         icon: 'resources',

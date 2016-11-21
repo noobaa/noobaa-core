@@ -17,4 +17,5 @@ export default function register(ko) {
     ko.bindingHandlers.shakeOnClick = require('./shake-on-click').default;
     ko.bindingHandlers.childEvent   = require('./child-event').default;
     ko.bindingHandlers.globalEvent  = require('./global-event').default;
+    ko.bindingHandlers.chartjs      = require('./chartjs').default;
 }

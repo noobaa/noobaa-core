@@ -124,3 +124,7 @@ export const nameResolutionState = ko.observable();
 
 // Hold diagnostics information
 export const collectDiagnosticsState = ko.observable({});
+
+// Hold funcs information
+export const funcInfo = ko.observable();
+export const funcList = ko.observableArray();

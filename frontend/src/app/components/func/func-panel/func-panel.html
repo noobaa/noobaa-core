@@ -1,0 +1,71 @@
+<!-- ko if: ready -->
+<func-summary class="push-next" params="func: func"></func-summary>
+
+<div class="tabs greedy">
+    <nav>
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'monitoring' } },
+            css: { selected: isTabSelected('monitoring') }
+        ">
+            Monitoring
+        </a>
+
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'code' } },
+            css: { selected: isTabSelected('code') }
+        ">
+            Code
+        </a>
+
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'config' } },
+            css: { selected: isTabSelected('config') }
+        ">
+            Configuration
+        </a>
+
+        <!-- <a data-bind="
+            href: { route: 'func', params: { tab: 'triggers' } },
+            css: { selected: isTabSelected('triggers') }
+        ">
+            Triggers
+        </a> -->
+
+        <a data-bind="
+            href: { route: 'func', params: { tab: 'invoke' } },
+            css: { selected: isTabSelected('invoke') }
+        ">
+            Invoke
+        </a>
+
+    </nav>
+
+    <div class="tabs-row">
+        <func-monitoring class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('monitoring') }">
+        </func-monitoring>
+
+        <func-code class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('code') }">
+        </func-code>
+
+        <func-config class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('config') }">
+        </func-config>
+
+        <!-- <func-triggers class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('triggers') }">
+        </func-triggers> -->
+
+        <func-invoke class="tab"
+            params="func: func"
+            data-bind="css: { selected: isTabSelected('invoke') }">
+        </func-invoke>
+
+    </div>
+</div>
+<!-- /ko -->

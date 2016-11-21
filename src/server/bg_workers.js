@@ -1,4 +1,6 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
+
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
@@ -11,6 +13,7 @@ for (var i = 0; i < process.argv.length; ++i) {
     }
 }
 if (process.env.TESTRUN === 'true') {
+    // eslint-disable-next-line global-require
     var ist = require('../test/framework/istanbul_coverage');
     ist.start_istanbul_coverage();
 }
@@ -20,18 +23,18 @@ require('../util/panic');
 var _ = require('lodash');
 var url = require('url');
 var dbg = require('../util/debug_module')(__filename);
-var scrubber = require('../server/bg_services/scrubber');
-var stats_aggregator = require('../server/system_services/stats_aggregator');
-var cluster_hb = require('../server/bg_services/cluster_hb');
-var cluster_master = require('../server/bg_services/cluster_master');
-var bucket_storage_fetch = require('../server/bg_services/bucket_storage_fetch');
-var cloud_sync = require('../server/bg_services/cloud_sync');
-var server_rpc = require('../server/server_rpc');
+var config = require('../../config.js');
+var scrubber = require('./bg_services/scrubber');
+var lifecycle = require('./bg_services/lifecycle');
+var cloud_sync = require('./bg_services/cloud_sync');
+var cluster_hb = require('./bg_services/cluster_hb');
+var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
+var cluster_master = require('./bg_services/cluster_master');
+var stats_aggregator = require('./system_services/stats_aggregator');
+var bucket_storage_fetch = require('./bg_services/bucket_storage_fetch');
 var background_scheduler = require('../util/background_scheduler').get_instance();
-var config = require('../../config.js');
-var lifecycle = require('./lifecycle');
 
 const MASTER_BG_WORKERS = [
     'scrubber',

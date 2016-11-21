@@ -54,7 +54,7 @@ class Agent {
             address: params.address
         }];
 
-        this.base_address = params.address || this.rpc.router.default;
+        this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
         dbg.log0(`this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
 
@@ -217,7 +217,7 @@ class Agent {
 
     _update_servers_list(new_list) {
         // check if base_address appears in new_list. if not add it.
-        if (_.isUndefined(new_list.find(srv => srv.address === this.base_address))) {
+        if (_.isUndefined(new_list.find(srv => srv.address.toLowerCase() === this.base_address.toLowerCase()))) {
             new_list.push({
                 address: this.base_address
             });
@@ -499,7 +499,7 @@ class Agent {
             this._start_stop_server();
         }
 
-        if (params.base_address && params.base_address !== params.old_base_address) {
+        if (params.base_address && params.base_address.toLowerCase() !== params.old_base_address.toLowerCase()) {
             dbg.log0('new base_address', params.base_address,
                 'old', params.old_base_address);
             // test this new address first by pinging it
@@ -509,7 +509,7 @@ class Agent {
                 .then(() => {
                     if (params.store_base_address) {
                         // store base_address to send in get_agent_info_and_update_masters
-                        this.base_address = params.base_address;
+                        this.base_address = params.base_address.toLowerCase();
                         this.agent_conf.update({
                             address: params.base_address
                         });

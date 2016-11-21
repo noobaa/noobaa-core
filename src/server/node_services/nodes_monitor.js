@@ -1,8 +1,4 @@
-/**
- *
- * NODE MONITOR
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -224,7 +220,7 @@ class NodesMonitor extends EventEmitter {
                         protocol: 'wss',
                         slashes: true,
                         hostname: addr,
-                        port: 8443
+                        port: process.env.SSL_PORT || 8443
                     });
                     return reply;
                 });
@@ -615,7 +611,7 @@ class NodesMonitor extends EventEmitter {
                 protocol: 'wss',
                 slashes: true,
                 hostname: addr.address,
-                port: 8443
+                port: process.env.SSL_PORT || 8443
             })
         }));
 
@@ -828,7 +824,8 @@ class NodesMonitor extends EventEmitter {
             sort: 'shuffle'
         });
         const selected = _.take(list, limit);
-        dbg.log0('_get_detention_test_nodes::', item.node.name, selected, limit);
+        dbg.log0('_get_detention_test_nodes::', item.node.name,
+            _.map(selected, 'node.name'), limit);
         return _.isUndefined(limit) ? list : selected;
     }
 
@@ -1260,7 +1257,7 @@ class NodesMonitor extends EventEmitter {
     _update_data_activity_progress(item, now) {
         const act = item.data_activity;
 
-        if (act.stage && act.stage.size) {
+        if (act.stage && !_.isEmpty(act.stage.size)) {
             act.stage.size.remaining = Math.max(0,
                 act.stage.size.total - act.stage.size.completed) || 0;
             const completed_time = now - act.stage.time.start;
@@ -1877,7 +1874,7 @@ class NodesMonitor extends EventEmitter {
                     proxy_reply: reply
                 };
                 if (method.reply_export_buffers) {
-                    res.proxy_buffer = buffer_utils.get_single(method.reply_export_buffers(reply));
+                    res.proxy_buffer = buffer_utils.concatify(method.reply_export_buffers(reply));
                     // dbg.log5('n2n_proxy: reply_export_buffers', reply);
                 }
                 return res;

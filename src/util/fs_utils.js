@@ -14,7 +14,8 @@ const promise_utils = require('./promise_utils');
 const is_windows = (process.platform === "win32");
 const is_mac = (process.platform === "darwin");
 
-const PRIVATE_DIR_PERMISSIONS = parseInt('0700', 8);
+const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
+
 /**
  *
  * file_must_not_exist
@@ -228,6 +229,14 @@ function tar_pack(tar_file_name, source, ignore_file_changes) {
     return promise_utils.exec(cmd);
 }
 
+function write_file_from_stream(file_path, read_stream) {
+    return new P((resolve, reject) => read_stream
+        .once('error', reject)
+        .pipe(fs.createWriteStream(file_path))
+        .once('error', reject)
+        .once('finish', resolve)
+    );
+}
 
 // EXPORTS
 exports.file_must_not_exist = file_must_not_exist;
@@ -242,4 +251,5 @@ exports.file_copy = file_copy;
 exports.file_delete = file_delete;
 exports.folder_delete = folder_delete;
 exports.tar_pack = tar_pack;
+exports.write_file_from_stream = write_file_from_stream;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;

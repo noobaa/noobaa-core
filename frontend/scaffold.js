@@ -200,7 +200,7 @@ class ComponentGenerator extends Generator {
     }
 
     generateRegisterLine(area, name) {
-        return `ko.components.register('${name}', require('./${area}/${name}/${name}'));\n    `;
+        return `ko.components.register('${name}', require('./${area}/${name}/${name}').default);\n    `;
     }
 }
 

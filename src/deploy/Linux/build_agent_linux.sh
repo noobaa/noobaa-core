@@ -7,9 +7,9 @@ source "$NVM_DIR/nvm.sh"
 echo "WARNING: devtoolset-2 is enabled!"
 . /opt/rh/devtoolset-2/enable
 
-nvm install 4.4.4
-nvm alias default 4.4.4
-nvm use 4.4.4
+nvm install 6.9.1
+nvm alias default 6.9.1
+nvm use 6.9.1
 
 CLEAN=true;
 GIT_COMMIT=0
@@ -59,7 +59,7 @@ if [ "$CLEAN" = true ] ; then
     echo "copy files"
     cp ../../package.json ./package/
     cp ../../config.js ./package/
-    cp ~/.nvm/versions/node/v4.4.4/bin/node ./package/
+    cp ~/.nvm/versions/node/v6.9.1/bin/node ./package/
     mkdir ./package/src/
     cp -R ../../src/agent ./package/src/
     cp -R ../../src/util ./package/src/
@@ -82,17 +82,12 @@ if [ "$CLEAN" = true ] ; then
     sed -i '/rebuild/d' package.json
     sed -i '/nodetime/d' package.json
     sed -i '/newrelic/d' package.json
-    sed -i '/selenium-standalone/d' package.json
-    sed -i '/selenium-webdriver/d' package.json
     sed -i '/istanbul/d' package.json
     sed -i '/npm-run-all/d' package.json
-    sed -i '/babel-preset/d' package.json
     sed -i '/heapdump/d' package.json
     sed -i '/selectize/d' package.json
     sed -i '/jsonwebtoken/d' package.json
     sed -i '/googleapis/d' package.json
-    sed -i '/chromedriver/d' package.json
-    sed -i '/phantomjs-prebuilt/d' package.json
     sed -i '/vsphere/d' package.json
     echo "npm install node-gyp"
     npm install -g node-gyp
@@ -102,7 +97,7 @@ if [ "$CLEAN" = true ] ; then
     echo "rebuild"
     node-gyp rebuild
     echo "npm install"
-    npm install
+    npm install --production
     cd ..
     wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh
     wget https://raw.githubusercontent.com/megastep/makeself/master/makeself.sh

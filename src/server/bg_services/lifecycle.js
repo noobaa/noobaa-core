@@ -1,13 +1,14 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 
 const _ = require('lodash');
 const moment = require('moment');
 
-const P = require('../util/promise');
-const system_store = require('../server/system_services/system_store').get_instance();
-const dbg = require('../util/debug_module')(__filename);
-const server_rpc = require('../server/server_rpc');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const server_rpc = require('../server_rpc');
+const system_store = require('../system_services/system_store').get_instance();
 
 
 var LIFECYCLE = {

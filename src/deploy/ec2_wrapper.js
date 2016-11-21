@@ -552,11 +552,11 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
     } else if (is_win) {
         run_script = fs.readFileSync(path.join(__dirname, 'init_agent.bat'), 'UTF8');
         run_script = "<script>" + run_script + "</script>";
-        run_script = run_script.replace('${env_name}', app_name);
+        run_script = run_script.replace('$env_name', app_name);
         run_script = run_script.replace('$agent_conf', agent_conf);
         instance_type = 'c3.large';
     } else {
-        run_script = run_script.replace('${env_name}', app_name);
+        run_script = run_script.replace('$env_name', app_name);
         run_script = run_script.replace('$agent_conf', agent_conf);
         run_script = run_script.replace('$network', 1);
         run_script = run_script.replace('$router', '0.0.0.0');

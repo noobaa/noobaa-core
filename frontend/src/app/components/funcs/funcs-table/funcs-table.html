@@ -1,0 +1,21 @@
+<div class="column pad alt-bg">
+    <button class="btn align-end" data-bind="
+        click: () => showCreateFuncWizard(),
+        disable: true
+    ">
+        Create Function
+    </button>
+</div>
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: funcs,
+    rowFactory: func => newFuncRow(func),
+    emptyMessage: ''
+">
+</data-table>
+
+<!-- ko if: isCreateFuncWizardVisible -->
+<create-func-wizard params="onClose: () => hideCreateFuncWizard()">
+</create-func-wizard>
+<!-- /ko -->

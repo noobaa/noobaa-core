@@ -19,6 +19,7 @@ class FuncMonitoringViewModel extends Disposable {
                     datasets: [{
                         label: 'Last 10 Minutes',
                         borderColor: style.color8,
+                        backgroundColor: hexColorToRGBA(style.color8, 0.1),
                         data: func().stats.response_time_last_10_minutes.percentiles
                             .map(p => ({
                                 x: p.percent,
@@ -27,6 +28,7 @@ class FuncMonitoringViewModel extends Disposable {
                     }, {
                         label: 'Last Hour',
                         borderColor: style.color11,
+                        backgroundColor: hexColorToRGBA(style.color11, 0.1),
                         data: func().stats.response_time_last_hour.percentiles
                             .map(p => ({
                                 x: p.percent,
@@ -35,6 +37,7 @@ class FuncMonitoringViewModel extends Disposable {
                     }, {
                         label: 'Last Day',
                         borderColor: style.color12,
+                        backgroundColor: hexColorToRGBA(style.color12, 0.1),
                         data: func().stats.response_time_last_day.percentiles
                             .map(p => ({
                                 x: p.percent,
@@ -93,13 +96,7 @@ class FuncMonitoringViewModel extends Disposable {
                     datasets: [{
                         label: 'Requests',
                         borderColor: style.color12,
-                        backgroundColor: `rgba(${
-                            parseInt(style.color12.slice(1,3), 16)
-                        }, ${
-                            parseInt(style.color12.slice(3,5), 16)
-                        }, ${
-                            parseInt(style.color12.slice(5,7), 16)
-                        }, 0.1)`,
+                        backgroundColor: hexColorToRGBA(style.color12, 0.1),
                         fill: true,
                         data: func().stats.requests_over_time.map(r => ({
                             x: r.time,
@@ -108,13 +105,7 @@ class FuncMonitoringViewModel extends Disposable {
                     }, {
                         label: 'Errors',
                         borderColor: style.color10,
-                        backgroundColor: `rgba(${
-                            parseInt(style.color10.slice(1,3), 16)
-                        }, ${
-                            parseInt(style.color10.slice(3,5), 16)
-                        }, ${
-                            parseInt(style.color10.slice(5,7), 16)
-                        }, 0.1)`,
+                        backgroundColor: hexColorToRGBA(style.color10, 0.1),
                         fill: true,
                         data: func().stats.requests_over_time.map(r => ({
                             x: r.time,
@@ -161,6 +152,16 @@ class FuncMonitoringViewModel extends Disposable {
 
     }
 
+}
+
+function hexColorToRGBA(hex, alpha) {
+    return `rgba(${
+        parseInt(hex.slice(1,3), 16)
+    }, ${
+        parseInt(hex.slice(3,5), 16)
+    }, ${
+        parseInt(hex.slice(5,7), 16)
+    }, ${alpha})`;
 }
 
 export default {

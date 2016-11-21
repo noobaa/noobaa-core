@@ -37,7 +37,10 @@ module.exports = {
                     },
                     event: {
                         $ref: 'func_api#/definitions/event_type'
-                    }
+                    },
+                    aws_config: {
+                        $ref: '#/definitions/aws_config'
+                    },
                 },
             },
             reply: {
@@ -59,6 +62,27 @@ module.exports = {
     },
 
     definitions: {
+
+        aws_config: {
+            type: 'object',
+            properties: {
+                endpoint: {
+                    type: 'string'
+                },
+                region: {
+                    type: 'string'
+                },
+                sslEnabled: {
+                    type: 'boolean'
+                },
+                accessKeyId: {
+                    type: 'string'
+                },
+                secretAccessKey: {
+                    type: 'string'
+                },
+            }
+        }
 
     }
 

@@ -4,9 +4,12 @@
 const _ = require('lodash');
 const stream = require('stream');
 const crypto = require('crypto');
+const ip_module = require('ip');
 
 const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
+const url_utils = require('../../util/url_utils');
 const server_rpc = require('../server_rpc');
 const func_store = require('./func_store');
 const func_stats_store = require('./func_stats_store');
@@ -225,13 +228,14 @@ function invoke_func(req) {
             const func = req.func;
             const node = node_allocator.allocate_node(func.pools);
             if (!node) throw new Error('invoke_func: no nodes for allocation');
-            console.log('invoke_func allocate_node', node.name, node.pool);
+            dbg.log1('invoke_func allocate_node', node.name, node.pool);
             return server_rpc.client.func_node.invoke_func({
                 name: func.name,
                 version: func.version,
                 code_size: func.code_size,
                 code_sha256: func.code_sha256,
                 event: req.params.event,
+                aws_config: _make_aws_config(req),
             }, {
                 address: node.rpc_address
             });
@@ -278,6 +282,23 @@ function _get_func_info(func) {
     return {
         config,
         code_location
+    };
+}
+
+function _make_aws_config(req) {
+    // TODO copied from base_address calc from system_server, better define once
+    const s3_host =
+        req.system.base_address ?
+        url_utils.quick_parse(req.system.base_address).hostname :
+        ip_module.address();
+    const s3_port = parseInt(process.env.S3_PORT, 10) || 80;
+    const account_keys = req.account.access_keys[0];
+    return {
+        region: 'us-east-1',
+        endpoint: `http://${s3_host}:${s3_port}`,
+        sslEnabled: false,
+        accessKeyId: account_keys.access_key,
+        secretAccessKey: account_keys.secret_key,
     };
 }
 

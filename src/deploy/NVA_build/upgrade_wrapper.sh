@@ -196,6 +196,9 @@ function pre_upgrade {
 		yum install -y dialog
 	fi
 
+	deploy_log "installing utils"
+	yum install -y bind-utils
+
 	if getent passwd noobaa > /dev/null 2>&1; then
 		echo "noobaa user exists"
 	else

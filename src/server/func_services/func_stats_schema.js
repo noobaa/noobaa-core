@@ -7,9 +7,9 @@ module.exports = {
     required: [
         '_id',
         'system',
-        'func_id',
-        'start_time',
-        'latency_ms',
+        'func',
+        'time',
+        'took',
     ],
     properties: {
         _id: {
@@ -18,13 +18,13 @@ module.exports = {
         system: {
             format: 'objectid'
         },
-        func_id: {
+        func: {
             format: 'objectid'
         },
-        start_time: {
+        time: {
             format: 'date'
         },
-        latency_ms: {
+        took: {
             type: 'number'
         },
         error: {

@@ -111,12 +111,9 @@ module.exports = {
                     code: {
                         $ref: '#/definitions/func_code'
                     },
-                    stats_last_10_minutes: {
+                    stats: {
                         $ref: '#/definitions/func_stats'
-                    },
-                    stats_last_hour: {
-                        $ref: '#/definitions/func_stats'
-                    },
+                    }
                 }
             },
             auth: {
@@ -363,31 +360,65 @@ module.exports = {
         func_stats: {
             type: 'object',
             required: [
-                'invoke_count',
-                'latency_percentiles',
+                'response_time_last_10_minutes',
+                'response_time_last_hour',
+                'response_time_last_day',
+                'requests_over_time',
             ],
             properties: {
-                invoke_count: {
-                    type: 'integer'
-                },
-                latency_percentiles: {
+                response_time_last_10_minutes: {
                     $ref: '#/definitions/percentiles'
-                }
+                },
+                response_time_last_hour: {
+                    $ref: '#/definitions/percentiles'
+                },
+                response_time_last_day: {
+                    $ref: '#/definitions/percentiles'
+                },
+                requests_over_time: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            time: {
+                                format: 'idate'
+                            },
+                            requests: {
+                                type: 'integer'
+                            },
+                            errors: {
+                                type: 'integer'
+                            },
+                        }
+                    }
+                },
             }
         },
 
         percentiles: {
-            type: 'array',
-            items: {
-                type: 'object',
-                required: ['index', 'value'],
-                properties: {
-                    index: {
-                        type: 'integer'
-                    },
-                    value: {
-                        type: 'number'
-                    },
+            type: 'object',
+            required: [
+                'count',
+                'percentiles',
+            ],
+            properties: {
+                count: {
+                    type: 'integer'
+                },
+                percentiles: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['percent', 'value'],
+                        properties: {
+                            percent: {
+                                type: 'number'
+                            },
+                            value: {
+                                type: 'number'
+                            },
+                        }
+                    }
                 }
             }
         },

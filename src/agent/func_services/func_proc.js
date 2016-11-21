@@ -8,17 +8,14 @@ try {
 
     const path = require('path'); // eslint-disable-line global-require
     const AWS = require('aws-sdk'); // eslint-disable-line global-require
-    AWS.config.update({
-        region: 'us-east-1',
-        endpoint: 'http://127.0.0.1:6001',
-        accessKeyId: '123',
-        secretAccessKey: 'abc',
-        sslEnabled: false,
-    });
 
     process.once('message', msg => {
 
         // console.log('func_proc: received message', msg);
+
+        if (msg.aws_config) {
+            AWS.config.update(msg.aws_config);
+        }
 
         const handler_arg = msg.config.handler;
         const handler_split = handler_arg.split('.', 2);

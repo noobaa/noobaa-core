@@ -57,7 +57,16 @@ class FuncNode {
                     });
                 const msg = {
                     config: func.config,
-                    event: req.params.event
+                    event: req.params.event,
+                    aws_config: {
+                        region: 'us-east-1',
+                        // TODO configure to rest endpoint
+                        endpoint: 'http://127.0.0.1:6001',
+                        sslEnabled: false,
+                        // TODO configure lambda role credentials
+                        accessKeyId: '123',
+                        secretAccessKey: 'abc',
+                    }
                 };
                 dbg.log1('invoke_func: send message', msg);
                 proc.send(msg);

@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
+// const _ = require('lodash');
 const Ajv = require('ajv');
 const mongodb = require('mongodb');
 
@@ -80,48 +80,31 @@ class FuncStatsStore {
             .return(stat);
     }
 
-    query_stats_percentiles({
+    sample_func_stats({
         system,
-        func_id,
+        func,
         since_time,
+        sample_size
     }) {
-        return P.resolve()
-            .then(() => this.collection().find({
+        return this.collection().aggregate([{
+                $match: {
                     system: system,
-                    func_id: func_id,
-                    start_time: {
+                    func: func,
+                    time: {
                         $gte: since_time
                     },
-                    error: null,
-                })
-                .sort({
-                    latency_ms: 1
-                })
-                .toArray())
-            .then(res => {
-                const latency_percentiles = res.length ?
-                    _.map([
-                        0, 10, 20, 30, 40,
-                        50, 60, 70, 80, 90,
-                        95, 99, 100
-                    ], i => ({
-                        index: i,
-                        value: res[
-                            Math.min(
-                                res.length - 1,
-                                Math.floor(res.length * i * 0.01))
-                        ].latency_ms
-                    })) : [];
-                return {
-                    invoke_count: res.length,
-                    latency_percentiles: latency_percentiles,
-                };
-            });
+                }
+            }, {
+                $sample: {
+                    size: sample_size
+                }
+            }])
+            .toArray();
+        }
+
     }
 
-}
 
-
-// EXPORTS
-exports.FuncStatsStore = FuncStatsStore;
-exports.instance = FuncStatsStore.instance;
+    // EXPORTS
+    exports.FuncStatsStore = FuncStatsStore;
+    exports.instance = FuncStatsStore.instance;

@@ -133,23 +133,68 @@ function read_func(req) {
         })
         .then(reply => {
             if (!req.params.read_stats) return reply;
-            return P.join(
-                    func_stats_store.instance().query_stats_percentiles({
-                        system: req.func.system,
-                        func_id: req.func._id,
-                        since_time: Date.now() - (10 * 60 * 1000),
-                    }),
-                    func_stats_store.instance().query_stats_percentiles({
-                        system: req.func.system,
-                        func_id: req.func._id,
-                        since_time: Date.now() - (60 * 60 * 1000),
-                    }))
-                .spread((stats_last_10_minutes, stats_last_hour) => {
-                    reply.stats_last_10_minutes = stats_last_10_minutes;
-                    reply.stats_last_hour = stats_last_hour;
+            const MINUTE = 60 * 1000;
+            const HOUR = 60 * MINUTE;
+            const DAY = 24 * HOUR;
+            const now = Date.now();
+            const last_10_minutes = now - (10 * MINUTE);
+            const last_hour = now - HOUR;
+            const last_day = now - DAY;
+            return func_stats_store.instance().sample_func_stats({
+                    system: req.func.system,
+                    func: req.func._id,
+                    since_time: new Date(last_day),
+                    sample_size: 1000,
+                })
+                .then(stats => {
+                    const stats_sorted_by_took =
+                        _.chain(stats)
+                        .reject('error')
+                        .sortBy('took')
+                        .value();
+                    reply.stats = {
+                        response_time_last_10_minutes: _calc_percentiles(
+                            _.filter(stats_sorted_by_took,
+                                s => s.time >= last_10_minutes),
+                            'took'),
+                        response_time_last_hour: _calc_percentiles(
+                            _.filter(stats_sorted_by_took,
+                                s => s.time >= last_hour),
+                            'took'),
+                        response_time_last_day: _calc_percentiles(
+                            stats_sorted_by_took, 'took'),
+                        requests_over_time: _.chain(stats)
+                            .groupBy(s => Math.ceil(s.time.getTime() / MINUTE))
+                            .map((g, t) => ({
+                                time: t * MINUTE,
+                                requests: g.length,
+                                errors: _.filter(g, 'error').length
+                            }))
+                            .value()
+                    };
                     return reply;
                 });
         });
+}
+
+function _calc_percentiles(list, prop) {
+    const percentiles = list.length ?
+        _.map([
+            0, 10, 20, 30, 40,
+            50, 60, 70, 80, 90,
+            95, 99, 99.9, 100
+        ], i => ({
+            percent: i,
+            value: list[Math.min(
+                list.length - 1,
+                Math.floor(list.length * i * 0.01)
+            )][prop]
+        })) : [];
+    return {
+        count: list.length,
+        percentiles: percentiles,
+    };
+
 }
 
 function list_funcs(req) {
@@ -172,7 +217,7 @@ function list_func_versions(req) {
 }
 
 function invoke_func(req) {
-    const start_time = Date.now();
+    const time = new Date();
     return _load_func(req)
         .then(() => P.map(req.func.pools,
             pool => node_allocator.refresh_pool_alloc(pool)))
@@ -193,9 +238,9 @@ function invoke_func(req) {
         })
         .then(res => func_stats_store.instance().create_func_stat({
                 system: req.func.system,
-                func_id: req.func._id,
-                start_time: start_time,
-                latency_ms: Date.now() - start_time,
+                func: req.func._id,
+                time: time,
+                took: Date.now() - time.getTime(),
                 error: res.error ? true : undefined,
             })
             .return(res)

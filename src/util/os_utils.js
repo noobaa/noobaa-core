@@ -124,7 +124,7 @@ function read_mac_linux_drives(include_all) {
             file: '-l'
         }, callback))
         .then(volumes => P.all(_.map(volumes, function(vol) {
-                return fs_utils.file_must_not_exist(vol + '/' + AZURE_TMP_DISK_README)
+                return fs_utils.file_must_not_exist(vol.mount + '/' + AZURE_TMP_DISK_README)
                     .then(() => linux_volume_to_drive(vol))
                     .catch(err => {
                         dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');

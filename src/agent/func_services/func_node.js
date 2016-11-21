@@ -20,7 +20,7 @@ class FuncNode {
 
     constructor(params) {
         this.rpc_client = params.rpc_client;
-        this.storage_path = params.storage_path;
+        this.storage_path = params.storage_path || '.';
         this.functions_path = path.join(this.storage_path, 'functions');
         this.functions_loading_path = path.join(this.storage_path, 'functions_loading');
         this.loading_serial = new Semaphore(1);

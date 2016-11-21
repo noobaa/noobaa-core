@@ -257,7 +257,7 @@ class NodesClient {
         return server_rpc.client.cluster_internal.redirect_to_cluster_master()
             .then(addr => {
                 let new_address = 'ws://' + addr + ':' + server_rpc.get_base_port();
-                if (new_address.toLowerCase() !== this._master_address.toLowerCase()) {
+                if (!this._master_address || new_address.toLowerCase() !== this._master_address.toLowerCase()) {
                     dbg.log0(`nodes_client: changing _master_address from ${this._master_address}, to ${new_address}`);
                     this._master_address = new_address;
                     throw err;

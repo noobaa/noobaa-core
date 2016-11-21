@@ -74,7 +74,7 @@ class S3Controller {
                             .then(addr => {
                                 let base_port = parseInt(process.env.PORT, 10) || 5001;
                                 let new_address = 'ws://' + addr + ':' + base_port;
-                                if (new_address.toLowerCase() !== this._master_address.toLowerCase()) {
+                                if (!this._master_address || new_address.toLowerCase() !== this._master_address.toLowerCase()) {
                                     dbg.log0(`changing _master_address from ${this._master_address}, to ${addr}`);
                                     this._master_address = new_address;
                                     throw err;

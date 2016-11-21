@@ -220,7 +220,7 @@ class NodesMonitor extends EventEmitter {
                         protocol: 'wss',
                         slashes: true,
                         hostname: addr,
-                        port: 8443
+                        port: process.env.SSL_PORT || 8443
                     });
                     return reply;
                 });
@@ -611,7 +611,7 @@ class NodesMonitor extends EventEmitter {
                 protocol: 'wss',
                 slashes: true,
                 hostname: addr.address,
-                port: 8443
+                port: process.env.SSL_PORT || 8443
             })
         }));
 

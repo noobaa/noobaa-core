@@ -745,7 +745,6 @@ function update_base_address(req) {
                 }]
             }
         })
-        .then(() => cutil.update_host_address(req.rpc_params.base_address))
         .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token
         }))

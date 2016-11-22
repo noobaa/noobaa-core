@@ -175,6 +175,40 @@ module.exports = {
                 account: false,
                 system: false,
             }
+        },
+
+        check_cluster_status: {
+            method: 'GET',
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['server_secret', 'status'],
+                    properties: {
+                        server_secret: {
+                            type: 'string'
+                        },
+                        status: {
+                            enum: ['FAULTY', 'UNREACHABLE', 'OPERATIONAL', 'UNKNOWN'],
+                            type: 'string'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        ping: {
+            method: 'GET',
+            reply: {
+                enum: ['pong'],
+                type: 'string'
+            },
+            auth: {
+                system: false
+            }
         }
     },
 

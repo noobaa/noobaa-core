@@ -28,6 +28,7 @@ var scrubber = require('./bg_services/scrubber');
 var lifecycle = require('./bg_services/lifecycle');
 var cloud_sync = require('./bg_services/cloud_sync');
 var cluster_hb = require('./bg_services/cluster_hb');
+var server_monitor = require('./bg_services/server_monitor');
 var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
@@ -124,6 +125,12 @@ register_bg_worker({
     delay: config.CLUSTER_HB_INTERVAL,
     run_immediate: true
 }, cluster_hb.do_heartbeat);
+
+register_bg_worker({
+    name: 'server_monitor',
+    delay: config.SERVER_MONITOR_INTERVAL,
+    run_immediate: true
+}, server_monitor.background_worker);
 
 dbg.log('BG Workers Server started');
 

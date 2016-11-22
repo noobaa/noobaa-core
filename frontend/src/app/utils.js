@@ -447,6 +447,14 @@ export function rgbToColor(r,g,b) {
     }`;
 }
 
+export function colorToRgb(color) {
+    return [
+        parseInt(color.slice(1,3), 16),
+        parseInt(color.slice(3,5), 16),
+        parseInt(color.slice(5,7), 16)
+    ];
+}
+
 export function tweenColors(ratio, ...colors){
     if (colors.length === 1) {
         return colors[0];

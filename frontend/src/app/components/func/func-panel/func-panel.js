@@ -7,12 +7,10 @@ class FuncPanelViewModel extends Disposable {
     constructor() {
         super();
 
-        this.func = ko.pureComputed(
-            () => funcInfo()
-        );
+        this.func = funcInfo;
 
         this.ready = ko.pureComputed(
-            () => this.func() && this.func().config.name === routeContext().params.func
+            () => funcInfo() && funcInfo().config.name === routeContext().params.func
         );
 
         this.selectedTab = ko.pureComputed(
@@ -20,8 +18,12 @@ class FuncPanelViewModel extends Disposable {
         );
     }
 
-    isTabSelected(tabName) {
-        return this.selectedTab() === tabName;
+    tabHref(tab) {
+        return { route: 'func', params: { tab } };
+    }
+
+    tabCss(tab) {
+        return { selected: this.selectedTab() === tab };
     }
 }
 

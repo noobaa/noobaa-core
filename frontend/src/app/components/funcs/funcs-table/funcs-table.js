@@ -16,16 +16,14 @@ const columns = deepFreeze([
         type: 'link'
     },
     {
-        name: 'description',
-        label: 'description'
+        name: 'description'
     },
     {
         name: 'version',
         label: 'version'
     },
     {
-        name: 'codeSize',
-        label: 'code size'
+        name: 'codeSize'
     },
     {
         name: 'placementPolicy'
@@ -43,12 +41,9 @@ class FuncsTableViewModel extends Disposable {
         super();
 
         this.columns = columns;
-
-        this.funcs = ko.pureComputed(
-            () => funcList()
-        );
-
+        this.funcs = funcList;
         this.isCreateFuncWizardVisible = ko.observable(false);
+        this.createFuncToolTip = 'Create function not avaliable';
     }
 
     newFuncRow(func) {

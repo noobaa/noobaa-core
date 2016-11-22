@@ -1,13 +1,14 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 const crypto = require('crypto');
 
-const P = require('../util/promise');
-const dbg = require('../util/debug_module')(__filename);
-const js_utils = require('../util/js_utils');
-const LRUCache = require('../util/lru_cache');
-const RpcError = require('../rpc/rpc_error');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const js_utils = require('../../util/js_utils');
+const LRUCache = require('../../util/lru_cache');
+const RpcError = require('../../rpc/rpc_error');
 
 class BlockStoreBase {
 
@@ -19,7 +20,6 @@ class BlockStoreBase {
             name: 'BlockStoreCache',
             max_usage: 200 * 1024 * 1024, // 200 MB
             item_usage: block => block.data.length,
-            expiry_ms: 0, // no expiry
             make_key: block_md => block_md.id,
             load: block_md => {
                 return P.resolve(this._read_block(block_md))

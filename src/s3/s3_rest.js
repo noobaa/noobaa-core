@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -6,9 +7,9 @@ const express = require('express');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
-const s3_util = require('../util/s3_utils');
 const s3_errors = require('./s3_errors');
 const xml_utils = require('../util/xml_utils');
+const signature_utils = require('../util/signature_utils');
 
 //const S3Auth = require('aws-sdk/lib/signers/s3');
 //const s3_auth = new S3Auth();
@@ -98,10 +99,10 @@ function s3_rest(controller) {
      * to send as xml.
      */
     function s3_call(func_name, req, res, next) {
-        dbg.log0('S3 REQUEST', func_name, req.method, req.url, req.headers);
+        dbg.log0('S3 REQUEST', func_name, req.method, req.originalUrl, req.headers);
         let func = controller[func_name];
         if (!func) {
-            dbg.error('S3 TODO (NotImplemented)', func_name, req.method, req.url);
+            dbg.error('S3 TODO (NotImplemented)', func_name, req.method, req.originalUrl);
             next(s3_errors.NotImplemented);
             return;
         }
@@ -111,18 +112,18 @@ function s3_rest(controller) {
                     // in this case the controller already replied
                     return;
                 }
-                dbg.log1('S3 REPLY', func_name, req.method, req.url, reply);
+                dbg.log1('S3 REPLY', func_name, req.method, req.originalUrl, reply);
                 if (reply) {
                     let xml_root = _.mapValues(reply, val => ({
                         _attr: S3_XML_ATTRS,
                         _content: val
                     }));
                     let xml_reply = xml_utils.encode_xml(xml_root);
-                    dbg.log0('S3 XML REPLY', func_name, req.method, req.url,
+                    dbg.log0('S3 XML REPLY', func_name, req.method, req.originalUrl,
                         JSON.stringify(req.headers), xml_reply);
                     res.status(200).send(xml_reply);
                 } else {
-                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.url,
+                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.originalUrl,
                         JSON.stringify(req.headers));
                     if (req.method === 'DELETE') {
                         res.status(204).end();
@@ -174,10 +175,10 @@ function s3_rest(controller) {
             }
 
             var bodyless_requests = ['UNSIGNED-PAYLOAD', 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'];
-            let content_sha256_b64 = req.headers['x-amz-content-sha256'];
-            if (!_.isUndefined(content_sha256_b64) &&
-                bodyless_requests.indexOf(content_sha256_b64.toString()) < 0) {
-                req.content_sha256 = new Buffer(content_sha256_b64, 'hex');
+            let content_sha256_hex = req.headers['x-amz-content-sha256'];
+            if (!_.isUndefined(content_sha256_hex) &&
+                bodyless_requests.indexOf(content_sha256_hex.toString()) < 0) {
+                req.content_sha256 = new Buffer(content_sha256_hex, 'hex');
                 if (req.content_sha256.length !== 32) {
                     throw s3_errors.InvalidDigest;
                 }
@@ -191,9 +192,9 @@ function s3_rest(controller) {
                 throw s3_errors.RequestTimeTooSkewed;
             }
 
-            next();
+            return next();
         } catch (err) {
-            next(err);
+            return next(err);
         }
     }
 
@@ -201,15 +202,15 @@ function s3_rest(controller) {
      * handle s3 errors and send the response xml
      */
     function handle_common_s3_errors(err, req, res, next) {
-        if (!err && next) {
-            dbg.log0('S3 DONE.', req.method, req.url);
-            next();
+        if (!err) {
+            dbg.log0('S3 InvalidURI.', req.method, req.originalUrl);
+            err = s3_errors.InvalidURI;
         }
         let s3err =
-            (err instanceof s3_errors.S3Error) && err ||
+            ((err instanceof s3_errors.S3Error) && err) ||
             RPC_ERRORS_TO_S3[err.rpc_code] ||
             s3_errors.InternalError;
-        let reply = s3err.reply(req.url, req.request_id);
+        let reply = s3err.reply(req.originalUrl, req.request_id);
         dbg.error('S3 ERROR', reply,
             JSON.stringify(req.headers),
             err.stack || err);
@@ -223,137 +224,8 @@ function s3_rest(controller) {
      */
     function authenticate_s3_request(req, res, next) {
         P.fcall(function() {
-                if (req.headers.authorization) {
-                    // Using noobaa's extraction function,
-                    // due to compatibility problem in aws library with express.
-                    dbg.log1('authorization header exists', req.headers.authorization);
-                    let end_of_aws_key = req.headers.authorization.indexOf(':');
-                    let req_access_key;
-                    let signature;
-                    if (req.headers.authorization.substring(0, 4) === 'AWS4') {
-                        let v4info = {};
-                        v4info.xamzdate = req.headers['x-amz-date'];
-                        //console.warn('v4info.xamzdate: ', v4info.xamzdate);
-                        var signedheaders_substring = req.headers.authorization.substring(req.headers.authorization.indexOf('SignedHeaders') + 14,
-                            req.headers.authorization.length);
-                        v4info.signedheaders = signedheaders_substring.substring(0, signedheaders_substring.indexOf(','));
-                        //console.warn('v4info.signedheaders: ', v4info.signedheaders);
-                        //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
-                        /*let credentials_location = req.headers.authorization.indexOf('Credential') + 11;
-                        req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));*/
-                        let credentials_str = req.headers.authorization.substring(req.headers.authorization.indexOf('Credential') + 11,
-                            req.headers.authorization.indexOf(','));
-                        //console.warn('credentials_str: ', credentials_str);
-                        req_access_key = credentials_str.substring(0, credentials_str.indexOf('/'));
-                        //console.warn('req_access_key: ', req_access_key);
-                        // TODO: 1 for the / and another 8 for the date and another 1 for the /
-                        credentials_str = credentials_str.substring(req_access_key.length + 10);
-                        //console.warn('credentials_str: ', credentials_str);
-                        v4info.region = credentials_str.substring(0, credentials_str.indexOf('/'));
-                        //console.warn('v4info.region: ', v4info.region);
-                        credentials_str = credentials_str.substring(v4info.region.length + 1);
-                        //console.warn('credentials_str: ', credentials_str);
-                        v4info.service = credentials_str.substring(0, credentials_str.indexOf('/'));
-                        //console.warn('v4info.service: ', v4info.service);
-                        req.noobaa_v4 = v4info;
-                        console.warn('req.noobaa_v4: ', req.noobaa_v4);
-                        signature = req.headers.authorization.substring(req.headers.authorization.indexOf('Signature') + 10);
-                        //console.warn('signature: ', signature);
-                    } else {
-                        req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
-                        signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.length);
-                    }
-
-                    dbg.log1('req_access_key', req_access_key);
-
-                    req.access_key = req_access_key;
-                    req.signature = signature;
-                } else if (req.query.AWSAccessKeyId && req.query.Signature) {
-                    req.access_key = req.query.AWSAccessKeyId;
-                    req.signature = req.query.Signature;
-                    dbg.log1('signed url');
-                } else if (req.query['X-Amz-Credential']) {
-                    let v4info = {};
-                    v4info.xamzdate = req.query['X-Amz-Date'];
-                    //console.warn('v4info.xamzdate: ', v4info.xamzdate);
-                    v4info.signedheaders = req.query['X-Amz-SignedHeaders'];
-                    //console.warn('v4info.signedheaders: ', v4info.signedheaders);
-                    //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
-                    /*let credentials_location = req.headers.authorization.indexOf('Credential') + 11;
-                    req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));*/
-                    let credentials_str = req.query['X-Amz-Credential'];
-                    //console.warn('credentials_str: ', credentials_str);
-                    req.access_key = credentials_str.substring(0, credentials_str.indexOf('/'));
-                    //console.warn('req.access_key: ', req.access_key);
-                    // TODO: 1 for the / and another 8 for the date and another 1 for the /
-                    credentials_str = credentials_str.substring(req.access_key.length + 10);
-                    //console.warn('credentials_str: ', credentials_str);
-                    v4info.region = credentials_str.substring(0, credentials_str.indexOf('/'));
-                    //console.warn('v4info.region: ', v4info.region);
-                    credentials_str = credentials_str.substring(v4info.region.length + 1);
-                    //console.warn('credentials_str: ', credentials_str);
-                    v4info.service = credentials_str.substring(0, credentials_str.indexOf('/'));
-                    //console.warn('v4info.service: ', v4info.service);
-                    req.noobaa_v4 = v4info;
-                    console.warn('req.noobaa_v4: ', req.noobaa_v4);
-                    req.signature = req.query['X-Amz-Signature'];
-                    //signature = req.headers.authorization.substring(req.headers.authorization.indexOf('Signature') + 10);
-                    //console.warn('req.signature: ', req.signature);
-
-                    //req.access_key = req.query['X-Amz-Credential'].substring(0, req.query['X-Amz-Credential'].indexOf('/'));
-                    //req.signature = req.query['X-Amz-Signature'];
-                    dbg.log1('signed url v4', req.access_key);
-                } else {
-                    // unauthorized...
-                    dbg.error('Unauthorized request!');
-                    throw new Error('Unauthorized request!');
-                }
-
-                // Checking if we shall use the V4 or V2 auth methods
-                if (req.noobaa_v4) {
-                    req.string_to_sign = s3_util.noobaa_string_to_sign_v4(req);
-                    /*s3_internal_signature = s3_util.noobaa_signature_v4({
-                        xamzdate: req.noobaa_v4.xamzdate,
-                        region: req.noobaa_v4.region,
-                        service: req.noobaa_v4.service,
-                        string_to_sign: req.string_to_sign,
-                        secret_key: secret_key_pull
-                    });*/
-                    //console.warn('SIGNATURE V4 KEY IS:', s3_util.signature_v4(req));
-                } else {
-                    req.string_to_sign = s3_util.noobaa_string_to_sign(req); //, res.headers);
-                    //s3_internal_signature = s3_auth.sign(secret_key_pull, req.string_to_sign);
-                }
-
-                //let s3 = new S3Auth();
-                dbg.log1('authenticated request with signature', req.signature);
-                //req.string_to_sign = s3_util.noobaa_string_to_sign(req); //, res.headers);
-
-                // debug code.
-                // use it for faster detection of a problem in the signature calculation and verification
-                //
-                //
-                //let s3_internal_signature = s3.sign('abc', req.string_to_sign);
-                //console.warn('s3_internal_signature: ', s3_internal_signature);
-
-                //dbg.log0('s3 internal:::' + req.string_to_sign, req.query.Signature, req.headers.authorization);
-                //if ((req.headers.authorization === 'AWS ' + req.access_key + ':' + s3_internal_signature) ||
-                //if ((req.headers.authorization === 'AWS ' + req.access_key + ':' + s3_internal_signature) ||
-                //if (req.signature === s3_internal_signature) {
-                //console.warn('PAAAASSSEEEEEDDDDDD');
-                // dbg.log0('s3 internal authentication test passed!!!', s3_internal_signature);
-                // } else {
-                //     throw s3_errors.SignatureDoesNotMatch;
-                //     //console.warn('FAIIIIILLLLEEEEDDDDD');
-                //     dbg.error('s3 internal authentication test failed!!! Computed signature is ', s3_internal_signature, 'while the expected signature is:', req.headers.authorization || req.query.Signature);
-                // }
-                /*    dbg.log0('S3 request information. Time:', Date.now(),
-                        'url:', req.originalUrl,
-                        'method:', req.method,
-                        'headers:', req.headers,
-                        'query:', req.query);*/
+                signature_utils.authenticate_request(req);
                 return controller.prepare_request(req);
-
             })
             .then(() => next())
             .catch(err => {
@@ -403,10 +275,11 @@ function read_post_body(req, res, next) {
     //We need this body in this case, and want to avoid reading the body for
     //other requests, like put_object
 
-    if ((req.method === 'POST' ||
-            (req.method === 'PUT' && 'lifecycle' in req.query)) &&
-        (req.headers['content-type'] === 'application/xml' ||
-            req.headers['content-type'] === 'application/octet-stream')) {
+    if (req.headers['content-type'] === 'application/xml' ||
+        req.headers['content-type'] === 'text/xml' ||
+        (req.headers['content-type'] === 'application/octet-stream' &&
+            (req.method === 'POST' ||
+            (req.method === 'PUT' && 'lifecycle' in req.query)))) {
 
         let data = '';
         req.setEncoding('utf8');
@@ -419,7 +292,7 @@ function read_post_body(req, res, next) {
         });
 
     } else {
-        next();
+        return next();
     }
 }
 
@@ -428,7 +301,7 @@ function handle_testme(req, res, next) {
         dbg.log0('LB test page hit');
         res.status(200).end();
     } else {
-        next();
+        return next();
     }
 }
 

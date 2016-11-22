@@ -101,6 +101,10 @@ function get_test_nodes(req) {
     const list_res = monitor.list_nodes({
         system: String(req.system._id),
         online: true,
+        decommissioning: false,
+        decommissioned: false,
+        deleting: false,
+        deleted: false,
         skip_address: req.rpc_params.source
     }, {
         pagination: true,

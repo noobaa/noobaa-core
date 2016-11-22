@@ -28,10 +28,11 @@ class LRUCache {
         };
         this.item_usage = options.item_usage;
         this.use_negative_cache = options.use_negative_cache;
-        this.lru = new LRU(_.extend({
-            max_usage: 100,
-            expiry_ms: 60000, // default 1 minute
-        }, options));
+        this.lru = new LRU({
+            name: this.name,
+            max_usage: options.max_usage || 100,
+            expiry_ms: options.expiry_ms || 0,
+        });
     }
 
     /**

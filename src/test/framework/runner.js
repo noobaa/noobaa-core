@@ -375,10 +375,10 @@ TestRunner.prototype._restart_services = function(testrun) {
     var command;
     if (testrun) { //Add --TESTRUN to the required services
         command = "sed -i 's/\\(.*web_server.js\\)/\\1 --TESTRUN/' /etc/noobaa_supervisor.conf ";
-        command += " ; sed -i 's/\\(.*bg_workers_starter.js\\)/\\1 --TESTRUN/' /etc/noobaa_supervisor.conf ";
+        command += " ; sed -i 's/\\(.*bg_workers.js\\)/\\1 --TESTRUN/' /etc/noobaa_supervisor.conf ";
     } else { //Remove --TESTRUN from the required services
         command = "sed -i 's/\\(.*web_server.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
-        command += " ; sed -i 's/\\(.*bg_workers_starter.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
+        command += " ; sed -i 's/\\(.*bg_workers.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
     }
 
     return promise_utils.exec(command)

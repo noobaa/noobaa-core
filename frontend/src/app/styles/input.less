@@ -85,6 +85,12 @@ input:not([type=checkbox]):not([type=radio]) {
     }
 }
 
+textarea {
+    .input();
+    padding: @gutter;
+    line-height: 1.4;
+}
+
 .focused(@offset: -1px) {
     outline: @outline;
     outline-offset: @offset;
@@ -167,7 +173,7 @@ input:not([type=checkbox]):not([type=radio]) {
         transition: unset;
     }
 
-    &:hover:not(.inactive) {
+    &:hover:not(:disabled):not(.inactive) {
         color: @color6;
         background-color: @color8;
     }

@@ -31,7 +31,8 @@ function install_platform {
 		nc \
 		tcpdump \
 		iperf \
-		python-setuptools
+		python-setuptools \
+        bind-utils
 
 	# make crontab start on boot
 	chkconfig crond on
@@ -133,9 +134,9 @@ function install_nodejs {
 	curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash
     export NVM_DIR="$HOME/.nvm"
     source /root/.nvm/nvm.sh
-    nvm install 4.4.4
-	nvm alias default 4.4.4
-    nvm use 4.4.4
+    nvm install 6.9.1
+	nvm alias default 6.9.1
+    nvm use 6.9.1
     cd ~
     ln -sf $(which node) /usr/local/bin/node
 

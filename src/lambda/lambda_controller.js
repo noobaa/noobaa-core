@@ -1,109 +1,122 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
-const vm = require('vm');
-const unzip = require('unzip');
+// const crypto = require('crypto');
 
-const P = require('../util/promise');
-
-const STORED_FUNC_FIELDS = [
-    'FunctionName',
-    'Runtime',
-    'Handler',
-    'Role',
-    'MemorySize',
-    'Timeout',
-    'Description',
-];
+// const P = require('../util/promise');
+const FuncIO = require('../api/func_io');
 
 class LambdaController {
 
-    constructor() {
-        this.stored_funcs = new Map();
+    constructor(rpc) {
+        this.rpc = rpc;
+        let signal_client = this.rpc.new_client();
+        let n2n_agent = this.rpc.register_n2n_agent(signal_client.node.n2n_signal);
+        n2n_agent.set_any_rpc_address();
+        this.func_io = new FuncIO();
     }
 
-    create_function(req, res) {
-        console.log('create_function', req.params, req.body);
-        const stored_func = req.body;
-        this.stored_funcs.set(stored_func.FunctionName, stored_func);
-        return this._get_func_info(stored_func);
-    }
-
-    list_functions(req, res) {
-        console.log('list_functions', req.params, req.body);
-        const funcs = [];
-        for (const stored_func of this.stored_funcs.values()) {
-            funcs.push(this._get_func_info(stored_func));
-        }
-        return {
-            Functions: funcs
+    prepare_request(req) {
+        req.rpc_client = this.rpc.new_client();
+        req.rpc_client.options.auth_token = {
+            access_key: req.access_key,
+            string_to_sign: req.string_to_sign,
+            signature: req.signature,
+            extra: req.noobaa_v4
         };
     }
 
-    invoke(req, res) {
-        console.log('invoke', req.params, req.body);
-        const stored_func = this.stored_funcs.get(req.params.func_name);
-        if (!stored_func) throw new Error('NoSuchFunction');
-        const zip_data = new Buffer(stored_func.Code.ZipFile, 'base64');
-        const unzipper = new unzip.Parse();
-        unzipper.write(zip_data);
-        return new P((resolve, reject) => {
-            unzipper.on('entry', ent => {
-                console.log('ZIP ENTRY', ent.path, ent.type, ent.size);
-                let data = '';
-                ent.setEncoding('utf8');
-                ent.on('data', chunk => {
-                    data += chunk;
-                });
-                ent.on('end', () => {
-                    const code = data;
-                    console.log('code', code);
-                    const main = stored_func.Handler.split('.')[0];
-                    if (main + '.js' !== ent.path) return;
-                    const handler = stored_func.Handler.split('.')[1];
-                    const vm_exports = {};
-                    const vm_context = {
-                        module: {
-                            exports: vm_exports
-                        },
-                        exports: vm_exports,
-                        console: console,
-                    };
-                    vm.runInNewContext(code, vm_context);
-                    vm.runInNewContext(`
-                    var func = module.exports['${handler}'];
-                    var event = {};
-                    var context = {};
-                    func.call(null, event, context, function(err1, reply1) {
-                        if (err1) {
-                            err = new Error(err1);
-                        } else {
-                            reply = reply1;
-                        }
-                    });
-                    `, vm_context);
-                    console.log('err', vm_context.err);
-                    console.log('reply', vm_context.reply);
-                    if (vm_context.err) {
-                        reject(vm_context.err);
-                    } else {
-                        resolve(vm_context.reply);
-                    }
-                });
-            });
-        });
+    create_func(req) {
+        const fn = req.body;
+        console.log('create_func', req.params, fn);
+        return req.rpc_client.func.create_func({
+                config: _.omitBy({
+                    name: fn.FunctionName,
+                    version: '$LATEST',
+                    description: fn.Description,
+                    role: fn.Role,
+                    runtime: fn.Runtime,
+                    handler: fn.Handler,
+                    memory_size: fn.MemorySize,
+                    timeout: fn.Timeout,
+                    pools: fn.VpcConfig && fn.VpcConfig.SubnetIds,
+                }, _.isUndefined),
+                code: _.omitBy({
+                    zipfile: new Buffer(fn.Code.ZipFile, 'base64'),
+                    s3_bucket: fn.Code.S3Bucket,
+                    s3_key: fn.Code.S3Key,
+                    s3_obj_version: fn.Code.S3ObjectVersion,
+                }, _.isUndefined),
+                publish: fn.Publish,
+            })
+            .then(func => this._get_func_config(func));
     }
 
-    _get_func_info(stored_func) {
-        const f = _.pick(stored_func, STORED_FUNC_FIELDS);
-        _.assign(f, {
-            CodeSize: 246,
-            FunctionArn: 'arn:aws:lambda:us-east-1:638243541865:function:guy1',
-            LastModified: '2016-07-18T22:05:21.682+0000',
-            CodeSha256: '+YJrd5+bVg7H4Dmr6lxAtoj4SbpHH2rRLodCGY+q+Ak=',
-            Version: '$LATEST',
-        });
-        return f;
+    read_func(req) {
+        console.log('read_func', req.params, req.query);
+        return req.rpc_client.func.read_func({
+                name: req.params.func_name,
+                version: req.query.Qualifier || '$LATEST'
+            })
+            .then(func => ({
+                Configuration: this._get_func_config(func),
+                Code: {
+                    Location: func.code_location.url,
+                    RepositoryType: func.code_location.repository,
+                }
+            }));
+    }
+
+    delete_func(req) {
+        return req.rpc_client.func.delete_func({
+            name: req.params.func_name,
+            version: req.query.Qualifier || '$LATEST'
+        }).return();
+    }
+
+    list_funcs(req) {
+        console.log('list_funcs', req.params, req.query);
+        return req.rpc_client.func.list_funcs()
+            .then(res => ({
+                Functions: _.map(res.functions, func => this._get_func_config(func))
+            }));
+    }
+
+    invoke_func(req, res) {
+        return this.func_io.invoke({
+                rpc_client: req.rpc_client,
+                name: req.params.func_name,
+                version: req.query.Qualifier || '$LATEST',
+                event: req.body,
+            })
+            .then(func_res => {
+                if (func_res.error) {
+                    res.setHeader('x-amz-function-error', 'Unhandled');
+                    return func_res.error;
+                }
+                return func_res.result;
+            });
+    }
+
+    _get_func_config(info) {
+        return {
+            FunctionName: info.config.name,
+            Version: info.config.version || '$LATEST',
+            Runtime: info.config.runtime,
+            Handler: info.config.handler,
+            Role: info.config.role,
+            MemorySize: info.config.memory_size,
+            Timeout: info.config.timeout,
+            Description: info.config.description,
+            CodeSize: info.config.code_size,
+            CodeSha256: info.config.code_sha256,
+            LastModified: new Date(info.config.last_modified).toISOString(),
+            FunctionArn: info.config.resource_name,
+            VpcConfig: {
+                SubnetIds: info.config.pools
+            }
+        };
     }
 
 }

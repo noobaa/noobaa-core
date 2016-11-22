@@ -1,8 +1,4 @@
-/**
- *
- * BLOCK STORE FS
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -10,12 +6,12 @@ const fs = require('fs');
 const path = require('path');
 const uuid = require('node-uuid');
 
-const P = require('../util/promise');
-const dbg = require('../util/debug_module')(__filename);
-const fs_utils = require('../util/fs_utils');
-const os_utils = require('../util/os_utils');
-const string_utils = require('../util/string_utils');
-const promise_utils = require('../util/promise_utils');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const fs_utils = require('../../util/fs_utils');
+const os_utils = require('../../util/os_utils');
+const string_utils = require('../../util/string_utils');
+const promise_utils = require('../../util/promise_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 
 class BlockStoreFs extends BlockStoreBase {

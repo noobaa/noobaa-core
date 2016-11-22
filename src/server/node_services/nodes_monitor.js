@@ -692,7 +692,7 @@ class NodesMonitor extends EventEmitter {
         // otherwise the agent is using the ip directly, so no update is needed
         // don't update local agents which are using local host
         if (system.base_address &&
-            system.base_address !== item.agent_info.base_address &&
+            system.base_address.toLowerCase() !== item.agent_info.base_address.toLowerCase() &&
             !item.node.is_internal_node &&
             !is_localhost(item.agent_info.base_address)) {
             rpc_config.base_address = system.base_address;
@@ -2025,7 +2025,7 @@ function progress_by_time(time, now) {
 
 function is_localhost(address) {
     let addr_url = url.parse(address);
-    return addr_url.hostname === '127.0.0.1' || addr_url.hostname === 'localhost';
+    return addr_url.hostname === '127.0.0.1' || addr_url.hostname.toLowerCase() === 'localhost';
 }
 
 // EXPORTS

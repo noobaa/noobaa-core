@@ -1137,15 +1137,15 @@ function _initiate_replica_set(shardname) {
 }
 
 function _update_cluster_info(params) {
+    let current_clustering = system_store.get_local_cluster_info();
     return P.resolve()
         .then(() => {
-            let current_clustering = system_store.get_local_cluster_info();
             if (!current_clustering) {
                 return new_cluster_info();
             }
-            return current_clustering;
         })
-        .then(current_clustering => {
+        .then(new_clustering => {
+            current_clustering = current_clustering || new_clustering;
             var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
             update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
             update.owner_address = params.owner_address || current_clustering.owner_address;
@@ -1154,11 +1154,23 @@ function _update_cluster_info(params) {
             dbg.log0('Updating local cluster info for owner', update.owner_secret, 'previous cluster info',
                 cutil.pretty_topology(current_clustering), 'new cluster info', cutil.pretty_topology(update));
 
-            return system_store.make_changes({
+            let changes;
+            // if we are adding a new cluster info use insert in the changes
+            if (new_clustering) {
+                changes = {
+                    insert: {
+                        clusters: [update]
+                    }
+                };
+            } else {
+                changes = {
                     update: {
                         clusters: [update]
                     }
-                })
+                };
+            }
+
+            return system_store.make_changes(changes)
                 .then(() => {
                     dbg.log0('local cluster info updates successfully');
                     return;

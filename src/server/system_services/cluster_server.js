@@ -24,7 +24,7 @@ const request = require('request');
 const dns = require('dns');
 const cluster_hb = require('../bg_services/cluster_hb');
 const dotenv = require('../../util/dotenv');
-const phone_home_utils = require('../../util/phone_home_utils');
+const phone_home_utils = require('../../util/phone_home');
 const pkg = require('../../../package.json');
 const md_store = require('../object_services/md_store');
 

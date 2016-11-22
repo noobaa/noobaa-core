@@ -3,10 +3,10 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
+import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
     downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
     stringifyAmount } from 'utils';
-import JSZip from 'jszip';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -335,7 +335,7 @@ export function showFunc() {
             { route: 'funcs', label: 'Functions' },
             { route: 'func', label: func }
         ],
-        selectedNavItem: 'func',
+        selectedNavItem: 'funcs',
         panel: 'func',
         tab: tab
     });
@@ -402,8 +402,8 @@ export function loadFunc(name) {
         .done();
 }
 
-export function invokeFunc({ name, version, event }) {
-    logAction('invokeFunc');
+export function invokeFunc(name, version, event) {
+    logAction('invokeFunc', { name, version, event });
 
     try {
         event = JSON.parse(event);
@@ -430,7 +430,7 @@ export function invokeFunc({ name, version, event }) {
 }
 
 export function updateFunc(config) {
-    logAction('updateFunc');
+    logAction('updateFunc', { config });
 
     api.func.update_func({
         config: config
@@ -443,8 +443,8 @@ export function updateFunc(config) {
         .done();
 }
 
-export function deleteFunc({ name, version }) {
-    logAction('deleteFunc');
+export function deleteFunc(name, version) {
+    logAction('deleteFunc', { name, version });
 
     api.func.delete_func({
         name: name,

@@ -43,7 +43,7 @@ class FuncsTableViewModel extends Disposable {
         this.columns = columns;
         this.funcs = funcList;
         this.isCreateFuncWizardVisible = ko.observable(false);
-        this.createFuncToolTip = 'Create function not avaliable';
+        this.createFuncToolTip = 'Create function not available';
     }
 
     newFuncRow(func) {

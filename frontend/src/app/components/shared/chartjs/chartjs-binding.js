@@ -12,7 +12,7 @@ ko.bindingHandlers.chartjs = {
 
         domNodeDisposal.addDisposeCallback(
             element,
-            () => chart.destory()
+            () => chart.destroy()
         );
     },
 

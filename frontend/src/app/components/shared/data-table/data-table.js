@@ -4,7 +4,7 @@ import ColumnViewModel from './column';
 import * as cellTemplates from './cell-templates';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop, isFunction } from 'utils';
+import { noop, isFunction } from 'utils/all';
 
 const scrollThrottle = 750;
 

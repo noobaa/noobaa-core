@@ -2,7 +2,7 @@ import template from './notification-box.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { lastNotification } from 'model';
-import { sleep } from 'utils';
+import { sleep } from 'utils/all';
 import { notificaitons as config } from 'config';
 
 class NotificationBarViewModel extends Disposable {

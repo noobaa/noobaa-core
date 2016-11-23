@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { removeCloudSyncPolicy, toogleCloudSync } from 'actions';
-import { bitsToNumber, formatDuration } from 'utils';
+import { bitsToNumber, formatDuration } from 'utils/all';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 

@@ -7,7 +7,7 @@ import nameValidationRules from 'name-validation-rules';
 import { systemInfo } from 'model';
 import { createBucket } from 'actions';
 import { defaultPoolName } from 'config';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const steps = deepFreeze([
     { label: 'choose name', size: 'medium' },

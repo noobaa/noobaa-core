@@ -4,7 +4,7 @@ import ko from 'knockout';
 import { validateActivation, attemptResolveSystemName, createSystem } from 'actions';
 import { activationState, nameResolutionState, serverInfo } from 'model';
 import moment from 'moment';
-import { deepFreeze, calcPasswordStrength } from 'utils';
+import { deepFreeze, calcPasswordStrength } from 'utils/all';
 
 const activationFaliureReasonMapping = deepFreeze({
     ACTIVATION_CODE_IN_USE: 'Activation code is already in use',

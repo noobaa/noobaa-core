@@ -1,4 +1,7 @@
-import { symbols, letters, isDigit, isLetter, isUpperCase, isLowerCase } from './string-utils';
+import { last, clamp } from './core-utils';
+import { symbols, letters, isDigit, isLetter,
+    isUpperCase, isLowerCase } from './string-utils';
+
 
 export function calcPasswordStrength(password) {
     let charsInfo = Array.from(password).map(

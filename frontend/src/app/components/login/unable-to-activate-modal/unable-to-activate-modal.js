@@ -4,7 +4,7 @@ import ko from 'knockout';
 import { support } from 'config';
 import { serverInfo } from 'model';
 import { loadServerInfo } from 'actions';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const messages = deepFreeze({
     CANNOT_REACH_DNS_SERVER: 'DNS server unreachable, please verify that the DNS server address is correct or use the first installation wizard to update.',

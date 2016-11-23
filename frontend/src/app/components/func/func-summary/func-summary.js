@@ -1,7 +1,7 @@
 import template from './func-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { stringifyAmount } from 'utils';
+import { stringifyAmount } from 'utils/all';
 
 class FuncSummaryViewModel extends Disposable {
     constructor({ func }) {

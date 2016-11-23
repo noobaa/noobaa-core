@@ -1,7 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { deepFreeze, capitalize, stringifyAmount } from 'utils';
+import { deepFreeze, capitalize, stringifyAmount } from 'utils/all';
 import { deleteBucket } from'actions';
 
 const stateIconMapping = deepFreeze({

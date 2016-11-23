@@ -3,10 +3,10 @@ import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { randomString, generateAccessKeys } from 'utils';
+import { randomString, generateAccessKeys } from 'utils/all';
 import { systemInfo } from 'model';
 import { createAccount } from 'actions';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 function makeUserMessage(loginInfo, S3AccessInfo) {
     return `

@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { CloudConnections, isCloudConnectionValid } from 'model';
 import { checkCloudConnection, addCloudConnection } from 'actions';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const serviceMapping = deepFreeze({
     AWS: {

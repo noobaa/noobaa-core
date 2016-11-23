@@ -2,7 +2,7 @@ import template from './server-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
-import { createCompareFunc, deepFreeze } from 'utils';
+import { createCompareFunc, deepFreeze } from 'utils/all';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 

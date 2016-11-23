@@ -1,7 +1,7 @@
 import template from './wizard.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { isObject, noop } from 'utils';
+import { isObject, noop } from 'utils/all';
 
 class WizardViewModel extends Disposable {
     constructor({

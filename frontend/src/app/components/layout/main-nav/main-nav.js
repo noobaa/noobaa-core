@@ -1,7 +1,7 @@
 import template from './main-nav.html';
 import Disposable from 'disposable';
 import { uiState, uploads } from 'model';
-import { deepFreeze, sleep } from 'utils';
+import { deepFreeze, sleep } from 'utils/all';
 import ko from 'knockout';
 import style from 'style';
 

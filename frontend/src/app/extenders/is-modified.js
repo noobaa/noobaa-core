@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isFunction, noop } from 'utils';
+import { isFunction, noop } from 'utils/all';
 
 export default function formatSize(target, expr) {
     if (!ko.isComputed(target) && !ko.isWriteableObservable(target)) {

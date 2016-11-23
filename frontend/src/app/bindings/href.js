@@ -1,7 +1,7 @@
 import ko from 'knockout';
 import * as routes from 'routes';
 import { routeContext } from 'model';
-import { realizeUri } from 'utils';
+import { realizeUri } from 'utils/all';
 
 export default {
     update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {

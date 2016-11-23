@@ -1,7 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const nodeStateMapping = deepFreeze({
     offline: {

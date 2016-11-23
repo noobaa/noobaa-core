@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
-import { deepFreeze, hexToRgb } from 'utils';
+import { deepFreeze, hexToRgb } from 'utils/all';
 
 const responseTimeOptions = deepFreeze({
     maintainAspectRatio: false,

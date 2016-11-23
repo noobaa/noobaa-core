@@ -1,6 +1,6 @@
 import template from './modal.html';
 import Disposable from 'disposable';
-import { deepFreeze, noop } from 'utils';
+import { deepFreeze, noop } from 'utils/all';
 import ko from 'knockout';
 
 const severityMapping = deepFreeze({

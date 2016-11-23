@@ -1,7 +1,7 @@
 import template from './password-field.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze, isFunction, tweenColors } from 'utils';
+import { deepFreeze, isFunction, tweenColors } from 'utils/all';
 import style from 'style';
 
 const iconMapping = deepFreeze({

@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { CloudConnections, CloudBucketList } from 'model';
 import { loadCloudConnections, loadCloudBucketList, setCloudSyncPolicy } from 'actions';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 

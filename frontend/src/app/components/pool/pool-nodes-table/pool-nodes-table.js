@@ -3,7 +3,7 @@ import NodeRowViewModel from './node-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle} from 'utils';
+import { deepFreeze, throttle} from 'utils/all';
 import { navigateTo } from 'actions';
 import { routeContext } from 'model';
 

@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { isObject, isString, noop, toDashedCase } from 'utils';
+import { isObject, isString, noop, toDashedCase } from 'utils/all';
 
 function addSpaces(str) {
     return str.replace(/[A-Z1-9]+/g, match => ` ${match}`);

@@ -6,7 +6,7 @@ import * as routes from 'routes';
 import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
     downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
-    stringifyAmount } from 'utils';
+    stringifyAmount } from 'utils/all';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.

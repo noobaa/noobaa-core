@@ -1,7 +1,7 @@
 import template from './assign-nodes-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop, throttle } from 'utils';
+import { noop, throttle } from 'utils/all';
 import { systemInfo, nodeList } from 'model';
 import { loadNodeList, assignNodes } from 'actions';
 import { inputThrottle } from 'config';

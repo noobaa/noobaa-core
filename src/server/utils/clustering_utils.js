@@ -15,31 +15,6 @@ function get_topology() {
     return system_store.get_local_cluster_info();
 }
 
-function update_cluster_info(params) {
-    var current_clustering = system_store.get_local_cluster_info();
-    var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
-    update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
-    update.owner_address = params.owner_address || current_clustering.owner_address;
-    update._id = current_clustering._id;
-
-    dbg.log0('Updating local cluster info for owner', update.owner_secret, 'previous cluster info',
-        pretty_topology(current_clustering), 'new cluster info', pretty_topology(update));
-
-    return system_store.make_changes({
-            update: {
-                clusters: [update]
-            }
-        })
-        .then(() => {
-            dbg.log0('local cluster info updates successfully');
-            return;
-        })
-        .catch((err) => {
-            console.error('failed on local cluster info update with', err.message);
-            throw err;
-        });
-}
-
 
 function update_host_address(address) {
     var current_clustering = system_store.get_local_cluster_info();
@@ -253,7 +228,6 @@ function get_member_upgrade_status(ip) {
 
 //Exports
 exports.get_topology = get_topology;
-exports.update_cluster_info = update_cluster_info;
 exports.update_host_address = update_host_address;
 exports.extract_servers_ip = extract_servers_ip;
 exports.verify_cluster_id = verify_cluster_id;

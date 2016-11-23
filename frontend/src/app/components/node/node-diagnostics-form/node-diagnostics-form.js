@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { collectDiagnosticsState } from 'model';
 import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
-import { isUndefined } from 'utils';
+import { isUndefined } from 'utils/all';
 
 class NodeDiagnosticsFormViewModel extends Disposable {
     constructor({ node }) {

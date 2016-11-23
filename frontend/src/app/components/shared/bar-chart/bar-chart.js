@@ -2,7 +2,7 @@ import template from './bar-chart.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
-import { formatSize } from 'utils';
+import { formatSize } from 'utils/all';
 
 const height = 168;
 const width = 168;

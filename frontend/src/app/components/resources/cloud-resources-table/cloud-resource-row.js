@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 import { deleteCloudResource } from 'actions';
 
 const undeletableReasons = Object.freeze({

@@ -6,7 +6,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
 import { systemInfo } from 'model';
-import { deepFreeze, lastSegment, realizeUri, encodeBase64 } from 'utils';
+import { deepFreeze, lastSegment, realizeUri, encodeBase64 } from 'utils/all';
 import { asset as assetRoute } from 'routes';
 
 const steps = deepFreeze([
@@ -17,7 +17,7 @@ const steps = deepFreeze([
 
 const installCommands = deepFreeze({
     NETWORK_WINDOWS(pkg, conf, server) {
-        return `Start-BitsTransfer -Source http://${server}:8080/public/${pkg} -Destination C:\\${pkg}; C:\\${pkg} /S /config ${conf}`;
+        return `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server}:8080/public/${pkg} -Destination C:\\${pkg}; C:\\${pkg} /S /config ${conf}`;
     },
 
     NETWORK_LINUX(pkg, conf, server) {

@@ -1,7 +1,7 @@
 import template from './node-parts-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 import PartRowViewModel from './part-row';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';

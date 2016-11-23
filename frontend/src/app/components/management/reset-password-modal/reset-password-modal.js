@@ -4,7 +4,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { resetPasswordState } from 'model';
 import { resetAccountPassword } from 'actions';
-import { deepFreeze, randomString } from 'utils';
+import { deepFreeze, randomString } from 'utils/all';
 
 //const artificalResetDuration = 1000;
 

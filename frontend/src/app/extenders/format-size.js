@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { formatSize as format } from 'utils';
+import { formatSize as format } from 'utils/all';
 
 export default function formatSize(target) {
     return ko.pureComputed(

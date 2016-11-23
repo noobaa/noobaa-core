@@ -3,38 +3,23 @@
 
 <div class="tabs greedy">
     <nav>
-        <a data-bind="
-            href: { route: 'func', params: { tab: 'monitoring' } },
-            css: { selected: isTabSelected('monitoring') }
-        ">
+        <a data-bind="href: tabHref('monitoring'), css: tabCss('monitoring')">
             Monitoring
         </a>
 
-        <a data-bind="
-            href: { route: 'func', params: { tab: 'code' } },
-            css: { selected: isTabSelected('code') }
-        ">
+        <a data-bind="href: tabHref('code'), css: tabCss('code')">
             Code
         </a>
 
-        <a data-bind="
-            href: { route: 'func', params: { tab: 'config' } },
-            css: { selected: isTabSelected('config') }
-        ">
+        <a data-bind="href: tabHref('config'), css: tabCss('config')">
             Configuration
         </a>
 
-        <!-- <a data-bind="
-            href: { route: 'func', params: { tab: 'triggers' } },
-            css: { selected: isTabSelected('triggers') }
-        ">
+        <!--<a data-bind="href: tabHref('triggers'), css: tabCss('triggers')">
             Triggers
         </a> -->
 
-        <a data-bind="
-            href: { route: 'func', params: { tab: 'invoke' } },
-            css: { selected: isTabSelected('invoke') }
-        ">
+        <a data-bind="href: tabHref('invoke'), css: tabCss('invoke')">
             Invoke
         </a>
 
@@ -43,27 +28,27 @@
     <div class="tabs-row">
         <func-monitoring class="tab"
             params="func: func"
-            data-bind="css: { selected: isTabSelected('monitoring') }">
+            data-bind="css: tabCss('monitoring')">
         </func-monitoring>
 
         <func-code class="tab"
             params="func: func"
-            data-bind="css: { selected: isTabSelected('code') }">
+            data-bind="css: tabCss('code')">
         </func-code>
 
         <func-config class="tab"
             params="func: func"
-            data-bind="css: { selected: isTabSelected('config') }">
+            data-bind="css: tabCss('config')">
         </func-config>
 
         <!-- <func-triggers class="tab"
             params="func: func"
-            data-bind="css: { selected: isTabSelected('triggers') }">
+            data-bind="css: tabCss('triggers')">
         </func-triggers> -->
 
         <func-invoke class="tab"
             params="func: func"
-            data-bind="css: { selected: isTabSelected('invoke') }">
+            data-bind="css: tabCss('invoke')">
         </func-invoke>
 
     </div>

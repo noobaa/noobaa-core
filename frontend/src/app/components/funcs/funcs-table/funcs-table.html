@@ -1,17 +1,19 @@
 <div class="column pad alt-bg">
-    <button class="btn align-end" data-bind="
-        click: () => showCreateFuncWizard(),
-        disable: true
-    ">
-        Create Function
-    </button>
+    <div class="align-end" data-bind="tooltip: createFuncToolTip">
+        <button class="btn" data-bind="
+            click: () => showCreateFuncWizard(),
+            disable: true
+        ">
+            Create Function
+        </button>
+    </div>
 </div>
 
 <data-table class="greedy" params="
     columns: columns,
     data: funcs,
     rowFactory: func => newFuncRow(func),
-    emptyMessage: ''
+    emptyMessage: 'No restless functions configured'
 ">
 </data-table>
 

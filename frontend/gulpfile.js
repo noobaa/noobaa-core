@@ -33,7 +33,7 @@ const libs = [
     { name: 'shifty',               path: './src/lib/shifty/dist/shifty.js' },
     { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
     { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' },
-    { name: 'chart.js',             path: './src/lib/chart.js/dist/Chart.js' }
+    { name: 'chartjs',             path: './src/lib/chart.js/dist/Chart.js' }
 ];
 
 let apiBlackList = [

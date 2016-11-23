@@ -44,7 +44,7 @@ NAN_METHOD(Syslog::log) {
     int facility = LOG_LOCAL0;
     if (info.Length() == 3) {
         Nan::Utf8String facility_string(info[2]);
-        if (std::string(*email_code_json) === 'LOG_LOCAL1') {
+        if (std::string(*facility_string) == 'LOG_LOCAL1') {
             facility = LOG_LOCAL1;
         } else {
             facility = LOG_LOCAL0;

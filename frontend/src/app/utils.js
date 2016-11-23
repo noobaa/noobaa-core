@@ -427,17 +427,7 @@ export function isDigit(str) {
     return !isNaN(Number(str)) && str.length === 1;
 }
 
-export function getColorChannels(color) {
-    const regExp = /#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/;
-
-    let [, ...channels] = color.match(regExp).map(
-            hex => parseInt(hex, 16)
-    );
-
-    return channels;
-}
-
-export function rgbToColor(r,g,b) {
+export function colorToHex(r, g, b) {
     return `#${
         pad(r.toString(16), 2)
     }${
@@ -447,12 +437,23 @@ export function rgbToColor(r,g,b) {
     }`;
 }
 
-export function colorToRgb(color) {
-    return [
-        parseInt(color.slice(1,3), 16),
-        parseInt(color.slice(3,5), 16),
-        parseInt(color.slice(5,7), 16)
-    ];
+export function colorToRgb(r, g, b, alpha) {
+    return isDefined(alpha) ?
+        `rgba(${r},${g},${b},${alpha})` :
+        `rgb(${r},${g},${b})`;
+}
+
+export function hexToColor(hex) {
+    const regExp = /#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/;
+    const [, ...channels] = hex.match(regExp).map(
+        hex => parseInt(hex, 16)
+    );
+
+    return channels;
+}
+
+export function hexToRgb(hex, alpha) {
+    return colorToRgb(...hexToColor(hex), alpha);
 }
 
 export function tweenColors(ratio, ...colors){
@@ -465,14 +466,14 @@ export function tweenColors(ratio, ...colors){
     let upperBound = Math.ceil(scaledRatio);
     let tweenValue = scaledRatio - lowerBound;
 
-    let [r1, g1, b1] = getColorChannels(colors[lowerBound]);
-    let [r2, g2, b2] = getColorChannels(colors[upperBound]);
+    let [r1, g1, b1] = hexToColor(colors[lowerBound]);
+    let [r2, g2, b2] = hexToColor(colors[upperBound]);
 
     let r = ((r1 + (r2 - r1) * tweenValue) | 0);
     let g = ((g1 + (g2 - g1) * tweenValue) | 0);
     let b = ((b1 + (b2 - b1) * tweenValue) | 0);
 
-    return rgbToColor(r,g,b);
+    return colorToHex(r,g,b);
 }
 
 const letters = 'abcdefghijklmnopqrstuvwxyz';

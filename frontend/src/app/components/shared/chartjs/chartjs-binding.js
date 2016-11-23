@@ -1,25 +1,26 @@
 import ko from 'knockout';
 import Chart from 'chartjs';
 
-const chartsWeakMap = new WeakMap();
+const { domData, domNodeDisposal } = ko.utils;
+const dataKey = 'chartjs';
 
 ko.bindingHandlers.chartjs = {
+    init: function(element, valueAccessor) {
+        let  config = ko.unwrap(valueAccessor());
+        let  chart = new Chart(element, config);
+        domData.set(element, dataKey, chart);
+
+        domNodeDisposal.addDisposeCallback(
+            element,
+            () => chart.destory()
+        );
+    },
+
     update: function(element, valueAccessor) {
-        const config = ko.unwrap(valueAccessor());
+        let config = ko.unwrap(valueAccessor());
+        let chart = domData.get(element, dataKey);
 
-        const chart = chartsWeakMap.get(element);
-
-        if (chart) {
-            if (config) {
-                chart.data.datasets = config.data.datasets;
-                chart.update();
-            } else {
-                chartsWeakMap.delete(element);
-                chart.destroy();
-            }
-        } else if (config) {
-            const newChart = new Chart(element, config);
-            chartsWeakMap.set(element, newChart);
-        }
+        Object.assign(chart.data, config.data);
+        chart.update();
     }
 };

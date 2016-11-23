@@ -60,3 +60,4 @@ function dns_resolve(target, options) {
 }
 
 exports.ping = ping;
+exports.dns_resolve = dns_resolve;

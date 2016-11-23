@@ -19,7 +19,6 @@ NAN_MODULE_INIT(SignupValidator::setup) {
     tpl->SetClassName(NAN_STR(name));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     Nan::SetPrototypeMethod(tpl, "validate", SignupValidator::validate);
-    // Nan::SetPrototypeMethod(tpl, "openlog", Syslog::openlog);
     auto func = Nan::GetFunction(tpl).ToLocalChecked();
     _ctor.Reset(func);
     NAN_SET(target, name, func);

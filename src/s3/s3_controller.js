@@ -70,17 +70,19 @@ class S3Controller {
                     })
                     .catch(err => {
                         dbg.log0(`got error in send_signal_func with err.rpc_code ${err.rpc_code}`);
-                        if (err.rpc_code === 'MONITOR_NOT_LOADED' || err.rpc_code === 'MONITOR_NOT_STARTED') {
-                            return signal_client.cluster_internal.redirect_to_cluster_master()
-                                .then(addr => {
+                        return signal_client.cluster_internal.redirect_to_cluster_master()
+                            .then(addr => {
+                                let base_port = parseInt(process.env.PORT, 10) || 5001;
+                                let new_address = 'ws://' + addr + ':' + base_port;
+                                if (!this._master_address || new_address.toLowerCase() !== this._master_address.toLowerCase()) {
                                     dbg.log0(`changing _master_address from ${this._master_address}, to ${addr}`);
-                                    let base_port = parseInt(process.env.PORT, 10) || 5001;
-                                    this._master_address = 'ws://' + addr + ':' + base_port;
+                                    this._master_address = new_address;
                                     throw err;
-                                });
-                        }
-                        err.DO_NOT_RETRY = true;
-                        throw err;
+                                }
+                                // if master wasn't changed, throw the error without retrying
+                                err.DO_NOT_RETRY = true;
+                                throw err;
+                            });
                     });
             });
         };

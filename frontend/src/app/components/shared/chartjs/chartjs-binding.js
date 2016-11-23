@@ -1,12 +1,14 @@
 import ko from 'knockout';
-import Chart from 'chart.js';
+import Chart from 'chartjs';
 
 const chartsWeakMap = new WeakMap();
 
-export default {
-    update: function(element, valueAccessor/*, allBindings*/) {
+ko.bindingHandlers.chartjs = {
+    update: function(element, valueAccessor) {
         const config = ko.unwrap(valueAccessor());
+
         const chart = chartsWeakMap.get(element);
+
         if (chart) {
             if (config) {
                 chart.data.datasets = config.data.datasets;

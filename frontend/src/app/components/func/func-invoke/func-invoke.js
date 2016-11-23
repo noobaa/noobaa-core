@@ -11,24 +11,12 @@ class FuncInvokeViewModel extends Disposable {
             () => func()
         );
 
-        this.eventText = ko.observable()
+        this.event = ko.observable()
             .extend({
-                validation: {
-                    message: 'Not a valid JSON',
-                    validator: text => {
-                        try {
-                            JSON.parse(text);
-                            return true;
-                        } catch (err) {
-                            return false;
-                        }
-                    }
-                }
+                isJSON: true
             });
 
-        this.errors = ko.validation.group([
-            this.eventText
-        ]);
+        this.errors = ko.validation.group(this);
 
     }
 
@@ -38,11 +26,8 @@ class FuncInvokeViewModel extends Disposable {
             return;
         }
 
-        invokeFunc({
-            name: this.func().config.name,
-            version: this.func().config.version,
-            event: this.eventText()
-        });
+        let { name, version } = this.func().config;
+        invokeFunc(name, version, this.event());
     }
 
 }

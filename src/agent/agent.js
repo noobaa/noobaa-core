@@ -54,6 +54,8 @@ class Agent {
             address: params.address
         }];
 
+        this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
+        dbg.log0(`this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
 
         this.agent_conf = params.agent_conf || new json_utils.JsonWrapper();
@@ -214,6 +216,12 @@ class Agent {
     }
 
     _update_servers_list(new_list) {
+        // check if base_address appears in new_list. if not add it.
+        if (_.isUndefined(new_list.find(srv => srv.address.toLowerCase() === this.base_address.toLowerCase()))) {
+            new_list.push({
+                address: this.base_address
+            });
+        }
         let sorted_new = _.sortBy(new_list, srv => srv.address);
         let sorted_old = _.sortBy(this.servers, srv => srv.address);
         if (_.isEqual(sorted_new, sorted_old)) return P.resolve();
@@ -234,7 +242,7 @@ class Agent {
             dbg.error('_handle_server_change no server list');
             return P.resolve();
         }
-        const previous_address = this.servers[0].address;
+        const previous_address = this.rpc.router.default;
         dbg.log0('previous_address =', previous_address);
         dbg.log0('original servers list =', this.servers);
         if (suggested) {
@@ -306,6 +314,8 @@ class Agent {
         } else if (this.is_demo_agent) {
             hb_info.pool_name = config.DEMO_DEFAULTS.POOL_NAME;
         }
+
+        dbg.log0(`_do_heartbeat called`);
 
         return P.resolve()
             .then(() => {
@@ -489,16 +499,22 @@ class Agent {
             this._start_stop_server();
         }
 
-        if (params.base_address && params.base_address !== params.old_base_address) {
+        if (params.base_address && params.base_address.toLowerCase() !== params.old_base_address.toLowerCase()) {
             dbg.log0('new base_address', params.base_address,
                 'old', params.old_base_address);
             // test this new address first by pinging it
             return P.fcall(() => this.client.node.ping(null, {
                     address: params.base_address
                 }))
-                .then(() => this.agent_conf.update({
-                    address: params.base_address
-                }))
+                .then(() => {
+                    if (params.store_base_address) {
+                        // store base_address to send in get_agent_info_and_update_masters
+                        this.base_address = params.base_address.toLowerCase();
+                        this.agent_conf.update({
+                            address: params.base_address
+                        });
+                    }
+                })
                 .then(() => {
                     dbg.log0('update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
@@ -531,7 +547,7 @@ class Agent {
             ip: ip,
             host_id: this.host_id,
             rpc_address: this.rpc_address || '',
-            base_address: this.rpc.router.default,
+            base_address: this.base_address,
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
@@ -634,6 +650,7 @@ class Agent {
             old_rpc_address: old_rpc_address,
             base_address: base_address,
             old_base_address: old_base_address,
+            store_base_address: !_.isUndefined(base_address),
         });
     }
 

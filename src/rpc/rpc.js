@@ -416,7 +416,7 @@ RPC.prototype.handle_response = function(conn, msg) {
 
 
 RPC.prototype._get_remote_address = function(req, options) {
-    var address = options.address;
+    var address = options.address.toLowerCase();
     if (!address) {
         let domain = options.domain || this.api_routes[req.api.id] || 'default';
         address = this.router[domain];

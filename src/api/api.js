@@ -65,6 +65,7 @@ function new_router(base_address) {
     if (!base_address) {
         base_address = default_base_address();
     }
+    base_address = base_address.toLowerCase();
     let base_url = _.pick(url.parse(base_address),
         'protocol', 'hostname', 'port', 'slashes');
     let base_addr = url.format(base_url);

@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
@@ -116,12 +117,9 @@ function illegal_json_schema(schema, base, error) {
 
 
 function empty_schema_validator(json) {
-    if (_.isEmpty(json)) {
-        return true;
-    } else {
-        empty_schema_validator.errors = "expected empty schema";
-        return false;
-    }
+    if (_.isEmpty(json)) return true;
+    empty_schema_validator.errors = "expected empty schema";
+    return false;
 }
 
 
@@ -135,21 +133,32 @@ function empty_schema_validator(json) {
 // and replace each of the original paths with the buffer length
 function generate_schema_export_buffers(buffer_paths) {
     let code = `
-            var buffers = [];
-            var buf;
+                var buffers = [];
+                var buf;
+                var obj;
     `;
     for (const buf_path of buffer_paths) {
+        const last = buf_path[buf_path.length - 1];
         code += `
-            buf = data${buf_path};
-            if (buf) {
-                buffers.push(buf);
-                data${buf_path} = buf.length;
-            }
+                obj = data;
+        `;
+        for (let i = 0; i < buf_path.length - 1; ++i) {
+            code += `
+                obj = obj && obj[${buf_path[i]}];
+            `;
+        }
+        code += `
+                buf = obj && obj[${last}];
+                if (buf) {
+                    buffers.push(buf);
+                    obj[${last}] = buf.length;
+                }
         `;
     }
     code += `
-            return buffers;
+                return buffers;
     `;
+
     /* jslint evil: true */
     // eslint-disable-next-line no-new-func
     return new Function('data', code);
@@ -157,21 +166,31 @@ function generate_schema_export_buffers(buffer_paths) {
 
 function generate_schema_import_buffers(buffer_paths) {
     let code = `
-            var start = 0;
-            var end = 0;
-            var len;
-            buf = buf || new Buffer(0);
+                var start = 0;
+                var end = 0;
+                var len;
+                var obj;
     `;
     for (const buf_path of buffer_paths) {
+        const last = buf_path[buf_path.length - 1];
         code += `
-            len = data${buf_path};
-            if (typeof(len) === "number") {
-                start = end;
-                end = start + len;
-                data${buf_path} = buf.slice(start, end);
-            }
+                obj = data;
+        `;
+        for (let i = 0; i < buf_path.length - 1; ++i) {
+            code += `
+                obj = obj && obj[${buf_path[i]}];
+            `;
+        }
+        code += `
+                len = obj && obj[${last}];
+                if (typeof(len) === "number") {
+                    start = end;
+                    end = start + len;
+                    obj[${last}] = buf && buf.slice(start, end);
+                }
         `;
     }
+
     /* jslint evil: true */
     // eslint-disable-next-line no-new-func
     return new Function('data', 'buf', code);

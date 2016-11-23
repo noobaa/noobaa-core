@@ -741,11 +741,10 @@ function update_base_address(req) {
             update: {
                 systems: [{
                     _id: req.system._id,
-                    base_address: req.rpc_params.base_address
+                    base_address: req.rpc_params.base_address.toLowerCase()
                 }]
             }
         })
-        .then(() => cutil.update_host_address(req.rpc_params.base_address))
         .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token
         }))

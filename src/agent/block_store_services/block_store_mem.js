@@ -1,15 +1,9 @@
-/**
- *
- * BLOCK STORE MEM
- *
- * memory only alternative, for testing
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 
-const dbg = require('../util/debug_module')(__filename);
+const dbg = require('../../util/debug_module')(__filename);
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 
 

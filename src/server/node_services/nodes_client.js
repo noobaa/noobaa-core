@@ -9,7 +9,6 @@ const auth_server = require('../common_services/auth_server');
 const mongo_utils = require('../../util/mongo_utils');
 const node_allocator = require('./node_allocator');
 
-
 const NODE_FIELDS_FOR_MAP = [
     'name',
     'pool',
@@ -253,18 +252,20 @@ class NodesClient {
     }
 
     _handle_master_change(err) {
-        dbg.log0(`_handle_master_change with err.rpc_code = ${err.rpc_code}`);
-        if (err.rpc_code === 'MONITOR_NOT_LOADED' || err.rpc_code === 'MONITOR_NOT_STARTED') {
-            return server_rpc.client.cluster_internal.redirect_to_cluster_master()
-                .then(addr => {
-                    let new_address = 'ws://' + addr + ':' + server_rpc.get_base_port();
+        // on every error, check if master was changed. if it wasn't rethrow with err.DO_NOT_RETRY
+        dbg.log0(`_handle_master_change with err.rpc_code = ${err.rpc_code} - ${err}`);
+        return server_rpc.client.cluster_internal.redirect_to_cluster_master()
+            .then(addr => {
+                let new_address = 'ws://' + addr + ':' + server_rpc.get_base_port();
+                if (!this._master_address || new_address.toLowerCase() !== this._master_address.toLowerCase()) {
                     dbg.log0(`nodes_client: changing _master_address from ${this._master_address}, to ${new_address}`);
                     this._master_address = new_address;
                     throw err;
-                });
-        }
-        err.DO_NOT_RETRY = true;
-        throw err;
+                }
+                // if master wasn't changed, throw the error without retrying
+                err.DO_NOT_RETRY = true;
+                throw err;
+            });
     }
 
 

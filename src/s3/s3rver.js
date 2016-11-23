@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 require('../util/panic');
@@ -26,6 +27,8 @@ const api = require('../api');
 const config = require('../../config');
 const s3_rest = require('./s3_rest');
 const S3Controller = require('./s3_controller');
+const lambda_rest = require('../lambda/lambda_rest');
+const LambdaController = require('../lambda/lambda_controller');
 
 dbg.set_process_name('S3rver');
 
@@ -95,7 +98,10 @@ function run_server() {
                 return api.new_rpc(params.address);
             }
         })
-        .then(s3_rpc => app.use(s3_rest(new S3Controller(s3_rpc))))
+        .then(rpc => {
+            app.use('/2015-03-31/functions/', lambda_rest(new LambdaController(rpc)));
+            app.use(s3_rest(new S3Controller(rpc)));
+        })
         .then(() => dbg.log0('Starting HTTP', params.port))
         .then(() => listen_http(params.port, http.createServer(app)))
         .then(() => dbg.log0('Starting HTTPS', params.ssl_port))

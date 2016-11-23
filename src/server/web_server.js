@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // load .env file before any other modules so that it will contain
@@ -12,6 +13,7 @@ for (let i = 0; i < process.argv.length; ++i) {
     }
 }
 if (process.env.TESTRUN === 'true') {
+    // eslint-disable-next-line global-require
     var ist = require('../test/framework/istanbul_coverage');
     ist.start_istanbul_coverage();
 }
@@ -68,6 +70,7 @@ var server_rpc = require('./server_rpc');
 server_rpc.register_system_services();
 server_rpc.register_node_services();
 server_rpc.register_object_services();
+server_rpc.register_func_services();
 server_rpc.register_common_services();
 server_rpc.rpc.register_http_transport(app);
 server_rpc.rpc.router.default = 'fcall://fcall';
@@ -149,20 +152,18 @@ app.use(function(req, res, next) {
     // var fwd_start = req.get('X-Request-Start');
     if (fwd_proto === 'http') {
         var host = req.get('Host');
-        return res.redirect('https://' + host + req.url);
+        return res.redirect('https://' + host + req.originalUrl);
     }
     return next();
 });
 app.use(function(req, res, next) {
     let current_clustering = system_store.get_local_cluster_info();
     if ((current_clustering && current_clustering.is_clusterized) &&
-        !system_store.is_cluster_master && req.url !== '/upload_package') {
-        P.fcall(function() {
-                return server_rpc.client.cluster_internal.redirect_to_cluster_master();
-            })
+        !system_store.is_cluster_master && req.originalUrl !== '/upload_package') {
+        P.fcall(() => server_rpc.client.cluster_internal.redirect_to_cluster_master())
             .then(host => {
                 res.status(307);
-                return res.redirect(`http://${host}:8080` + req.url);
+                return res.redirect(`http://${host}:8080` + req.originalUrl);
             })
             .catch(err => {
                 res.status(500);

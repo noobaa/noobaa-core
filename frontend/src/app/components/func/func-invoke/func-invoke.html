@@ -1,0 +1,17 @@
+<div class="column greedy pad">
+
+    <editor params="label: 'Event'">
+        <textarea placeholder="Type Here" rows="6" cols="50"
+            data-bind="value: event"></textarea>
+    </editor>
+
+    <div class="row content-middle">
+        <button class="btn" data-bind="
+            click: invoke,
+            shakeOnClick: errors().length
+        ">
+            Invoke
+        </button>
+    </div>
+
+</div>

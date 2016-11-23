@@ -1,5 +1,7 @@
 NAME="test_lambda"
-ENDPOINT="http://127.0.0.1:6002"
+ENDPOINT="http://127.0.0.1:6001"
+PROFILE="noobaa"
+AWS="aws --endpoint-url ${ENDPOINT} --profile ${PROFILE} --debug"
 
 echo "-----> Preparing ..."
 rm ${NAME}_out
@@ -14,24 +16,21 @@ zip ${NAME}.zip ${NAME}.js
 
 echo
 echo "-----> create-function ..."
-aws lambda create-function \
+${AWS} lambda create-function \
     --function-name ${NAME} \
     --runtime nodejs4.3 \
     --handler ${NAME}.handler \
     --role arn:aws:iam::638243541865:role/lambda-test \
-    --zip-file fileb://${NAME}.zip \
-    --endpoint-url ${ENDPOINT}
+    --zip-file fileb://${NAME}.zip
 
 echo
 echo "-----> list-functions ..."
-aws lambda list-functions \
-    --endpoint-url ${ENDPOINT}
+${AWS} lambda list-functions
 
 echo
 echo "-----> invoke ..."
-aws lambda invoke \
-    --function-name ${NAME} ${NAME}_out \
-    --endpoint-url ${ENDPOINT}
+${AWS} lambda invoke \
+    --function-name ${NAME} ${NAME}_out
 
 echo
 echo "-----> print ..."

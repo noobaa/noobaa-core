@@ -24,6 +24,9 @@ const request = require('request');
 const dns = require('dns');
 const cluster_hb = require('../bg_services/cluster_hb');
 const dotenv = require('../../util/dotenv');
+const pkg = require('../../../package.json');
+const md_store = require('../object_services/md_store');
+
 
 function _init() {
     return P.resolve(MongoCtrl.init());
@@ -75,7 +78,8 @@ function add_member_to_cluster(req) {
     let is_clusterized = topology.is_clusterized;
 
     return server_rpc.client.cluster_internal.verify_join_conditions({
-            secret: req.rpc_params.secret
+            secret: req.rpc_params.secret,
+            version: pkg.version
         }, {
             address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
             timeout: 60000 //60s
@@ -164,9 +168,10 @@ function verify_join_conditions(req) {
             req.connection.url.hostname.replace(/^.*:/, '') :
             req.connection.url.hostname;
     }
-    _verify_join_preconditons(req);
 
-    return response;
+    return P.resolve()
+        .then(() => _verify_join_preconditons(req))
+        .then(() => response);
 }
 
 
@@ -174,24 +179,26 @@ function join_to_cluster(req) {
     dbg.log0('Got join_to_cluster request with topology', cutil.pretty_topology(req.rpc_params.topology),
         'existing topology is:', cutil.pretty_topology(cutil.get_topology()));
 
-    _verify_join_preconditons(req);
+    return P.resolve()
+        .then(() => _verify_join_preconditons(req))
+        .then(() => {
+            req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
+            req.rpc_params.topology.owner_address = req.rpc_params.ip;
+            // update jwt secret in dotenv
+            dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
+            dotenv.set({
+                key: 'JWT_SECRET',
+                value: req.rpc_params.jwt_secret
+            });
+            //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
+            //different ReplicaSet Chains)
+            //Easy path -> don't support it, make admin detach and re-attach as new role,
+            //though this creates more hassle for the admin and overall lengthier process
 
-    //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
-    //different ReplicaSet Chains)
-    //Easy path -> don't support it, make admin detach and re-attach as new role,
-    //though this creates more hassle for the admin and overall lengthier process
-
-    // first thing we update the new topology as the local topoology.
-    // later it will be updated to hold this server's info in the cluster's DB
-    req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
-    req.rpc_params.topology.owner_address = req.rpc_params.ip;
-    // update jwt secret in dotenv
-    dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
-    dotenv.set({
-        key: 'JWT_SECRET',
-        value: req.rpc_params.jwt_secret
-    });
-    return P.resolve(cutil.update_cluster_info(req.rpc_params.topology))
+            // first thing we update the new topology as the local topoology.
+            // later it will be updated to hold this server's info in the cluster's DB
+            return _update_cluster_info(req.rpc_params.topology);
+        })
         .then(() => {
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
@@ -203,7 +210,7 @@ function join_to_cluster(req) {
                         address: req.rpc_params.ip
                     }]
                 });
-                return P.resolve(cutil.update_cluster_info({
+                return P.resolve(_update_cluster_info({
                         owner_address: req.rpc_params.ip,
                         shards: shards
                     }))
@@ -224,7 +231,7 @@ function join_to_cluster(req) {
             throw new Error('Unknown server role ' + req.rpc_params.role);
         })
         //.then(() => _attach_server_configuration({}))
-        //.then((res_params) => cutil.update_cluster_info(res_params))
+        //.then((res_params) => _update_cluster_info(res_params))
         .then(function() {
             var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'ntp');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
@@ -248,7 +255,7 @@ function news_config_servers(req) {
     return P.resolve(_update_rs_if_needed(req.rpc_params.IPs, config.MONGO_DEFAULTS.CFG_RSET_NAME, true))
         .then(() => {
             //Update our view of the topology
-            return P.resolve(cutil.update_cluster_info({
+            return P.resolve(_update_cluster_info({
                     config_servers: req.rpc_params.IPs
                 }))
                 .then(() => {
@@ -281,7 +288,7 @@ function news_updated_topology(req) {
 
     dbg.log0('updating topolgy to the new published topology:', req.rpc_params);
     //Update our view of the topology
-    return P.resolve(cutil.update_cluster_info({
+    return P.resolve(_update_cluster_info({
         is_clusterized: true,
         shards: req.rpc_params.shards
     }));
@@ -289,6 +296,15 @@ function news_updated_topology(req) {
 
 
 function redirect_to_cluster_master(req) {
+    let current_clustering = system_store.get_local_cluster_info();
+    if (!current_clustering) {
+        let address = system_store.data.systems[0].base_address || os_utils.get_local_ipv4_ips()[0];
+        return address;
+    }
+    if (!current_clustering.is_clusterized) {
+        let address = system_store.data.systems[0].base_address || current_clustering.owner_address;
+        return address;
+    }
     return P.fcall(function() {
             return MongoCtrl.redirect_to_cluster_master();
         })
@@ -997,17 +1013,38 @@ function _handle_ph_dns(ph_dns_result, google_get_result) {
 function _verify_join_preconditons(req) {
     //Verify secrets match
     if (req.rpc_params.secret !== system_store.get_server_secret()) {
-        console.error('Secrets do not match!');
+        dbg.error('Secrets do not match!');
         throw new Error('Secrets do not match!');
     }
 
-    //Verify we are not already joined to a cluster
-    //TODO:: think how do we want to handle it, if at all
-    if (cutil.get_topology().shards.length !== 1 ||
-        cutil.get_topology().shards[0].servers.length !== 1) {
-        console.error('Server already joined to a cluster');
-        throw new Error('Server joined to a cluster');
+    if (req.rpc_params.version && req.rpc_params.version !== pkg.version) {
+        dbg.error(`versions does not match - master version = ${req.rpc_params.version}  joined version = ${pkg.version}`);
+        throw new Error('versions do not match');
     }
+
+
+    let system = system_store.data.systems[0];
+    if (system) {
+        //Verify we are not already joined to a cluster
+        //TODO:: think how do we want to handle it, if at all
+        if (cutil.get_topology().shards.length !== 1 ||
+            cutil.get_topology().shards[0].servers.length !== 1) {
+            dbg.error('Server already joined to a cluster');
+            throw new Error('Server joined to a cluster');
+        }
+
+        // verify there are no objects on the system
+        return (md_store.aggregate_objects_count({
+                system: system._id,
+                deleted: null
+            }))
+            .then(obj_count => {
+                if (obj_count[''] > 0) {
+                    throw new Error('Server contains objects');
+                }
+            });
+    }
+
 
 }
 
@@ -1089,7 +1126,7 @@ function _initiate_replica_set(shardname) {
     new_topology.owner_shardname = shardname;
 
     // first update topology to indicate clusterization
-    return P.resolve(() => cutil.update_cluster_info(new_topology))
+    return P.resolve(() => _update_cluster_info(new_topology))
         .then(() => MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ true, new_topology.shards[shard_idx].servers))
         .then(() => {
             dbg.log0('Replica set created, calling initiate');
@@ -1098,6 +1135,54 @@ function _initiate_replica_set(shardname) {
             ));
         });
 }
+
+function _update_cluster_info(params) {
+    let current_clustering = system_store.get_local_cluster_info();
+    return P.resolve()
+        .then(() => {
+            if (!current_clustering) {
+                return new_cluster_info();
+            }
+        })
+        .then(new_clustering => {
+            current_clustering = current_clustering || new_clustering;
+            var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
+            update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
+            update.owner_address = params.owner_address || current_clustering.owner_address;
+            update._id = current_clustering._id;
+
+            dbg.log0('Updating local cluster info for owner', update.owner_secret, 'previous cluster info',
+                cutil.pretty_topology(current_clustering), 'new cluster info', cutil.pretty_topology(update));
+
+            let changes;
+            // if we are adding a new cluster info use insert in the changes
+            if (new_clustering) {
+                changes = {
+                    insert: {
+                        clusters: [update]
+                    }
+                };
+            } else {
+                changes = {
+                    update: {
+                        clusters: [update]
+                    }
+                };
+            }
+
+            return system_store.make_changes(changes)
+                .then(() => {
+                    dbg.log0('local cluster info updates successfully');
+                    return;
+                })
+                .catch((err) => {
+                    console.error('failed on local cluster info update with', err.message);
+                    throw err;
+                });
+        });
+}
+
+
 
 // add a new server to an existing replica set
 function _add_new_server_to_replica_set(shardname, ip) {

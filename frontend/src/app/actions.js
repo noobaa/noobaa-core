@@ -3,6 +3,7 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
+import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
     downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
     stringifyAmount } from 'utils';
@@ -304,6 +305,158 @@ export function showCluster() {
         selectedNavItem: 'cluster',
         panel: 'cluster'
     });
+}
+
+export function showFuncs() {
+    logAction('showFuncs');
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Functions',
+        breadcrumbs: [
+            { route: 'funcs', label: 'Functions' }
+        ],
+        selectedNavItem: 'funcs',
+        panel: 'funcs'
+    });
+
+    loadFuncs();
+}
+
+export function showFunc() {
+    logAction('showFunc');
+
+    let ctx = model.routeContext();
+    let { func, tab = 'monitoring' } = ctx.params;
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Function',
+        breadcrumbs: [
+            { route: 'funcs', label: 'Functions' },
+            { route: 'func', label: func }
+        ],
+        selectedNavItem: 'funcs',
+        panel: 'func',
+        tab: tab
+    });
+
+    loadFunc(func);
+}
+
+export function loadFuncs() {
+    logAction('loadFuncs');
+
+    api.func.list_funcs({})
+        .then(
+            reply => model.funcList(
+                deepFreeze(reply.functions)
+            )
+        )
+        .done();
+}
+
+export function loadFunc(name) {
+    logAction('loadFunc');
+
+    api.func.read_func({
+        name: name,
+        version: '$LATEST',
+        read_code: true,
+        read_stats: true
+    })
+        .then(reply => {
+            reply.codeFiles = [];
+            const code_zip_data = reply.code && reply.code.zipfile;
+            if (!code_zip_data) {
+                return reply;
+            }
+            // we nullify the buffer since we can't freeze it
+            // and don't need it after reading the zip entries
+            reply.code.zipfile = null;
+            return JSZip.loadAsync(code_zip_data)
+                .then(zip => {
+                    const promises = [];
+                    zip.forEach((relativePath, file) => {
+                        const codeFile = {
+                            path: relativePath,
+                            size: file._data.uncompressedSize, // hacky
+                            dir: file.dir,
+                            content: null
+                        };
+                        reply.codeFiles.push(codeFile);
+                        // only reading files in package root
+                        if (relativePath.includes('/')) return;
+                        promises.push(file.async('string')
+                            .then(content => {
+                                codeFile.content = content;
+                            })
+                        );
+                    });
+                    return Promise.all(promises)
+                        .then(() => reply);
+                });
+        })
+        .then(reply => model.funcInfo(
+            deepFreeze(reply)
+        ))
+        .done();
+}
+
+export function invokeFunc(name, version, event) {
+    logAction('invokeFunc', { name, version, event });
+
+    try {
+        event = JSON.parse(event);
+    } catch(err) {
+        event = String(event || '');
+    }
+
+    api.func.invoke_func({
+        name: name,
+        version: version,
+        event: event
+    })
+        .then(
+            res => {
+                if (res.error) {
+                    notify(`Func ${name} invoked but returned error: ${res.error.message}`, 'warning');
+                } else {
+                    notify(`Func ${name} invoked successfully result: ${JSON.stringify(res.result)}`, 'success');
+                }
+            },
+            () => notify(`Func ${name} invocation failed`, 'error')
+        )
+        .done();
+}
+
+export function updateFunc(config) {
+    logAction('updateFunc', { config });
+
+    api.func.update_func({
+        config: config
+    })
+        .then(
+            () => notify(`Func ${config.name} updated successfully`, 'success'),
+            () => notify(`Func ${config.name} update failed`, 'error')
+        )
+        .then(() => loadFunc(config.name))
+        .done();
+}
+
+export function deleteFunc(name, version) {
+    logAction('deleteFunc', { name, version });
+
+    api.func.delete_func({
+        name: name,
+        version: version
+    })
+        .then(
+            () => notify(`Func ${name} deleted successfully`, 'success'),
+            () => notify(`Func ${name} deletion failed`, 'error')
+        )
+        .then(loadFuncs)
+        .done();
 }
 
 export function handleUnknownRoute() {

@@ -57,9 +57,12 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['secret'],
+                required: ['secret', 'version'],
                 properties: {
                     secret: {
+                        type: 'string'
+                    },
+                    version: {
                         type: 'string'
                     }
                 }

@@ -1,14 +1,15 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
-const config = require('../../../config.js');
-const dbg = require('../../util/debug_module')(__filename);
 const MongoCtrl = require('../utils/mongo_ctrl');
-const bg_workers_starter = require('../../bg_workers/bg_workers_starter');
+const bg_workers = require('../bg_workers');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const P = require('../../util/promise');
 
 var is_cluster_master = false;
 let cluster_master_retries = 0;
@@ -33,7 +34,7 @@ function background_worker() {
             .then((is_master) => {
                 if (!is_master.ismaster && is_cluster_master) {
                     dbg.log0(`this server was master before, but now is not. remove master workers`);
-                    bg_workers_starter.remove_master_workers();
+                    bg_workers.remove_master_workers();
                 } else if (is_master.ismaster && !is_cluster_master) {
                     dbg.log0(`this server is master now and wasn't before. start services in ${config.CLUSTER_MASTER_INTERVAL / 1000} seconds`);
                     // Used in order to disable race condition on master switch
@@ -43,7 +44,7 @@ function background_worker() {
                             // Need to run the workers only if the server still master
                             if (is_cluster_master) {
                                 dbg.log0(`still master - start services`);
-                                return bg_workers_starter.run_master_workers();
+                                return bg_workers.run_master_workers();
                             }
                             dbg.log0(`not really master - will not start services`);
                         });
@@ -58,7 +59,7 @@ function background_worker() {
                     dbg.error(`number of retries eceeded ${MAX_RETRIES}. step down as master if was master before`);
                     // step down after MAX_RETRIES
                     is_cluster_master = false;
-                    bg_workers_starter.remove_master_workers();
+                    bg_workers.remove_master_workers();
                     return send_master_update(is_cluster_master);
                 }
                 cluster_master_retries += 1;
@@ -70,7 +71,7 @@ function background_worker() {
         return send_master_update(true)
             .then(() => {
                 if (!is_cluster_master) {
-                    bg_workers_starter.run_master_workers();
+                    bg_workers.run_master_workers();
                     is_cluster_master = true;
                 }
             })

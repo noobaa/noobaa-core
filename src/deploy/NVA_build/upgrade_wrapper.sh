@@ -196,6 +196,9 @@ function pre_upgrade {
 		yum install -y dialog
 	fi
 
+	deploy_log "installing utils"
+	yum install -y bind-utils
+
 	if getent passwd noobaa > /dev/null 2>&1; then
 		echo "noobaa user exists"
 	else
@@ -347,6 +350,7 @@ function post_upgrade {
   #NooBaa supervisor services configuration changes
   sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
   sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
+  sed -i 's:src/bg_workers/bg_workers_starter.js:src/server/bg_workers.js:' /etc/supervisord.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
   deploy_log "first install wizard"

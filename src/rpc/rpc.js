@@ -418,12 +418,12 @@ RPC.prototype.handle_response = function(conn, msg) {
 RPC.prototype._get_remote_address = function(req, options) {
     var address = options.address;
     if (!address) {
-        address = options.address.toLowerCase();
         let domain = options.domain || this.api_routes[req.api.id] || 'default';
         address = this.router[domain];
         dbg.log3('RPC ROUTER', domain, '=>', address);
     }
     assert(address, 'No RPC Address/Domain');
+    address = options.address.toLowerCase();
     var addr_url = this._address_to_url_cache.get(address);
     if (!addr_url) {
         addr_url = url_utils.quick_parse(address, true);

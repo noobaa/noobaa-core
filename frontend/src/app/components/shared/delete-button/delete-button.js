@@ -1,7 +1,7 @@
 import template from './delete-button.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { isFunction, noop } from 'utils';
+import { isFunction, noop } from 'utils/all';
 
 class DeleteButtonViewModel extends Disposable {
     constructor({

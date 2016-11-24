@@ -2,7 +2,7 @@ import template from './node-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import { deepFreeze, formatSize, bitsToNumber } from 'utils';
+import { deepFreeze, formatSize, bitsToNumber } from 'utils/all';
 import style from 'style';
 
 const stateMapping = deepFreeze({

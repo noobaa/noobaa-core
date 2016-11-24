@@ -6,7 +6,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
 import { systemInfo } from 'model';
-import { deepFreeze, lastSegment, realizeUri, encodeBase64 } from 'utils';
+import { deepFreeze, lastSegment, realizeUri, encodeBase64 } from 'utils/all';
 import { asset as assetRoute } from 'routes';
 
 const steps = deepFreeze([

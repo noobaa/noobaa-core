@@ -3,7 +3,7 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { collectDiagnosticsState, systemInfo } from 'model';
 import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
-import { deepFreeze, isUndefined, formatSize } from 'utils';
+import { deepFreeze, isUndefined, formatSize } from 'utils/all';
 
 const diskUsageErrorBound = .95;
 const diskUsageWarningBound = .85;

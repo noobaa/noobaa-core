@@ -1,7 +1,7 @@
 import template from './upgraded-capacity-notification-modal.html';
 import Disposable from 'disposable';
 import { dismissUpgradedCapacityNotification } from 'actions';
-import { realizeUri } from 'utils';
+import { realizeUri } from 'utils/all';
 import { asset as assetRoute } from 'routes';
 
 class UpgradedCapacityNotificationModalViewModel extends Disposable {

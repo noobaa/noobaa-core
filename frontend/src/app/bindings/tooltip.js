@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isString, deepFreeze } from 'utils';
+import { isObject, isString, deepFreeze } from 'utils/all';
 
 const tooltip = document.createElement('p');
 const delay = 350;

@@ -1,7 +1,7 @@
 import template from './welcome-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { sleep } from 'utils';
+import { sleep } from 'utils/all';
 
 const loadingDelay = 2000;
 

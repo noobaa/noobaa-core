@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { stringifyAmount } from 'utils';
+import { stringifyAmount } from 'utils/all';
 import { deleteFunc } from 'actions';
 
 

@@ -423,6 +423,7 @@ RPC.prototype._get_remote_address = function(req, options) {
         dbg.log3('RPC ROUTER', domain, '=>', address);
     }
     assert(address, 'No RPC Address/Domain');
+    address = address.toLowerCase();
     var addr_url = this._address_to_url_cache.get(address);
     if (!addr_url) {
         addr_url = url_utils.quick_parse(address, true);

@@ -1,5 +1,28 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
+import { formatSize, deepFreeze } from 'utils';
+
+const iconMapping = deepFreeze({
+    AWS: {
+        name: 'aws-s3-resource',
+        tooltip: 'AWS S3 Bucket'
+    },
+
+    AZURE: {
+        name: 'azure-resource',
+        tooltip: 'Azure Container'
+    },
+
+    S3_COMPATIBLE: {
+        name: 'cloud-resource',
+        tooltip: 'S3 Compatible Cloud Bukcet'
+    },
+
+    NODE: {
+        name: 'logo',
+        tooltip: 'Node Pool'
+    }
+});
 
 export default class PoolRowViewModel extends Disposable {
     constructor(pool, selectedPools) {
@@ -18,8 +41,14 @@ export default class PoolRowViewModel extends Disposable {
                     return;
                 }
 
-                let { count, has_issues } = pool().nodes;
-                let state = count - has_issues >= 3;
+                let state;
+                if (pool().nodes) {
+                    let { count, has_issues } = pool().nodes;
+                    state = count - has_issues >= 3;
+                } else {
+                    state = true;
+                }
+
                 return {
                     css: state ? 'success' : 'error',
                     name: state ? 'healthy' : 'problem',
@@ -28,21 +57,30 @@ export default class PoolRowViewModel extends Disposable {
             }
         );
 
+        this.type = ko.pureComputed(
+            () => {
+                if (!pool()) {
+                    return;
+                }
+
+                return pool().cloud_info ? iconMapping[pool().cloud_info.endpoint_type] : iconMapping['NODE'];
+            }
+        );
 
         this.name = ko.pureComputed(
             () => pool() ? pool().name : ''
         );
 
-        this.onlineCount = ko.pureComputed(
-            () => pool() && pool().nodes.online
-        ).extend({
-            formatNumber: true
-        });
+        this.onlineNodes = ko.pureComputed(
+            () => pool() && pool().nodes ?
+                `${pool().nodes.online} of ${pool().nodes.count}` :
+                '-'
+        );
 
-        this.freeSpace = ko.pureComputed(
-            () => pool() && pool().storage.free
-        ).extend({
-            formatSize: true
-        });
+        this.capacityUsage = ko.pureComputed(
+            () => pool() && pool().nodes ?
+                `${formatSize(pool().storage.used)} of ${formatSize(pool().storage.total)}` :
+                `${formatSize(pool().storage.used)}`
+        );
     }
 }

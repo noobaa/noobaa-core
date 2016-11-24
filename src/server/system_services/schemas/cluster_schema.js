@@ -207,7 +207,7 @@ module.exports = {
                 },
                 services_status: {
                     type: 'object',
-                    required: ['dns_status', 'ph_status', 'disk_usage'],
+                    required: ['dns_status', 'ph_status'],
                     properties: {
                         dns_status: {
                             type: 'string',
@@ -232,9 +232,6 @@ module.exports = {
                         remote_syslog_status: {
                             type: 'string',
                             enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                        },
-                        disk_usage: {
-                            type: 'integer'
                         },
                         cluster_status: {
                             anyOf: [{

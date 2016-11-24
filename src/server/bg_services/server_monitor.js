@@ -4,7 +4,6 @@ const dbg = require('../../util/debug_module')(__filename);
 const P = require('../../util/promise');
 const _ = require('lodash');
 const promise_utils = require('../../util/promise_utils');
-const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const server_rpc = require('../server_rpc');
 const net_utils = require('../../util/net');
@@ -19,7 +18,6 @@ function run() {
     monitoring_status = {
         dns_status: "UNKNOWN",
         ph_status: "UNKNOWN",
-        disk_usage: "UNKNOWN",
     };
     if (!system_store.is_finished_initial_load) {
         dbg.log0('waiting for system store to load');
@@ -219,10 +217,11 @@ function _check_internal_ips() {
 
 function _check_disk_space() {
     dbg.log2('_check_disk_space');
-    return fs_utils.disk_usage()
-        .then(res => {
-            monitoring_status.disk_usage = res.size;
-        });
+    // right now not doing anything with this. Should alert to user
+    //    return fs_utils.disk_usage()
+    //        .then(res => {
+    //            monitoring_status.disk_usage = res.size;
+    //        });
 }
 
 // EXPORTS

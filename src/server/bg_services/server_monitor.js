@@ -8,22 +8,19 @@ const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const server_rpc = require('../server_rpc');
 const net_utils = require('../../util/net');
+const net = require('net');
 const system_store = require('../system_services/system_store').get_instance();
 
-const DEFAULT_MONITORING_STATUS = {
-    dns_status: "UNKNOWN",
-    ph_status: "UNKNOWN",
-    disk_usage: "UNKNOWN",
-    internal_connectivity: {
-        webserver: "UNKNOWN"
-    }
-};
-
-let current_status = DEFAULT_MONITORING_STATUS;
 let server_conf = {};
 
-function background_worker() {
+
+function run() {
     dbg.log0('MONITOR: BEGIN');
+    let server_status = {
+        dns_status: "UNKNOWN",
+        ph_status: "UNKNOWN",
+        disk_usage: "UNKNOWN",
+    };
     if (!system_store.is_finished_initial_load) {
         dbg.log0('waiting for system store to load');
         return;
@@ -31,16 +28,16 @@ function background_worker() {
     server_conf = system_store.get_local_cluster_info();
     return system_store.refresh()
         .then(() => _verify_cluster_configuration())
-        .then(() => _check_ntp(current_status))
+        .then(() => _check_ntp(server_status))
         .then(monitoring_status => _check_dns_and_phonehome(monitoring_status))
         .then(monitoring_status => _check_proxy_configuration(monitoring_status))
         .then(monitoring_status => _check_remote_syslog(monitoring_status))
-        //    .then(monitoring_status => _check_is_self_in_dns_table(monitoring_status))
+        .then(monitoring_status => _check_is_self_in_dns_table(monitoring_status))
         .then(monitoring_status => _check_internal_ips(monitoring_status))
         .then(monitoring_status => _check_disk_space(monitoring_status))
         .then(monitoring_status => {
             dbg.log0('MONITOR: END. status:', monitoring_status);
-            current_status = monitoring_status;
+            return monitoring_status;
         });
 }
 
@@ -208,15 +205,29 @@ function _check_remote_syslog(monitoring_status) {
         })
         .then(() => monitoring_status);
 }
-/*
+
 function _check_is_self_in_dns_table(monitoring_status) {
     dbg.log3('_check_is_self_in_dns_table');
     dbg.log0('_check_is_self_in_dns_table WOOP:', monitoring_status);
-
-
-    return
-
-}*/
+    let system_dns = system_store.data.systems[0].base_address;
+    let address = server_conf.owner_address;
+    dbg.log0(`WOOP _check_is_self_in_dns_table address:`, address);
+    if (!system_dns || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return monitoring_status; // dns name is not configured
+    return net_utils.dns_resolve(system_dns)
+        .then(ip_address_table => {
+            dbg.log0(`WOOP _check_is_self_in_dns_table ip_address_table:`, ip_address_table);
+            if (_.includes(ip_address_table, address)) {
+                monitoring_status.dns_name = "OPERATIONAL";
+            } else {
+                monitoring_status.dns_name = "UNREACHABLE";
+            }
+        })
+        .catch(err => {
+            monitoring_status.dns_name = "FAULTY";
+            dbg.warn(`Error when trying to find address in dns resolve table: ${server_conf.owner_address}. err:`, err.stack || err);
+        })
+        .then(() => monitoring_status);
+}
 
 function _check_internal_ips(monitoring_status) {
     dbg.log3('_check_internal_ips');
@@ -224,6 +235,7 @@ function _check_internal_ips(monitoring_status) {
 
     return server_rpc.client.cluster_server.check_cluster_status()
         .then(cluster_status => {
+            dbg.log0('_check_internal_ips WOOP:', cluster_status);
             if (cluster_status && cluster_status.length > 0) {
                 monitoring_status.cluster_status = cluster_status;
             }
@@ -247,4 +259,4 @@ function _check_disk_space(monitoring_status) {
 }
 
 // EXPORTS
-exports.background_worker = background_worker;
+exports.run = run;

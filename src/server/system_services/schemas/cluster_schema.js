@@ -204,6 +204,60 @@ module.exports = {
                             }
                         }
                     }
+                },
+                services_status: {
+                    type: 'object',
+                    required: ['dns_status', 'ph_status', 'disk_usage'],
+                    properties: {
+                        dns_status: {
+                            type: 'string',
+                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                        },
+                        ph_status: {
+                            type: 'string',
+                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                        },
+                        ntp_status: {
+                            type: 'string',
+                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                        },
+                        internet_connectivity: {
+                            type: 'string',
+                            enum: ['FAULTY']
+                        },
+                        proxy_status: {
+                            type: 'string',
+                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                        },
+                        remote_syslog_status: {
+                            type: 'string',
+                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                        },
+                        disk_usage: {
+                            type: 'integer'
+                        },
+                        cluster_status: {
+                            anyOf: [{
+                                type: 'string',
+                                enum: ['UNKNOWN']
+                            }, {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    required: ['secret', 'status'],
+                                    properties: {
+                                        secret: {
+                                            type: 'string'
+                                        },
+                                        status: {
+                                            type: 'string',
+                                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                                        }
+                                    }
+                                }
+                            }]
+                        }
+                    }
                 }
             }
         }

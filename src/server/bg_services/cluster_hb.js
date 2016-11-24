@@ -6,6 +6,7 @@ const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const MongoCtrl = require('../utils/mongo_ctrl');
 const P = require('../../util/promise');
+const server_monitor = require('./server_monitor');
 
 exports.do_heartbeat = do_heartbeat;
 
@@ -48,11 +49,15 @@ function do_heartbeat() {
                     heartbeat: heartbeat
                 };
                 dbg.log0('writing cluster server heartbeat to DB. heartbeat:', heartbeat);
-                return system_store.make_changes({
-                    update: {
-                        clusters: [update]
-                    }
-                });
+                return server_monitor.run()
+                    .then(status => {
+                        update.services_status = status;
+                        system_store.make_changes({
+                            update: {
+                                clusters: [update]
+                            }
+                        });
+                    });
             })
             .return();
     } else {

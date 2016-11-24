@@ -14,13 +14,12 @@ const DEFAULT_PING_OPTIONS = {
 };
 
 function ping(target, options) {
-    dbg.log0('pinging', target);
-    dbg.log0('WOOP target:', target);
+    dbg.log1('pinging', target);
 
     options = options || DEFAULT_PING_OPTIONS;
     _.defaults(options, DEFAULT_PING_OPTIONS);
     let session = net_ping.createSession(options);
-    return dns_resolve(url.parse(target).hostname || target)
+    return dns_resolve(target)
         .then(ip_table => P.any(
             _.map(ip_table, ip => new Promise((resolve, reject) => {
                 dbg.log0('LOOP ip:', ip);
@@ -32,30 +31,19 @@ function ping(target, options) {
                     }
                 });
             }))));
-
-    /*
-    new Promise((resolve, reject) => {
-            dbg.log0('LOOP ip:', ip_table);
-            session.pingHost(ip_table, error => {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve();
-                }
-            });
-        })));*/
 }
 
 function dns_resolve(target, options) {
     dbg.log0('resolving dns address', target);
     return new Promise((resolve, reject) => {
-        dns.resolve(target, (options && options.rrtype) || 'A', (err, ip_table) => {
-            if (err) {
-                reject(reject);
-            } else {
-                resolve(ip_table);
-            }
-        });
+        dns.resolve(url.parse(target).hostname || target,
+            (options && options.rrtype) || 'A', (err, ip_table) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(ip_table);
+                }
+            });
     });
 }
 

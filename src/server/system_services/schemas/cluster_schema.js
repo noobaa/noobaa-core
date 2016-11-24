@@ -217,6 +217,10 @@ module.exports = {
                             type: 'string',
                             enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
                         },
+                        dns_name: {
+                            type: 'string',
+                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                        },
                         ntp_status: {
                             type: 'string',
                             enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']

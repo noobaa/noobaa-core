@@ -751,6 +751,9 @@ module.exports = {
                 ph_status: {
                     $ref: '#/definitions/service_status_enum'
                 },
+                dns_name: {
+                    $ref: '#/definitions/service_status_enum'
+                },
                 ntp_status: {
                     $ref: '#/definitions/service_status_enum'
                 },

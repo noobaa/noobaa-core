@@ -14,7 +14,6 @@ const express_compress = require('compression');
 const express_body_parser = require('body-parser');
 const express_morgan_logger = require('morgan');
 const express_method_override = require('method-override');
-const util = require('util');
 
 const P = require('../util/promise');
 const pem = require('../util/pem');

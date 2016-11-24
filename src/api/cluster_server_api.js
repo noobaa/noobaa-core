@@ -183,9 +183,9 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['server_secret', 'status'],
+                    required: ['secret', 'status'],
                     properties: {
-                        server_secret: {
+                        secret: {
                             type: 'string'
                         },
                         status: {

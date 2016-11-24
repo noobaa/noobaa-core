@@ -1243,16 +1243,13 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
 
 function check_cluster_status() {
     var servers = system_store.data.clusters;
-
-    dbg.log0('WOOPWOOPWOOP servers: ', servers);
+    dbg.log2('check_cluster_status', servers);
     return P.map(_.filter(servers,
             server => server.owner_secret !== system_store.get_server_secret()),
         server => server_rpc.client.cluster_server.ping({}, {
             address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
             timeout: 60000 //60s
         }).then(res => {
-            dbg.log0('WOOP res: ', res);
-            dbg.log0('WOOPWOOP server: ', server);
             if (res === "pong") {
                 return {
                     secret: server.owner_secret,

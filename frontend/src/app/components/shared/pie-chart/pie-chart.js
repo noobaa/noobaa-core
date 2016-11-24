@@ -1,7 +1,7 @@
 import template from './pie-chart.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import {  makeArray, deepFreeze } from 'utils';
+import {  makeArray, deepFreeze } from 'utils/all';
 import style from 'style';
 
 const radius = 84;

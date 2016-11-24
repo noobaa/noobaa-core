@@ -1,7 +1,7 @@
 import template from './property-sheet.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { copyTextToClipboard } from 'utils';
+import { copyTextToClipboard } from 'utils/all';
 
 // const idelTooltip
 

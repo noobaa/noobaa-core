@@ -2,7 +2,7 @@ import template from './node-details-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import { avgOp } from 'utils';
+import { avgOp } from 'utils/all';
 import { systemInfo } from 'model';
 import { decommissionNode, recommissionNode } from 'actions';
 

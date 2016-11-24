@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
 import { systemInfo, uiState, routeContext } from 'model';
-import { deepFreeze, createCompareFunc } from 'utils';
+import { deepFreeze, createCompareFunc } from 'utils/all';
 import { navigateTo } from 'actions';
 
 const columns = deepFreeze([

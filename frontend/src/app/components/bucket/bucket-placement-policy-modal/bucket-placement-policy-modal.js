@@ -1,7 +1,7 @@
 import template from './bucket-placement-policy-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop, deepFreeze } from 'utils';
+import { noop, deepFreeze } from 'utils/all';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
 

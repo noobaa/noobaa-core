@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { shortString, formatSize } from 'utils';
+import { shortString, formatSize } from 'utils/all';
 
 const partStateIcons = Object.freeze({
     available: {

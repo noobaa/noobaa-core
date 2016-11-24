@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateCloudSyncPolicy } from 'actions';
-import { deepFreeze, bitsToNumber } from 'utils';
+import { deepFreeze, bitsToNumber } from 'utils/all';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 const frequencyUnitOptions = deepFreeze([

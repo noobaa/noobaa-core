@@ -1,7 +1,7 @@
 import template from './func-config.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 import { updateFunc } from 'actions';
 
 const runtimeOptions = deepFreeze([

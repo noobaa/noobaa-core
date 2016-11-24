@@ -1,6 +1,6 @@
 import template from './chart-legend.html';
 import Disposable from 'disposable';
-import { formatSize } from 'utils';
+import { formatSize } from 'utils/all';
 import ko from 'knockout';
 
 class ChartLegendViewModel extends Disposable{

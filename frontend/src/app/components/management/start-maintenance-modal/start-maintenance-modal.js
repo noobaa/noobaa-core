@@ -2,7 +2,7 @@ import template from './start-maintenance-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import  { enterMaintenanceMode } from 'actions';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const durationUntiOptions = deepFreeze([
     {

@@ -1,8 +1,8 @@
 import template from './dropdown.html';
-import { randomString } from 'utils';
+import { randomString } from 'utils/all';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { isDefined, clamp } from 'utils';
+import { isDefined, clamp } from 'utils/all';
 
 const INPUT_THROTTLE = 1000;
 

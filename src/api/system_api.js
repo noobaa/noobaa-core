@@ -436,7 +436,7 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        buffer: true
+                        type: 'string'
                     },
                 },
             },

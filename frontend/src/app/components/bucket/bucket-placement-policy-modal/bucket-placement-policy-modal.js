@@ -1,30 +1,15 @@
 import template from './bucket-placement-policy-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop, deepFreeze } from 'utils';
+import { noop } from 'utils';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
-
-const columns = deepFreeze([
-    {
-        name: 'select',
-        type: 'checkbox'
-    },
-    {
-        name: 'state',
-        type: 'icon'
-    },
-    'name',
-    'onlineCount',
-    'freeSpace'
-]);
 
 class BacketPlacementPolicyModalViewModel extends Disposable {
     constructor({ bucketName, onClose = noop }) {
         super();
 
         this.onClose = onClose;
-        this.columns = columns;
 
         this.tierName = ko.pureComputed(
             () => {
@@ -57,9 +42,7 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         );
 
         this.pools = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : []).filter(
-                pool => pool.nodes && !pool.demo_pool
-            )
+            () => (systemInfo() ? systemInfo().pools : [])
         );
 
         this.selectedPools = ko.observableArray(
@@ -74,6 +57,25 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         });
 
         this.errors = ko.validation.group(this);
+
+        this.isWarningVisible = ko.pureComputed(
+            () => {
+                if (this.placementType() === 'MIRROR') {
+                    return false;
+                }
+
+                let { nodes, cloud } = this.selectedPools().reduce(
+                    (counts, poolName) => {
+                        this.pools().filter( pool => pool.name === poolName)[0].nodes ?
+                            counts.nodes++ :
+                            counts.cloud++ ;
+                        return counts;
+                    },
+                    { nodes: 0, cloud: 0 }
+                );
+                return nodes > 0 && cloud > 0;
+            }
+        );
     }
 
     save() {

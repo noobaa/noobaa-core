@@ -466,6 +466,9 @@ function restart_services() {
     });
 }
 
+function set_hostname(hostname) {
+    return promise_utils.exec(`hostname ${hostname}`);
+}
 
 // EXPORTS
 exports.os_info = os_info;
@@ -487,3 +490,4 @@ exports.is_supervised_env = is_supervised_env;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.set_dns_server = set_dns_server;
 exports.restart_services = restart_services;
+exports.set_hostname = set_hostname;

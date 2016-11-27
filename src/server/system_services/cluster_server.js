@@ -904,6 +904,42 @@ function read_server_config(req) {
         });
 }
 
+function set_hostname(req) {
+    dbg.log0('set_hostname. params:', req.rpc_params);
+    return P.fcall(() => {
+            if (req.rpc_params.server_secret) {
+                if (!system_store.data.cluster_by_server[req.rpc_params.server_secret]) {
+                    throw new Error(`unknown server:`, req.rpc_params.server_secret);
+                }
+                return system_store.data.cluster_by_server[req.rpc_params.server_secret];
+            }
+            return system_store.get_local_cluster_info();
+        })
+        .then(cluster_server => server_rpc.client.cluster_internal.set_hostname_internal({
+            hostname: req.rpc_params.hostname,
+        }, {
+            address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
+            timeout: 60000 //60s
+        }) && cluster_server)
+        .then(cluster_server => {
+            if (req.rpc_params.location) {
+                system_store.make_changes({
+                    update: {
+                        clusters: [{
+                            _id: cluster_server._id,
+                            location: req.rpc_params.location
+                        }]
+                    }
+                });
+            }
+        });
+}
+
+// internal implementation
+function set_hostname_internal(req) {
+    return os_utils.set_hostname(req.rpc_params.hostname);
+}
+
 //
 //Internals Cluster Control
 //
@@ -1366,3 +1402,5 @@ exports.member_pre_upgrade = member_pre_upgrade;
 exports.do_upgrade = do_upgrade;
 exports.upgrade_cluster = upgrade_cluster;
 exports.verify_join_conditions = verify_join_conditions;
+exports.set_hostname = set_hostname;
+exports.set_hostname_internal = set_hostname_internal;

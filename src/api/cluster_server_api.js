@@ -175,6 +175,28 @@ module.exports = {
                 account: false,
                 system: false,
             }
+        },
+
+        set_hostname: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['hostname'],
+                properties: {
+                    server_secret: {
+                        type: 'string'
+                    },
+                    hostname: {
+                        type: 'string'
+                    },
+                    location: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
         }
     },
 

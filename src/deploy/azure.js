@@ -7,13 +7,11 @@
 
 var util = require('util');
 var P = require('../util/promise');
-var msRestAzure = require('ms-rest-azure');
-var ComputeManagementClient = require('azure-arm-compute');
-var NetworkManagementClient = require('azure-arm-network');
+var AzureFunctions = require('../test/qa/azureFunctions');
+var promise_utils = require('../util/promise_utils');
 var crypto = require('crypto');
 var argv = require('minimist')(process.argv);
 var _ = require('lodash');
-// var SubscriptionManagementClient = require('azure-arm-resource').SubscriptionClient;
 
 
 // Environment Setup
@@ -23,7 +21,6 @@ var clientId = process.env.CLIENT_ID;
 var domain = process.env.DOMAIN;
 var secret = process.env.APPLICATION_SECRET;
 var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-var credentials;
 
 //Sample Config
 var location = argv.location || 'eastus';
@@ -35,32 +32,25 @@ var timestamp = (Math.floor(Date.now() / 1000));
 var vnetName = argv.vnet || 'capacity-vnet';
 var serverName;
 var agentConf;
-var subnetName = 'default';
-// var networkInterfaceName;
-// var ipConfigName;
-// var domainNameLabel;
-// var osDiskName;
 
 var machineCount = 4;
 
 // Ubuntu config
-var publisher = 'Canonical';
-var offer = 'UbuntuServer';
-var sku = '14.04.3-LTS';
-var osType = 'Linux';
+var os = {
+    publisher: 'Canonical',
+    offer: 'UbuntuServer',
+    sku: '14.04.3-LTS',
+    osType: 'Linux'
+};
 
 // Windows config
 if (argv.os === 'windows') {
-    publisher = 'MicrosoftWindowsServer';
-    offer = 'WindowsServer';
-    sku = '2012-R2-Datacenter';
-    osType = 'Windows';
+    os.publisher = 'MicrosoftWindowsServer';
+    os.offer = 'WindowsServer';
+    os.sku = '2012-R2-Datacenter';
+    os.osType = 'Windows';
 }
-
-var adminUsername = 'notadmin';
-var adminPassword = 'Pa$$w0rd';
-var computeClient;
-var networkClient;
+var azf;
 
 ///////////////////////////////////////
 //Entrypoint for the vm-sample script//
@@ -71,24 +61,25 @@ if (argv.help) {
     vmOperations();
 }
 
-function args_builder(idx) {
-    var publicIPName = 'testpip' + timestamp + idx;
-    var vmName = 'agent-' + timestamp + idx + '-for-' + serverName.replace(/\./g, "-");
-    if (osType === 'Windows') {
+function args_builder(count) {
+    var vmNames = [];
+    for (let i = 0; i < count; i++) {
+        var vmName;
         var octets = serverName.split(".");
         var shasum = crypto.createHash('sha1');
-        shasum.update(timestamp.toString() + idx);
+        shasum.update(timestamp.toString() + i);
         var dateSha = shasum.digest('hex');
         var postfix = dateSha.substring(dateSha.length - 7);
-        vmName = octets[2] + '-' + octets[3] + 'W' + postfix;
-        console.log('the windows machine name is: ', vmName);
+        if (os.osType === 'Windows') {
+            vmName = octets[2] + '-' + octets[3] + 'W' + postfix;
+            console.log('the Windows machine name is: ', vmName);
+        } else {
+            vmName = octets[2] + '-' + octets[3] + 'Linux' + postfix;
+            console.log('the Linux machine name is: ', vmName);
+        }
+        vmNames.push(vmName);
     }
-    vmName = vmName.substring(0, 64);
-    var networkInterfaceName = 'testnic' + timestamp + idx;
-    var ipConfigName = 'testcrpip' + timestamp + idx;
-    var domainNameLabel = 'testdomainname' + timestamp + idx;
-    var osDiskName = 'testosdisk' + timestamp + idx;
-    return createVM(publicIPName, vmName, networkInterfaceName, ipConfigName, domainNameLabel, osDiskName);
+    return vmNames;
 }
 
 function vmOperations(operationCallback) {
@@ -97,7 +88,6 @@ function vmOperations(operationCallback) {
     //named createVM() that encapsulates the steps to create a VM. Other tasks are   //
     //fairly simple in comparison. Hence we don't have a wrapper method for them.    //
     ///////////////////////////////////////////////////////////////////////////////////
-    var promises = [];
     if (_.isUndefined(argv.agent_conf)) {
 
         console.error('\n\n******************************************');
@@ -126,189 +116,38 @@ function vmOperations(operationCallback) {
     } else {
         machineCount = argv.scale;
     }
-    return authenticatePromise()
-        .then(creds => {
-            credentials = creds;
-
-            for (let i = 0; i < machineCount; i++) {
-                promises.push(args_builder(i));
+    var octets = serverName.split(".");
+    var prefix = octets[2] + '-' + octets[3];
+    azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
+    return azf.authenticate()
+        .then(() => azf.countOnMachines(prefix))
+        .then(count => {
+            var machines = [];
+            console.log('Machines with this prefix which are online', count);
+            if (count < machineCount) {
+                machines = args_builder(machineCount - count);
+                console.log('adding ', (machineCount - count), 'machines');
+                return P.map(machines, machine => azf.createAgent(machine, storageAccountName, vnetName, os, serverName, agentConf));
             }
-            return P.all(promises);
+            console.log('removing ', (count - machineCount), 'machines');
+            var todelete = count - machineCount;
+            var deleted = 0;
+            return promise_utils.pwhile(
+                function() {
+                    return (deleted < todelete);
+                },
+                function() {
+                    return azf.getRandomMachine(prefix, 'VM running')
+                        .then(machine => {
+                            console.log('deleting machine', machine);
+                            return azf.deleteVirtualMachine(machine);
+                        })
+                        .then(() => deleted++);
+                });
         })
         .catch(err => {
             console.log('got error', err);
         });
-}
-
-function createVM(publicIPName, vmName, networkInterfaceName, ipConfigName, domainNameLabel, osDiskName) {
-    //Get subscriptionId if not provided
-    // resourceClient = new ResourceManagementClient(credentials, subscriptionId);
-    computeClient = new ComputeManagementClient(credentials, subscriptionId);
-    // storageClient = new StorageManagementClient(credentials, subscriptionId);
-    networkClient = new NetworkManagementClient(credentials, subscriptionId);
-
-    var nicInfo;
-    var subnetInfo;
-
-    return getSubnetInfoPromise()
-        .then(result => {
-            subnetInfo = result;
-            // return createPublicIPPromise(domainNameLabel, publicIPName);
-            return createNICPromise(subnetInfo, null, networkInterfaceName, ipConfigName);
-        })
-        // .then(ipInfo => createNICPromise(subnetInfo, ipInfo, networkInterfaceName, ipConfigName))
-        .then(result => {
-            nicInfo = result;
-            console.log('\nCreated Network Interface:\n');
-            return findVMImagePromise();
-        })
-        .then(vmImageInfo => {
-            console.log('\nFound Vm Image:\n');
-            return createVirtualMachinePromise(nicInfo.id, vmImageInfo[0].name, vmName, osDiskName);
-        })
-        .then(() => {
-            console.log('\nStarted the Virtual Machine\n');
-            if (osType === 'Linux') {
-                return createVirtualMachineLinuxExtensionPromise(vmName);
-            } else {
-                return createVirtualMachineWindowsExtensionPromise(vmName);
-            }
-        })
-        .then(result => {
-            console.log(result);
-        });
-}
-
-function authenticatePromise() {
-    console.log('\nConnecting to Azure: ');
-    return P.fromCallback(callback => msRestAzure.loginWithServicePrincipalSecret(clientId, secret, domain, callback));
-}
-
-function getSubnetInfoPromise() {
-    console.log('\nGetting subnet info for: ' + subnetName);
-    return P.fromCallback(callback => networkClient.subnets.get(resourceGroupName, vnetName, subnetName, callback));
-}
-
-function createNICPromise(subnetInfo, publicIPInfo, networkInterfaceName, ipConfigName) {
-    var nicParameters = {
-        location: location,
-        ipConfigurations: [{
-            name: ipConfigName,
-            privateIPAllocationMethod: 'Dynamic',
-            subnet: subnetInfo,
-            // publicIPAddress: publicIPInfo
-        }]
-    };
-    console.log('\nCreating Network Interface: ' + networkInterfaceName);
-    return P.fromCallback(callback => networkClient.networkInterfaces.createOrUpdate(resourceGroupName, networkInterfaceName,
-        nicParameters, callback));
-}
-
-// function createPublicIPPromise(domainNameLabel, publicIPName) {
-//     var publicIPParameters = {
-//         location: location,
-//         publicIPAllocationMethod: 'Dynamic',
-//         dnsSettings: {
-//             domainNameLabel: domainNameLabel
-//         }
-//     };
-//     console.log('\nCreating public IP: ' + publicIPName);
-//     return P.fromCallback(callback => networkClient.publicIPAddresses.createOrUpdate(resourceGroupName, publicIPName,
-//         publicIPParameters, callback));
-// }
-
-function findVMImagePromise() {
-    console.log(util.format('\nFinding a VM Image for location %s from ' +
-        'publisher %s with offer %s and sku %s', location, publisher, offer, sku));
-    return P.fromCallback(callback => computeClient.virtualMachineImages.list(location, publisher, offer, sku, {
-        top: 1
-    }, callback));
-}
-
-function createVirtualMachinePromise(nicId, vmImageVersionNumber, vmName, osDiskName) {
-    var vmParameters = {
-        location: location,
-        // tags: {
-        //     env: serverName,
-        //     agent_conf: agentConf,
-        // },
-        osProfile: {
-            computerName: vmName,
-            adminUsername: adminUsername,
-            adminPassword: adminPassword
-        },
-        hardwareProfile: {
-            vmSize: 'Standard_A2'
-        },
-        storageProfile: {
-            imageReference: {
-                publisher: publisher,
-                offer: offer,
-                sku: sku,
-                // version: vmImageVersionNumber
-                version: 'latest'
-            },
-            osDisk: {
-                name: osDiskName,
-                diskSizeGB: 1023,
-                caching: 'None',
-                createOption: 'fromImage',
-                vhd: {
-                    uri: 'https://' + storageAccountName + '.blob.core.windows.net/nodejscontainer/' + vmName + '-linux.vhd'
-                }
-            },
-        },
-        networkProfile: {
-            networkInterfaces: [{
-                id: nicId,
-                primary: true
-            }]
-        }
-    };
-    console.log('\nCreating Virtual Machine: ' + vmName);
-    return P.fromCallback(callback => computeClient.virtualMachines.createOrUpdate(resourceGroupName, vmName, vmParameters, callback));
-}
-
-function createVirtualMachineLinuxExtensionPromise(vmName) {
-    var extensionParameters = {
-        publisher: 'Microsoft.OSTCExtensions',
-        virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
-        typeHandlerVersion: '1.5',
-        autoUpgradeMinorVersion: true,
-        settings: {
-            fileUris: ["https://capacitystorage.blob.core.windows.net/agentscripts/init_agent.sh"],
-            commandToExecute: 'bash init_agent.sh ' + serverName + ' ' + agentConf
-        },
-        protectedSettings: {
-            storageAccountName: "capacitystorage",
-            storageAccountKey: "2kMy7tNY8wm/PQdv0vdXOFnnAXhL77/jidKw6QfGt2q/vhfswRKAG5aUGqNamv8Bs6PEZ36SAw6AYVKePZwM9g=="
-        },
-        location: location,
-    };
-    console.log('\nRunning Virtual Machine Startup Script for Linux');
-    return P.fromCallback(callback => computeClient.virtualMachineExtensions.createOrUpdate(resourceGroupName, vmName,
-        'CustomScriptForLinux', extensionParameters, callback));
-}
-
-function createVirtualMachineWindowsExtensionPromise(vmName) {
-    var extensionParameters = {
-        publisher: 'Microsoft.Compute',
-        virtualMachineExtensionType: 'CustomScriptExtension', // it's a must - don't beleive Microsoft
-        typeHandlerVersion: '1.7',
-        autoUpgradeMinorVersion: true,
-        settings: {
-            fileUris: ["https://capacitystorage.blob.core.windows.net/agentscripts/init_agent.ps1"],
-            commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + serverName + ' ' + agentConf
-        },
-        protectedSettings: {
-            storageAccountName: "capacitystorage",
-            storageAccountKey: "2kMy7tNY8wm/PQdv0vdXOFnnAXhL77/jidKw6QfGt2q/vhfswRKAG5aUGqNamv8Bs6PEZ36SAw6AYVKePZwM9g=="
-        },
-        location: location,
-    };
-    console.log('\nRunning Virtual Machine Startup Script for Windows');
-    return P.fromCallback(callback => computeClient.virtualMachineExtensions.createOrUpdate(resourceGroupName, vmName,
-        'CustomScriptForLinux', extensionParameters, callback));
 }
 
 function _validateEnvironmentVariables() {

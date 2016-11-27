@@ -6,8 +6,8 @@ var dotenv = require('dotenv');
 const argv = require('minimist')(process.argv);
 // var google = require('googleapis');
 
-var AzureFunctions = require('./azureFunctions');
-var GcloudFunctions = require('./gcloudFunctions');
+var AzureFunctions = require('../../deploy/azureFunctions');
+var GcloudFunctions = require('../../deploy/gcloudFunctions');
 
 var vm_prefix = argv.vm_prefix || 'agent-';
 var zone = argv.zone || 'eastus';

@@ -2,12 +2,28 @@
     <h2 class="heading3 greedy push-next">
         General Information
     </h2>
+
     <button class="btn" data-bind="
-        click: () => null
-    ">
-        Reset Password
-    </button>
+        click: changePasswordClickHandler,
+        text: changePasswordButtonText
+    "></button>
+
 </div>
 
 <property-sheet class="pad" params="properties: profileInfo">
 </property-sheet>
+
+
+<!-- ko if: isResetPasswordModalVisible -->
+<reset-password-modal params="
+    email: email,
+    onClose: () => hideResetPasswordModal()
+"></reset-password-modal>
+<!-- /ko -->
+
+<!-- ko if: isChangePasswordModalVisible -->
+<change-password-modal params="
+    email: email,
+    onClose: () => hideChangePasswordModal()
+"></change-password-modal>
+<!-- /ko -->

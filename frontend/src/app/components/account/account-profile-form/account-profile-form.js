@@ -1,7 +1,7 @@
 import template from './account-profile-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { routeContext, systemInfo } from 'model';
+import { routeContext, systemInfo, sessionInfo } from 'model';
 
 class AccountProfileFormViewModel extends Disposable{
     constructor() {
@@ -20,7 +20,7 @@ class AccountProfileFormViewModel extends Disposable{
             }
         );
 
-        const email = ko.pureComputed(
+        this.email = ko.pureComputed(
             () => account() && account().email
         );
 
@@ -29,7 +29,7 @@ class AccountProfileFormViewModel extends Disposable{
         );
 
         const isSystemOwner = ko.pureComputed(
-            () => systemInfo() && email() === systemInfo().owner.email
+            () => systemInfo() && this.email() === systemInfo().owner.email
         );
 
         const role = ko.pureComputed(
@@ -44,10 +44,37 @@ class AccountProfileFormViewModel extends Disposable{
             }
         );
 
+        this.isCurrentUser = ko.pureComputed(
+            () => sessionInfo() && sessionInfo().user === this.email()
+        );
+
+        this.changePasswordButtonText = ko.pureComputed(
+            () => this.isCurrentUser() ? 'Change Password' : 'Reset Password'
+        );
+
         this.profileInfo = [
-            { label: 'Email address', value: email },
+            { label: 'Email address', value: this.email },
             { label: 'Role', value: role }
         ];
+
+        this.isResetPasswordModalVisible = ko.observable(false);
+        this.isChangePasswordModalVisible = ko.observable(false);
+    }
+
+    changePasswordClickHandler() {
+        if (this.isCurrentUser()) {
+            this.isChangePasswordModalVisible(true);
+        } else {
+            this.isResetPasswordModalVisible(true);
+        }
+    }
+
+    hideResetPasswordModal() {
+        this.isResetPasswordModalVisible(false);
+    }
+
+    hideChangePasswordModal() {
+        this.isChangePasswordModalVisible(false);
     }
 }
 

@@ -139,6 +139,7 @@ function add_member_to_cluster(req) {
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location,
                 jwt_secret: process.env.JWT_SECRET,
+                hostname: req.rpc_params.hostname
             }, {
                 address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
                 timeout: 60000 //60s
@@ -200,6 +201,10 @@ function join_to_cluster(req) {
             return _update_cluster_info(req.rpc_params.topology);
         })
         .then(() => {
+            if (req.rpc_params.hostname) {
+                dbg.log0('setting hostname to ', req.rpc_params.hostname);
+                os_utils.set_hostname(req.rpc_params.hostname);
+            }
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology

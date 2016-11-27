@@ -44,6 +44,9 @@ module.exports = {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}
+                    },
+                    hostname: {
+                        type: 'string'
                     }
                 }
             },

@@ -33,6 +33,9 @@ module.exports = {
                     },
                     location: {
                         type: 'string'
+                    },
+                    hostname: {
+                        type: 'string'
                     }
                 },
             },

@@ -28,7 +28,7 @@ function viewModelFactory(params, info) {
         )
         .reduce(
             (templates, template) => {
-                let name = template.getAttribute('name');
+                let name = template.getAttribute('class');
                 let html = template.innerHTML;
                 templates[name] = html;
                 return templates;

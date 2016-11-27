@@ -38,6 +38,7 @@ function update_master_change(req) {
     let old_master_address = server_rpc.rpc.router.master;
     // old_master_address is of the form ws://addr:port. check if new_master_address is differnet
     if (old_master_address.indexOf(new_master_address) === -1) {
+        dbg.log0(`master changed from ${old_master_address} to ${new_master_address}. updating server_rpc`);
         server_rpc.set_new_router({
             master_address: new_master_address
         });

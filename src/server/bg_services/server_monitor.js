@@ -54,12 +54,16 @@ function _verify_ntp_cluster_config() {
     dbg.log2('Verifying date and time configuration in relation to cluster config');
     return P.all([os_utils.get_ntp(), os_utils.get_time_config()])
         .spread((platform_ntp, platform_time_config) => {
-            if (server_conf.ntp.server || platform_ntp) {
-                if (platform_ntp !== server_conf.ntp.server ||
-                    platform_time_config.timezone !== server_conf.ntp.timezone) {
-                    return os_utils.set_ntp(server_conf.ntp.server, server_conf.ntp.timezone);
-                }
+            if ((
+                    (server_conf.ntp && server_conf.ntp.server) || platform_ntp) && // was ntp configured on host or on cluster
+                (
+                    (platform_ntp && !server_conf.ntp) || // making sure ntp is configured on cluster
+                    (platform_ntp !== server_conf.ntp.server) ||
+                    (platform_time_config.timezone !== server_conf.ntp.timezone))
+            ) {
+                return os_utils.set_ntp(server_conf.ntp.server, server_conf.ntp.timezone);
             }
+
         });
 }
 
@@ -67,7 +71,7 @@ function _verify_dns_cluster_config() {
     dbg.log2('Verifying dns configuration in relation to cluster config');
     return os_utils.get_dns_servers()
         .then(platform_dns_servers => {
-            if (_.difference(server_conf.dns_servers, platform_dns_servers).length > 0) {
+            if (_.xor(server_conf.dns_servers, platform_dns_servers).length > 0) {
                 return os_utils.set_dns_server(server_conf.dns_servers)
                     .then(() => os_utils.restart_services());
             }
@@ -79,11 +83,11 @@ function _verify_remote_syslog_cluster_config() {
     let system = system_store.data.systems[0];
     return os_utils.get_syslog_server_configuration()
         .then(platform_syslog_server => {
-            if (platform_syslog_server ||
-                (system.remote_syslog_config && system.remote_syslog_config.enabled)) {
-                platform_syslog_server.enabled = true;
-                if (!_.isEqual(platform_syslog_server, system.remote_syslog_config)) { //TODO: fix this... won't work if syslog was disabled
-                    return os_utils.reload_syslog_configuration(system.remote_syslog_config);
+            if (platform_syslog_server || system.remote_syslog_config) {
+                if (!_.isEqual(platform_syslog_server, system.remote_syslog_config)) {
+                    let conf = system.remote_syslog_config || {};
+                    conf.enabled = Boolean(conf);
+                    return os_utils.reload_syslog_configuration(conf);
                 }
             }
         });
@@ -91,27 +95,27 @@ function _verify_remote_syslog_cluster_config() {
 
 function _check_ntp() {
     dbg.log2('_check_ntp');
-    if (!server_conf.ntp.server) return;
+    if (!server_conf.ntp || !server_conf.ntp.server) return;
     monitoring_status.ntp_status = "UNKNOWN";
     return net_utils.ping(server_conf.ntp.server)
         .catch(err => {
             monitoring_status.ntp_status = "UNREACHABLE";
             throw err;
         })
-        .then(() => promise_utils.exec(`ntpstat`, false, true)
-            .then(netstat_res => {
-                if (netstat_res.startsWith('unsynchronised')) throw new Error('unsynchronised');
-                let regex_res = (/NTP server \(([\d\.]+)\) /).exec(netstat_res);
-                if (!regex_res || !regex_res[1]) throw new Error('failed to check ntp sync');
-                return net_utils.dns_resolve(server_conf.ntp.server)
-                    .then(ip_table => {
-                        if (!ip_table.some(val => val === regex_res[1])) throw new Error('syncronized to wrong ntp server');
-                    });
-            })
-            .catch(err => {
-                monitoring_status.ntp_status = "FAULTY";
-                throw err;
-            }))
+        .then(() => promise_utils.exec(`ntpstat`, false, true))
+        .then(netstat_res => {
+            if (netstat_res.startsWith('unsynchronised')) throw new Error('unsynchronised');
+            let regex_res = (/NTP server \(([\d\.]+)\) /).exec(netstat_res);
+            if (!regex_res || !regex_res[1]) throw new Error('failed to check ntp sync');
+            return net_utils.dns_resolve(server_conf.ntp.server);
+        })
+        .then(ip_table => {
+            if (!ip_table.some(val => val === regex_res[1])) throw new Error('syncronized to wrong ntp server');
+        })
+        .catch(err => {
+            monitoring_status.ntp_status = "FAULTY";
+            throw err;
+        })
         .then(() => {
             monitoring_status.ntp_status = "OPERATIONAL";
         })
@@ -120,8 +124,7 @@ function _check_ntp() {
 
 function _check_dns_and_phonehome() {
     dbg.log2('_check_dns_and_phonehome');
-    return P.resolve()
-        .then(() => phone_home_utils.verify_connection_to_phonehome())
+    return phone_home_utils.verify_connection_to_phonehome()
         .then(res => {
             switch (res) {
                 case "CONNECTED":

@@ -52,7 +52,7 @@ function do_heartbeat() {
                 return server_monitor.run()
                     .then(status => {
                         update.services_status = status;
-                        system_store.make_changes({
+                        return system_store.make_changes({
                             update: {
                                 clusters: [update]
                             }

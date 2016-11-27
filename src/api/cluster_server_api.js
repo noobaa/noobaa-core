@@ -189,8 +189,7 @@ module.exports = {
                             type: 'string'
                         },
                         status: {
-                            enum: ['FAULTY', 'UNREACHABLE', 'OPERATIONAL', 'UNKNOWN'],
-                            type: 'string'
+                            $ref: 'system_api#/definitions/service_status_enum'
                         }
                     }
                 }
@@ -203,7 +202,7 @@ module.exports = {
         ping: {
             method: 'GET',
             reply: {
-                enum: ['pong'],
+                enum: ['PONG'],
                 type: 'string'
             },
             auth: {

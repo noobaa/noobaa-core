@@ -1250,7 +1250,7 @@ function check_cluster_status() {
             address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
             timeout: 60000 //60s
         }).then(res => {
-            if (res === "pong") {
+            if (res === "PONG") {
                 return {
                     secret: server.owner_secret,
                     status: "OPERATIONAL"
@@ -1271,7 +1271,7 @@ function check_cluster_status() {
 }
 
 function ping() {
-    return "pong";
+    return "PONG";
 }
 
 

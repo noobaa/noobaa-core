@@ -482,10 +482,10 @@ function get_syslog_server_configuration() {
     if (os.type() !== 'Linux') {
         return;
     }
-    return fs_utils.find_line_in_file('src/deploy/NVA_build/noobaa_syslog.conf', 'if $syslogfacility-text')
+    return fs_utils.find_line_in_file('/etc/rsyslog.d/noobaa_syslog.conf', 'if $syslogfacility-text')
         .then(conf_line => {
             if (!conf_line.startsWith('#')) {
-                let regex_res = (/(@+)([\d\.]+):(\d+)/).exec(conf_line);
+                let regex_res = (/(@+)([\d.]+):(\d+)/).exec(conf_line);
                 return {
                     protocol: regex_res[1],
                     address: regex_res[2],

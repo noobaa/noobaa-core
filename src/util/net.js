@@ -22,7 +22,6 @@ function ping(target, options) {
     return dns_resolve(target)
         .then(ip_table => P.any(
             _.map(ip_table, ip => new Promise((resolve, reject) => {
-                dbg.log0('LOOP ip:', ip);
                 session.pingHost(ip, error => {
                     if (error) {
                         reject(error);

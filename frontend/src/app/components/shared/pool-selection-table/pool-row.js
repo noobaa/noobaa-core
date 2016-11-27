@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize, deepFreeze } from 'utils';
+import { formatSize, deepFreeze } from 'utils/all';
 
 const iconMapping = deepFreeze({
     AWS: {
@@ -74,12 +74,12 @@ export default class PoolRowViewModel extends Disposable {
         this.onlineNodes = ko.pureComputed(
             () => pool() && pool().nodes ?
                 `${pool().nodes.online} of ${pool().nodes.count}` :
-                '-'
+                '—'
         );
 
         this.capacityUsage = ko.pureComputed(
             () => pool() && pool().nodes ?
-                `${formatSize(pool().storage.used)} of ${formatSize(pool().storage.total)}` :
+                pool().storage :
                 `${formatSize(pool().storage.used)}`
         );
     }

@@ -1,0 +1,14 @@
+#!groovy​
+node {
+   stage('Preparation') { // for display purposes
+      echo 'This is phase 1!'
+   }
+   stage('RunDataSet') {
+      // Run the maven build
+      node 'dataset.js --server '
+   }
+   stage('Results') {
+      junit '**/target/surefire-reports/TEST-*.xml'
+      archive 'target/*.jar'
+   }
+}

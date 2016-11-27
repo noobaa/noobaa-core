@@ -115,9 +115,7 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('management-panel',                  require('./management/management-panel/management-panel').default);
     ko.components.register('accounts-table',                    require('./management/accounts-table/accounts-table').default);
-    ko.components.register('reset-password-modal',              require('./management/reset-password-modal/reset-password-modal').default);
     ko.components.register('create-account-wizard',             require('./management/create-account-wizard/create-account-wizard').default);
-    ko.components.register('edit-account-s3-access-modal',      require('./management/edit-account-s3-access-modal/edit-account-s3-access-modal').default);
     ko.components.register('p2p-form',                          require('./management/p2p-form/p2p-form').default);
     ko.components.register('server-dns-form',                   require('./management/server-dns-form/server-dns-form').default);
     ko.components.register('version-form',                      require('./management/version-form/version-form').default);
@@ -132,10 +130,18 @@ export default function register(ko) {
     ko.components.register('server-dns-settings-form',          require('./management/server-dns-settings-form/server-dns-settings-form').default);
     ko.components.register('update-system-name-modal',          require('./management/update-system-name-modal/update-system-name-modal').default);
     ko.components.register('update-server-dns-settings-modal',  require('./management/update-server-dns-settings-modal/update-server-dns-settings-modal').default);
-    ko.components.register('account-panel',                     require('./management/account-panel/account-panel').default);
-    ko.components.register('account-profile-form',              require('./management/account-profile-form/account-profile-form').default);
-    ko.components.register('account-s3-access-form',            require('./management/account-s3-access-form/account-s3-access-form').default);
     /** INJECT:management **/
+
+    // -------------------------------
+    // Account
+    // -------------------------------
+    ko.components.register('reset-password-modal',                  require('./account/reset-password-modal/reset-password-modal').default);
+    ko.components.register('edit-account-s3-access-modal',          require('./account/edit-account-s3-access-modal/edit-account-s3-access-modal').default);
+    ko.components.register('account-panel',                         require('./account/account-panel/account-panel').default);
+    ko.components.register('account-profile-form',                  require('./account/account-profile-form/account-profile-form').default);
+    ko.components.register('account-s3-access-form',                require('./account/account-s3-access-form/account-s3-access-form').default);
+    ko.components.register('regenerate-account-credentials-modal',  require('./account/regenerate-account-credentials-modal/regenerate-account-credentials-modal').default);
+    /** INJECT:account **/
 
     // -------------------------------
     // Cluster

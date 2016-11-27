@@ -5,7 +5,7 @@ node {
    }
    stage('RunDataSet') {
       // Run the maven build
-      node 'dataset.js --server '
+      sh 'node dataset.js --server '
    }
    stage('Results') {
       junit '**/target/surefire-reports/TEST-*.xml'

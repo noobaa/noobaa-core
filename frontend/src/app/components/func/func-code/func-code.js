@@ -1,6 +1,7 @@
 import template from './func-code.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
+import { formatSize } from 'utils/all';
 
 class FuncCodeViewModel extends Disposable {
     constructor({ func }) {
@@ -8,14 +9,12 @@ class FuncCodeViewModel extends Disposable {
 
         this.files = ko.pureComputed(
             () => func().codeFiles.map(
-                (file, i) => Object.assign({
+                (file, i) => ({
+                    path: file.path,
+                    formatted_size: formatSize(file.size),
                     expanded: ko.observable(i === 0),
-                    formatted_size: ko.pureComputed(
-                        () => file.size
-                    ).extend({
-                        formatSize: true
-                    })
-                }, file)
+                    content: file.content
+                })
             )
         );
 

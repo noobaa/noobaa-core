@@ -1,7 +1,7 @@
 import template from './file-selector.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop } from 'utils';
+import { noop } from 'utils/all';
 
 class FileSelectorViewModel extends Disposable {
     constructor({

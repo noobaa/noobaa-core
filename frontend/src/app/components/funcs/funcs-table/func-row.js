@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { stringifyAmount } from 'utils';
+import { stringifyAmount } from 'utils/all';
 import { deleteFunc } from 'actions';
 
 
@@ -8,21 +8,25 @@ export default class FuncRowViewModel extends Disposable {
     constructor(func) {
         super();
 
+        let config = ko.pureComputed(
+            () => func() ? func().config : {}
+        );
+
         this.state = ko.pureComputed(
-            () => func() ? {
+            () => ({
                 name: 'healthy',
                 css: 'success',
                 tooltip: 'Deployed'
-            } : {}
+            })
         );
 
         this.name = ko.pureComputed(
             () => {
-                if (!func()) {
-                    return {};
+                let { name } = config();
+                if (!name) {
+                    return '';
                 }
 
-                let { name } = func().config;
                 return {
                     text: name,
                     href: { route: 'func', params: { func: name } }
@@ -31,32 +35,26 @@ export default class FuncRowViewModel extends Disposable {
         );
 
         this.version = ko.pureComputed(
-            () => func() && func().config.version || '$LATEST'
+            () => config().version || '$LATEST'
         );
 
         this.description = ko.pureComputed(
-            () => func() && func().config.description || ''
+            () => config().description || ''
         );
 
         this.codeSize = ko.pureComputed(
-            () => func() && func().config.code_size || 0
+            () => config().code_size || 0
         );
 
         this.placementPolicy = ko.pureComputed(
             () => {
-                if (!func()) {
-                    return {};
+                let { pools } = config();
+                if (!pools) {
+                    return '';
                 }
 
-                let { pools } = func().config;
-                let count = pools && pools.length || 0;
-
-                let text = `on ${
-                        stringifyAmount('pool', count)
-                    }`;
-
                 return {
-                    text: text,
+                    text: `on ${stringifyAmount('pool', pools.length)}`,
                     tooltip: pools
                 };
             }
@@ -65,7 +63,7 @@ export default class FuncRowViewModel extends Disposable {
         this.deleteButton = {
             subject: 'func',
             tooltip: 'delete func function',
-            onDelete: () => deleteFunc(func().config)
+            onDelete: () => deleteFunc(config().name, config().version)
         };
 
     }

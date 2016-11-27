@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { supportedBrowsers} from 'config';
 import { sessionInfo, serverInfo } from 'model';
-import { recognizeBrowser } from 'utils';
+import { recognizeBrowser } from 'utils/all';
 
 class LoginLayoutViewModel extends Disposable {
     constructor() {

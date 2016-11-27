@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { updateAccountPassword } from 'actions';
 import { sessionInfo } from 'model';
-import { calcPasswordStrength } from 'utils';
+import { calcPasswordStrength } from 'utils/all';
 
 class ChangePasswordFormViewModel extends Disposable{
     constructor() {

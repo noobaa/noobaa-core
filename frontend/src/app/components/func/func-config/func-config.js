@@ -1,7 +1,7 @@
 import template from './func-config.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 import { updateFunc } from 'actions';
 
 const runtimeOptions = deepFreeze([
@@ -29,25 +29,45 @@ class FuncConfigViewModel extends Disposable {
     constructor({ func }) {
         super();
 
-        this.func = ko.pureComputed(
-            () => func()
-        );
-
+        this.func = func;
         this.runtimeOptions = runtimeOptions;
         this.memorySizeOptions = memorySizeOptions;
 
-        this.runtime = ko.observable(func().config.runtime);
-        this.handler = ko.observable(func().config.handler);
-        this.memorySize = ko.observable(func().config.memory_size);
-        this.timeout = ko.observable(func().config.timeout);
-        this.description = ko.observable(func().config.description);
+        let config = ko.pureComputed(
+            () => func().config || {}
+        );
+
+        this.runtime = ko.observableWithDefault(
+            () => config().runtime
+        );
+
+        this.handler = ko.observableWithDefault(
+            () => config().handler
+        );
+
+        this.handler = ko.observableWithDefault(
+            () => config().handler
+        );
+
+        this.memorySize = ko.observableWithDefault(
+            () => config().memory_size
+        );
+
+        this.timeout = ko.observableWithDefault(
+            () => config().timeout
+        );
+        this.description = ko.observableWithDefault(
+            () => config().description
+        );
 
     }
 
-    save() {
+    applyChanges() {
+        let { name, version } = this.func().config;
+
         updateFunc({
-            name: this.func().config.name,
-            version: this.func().config.version,
+            name: name,
+            version: version,
             runtime: this.runtime(),
             handler: this.handler(),
             memory_size: this.memorySize(),

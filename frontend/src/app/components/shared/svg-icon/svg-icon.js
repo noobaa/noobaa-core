@@ -1,7 +1,7 @@
 import template from './svg-icon.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { realizeUri } from 'utils';
+import { realizeUri } from 'utils/all';
 import { asset as assetsRoute } from 'routes';
 import { defaultIconFile } from 'config.json';
 

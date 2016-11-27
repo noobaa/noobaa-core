@@ -2,7 +2,7 @@ import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze, createCompareFunc } from 'utils';
+import { deepFreeze, createCompareFunc } from 'utils/all';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 

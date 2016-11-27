@@ -20,8 +20,6 @@ class AccountProfileFormViewModel extends Disposable{
             }
         );
 
-        account.debug();
-
         const email = ko.pureComputed(
             () => account() && account().email
         );

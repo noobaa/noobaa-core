@@ -4,7 +4,7 @@
             Account Profile
         </a>
         <a data-bind="href: tabHref('s3-access'), css: tabCss('s3-access')">
-            S3 Access and Permissions
+            S3 Access &amp; Permissions
         </a>
     </nav>
 
@@ -12,9 +12,8 @@
         <account-profile-form class="tab" data-bind="css: tabCss('profile')">
         </account-profile-form>
 
-        <section class="tab" data-bind="css: tabCss('s3-access')">
-            this is the s3 access tab
-        </section>
+        <account-s3-access-form class="tab" data-bind="css: tabCss('s3-access')">
+        </account-s3-access-form>
     </div>
 </div>
 

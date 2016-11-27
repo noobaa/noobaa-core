@@ -1,0 +1,32 @@
+<div class="row alt-bg pad content-middle push-next">
+    <h2 class="heading3 greedy push-next">
+        Account S3 Access
+    </h2>
+    <button class="btn" data-bind="
+        click: () => null
+    ">
+        Edit S3 Access
+    </button>
+</div>
+
+<property-sheet class="pad push-next" params="properties: s3AccessInfo">
+</property-sheet>
+
+<div class="row alt-bg pad content-middle push-next">
+    <h2 class="heading3 greedy push-next">
+        Account Security Credentials
+    </h2>
+    <button class="btn" data-bind="
+        click: () => null
+    ">
+        Regenerate Credentials
+    </button>
+</div>
+
+<div class="pad column">
+    <span class="highlight push-next">
+        Use the follwong S3 access keys to connect a S3 compatible application to NooBaa:
+    </span>
+    <property-sheet class="pad alt-bg" params="properties: credentials">
+    </property-sheet>
+</div>

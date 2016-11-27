@@ -74,7 +74,8 @@ class AccountS3AccessFormViewModel extends Disposable{
             account.subscribe( ({ email }) => loadAccountS3ACL(email) )
         );
 
-        this.isEditAccountS3AccessModalVisible = ko.observable();
+        this.isEditAccountS3AccessModalVisible = ko.observable(false);
+        this.isRegenerateAccountCredentialsModalVisible = ko.observable(false);
     }
 
     showEditAccountS3AccessModal() {
@@ -83,6 +84,14 @@ class AccountS3AccessFormViewModel extends Disposable{
 
     hideEditAccountS3AccessModal() {
         this.isEditAccountS3AccessModalVisible(false);
+    }
+
+    showRegenerateAccountCredentialsModal() {
+        this.isRegenerateAccountCredentialsModalVisible(true);
+    }
+
+    hideRegenerateAccountCredentialsModal() {
+        this.isRegenerateAccountCredentialsModalVisible(false);
     }
 }
 

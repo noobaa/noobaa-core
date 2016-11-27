@@ -19,7 +19,7 @@
         Account Security Credentials
     </h2>
     <button class="btn" data-bind="
-        click: () => null,
+        click: showRegenerateAccountCredentialsModal,
         disable: isS3AccessDisabled
     ">
         Regenerate Credentials
@@ -40,4 +40,11 @@
     email: email,
     onClose: () => hideEditAccountS3AccessModal()
 "></edit-account-s3-access-modal>
+<!-- /ko -->
+
+<!-- ko if: isRegenerateAccountCredentialsModalVisible -->
+<regenerate-account-credentials-modal params="
+    email: email,
+    onClose: () => hideRegenerateAccountCredentialsModal()
+"></regenerate-account-credentials-modal>
 <!-- /ko -->

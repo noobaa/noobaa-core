@@ -1,14 +1,18 @@
 import template from './regenerate-account-credentials-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-// import numeral from 'numeral';
-// import moment from 'moment';
 
 class RegenerateAccountCredentialsModalViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 
         this.onClose = onClose;
+
+        this.password = ko.observable()
+            .extend({
+                required: { message: 'Password is required for security purposes' }
+            });
+
         this.errors = ko.validation.group(this);
     }
 

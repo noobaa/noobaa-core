@@ -2,7 +2,7 @@ import template from './pools-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
-import { deepFreeze, createCompareFunc } from 'utils';
+import { deepFreeze, createCompareFunc } from 'utils/all';
 import { navigateTo } from 'actions';
 import { uiState, routeContext, systemInfo } from 'model';
 

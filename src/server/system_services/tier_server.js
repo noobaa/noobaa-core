@@ -111,11 +111,11 @@ function update_tier(req) {
     // if node_pools are defined use it for the update otherwise use the existing
     if (req.rpc_params.node_pools) {
         // validate that all pools in node pools are actually node pools
-        _.each(req.rpc_params.node_pools, pool_name => {
-            if (req.system.pools_by_name[pool_name].cloud_pool_info) {
-                throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
-            }
-        });
+        // _.each(req.rpc_params.node_pools, pool_name => {
+        //     if (req.system.pools_by_name[pool_name].cloud_pool_info) {
+        //         throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
+        //     }
+        // });
 
         node_pools_update = req.rpc_params.node_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
     } else {
@@ -125,11 +125,11 @@ function update_tier(req) {
     // if cloud_pools are defined use it for the update otherwise use the existing
     if (req.rpc_params.cloud_pools) {
         // validate that all pools in cloud pools are actually cloud pools
-        _.each(req.rpc_params.node_pools, pool_name => {
-            if (!req.system.pools_by_name[pool_name].cloud_pool_info) {
-                throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
-            }
-        });
+        // _.each(req.rpc_params.node_pools, pool_name => {
+        //     if (!req.system.pools_by_name[pool_name].cloud_pool_info) {
+        //         throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
+        //     }
+        // });
         old_cloud_pools = cloud_pools_part.map(cloud_pool => cloud_pool.name);
         cloud_pools_update = req.rpc_params.cloud_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
     } else {

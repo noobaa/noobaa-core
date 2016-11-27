@@ -1,7 +1,7 @@
 import template from './capacity-bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize } from 'utils';
+import { formatSize } from 'utils/all';
 import style from 'style';
 
 const bgColor = style['color7'];

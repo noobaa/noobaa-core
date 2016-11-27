@@ -55,7 +55,7 @@ var client_syslog;
 function _init() {
     const DEFUALT_DELAY = 5000;
 
-    var native_core = require('./native_core')();
+    var native_core = require('../../util/native_core')();
     client_syslog = new native_core.Syslog();
 
     function wait_for_system_store() {

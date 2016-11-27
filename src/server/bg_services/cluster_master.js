@@ -12,7 +12,6 @@ const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 
 var is_cluster_master = false;
-let current_master_address = '127.0.0.1';
 let cluster_master_retries = 0;
 const RETRY_DELAY = 5000;
 const MAX_RETRIES = 4;

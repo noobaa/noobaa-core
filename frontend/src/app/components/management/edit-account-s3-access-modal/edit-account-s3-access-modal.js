@@ -1,10 +1,10 @@
-import template from './account-s3-access-modal.html';
+import template from './edit-account-s3-access-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, accountS3ACL } from 'model';
 import { loadAccountS3ACL, updateAccountS3ACL } from 'actions';
 
-class AccountS3AccessModalViewModel extends Disposable {
+class EditAccountS3AccessModalViewModel extends Disposable {
     constructor({ email, onClose }) {
         super();
 
@@ -76,6 +76,6 @@ class AccountS3AccessModalViewModel extends Disposable {
 }
 
 export default {
-    viewModel: AccountS3AccessModalViewModel,
+    viewModel: EditAccountS3AccessModalViewModel,
     template: template
 };

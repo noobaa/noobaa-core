@@ -21,6 +21,10 @@ class AccountS3AccessFormViewModel extends Disposable{
             }
         );
 
+        this.email = ko.pureComputed(
+            () => account().email
+        );
+
         this.s3AccessInfo = [
             {
                 label: 'S3 Access',
@@ -31,9 +35,10 @@ class AccountS3AccessFormViewModel extends Disposable{
             {
                 label: 'Permitted buckets',
                 value: ko.pureComputed(
-                    () => (accountS3ACL() || []).map(
-                        ({ bucket_name }) => bucket_name
-                    )
+                    () => (accountS3ACL() || [])
+                        .filter( ({ is_allowed }) => is_allowed )
+                        .map( ({ bucket_name }) => bucket_name )
+                        .join(', ')
                 )
             }
         ];
@@ -59,6 +64,16 @@ class AccountS3AccessFormViewModel extends Disposable{
         this.addToDisposeList(
             account.subscribe( ({ email }) => loadAccountS3ACL(email) )
         );
+
+        this.isEditAccountS3AccessModalVisible = ko.observable();
+    }
+
+    showEditAccountS3AccessModal() {
+        this.isEditAccountS3AccessModalVisible(true);
+    }
+
+    hideEditAccountS3AccessModal() {
+        this.isEditAccountS3AccessModalVisible(false);
     }
 }
 

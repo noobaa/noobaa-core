@@ -3,7 +3,7 @@
         Account S3 Access
     </h2>
     <button class="btn" data-bind="
-        click: () => null
+        click: showEditAccountS3AccessModal
     ">
         Edit S3 Access
     </button>
@@ -30,3 +30,10 @@
     <property-sheet class="pad alt-bg" params="properties: credentials">
     </property-sheet>
 </div>
+
+<!-- ko if: isEditAccountS3AccessModalVisible -->
+<edit-account-s3-access-modal params="
+    email: email,
+    onClose: () => hideEditAccountS3AccessModal()
+"></edit-account-s3-access-modal>
+<!-- /ko -->

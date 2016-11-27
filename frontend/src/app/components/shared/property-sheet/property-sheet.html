@@ -1,10 +1,16 @@
 <ul class="list-no-style column" data-bind="foreach: properties">
     <li class="row content-middle">
-        <div class="prop-name push-next" data-bind="text: label + ':'"></div>
+        <div class="prop-name push-next" data-bind="
+            text: label + ':',
+            css: { disabled: $data.disabled }
+        "></div>
 
-        <div class="prop-value no-wrap greedy" data-bind="html: value"></div>
+        <div class="prop-value no-wrap greedy" data-bind="
+            html: value,
+            css: { disabled: $data.disabled }
+        "></div>
 
-        <copy-to-clipboard-button params="value: value"
+        <copy-to-clipboard-button params="value: value, disabled: $data.disabled"
             data-bind="visible: $data.allowCopy"></copy-to-clipboard-button>
     </li>
 </ul>

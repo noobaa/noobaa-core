@@ -78,7 +78,7 @@ function new_router(base_address, master_base_address) {
     if (master_base_address) {
         let master_url = _.pick(url.parse(master_base_address),
             'protocol', 'hostname', 'port', 'slashes');
-        master_base_addr = master_url.format(base_url);
+        master_base_addr = url.format(master_url);
     } else {
         master_base_addr = base_addr;
     }

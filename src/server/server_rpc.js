@@ -37,13 +37,13 @@ class ServerRpc {
         let base_address = params.base_address;
         let master_address = params.master_address;
         if (base_address) {
-            base_address = 'ws://' + base_address + this.get_base_port();
+            base_address = 'ws://' + base_address + ':' + this.get_base_port();
         } else {
             base_address = this.rpc.router.default;
         }
 
         if (master_address) {
-            master_address = 'ws://' + master_address + this.get_base_port();
+            master_address = 'ws://' + master_address + ':' + this.get_base_port();
         }
 
         this.rpc.router = api.new_router(base_address, master_address);

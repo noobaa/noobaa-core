@@ -87,18 +87,6 @@ function send_master_update(is_master, master_address) {
     let system = system_store.data.systems[0];
     if (!system) return P.resolve();
     let hosted_agents_promise = is_master ? server_rpc.client.hosted_agents.start() : server_rpc.client.hosted_agents.stop();
-    let master_change_promise = P.resolve().then(() => {
-        if (master_address && master_address !== current_master_address) {
-            return server_rpc.client.redirector.publish_to_cluster({
-                method_api: 'server_inter_process_api',
-                method_name: 'update_master_change',
-                target: '', // required but irrelevant
-                request_params: {
-                    master_address: master_address
-                }
-            });
-        }
-    });
     return P.join(
             server_rpc.client.system.set_webserver_master_state({
                 is_master: is_master
@@ -109,7 +97,14 @@ function send_master_update(is_master, master_address) {
                 })
             }),
             hosted_agents_promise,
-            master_change_promise
+            server_rpc.client.redirector.publish_to_cluster({
+                method_api: 'server_inter_process_api',
+                method_name: 'update_master_change',
+                target: '', // required but irrelevant
+                request_params: {
+                    master_address: master_address
+                }
+            })
         )
         .return();
 }

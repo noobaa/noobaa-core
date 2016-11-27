@@ -36,7 +36,8 @@ function update_mongo_connection_string(req) {
 function update_master_change(req) {
     let new_master_address = req.rpc_params.master_address;
     let old_master_address = server_rpc.rpc.router.master;
-    if (new_master_address !== old_master_address) {
+    // old_master_address is of the form ws://addr:port. check if new_master_address is differnet
+    if (old_master_address.indexOf(new_master_address) === -1) {
         server_rpc.set_new_router({
             master_address: new_master_address
         });

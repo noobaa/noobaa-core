@@ -292,6 +292,25 @@ export function showManagement() {
     });
 }
 
+export function showAccount() {
+    logAction('showAccount');
+
+    let ctx = model.routeContext();
+    let { account, tab = 'profile' } = ctx.params;
+
+    model.uiState({
+        layout: 'main-layout',
+        title: account,
+        breadcrumbs: [
+            { route: 'management', label: 'System Management' },
+            { route: 'account', label: account }
+        ],
+        selectedNavItem: 'management',
+        panel: 'account',
+        tab: tab
+    });
+}
+
 export function showCluster() {
     logAction('showCluster');
 
@@ -942,16 +961,17 @@ export function resetAccountPassword(verificationPassword, email, password) {
 export function updateAccountPassword (email, password) {
     logAction('updateAccountPassword', { email, password: '****' });
 
-    api.account.update_account({
-        email,
-        password,
-        must_change_password: false
+    model.passwordChangeState('IN_PROGRESS');
+    api.account.reset_password({
+        email: email,
+        password: password
     })
         .then(
             () => model.sessionInfo.assign({
                 mustChangePassword: false
             })
         )
+
         .then(refresh)
         .done();
 }
@@ -1409,7 +1429,13 @@ export function upgradeSystem(upgradePackage) {
     function ping() {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
-        xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                reloadTo(routes.system, undefined, { afterupgrade: true });
+            } else {
+                setTimeout(ping, 3000);
+            }
+        };
         xhr.onerror = () => setTimeout(ping, 3000);
         xhr.send();
     }

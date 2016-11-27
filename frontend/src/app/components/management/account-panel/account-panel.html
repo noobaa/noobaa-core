@@ -1,0 +1,20 @@
+<div class="greedy tabs">
+    <nav>
+        <a data-bind="href: tabHref('profile'), css: tabCss('profile')">
+            Account Profile
+        </a>
+        <a data-bind="href: tabHref('s3-access'), css: tabCss('s3-access')">
+            S3 Access and Permissions
+        </a>
+    </nav>
+
+    <div class="tabs-row">
+        <account-profile-form class="tab" data-bind="css: tabCss('profile')">
+        </account-profile-form>
+
+        <section class="tab" data-bind="css: tabCss('s3-access')">
+            this is the s3 access tab
+        </section>
+    </div>
+</div>
+

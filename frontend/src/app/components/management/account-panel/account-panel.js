@@ -1,20 +1,21 @@
-import template from './management-panel.html';
+import template from './account-panel.html';
 import Disposable from 'disposable';
-import ko from 'knockout';
 import { uiState } from 'model';
+import ko from 'knockout';
 
-class ManagementPanelViewModel extends Disposable {
+class AccountPanelViewModel extends Disposable{
     constructor() {
         super();
 
         this.selectedTab = ko.pureComputed(
             () => uiState().tab
         );
+
     }
 
     tabHref(tab) {
         return {
-            route: 'management',
+            route: 'account',
             params: { tab }
         };
     }
@@ -27,6 +28,6 @@ class ManagementPanelViewModel extends Disposable {
 }
 
 export default {
-    viewModel: ManagementPanelViewModel,
+    viewModel: AccountPanelViewModel,
     template: template
 };

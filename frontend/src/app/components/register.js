@@ -132,6 +132,8 @@ export default function register(ko) {
     ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form').default);
     ko.components.register('update-system-name-modal',  require('./management/update-system-name-modal/update-system-name-modal').default);
     ko.components.register('update-server-dns-settings-modal', require('./management/update-server-dns-settings-modal/update-server-dns-settings-modal').default);
+    ko.components.register('account-panel', require('./management/account-panel/account-panel').default);
+    ko.components.register('account-profile-form', require('./management/account-profile-form/account-profile-form').default);
     /** INJECT:management **/
 
     // -------------------------------

@@ -11,6 +11,7 @@ export const pools          = `${root}/systems/:system/resources/:tab?`;
 export const pool           = `${root}/systems/:system/resources/pools/:pool/:tab?`;
 export const node           = `${root}/systems/:system/resources/pools/:pool/nodes/:node/:tab?`;
 export const management     = `${root}/systems/:system/management/:tab?`;
+export const account        = `${root}/systems/:system/management/accounts/:account/:tab?`;
 export const cluster        = `${root}/systems/:system/cluster`;
 export const funcs          = `${root}/systems/:system/functions`;
 export const func           = `${root}/systems/:system/functions/:func/:tab?`;

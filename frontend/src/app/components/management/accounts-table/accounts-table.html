@@ -1,4 +1,9 @@
-<div class="column alt-bg pad">
+<div class="row alt-bg pad">
+    <div class="greedy push-next">
+        <input type="search" placeholder="Filter by account name" data-bind="
+            textInput: filter
+        "/>
+    </div>
     <button class="btn align-end" data-bind="
         click: () => openCreateAccountModal()
     ">
@@ -9,40 +14,12 @@
 <data-table params="
     columns: columns,
     data: accounts,
-    rowFactory: account => createAccountRow(account)
-">
-    <template name="s3-access">
-        <span data-bind="text: $data().text"></span>
-        |
-        <button class="link alt-colors" data-bind="click: $data().edit">
-            edit
-        </button>
-    </template>
-
-    <template name="password">
-        <button class="link alt-colors" data-bind="click: $data">
-            reset
-        </button>
-    </template>
-</data-table>
+    rowFactory: account => createAccountRow(account),
+    sorting: sorting
+"></data-table>
 
 <!-- ko if: isCreateAccountModalVisible -->
 <create-account-wizard params="
     onClose: () => closeCreateAccountModal()
 "></create-account-wizard>
-<!-- /ko -->
-
-
-<!-- ko if: resetPasswordTarget -->
-<reset-password-modal params="
-    email: resetPasswordTarget,
-    onClose: () => closeResetPasswordModal()
-"></reset-password-modal>
-<!-- /ko -->
-
-<!-- ko if: editS3AccessTarget -->
-<account-s3-access-modal params="
-    email: editS3AccessTarget,
-    onClose: () => closeS3AccessModal()
-"></account-s3-access-modal>
 <!-- /ko -->

@@ -42,6 +42,7 @@ export default function routing(page) {
     page(routes.pool, saveContext, actions.showPool);
     page(routes.node, saveContext, actions.showNode);
     page(routes.management, saveContext, actions.showManagement);
+    page(routes.account, saveContext, actions.showAccount);
     page(routes.cluster, saveContext, actions.showCluster);
     page(routes.funcs, saveContext, actions.showFuncs);
     page(routes.func, saveContext, actions.showFunc);

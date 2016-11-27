@@ -19,7 +19,13 @@ export default class AccountRowViewModel extends Disposable {
             () => {
                 let email = this.email();
                 let curr = sessionInfo() && sessionInfo().user;
-                return `${email} ${email === curr ? '(Current user)' : ''}`;
+                let text = `${email} ${email === curr ? '(Current user)' : ''}`;
+                let href = {
+                    route: 'account',
+                    params: { account: email, tab: null }
+                };
+
+                return { text, href };
             }
         );
 

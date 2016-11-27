@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, collectDiagnosticsState } from 'model';
 import { downloadSystemDiagnosticPack, setSystemDebugLevel } from 'actions';
-import { isUndefined } from 'utils';
+import { isUndefined } from 'utils/all';
 import { support } from 'config';
 
 class DiagnosticsFormViewModel extends Disposable {

@@ -3,7 +3,7 @@ import userMessageTemplate from './user-message-template.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { resetAccountPassword } from 'actions';
-import { randomString } from 'utils';
+import { randomString } from 'utils/all';
 
 const userMessage = new Function(
     'emailAddress',

@@ -2,7 +2,7 @@ import template from './server-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
-import { createCompareFunc, deepFreeze } from 'utils';
+import { createCompareFunc, deepFreeze } from 'utils/all';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 
@@ -21,8 +21,11 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'diskUsage',
+        sortable: true
+    },
+    {
         name: 'memoryUsage',
-        label: 'memroy usage',
         sortable: true
     },
     {
@@ -40,6 +43,7 @@ const compareAccessors = deepFreeze({
     state: server => server.status,
     hostname: server => server.hostname,
     address: server => server.address,
+    diskUsage: server => 1 - server.storage.free / server.storage.total,
     memoryUsage: server => server.memory_usage,
     cpuUsage: server => server.cpu_usage,
     version: server => server.version

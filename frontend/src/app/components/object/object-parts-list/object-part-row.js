@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { shortString, formatSize } from 'utils';
+import { shortString, formatSize } from 'utils/all';
 
 const partStateIcons = Object.freeze({
     available: {
@@ -36,7 +36,7 @@ class BlockRowViewModel extends Disposable {
 
         if (!in_cloud_pool) {
             this.nodeName = node_name;
-            this.shortenNodeName = shortString(node_name);
+            this.shortenNodeName = shortString(node_name, 30, 8);
             this.nodeIp = node_ip;
 
             this.poolHref = {

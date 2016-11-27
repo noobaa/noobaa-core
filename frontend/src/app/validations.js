@@ -91,6 +91,15 @@ function includesDigit(value) {
     return patternValidatior(value, /[0-9]/);
 }
 
+function isJSON(value) {
+    try {
+        JSON.parse(value);
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
 export default function register(ko) {
     Object.assign(ko.validation.rules, {
         notIn: {
@@ -133,6 +142,10 @@ export default function register(ko) {
         includesDigit:{
             validator: includesDigit,
             message: 'Use at least one digit'
+        },
+        isJSON: {
+            validator: isJSON,
+            message: 'Please enter a valid JSON string'
         }
 
     });

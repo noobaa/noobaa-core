@@ -11,13 +11,16 @@ let argv = require('minimist')(process.argv);
  */
 const SERVICES = [{
     name: 'bg',
-    fork: './src/bg_workers/bg_workers_starter.js'
+    fork: './src/server/bg_workers.js'
 }, {
     name: 'web',
     fork: './src/server/web_server.js'
 }, {
     name: 's3',
     fork: './src/s3/s3rver.js'
+}, {
+    name: 'hosted_agents',
+    fork: './src/hosted_agents/hosted_agents_starter.js'
 }, {
     name: 'agents',
     fork: './src/agent/agent_cli.js',

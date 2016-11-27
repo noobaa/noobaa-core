@@ -1,8 +1,4 @@
-/**
- *
- * NODE MONITOR
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -224,7 +220,7 @@ class NodesMonitor extends EventEmitter {
                         protocol: 'wss',
                         slashes: true,
                         hostname: addr,
-                        port: 8443
+                        port: process.env.SSL_PORT || 8443
                     });
                     return reply;
                 });
@@ -615,7 +611,7 @@ class NodesMonitor extends EventEmitter {
                 protocol: 'wss',
                 slashes: true,
                 hostname: addr.address,
-                port: 8443
+                port: process.env.SSL_PORT || 8443
             })
         }));
 
@@ -696,7 +692,7 @@ class NodesMonitor extends EventEmitter {
         // otherwise the agent is using the ip directly, so no update is needed
         // don't update local agents which are using local host
         if (system.base_address &&
-            system.base_address !== item.agent_info.base_address &&
+            system.base_address.toLowerCase() !== item.agent_info.base_address.toLowerCase() &&
             !item.node.is_internal_node &&
             !is_localhost(item.agent_info.base_address)) {
             rpc_config.base_address = system.base_address;
@@ -828,7 +824,8 @@ class NodesMonitor extends EventEmitter {
             sort: 'shuffle'
         });
         const selected = _.take(list, limit);
-        dbg.log0('_get_detention_test_nodes::', item.node.name, selected, limit);
+        dbg.log0('_get_detention_test_nodes::', item.node.name,
+            _.map(selected, 'node.name'), limit);
         return _.isUndefined(limit) ? list : selected;
     }
 
@@ -1260,7 +1257,7 @@ class NodesMonitor extends EventEmitter {
     _update_data_activity_progress(item, now) {
         const act = item.data_activity;
 
-        if (act.stage && act.stage.size) {
+        if (act.stage && !_.isEmpty(act.stage.size)) {
             act.stage.size.remaining = Math.max(0,
                 act.stage.size.total - act.stage.size.completed) || 0;
             const completed_time = now - act.stage.time.start;
@@ -1518,7 +1515,7 @@ class NodesMonitor extends EventEmitter {
         } else if (options.sort === 'connectivity') {
             list.sort(js_utils.sort_compare_by(item => item.connectivity, options.order));
         } else if (options.sort === 'data_activity') {
-            list.sort(js_utils.sort_compare_by(item => item.data_activity.reason, options.order));
+            list.sort(js_utils.sort_compare_by(item => _.get(item, 'data_activity.reason', ''), options.order));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }
@@ -1877,7 +1874,7 @@ class NodesMonitor extends EventEmitter {
                     proxy_reply: reply
                 };
                 if (method.reply_export_buffers) {
-                    res.proxy_buffer = buffer_utils.get_single(method.reply_export_buffers(reply));
+                    res.proxy_buffer = buffer_utils.concatify(method.reply_export_buffers(reply));
                     // dbg.log5('n2n_proxy: reply_export_buffers', reply);
                 }
                 return res;
@@ -2028,7 +2025,7 @@ function progress_by_time(time, now) {
 
 function is_localhost(address) {
     let addr_url = url.parse(address);
-    return addr_url.hostname === '127.0.0.1' || addr_url.hostname === 'localhost';
+    return addr_url.hostname === '127.0.0.1' || addr_url.hostname.toLowerCase() === 'localhost';
 }
 
 // EXPORTS

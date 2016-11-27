@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isUndefined, deepFreeze } from 'utils';
+import { isObject, isUndefined, deepFreeze } from 'utils/all';
 
 ko.subscribable.fn.is = function(value) {
     return ko.pureComputed(

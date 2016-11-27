@@ -1,10 +1,10 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let http = require('http');
-let https = require('https');
-let url = require('url');
-let argv = require('minimist')(process.argv);
-let pem = require('../util/pem');
+const url = require('url');
+const http = require('http');
+const https = require('https');
+const pem = require('../util/pem');
 
 // see https://en.wikipedia.org/wiki/URL_redirection#HTTP_status_codes_3xx
 const STATUS_CODES_3XX = {
@@ -14,17 +14,15 @@ const STATUS_CODES_3XX = {
     TEMPORARY_REDIRECT: 307, // HTTP/1.1 redirect GET/POST
     PERMANENT_REDIRECT: 308, // HTTP/1.1 redirect GET/POST
 };
-const REDIRECT_STATUS_CODE = STATUS_CODES_3XX.TEMPORARY_REDIRECT;
-
-exports.proxy_port = proxy_port;
-exports.proxy_request = proxy_request;
-exports.forward_request = forward_request;
+const REDIRECT_STATUS_CODE = STATUS_CODES_3XX.FOUND;
 
 if (require.main === module) {
     main();
 }
 
 function main() {
+    // eslint-disable-next-line global-require
+    const argv = require('minimist')(process.argv);
     argv.host = argv.host || '127.0.0.1';
     argv.port = parseInt(argv.port, 10) || 80;
     argv.port2 = parseInt(argv.port2, 10) || 6001;
@@ -43,8 +41,8 @@ function main() {
 }
 
 function proxy_port(port, address, cert) {
-    let addr_url = url.parse(address);
-    let server = (addr_url.protocol === 'https:' ?
+    const addr_url = url.parse(address);
+    const server = (addr_url.protocol === 'https:' ?
             https.createServer({
                 key: cert.serviceKey,
                 cert: cert.certificate
@@ -62,34 +60,32 @@ function proxy_port(port, address, cert) {
 }
 
 function proxy_request(addr_url, req, res) {
-    console.log(req.method, req.url);
-    if (req.method === 'OPTIONS') {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Credentials', true);
-        res.setHeader('Access-Control-Allow-Methods',
-            req.headers['access-control-request-method'] ||
-            'GET, POST, PUT, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers',
-            req.headers['access-control-request-headers'] ||
-            'Content-Type, Authorization, ETag, X-Amz-User-Agent, X-Amz-Date, X-Amz-Content-Sha256');
-        // must answer 200 to options requests
-        res.writeHead(200);
-        res.end();
-    } else if (req.method === 'GET' || req.method === 'POST') {
-        res.writeHead(REDIRECT_STATUS_CODE, {
-            Location: addr_url.href + req.url
-        });
-        res.end();
-    } else {
-        forward_request(addr_url, req, res);
+    switch (req.method) {
+        case 'OPTIONS':
+            return options_request(addr_url, req, res);
+        case 'GET':
+        case 'HEAD':
+        case 'POST':
+            return redirect_request(addr_url, req, res);
+        default:
+            return forward_request(addr_url, req, res);
     }
+}
+
+function redirect_request(addr_url, req, res) {
+    const location = url.resolve(addr_url.href, req.url);
+    console.log(req.method, req.url, '->', REDIRECT_STATUS_CODE, location);
+    res.writeHead(REDIRECT_STATUS_CODE, {
+        Location: location
+    });
+    res.end();
 }
 
 function forward_request(addr_url, req, res) {
     req.on('error', err => on_error(err));
     res.on('error', err => on_error(err));
     let res2;
-    let req2 = (addr_url.protocol === 'https:' ? https : http)
+    const req2 = (addr_url.protocol === 'https:' ? https : http)
         .request({
             protocol: addr_url.protocol,
             hostname: addr_url.hostname,
@@ -118,13 +114,34 @@ function forward_request(addr_url, req, res) {
         req.close();
         if (req2) req2.close();
         if (res2) res2.close();
-        if (!res.headersSent) {
-            res.writeHead(500, 'HTTP PROXY ERROR');
-            res.end();
-        } else {
+        if (res.headersSent) {
             console.error('HTTP PROXY ERROR: headers already sent, so just closing', err);
             res.close();
             // TODO can we handle better?
+        } else {
+            res.writeHead(500, 'HTTP PROXY ERROR');
+            res.end();
         }
     }
 }
+
+function options_request(addr_url, req, res) {
+    // TODO this implementation is not generic, need to ask options from the target server
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Methods',
+        req.headers['access-control-request-method'] ||
+        'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers',
+        req.headers['access-control-request-headers'] ||
+        'Content-Type, Authorization, ETag, X-Amz-User-Agent, X-Amz-Date, X-Amz-Content-Sha256');
+    // must answer 200 to options requests
+    console.log(req.method, req.url, '->', 200);
+    res.writeHead(200);
+    res.end();
+}
+
+exports.proxy_port = proxy_port;
+exports.redirect_request = redirect_request;
+exports.forward_request = forward_request;
+exports.options_request = options_request;

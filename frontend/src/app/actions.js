@@ -3,27 +3,29 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
+import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
     downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
-    stringifyAmount } from 'utils';
-
+    stringifyAmount } from 'utils/all';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
 import 'aws-sdk';
-let AWS = window.AWS;
+const AWS = window.AWS;
 
 // Use preconfigured hostname or the addrcess of the serving computer.
-let endpoint = window.location.hostname;
+const endpoint = window.location.hostname;
 
 // -----------------------------------------------------
 // Utility function to log actions.
 // -----------------------------------------------------
+const prefix = 'ACTION DISPATHCED';
+
 function logAction(action, payload) {
     if (typeof payload !== 'undefined') {
-        console.info(`action dispatched: ${action} with`, payload);
+        console.info(`${prefix} ${action} with`, payload);
     } else {
-        console.info(`action dispatched: ${action}`);
+        console.info(`${prefix} ${action}`);
     }
 }
 
@@ -50,6 +52,7 @@ export function start() {
                     system: system.name,
                     mustChangePassword: account.must_change_password
                 });
+                //api.redirector.register_for_alerts(); //For now comment this out until add it properly
             }
         })
         .catch(err => {
@@ -303,6 +306,158 @@ export function showCluster() {
     });
 }
 
+export function showFuncs() {
+    logAction('showFuncs');
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Functions',
+        breadcrumbs: [
+            { route: 'funcs', label: 'Functions' }
+        ],
+        selectedNavItem: 'funcs',
+        panel: 'funcs'
+    });
+
+    loadFuncs();
+}
+
+export function showFunc() {
+    logAction('showFunc');
+
+    let ctx = model.routeContext();
+    let { func, tab = 'monitoring' } = ctx.params;
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Function',
+        breadcrumbs: [
+            { route: 'funcs', label: 'Functions' },
+            { route: 'func', label: func }
+        ],
+        selectedNavItem: 'funcs',
+        panel: 'func',
+        tab: tab
+    });
+
+    loadFunc(func);
+}
+
+export function loadFuncs() {
+    logAction('loadFuncs');
+
+    api.func.list_funcs({})
+        .then(
+            reply => model.funcList(
+                deepFreeze(reply.functions)
+            )
+        )
+        .done();
+}
+
+export function loadFunc(name) {
+    logAction('loadFunc');
+
+    api.func.read_func({
+        name: name,
+        version: '$LATEST',
+        read_code: true,
+        read_stats: true
+    })
+        .then(reply => {
+            reply.codeFiles = [];
+            const code_zip_data = reply.code && reply.code.zipfile;
+            if (!code_zip_data) {
+                return reply;
+            }
+            // we nullify the buffer since we can't freeze it
+            // and don't need it after reading the zip entries
+            reply.code.zipfile = null;
+            return JSZip.loadAsync(code_zip_data)
+                .then(zip => {
+                    const promises = [];
+                    zip.forEach((relativePath, file) => {
+                        const codeFile = {
+                            path: relativePath,
+                            size: file._data.uncompressedSize, // hacky
+                            dir: file.dir,
+                            content: null
+                        };
+                        reply.codeFiles.push(codeFile);
+                        // only reading files in package root
+                        if (relativePath.includes('/')) return;
+                        promises.push(file.async('string')
+                            .then(content => {
+                                codeFile.content = content;
+                            })
+                        );
+                    });
+                    return Promise.all(promises)
+                        .then(() => reply);
+                });
+        })
+        .then(reply => model.funcInfo(
+            deepFreeze(reply)
+        ))
+        .done();
+}
+
+export function invokeFunc(name, version, event) {
+    logAction('invokeFunc', { name, version, event });
+
+    try {
+        event = JSON.parse(event);
+    } catch(err) {
+        event = String(event || '');
+    }
+
+    api.func.invoke_func({
+        name: name,
+        version: version,
+        event: event
+    })
+        .then(
+            res => {
+                if (res.error) {
+                    notify(`Func ${name} invoked but returned error: ${res.error.message}`, 'warning');
+                } else {
+                    notify(`Func ${name} invoked successfully result: ${JSON.stringify(res.result)}`, 'success');
+                }
+            },
+            () => notify(`Func ${name} invocation failed`, 'error')
+        )
+        .done();
+}
+
+export function updateFunc(config) {
+    logAction('updateFunc', { config });
+
+    api.func.update_func({
+        config: config
+    })
+        .then(
+            () => notify(`Func ${config.name} updated successfully`, 'success'),
+            () => notify(`Func ${config.name} update failed`, 'error')
+        )
+        .then(() => loadFunc(config.name))
+        .done();
+}
+
+export function deleteFunc(name, version) {
+    logAction('deleteFunc', { name, version });
+
+    api.func.delete_func({
+        name: name,
+        version: version
+    })
+        .then(
+            () => notify(`Func ${name} deleted successfully`, 'success'),
+            () => notify(`Func ${name} deletion failed`, 'error')
+        )
+        .then(loadFuncs)
+        .done();
+}
+
 export function handleUnknownRoute() {
     logAction('handleUnknownRoute');
 
@@ -358,7 +513,7 @@ export function signIn(email, password, keepSessionAlive = false) {
                             system: system,
                             mustChangePassword: mustChangePassword
                         });
-
+                        //api.redirector.register_for_alerts(); ////For now comment this out until add it properly
                         model.loginInfo({ retryCount: 0 });
                         refresh();
                     });
@@ -583,7 +738,7 @@ export function loadAuditEntries(categories, count) {
         .join('|');
 
     if (filter !== '') {
-        api.system.read_activity_log({
+        api.events.read_activity_log({
             event: filter || '^$',
             limit: count
         })
@@ -613,7 +768,7 @@ export function loadMoreAuditEntries(count) {
         .join('|');
 
     if (filter !== '') {
-        api.system.read_activity_log({
+        api.events.read_activity_log({
             event: filter,
             till: lastEntryTime,
             limit: count
@@ -634,7 +789,7 @@ export function exportAuditEnteries(categories) {
         )
         .join('|');
 
-    api.system.export_activity_log({ event: filter || '^$' })
+    api.events.export_activity_log({ event: filter || '^$' })
         .catch(
             err => {
                 notify('Exporting activity log failed', 'error');
@@ -1400,7 +1555,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
-    let currentServerKey = `server:${targetHostname}`;
+    let currentServerKey = `server:${targetSecret}`;
     if(model.collectDiagnosticsState[currentServerKey] === true) {
         return;
     }
@@ -1472,7 +1627,7 @@ export function setNodeDebugLevel(node, level) {
         )
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for node ${node}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for node ${node}`,
                 'success'
             ),
             () => notify(
@@ -1495,7 +1650,7 @@ export function setServerDebugLevel(targetSecret, targetHostname, level){
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${targetHostname}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${targetHostname}`,
                 'success'
             ),
             () => notify(
@@ -1799,6 +1954,7 @@ export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress
     );
 
     api.cluster_server.update_time_config({
+        target_secret: serverSecret,
         timezone: timezone,
         ntp_server: ntpServerAddress
     })

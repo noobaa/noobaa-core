@@ -2,7 +2,7 @@ import template from './bucket-objects-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle } from 'utils';
+import { deepFreeze, throttle } from 'utils/all';
 import ObjectRowViewModel from './object-row';
 import { navigateTo, uploadFiles } from 'actions';
 import { routeContext, systemInfo } from 'model';
@@ -14,7 +14,8 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'creationTime'
+        name: 'creationTime',
+        sortable: 'create_time'
     },
     {
         name: 'size',

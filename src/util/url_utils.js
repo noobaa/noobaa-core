@@ -13,6 +13,7 @@ var QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/\[\]]*)|\[([a-fA-F0-9:.]*)\])?
 /**
  * parse url string much faster than url.parse() - reduce the time to 1/10.
  * this is handy when url parsing is part of incoming request handling and called many times per second.
+ * !!! - quick_parse is not conforming to the way url.parse works. see comment at the beginning of the function.
  *
  * on MacAir url.parse() runs ~110,000 times per second while consuming 100% cpu,
  * so url.parse() can be heavy for high RPM server.
@@ -21,6 +22,10 @@ var QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/\[\]]*)|\[([a-fA-F0-9:.]*)\])?
  *
  */
 function quick_parse(url_string, parse_query_string) {
+    // we perfrom toLowerCase on the entire url_string even though it is not conforming to url.parse implementation
+    // we do it to avoid complexity, and since we use quick_parse on very specific places it doesn't matter for now.
+    // we need to review it again if neccessary.
+    url_string = url_string.toLowerCase();
     var match = url_string.match(QUICK_PARSE_REGEXP);
     var u = new url.Url();
     if (!match) return u;

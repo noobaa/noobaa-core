@@ -3,7 +3,7 @@ import NodeRowViewModel from './node-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle} from 'utils';
+import { deepFreeze, throttle} from 'utils/all';
 import { navigateTo } from 'actions';
 import { routeContext } from 'model';
 
@@ -30,8 +30,14 @@ let columns = deepFreeze([
         sortable: 'used',
         type: 'capacity'
     },
-    'trustLevel',
-    'dataActivity'
+    {
+        name: 'trustLevel',
+        sortable: 'trusted'
+    },
+    {
+        name: 'dataActivity',
+        sortable: 'data_activity'
+    }
 ]);
 
 class PoolNodesTableViewModel extends Disposable {

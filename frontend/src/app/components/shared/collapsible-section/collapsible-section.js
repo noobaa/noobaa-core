@@ -5,7 +5,7 @@ import ko from 'knockout';
 //import { navigateTo } from 'actions';
 
 class CollapsibleSectionViewModel extends Disposable{
-    constructor(params, templates) {
+    constructor(params, collapsedTemplate, expandedTemplate) {
         super();
 
         let { title, collapsed } = params;
@@ -13,7 +13,8 @@ class CollapsibleSectionViewModel extends Disposable{
         this.title = title;
         this.intent = collapsed;
         this.result = ko.observable(this.intent());
-        this.templates = templates;
+        this.collapsedTemplate = collapsedTemplate;
+        this.expandedTemplate = expandedTemplate;
     }
 
     onTransitionEnd() {
@@ -36,7 +37,7 @@ function viewModelFactory(params, info) {
             {}
         );
 
-    return new CollapsibleSectionViewModel(params, templates);
+    return new CollapsibleSectionViewModel(params, templates.collapsed, templates.expanded);
 }
 
 export default {

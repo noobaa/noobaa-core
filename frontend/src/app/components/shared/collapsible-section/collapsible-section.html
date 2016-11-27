@@ -13,15 +13,14 @@
 </div>
 
 <div data-bind="
-    visible: result() && intent(),
-    template: { html: templates.collapsed, data: $parent }
+    template: { html: collapsedTemplate, data: $parent, if: result() && intent() }
 ">
 </div>
 
 <div class="column" data-bind="
     expand: !intent(),
     transition: { end: onTransitionEnd },
-    template: { html: templates.expanded, data: $parent }
+    template: { html: expandedTemplate, data: $parent }
 ">
 </div>
 

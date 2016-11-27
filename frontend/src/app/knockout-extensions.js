@@ -20,7 +20,7 @@ ko.subscribable.fn.assign = function(data) {
 };
 
 ko.subscribable.fn.once = function(callback, ctx, event) {
-    let sub = this.subscribe(
+    const sub = this.subscribe(
         val => {
             sub.dispose();
             callback(val);
@@ -29,6 +29,13 @@ ko.subscribable.fn.once = function(callback, ctx, event) {
         event
     );
     return sub;
+};
+
+ko.subscribable.fn.debug = function(prefix) {
+    prefix ? console.debug(prefix, this()) : console.debug(this());
+    return this.subscribe(
+        val => prefix ? console.debug(prefix, val) : console.debug(val)
+    );
 };
 
 ko.observableWithDefault = function(valueAccessor) {

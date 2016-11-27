@@ -510,7 +510,7 @@ class Agent {
                     if (params.store_base_address) {
                         // store base_address to send in get_agent_info_and_update_masters
                         this.base_address = params.base_address.toLowerCase();
-                        this.agent_conf.update({
+                        return this.agent_conf.update({
                             address: params.base_address
                         });
                     }
@@ -518,8 +518,8 @@ class Agent {
                 .then(() => {
                     dbg.log0('update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
-                    // this.rpc.disconnect_all();
-                    this._do_heartbeat();
+                    // on close the agent should call do_heartbeat again when getting the close event
+                    this._server_connection.close();
                 });
         }
 
@@ -644,7 +644,7 @@ class Agent {
         const old_base_address = this.rpc.router.default;
         dbg.log0('update_rpc_config', req.rpc_params);
 
-        this._update_rpc_config_internal({
+        return this._update_rpc_config_internal({
             n2n_config: n2n_config,
             rpc_address: rpc_address,
             old_rpc_address: old_rpc_address,

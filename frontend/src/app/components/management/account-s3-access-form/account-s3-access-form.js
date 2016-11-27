@@ -25,21 +25,28 @@ class AccountS3AccessFormViewModel extends Disposable{
             () => account().email
         );
 
+        this.isS3AccessDisabled = ko.pureComputed(
+            () => !account().has_s3_access
+        );
+
+        const permittedBuckets = ko.pureComputed(
+            () => (accountS3ACL() || [])
+                    .filter( ({ is_allowed }) => is_allowed )
+                    .map( ({ bucket_name }) => bucket_name )
+                    .join(', ') || '(none)'
+        );
+
         this.s3AccessInfo = [
             {
                 label: 'S3 Access',
                 value: ko.pureComputed(
-                    () => account().has_s3_access ? 'Enabled' : 'Disabled'
+                    () => this.isS3AccessDisabled() ? 'Disabled' : 'Enabled'
                 )
             },
             {
                 label: 'Permitted buckets',
-                value: ko.pureComputed(
-                    () => (accountS3ACL() || [])
-                        .filter( ({ is_allowed }) => is_allowed )
-                        .map( ({ bucket_name }) => bucket_name )
-                        .join(', ')
-                )
+                value: permittedBuckets,
+                disabled: this.isS3AccessDisabled
             }
         ];
 
@@ -51,12 +58,14 @@ class AccountS3AccessFormViewModel extends Disposable{
             {
                 label: 'Access Key',
                 value: ko.pureComputed( () => keys().access_key ),
-                allowCopy: true
+                allowCopy: true,
+                disabled: this.isS3AccessDisabled
             },
             {
                 label: 'Secret Key',
                 value: ko.pureComputed( () => keys().secret_key ),
-                allowCopy: true
+                allowCopy: true,
+                disabled: this.isS3AccessDisabled
             }
         ];
 

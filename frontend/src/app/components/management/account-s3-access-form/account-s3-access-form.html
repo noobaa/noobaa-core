@@ -13,22 +13,26 @@
 </property-sheet>
 
 <div class="row alt-bg pad content-middle push-next">
-    <h2 class="heading3 greedy push-next">
+    <h2 class="heading3 greedy push-next" data-bind="
+        css: { disabled: isS3AccessDisabled }
+    ">
         Account Security Credentials
     </h2>
     <button class="btn" data-bind="
-        click: () => null
+        click: () => null,
+        disable: isS3AccessDisabled
     ">
         Regenerate Credentials
     </button>
 </div>
 
 <div class="pad column">
-    <span class="highlight push-next">
+    <span class="highlight push-next" data-bind="
+        css: { disabled: isS3AccessDisabled }
+    ">
         Use the follwong S3 access keys to connect a S3 compatible application to NooBaa:
     </span>
-    <property-sheet class="pad alt-bg" params="properties: credentials">
-    </property-sheet>
+    <property-sheet class="pad alt-bg" params="properties: credentials"></property-sheet>
 </div>
 
 <!-- ko if: isEditAccountS3AccessModalVisible -->

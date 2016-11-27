@@ -4,8 +4,8 @@ var msRestAzure = require('ms-rest-azure');
 var ComputeManagementClient = require('azure-arm-compute');
 var NetworkManagementClient = require('azure-arm-network');
 var util = require('util');
-var P = require('../../util/promise');
-var promise_utils = require('../../util/promise_utils');
+var P = require('../util/promise');
+var promise_utils = require('../util/promise_utils');
 
 var adminUsername = 'notadmin';
 var adminPassword = 'Passw0rd123!';

@@ -46,7 +46,8 @@ function create_auth(req) {
 
         // consider email not found the same as bad password to avoid phishing attacks.
         target_account = system_store.data.accounts_by_email[email];
-        if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials account not found');
+        dbg.log0('credentials account not found', email, system_name);
+        if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials not found');
 
         // when password is not provided it means we want to give authorization
         // by the currently authorized to another specific account instead of
@@ -57,7 +58,8 @@ function create_auth(req) {
         return P.fromCallback(callback =>
                 bcrypt.compare(password, target_account.password, callback))
             .then(function(match) {
-                if (!match) throw new RpcError('UNAUTHORIZED', 'password mismatch');
+                dbg.log0('password mismatch', email, system_name);
+                if (!match) throw new RpcError('UNAUTHORIZED', 'credentials not found');
                 // authentication passed!
                 // so this account is the authenticated_account
                 authenticated_account = target_account;
@@ -70,7 +72,8 @@ function create_auth(req) {
         if (!authenticated_account || !target_account) {
             // find the current authorized account and assign
             if (!req.auth || !req.auth.account_id) {
-                throw new RpcError('UNAUTHORIZED', 'no account_id in auth and no credetials');
+                dbg.log0('no account_id in auth and no credetials', email, system_name);
+                throw new RpcError('UNAUTHORIZED', 'credentials not found');
             }
 
             var account_arg = system_store.data.get_by_id(req.auth.account_id);
@@ -81,10 +84,12 @@ function create_auth(req) {
 
         // check the accounts are valid
         if (!authenticated_account || authenticated_account.deleted) {
-            throw new RpcError('UNAUTHORIZED', 'authenticated account not found');
+            dbg.log0('authenticated account not found', email, system_name);
+            throw new RpcError('UNAUTHORIZED', 'credentials not found');
         }
         if (!target_account || target_account.deleted) {
-            throw new RpcError('UNAUTHORIZED', 'target account not found');
+            dbg.log0('target account not found', email, system_name);
+            throw new RpcError('UNAUTHORIZED', 'credentials not found');
         }
 
         // system is optional, and will not be included in the token if not provided

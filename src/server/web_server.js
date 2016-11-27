@@ -397,6 +397,10 @@ app.get('/version', function(req, res) {
     }
 });
 
+app.get('/bla', function(req, res) {
+    P.delay(10000).then(() => res.end());
+});
+
 ////////////
 // STATIC //
 ////////////

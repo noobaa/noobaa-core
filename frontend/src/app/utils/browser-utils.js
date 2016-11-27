@@ -1,5 +1,5 @@
 /*global setImmediate */
-import { isUndefined } from './core-utils';
+import { isUndefined, entries } from './core-utils';
 import { toCammelCase, toDashedCase } from './string-utils';
 import { sleep } from './promise-utils';
 
@@ -116,29 +116,47 @@ export function recognizeBrowser() {
     );
 }
 
-export function httpGetAsync(url) {
+export function toFormData(payload) {
+    return entries(payload).reduce(
+        (formData, { key, value }) => formData.append(key, value),
+        new FormData()
+    );
+}
+
+export function httpRequest(url, options = {}) {
+    const { verb = 'GET', payload, xhr = new XMLHttpRequest() } = options;
     return new Promise(
         (resolve, reject) =>  {
-            let xhr = new XMLHttpRequest();
-            xhr.open('GET', url, true);
-
+            xhr.open(verb, url, true);
             xhr.onerror = reject;
             xhr.onabort = reject;
+            xhr.onload = resolve;
 
-            xhr.onload = function(evt) {
-                xhr.status === 200 ? resolve(evt) : reject(evt);
-            };
+            if (payload) {
+                xhr.send(payload);
+            } else {
+                xhr.send();
+            }
 
-            xhr.send();
         }
     );
 }
 
-export function httpWaitForResponse(url, retryDelay = 3000) {
+export function httpWaitForResponse(url, status, retryDelay = 3000) {
     return (function tryGet() {
         // Try GET on url, if failed wait for retryDelay seconds and then try again.
-        return httpGetAsync(url).catch(
-            () => sleep(retryDelay).then(tryGet)
-        );
+        return httpRequest(url)
+            .then(
+                evt => {
+                    if (!status || evt.target.status === status) {
+                        return evt;
+                    } else {
+                        throw evt;
+                    }
+                }
+            )
+            .catch(
+                () => sleep(retryDelay).then(tryGet)
+            );
     })();
 }

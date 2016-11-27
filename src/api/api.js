@@ -61,7 +61,7 @@ function default_base_address() {
     return 'ws://127.0.0.1:' + get_base_port();
 }
 
-function new_router(base_address) {
+function new_router(base_address, master_base_address) {
     if (!base_address) {
         base_address = default_base_address();
     }
@@ -74,11 +74,20 @@ function new_router(base_address) {
     let bg_addr = url.format(base_url);
     base_url.port = parseInt(base_url.port, 10) + 1;
     let hosted_agents_addr = url.format(base_url);
+    let master_base_addr;
+    if (master_base_address) {
+        let master_url = _.pick(url.parse(master_base_address),
+            'protocol', 'hostname', 'port', 'slashes');
+        master_base_addr = master_url.format(base_url);
+    } else {
+        master_base_addr = base_addr;
+    }
     let router = {
         default: base_addr,
         md: md_addr,
         bg: bg_addr,
-        hosted_agents: hosted_agents_addr
+        hosted_agents: hosted_agents_addr,
+        master: master_base_addr
     };
     console.log('ROUTER', router);
     return router;
@@ -92,7 +101,8 @@ function new_rpc(base_address) {
             object_api: 'md',
             func_api: 'md',
             cloud_sync_api: 'bg',
-            hosted_agents_api: 'hosted_agents'
+            hosted_agents_api: 'hosted_agents',
+            node_api: 'master'
         }
     });
     return rpc;

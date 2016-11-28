@@ -296,7 +296,7 @@ export function showAccount() {
     logAction('showAccount');
 
     let ctx = model.routeContext();
-    let { account, tab = 'profile' } = ctx.params;
+    let { account, tab = 's3-access' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',

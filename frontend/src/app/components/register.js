@@ -138,10 +138,10 @@ export default function register(ko) {
     ko.components.register('reset-password-modal',                  require('./account/reset-password-modal/reset-password-modal').default);
     ko.components.register('edit-account-s3-access-modal',          require('./account/edit-account-s3-access-modal/edit-account-s3-access-modal').default);
     ko.components.register('account-panel',                         require('./account/account-panel/account-panel').default);
-    ko.components.register('account-profile-form',                  require('./account/account-profile-form/account-profile-form').default);
+    ko.components.register('account-details-form',                  require('./account/account-details-form/account-details-form').default);
     ko.components.register('account-s3-access-form',                require('./account/account-s3-access-form/account-s3-access-form').default);
     ko.components.register('regenerate-account-credentials-modal',  require('./account/regenerate-account-credentials-modal/regenerate-account-credentials-modal').default);
-    ko.components.register('change-password-modal', require('./account/change-password-modal/change-password-modal').default);
+    ko.components.register('change-password-modal',                 require('./account/change-password-modal/change-password-modal').default);
     /** INJECT:account **/
 
     // -------------------------------

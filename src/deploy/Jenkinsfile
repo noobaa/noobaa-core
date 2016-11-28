@@ -2,7 +2,7 @@
 node('node2') {
    stage('GetLatestDataSet') { // for display purposes
       echo 'Grabbing latest build from jenkins!'
-      echo ${package_location.toLowerCase()}
+      echo $package_location
       sh 'curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L $package_location/artifact/*zip*/archive.zip >/tmp/noobaa.zip'
       sh 'tar -xzvf /tmp/noobaa.zip'
 

@@ -2,13 +2,12 @@
 node('node2') {
    stage('GetLatestDataSet') { // for display purposes
       echo 'Grabbing latest build from jenkins!'
-      sh 'curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/mdserver/lastSuccessfulBuild/artifact/*zip*/archive.zip >/tmp/noobaa.zip'
-      sh 'unzip -o /tmp/noobaa.zip -d  /tmp/'
+      sh 'ls'
 
    }
    stage('RunDataSet') {
       // Run the maven build
       echo 'Running some dataSet!'
-      sh 'node /tmp/noobaa-core/src/test/qa/dataset.js --server 13.92.133.78'
+      sh 'node $WORKSPACE/tmp/noobaa-core/src/test/qa/dataset.js --server 13.92.133.78'
    }
 }

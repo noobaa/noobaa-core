@@ -1380,7 +1380,6 @@ exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
 exports.redirect_to_cluster_master = redirect_to_cluster_master;
 exports.add_member_to_cluster = add_member_to_cluster;
-exports.update_server_location = update_server_location;
 exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;

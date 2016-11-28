@@ -34,6 +34,21 @@ module.exports = {
             auth: {
                 system: false
             }
+        },
+
+        update_master_change: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    master_address: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
         }
     }
 };

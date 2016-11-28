@@ -52,7 +52,7 @@ function background_worker() {
                 is_cluster_master = is_master.ismaster;
                 dbg.log1(`sending master update - is_master = ${is_cluster_master}`);
                 cluster_master_retries = 0;
-                return send_master_update(is_cluster_master);
+                return send_master_update(is_cluster_master, is_master.master_address);
             })
             .catch((err) => {
                 if (cluster_master_retries > MAX_RETRIES) {
@@ -82,7 +82,7 @@ function background_worker() {
     }
 }
 
-function send_master_update(is_master) {
+function send_master_update(is_master, master_address) {
     let system = system_store.data.systems[0];
     if (!system) return P.resolve();
     let hosted_agents_promise = is_master ? server_rpc.client.hosted_agents.start() : server_rpc.client.hosted_agents.stop();
@@ -95,7 +95,15 @@ function send_master_update(is_master) {
                     role: 'admin'
                 })
             }),
-            hosted_agents_promise
+            hosted_agents_promise,
+            server_rpc.client.redirector.publish_to_cluster({
+                method_api: 'server_inter_process_api',
+                method_name: 'update_master_change',
+                target: '', // required but irrelevant
+                request_params: {
+                    master_address: master_address
+                }
+            })
         )
         .return();
 }

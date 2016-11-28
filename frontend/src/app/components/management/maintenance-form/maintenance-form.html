@@ -2,7 +2,7 @@
     title: 'Maintenance',
     collapsed: isCollapsed
 ">
-    <section class="collapsed">
+    <section data-name="collapsed">
         <p class="push-next">
             Maintenance Mode:
             <span data-bind="text: stateText"></span>
@@ -13,7 +13,7 @@
         </p>
     </section>
 
-    <section class="expanded">
+    <section data-name="expanded">
         <p class="push-next">
             Automatically, NooBaa is running data rebuild operations (moving data between different nodes). <br> If you wish to set the system to a temporary state of maintanance and prevent high level data rebuilding, turn on maintanance mode for the needed period of time.
         </p>
@@ -24,7 +24,7 @@
     </section>
 </collapsible-section>
 
-    <!-- ko if: isStartMaintenanceModalVisible -->
-    <start-maintenance-modal params="onClose: () => hideStartMaintenanceModal()">
-    </start-maintenance-modal>
-    <!-- /ko -->
+<!-- ko if: isStartMaintenanceModalVisible -->
+<start-maintenance-modal params="onClose: () => hideStartMaintenanceModal()">
+</start-maintenance-modal>
+<!-- /ko -->

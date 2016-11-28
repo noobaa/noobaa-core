@@ -19,7 +19,7 @@ class ManagementPanelViewModel extends Disposable {
         });
     }
 
-    isSectionSelected(section) {
+    isSectionCollapsed(section) {
         return ko.pureComputed({
             read: () => this.section() !== section,
             write: val => this.section(val ? null : section)

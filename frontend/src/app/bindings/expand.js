@@ -11,7 +11,9 @@ export default {
         classList.add('expandable');
         if (expanded()) {
             classList.add('expanded');
-            element.style.maxHeight = '1000px';
+            setImmediate(
+                () => { element.style.maxHeight = `${element.offsetHeight}px`; }
+            );
         } else {
             element.style.maxHeight = '0px';
         }

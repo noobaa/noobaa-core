@@ -23,21 +23,16 @@ class CollapsibleSectionViewModel extends Disposable{
 }
 
 function viewModelFactory(params, info) {
-    let templates = info.templateNodes
-        .filter(
-            ({ nodeType }) => nodeType === 1
-        )
-        .reduce(
-            (templates, template) => {
-                let name = template.getAttribute('class');
-                let html = template.innerHTML;
-                templates[name] = html;
-                return templates;
-            },
-            {}
-        );
+    const collapsedTempalte = info.templateNodes.find(
+        template => template.dataset && template.dataset.name === 'collapsed'
+    ).innerHTML;
 
-    return new CollapsibleSectionViewModel(params, templates.collapsed, templates.expanded);
+    const expandedTempalte = info.templateNodes.find(
+        template => template.dataset && template.dataset.name === 'expanded'
+    ).innerHTML;
+
+
+    return new CollapsibleSectionViewModel(params, collapsedTempalte, expandedTempalte);
 }
 
 export default {

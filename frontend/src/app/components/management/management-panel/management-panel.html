@@ -42,17 +42,17 @@
         <section class="tab" data-bind="
             css: { selected: isTabSelected('settings') }
         ">
-            <server-time-form class="pad" params="isCollapsed: isSectionSelected('server-time')"></server-time-form>
+            <server-time-form class="pad" params="isCollapsed: isSectionCollapsed('server-time')"></server-time-form>
             <hr />
-            <server-dns-form class="pad" params="isCollapsed: isSectionSelected('server-dns')"></server-dns-form>
+            <server-dns-form class="pad" params="isCollapsed: isSectionCollapsed('server-dns')"></server-dns-form>
             <hr />
-            <server-dns-settings-form class="pad" params="isCollapsed: isSectionSelected('dns-settings')"></server-dns-settings-form>
+            <server-dns-settings-form class="pad" params="isCollapsed: isSectionCollapsed('dns-settings')"></server-dns-settings-form>
             <hr />
-            <phone-home-form class="pad" params="isCollapsed: isSectionSelected('phone-home')"></phone-home-form>
+            <phone-home-form class="pad" params="isCollapsed: isSectionCollapsed('phone-home')"></phone-home-form>
             <hr />
-            <remote-syslog-form class="pad" params="isCollapsed: isSectionSelected('remote-syslog')"></remote-syslog-form>
+            <remote-syslog-form class="pad" params="isCollapsed: isSectionCollapsed('remote-syslog')"></remote-syslog-form>
             <hr />
-            <server-ssl-form class="pad" params="isCollapsed: isSectionSelected('server-ssl')"></server-ssl-form>
+            <server-ssl-form class="pad" params="isCollapsed: isSectionCollapsed('server-ssl')"></server-ssl-form>
         </section>
 
         <diagnostics-form class="tab" data-bind="
@@ -66,9 +66,9 @@
         <section class="tab" data-bind="
             css: { selected: isTabSelected('advanced-options') }
         ">
-            <maintenance-form class="pad" params="isCollapsed: isSectionSelected('maintenance')"></maintenance-form>
+            <maintenance-form class="pad" params="isCollapsed: isSectionCollapsed('maintenance')"></maintenance-form>
             <hr />
-            <p2p-form class="pad" params="isCollapsed: isSectionSelected('p2p')"></p2p-form>
+            <p2p-form class="pad" params="isCollapsed: isSectionCollapsed('p2p')"></p2p-form>
             <hr>
         </section>
     </div>

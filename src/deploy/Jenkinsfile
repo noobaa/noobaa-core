@@ -3,12 +3,12 @@ node('node2') {
    stage('GetLatestDataSet') { // for display purposes
       echo 'Grabbing latest build from jenkins!'
       sh 'ls -l'
-      sh '! source /root/.nvm/nvm.sh; ! nvm version; ! nvm use 6.9.1;'
 
    }
    stage('RunDataSet') {
       // Run the maven build
       echo 'Running some dataSet!'
+      sh '! source /root/.nvm/nvm.sh; ! nvm version; ! nvm use 6.9.1;'
       sh 'node $WORKSPACE/tmp/noobaa-core/src/test/qa/dataset.js --server 13.92.133.78'
    }
 }

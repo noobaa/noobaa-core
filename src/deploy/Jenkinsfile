@@ -2,7 +2,8 @@
 node('node2') {
    stage('GetLatestDataSet') { // for display purposes
       echo 'Grabbing latest build from jenkins!'
-      sh 'ls -l' 
+      sh 'ls -l'
+      sh '! source /root/.nvm/nvm.sh; ! nvm version; ! nvm use 6.9.1;'
 
    }
    stage('RunDataSet') {

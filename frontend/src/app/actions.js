@@ -1413,7 +1413,17 @@ export function upgradeSystem(upgradePackage) {
 
     httpRequest('/upgrade', {  verb: 'POST', xhr, payload })
         .then(
-            evt => { if (evt.target.status !== 200) throw evt; }
+            evt => {
+                if (evt.target.status !== 200) {
+                    throw evt;
+                }
+
+                upgradeStatus({
+                    step: 'INSTALL',
+                    progress: 1,
+                    state: 'IN_PROGRESS'
+                });
+            }
         )
         .then(
             () => sleep(20000)
@@ -1453,7 +1463,7 @@ export function uploadSSLCertificate(SSLCertificate) {
 
     httpRequest('/upload_certificate', { verb: 'POST', xhr, payload })
         .then(
-            evt => { if(evt.target.status === 200) throw evt; }
+            evt => { if(evt.target.status !== 200) throw evt; }
         )
         .then(
             () => {

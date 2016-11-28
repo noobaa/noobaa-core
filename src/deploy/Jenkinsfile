@@ -2,7 +2,7 @@
 node('node2') {
    stage('GetLatestDataSet') { // for display purposes
       echo 'Grabbing latest build from jenkins!'
-      sh 'ls'
+      sh 'ls -l' 
 
    }
    stage('RunDataSet') {

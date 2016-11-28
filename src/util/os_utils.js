@@ -466,6 +466,14 @@ function restart_services() {
     });
 }
 
+function set_hostname(hostname) {
+    return promise_utils.exec(`hostname ${hostname}`);
+}
+
+function is_valid_hostname(hostname_string) {
+    const hostname_regex = /^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$/;
+    return Boolean(hostname_regex.exec(hostname_string));
+}
 
 // EXPORTS
 exports.os_info = os_info;
@@ -487,3 +495,5 @@ exports.is_supervised_env = is_supervised_env;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.set_dns_server = set_dns_server;
 exports.restart_services = restart_services;
+exports.set_hostname = set_hostname;
+exports.is_valid_hostname = is_valid_hostname;

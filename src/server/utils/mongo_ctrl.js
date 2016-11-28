@@ -87,18 +87,21 @@ MongoCtrl.prototype.is_master = function(is_config_set) {
         })
         .then((res) => {
             mongo_res = res;
-            return cutil.get_topology();
-        })
-        .then((topo) => {
+            let topo = cutil.get_topology();
             let res_master = false;
+            let master_address = '127.0.0.1';
             _.forEach(mongo_res.members, member => {
-                if (member.name.indexOf(topo.owner_address) > -1 && member.stateStr === 'PRIMARY') {
-                    res_master = true;
+                if (member.stateStr === 'PRIMARY') {
+                    master_address = member.name.substring(0, member.name.indexOf(':'));
+                    if (topo.owner_address === master_address) {
+                        res_master = true;
+                    }
                 }
             });
             return {
                 ismaster: res_master,
-                rs_status: mongo_res
+                rs_status: mongo_res,
+                master_address: master_address
             };
         });
 };

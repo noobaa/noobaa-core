@@ -33,31 +33,14 @@ module.exports = {
                     },
                     location: {
                         type: 'string'
-                    }
-                },
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        update_server_location: {
-            doc: 'Add new member to the cluster',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['secret', 'location'],
-                properties: {
-                    secret: {
-                        type: 'string',
                     },
-                    location: {
+                    new_hostname: {
                         type: 'string'
                     }
                 },
             },
             auth: {
-                system: 'admin',
+                system: 'admin'
             }
         },
 
@@ -174,6 +157,27 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+            }
+        },
+
+        set_server_conf: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    server_secret: {
+                        type: 'string'
+                    },
+                    hostname: {
+                        type: 'string'
+                    },
+                    location: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
             }
         }
     },

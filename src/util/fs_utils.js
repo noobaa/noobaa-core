@@ -148,6 +148,18 @@ function find_line_in_file(file_name, line_sub_string) {
         });
 }
 
+function get_last_line_in_file(file_name) {
+    return fs.readFileAsync(file_name, 'utf8')
+        .then(data => {
+            let lines = data.split('\n');
+            let idx = lines.length - 1;
+            while (!lines[idx] && idx > 0) {
+                idx -= 1;
+            }
+            return lines[idx] || undefined;
+        });
+}
+
 function create_path(dir, mode) {
     if (mode) {
         return P.fromCallback(callback => mkdirp(dir, mode, callback));
@@ -244,6 +256,7 @@ exports.file_must_exist = file_must_exist;
 exports.disk_usage = disk_usage;
 exports.read_dir_recursive = read_dir_recursive;
 exports.find_line_in_file = find_line_in_file;
+exports.get_last_line_in_file = get_last_line_in_file;
 exports.create_path = create_path;
 exports.create_fresh_path = create_fresh_path;
 exports.full_dir_copy = full_dir_copy;

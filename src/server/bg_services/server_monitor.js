@@ -81,14 +81,12 @@ function _verify_dns_cluster_config() {
 
 function _verify_remote_syslog_cluster_config() {
     dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
-    let system = system_store.data.systems[0];
+    let conf = system_store.data.systems[0].remote_syslog_config;
     return os_utils.get_syslog_server_configuration()
         .then(platform_syslog_server => {
-            if (platform_syslog_server || system.remote_syslog_config) {
-                if (!_.isEqual(platform_syslog_server, system.remote_syslog_config)) {
-                    dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', system.remote_syslog_config);
-                    let conf = system.remote_syslog_config || {};
-                    conf.enabled = Boolean(conf);
+            if (platform_syslog_server || conf) {
+                if (!_.isEqual(platform_syslog_server, conf)) {
+                    dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', conf);
                     return os_utils.reload_syslog_configuration(conf);
                 }
             }
@@ -115,14 +113,13 @@ function _check_ntp() {
                     if (!ip_table.some(val => val === regex_res[1])) throw new Error('syncronized to wrong ntp server');
                 });
         })
-        .catch(err => {
-            monitoring_status.ntp_status = "FAULTY";
-            throw err;
-        })
         .then(() => {
             monitoring_status.ntp_status = "OPERATIONAL";
         })
-        .catch(err => dbg.warn('error while checking ntp', err));
+        .catch(err => {
+            monitoring_status.ntp_status = "FAULTY";
+            dbg.warn('error while checking ntp', err);
+        });
 }
 
 function _check_dns_and_phonehome() {

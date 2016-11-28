@@ -19,17 +19,27 @@ function ping(target, options) {
     options = options || DEFAULT_PING_OPTIONS;
     _.defaults(options, DEFAULT_PING_OPTIONS);
     let session = net_ping.createSession(options);
-    return dns_resolve(target)
-        .then(ip_table => P.any(
-            _.map(ip_table, ip => new Promise((resolve, reject) => {
-                session.pingHost(ip, error => {
-                    if (error) {
-                        reject(error);
-                    } else {
-                        resolve();
-                    }
-                });
-            }))));
+    return P.resolve()
+        .then(() => {
+            if (_is_valid_ip(target)) {
+                return _ping_ip(session, target);
+            }
+            return dns_resolve(target)
+                .then(ip_table =>
+                    P.any(_.map(ip_table, ip => _ping_ip(session, ip))));
+        });
+}
+
+function _ping_ip(session, ip) {
+    return new Promise((resolve, reject) => {
+        session.pingHost(ip, error => {
+            if (error) {
+                reject(error);
+            } else {
+                resolve();
+            }
+        });
+    });
 }
 
 function dns_resolve(target, options) {
@@ -44,6 +54,11 @@ function dns_resolve(target, options) {
                 }
             });
     });
+}
+
+function _is_valid_ip(input) {
+    let ip_regex = /^(([1-9]?\d|1\d\d|2[0-5][0-5]|2[0-4]\d)\.){3}([1-9]?\d|1\d\d|2[0-5][0-5]|2[0-4]\d)$/;
+    return Boolean(ip_regex.exec(input));
 }
 
 exports.ping = ping;

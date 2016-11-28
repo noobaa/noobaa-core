@@ -12,7 +12,7 @@ const request = require('request');
 
 function verify_connection_to_phonehome() {
     if (DEV_MODE) {
-        return 'CONNECTED';
+        return P.resolve('CONNECTED');
     }
     let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);
     return P.all([

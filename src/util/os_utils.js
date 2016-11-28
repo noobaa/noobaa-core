@@ -309,7 +309,7 @@ function set_ntp(server, timez) {
 function get_dns_servers() {
     let res = {};
     if (os.type() === 'Linux') {
-        return promise_utils.exec("cat /etc/resolv.conf | grep NooBaa", false, true)
+        return promise_utils.exec("cat /etc/resolv.conf | grep NooBaa", true, true)
             .then(cmd_res => {
                 let regex_res = (/nameserver (.*) #NooBaa/).exec(cmd_res);
                 if (regex_res) return regex_res.shift();
@@ -458,11 +458,12 @@ function is_supervised_env() {
 }
 
 function reload_syslog_configuration(conf) {
+    dbg.log0('setting syslog configuration to: ', conf);
     if (os.type() !== 'Linux') {
         return;
     }
 
-    if (conf.enabled) {
+    if (conf && conf.enabled) {
         return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
             .then(data => {
                 // Sending everything except NooBaa logs
@@ -482,15 +483,17 @@ function get_syslog_server_configuration() {
     if (os.type() !== 'Linux') {
         return;
     }
-    return fs_utils.find_line_in_file('/etc/rsyslog.d/noobaa_syslog.conf', 'if $syslogfacility-text')
+    return fs_utils.get_last_line_in_file('/etc/rsyslog.d/noobaa_syslog.conf')
         .then(conf_line => {
-            if (!conf_line.startsWith('#')) {
-                let regex_res = (/(@+)([\d.]+):(\d+)/).exec(conf_line);
-                return {
-                    protocol: regex_res[1],
-                    address: regex_res[2],
-                    port: regex_res[3]
-                };
+            if (conf_line) {
+                if (!conf_line.startsWith('#')) {
+                    let regex_res = (/(@+)([\d.]+):(\d+)/).exec(conf_line);
+                    return {
+                        protocol: regex_res[1] === '@@' ? 'TCP' : 'UDP',
+                        address: regex_res[2],
+                        port: parseInt(regex_res[3], 10)
+                    };
+                }
             }
         });
 }

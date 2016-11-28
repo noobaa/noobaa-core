@@ -734,8 +734,66 @@ module.exports = {
                 },
                 debug_level: {
                     type: 'integer'
+                },
+                services_status: {
+                    $ref: '#/definitions/services_status'
                 }
             }
         },
+
+        services_status: {
+            type: 'object',
+            required: ['dns_status', 'ph_status'],
+            properties: {
+                dns_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                ph_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                dns_name: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                ntp_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                internet_connectivity: {
+                    type: 'string',
+                    enum: ['FAULTY']
+                },
+                proxy_status: {
+                    $ref: '#/definitions/service_status_enum'
+
+                },
+                remote_syslog_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                cluster_status: {
+                    anyOf: [{
+                        type: 'string',
+                        enum: ['UNKNOWN']
+                    }, {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['secret', 'status'],
+                            properties: {
+                                secret: {
+                                    type: 'string'
+                                },
+                                status: {
+                                    $ref: '#/definitions/service_status_enum'
+                                }
+                            }
+                        }
+                    }]
+                }
+            }
+        },
+
+        service_status_enum: {
+            type: 'string',
+            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+        }
     }
 };

@@ -1,11 +1,13 @@
 <modal class="modal-large" params="
-    title: 'Bucket Cloud Storage Policy',
+    title: 'Edit Cloud Backup',
     onClose: () => cancel()
 ">
-    <p class="push-next">By adding a cloud resource you instruct NooBaa to create an extra copy (mirror) of your file parts that resides on the cloud bucket defined by the cloud resource.</p>
+    <h2 class="heading3">Cloud resource as backup</h2>
+    <p class="push-next">Any Cloud resource participating as backup weill recieve a full copy of replica (Mirror).</p>
 
+    <!-- Temporary until adding a select-all/clear to checkbox column header -->
     <div class="row content-middle">
-        <h2 class="heading3 greedy">Cloud resources in policy</h2>
+        <h2 class="heading3 greedy"></h2>
         <div>
             <button class="link alt-colors" data-bind="click: selectAllResources">
                 Select all
@@ -24,16 +26,16 @@
         rowFactory: resource => newResourceRow(resource)
     "></data-table>
 
-    <p class="info-message push-next">
-        <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
-        To create a new cloud resource go to
-        Resources >
-        <a class="link" data-bind="
-            href: { route: 'pools', params: { tab: 'cloud' } }
-        ">Cloud Resoruces</a>
-    </p>
+    <div class="row content-middle push-prev">
+        <p class="info-message greedy push-next">
+            <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+            To create a new cloud resource go to
+            Resources >
+            <a class="link" data-bind="
+                href: { route: 'pools', params: { tab: 'cloud' } }
+            ">Cloud Resoruces</a>
+        </p>
 
-    <div class="row content-middle align-end push-prev">
         <button class="link alt-colors push-next" data-bind="click: cancel">Cancel</button>
         <button class="btn" data-bind="click: save">Save</button>
     </div>

@@ -13,16 +13,17 @@ const columns = deepFreeze([
         type: 'checkbox'
     },
     {
-        name: 'type',
+        name: 'state',
         type: 'icon'
     },
     {
-        name: 'name',
-        label: 'Resource Name'
+        name: 'type',
+        type: 'icon'
     },
+    'name',
     {
         name: 'usage',
-        label: 'Used by noobaa'
+        label: 'Used capacity by bucket'
     }
 ]);
 

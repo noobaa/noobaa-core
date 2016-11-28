@@ -30,6 +30,14 @@ export default class ResourceRowViewModel extends Disposable {
                 selectedResrouces.remove(this.name())
         });
 
+        this.state = ko.observable(
+            () => ({
+                css: 'success',
+                name: 'healthy',
+                tooltip: 'Healthy'
+            })
+        );
+
         this.type = ko.pureComputed(
             () => resource() ? iconMapping[resource().cloud_info.endpoint_type] : ''
         );

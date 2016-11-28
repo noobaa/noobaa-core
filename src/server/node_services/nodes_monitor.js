@@ -827,7 +827,7 @@ class NodesMonitor extends EventEmitter {
         const filter_res = this._filter_nodes({
             skip_address: item.node.rpc_address,
             skip_no_address: true,
-            pool: item.node.pool,
+            pools: [item.node.pool],
             has_issues: false
         });
         const list = filter_res.list;

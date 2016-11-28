@@ -45,7 +45,7 @@ module.exports = {
                         additionalProperties: true,
                         properties: {}
                     },
-                    hostname: {
+                    new_hostname: {
                         type: 'string'
                     }
                 }

@@ -1,14 +1,15 @@
 #!groovy​
 node {
-   stage('Preparation') { // for display purposes
-      echo 'This is phase 1!'
+   stage('GetLatestDataSet') { // for display purposes
+      echo 'Grabbing latest build from jenkins!'
+      echo ${package_location.toLowerCase()}
+      sh 'curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L $package_location/artifact/*zip*/archive.zip >/tmp/noobaa.zip'
+      sh 'tar -xzvf /tmp/noobaa.zip'
+
    }
    stage('RunDataSet') {
       // Run the maven build
-      sh 'node dataset.js --server '
-   }
-   stage('Results') {
-      junit '**/target/surefire-reports/TEST-*.xml'
-      archive 'target/*.jar'
+      echo 'Running some dataSet!'
+      sh 'node /tmp/noobaa-core/src/test/qa/dataset.js --server 13.92.133.78'
    }
 }

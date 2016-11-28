@@ -44,6 +44,9 @@ module.exports = {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}
+                    },
+                    new_hostname: {
+                        type: 'string'
                     }
                 }
             },
@@ -256,7 +259,6 @@ module.exports = {
                     mongo_upgrade: {
                         type: 'boolean'
                     }
-
                 }
             },
             auth: {
@@ -277,8 +279,23 @@ module.exports = {
             auth: {
                 system: false,
             }
-        }
+        },
 
+        set_hostname_internal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['hostname'],
+                properties: {
+                    hostname: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        }
     },
 
     definitions: {

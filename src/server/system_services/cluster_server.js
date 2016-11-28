@@ -73,6 +73,9 @@ function add_member_to_cluster(req) {
     }
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
+    if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
+        throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
+    }
     let topology = cutil.get_topology();
     var id = topology.cluster_id;
     let is_clusterized = topology.is_clusterized;
@@ -139,6 +142,7 @@ function add_member_to_cluster(req) {
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location,
                 jwt_secret: process.env.JWT_SECRET,
+                new_hostname: req.rpc_params.new_hostname
             }, {
                 address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
                 timeout: 60000 //60s
@@ -200,6 +204,10 @@ function join_to_cluster(req) {
             return _update_cluster_info(req.rpc_params.topology);
         })
         .then(() => {
+            if (req.rpc_params.new_hostname) {
+                dbg.log0('setting hostname to ', req.rpc_params.new_hostname);
+                os_utils.set_hostname(req.rpc_params.new_hostname);
+            }
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology
@@ -643,22 +651,6 @@ function apply_read_server_time(req) {
 }
 
 
-function update_server_location(req) {
-    let server = system_store.data.cluster_by_server[req.rpc_params.secret];
-    if (!server) {
-        throw new Error('server secret not found in cluster');
-    }
-    let update = {
-        _id: server._id,
-        location: req.rpc_params.location
-    };
-    return system_store.make_changes({
-        update: {
-            clusters: [update]
-        }
-    }).return();
-}
-
 // UPGRADE ////////////////////////////////////////////////////////
 function member_pre_upgrade(req) {
     dbg.log0('UPGRADE: received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ?
@@ -902,6 +894,48 @@ function read_server_config(req) {
 
             return reply;
         });
+}
+
+function set_server_conf(req) {
+    dbg.log0('set_server_conf. params:', req.rpc_params);
+    return P.fcall(() => {
+            if (req.rpc_params.server_secret) {
+                if (!system_store.data.cluster_by_server[req.rpc_params.server_secret]) {
+                    throw new Error(`unknown server:`, req.rpc_params.server_secret);
+                }
+                return system_store.data.cluster_by_server[req.rpc_params.server_secret];
+            }
+            return system_store.get_local_cluster_info();
+        })
+        .then(cluster_server => {
+            if (req.rpc_params.hostname) {
+                if (!os_utils.is_valid_hostname(req.rpc_params.hostname)) throw new Error(`Invalid hostname: ${req.rpc_params.hostname}. See RFC 1123`);
+                return server_rpc.client.cluster_internal.set_hostname_internal({
+                        hostname: req.rpc_params.hostname,
+                    }, {
+                        address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
+                        timeout: 60000 //60s
+                    })
+                    .then(() => cluster_server);
+            }
+            return cluster_server;
+        })
+        .then(cluster_server => {
+            if (req.rpc_params.location) {
+                system_store.make_changes({
+                    update: {
+                        clusters: [{
+                            _id: cluster_server._id,
+                            location: req.rpc_params.location
+                        }]
+                    }
+                });
+            }
+        });
+}
+
+function set_hostname_internal(req) {
+    return os_utils.set_hostname(req.rpc_params.hostname);
 }
 
 //
@@ -1346,7 +1380,6 @@ exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
 exports.redirect_to_cluster_master = redirect_to_cluster_master;
 exports.add_member_to_cluster = add_member_to_cluster;
-exports.update_server_location = update_server_location;
 exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
@@ -1366,3 +1399,5 @@ exports.member_pre_upgrade = member_pre_upgrade;
 exports.do_upgrade = do_upgrade;
 exports.upgrade_cluster = upgrade_cluster;
 exports.verify_join_conditions = verify_join_conditions;
+exports.set_server_conf = set_server_conf;
+exports.set_hostname_internal = set_hostname_internal;

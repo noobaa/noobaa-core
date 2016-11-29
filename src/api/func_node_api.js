@@ -75,6 +75,9 @@ module.exports = {
                 sslEnabled: {
                     type: 'boolean'
                 },
+                s3ForcePathStyle: {
+                    type: 'boolean'
+                },
                 accessKeyId: {
                     type: 'string'
                 },

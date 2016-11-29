@@ -297,6 +297,7 @@ function _make_aws_config(req) {
         region: 'us-east-1',
         endpoint: `http://${s3_host}:${s3_port}`,
         sslEnabled: false,
+        s3ForcePathStyle: true,
         accessKeyId: account_keys.access_key,
         secretAccessKey: account_keys.secret_key,
     };

@@ -4,19 +4,34 @@ node('node2') {
         echo 'Checkouting from git!'
         checkout([$class: 'GitSCM', branches: [[name: '*/${branch}']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
     }
-    stage('RunningDataSet') {
-      // Run the maven build
-      echo 'Running some dataset!'
-      sh returnStatus: true, script: """
-        export NVM_DIR=/usr/local/nvm
-        . /opt/nvm/nvm.sh
-        npm install bluebird;
-        npm install lodash;
-        npm install winston;
-        npm install setimmediate;
-        npm install aws-sdk;
-        npm install minimist;
-        node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
+    stage('GetTestFromGit') {
+        sh returnStatus: true, script: """
+              echo 'Checkouting from git!'
+              export NVM_DIR=/usr/local/nvm
+              . /opt/nvm/nvm.sh
+              npm install bluebird lodash winston setimmediate aws-sdk minimist;
         """
+    }
+    stage('RunningDataSet while machine killing') {
+      // Run the maven build
+      parallel (
+        dataset: {
+            echo 'Running some dataset!'
+            sh returnStatus: true, script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
+            """
+      }
+      machinekill: {
+          echo 'Killing some nodes!'
+          sh returnStatus: true, script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                cp /usr/local/noobaa/.env $WORKSPACE
+                sleep '${start_killing_time}'m
+                node $WORKSPACE/src/test/qa/machine_killer.js --service azure --project QA-HA4 --zone eastus --prefix agent
+          """
+      }
    }
 }

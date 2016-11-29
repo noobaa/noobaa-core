@@ -32,7 +32,8 @@ function install_platform {
 		tcpdump \
 		iperf \
 		python-setuptools \
-        bind-utils
+        bind-utils \
+        vim
 
 	# make crontab start on boot
 	chkconfig crond on

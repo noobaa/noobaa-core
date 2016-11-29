@@ -196,6 +196,13 @@ function pre_upgrade {
 		yum install -y dialog
 	fi
 
+	if yum list installed vim >/dev/null 2>&1; then
+		deploy_log "vim installed"
+	else
+		deploy_log "installing vim"
+		yum install -y vim
+	fi
+
 	deploy_log "installing utils"
 	yum install -y bind-utils
 

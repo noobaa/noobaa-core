@@ -16,7 +16,7 @@ node('node2') {
         npm install setimmediate;
         npm install aws-sdk;
         npm install minimist;
-        node $WORKSPACE/src/test/qa/dataset.js --server ${noobaa-ip} --aging_timeout ${aging-time} --dataset_size ${dataset-size}
+        node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa-ip}' --aging_timeout '${aging-time}' --dataset_size '${dataset-size}'
         '''
    }
 }

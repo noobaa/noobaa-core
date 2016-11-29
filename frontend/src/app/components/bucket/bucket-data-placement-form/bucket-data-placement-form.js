@@ -14,20 +14,29 @@ const placementTableColumns = deepFreeze([
         type: 'icon'
     },
     {
-        name: 'poolName',
-        type: 'link'
+        name: 'type',
+        type: 'icon'
+    },
+    {
+        name: 'resourceName',
+        type: 'customLink'
     },
     {
         name: 'onlineNodeCount',
         label: 'online nodes in pool'
     },
     {
-        name: 'freeSpace',
-        label: 'free space in pool'
+        name: 'usedCapacity',
+        label: 'used capacity by bucket',
+        type: 'resourceCapacity'
     }
 ]);
 
 const backupTableColumns = deepFreeze([
+    {
+        name: 'state',
+        type: 'icon'
+    },
     {
         name: 'resourceType',
         label: 'type',
@@ -36,7 +45,7 @@ const backupTableColumns = deepFreeze([
     'resourceName',
     {
         name: 'usage',
-        label: 'Used by noobaa'
+        label: 'Used capacity by bucket'
     }
 ]);
 
@@ -86,7 +95,15 @@ class BucketDataPlacementFormViewModel extends Disposable {
         );
 
         this.nodePoolCount = ko.pureComputed(
-            () => this.nodePools() && this.nodePools().length
+            () => this.nodePools() && this.nodePools().filter(
+                pool => Boolean(pool.nodes)
+            ).length
+        );
+
+        this.cloudResourceCount = ko.pureComputed(
+            () => this.nodePools() && this.nodePools().filter(
+                pool => Boolean(pool.cloud_info)
+            ).length
         );
 
         this.cloudResources = ko.pureComputed(
@@ -95,10 +112,6 @@ class BucketDataPlacementFormViewModel extends Disposable {
                     pool => pool.name === name
                 )
             )
-        );
-
-        this.cloudResourceCount = ko.pureComputed(
-            () => this.cloudResources() && this.cloudResources().length
         );
 
         this.editingDisabled = ko.pureComputed(

@@ -57,7 +57,7 @@ function authenticate() {
 function set_cloud_sync(params) {
     return P.resolve()
         .then(
-            () => client.account.add_account_sync_credentials_cache({
+            () => client.account.add_external_conenction({
                 name: TEST_CTX.connection_name,
                 endpoint: TEST_CTX.target_ip,
                 identity: '123',

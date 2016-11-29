@@ -434,7 +434,10 @@ function list_accounts(req) {
     }
 
     return {
-        accounts: _.map(accounts, get_account_info)
+        accounts: _.map(
+            accounts,
+            account => get_account_info(account, req.account === account)
+        )
     };
 }
 
@@ -461,30 +464,11 @@ function get_system_roles(req) {
 
 /**
  *
- * UPDATE_ACCOUNT with keys
- *
- */
-function get_account_sync_credentials_cache(req) {
-    return (req.account.sync_credentials_cache || []).map(
-        // The defaults are used for backword compatibility.
-        credentials => {
-            return {
-                name: credentials.name || credentials.access_key,
-                endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
-                identity: credentials.access_key,
-                endpoint_type: credentials.endpoint_type
-            };
-        }
-    );
-}
-
-/**
- *
- * UPDATE_ACCOUNT with keys
+ * manage account external connections cache.
  *
  */
 
-function add_account_sync_credentials_cache(req) {
+function add_external_conenction(req) {
     var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
@@ -501,7 +485,7 @@ function add_account_sync_credentials_cache(req) {
     }).return();
 }
 
-function check_account_sync_credentials(req) {
+function check_external_connection(req) {
     var params = _.pick(req.rpc_params, 'endpoint', 'identity', 'secret', 'endpoint_type');
 
     return P.fcall(function() {
@@ -536,9 +520,7 @@ function check_account_sync_credentials(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-
-
-function get_account_info(account) {
+function get_account_info(account, include_connection_cache) {
     var info = _.pick(account, 'name', 'email', 'access_keys');
     if (account.is_support) {
         info.is_support = true;
@@ -565,10 +547,20 @@ function get_account_info(account) {
         };
     }));
 
+    if (!_.isUndefined(include_connection_cache) && include_connection_cache) {
+        info.external_connections = (account.sync_credentials_cache || []).map(
+            // The defaults are used for backword compatibility.
+            credentials => ({
+                name: credentials.name || credentials.access_key,
+                endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
+                identity: credentials.access_key,
+                endpoint_type: credentials.endpoint_type
+            })
+        );
+    }
+
     return info;
 }
-
-
 
 
 /**
@@ -655,9 +647,8 @@ exports.update_account_s3_acl = update_account_s3_acl;
 exports.list_accounts = list_accounts;
 exports.accounts_status = accounts_status;
 exports.get_system_roles = get_system_roles;
-exports.add_account_sync_credentials_cache = add_account_sync_credentials_cache;
-exports.get_account_sync_credentials_cache = get_account_sync_credentials_cache;
-exports.check_account_sync_credentials = check_account_sync_credentials;
+exports.add_external_conenction = add_external_conenction;
+exports.check_external_connection = check_external_connection;
 exports.get_account_info = get_account_info;
 // utility to create the support account from bg_workers
 exports.ensure_support_account = ensure_support_account;

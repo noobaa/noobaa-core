@@ -233,8 +233,8 @@ module.exports = {
             }
         },
 
-        add_account_sync_credentials_cache: {
-            doc: 'Update the credentials cache of the authorized account',
+        add_external_conenction: {
+            doc: 'Add a connection to authorized account\'s connections cache',
             method: 'PUT',
             params: {
                 type: 'object',
@@ -265,35 +265,7 @@ module.exports = {
             }
         },
 
-        get_account_sync_credentials_cache: {
-            method: 'GET',
-            reply: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    properties: {
-                        name: {
-                            type: 'string'
-                        },
-                        endpoint: {
-                            type: 'string'
-                        },
-                        identity: {
-                            type: 'string'
-                        },
-                        endpoint_type: {
-                            type: 'string',
-                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        check_account_sync_credentials: {
+        check_external_connection: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -356,6 +328,27 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'string'
+                    }
+                },
+                external_connections: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            name: {
+                                type: 'string'
+                            },
+                            endpoint: {
+                                type: 'string'
+                            },
+                            identity: {
+                                type: 'string'
+                            },
+                            endpoint_type: {
+                                type: 'string',
+                                enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                            }
+                        }
                     }
                 },
                 systems: {

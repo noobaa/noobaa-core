@@ -55,7 +55,6 @@ mocha.describe('system_servers', function() {
                 email: EMAIL
             }))
             .then(() => client.account.list_accounts())
-            .then(() => client.account.get_account_sync_credentials_cache())
             .then(() => client.system.read_system())
             .then(() => {
                 return client.system.update_system({
@@ -265,7 +264,7 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
-            .then(() => client.account.add_account_sync_credentials_cache({
+            .then(() => client.account.add_external_conenction({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
                 identity: process.env.AWS_ACCESS_KEY_ID,

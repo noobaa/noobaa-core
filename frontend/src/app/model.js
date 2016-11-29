@@ -38,8 +38,7 @@ export const bucketObjectList = ko.observable();
 export const bucketS3ACL = ko.observableArray();
 
 // Hold the current cloud sync information.
-export const CloudConnections = ko.observableArray();
-export const CloudBucketList = ko.observableArray();
+export const cloudBucketList = ko.observableArray();
 export const isCloudConnectionValid = ko.observable(true)
     .extend({ notify: 'always' });
 

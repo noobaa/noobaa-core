@@ -5,7 +5,7 @@ import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpRequest,
+    downloadFile, deepFreeze, flatMap, httpRequest,
     httpWaitForResponse, stringifyAmount, toFormData } from 'utils/all';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -816,14 +816,6 @@ export function exportAuditEnteries(categories) {
             }
         )
         .then(downloadFile)
-        .done();
-}
-
-export function loadCloudConnections() {
-    logAction('loadCloudConnections');
-
-    api.account.get_account_sync_credentials_cache()
-        .then(model.CloudConnections)
         .done();
 }
 
@@ -1731,14 +1723,14 @@ export function toogleCloudSync(bucket, pause) {
 export function checkCloudConnection(endpointType, endpoint, identity, secret) {
     logAction('checkCloudConnection', { endpointType, endpoint, identity, secret });
 
-    let credentials = {
+    const connection = {
         endpoint_type: endpointType,
         endpoint: endpoint,
         identity: identity,
         secret: secret
     };
 
-    api.account.check_account_sync_credentials(credentials)
+    api.account.check_external_connection(connection)
         .then(model.isCloudConnectionValid)
         .done();
 }
@@ -1746,7 +1738,7 @@ export function checkCloudConnection(endpointType, endpoint, identity, secret) {
 export function addCloudConnection(name, endpointType, endpoint, identity, secret) {
     logAction('addCloudConnection', { name, endpointType, endpoint, identity, secret });
 
-    let credentials = {
+    let connection = {
         name: name,
         endpoint_type: endpointType,
         endpoint: endpoint,
@@ -1754,8 +1746,8 @@ export function addCloudConnection(name, endpointType, endpoint, identity, secre
         secret: secret
     };
 
-    api.account.add_account_sync_credentials_cache(credentials)
-        .then(loadCloudConnections)
+    api.account.add_external_conenction(connection)
+        .then(loadSystemInfo)
         .done();
 }
 

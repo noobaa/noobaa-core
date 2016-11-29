@@ -5,8 +5,8 @@ node('node2') {
         checkout([$class: 'GitSCM', branches: [[name: '*/${branch}']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
     }
     stage('GetTestFromGit') {
+        echo 'Installing all needed npm packages!'
         sh returnStatus: true, script: """
-              echo 'Checkouting from git!'
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
               npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv

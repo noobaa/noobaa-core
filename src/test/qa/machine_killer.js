@@ -18,6 +18,7 @@ var max_timeout = argv.max_timeout || 30; // maximum 1 minute
 var min_machines = argv.min_machines || 2; // minimum 3 machine
 var max_machines = argv.max_machines || 3; // maximum 10 machines
 var service = argv.service || 'azure';
+var timeout = argv.timeout || 0; // time running in minutes
 
 dotenv.load();
 var account_email = argv.account || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -38,11 +39,12 @@ if (service === 'gcloud') {
 // var authClient = new google.auth.JWT(
 //     account_email, account_key, null, ['https://www.googleapis.com/auth/compute']);
 var machines_number = 0;
+var start = Date.now();
 return funcs.authenticate()
     .then(() => funcs.countOnMachines(vm_prefix))
     .then(count => {
         machines_number = count;
-        return promise_utils.pwhile(() => true, () => {
+        return promise_utils.pwhile(() => (timeout === 0 || ((Date.now() - start) / (60 * 1000)) < timeout), () => {
             var rand_machine;
             var rand_timeout = Math.floor(Math.random() * (max_timeout - min_timeout) + min_timeout);
             console.log('Number of ON machines are: ' + machines_number);

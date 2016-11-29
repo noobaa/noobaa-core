@@ -24,6 +24,7 @@ const request = require('request');
 const dns = require('dns');
 const cluster_hb = require('../bg_services/cluster_hb');
 const dotenv = require('../../util/dotenv');
+const phone_home_utils = require('../../util/phone_home');
 const pkg = require('../../../package.json');
 const md_store = require('../object_services/md_store');
 
@@ -73,6 +74,9 @@ function add_member_to_cluster(req) {
     }
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
+    if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
+        throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
+    }
     let topology = cutil.get_topology();
     var id = topology.cluster_id;
     let is_clusterized = topology.is_clusterized;
@@ -139,6 +143,7 @@ function add_member_to_cluster(req) {
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location,
                 jwt_secret: process.env.JWT_SECRET,
+                new_hostname: req.rpc_params.new_hostname
             }, {
                 address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
                 timeout: 60000 //60s
@@ -200,6 +205,10 @@ function join_to_cluster(req) {
             return _update_cluster_info(req.rpc_params.topology);
         })
         .then(() => {
+            if (req.rpc_params.new_hostname) {
+                dbg.log0('setting hostname to ', req.rpc_params.new_hostname);
+                os_utils.set_hostname(req.rpc_params.new_hostname);
+            }
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology
@@ -643,22 +652,6 @@ function apply_read_server_time(req) {
 }
 
 
-function update_server_location(req) {
-    let server = system_store.data.cluster_by_server[req.rpc_params.secret];
-    if (!server) {
-        throw new Error('server secret not found in cluster');
-    }
-    let update = {
-        _id: server._id,
-        location: req.rpc_params.location
-    };
-    return system_store.make_changes({
-        update: {
-            clusters: [update]
-        }
-    }).return();
-}
-
 // UPGRADE ////////////////////////////////////////////////////////
 function member_pre_upgrade(req) {
     dbg.log0('UPGRADE: received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ?
@@ -883,7 +876,7 @@ function read_server_config(req) {
                 });
         })
         .then(() => _attach_server_configuration(srvconf, reply.using_dhcp))
-        .then(() => _verify_connection_to_phonehome())
+        .then(() => phone_home_utils.verify_connection_to_phonehome())
         .then(function(connection_reply) {
             reply.phone_home_connectivity_status = connection_reply;
 
@@ -904,110 +897,52 @@ function read_server_config(req) {
         });
 }
 
+function set_server_conf(req) {
+    dbg.log0('set_server_conf. params:', req.rpc_params);
+    return P.fcall(() => {
+            if (req.rpc_params.server_secret) {
+                if (!system_store.data.cluster_by_server[req.rpc_params.server_secret]) {
+                    throw new Error(`unknown server:`, req.rpc_params.server_secret);
+                }
+                return system_store.data.cluster_by_server[req.rpc_params.server_secret];
+            }
+            return system_store.get_local_cluster_info();
+        })
+        .then(cluster_server => {
+            if (req.rpc_params.hostname) {
+                if (!os_utils.is_valid_hostname(req.rpc_params.hostname)) throw new Error(`Invalid hostname: ${req.rpc_params.hostname}. See RFC 1123`);
+                return server_rpc.client.cluster_internal.set_hostname_internal({
+                        hostname: req.rpc_params.hostname,
+                    }, {
+                        address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
+                        timeout: 60000 //60s
+                    })
+                    .then(() => cluster_server);
+            }
+            return cluster_server;
+        })
+        .then(cluster_server => {
+            if (req.rpc_params.location) {
+                system_store.make_changes({
+                    update: {
+                        clusters: [{
+                            _id: cluster_server._id,
+                            location: req.rpc_params.location
+                        }]
+                    }
+                });
+            }
+        });
+}
+
+function set_hostname_internal(req) {
+    return os_utils.set_hostname(req.rpc_params.hostname);
+}
+
 //
 //Internals Cluster Control
 //
 
-
-function _verify_connection_to_phonehome() {
-    if (DEV_MODE) {
-        return 'CONNECTED';
-    }
-    let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);
-    return P.all([
-        P.fromCallback(callback => dns.resolve(parsed_url.host, callback)).reflect(),
-        _get_request('https://google.com').reflect(),
-        _get_request(config.PHONE_HOME_BASE_URL + '/connectivity_test').reflect()
-    ]).then(function(results) {
-        var reply_status;
-        let ph_dns_result = results[0];
-        let google_get_result = results[1];
-        let ph_get_result = results[2];
-        reply_status = _handle_ph_get(ph_get_result, google_get_result, ph_dns_result);
-
-        if (!reply_status) {
-            throw new Error('Could not _verify_connection_to_phonehome');
-        }
-
-        dbg.log0('_verify_connection_to_phonehome reply_status:', reply_status);
-        return reply_status;
-    });
-}
-
-
-function _get_request(dest_url) {
-    const options = {
-        url: dest_url,
-        method: 'GET',
-        strictSSL: false, // means rejectUnauthorized: false
-    };
-    dbg.log0('Sending Get Request:', options);
-    return P.fromCallback(callback => request(options, callback), {
-            multiArgs: true
-        })
-        .spread(function(response, body) {
-            dbg.log0(`Received Response From ${dest_url}`, response.statusCode);
-            return {
-                response: response,
-                body: body
-            };
-        });
-}
-
-
-function _handle_ph_get(ph_get_result, google_get_result, ph_dns_result) {
-    if (ph_get_result.isFulfilled()) {
-        let ph_reply = ph_get_result.value();
-        dbg.log0(`Received Response From ${config.PHONE_HOME_BASE_URL}`,
-            ph_reply && ph_reply.response.statusCode, ph_reply.body);
-        if (_.get(ph_reply, 'response.statusCode', 0) === 200) {
-            if (String(ph_reply.body) === 'Phone Home Connectivity Test Passed!') {
-                return 'CONNECTED';
-            } else {
-                return 'MALFORMED_RESPONSE';
-            }
-            // In this case not posible to get reject unless exception
-        } else {
-            return _handle_google_get(google_get_result);
-        }
-    } else {
-        return _handle_ph_dns(ph_dns_result, google_get_result);
-    }
-}
-
-
-function _handle_google_get(google_get_result) {
-    if (google_get_result.isFulfilled()) {
-        let google_reply = google_get_result.value();
-        dbg.log0('Received Response From https://google.com',
-            google_reply && google_reply.response.statusCode);
-        if (_.get(google_reply, 'response.statusCode', 0)
-            .toString()
-            .startsWith(2)) {
-            return 'CANNOT_CONNECT_PHONEHOME_SERVER';
-        } else {
-            return 'CANNOT_CONNECT_INTERNET';
-        }
-    } else {
-        return 'CANNOT_CONNECT_INTERNET';
-    }
-}
-
-
-function _handle_ph_dns(ph_dns_result, google_get_result) {
-    if (ph_dns_result.isRejected()) {
-        let dns_reply = ph_dns_result.reason();
-        dbg.log0('Received Response From DNS Servers', dns_reply);
-
-        if (dns_reply && String(dns_reply.code) === 'ENOTFOUND') {
-            return 'CANNOT_RESOLVE_PHONEHOME_NAME';
-        } else {
-            return 'CANNOT_REACH_DNS_SERVER';
-        }
-    } else {
-        return _handle_google_get(google_get_result);
-    }
-}
 
 
 function _verify_join_preconditons(req) {
@@ -1340,13 +1275,45 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
         });
 }
 
+function check_cluster_status() {
+    var servers = system_store.data.clusters;
+    dbg.log2('check_cluster_status', servers);
+    return P.map(_.filter(servers,
+            server => server.owner_secret !== system_store.get_server_secret()),
+        server => server_rpc.client.cluster_server.ping({}, {
+            address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
+            timeout: 60000 //60s
+        }).then(res => {
+            if (res === "PONG") {
+                return {
+                    secret: server.owner_secret,
+                    status: "OPERATIONAL"
+                };
+            }
+            return {
+                secret: server.owner_secret,
+                status: "FAULTY"
+            };
+        })
+        .catch(err => {
+            dbg.warn(`error while pinging server ${server.owner_secret}: `, err.stack || err);
+            return {
+                secret: server.owner_secret,
+                status: "UNREACHABLE"
+            };
+        }));
+}
+
+function ping() {
+    return "PONG";
+}
+
 
 // EXPORTS
 exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
 exports.redirect_to_cluster_master = redirect_to_cluster_master;
 exports.add_member_to_cluster = add_member_to_cluster;
-exports.update_server_location = update_server_location;
 exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
@@ -1365,4 +1332,8 @@ exports.read_server_config = read_server_config;
 exports.member_pre_upgrade = member_pre_upgrade;
 exports.do_upgrade = do_upgrade;
 exports.upgrade_cluster = upgrade_cluster;
+exports.check_cluster_status = check_cluster_status;
+exports.ping = ping;
 exports.verify_join_conditions = verify_join_conditions;
+exports.set_server_conf = set_server_conf;
+exports.set_hostname_internal = set_hostname_internal;

@@ -209,7 +209,7 @@ function run_wizard {
 is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"
   while [ "${menu_entry}" -ne "4" ]; do
-    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration" 3 "Password reset" 4 "Exit" 2> choice
+    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration (Optional)" 3 "Password reset" 4 "Exit" 2> choice
     menu_entry=$(cat choice)
   if [ "${menu_entry}" -eq "1" ]; then
     configure_networking_dialog

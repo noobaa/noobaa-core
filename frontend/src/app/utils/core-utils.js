@@ -149,3 +149,9 @@ export function averageBy(array, predicate) {
 
     return sum / array.length;
 }
+
+export function entries(obj) {
+    return Object.keys(obj).map(
+        key => ({ key, value: obj[key] })
+    );
+}

@@ -2,7 +2,7 @@
 
 require('../../util/dotenv').load();
 
-var AzureFunctions = require('../qa/azureFunctions');
+var AzureFunctions = require('./azureFunctions');
 const argv = require('minimist')(process.argv);
 
 var clientId = process.env.CLIENT_ID;

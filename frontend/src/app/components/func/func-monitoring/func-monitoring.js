@@ -3,12 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
-import { deepFreeze, colorToRgb } from 'utils';
-
-function colorToRgbaString(color, alpha){
-    let [r, b, g] = colorToRgb(color);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+import { deepFreeze, hexToRgb } from 'utils/all';
 
 const responseTimeOptions = deepFreeze({
     maintainAspectRatio: false,
@@ -103,7 +98,7 @@ class FuncMonitoringViewModel extends Disposable {
                         {
                             label: 'Last 10 Minutes',
                             borderColor: style['color8'],
-                            backgroundColor: colorToRgbaString(style['color8'], .1),
+                            fill: false,
                             data: stats.response_time_last_10_minutes.percentiles.map(
                                 p => ({ x: p.percent, y: p.value })
                             )
@@ -111,7 +106,7 @@ class FuncMonitoringViewModel extends Disposable {
                         {
                             label: 'Last Hour',
                             borderColor: style['color11'],
-                            backgroundColor: colorToRgbaString(style['color11'], .1),
+                            fill: false,
                             data: stats.response_time_last_hour.percentiles.map(
                                 p => ({ x: p.percent, y: p.value })
                             )
@@ -119,7 +114,7 @@ class FuncMonitoringViewModel extends Disposable {
                         {
                             label: 'Last day',
                             borderColor: style['color12'],
-                            backgroundColor: colorToRgbaString(style['color12'], .1),
+                            fill: false,
                             data: stats.response_time_last_day.percentiles.map(
                                 p => ({ x: p.percent, y: p.value })
                             )
@@ -142,8 +137,7 @@ class FuncMonitoringViewModel extends Disposable {
                         {
                             label: 'Requests',
                             borderColor: style['color12'],
-                            backgroundColor: colorToRgbaString(style['color12'], .1),
-                            fill: true,
+                            backgroundColor: hexToRgb(style['color12'], .1),
                             data: stats.requests_over_time.map(
                                 r => ({ x: r.time, y: r.requests - r.errors })
                             )
@@ -151,8 +145,7 @@ class FuncMonitoringViewModel extends Disposable {
                         {
                             label: 'Errors',
                             borderColor: style['color10'],
-                            backgroundColor: colorToRgbaString(style['color10'], .1),
-                            fill: true,
+                            backgroundColor: hexToRgb(style['color10'], .1),
                             data: stats.requests_over_time.map(
                                 r => ({ x: r.time, y: r.errors })
                             )

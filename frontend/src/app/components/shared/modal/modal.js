@@ -1,6 +1,6 @@
 import template from './modal.html';
 import Disposable from 'disposable';
-import { noop } from 'utils';
+import { noop } from 'utils/all';
 import ko from 'knockout';
 
 class ModalViewModel extends Disposable {

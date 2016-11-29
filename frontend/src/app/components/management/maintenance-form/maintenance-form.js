@@ -4,7 +4,7 @@ import ko from 'knockout';
 import moment from 'moment';
 import { systemInfo } from 'model';
 import { exitMaintenanceMode } from 'actions';
-import { pad } from 'utils';
+import { pad } from 'utils/all';
 
 class MaintenanceFormViewModel extends Disposable {
     constructor() {

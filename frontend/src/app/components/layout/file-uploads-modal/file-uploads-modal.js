@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { uploads } from 'model';
-import { deepFreeze, stringifyAmount, formatSize } from 'utils';
+import { deepFreeze, stringifyAmount, formatSize } from 'utils/all';
 import { clearCompletedUploads } from 'actions';
 import style from 'style';
 import numeral from 'numeral';

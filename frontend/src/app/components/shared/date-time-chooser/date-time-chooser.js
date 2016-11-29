@@ -2,7 +2,7 @@ import template from './date-time-chooser.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import { makeRange } from 'utils';
+import { makeRange } from 'utils/all';
 
 class DateTimeChooserViewModel extends Disposable{
     constructor({ time, timezone }) {

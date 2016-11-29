@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 import { systemInfo } from 'model';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const stateMapping = deepFreeze({
     true: {

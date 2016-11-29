@@ -5,8 +5,8 @@ import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
-    stringifyAmount } from 'utils';
+    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpRequest,
+    httpWaitForResponse, stringifyAmount, toFormData } from 'utils/all';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -1395,64 +1395,50 @@ export function updateHostname(hostname) {
 export function upgradeSystem(upgradePackage) {
     logAction('upgradeSystem', { upgradePackage });
 
-    function ping() {
-        let xhr = new XMLHttpRequest();
-        xhr.open('GET', '/version', true);
-        xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
-        xhr.onerror = () => setTimeout(ping, 3000);
-        xhr.send();
-    }
-
-    let { upgradeStatus } = model;
+    const { upgradeStatus } = model;
     upgradeStatus({
         step: 'UPLOAD',
         progress: 0,
         state: 'IN_PROGRESS'
     });
 
-    let xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upgrade', true);
-
+    const xhr = new XMLHttpRequest();
     xhr.upload.onprogress = function(evt) {
         upgradeStatus.assign({
             progress: evt.lengthComputable && evt.loaded / evt.total
         });
     };
 
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            setTimeout(
-                () => {
-                    upgradeStatus({
-                        step: 'INSTALL',
-                        progress: 0,
-                        state: 'IN_PROGRESS'
-                    });
+    const payload = toFormData({ 'upgrade_file': upgradePackage });
 
-                    setTimeout(ping, 3000);
-                },
-                20000
-            );
-        } else {
-            upgradeStatus.assign({ state: 'FAILED' });
-        }
-    };
+    httpRequest('/upgrade', {  verb: 'POST', xhr, payload })
+        .then(
+            evt => {
+                if (evt.target.status !== 200) {
+                    throw evt;
+                }
 
-    xhr.onerror = function() {
-        upgradeStatus.assign({
-            state: 'FAILED'
-        });
-    };
-
-    xhr.onabort = function() {
-        upgradeStatus.assign({
-            state: 'CANCELED'
-        });
-    };
-
-    let formData = new FormData();
-    formData.append('upgrade_file', upgradePackage);
-    xhr.send(formData);
+                upgradeStatus({
+                    step: 'INSTALL',
+                    progress: 1,
+                    state: 'IN_PROGRESS'
+                });
+            }
+        )
+        .then(
+            () => sleep(20000)
+        )
+        .then(
+            () => httpWaitForResponse('/version', 200)
+        )
+        .then(
+            () => reloadTo(routes.system, undefined, { afterupgrade: true })
+        )
+        .catch(
+            ({ type }) => upgradeStatus.assign({
+                state: type === 'abort' ? 'CANCELED' : 'FAILED'
+            })
+        );
 }
 
 // TODO: Notificaitons - remove message
@@ -1466,57 +1452,38 @@ export function uploadSSLCertificate(SSLCertificate) {
         error: ''
     });
 
-    let xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload_certificate', true);
-
-    xhr.onload = function(evt) {
-        if (xhr.status !== 200) {
-            let error = evt.target.responseText;
-
-            uploadStatus.assign ({
-                state: 'FAILED',
-                error: error
-            });
-
-            notify(`Uploading SSL cartificate failed: ${error}`, 'error');
-
-        } else {
-            uploadStatus.assign ({
-                state: 'SUCCESS'
-            });
-
-            notify('SSL cartificate uploaded successfully', 'success');
-        }
-    };
-
+    const xhr = new XMLHttpRequest();
     xhr.upload.onprogress = function(evt) {
         uploadStatus.assign({
             progress: evt.lengthComputable && (evt.loaded / evt.total)
         });
     };
 
-    xhr.onerror = function(evt) {
-        let error = evt.target.responseText;
+    const payload = toFormData({ upload_file: SSLCertificate });
 
-        uploadStatus.assign({
-            state: 'FAILED',
-            error: error
-        });
+    httpRequest('/upload_certificate', { verb: 'POST', xhr, payload })
+        .then(
+            evt => { if(evt.target.status !== 200) throw evt; }
+        )
+        .then(
+            () => {
+                uploadStatus.assign ({ state: 'SUCCESS' });
+                notify('SSL cartificate uploaded successfully', 'success');
+            }
+        )
+        .catch(
+            evt => {
+                if (evt.type === 'abort') {
+                    uploadStatus.assign ({ state: 'CANCELED' });
+                    notify('Uploading SSL cartificate canceled', 'info');
 
-        notify(`Uploading SSL cartificate failed: ${error}`, 'error');
-    };
-
-    xhr.onabort = function() {
-        uploadStatus.assign ({
-            state: 'CANCELED'
-        });
-
-        notify('Uploading SSL cartificate canceled', 'info');
-    };
-
-    let formData = new FormData();
-    formData.append('upload_file', SSLCertificate);
-    xhr.send(formData);
+                } else {
+                    const error = evt.target.responseText;
+                    uploadStatus.assign ({ state: 'FAILED', error });
+                    notify(`Uploading SSL cartificate failed: ${error}`, 'error');
+                }
+            }
+        );
 }
 
 export function downloadNodeDiagnosticPack(nodeName) {

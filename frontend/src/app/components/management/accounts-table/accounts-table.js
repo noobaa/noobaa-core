@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
 import { systemInfo } from 'model';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const columns = deepFreeze([
     {

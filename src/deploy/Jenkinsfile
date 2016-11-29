@@ -7,7 +7,7 @@ node('node2') {
     stage('RunningDataSet') {
       // Run the maven build
       echo 'Running some dataset!'
-      sh """
+      sh returnStatus: true, script: """
         export NVM_DIR=/usr/local/nvm
         . /opt/nvm/nvm.sh
         npm install bluebird;

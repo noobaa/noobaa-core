@@ -47,18 +47,43 @@ ko.observableWithDefault = function(valueAccessor) {
 };
 
 ko.deepUnwrap = function(value) {
-    let uw = ko.unwrap(value);
-    if (isObject(uw)) {
-        return Object.keys(uw).reduce(
+    const naked = ko.unwrap(value);
+    if (isObject(naked)) {
+        return Object.keys(naked).reduce(
             (res, key) => {
-                res[key] = ko.deepUnwrap(uw[key]);
+                res[key] = ko.deepUnwrap(naked[key]);
                 return res;
             },
-            uw instanceof Array ? [] : {}
+            naked instanceof Array ? [] : {}
         );
     } else {
-        return uw;
+        return naked;
     }
+};
+
+ko.touched = function(root) {
+    let initialized = false;
+    const trigger = ko.observable();
+    const obs = ko.pureComputed(
+        () => {
+            trigger();
+
+            if (!initialized) {
+                ko.deepUnwrap(root);
+                initialized = true;
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    obs.reset = function() {
+        initialized = false;
+        trigger.valueHasMutated();
+    };
+
+    return obs;
 };
 
 // ko.validation specific extentions:

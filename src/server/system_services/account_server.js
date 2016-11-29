@@ -152,12 +152,16 @@ function generate_account_keys(req) {
     }
     let updates = _.pick(account, '_id');
 
-    updates.access_keys = [generate_access_keys()];
-    return system_store.make_changes({
-            update: {
-                accounts: [updates]
-            }
-        });
+    return verify_authorized_account(req)
+        .then(() => {
+            updates.access_keys = [generate_access_keys()];
+            return system_store.make_changes({
+                update: {
+                    accounts: [updates]
+                }
+            });
+        })
+        .return();
 }
 
 
@@ -311,12 +315,7 @@ function reset_password(req) {
         throw new RpcError('FORBIDDEN', 'Cannot change support password');
     }
 
-    return bcrypt.compareAsync(req.rpc_params.verification_password, req.account.password)
-        .then(match => {
-            if (!match) {
-                throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
-            }
-        })
+    return verify_authorized_account(req)
         .then(() => bcrypt_password(req.rpc_params.password))
         .then(password => {
             let update = {
@@ -602,8 +601,6 @@ function ensure_support_account() {
         });
 }
 
-
-
 function bcrypt_password(password) {
     if (!password) {
         return P.resolve();
@@ -634,6 +631,15 @@ function generate_access_keys() {
         access_key: random_string(20),
         secret_key: crypto.randomBytes(40).toString('base64').slice(0, 40)
     };
+}
+
+function verify_authorized_account(req) {
+    return bcrypt.compareAsync(req.rpc_params.verification_password, req.account.password)
+        .then(match => {
+            if (!match) {
+                throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
+            }
+        });
 }
 
 // EXPORTS

@@ -147,10 +147,13 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email'],
+                required: ['email', 'verification_password'],
                 properties: {
                     email: {
                         type: 'string',
+                    },
+                    verification_password: {
+                        type: 'string'
                     }
                 },
             },

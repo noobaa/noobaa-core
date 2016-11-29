@@ -2015,6 +2015,35 @@ export function recommissionNode(name) {
         .done();
 }
 
+
+export function regenerateAccountCredentials(email, verificationPassword) {
+    logAction('regenerateAccountCredentials', { email, verificationPassword: '*****' });
+
+    model.regenerateCredentialState('IN_PROGRESS');
+    api.account.generate_account_keys({
+        email: email,
+        verification_password: verificationPassword
+    })
+        .then(
+            () => {
+                model.regenerateCredentialState('SUCCESS');
+                notify(`${email} credentials regenerated successfully`, 'success');
+            }
+        )
+        .catch(
+            err => {
+                if (err.rpc_code === 'UNAUTHORIZED') {
+                    model.regenerateCredentialState('UNAUTHORIZED');
+                } else {
+                    model.regenerateCredentialState('ERROR');
+                    notify(`Regenerating ${email} credentials failed`, 'error');
+                    throw err;
+                }
+            }
+        )
+        .then(loadSystemInfo)
+        .done();
+}
 // ------------------------------------------
 // Helper functions:
 // ------------------------------------------

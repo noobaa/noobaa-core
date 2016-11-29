@@ -15,23 +15,24 @@ node('node2') {
     stage('RunningDataSet while machine killing') {
       // Run the maven build
       parallel (
-        dataset: {
+          "dataset": {
             echo 'Running some dataset!'
             sh returnStatus: true, script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
                 node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
             """
-      }
-      machinekill: {
-          echo 'Killing some nodes!'
-          sh returnStatus: true, script: """
+          },
+          "machinekill": {
+            echo 'Killing some nodes!'
+            sh returnStatus: true, script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
                 cp /usr/local/noobaa/.env $WORKSPACE
                 sleep '${start_killing_time}'m
                 node $WORKSPACE/src/test/qa/machine_killer.js --service azure --project QA-HA4 --zone eastus --prefix agent
-          """
-      }
+            """
+          }
+      )
    }
 }

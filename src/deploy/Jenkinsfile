@@ -9,7 +9,7 @@ node('node2') {
               echo 'Checkouting from git!'
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
-              npm install bluebird lodash winston setimmediate aws-sdk minimist;
+              npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv
         """
     }
     stage('RunningDataSet while machine killing') {

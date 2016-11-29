@@ -857,16 +857,11 @@ export function createSystem(
         dnsServers, timeConfig
     });
 
-    let accessKeys = (systemName === 'demo' && email === 'demo@noobaa.com') ?
-        { access_key: '123', secret_key: 'abc' } :
-        generateAccessKeys();
-
     api.system.create_system({
         activation_code: activationCode,
         name: systemName,
         email: email,
         password: password,
-        access_keys: accessKeys,
         dns_name: dnsName,
         dns_servers: dnsServers,
         time_config: timeConfig
@@ -892,15 +887,14 @@ export function createSystem(
         .done();
 }
 
-export function createAccount(name, email, password, accessKeys, S3AccessList) {
-    logAction('createAccount', { name, email, password: '****', accessKeys, S3AccessList });
+export function createAccount(name, email, password, S3AccessList) {
+    logAction('createAccount', { name, email, password: '****', S3AccessList });
 
     api.account.create_account({
         name: name,
         email: email,
         password: password,
         must_change_password: true,
-        access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })
         .then(

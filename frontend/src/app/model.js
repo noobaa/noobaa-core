@@ -127,6 +127,7 @@ export const collectDiagnosticsState = ko.observable({});
 
 // Hold last rest password attampt result.
 export const resetPasswordState = ko.observable();
+export const passwordChangeState = ko.observable();
 
 // Hold funcs information
 export const funcInfo = ko.observable();

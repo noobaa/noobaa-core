@@ -48,10 +48,6 @@ function authenticate() {
 //         email: 'demo@noobaa.com',
 //         password: 'DeMo1',
 //         name: 'demo',
-//         access_keys: {
-//             access_key: '123',
-//             secret_key: 'abc'
-//         }
 //     }));
 // }
 

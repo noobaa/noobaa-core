@@ -256,7 +256,6 @@ function create_system(req) {
                         name: req.rpc_params.name,
                         email: req.rpc_params.email,
                         password: req.rpc_params.password,
-                        access_keys: req.rpc_params.access_keys,
                         new_system_parameters: {
                             account_id: account._id.toString(),
                             allowed_buckets: allowed_buckets,

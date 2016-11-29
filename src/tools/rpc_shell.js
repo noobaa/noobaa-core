@@ -174,10 +174,16 @@ RPCShell.prototype.call = function(str_args) {
             return;
         })
         .then(function(res) {
+            if (argv.json) {
+                res = JSON.stringify(res);
+            }
+
             console.log('Got back result:\n', res);
+
             if (!argv.run) {
                 repl_srv.displayPrompt();
             }
+
         });
 };
 
@@ -244,8 +250,8 @@ RPCShell.prototype.params = function(str_args) {
 function main() {
     rpcshell.init().then(function() {
         if (argv.run) {
-            rpcshell.list();
-            rpcshell.list_functions();
+            // rpcshell.list();
+            // rpcshell.list_functions();
             return rpcshell[argv.run]();
         } else {
             // start a Read-Eval-Print-Loop

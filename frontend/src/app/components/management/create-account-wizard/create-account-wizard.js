@@ -3,10 +3,10 @@ import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { randomString, generateAccessKeys } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
+import { randomString } from 'utils/string-utils';
 import { systemInfo } from 'model';
 import { createAccount } from 'actions';
-import { deepFreeze } from 'utils/all';
 
 function makeUserMessage(loginInfo, S3AccessInfo) {
     return `
@@ -82,7 +82,6 @@ class CreateAccountWizardViewModel extends Disposable {
         });
 
         this.password = randomString();
-        this.accessKeys = generateAccessKeys();
 
 
         let loginInfo = ko.pureComputed(
@@ -133,7 +132,6 @@ class CreateAccountWizardViewModel extends Disposable {
             systemInfo().name,
             this.emailAddress(),
             this.password,
-            this.accessKeys,
             this.enableS3Access() ? this.selectedBuckets() : undefined
         );
 

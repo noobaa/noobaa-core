@@ -1,8 +1,8 @@
 import template from './edit-account-s3-access-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo, accountS3ACL } from 'model';
-import { loadAccountS3ACL, updateAccountS3ACL } from 'actions';
+import { systemInfo } from 'model';
+import { updateAccountS3ACL } from 'actions';
 
 class EditAccountS3AccessModalViewModel extends Disposable {
     constructor({ email, onClose }) {
@@ -11,37 +11,30 @@ class EditAccountS3AccessModalViewModel extends Disposable {
         this.onClose = onClose;
         this.email = email;
 
-        this.buckets = accountS3ACL
-            .map(
-                ({ bucket_name }) => bucket_name
-            );
-
-        let account = ko.pureComputed(
+        const account = ko.pureComputed(
             () => systemInfo() && systemInfo().accounts.find(
                 account => account.email === ko.unwrap(email)
             )
         );
 
-        let selectedBucketsInternal = ko.observableWithDefault(
-            () => accountS3ACL
-                .filter(
-                    ({ is_allowed }) => is_allowed
-                )
-                .map(
-                    ({ bucket_name }) => bucket_name
-                )
+        this.buckets = ko.pureComputed(
+            () => systemInfo().buckets.map(
+                ({ name }) => name
+            )
         );
-
-        this.selectedBuckets = ko.pureComputed({
-            read: () => this.hasS3Access() ? selectedBucketsInternal() : [],
-            write: selectedBucketsInternal
-        });
 
         this.hasS3Access = ko.observableWithDefault(
             () => !!account() && account().has_s3_access
         );
 
-        loadAccountS3ACL(ko.unwrap(email));
+        const _selectedBuckets = ko.observableWithDefault(
+            () => Array.from(account().allowed_buckets || [])
+        );
+
+        this.selectedBuckets = ko.pureComputed({
+            read: () => this.hasS3Access() ? _selectedBuckets() : [],
+            write: val => _selectedBuckets(val)
+        });
     }
 
     selectAllBuckets() {
@@ -56,10 +49,10 @@ class EditAccountS3AccessModalViewModel extends Disposable {
     }
 
     save() {
-        let acl = this.buckets().map(
+        const acl = this.buckets().map(
             bucketName => ({
                 bucket_name: bucketName,
-                is_allowed: this.selectedBuckets().indexOf(bucketName) !== -1
+                is_allowed: this.selectedBuckets().includes(bucketName)
             })
         );
 

@@ -14,10 +14,6 @@ mocha.describe('node_server', function() {
     const SYS = 'test-node-system';
     const EMAIL = SYS + '@coretest.coretest';
     const PASSWORD = 'tululu';
-    const ACCESS_KEYS = {
-        access_key: 'ydaydayda',
-        secret_key: 'blablabla'
-    };
 
     mocha.it('works', function() {
         const self = this; // eslint-disable-line no-invalid-this
@@ -30,7 +26,6 @@ mocha.describe('node_server', function() {
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,
-                access_keys: ACCESS_KEYS
             }))
             .then(res => {
                 client.options.auth_token = res.token;

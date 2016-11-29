@@ -1,8 +1,7 @@
 import template from './account-s3-access-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { routeContext, systemInfo, accountS3ACL } from 'model';
-import { loadAccountS3ACL } from 'actions';
+import { routeContext, systemInfo } from 'model';
 
 class AccountS3AccessFormViewModel extends Disposable{
     constructor() {
@@ -29,11 +28,8 @@ class AccountS3AccessFormViewModel extends Disposable{
             () => !account().has_s3_access
         );
 
-        const permittedBuckets = ko.pureComputed(
-            () => (accountS3ACL() || [])
-                    .filter( ({ is_allowed }) => is_allowed )
-                    .map( ({ bucket_name }) => bucket_name )
-                    .join(', ') || '(none)'
+        const allowedBuckets = ko.pureComputed(
+            () => (account().allowed_buckets || []).join(', ') || '(none)'
         );
 
         this.s3AccessInfo = [
@@ -45,7 +41,7 @@ class AccountS3AccessFormViewModel extends Disposable{
             },
             {
                 label: 'Permitted buckets',
-                value: permittedBuckets,
+                value: allowedBuckets,
                 disabled: this.isS3AccessDisabled
             }
         ];
@@ -68,11 +64,6 @@ class AccountS3AccessFormViewModel extends Disposable{
                 disabled: this.isS3AccessDisabled
             }
         ];
-
-        account().email && loadAccountS3ACL(account().email);
-        this.addToDisposeList(
-            account.subscribe( ({ email }) => loadAccountS3ACL(email) )
-        );
 
         this.isEditAccountS3AccessModalVisible = ko.observable(false);
         this.isRegenerateAccountCredentialsModalVisible = ko.observable(false);

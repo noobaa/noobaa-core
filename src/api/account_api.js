@@ -18,7 +18,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password', 'access_keys'],
+                required: ['name', 'email', 'password'],
                 properties: {
                     name: {
                         type: 'string',
@@ -31,17 +31,6 @@ module.exports = {
                     },
                     must_change_password: {
                         type: 'boolean',
-                    },
-                    access_keys: {
-                        type: 'object',
-                        properties: {
-                            access_key: {
-                                type: 'string'
-                            },
-                            secret_key: {
-                                type: 'string'
-                            }
-                        }
                     },
                     allowed_buckets: {
                         type: 'array',
@@ -164,31 +153,6 @@ module.exports = {
                         type: 'string',
                     }
                 },
-            },
-            reply: {
-                type: 'array',
-                items: {
-                    $ref: 'system_api#/definitions/access_keys'
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        list_account_s3_acl: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['email'],
-                properties: {
-                    email: {
-                        type: 'string',
-                    },
-                }
-            },
-            reply: {
-                $ref: '#/definitions/account_acl'
             },
             auth: {
                 system: 'admin'
@@ -382,11 +346,17 @@ module.exports = {
                 access_keys: {
                     type: 'array',
                     items: {
-                        $ref: 'system_api#/definitions/access_keys'
+                        $ref: 'common_api#/definitions/access_keys'
                     }
                 },
                 has_s3_access: {
                     type: 'boolean'
+                },
+                allowed_buckets: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
                 },
                 systems: {
                     type: 'array',

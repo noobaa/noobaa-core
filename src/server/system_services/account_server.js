@@ -11,6 +11,7 @@ const AWS = require('aws-sdk');
 const https = require('https');
 const crypto = require('crypto');
 const bcrypt = P.promisifyAll(require('bcrypt'));
+const random_string = require('../../util/string_utils').random_string;
 
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
@@ -21,6 +22,11 @@ const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../../util/cloud_utils');
 const azure = require('azure-storage');
 
+const demo_access_keys = Object.freeze({
+    access_key: '123',
+    secret_key: 'abc'
+});
+
 /**
  *
  * CREATE_ACCOUNT
@@ -29,7 +35,12 @@ const azure = require('azure-storage');
 function create_account(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'password');
     validate_create_account_params(req);
-    account.access_keys = [req.rpc_params.access_keys];
+
+    if (account.name === 'demo' && account.email === 'demo@noobaa.com') {
+        account.access_keys = [demo_access_keys];
+    } else {
+        account.access_keys = [generate_access_keys()];
+    }
 
     if (req.rpc_params.must_change_password) {
         account.next_password_change = new Date();
@@ -140,20 +151,12 @@ function generate_account_keys(req) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
     let updates = _.pick(account, '_id');
-    let new_access_keys = [{
-        access_key: crypto.randomBytes(16).toString('hex'),
-        secret_key: crypto.randomBytes(32).toString('hex')
-    }];
 
-    updates.access_keys = new_access_keys;
+    updates.access_keys = [generate_access_keys()];
     return system_store.make_changes({
             update: {
                 accounts: [updates]
             }
-        })
-        .then(() => {
-            //create_activity_log_entry(req, 'update', account);
-            return new_access_keys;
         });
 }
 
@@ -291,7 +294,11 @@ function update_account(req) {
         .return();
     }
 
-
+/**
+ *
+ * RESET PASSWORD
+ *
+ */
 function reset_password(req) {
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
@@ -527,37 +534,6 @@ function check_account_sync_credentials(req) {
 }
 
 
-/**
- *
- * get_buckets_permissions
- *
- */
-function list_account_s3_acl(req) {
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
-    if (!account) {
-        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
-    }
-    if (req.system && req.account) {
-        if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-            throw new RpcError('UNAUTHORIZED', 'No permission to get allowed buckets');
-        }
-    } else if (!req.system) {
-        req.system = system_store.data.get_by_id(req.auth && req.auth.system_id);
-    }
-    if (account.is_support) {
-        throw new RpcError('FORBIDDEN', 'No allowed buckets for support account');
-    }
-    let reply = [];
-    reply = _.map(system_store.data.buckets,
-        bucket => ({
-            bucket_name: bucket.name,
-            is_allowed: Boolean(_.find(account.allowed_buckets,
-                allowed_bucket => (allowed_bucket === bucket)))
-        }));
-
-    return reply;
-}
-
 // UTILS //////////////////////////////////////////////////////////
 
 
@@ -572,6 +548,11 @@ function get_account_info(account) {
     }
 
     info.has_s3_access = Boolean(account.allowed_buckets);
+    if (info.has_s3_access) {
+        info.allowed_buckets = (account.allowed_buckets || []).map(
+            bucket => bucket.name
+        );
+    }
 
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);
@@ -583,6 +564,7 @@ function get_account_info(account) {
             roles: roles
         };
     }));
+
     return info;
 }
 
@@ -655,6 +637,13 @@ function validate_create_account_params(req) {
     }
 }
 
+function generate_access_keys() {
+    return {
+        access_key: random_string(20),
+        secret_key: crypto.randomBytes(40).toString('base64').slice(0, 40)
+    };
+}
+
 // EXPORTS
 exports.create_account = create_account;
 exports.read_account = read_account;
@@ -662,7 +651,6 @@ exports.update_account = update_account;
 exports.reset_password = reset_password;
 exports.delete_account = delete_account;
 exports.generate_account_keys = generate_account_keys;
-exports.list_account_s3_acl = list_account_s3_acl;
 exports.update_account_s3_acl = update_account_s3_acl;
 exports.list_accounts = list_accounts;
 exports.accounts_status = accounts_status;

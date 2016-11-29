@@ -436,7 +436,10 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        type: 'string'
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
                     },
                 },
             },

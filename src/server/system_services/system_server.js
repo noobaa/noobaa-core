@@ -912,7 +912,10 @@ function validate_activation(req) {
 }
 
 function log_client_console(req) {
-    return client_syslog.log(5, req.rpc_params.data, 'LOG_LOCAL1');
+    _.each(req.rpc_params.data, function(line) {
+        client_syslog.log(5, req.rpc_params.data, 'LOG_LOCAL1');
+    });
+    return;
 }
 
 

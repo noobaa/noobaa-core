@@ -20,6 +20,14 @@ const iconMapping = deepFreeze({
 
 export default class BackupRowViewModel {
     constructor(resource) {
+        this.state = ko.pureComputed(
+            () => ({
+                css: 'success',
+                name: 'healthy',
+                tooltip: 'Healthy'
+            })
+        );
+
         this.resourceType = ko.pureComputed(
             () => resource() ? iconMapping[resource().cloud_info.endpoint_type] : ''
         );

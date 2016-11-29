@@ -7,7 +7,7 @@ node('node2') {
     stage('RunningDataSet') {
       // Run the maven build
       echo 'Running some dataset!'
-      sh '''
+      sh """
         export NVM_DIR=/usr/local/nvm
         . /opt/nvm/nvm.sh
         npm install bluebird;
@@ -17,6 +17,6 @@ node('node2') {
         npm install aws-sdk;
         npm install minimist;
         node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa-ip}' --aging_timeout '${aging-time}' --dataset_size '${dataset-size}'
-        '''
+        """
    }
 }

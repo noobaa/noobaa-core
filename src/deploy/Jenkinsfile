@@ -1,14 +1,18 @@
 #!groovy​
 node('node2') {
-   stage('GetLatestDataSet') { // for display purposes
-      echo 'Grabbing latest build from jenkins!'
-      sh 'ls -l'
-
-   }
+    stage('GetTestFromGit') {
+        echo 'Checkouting from git!'
+        checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
+    }
    stage('RunDataSet') {
       // Run the maven build
       echo 'Running some dataSet!'
-      sh '! source /root/.nvm/nvm.sh; ! nvm version; ! nvm use 6.9.1;'
-      sh 'node $WORKSPACE/tmp/noobaa-core/src/test/qa/dataset.js --server 13.92.133.78'
+      sh '''
+        export NVM_DIR=/usr/local/nvm
+        . /opt/nvm/nvm.sh
+        npm install bluebird;
+        npm install lodash;
+        node $WORKSPACE/src/test/qa/dataset.js --server 13.92.133.78
+      '''
    }
 }

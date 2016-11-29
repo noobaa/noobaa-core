@@ -11,6 +11,7 @@ var high_file_size = argv.file_size_high || 200; // maximum 200Mb
 var size_of_ds = argv.dataset_size || 10240; // DS of 10GB
 var low_num_parts = argv.part_num_low || 5; // minimum 20MB
 var high_num_parts = argv.part_num_high || 50; // maximum 200Mb
+var timeout = argv.aging_timeout || 0; // time running in minutes
 var dataset_name = 'DataSet' + (Math.floor(Date.now() / 1000)) + '/';
 var current_size = 0;
 var i = 0;
@@ -31,8 +32,12 @@ promise_utils.pwhile(() => current_size < size_of_ds, () => {
                 .then(res => console.log("file muli-part uploaded was " + dataset_name + 'file' + (i) + " with " + rand_parts + " parts"));
     }
     // aging
-}).then(() =>
-    promise_utils.pwhile(() => true, () => {
+}).then(() => {
+    var start = Date.now();
+    if (timeout !== 0) {
+        console.log('will run aging for ', timeout, 'minutes');
+    }
+    return promise_utils.pwhile(() => (timeout === 0 || ((Date.now() - start) / (60 * 1000)) < timeout), () => {
         console.log("Aging... currently uploaded " + current_size + " MB from desired " + size_of_ds + " MB");
         var read_or_change = Math.floor(Math.random() * 2) === 0; // true - read / false - change
         var rand_size = Math.floor(Math.random() * (high_file_size - low_file_size) + low_file_size);
@@ -101,5 +106,5 @@ promise_utils.pwhile(() => current_size < size_of_ds, () => {
                         });
             }
         }
-    })
-);
+    });
+});

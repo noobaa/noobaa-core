@@ -2,17 +2,21 @@
 node('node2') {
     stage('GetTestFromGit') {
         echo 'Checkouting from git!'
-        checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
+        checkout([$class: 'GitSCM', branches: [[name: '*/$branch']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
     }
-   stage('RunDataSet') {
+    stage('RunningDataSet') {
       // Run the maven build
-      echo 'Running some dataSet!'
+      echo 'Running some dataset!'
       sh '''
         export NVM_DIR=/usr/local/nvm
         . /opt/nvm/nvm.sh
         npm install bluebird;
         npm install lodash;
-        node $WORKSPACE/src/test/qa/dataset.js --server 13.92.133.78
-      '''
+        npm install winston;
+        npm install setimmediate;
+        npm install aws-sdk;
+        npm install minimist;
+        node $WORKSPACE/src/test/qa/dataset.js --server $noobaa-ip --aging_timeout $aging_time --dataset_size $dataset_size
+        '''
    }
 }

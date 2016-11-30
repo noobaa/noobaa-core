@@ -2,8 +2,8 @@ import template from './reset-password-modal.html';
 import userMessageTemplate from './user-message-template.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { resetPasswordState } from 'model';
 import { resetAccountPassword } from 'actions';
+import { resetPasswordState } from 'model';
 import { deepFreeze, randomString } from 'utils/all';
 
 //const artificalResetDuration = 1000;
@@ -36,38 +36,14 @@ class RestPasswordModalViewModel extends Disposable {
         this.email = email;
         this.password = randomString();
 
-        let resetState = ko.observable();
-        this.addToDisposeList(
-            resetPasswordState.subscribe(resetState)
-        );
-
-        this.resetting = ko.pureComputed(
-            () => resetState() === 'RESETTING'
-        );
-
-        let isUnauthorized = ko.pureComputed(
-            () => resetState() === 'UNAUTHORIZED'
-        );
-
         this.verificationPassword = ko.observable()
             .extend({
-                required: { message: 'A verification password is required' },
+                required: { message: 'Please enter your current password' },
                 validation: {
-                    validator: () => !isUnauthorized(),
-                    message: 'Invalid verification password'
+                    validator: () => touched() || resetPasswordState() !== 'UNAUTHORIZED',
+                    message: 'Please make sure your password is correct'
                 }
             });
-
-        this.screen = ko.pureComputed(
-            () => {
-                let state = resetState();
-                if (!state || this.resetting() || isUnauthorized() ) {
-                    return 0;
-                }
-
-                return state === 'OK' ? 1 : 2;
-            }
-        );
 
         this.title = ko.pureComputed(
             () => screenTitleMapping[this.screen()].title
@@ -85,18 +61,33 @@ class RestPasswordModalViewModel extends Disposable {
         );
 
         this.errors = ko.validation.group(this);
+
+        const touched = ko.touched([this.verificationPassword]);
+
+        this.screen = ko.observable(0);
+        this.addToDisposeList(
+            resetPasswordState.subscribe(
+                state => {
+                    touched.reset();
+                    if (state === 'SUCCESS'){
+                        this.screen(1);
+                    } else if (state == 'ERROR') {
+                        this.screen(2);
+                    }
+                }
+            )
+        );
     }
 
     reset() {
         if (this.errors().length) {
             this.errors.showAllMessages();
-        }
-
-        if (this.verificationPassword()) {
+        } else {
             resetAccountPassword(
                 this.verificationPassword(),
                 ko.unwrap(this.email),
-                this.password
+                this.password,
+                true
             );
         }
     }

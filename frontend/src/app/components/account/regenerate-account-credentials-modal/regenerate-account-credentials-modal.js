@@ -15,20 +15,22 @@ class RegenerateAccountCredentialsModalViewModel extends Disposable {
                 required: { message: 'Password is required for security purposes' },
                 validation: {
                     validator: () => touched() || regenerateCredentialState() !== 'UNAUTHORIZED',
-                    message: 'Authorization failed'
+                    message: 'Please make sure your password is correct'
                 }
             });
 
-        const touched = ko.touched([this.password]);
         this.errors = ko.validation.group(this);
 
-        regenerateCredentialState.subscribe(
-            state => {
-                touched.reset();
-                if (state === 'SUCCESS' || state === 'ERROR') {
-                    this.onClose();
+        const touched = ko.touched([this.password]);
+        this.addToDisposeList(
+            regenerateCredentialState.subscribe(
+                state => {
+                    touched.reset();
+                    if (state === 'SUCCESS' || state === 'ERROR') {
+                        this.onClose();
+                    }
                 }
-            }
+            )
         );
     }
 

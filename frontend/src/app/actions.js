@@ -930,19 +930,20 @@ export function resetAccountPassword(verificationPassword, email, password, must
         must_change_password: mustChange
     })
         .then(
-            () => model.resetPasswordState('SUCCESS'),
+            () => {
+                model.resetPasswordState('SUCCESS');
+                notify(`${email} password changed successfully`, 'success');
+            }
+        )
+        .catch(
             err => {
                 if (err.rpc_code === 'UNAUTHORIZED') {
                     model.resetPasswordState('UNAUTHORIZED');
-                    throw err;
                 } else {
                     model.resetPasswordState('ERROR');
+                    notify(`Changing ${email} password failed`, 'error');
                 }
             }
-        )
-        .then(
-            () => notify(`${email} password changed successfully`, 'success'),
-            () => notify(`Changing ${email} password failed`, 'error')
         )
         .done();
 }
@@ -2028,7 +2029,6 @@ export function regenerateAccountCredentials(email, verificationPassword) {
                 } else {
                     model.regenerateCredentialState('ERROR');
                     notify(`Regenerating ${email} credentials failed`, 'error');
-                    throw err;
                 }
             }
         )

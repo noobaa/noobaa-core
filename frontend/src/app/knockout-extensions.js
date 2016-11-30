@@ -83,6 +83,10 @@ ko.touched = function(root) {
         trigger.valueHasMutated();
     };
 
+    // Force observable to calculate inital value.
+    // (pureComputed does not calculate value until first subscription )
+    obs();
+
     return obs;
 };
 

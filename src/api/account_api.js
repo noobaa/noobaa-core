@@ -135,6 +135,9 @@ module.exports = {
                     password: {
                         type: 'string',
                     },
+                    must_change_password: {
+                        type: 'boolean'
+                    }
                 },
             },
             auth: {

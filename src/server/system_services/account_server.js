@@ -308,19 +308,25 @@ function reset_password(req) {
         throw new RpcError('FORBIDDEN', 'Cannot change support password');
     }
 
+    const params = req.rpc_params;
     return verify_authorized_account(req)
-        .then(() => bcrypt_password(req.rpc_params.password))
+        .then(() => bcrypt_password(params.password))
         .then(password => {
-            let update = {
-                _id: account._id,
-                $set: {
-                    password: password
-                }
+            const changes = {
+                password: password,
+                next_password_change: params.must_change_password === true ? new Date() : undefined
+            };
+            const removals = {
+                next_password_change: params.must_change_password === false ? true : undefined
             };
 
             return system_store.make_changes({
                 update: {
-                    accounts: [update]
+                    accounts: [{
+                        _id: account._id,
+                        $set: _.omitBy(changes, _.isUndefined),
+                        $unset: _.omitBy(removals, _.isUndefined)
+                    }]
                 }
             });
         })

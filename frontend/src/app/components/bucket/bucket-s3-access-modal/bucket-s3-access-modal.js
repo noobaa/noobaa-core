@@ -10,7 +10,6 @@ class BucketS3AccessModalViewModel extends Disposable {
         super();
 
         this.onClose = onClose;
-
         this.bucketName = bucketName;
 
         this.accounts = ko.pureComputed(

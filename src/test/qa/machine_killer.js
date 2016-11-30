@@ -43,6 +43,9 @@ var start = Date.now();
 return funcs.authenticate()
     .then(() => funcs.countOnMachines(vm_prefix))
     .then(count => {
+        if (timeout !== 0) {
+            console.log('will keep killing machines for ', timeout, 'minutes');
+        }
         machines_number = count;
         return promise_utils.pwhile(() => (timeout === 0 || ((Date.now() - start) / (60 * 1000)) < timeout), () => {
             var rand_machine;

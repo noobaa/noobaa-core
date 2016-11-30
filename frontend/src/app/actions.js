@@ -922,6 +922,7 @@ export function resetAccountPassword(verificationPassword, email, password, must
     logAction('resetAccountPassword', { verificationPassword: '****', email,
         password: '****', mustChange });
 
+    model.resetPasswordState('IN_PROGRESS');
     api.account.reset_password({
         verification_password: verificationPassword,
         email: email,
@@ -1763,37 +1764,31 @@ export function loadBucketS3ACL(bucketName) {
         .done();
 }
 
-export function updateBucketS3ACL(bucketName, acl) {
-    logAction('updateBucketS3ACL', { bucketName, acl });
+export function updateBucketS3Access(bucketName, allowedAccounts) {
+    logAction('updateBucketS3Access', { bucketName, allowedAccounts });
 
-    api.bucket.update_bucket_s3_acl({
+    api.bucket.update_bucket_s3_access({
         name: bucketName,
-        access_control: acl
+        allowed_accounts: allowedAccounts
     })
         .then(
             () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
             () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
         )
-        .then(
-            () => model.bucketS3ACL(acl)
-        )
+        .then(loadSystemInfo)
         .done();
 }
 
-export function loadAccountS3ACL(email) {
-    logAction('loadAccountS3ACL', { email });
+export function updateAccountS3Access(email, allowedBuckets) {
+    logAction('updateAccountS3Permissions', { email, allowedBuckets });
 
-    api.account.list_account_s3_acl({
-        email: email
-    })
-        .then(model.accountS3ACL)
-        .done();
-}
-
-
+    api.account.update_account_s3_access({
         email: email,
+        allowed_buckets: allowedBuckets
     })
         .then(
+            () => notify(`${email} S3 permissions updated successfully`, 'success'),
+            () => notify(`Updating ${email} S3 permissions failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

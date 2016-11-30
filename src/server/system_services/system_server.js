@@ -677,28 +677,9 @@ function set_last_stats_report_time(req) {
     }).return();
 }
 
-function diagnose_system(req) {
-    dbg.log0('Recieved diag req');
-    var out_path = '/public/diagnostics.tgz';
-    var inner_path = process.cwd() + '/build' + out_path;
-    return P.resolve()
-        .then(() => diag.collect_server_diagnostics(req))
-        .then(() => diag.pack_diagnostics(inner_path))
-        .then(res => {
-            Dispatcher.instance().activity({
-                event: 'dbg.diagnose_system',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
-            });
-            return out_path;
-        });
-}
-
 function diagnose_node(req) {
     dbg.log0('Recieved diag with agent req', req.rpc_params);
-    var out_path = '/public/diagnostics.tgz';
+    var out_path = '/public/node_' + req.rpc_params.name + '_diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return P.resolve()
         .then(() => diag.collect_server_diagnostics(req))
@@ -986,7 +967,6 @@ exports.list_systems_int = list_systems_int;
 exports.add_role = add_role;
 exports.remove_role = remove_role;
 
-exports.diagnose_system = diagnose_system;
 exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;

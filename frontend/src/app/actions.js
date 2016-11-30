@@ -1564,7 +1564,7 @@ export function downloadSystemDiagnosticPack() {
 
     model.collectDiagnosticsState.assign({ system: true });
 
-    api.cluster_server.diagnose_system()
+    api.cluster_server.diagnose_system({})
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');

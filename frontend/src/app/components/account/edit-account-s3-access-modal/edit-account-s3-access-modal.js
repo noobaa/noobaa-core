@@ -2,7 +2,7 @@ import template from './edit-account-s3-access-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { updateAccountS3ACL } from 'actions';
+import { updateAccountS3Access } from 'actions';
 
 class EditAccountS3AccessModalViewModel extends Disposable {
     constructor({ email, onClose }) {
@@ -49,16 +49,9 @@ class EditAccountS3AccessModalViewModel extends Disposable {
     }
 
     save() {
-        const acl = this.buckets().map(
-            bucketName => ({
-                bucket_name: bucketName,
-                is_allowed: this.selectedBuckets().includes(bucketName)
-            })
-        );
-
-        updateAccountS3ACL(
+        updateAccountS3Access(
             ko.unwrap(this.email),
-            this.hasS3Access() ? acl : null
+            this.hasS3Access() ? this.selectedBuckets() : null
         );
         this.onClose();
     }

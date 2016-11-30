@@ -167,15 +167,16 @@ function generate_account_keys(req) {
 
 /**
  *
- * update_buckets_permissions
+ * update_account_s3_access
  *
  */
-function update_account_s3_acl(req) {
-    var system = req.system;
-    let account = _.cloneDeep(system_store.data.accounts_by_email[req.rpc_params.email]);
+function update_account_s3_access(req) {
+    const account = _.cloneDeep(system_store.data.accounts_by_email[req.rpc_params.email]);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
+
+    let system = req.system;
     if (req.system && req.account) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
             throw new RpcError('UNAUTHORIZED', 'Cannot update account');
@@ -187,32 +188,24 @@ function update_account_s3_acl(req) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
 
-    let allowed_buckets = null;
-    if (req.rpc_params.access_control) {
-        allowed_buckets = req.rpc_params.access_control
-            .reduce(
-                (list, record) => {
-                    let bucket = system.buckets_by_name[record.bucket_name];
-                    return record.is_allowed ?
-                        _.unionWith(list, [bucket], system_store.has_same_id) :
-                        _.differenceWith(list, [bucket], system_store.has_same_id);
-                },
-                account.allowed_buckets
-            );
+    const update = {_id: account._id};
+    if (req.rpc_params.allowed_buckets) {
+        update.allowed_buckets = req.rpc_params.allowed_buckets.map(
+            bucket_name => system.buckets_by_name[bucket_name]._id
+        );
+    } else {
+        update.$unset = {
+            allowed_buckets: true
+        };
     }
 
     return system_store.make_changes({
-            update: {
-                accounts: [{
-                    _id: account._id,
-                    allowed_buckets: allowed_buckets && allowed_buckets.map(
-                        bucket => bucket._id
-                    )
-                }]
-            }
-        })
+        update: {
+            accounts: [update]
+        }
+    })
         .then(() => {
-            let new_allowed_buckets = allowed_buckets && allowed_buckets.map(bucket => bucket.name);
+            let new_allowed_buckets = req.rpc_params.allowed_buckets;
             let origin_allowed_buckets = account.allowed_buckets && account.allowed_buckets.map(bucket => bucket.name);
             let desc_string = [];
             let added_buckets = [];
@@ -649,7 +642,7 @@ exports.update_account = update_account;
 exports.reset_password = reset_password;
 exports.delete_account = delete_account;
 exports.generate_account_keys = generate_account_keys;
-exports.update_account_s3_acl = update_account_s3_acl;
+exports.update_account_s3_access = update_account_s3_access;
 exports.list_accounts = list_accounts;
 exports.accounts_status = accounts_status;
 exports.get_system_roles = get_system_roles;

@@ -162,19 +162,26 @@ module.exports = {
             }
         },
 
-        update_account_s3_acl: {
-            doc: 'Update bucket access permissions',
+        update_account_s3_access: {
+            doc: 'Update bucket s3 access permissions',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email', 'access_control'],
+                required: ['email', 'allowed_buckets'],
                 properties: {
                     email: {
                         type: 'string',
                     },
-                    access_control: {
-                        $ref: '#/definitions/account_acl'
-                    },
+                    allowed_buckets: {
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'array',
+                            items: {
+                                type: 'string'
+                            }
+                        }]
+                    }
                 },
             },
             auth: {

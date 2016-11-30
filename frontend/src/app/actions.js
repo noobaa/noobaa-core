@@ -918,29 +918,31 @@ export function deleteAccount(email) {
         .done();
 }
 
-export function resetAccountPassword(verificationPassword, email, password) {
-    logAction('resetAccountPassword', { verificationPassword: '****', email, password: '****' });
+export function resetAccountPassword(verificationPassword, email, password, mustChange) {
+    logAction('resetAccountPassword', { verificationPassword: '****', email,
+        password: '****', mustChange });
 
-    model.resetPasswordState('RESETTING');
     api.account.reset_password({
         verification_password: verificationPassword,
         email: email,
-        password: password
+        password: password,
+        must_change_password: mustChange
     })
         .then(
-            () => api.account.update_account({
-                email: email,
-                must_change_password: true
-            })
+            () => model.resetPasswordState('SUCCESS'),
+            err => {
+                if (err.rpc_code === 'UNAUTHORIZED') {
+                    model.resetPasswordState('UNAUTHORIZED');
+                    throw err;
+                } else {
+                    model.resetPasswordState('ERROR');
+                }
+            }
         )
         .then(
-            () => 'OK',
-            err => err.rpc_code
+            () => notify(`${email} password changed successfully`, 'success'),
+            () => notify(`Changing ${email} password failed`, 'error')
         )
-        .then(
-            code => sleep(2000, code)
-        )
-        .then(model.resetPasswordState)
         .done();
 }
 
@@ -1788,16 +1790,10 @@ export function loadAccountS3ACL(email) {
         .done();
 }
 
-export function updateAccountS3ACL(email, acl) {
-    logAction('updateAccountS3ACL', { email, acl });
 
-    api.account.update_account_s3_acl({
         email: email,
-        access_control: acl
     })
         .then(
-            () => notify(`${email} S3 accces control updated successfully`, 'success'),
-            () => notify(`Updating ${email} S3 access control failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

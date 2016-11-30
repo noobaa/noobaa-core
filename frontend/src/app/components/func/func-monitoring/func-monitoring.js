@@ -98,7 +98,7 @@ class FuncMonitoringViewModel extends Disposable {
                         {
                             label: 'Last 10 Minutes',
                             borderColor: style['color8'],
-                            fill: false,
+                            backgroundColor: hexToRgb(style['color8'], .1),
                             data: stats.response_time_last_10_minutes.percentiles.map(
                                 p => ({ x: p.percent, y: p.value })
                             )
@@ -106,7 +106,7 @@ class FuncMonitoringViewModel extends Disposable {
                         {
                             label: 'Last Hour',
                             borderColor: style['color11'],
-                            fill: false,
+                            backgroundColor: hexToRgb(style['color11'], .1),
                             data: stats.response_time_last_hour.percentiles.map(
                                 p => ({ x: p.percent, y: p.value })
                             )
@@ -114,7 +114,7 @@ class FuncMonitoringViewModel extends Disposable {
                         {
                             label: 'Last day',
                             borderColor: style['color12'],
-                            fill: false,
+                            backgroundColor: hexToRgb(style['color12'], .1),
                             data: stats.response_time_last_day.percentiles.map(
                                 p => ({ x: p.percent, y: p.value })
                             )

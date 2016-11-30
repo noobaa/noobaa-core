@@ -57,6 +57,23 @@ const dos_func = {
     }
 };
 
+const sync_func = {
+    FunctionName: 'sync_s3_to_azure',
+    Description: 'Sync S3 bucket to Azure blob',
+    Runtime: 'nodejs6',
+    Handler: 'sync_s3_to_azure.handler',
+    Role: ROLE_ARN,
+    MemorySize: 128,
+    VpcConfig: {
+        SubnetIds: POOLS
+    },
+    Files: {
+        'sync_s3_to_azure.js': {
+            path: path.join(__dirname, 'sync_s3_to_azure.js')
+        },
+    }
+};
+
 const WC_EVENT = {
     text: 'a',
     // random: 20,
@@ -102,6 +119,9 @@ function install() {
     }
     if (argv.install === 'dos') {
         return install_func(dos_func);
+    }
+    if (argv.install === 'sync') {
+        return install_func(sync_func);
     }
     return P.resolve()
         .then(() => install_func(word_count_func))

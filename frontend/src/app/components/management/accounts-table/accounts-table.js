@@ -15,6 +15,11 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'connections',
+        label: 'external connections',
+        sortable: true
+    },
+    {
         name: 'role',
         sortable: true
     },
@@ -39,6 +44,7 @@ function getAccountRole(account) {
 
 const compareAccessors = deepFreeze({
     name: account => account.email,
+    connections: account => account.external_connections.count,
     role: account => getAccountRole(account),
     's3-access': account => account.has_s3_access
 });

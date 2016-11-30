@@ -2,6 +2,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { sessionInfo, systemInfo } from 'model';
 import { deleteAccount } from 'actions';
+import { stringifyAmount } from 'utils/string-utils';
 
 export default class AccountRowViewModel extends Disposable {
     constructor(account, table) {
@@ -21,10 +22,10 @@ export default class AccountRowViewModel extends Disposable {
                     return '';
                 }
 
-                let email = this.email();
-                let curr = sessionInfo() && sessionInfo().user;
-                let text = `${email} ${email === curr ? '(Current user)' : ''}`;
-                let href = {
+                const email = this.email();
+                const curr = sessionInfo() && sessionInfo().user;
+                const text = `${email} ${email === curr ? '(Current user)' : ''}`;
+                const href = {
                     route: 'account',
                     params: { account: email, tab: null }
                 };
@@ -33,7 +34,21 @@ export default class AccountRowViewModel extends Disposable {
             }
         );
 
-        let isSystemOwner = ko.pureComputed(
+        this.connections = ko.pureComputed(
+            () => {
+                if (!account()) {
+                    return '';
+                }
+
+                const count = account().external_connections.count;
+                return count > 0 ?
+                    stringifyAmount('connection', count) :
+                    'no connections';
+            }
+        );
+
+
+        const isSystemOwner = ko.pureComputed(
             () => systemInfo() && this.email() === systemInfo().owner.email
         );
 

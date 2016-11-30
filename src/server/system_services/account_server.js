@@ -545,8 +545,13 @@ function get_account_info(account, include_connection_cache) {
         };
     }));
 
+    const credentials_cache = account.sync_credentials_cache || [];
+    const external_connections = {
+        count: credentials_cache.length
+    };
+
     if (!_.isUndefined(include_connection_cache) && include_connection_cache) {
-        info.external_connections = (account.sync_credentials_cache || []).map(
+        external_connections.connections = credentials_cache.map(
             // The defaults are used for backword compatibility.
             credentials => ({
                 name: credentials.name || credentials.access_key,
@@ -555,7 +560,10 @@ function get_account_info(account, include_connection_cache) {
                 endpoint_type: credentials.endpoint_type
             })
         );
+    } else {
+        external_connections.connections = [];
     }
+    info.external_connections = external_connections;
 
     return info;
 }

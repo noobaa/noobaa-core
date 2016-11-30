@@ -61,7 +61,7 @@ class SetCloudSyncModalViewModel extends Disposable {
                     account => account.email === sessionInfo().user
                 );
 
-                return user.external_connections || [];
+                return user.external_connections.connections;
             }
         );
 

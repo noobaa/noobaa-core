@@ -344,22 +344,30 @@ module.exports = {
                     }
                 },
                 external_connections: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            name: {
-                                type: 'string'
-                            },
-                            endpoint: {
-                                type: 'string'
-                            },
-                            identity: {
-                                type: 'string'
-                            },
-                            endpoint_type: {
-                                type: 'string',
-                                enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                    type: 'object',
+                    properties: {
+                        count: {
+                            type: 'number'
+                        },
+                        connections: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    name: {
+                                        type: 'string'
+                                    },
+                                    endpoint: {
+                                        type: 'string'
+                                    },
+                                    identity: {
+                                        type: 'string'
+                                    },
+                                    endpoint_type: {
+                                        type: 'string',
+                                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                                    }
+                                }
                             }
                         }
                     }

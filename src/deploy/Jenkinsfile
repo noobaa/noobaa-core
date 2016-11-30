@@ -1,5 +1,5 @@
 #!groovy​
-def noobaa_ip = ''
+def noobaa_ip = '137.117.41.95'
 def values = noobaa_ip.split('.')
 def prefix = values[2]+'-'+values[3]
 def dataset_size = '5120' // 5 GB of dataset

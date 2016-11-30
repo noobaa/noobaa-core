@@ -242,16 +242,6 @@ module.exports = {
             }
         },
 
-        diagnose_system: {
-            method: 'GET',
-            reply: {
-                type: 'string',
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         diagnose_node: {
             method: 'GET',
             params: {

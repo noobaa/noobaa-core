@@ -6,6 +6,7 @@ const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const RpcError = require('../../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
+const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
@@ -571,7 +572,7 @@ function diagnose_system(req) {
     var target_servers = [];
     const TMP_WORK_DIR = `/tmp/diag`;
     const INNER_PATH = `${process.cwd()}/build`;
-    const OUT_PATH = `/public/cluster_diagnostics.tgz`;
+    const OUT_PATH = '/public/' + req.system.name + '_cluster_diagnostics.tgz';
     const WORKING_PATH = `${INNER_PATH}${OUT_PATH}`;
     if (req.rpc_params.target_secret) {
         let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
@@ -583,10 +584,18 @@ function diagnose_system(req) {
         _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
     }
 
+    Dispatcher.instance().activity({
+        event: 'dbg.diagnose_system',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
+    });
+
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
         .then(() => {
             return P.each(target_servers, function(server) {
-                return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
+                return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
                         address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                         auth_token: req.auth_token
                     })
@@ -602,16 +611,21 @@ function diagnose_system(req) {
         .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
         .then(() => diag.pack_diagnostics(WORKING_PATH))
         .then(() => (OUT_PATH));
-
 }
 
 
 function collect_server_diagnostics(req) {
     const INNER_PATH = `${process.cwd()}/build`;
     return P.resolve()
-        .then(() => server_rpc.client.system.diagnose_system(undefined, {
-            auth_token: req.auth_token
-        }))
+        .then(() => {
+            dbg.log0('Recieved diag req');
+            var out_path = '/public/' + os_utils.os_info().hostname + '_srv_diagnostics.tgz';
+            var inner_path = process.cwd() + '/build' + out_path;
+            return P.resolve()
+                .then(() => diag.collect_server_diagnostics(req))
+                .then(() => diag.pack_diagnostics(inner_path))
+                .then(res => out_path);
+        })
         .then(out_path => {
             dbg.log1('Reading packed file');
             return fs.readFileAsync(`${INNER_PATH}${out_path}`)

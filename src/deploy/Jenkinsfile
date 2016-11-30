@@ -1,4 +1,13 @@
 #!groovy​
+def noobaa_ip = ''
+def values = noobaa_ip.split('.')
+def prefix = values[2]+'-'+values[3]
+def dataset_size = '5120' // 5 GB of dataset
+def start_killing_time = '15' // start killing after 15 minustes
+def aging_time = '120' // run for 2 hours
+def service = 'azure'
+def resource = 'jacky-resources'
+def zone = 'eastus'
 node('node2') {
     stage('GetTestFromGit') {
         echo 'Checkouting from git!'
@@ -30,7 +39,7 @@ node('node2') {
                 . /opt/nvm/nvm.sh
                 cp /usr/local/noobaa/.env $WORKSPACE
                 sleep '${start_killing_time}'m
-                node $WORKSPACE/src/test/qa/machine_killer.js --service azure --project QA-HA4 --zone eastus --prefix agent --timeout \$((${aging_time}-${start_killing_time}))
+                node $WORKSPACE/src/test/qa/machine_killer.js --service '${service}' --project '${resource}' --zone '${zone}' --prefix '${prefix}' --timeout \$((${aging_time}-${start_killing_time}))
             """
           }
       )

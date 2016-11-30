@@ -19,6 +19,7 @@ const promise_utils = require('../../util/promise_utils');
 const diag = require('../utils/server_diagnostics');
 const moment = require('moment');
 const url = require('url');
+const net = require('net');
 const upgrade_utils = require('../../util/upgrade_utils');
 const request = require('request');
 const dns = require('dns');
@@ -68,15 +69,11 @@ function new_cluster_info() {
 
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
-    if (!os_utils.is_supervised_env()) {
-        console.warn('Environment is not a supervised one, currently not allowing clustering operations');
-        throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
-    }
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
-    if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
-        throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
-    }
+
+    _validate_add_member_request(req);
+
     let topology = cutil.get_topology();
     var id = topology.cluster_id;
     let is_clusterized = topology.is_clusterized;
@@ -943,7 +940,20 @@ function set_hostname_internal(req) {
 //Internals Cluster Control
 //
 
+function _validate_add_member_request(req) {
+    if (!os_utils.is_supervised_env()) {
+        console.warn('Environment is not a supervised one, currently not allowing clustering operations');
+        throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
+    }
 
+    if (req.rpc_params.address && !net.isIPv4(req.rpc_params.address)) {
+        throw new Error('Adding new members to cluster is allowed by using IP only');
+    }
+
+    if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
+        throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
+    }
+}
 
 function _verify_join_preconditons(req) {
     //Verify secrets match

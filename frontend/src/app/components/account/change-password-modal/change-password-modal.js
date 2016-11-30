@@ -1,18 +1,25 @@
 import template from './change-password-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { calcPasswordStrength } from 'utils/password-utils';
+import { calcPasswordStrength  } from 'utils/password-utils';
+import { resetAccountPassword } from 'actions';
+import { resetPasswordState } from 'model';
 
 class ChangePasswordModalViewModel extends Disposable {
     constructor({ email, onClose }) {
         super();
 
+        this.calcPasswordStrength = calcPasswordStrength;
         this.onClose = onClose;
         this.email = email;
 
         this.password = ko.observable()
             .extend({
-                required: { message: 'Please enter your current password' }
+                required: { message: 'Please enter your current password' },
+                validation: {
+                    validator: () => touched() || resetPasswordState() !== 'UNAUTHORIZED',
+                    message: 'Please make sure your password is correct'
+                }
             });
 
         this.newPassword = ko.observable()
@@ -22,17 +29,8 @@ class ChangePasswordModalViewModel extends Disposable {
                 includesUppercase: true,
                 includesLowercase: true,
                 includesDigit: true
-            });
 
-        this.isNewPasswordValid = ko.pureComputed(
-            () => this.newPassword() && this.newPassword.isValid()
-        ).extend({
-            equal: {
-                params: true,
-                message: 'Please enter a valid password'
-            },
-            isModified: this.newPassword.isModified
-        });
+            });
 
         this.newPasswordValidations = ko.pureComputed(
             () => ko.validation.fullValidationState(this.newPassword)()
@@ -47,9 +45,31 @@ class ChangePasswordModalViewModel extends Disposable {
                 )
         );
 
-        this.calcPasswordStrength = calcPasswordStrength;
+
+        this.isNewPasswordValid = ko.pureComputed(
+            () => this.newPassword.isValid()
+        )
+            .extend({
+                equal: {
+                    params: true,
+                    message: 'Please enter a valid password'
+                },
+                isModified: this.newPassword.isModified
+            });
 
         this.errors = ko.validation.group(this);
+
+        const touched = ko.touched([this.password]);
+        this.addToDisposeList(
+            resetPasswordState.subscribe(
+                state => {
+                    touched.reset();
+                    if (state === 'SUCCESS' || state == 'ERROR') {
+                        this.onClose();
+                    }
+                }
+            )
+        );
     }
 
     change() {
@@ -57,7 +77,12 @@ class ChangePasswordModalViewModel extends Disposable {
             this.errors.showAllMessages();
 
         } else {
-            this.onClose();
+            resetAccountPassword(
+                this.password(),
+                ko.unwrap(this.email),
+                this.newPassword(),
+                false
+            );
         }
     }
 

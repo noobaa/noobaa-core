@@ -4,10 +4,10 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 
 class ServerDnsSettingsFormViewModel extends Disposable{
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
 
         let cluster = ko.pureComputed(
             () => systemInfo() && systemInfo().cluster

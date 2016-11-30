@@ -1,3 +1,4 @@
+/*global setImmediate */
 import ko from 'knockout';
 
 export default {
@@ -10,18 +11,40 @@ export default {
         classList.add('expandable');
         if (expanded()) {
             classList.add('expanded');
+            setImmediate(
+                () => { element.style.maxHeight = `${element.offsetHeight}px`; }
+            );
+        } else {
+            element.style.maxHeight = '0px';
         }
 
         let sub = expanded.subscribe(
-            expand => expand ?
-                classList.add('expanding') :
-                classList.remove('expanding', 'expanded')
+            expand => {
+                if (expand) {
+                    classList.add('expanding');
+
+                    const { style } = element;
+                    style.removeProperty('max-height');
+                    let height = element.offsetHeight;
+                    style.maxHeight = '0px';
+                    setImmediate(
+                        () => { style.maxHeight = `${height}px`; }
+                    );
+
+                } else {
+                    classList.remove('expanding', 'expanded');
+                    element.style.maxHeight = '0px';
+                }
+            }
         );
 
         ko.bindingHandlers.event.init(
             element,
             () => ({
-                transitionend: () => expanded() && classList.add('expanded')
+                transitionend: () => {
+                    expanded() && classList.add('expanded');
+                    //element.style.maxHeight = `${element.offsetHeight}px`;
+                }
             }),
             allBindings,
             viewModel,

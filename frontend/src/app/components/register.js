@@ -218,6 +218,7 @@ export default function register(ko) {
     ko.components.register('copy-to-clipboard-button',  require('./shared/copy-to-clipboard-button/copy-to-clipboard-button').default);
     ko.components.register('password-field',            require('./shared/password-field/password-field').default);
     ko.components.register('working-button',            require('./shared/working-button/working-button').default);
+    ko.components.register('collapsible-section',       require('./shared/collapsible-section/collapsible-section').default);
     ko.components.register('chartjs',                   require('./shared/chartjs/chartjs').default);
     /** INJECT:shared **/
 }

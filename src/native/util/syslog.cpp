@@ -43,6 +43,11 @@ NAN_METHOD(Syslog::log) {
     Nan::Utf8String msg(info[1]);
     int facility = LOG_LOCAL0;
     if (info.Length() == 3) {
+        if (info[2]->ToString() == NAN_STR("LOG_LOCAL1")) {
+            facility = LOG_LOCAL1;
+        } else {
+            facility = LOG_LOCAL0;
+        }
         facility = info[2]->Int32Value();
     }
     syslog(priority|facility, "%s", *msg);

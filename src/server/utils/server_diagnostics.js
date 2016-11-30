@@ -34,6 +34,10 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected noobaa.log files successfully'))
                 .catch(err => diag_log('collecting noobaa.log failed with error: ' + err)),
 
+                () => promise_utils.exec('cp -f /var/log/client_noobaa.log* ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
+                .then(() => diag_log('collected client_noobaa.log files successfully'))
+                .catch(err => diag_log('collecting client_noobaa.log failed with error: ' + err)),
+
                 () => promise_utils.exec('cp -f ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', false, false, LONG_EXEC_TIMEOUT)
                 .then(() => diag_log('collected .env successfully'))
                 .catch(err => diag_log('collecting .env failed with error: ' + err)),

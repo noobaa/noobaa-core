@@ -59,6 +59,10 @@ class ServerRpc {
         }
     }
 
+    is_service_registered(service) {
+        return this.rpc.is_service_registered(service);
+    }
+
     register_system_services() {
         let rpc = this.rpc;
         let schema = rpc.schema;

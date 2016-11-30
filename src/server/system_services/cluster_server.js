@@ -595,7 +595,6 @@ function diagnose_system(req) {
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
         .then(() => {
             return P.each(target_servers, function(server) {
-                console.warn('NBNB:: for server', 'ws://' + server.owner_address + ':' + server_rpc.get_base_port());
                 return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
                         address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                         auth_token: req.auth_token

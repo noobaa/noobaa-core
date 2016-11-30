@@ -6,8 +6,6 @@ import { resetAccountPassword } from 'actions';
 import { resetPasswordState } from 'model';
 import { deepFreeze, randomString } from 'utils/all';
 
-//const artificalResetDuration = 1000;
-
 const screenTitleMapping = deepFreeze({
     0: {
         title: 'Reset Account Password'

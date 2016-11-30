@@ -7,10 +7,10 @@ import { uploadSSLCertificate } from 'actions';
 import { sslCertificateUploadStatus as uploadStatus } from 'model';
 
 class SSLFormViewModel extends Disposable {
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
         this.sslCertificateSuffix = sslCertificateSuffix;
 
         this.sslConfigured = ko.observable('No');

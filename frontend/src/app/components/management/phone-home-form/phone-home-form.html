@@ -1,52 +1,44 @@
-<div class="row content-middle cursor-pointer" data-bind="
-    click: () => expanded.toggle()
+<collapsible-section params="
+    title: 'Phone Home Proxy',
+    collapsed: isCollapsed
 ">
-    <h2 class="heading3 greedy">
-        Phone Home Proxy
-    </h2>
+    <section data-name="collapsed">
+        <p>
+            Proxy Address:
+            <output data-bind="
+                value: proxyAddressText,
+                css: { 'text-tech': !!proxyAddress() }
+            "></output>
+        </p>
+    </section>
 
-    <button class="btn-flat expand-btn no-outline">
-        <svg-icon class="icon-small rotate"
-            params="name: 'chevron'"
-            data-bind="css: { 'deg-90': !expanded() }">
-        </svg-icon>
-    </button>
-</div>
+    <section data-name="expanded">
+        <p class="push-next">Phone home enables the appliance to communicate support related information and help us provide better remote support services (no personal data will be sent)<br>
+        If the appliance is not directly connected to the Internet you may need to configure an HTTP proxy.</p>
 
-<p data-bind="visible: !expanded()">
-    Proxy Address:
-    <output data-bind="
-        value: proxyAddressText,
-        css: { 'text-tech': !!proxyAddress() }
-    "></output>
-</p>
+        <editor params="label: 'Use Proxy'">
+            <toggle-switch params="value: usingProxy"></toggle-switch>
+        </editor>
 
-<section class="column" data-bind="expand: expanded">
-    <p class="push-next">Phone home enables the appliance to communicate support related information and help us provide better remote support services (no personal data will be sent)<br>
-    If the appliance is not directly connected to the Internet you may need to configure an HTTP proxy.</p>
+        <editor params="label: 'Proxy address', disabled: !usingProxy()">
+            <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
+                value: proxyIPOrDNS,
+                enable: usingProxy
+            "/>
+        </editor>
 
-    <editor params="label: 'Use Proxy'">
-        <toggle-switch params="value: usingProxy"></toggle-switch>
-    </editor>
+        <editor params="label: 'Proxy port', disabled: !usingProxy()">
+            <input type="number" min="1" max="65535" placeholder="port" data-bind="
+                value: proxyPort,
+                enable: usingProxy
+            "/>
+       </editor>
 
-    <editor params="label: 'Proxy address', disabled: !usingProxy()">
-        <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
-            value: proxyIPOrDNS,
-            enable: usingProxy
-        "/>
-    </editor>
-
-    <editor params="label: 'Proxy port', disabled: !usingProxy()">
-        <input type="number" min="1" max="65535" placeholder="port" data-bind="
-            value: proxyPort,
-            enable: usingProxy
-        "/>
-   </editor>
-
-    <button class="btn align-start push-prev" data-bind="
-        click: applyChanges,
-        shakeOnClick: errors().length
-    ">
-        Apply Changes
-    </button>
-</section>
+        <button class="btn align-start push-prev" data-bind="
+            click: applyChanges,
+            shakeOnClick: errors().length
+        ">
+            Apply Changes
+        </button>
+    </section>
+</collapsible-section>

@@ -13,8 +13,10 @@ const addressOptions = [
 ];
 
 class ServerDNSFormViewModel extends Disposable {
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
+
+        this.isCollapsed = isCollapsed;
 
         this.expanded = ko.observable(false);
         this.addressOptions = addressOptions;

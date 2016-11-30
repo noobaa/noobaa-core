@@ -29,9 +29,8 @@ node('node2') {
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
                 cp /usr/local/noobaa/.env $WORKSPACE
-                let time_of_kills = '${aging_time}' - '${start_killing_time}'
                 sleep '${start_killing_time}'m
-                node $WORKSPACE/src/test/qa/machine_killer.js --service azure --project QA-HA4 --zone eastus --prefix agent --timeout $time_of_kills
+                node $WORKSPACE/src/test/qa/machine_killer.js --service azure --project QA-HA4 --zone eastus --prefix agent --timeout $('${aging_time}' - '${start_killing_time}')
             """
           }
       )

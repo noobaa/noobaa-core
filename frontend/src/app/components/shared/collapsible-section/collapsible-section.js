@@ -25,11 +25,11 @@ class CollapsibleSectionViewModel extends Disposable{
 function viewModelFactory(params, info) {
     const collapsedTempalte = info.templateNodes.find(
         template => template.dataset && template.dataset.name === 'collapsed'
-    ).innerHTML;
+    );
 
     const expandedTempalte = info.templateNodes.find(
         template => template.dataset && template.dataset.name === 'expanded'
-    ).innerHTML;
+    );
 
 
     return new CollapsibleSectionViewModel(params, collapsedTempalte, expandedTempalte);

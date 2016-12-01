@@ -242,16 +242,6 @@ module.exports = {
             }
         },
 
-        diagnose_system: {
-            method: 'GET',
-            reply: {
-                type: 'string',
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         diagnose_node: {
             method: 'GET',
             params: {
@@ -426,6 +416,25 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+            }
+        },
+
+        log_client_console: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                },
+            },
+            auth: {
+                system: 'admin',
             }
         }
     },

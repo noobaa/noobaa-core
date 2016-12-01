@@ -2,9 +2,9 @@
 def noobaa_ip = '137.117.41.95'
 def values = noobaa_ip.tokenize('.')
 def prefix = values[2]+'-'+values[3]
-def dataset_size = '5120' // 5 GB of dataset
-def start_killing_time = '15' // start killing after 15 minustes
-def aging_time = '120' // run for 2 hours
+def dataset_size = '500' // 5 GB of dataset
+def start_killing_time = '2' // start killing after 15 minustes
+def aging_time = '4' // run for 2 hours
 def service = 'azure'
 def resource = 'jacky-resources'
 def zone = 'eastus'

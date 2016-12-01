@@ -613,6 +613,10 @@ function validate_create_account_params(req) {
     if (req.rpc_params.name !== req.rpc_params.name.trim()) {
         throw new RpcError('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
     }
+
+    if (system_store.get_accounts_by_email(req.rpc_params.email)) {
+        throw new RpcError('BAD_REQUEST', 'email address already registered');
+    }
 }
 
 // EXPORTS

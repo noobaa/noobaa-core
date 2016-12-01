@@ -912,7 +912,7 @@ function get_system_info(system, get_id) {
 }
 
 function find_account_by_email(req) {
-    var account = system_store.data.accounts_by_email[req.rpc_params.email];
+    var account = system_store.get_accounts_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }

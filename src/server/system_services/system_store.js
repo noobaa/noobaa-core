@@ -161,6 +161,8 @@ const COLLECTIONS = js_utils.deep_freeze([{
 
 const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
 
+let accounts_by_email_lowercase = [];
+
 
 /**
  *
@@ -221,6 +223,7 @@ class SystemStoreData {
         this.rebuild_object_links();
         this.rebuild_indexes();
         this.rebuild_allowed_buckets_links();
+        this.rebuild_accounts_by_email_lowercase();
     }
 
     rebuild_idmap() {
@@ -282,6 +285,12 @@ class SystemStoreData {
                     bucket => Boolean(bucket._id)
                 );
             }
+        });
+    }
+
+    rebuild_accounts_by_email_lowercase() {
+        _.each(this.accounts, account => {
+            accounts_by_email_lowercase[account.email.toLowerCase()] = account.email;
         });
     }
 
@@ -594,6 +603,12 @@ class SystemStore extends EventEmitter {
 
     get_server_secret() {
         return this._server_secret;
+    }
+
+    get_accounts_by_email(email) {
+        if (this.data && this.data.accounts) {
+            return this.data.accounts_by_email[accounts_by_email_lowercase[email.toLowerCase()]];
+        }
     }
 
 }

@@ -45,7 +45,7 @@ function create_auth(req) {
         if (!email) return;
 
         // consider email not found the same as bad password to avoid phishing attacks.
-        target_account = system_store.data.accounts_by_email[email];
+        target_account = system_store.get_accounts_by_email(email);
         dbg.log0('credentials account not found', email, system_name);
         if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials not found');
 

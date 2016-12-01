@@ -1,15 +1,29 @@
 import template from './bucket-placement-policy-modal.html';
+import editScreenTemplate from './edit-screen.html';
+import warningScreenTemplate from './warn-screen.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop } from 'utils/all';
+import { noop, deepFreeze } from 'utils/all';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
+
+const screenMapping = deepFreeze({
+    0: { title: 'Bucket Data Placement Policy', sizeCss: 'modal-large' },
+    1: { title: 'Empty Data Placement Policy', sizeCss: 'modal-xsmall', severity: 'warn' }
+});
 
 class BacketPlacementPolicyModalViewModel extends Disposable {
     constructor({ bucketName, onClose = noop }) {
         super();
 
         this.onClose = onClose;
+        this.screen = ko.observable(0);
+        this.editScreenTemplate = editScreenTemplate;
+        this.warningScreenTemplate = warningScreenTemplate;
+
+        this.modalInfo = ko.pureComputed(
+            () => screenMapping[this.screen()]
+        );
 
         this.tierName = ko.pureComputed(
             () => {
@@ -76,6 +90,18 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
                 return nodes > 0 && cloud > 0;
             }
         );
+    }
+
+    backToEdit() {
+        this.screen(0);
+    }
+
+    beforeSave() {
+        if (this.selectedPools().length === 0) {
+            this.screen(1);
+        } else {
+            this.save();
+        }
     }
 
     save() {

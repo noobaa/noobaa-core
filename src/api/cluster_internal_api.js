@@ -190,14 +190,6 @@ module.exports = {
 
         collect_server_diagnostics: {
             method: 'POST',
-            params: {
-                type: 'object',
-                properties: {
-                    target_secret: {
-                        type: 'string',
-                    }
-                },
-            },
             reply: {
                 type: 'object',
                 required: ['data'],

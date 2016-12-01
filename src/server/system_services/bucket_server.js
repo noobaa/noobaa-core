@@ -240,7 +240,7 @@ function update_bucket_s3_acl(req) {
     let updates = req.rpc_params.access_control
         .map(
             record => {
-                let account = system_store.data.accounts_by_email[record.account];
+                let account = system_store.get_accounts_by_email(record.account);
                 let allowed_buckets = record.is_allowed ?
                     _.unionWith(account.allowed_buckets, [bucket], system_store.has_same_id) :
                     _.differenceWith(account.allowed_buckets, [bucket], system_store.has_same_id);

@@ -84,7 +84,7 @@ module.exports = {
         },
 
         diagnose_system: {
-            method: 'POST',
+            method: 'GET',
             params: {
                 type: 'object',
                 properties: {

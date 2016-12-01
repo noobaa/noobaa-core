@@ -112,7 +112,7 @@ function create_account(req) {
 function read_account(req) {
     let email = req.rpc_params.email;
 
-    let account = system_store.data.accounts_by_email[email];
+    let account = system_store.get_accounts_by_email(email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
     }
@@ -127,7 +127,7 @@ function read_account(req) {
  *
  */
 function generate_account_keys(req) {
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account = system_store.get_accounts_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -165,7 +165,7 @@ function generate_account_keys(req) {
  */
 function update_account_s3_acl(req) {
     var system = req.system;
-    let account = _.cloneDeep(system_store.data.accounts_by_email[req.rpc_params.email]);
+    let account = _.cloneDeep(system_store.data.get_accounts_by_email(req.rpc_params.email));
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -248,7 +248,7 @@ function update_account_s3_acl(req) {
  *
  */
 function update_account(req) {
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account = system_store.get_accounts_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -304,7 +304,7 @@ function update_account(req) {
  *
  */
 function delete_account(req) {
-    let account_to_delete = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account_to_delete = system_store.get_accounts_by_email(req.rpc_params.email);
     if (!account_to_delete) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -493,7 +493,7 @@ function check_account_sync_credentials(req) {
  *
  */
 function list_account_s3_acl(req) {
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account = system_store.get_accounts_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -612,6 +612,10 @@ function is_support_or_admin_or_me(system, account, target_account) {
 function validate_create_account_params(req) {
     if (req.rpc_params.name !== req.rpc_params.name.trim()) {
         throw new RpcError('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
+    }
+
+    if (system_store.get_accounts_by_email(req.rpc_params.email)) {
+        throw new RpcError('BAD_REQUEST', 'email address already registered');
     }
 }
 

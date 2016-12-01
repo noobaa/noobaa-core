@@ -13,8 +13,8 @@ var vm_prefix = argv.prefix || 'agent-';
 var zone = argv.zone || 'eastus';
 var project = argv.project || 'QA-HA-resources';
 
-var min_timeout = argv.min_timeout || 10; // minimum 20 seconds
-var max_timeout = argv.max_timeout || 30; // maximum 1 minute
+var min_timeout = argv.min_timeout || 30; // minimum 30 seconds
+var max_timeout = argv.max_timeout || 90; // maximum 1.5 minute
 var min_machines = argv.min_machines || 2; // minimum 3 machine
 var max_machines = argv.max_machines || 3; // maximum 10 machines
 var service = argv.service || 'azure';

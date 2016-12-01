@@ -26,10 +26,11 @@ node('node2') {
       parallel (
           "dataset": {
             echo 'Running some dataset!'
-            sh returnStatus: true, script: """
+            sh /*returnStatus: true, */script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
+                #node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
+                exit 1
             """
           },
           "machinekill": {

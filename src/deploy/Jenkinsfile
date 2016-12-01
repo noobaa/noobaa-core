@@ -15,7 +15,7 @@ node('node2') {
     }
     stage('NpmInstall') {
         echo 'Installing all needed npm packages!'
-        sh returnStatus: true, script: """
+        sh script: """
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
               npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis
@@ -26,16 +26,15 @@ node('node2') {
       parallel (
           "dataset": {
             echo 'Running some dataset!'
-            sh /*returnStatus: true, */script: """
+            sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                #node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
-                exit 1
+                node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
             """
           },
           "machinekill": {
             echo 'Killing some nodes!'
-            sh returnStatus: true, script: """
+            sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
                 cp /usr/local/noobaa/.env $WORKSPACE

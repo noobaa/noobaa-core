@@ -110,7 +110,7 @@ promise_utils.pwhile(() => current_size < size_of_ds, () => {
     })
     .then(() => {
         console.log(':) :) :) Everything finished with success! (: (: (:');
-        process.exit(0);
+        process.exit(1);
     })
     .catch(err => {
         console.error(':( :( Errors during test ): ):', err);

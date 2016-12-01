@@ -9,7 +9,7 @@ const argv = require('minimist')(process.argv);
 var AzureFunctions = require('../../deploy/azureFunctions');
 var GcloudFunctions = require('../../deploy/gcloudFunctions');
 
-var vm_prefix = argv.vm_prefix || 'agent-';
+var vm_prefix = argv.prefix || 'agent-';
 var zone = argv.zone || 'eastus';
 var project = argv.project || 'QA-HA-resources';
 
@@ -72,4 +72,12 @@ return funcs.authenticate()
                     }
                 });
         });
+    })
+    .then(() => {
+        console.log(':) :) :) The Killing has stopped successfully! (: (: (:');
+        process.exit(0);
+    })
+    .catch(err => {
+        console.error(':( :( Errors during test ): ):', err);
+        process.exit(1);
     });

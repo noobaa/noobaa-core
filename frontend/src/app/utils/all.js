@@ -13,7 +13,6 @@ Object.freeze(
         require('./string-utils'),
         require('./promise-utils'),
         require('./browser-utils'),
-        require('./color-utils'),
-        require('./s3-utils')
+        require('./color-utils')
     )
 );

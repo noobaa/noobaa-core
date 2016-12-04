@@ -2,33 +2,36 @@ import template from './bucket-s3-access-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop } from 'utils/all';
-import { bucketS3ACL } from 'model';
-import { loadBucketS3ACL, updateBucketS3ACL } from 'actions';
+import { updateBucketS3Access } from 'actions';
+import { systemInfo } from 'model';
 
 class BucketS3AccessModalViewModel extends Disposable {
     constructor({ bucketName, onClose = noop }) {
         super();
 
         this.onClose = onClose;
-
         this.bucketName = bucketName;
 
-        this.accounts = bucketS3ACL
-            .map(
-                ({ account }) => account
-            );
-
-        this.selectedAccounts = ko.observableWithDefault(
-            () => bucketS3ACL
+        this.accounts = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().accounts : [])
                 .filter(
-                    ({ is_allowed }) => is_allowed
+                    account => Boolean(account.allowed_buckets)
                 )
                 .map(
-                    ({ account }) => account
+                    account => account.email
                 )
         );
 
-        loadBucketS3ACL(ko.unwrap(this.bucketName));
+        this.selectedAccounts = ko.observableWithDefault(
+            () => (systemInfo() ? systemInfo().accounts : [])
+                .filter(
+                    account => (account.allowed_buckets || [])
+                        .includes(ko.unwrap(bucketName))
+                )
+                .map(
+                    account => account.email
+                )
+        );
     }
 
     selectAllAccounts() {
@@ -42,14 +45,7 @@ class BucketS3AccessModalViewModel extends Disposable {
     }
 
     save() {
-        let acl = this.accounts().map(
-            account => ({
-                account: account,
-                is_allowed: this.selectedAccounts().indexOf(account) !== -1
-            })
-        );
-
-        updateBucketS3ACL(ko.unwrap(this.bucketName), acl);
+        updateBucketS3Access(ko.unwrap(this.bucketName), this.selectedAccounts());
         this.onClose();
     }
 

@@ -52,7 +52,7 @@ module.exports = {
                                 type: 'string',
                             },
                             access_keys: {
-                                $ref: 'system_api#/definitions/access_keys',
+                                $ref: 'common_api#/definitions/access_keys',
                             },
                             endpoint_type: {
                                 type: 'string',

@@ -13,6 +13,12 @@ const navItems = deepFreeze([
         label: 'Overview'
     },
     {
+        name: 'resources',
+        route: 'pools',
+        icon: 'resources',
+        label: 'Resources'
+    },
+    {
         name: 'buckets',
         route: 'buckets',
         icon: 'buckets',
@@ -25,23 +31,17 @@ const navItems = deepFreeze([
         label: 'Functions'
     },
     {
-        name: 'resources',
-        route: 'pools',
-        icon: 'resources',
-        label: 'Resources'
+        name: 'cluster',
+        route: 'cluster',
+        icon: 'cluster',
+        label: 'Cluster',
+        preview: true
     },
     {
         name: 'management',
         route: 'management',
         icon: 'manage',
         label: 'Management'
-    },
-    {
-        name: 'cluster',
-        route: 'cluster',
-        icon: 'cluster',
-        label: 'Cluster',
-        preview: true
     }
 ]);
 

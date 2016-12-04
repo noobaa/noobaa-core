@@ -1,13 +1,22 @@
 import template from './change-password-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { updateAccountPassword } from 'actions';
-import { sessionInfo } from 'model';
+import { resetAccountPassword, signOut, refresh } from 'actions';
+import { sessionInfo, resetPasswordState } from 'model';
 import { calcPasswordStrength } from 'utils/all';
 
 class ChangePasswordFormViewModel extends Disposable{
     constructor() {
         super();
+
+        this.password = ko.observable()
+            .extend({
+                required: { message: 'Please enter your current password' },
+                validation: {
+                    validator: () => touched() || resetPasswordState() !== 'UNAUTHORIZED',
+                    message: 'Please make sure your password is correct'
+                }
+            });
 
         this.newPassword = ko.observable()
             .extend({
@@ -28,7 +37,7 @@ class ChangePasswordFormViewModel extends Disposable{
         ).extend({
             equal: {
                 params: true,
-                message: 'Please enter a valid password'
+                message: 'Please enter a valid new password'
             },
             isModified: this.newPassword.isModified
         });
@@ -46,6 +55,18 @@ class ChangePasswordFormViewModel extends Disposable{
                 )
         );
 
+        const touched = ko.touched([this.password]);
+        this.addToDisposeList(
+            resetPasswordState.subscribe(
+                state => {
+                    touched.reset();
+                    if (state === 'SUCCESS') {
+                        refresh();
+                    }
+                }
+            )
+        );
+
         this.errors = ko.validation.group(this);
 
     }
@@ -55,8 +76,18 @@ class ChangePasswordFormViewModel extends Disposable{
             this.errors.showAllMessages();
 
         } else {
-            updateAccountPassword(sessionInfo().user, this.newPassword());
+            resetAccountPassword(
+                this.password(),
+                sessionInfo().user,
+                this.newPassword(),
+                false,
+                true
+            );
         }
+    }
+
+    back() {
+        signOut();
     }
 }
 

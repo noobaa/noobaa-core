@@ -1,75 +1,76 @@
 <div class="greedy tabs">
     <nav>
-        <a data-bind="
-            href: generateTabUrl('accounts'),
-            css: { selected: isTabSelected('accounts') }
-        ">
+        <a data-bind="href: tabHref('accounts'), css: tabCss('accounts')">
             Accounts
         </a>
-        <a data-bind="
-            href: generateTabUrl('settings'),
-            css: { selected: isTabSelected('settings') }
-        ">
+        <a data-bind="href: tabHref('settings'), css: tabCss('settings')">
             Configuration
         </a>
-
-        <a data-bind="
-            href: generateTabUrl('diagnostics'),
-            css: { selected: isTabSelected('diagnostics') }
-        ">
+        <a data-bind="href: tabHref('diagnostics'), css: tabCss('diagnostics')">
             Support &amp; Diagnostics
         </a>
-
-        <a data-bind="
-            href: generateTabUrl('version'),
-            css: { selected: isTabSelected('version') }
-        ">
+        <a data-bind="href: tabHref('version'), css: tabCss('version')">
             Version
         </a>
-        <a data-bind="
-            href: generateTabUrl('advanced-options'),
-            css: { selected: isTabSelected('advanced-options') }
-        ">
+        <a data-bind="href: tabHref('advanced-options'), css: tabCss('advanced-options')">
             Advanced Options
         </a>
     </nav>
 
     <div class="tabs-row">
-        <accounts-table class="tab" data-bind="
-            css: { selected: isTabSelected('accounts') }
-        "></accounts-table>
+        <accounts-table class="tab" data-bind="css: tabCss('accounts')">
+        </accounts-table>
 
-        <section class="tab" data-bind="
-            css: { selected: isTabSelected('settings') }
-        ">
-            <server-time-form class="pad" params="isCollapsed: isSectionCollapsed('server-time')"></server-time-form>
+        <section class="tab" data-bind="css: tabCss('settings')">
+            <server-time-form class="pad" params="
+                isCollapsed: isSectionCollapsed('server-time')
+            "></server-time-form>
+
             <hr />
-            <server-dns-form class="pad" params="isCollapsed: isSectionCollapsed('server-dns')"></server-dns-form>
+
+            <server-dns-form class="pad" params="
+                isCollapsed: isSectionCollapsed('server-dns')
+            "></server-dns-form>
+
             <hr />
-            <server-dns-settings-form class="pad" params="isCollapsed: isSectionCollapsed('dns-settings')"></server-dns-settings-form>
+
+            <server-dns-settings-form class="pad" params="
+                isCollapsed: isSectionCollapsed('dns-settings')
+            "></server-dns-settings-form>
+
             <hr />
-            <phone-home-form class="pad" params="isCollapsed: isSectionCollapsed('phone-home')"></phone-home-form>
+
+            <phone-home-form class="pad" params="
+                isCollapsed: isSectionCollapsed('phone-home')
+            "></phone-home-form>
+
             <hr />
-            <remote-syslog-form class="pad" params="isCollapsed: isSectionCollapsed('remote-syslog')"></remote-syslog-form>
+
+            <remote-syslog-form class="pad" params="
+                isCollapsed: isSectionCollapsed('remote-syslog')
+            "></remote-syslog-form>
+
             <hr />
+
             <server-ssl-form class="pad" params="isCollapsed: isSectionCollapsed('server-ssl')"></server-ssl-form>
         </section>
 
-        <diagnostics-form class="tab" data-bind="
-            css: { selected: isTabSelected('diagnostics') }
-        "></diagnostics-form>
+        <diagnostics-form class="tab" data-bind="css: tabCss('diagnostics')">
+        </diagnostics-form>
 
-        <version-form class="tab" data-bind="
-            css: { selected: isTabSelected('version') }
-        "></version-form>
+        <version-form class="tab" data-bind="css: tabCss('version')">
+        </version-form>
 
-        <section class="tab" data-bind="
-            css: { selected: isTabSelected('advanced-options') }
-        ">
-            <maintenance-form class="pad" params="isCollapsed: isSectionCollapsed('maintenance')"></maintenance-form>
+        <section class="tab" data-bind="css: tabCss('advanced-options')">
+            <maintenance-form class="pad" params="
+                isCollapsed: isSectionCollapsed('maintenance')
+            "></maintenance-form>
+
             <hr />
-            <p2p-form class="pad" params="isCollapsed: isSectionCollapsed('p2p')"></p2p-form>
-            <hr>
+
+            <p2p-form class="pad" params="
+                isCollapsed: isSectionCollapsed('p2p')
+            "></p2p-form>
         </section>
     </div>
 </div>

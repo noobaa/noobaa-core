@@ -225,7 +225,7 @@ function run_test() {
                     }));
             }
         })
-        .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
+        .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
         .then(function(res_file_names) {
             let i = 0;
             file_names = res_file_names;
@@ -255,7 +255,7 @@ function run_test() {
                     return compare_object_lists(file_names, 'sync source to target failed');
                 });
         })
-        .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
+        .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
         .then(function(res_file_names) {
             let i = 0;
             file_names = res_file_names;
@@ -326,7 +326,7 @@ function run_test() {
                     return compare_object_lists(file_names, 'sync source to target failed');
                 });
         })
-        .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
+        .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
         .then(function(res_file_names) {
             let i = 0;
             file_names = res_file_names;
@@ -385,7 +385,7 @@ function run_test() {
                     return compare_object_lists(file_names, 'sync source to target failed');
                 });
         })
-        .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
+        .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
         .then(function(res_file_names) {
             let i = 0;
             file_names = res_file_names;

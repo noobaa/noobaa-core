@@ -1,17 +1,19 @@
-<wizard params="
-    heading: 'Create Account',
-    steps: steps,
-    size: 'medium',
-    actionLabel: 'Create',
-    validateStep: step => validateStep(step),
-    onComplete: () => create(),
-    onClose: () => cancel()
+<modal data-bind="css: modalInfo().css" params="
+    title: modalInfo().title,
+    severity: modalInfo().severity,
+    onClose: () => close(),
+    allowBackdropClose: !working(),
+    disableCloseButton: working
 ">
+    <!-- ko if: screen() === 0 -->
     <section class="column greedy" data-bind="
-        template: { html: nameAndPermissionsStepTemplate }
+        template: { html: createScreenTemplate }
     "></section>
+    <!-- /ko -->
 
-    <section class="column greedy" data-bind="
-        template: { html: detailsStepTemplate }
+    <!-- ko if: screen() === 1 -->
+    <section class="column greedy fade-in" data-bind="
+        template: { html: reviewScreenTemplate }
     "></section>
-</wizard>
+    <!-- /ko -->
+</modal>

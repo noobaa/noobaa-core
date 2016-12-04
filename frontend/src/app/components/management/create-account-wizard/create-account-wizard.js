@@ -1,57 +1,42 @@
 import template from './create-account-wizard.html';
-import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
-import detailsStepTemplate from './details-step.html';
+import createScreenTemplate from './create-screen.html';
+import reviewScreenTemplate from './review-screen.html';
+import newAccountMessageTemplate from './new-account-message.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
+import { sleep } from 'utils/promise-utils';
 import { randomString } from 'utils/string-utils';
-import { systemInfo } from 'model';
+import { systemInfo, createAccountState } from 'model';
 import { createAccount } from 'actions';
 
-function makeUserMessage(loginInfo, S3AccessInfo) {
-    return `
-<p>Hi, I created a NooBaa user for you:</p>
-${makeLoginMessage(loginInfo)}<br>
-${S3AccessInfo ? makeS3AccessMessage(S3AccessInfo) : ''}
-    `;
-}
-
-function makeLoginMessage({ serverAddress, username, password }) {
-    return `
-<p>
-Use the following credentials to connect to the NooBaa console:<br>
-<span>Console Url:</span> ${serverAddress}<br>
-<span>Username:</span> ${username}<br>
-<span>Password:</span> ${password}
-</p>
-    `;
-}
-
-function makeS3AccessMessage({ access_key, secret_key }) {
-    return `
-<p class="paragraph">
-Use the following S3 access to connect an S3 compatible application to NooBaa:<br>
-<span>Access Key:</span> ${access_key}<br>
-<span>Secret Key:</span> ${secret_key}
-</p>
-    `;
-}
-
-const steps = deepFreeze([
-    'name & permissions',
-    'review details'
-]);
+const modalScreenMapping = deepFreeze({
+    0: {
+        title: 'Create Account',
+        css: 'modal-medium'
+    },
+    1: {
+        title: 'Account Created Successfully',
+        severity: 'success',
+        css: 'modal-small'
+    }
+});
 
 class CreateAccountWizardViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 
         this.onClose = onClose;
-        this.nameAndPermissionsStepTemplate = nameAndPermissionsStepTemplate;
-        this.detailsStepTemplate = detailsStepTemplate;
-        this.steps = steps;
+        this.createScreenTemplate = createScreenTemplate;
+        this.reviewScreenTemplate = reviewScreenTemplate;
+        this.newAccountMessageTemplate = newAccountMessageTemplate;
+        this.screen = ko.observable(0);
+        this.working = ko.observable(false);
+        this.modalInfo = ko.pureComputed(
+            () => modalScreenMapping[this.screen()]
+        );
 
-        let accounts = ko.pureComputed(
+        const accounts = ko.pureComputed(
             () => (systemInfo() ? systemInfo().accounts : []).map(
                 account => account.email
             )
@@ -59,9 +44,16 @@ class CreateAccountWizardViewModel extends Disposable {
 
         this.emailAddress = ko.observable()
             .extend({
-                required: { message: 'Please enter an email address' },
-                email: { message: 'Please enter a valid email address' },
+                required: {
+                    onlyIf: () => !this.working(),
+                    message: 'Please enter an email address'
+                },
+                email: {
+                    onlyIf: () => !this.working(),
+                    message: 'Please enter a valid email address'
+                },
                 notIn: {
+                    onlyIf: () => !this.working(),
                     params: accounts,
                     message: 'An account with the same email address already exists'
                 }
@@ -75,7 +67,7 @@ class CreateAccountWizardViewModel extends Disposable {
             )
         );
 
-        let selectedBuckets = ko.observableArray();
+        const selectedBuckets = ko.observableArray();
         this.selectedBuckets = ko.pureComputed({
             read: () => this.enableS3Access() ? selectedBuckets() : [],
             write: selectedBuckets
@@ -83,39 +75,54 @@ class CreateAccountWizardViewModel extends Disposable {
 
         this.password = randomString();
 
-
-        let loginInfo = ko.pureComputed(
-            () => ({
-                serverAddress: `https://${systemInfo().endpoint}:${systemInfo().ssl_port}`,
-                username: this.emailAddress(),
-                password: this.password
-            })
-        );
-
         this.userMessage = ko.pureComputed(
-            () => makeUserMessage(
-                loginInfo(),
-                this.enableS3Access() ? this.accessKeys : null
-            )
+            () => {
+                const { accounts = [], endpoint, ssl_port } = systemInfo();
+                const account = accounts.find( account => account.email === this.emailAddress() );
+                const access_keys = account && account.access_keys[0];
+
+                const data = {
+                    serverAddress: `https://${endpoint}:${ssl_port}`,
+                    username: this.emailAddress(),
+                    password: this.password,
+                    accessKey: this.enableS3Access() ? access_keys.access_key : '',
+                    secretKey: this.enableS3Access() ? access_keys.secret_key : ''
+                };
+
+                return ko.renderToString(newAccountMessageTemplate, data);
+            }
         );
 
-        this.nameAndPermissionsErrors = ko.validation.group([
+        this.errors = ko.validation.group([
             this.emailAddress
         ]);
-    }
 
-    validateStep(step) {
-        switch (step) {
-            case 1:
-                if (this.nameAndPermissionsErrors().length > 0) {
-                    this.nameAndPermissionsErrors.showAllMessages();
-                    return false;
+        this.addToDisposeList(
+            createAccountState.subscribe(
+                status => {
+                    switch(status) {
+                        case 'IN_PROGRESS':
+                            this.working(true);
+                            break;
+
+                        case 'SUCCESS':
+                            sleep(500).then(
+                                () => {
+                                    this.working(false);
+                                    this.screen(1);
+                                }
+                            );
+                            break;
+
+                        case 'ERROR':
+                            this.onClose();
+                            break;
+                    }
                 }
-                break;
-        }
-
-        return true;
+            )
+        );
     }
+
 
     selectAllBuckets() {
         this.selectedBuckets(
@@ -128,18 +135,19 @@ class CreateAccountWizardViewModel extends Disposable {
     }
 
     create() {
-        createAccount(
-            systemInfo().name,
-            this.emailAddress(),
-            this.password,
-            this.enableS3Access() ? this.selectedBuckets() : undefined
-        );
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
 
-        this.onClose();
-
+        } else {
+            createAccount(
+                this.emailAddress(),
+                this.password,
+                this.enableS3Access() ? this.selectedBuckets() : undefined
+            );
+        }
     }
 
-    cancel() {
+    close() {
         this.onClose();
     }
 }

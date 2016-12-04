@@ -176,49 +176,15 @@ function update_bucket(req) {
     }).return();
 }
 
-// TODO Removed by request of Ohad, because seems like we won't be using it
-/*function generate_bucket_access(req) {
-    var bucket = find_bucket(req);
-
-    if (!bucket) {
-        throw new RpcError('INVALID_BUCKET_NAME');
-    }
-    var account_email = req.system.name + system_store.data.accounts.length + '@noobaa.com';
-    //console.warn('Email Generated: ', account_email);
-    return server_rpc.client.account.create_account({
-            name: req.system.name,
-            email: account_email,
-            password: crypto.randomBytes(16).toString('hex')
-        }, {
-            auth_token: req.auth_token
-        })
-        .then(() => {
-            //console.warn('Account Created');set
-            return server_rpc.client.account.update_buckets_permissions({
-                email: account_email,
-                allowed_buckets: [{
-                    bucket_name: bucket.name,
-                    is_allowed: true
-                }]
-            }, {
-                auth_token: req.auth_token
-            });
-        })
-        .then(() => {
-            //console.warn('Permissions Created');
-            return server_rpc.client.account.generate_account_keys({
-                email: account_email
-            }, {
-                auth_token: req.auth_token
-            });
-        })
-        .then(res => res[0]);
-}*/
-
+/**
+ *
+ * UPDATE_BUCKET_S3_ACCESS
+ *
+ */
 function update_bucket_s3_access(req) {
     const bucket = find_bucket(req);
     const allowed_accounts = req.rpc_params.allowed_accounts.map(
-        email => system_store.get_account_by_email[email]
+        email => system_store.get_account_by_email(email)
     );
 
     const added_accounts = [];

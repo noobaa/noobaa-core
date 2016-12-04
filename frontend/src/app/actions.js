@@ -524,14 +524,14 @@ export function signIn(email, password, keepSessionAlive = false) {
 
                 return api.create_auth_token({ system, email, password })
                     .then(({ token, info }) => {
-                        let storage = keepSessionAlive ? localStorage : sessionStorage;
+                        const storage = keepSessionAlive ? localStorage : sessionStorage;
                         storage.setItem('sessionToken', token);
 
-                        let mustChangePassword = info.account.must_change_password;
+                        const account = info.account;
                         model.sessionInfo({
-                            user: email,
-                            system: system,
-                            mustChangePassword: mustChangePassword
+                            user: account.email,
+                            system: account.system,
+                            mustChangePassword: account.must_change_password
                         });
                         //api.redirector.register_for_alerts(); ////For now comment this out until add it properly
                         model.loginInfo({ retryCount: 0 });

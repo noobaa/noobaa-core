@@ -171,7 +171,7 @@ function generate_account_keys(req) {
  *
  */
 function update_account_s3_access(req) {
-    let account = _.cloneDeep(system_store.data.get_account_by_email(req.rpc_params.email));
+    let account = _.cloneDeep(system_store.get_account_by_email(req.rpc_params.email));
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }

@@ -1,4 +1,4 @@
-import template from './create-account-wizard.html';
+import template from './create-account-modal.html';
 import createScreenTemplate from './create-screen.html';
 import reviewScreenTemplate from './review-screen.html';
 import newAccountMessageTemplate from './new-account-message.html';

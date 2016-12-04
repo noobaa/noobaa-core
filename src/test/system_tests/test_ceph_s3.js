@@ -13,10 +13,6 @@ var CEPH_TEST = {
         name: 'cephalt',
         email: 'ceph.alt@noobaa.com',
         password: 'ceph',
-        access_keys: {
-            access_key: 'iam',
-            secret_key: 'sloth'
-        },
         allowed_buckets: []
     },
 };
@@ -300,12 +296,37 @@ function main() {
 }
 
 function run_test() {
-    var command = `node ${CEPH_TEST.rpc_shell_file} --run call --api account --func create_account --params '${JSON.stringify(CEPH_TEST.new_account_json)}'`;
+    var createAccountCommand = `node ${CEPH_TEST.rpc_shell_file} --run call --api account --func create_account --params '${JSON.stringify(CEPH_TEST.new_account_json)}'`;
+    var readSystemCommand = `node ${CEPH_TEST.rpc_shell_file} --run call --api system --func read_system --json`;
+
     return P.fcall(function() {
             return deploy_ceph();
         })
-        .then(() => promise_utils.exec(command, false, true))
-        .then((res) => console.log(res))
+        .then(() => promise_utils.exec(createAccountCommand, true, true))
+        .then(res => console.log(res))
+        .then(() => promise_utils.exec(readSystemCommand, true, true))
+        .then(res => {
+            console.log(res);
+
+            /*
+                The folowing parsing is needed because even when running the rpc_shell in
+                non-interactive mode (--run) we still get all internal console.logs
+                in the stdout (which is not advisable when programing an non-interactive tool).
+                The best practice (for non-intractive tools) implies returning the JSON result or
+                an error JSON in case of an errors.
+            */
+            const jsonText = res.split('Got back result:')[1];
+            if (jsonText) {
+                return JSON.parse(jsonText.trim());
+            }
+        })
+        .then(system_info => {
+            const access_keys = system_info.accounts.find(
+                account => account.email === CEPH_TEST.new_account_json.email
+            ).access_keys;
+            CEPH_TEST.new_account_json.access_keys = access_keys;
+            console.log('*******', JSON.stringify(CEPH_TEST));
+        })
         .then(() => system_ceph_test())
         .then(() => s3_ceph_test())
         .catch(function(err) {

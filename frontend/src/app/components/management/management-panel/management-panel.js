@@ -19,22 +19,24 @@ class ManagementPanelViewModel extends Disposable {
         });
     }
 
+    tabHref(tab) {
+        return {
+            route: 'management',
+            params: { tab, section: null }
+        };
+    }
+
+    tabCss(tab) {
+        return {
+            selected: this.selectedTab() === tab
+        };
+    }
+
     isSectionCollapsed(section) {
         return ko.pureComputed({
             read: () => this.section() !== section,
             write: val => this.section(val ? null : section)
         });
-    }
-
-    isTabSelected(tab) {
-        return this.selectedTab() === tab;
-    }
-
-    generateTabUrl(tab) {
-        return {
-            route: 'management',
-            params: { tab: tab, section: null }
-        };
     }
 }
 

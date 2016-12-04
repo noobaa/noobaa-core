@@ -15,6 +15,15 @@ class AccountMenuViewModel extends Disposable{
         this.userEmail = ko.pureComputed(
             () => sessionInfo().user
         );
+
+        this.profileHref = {
+            route: 'account',
+            params: {
+                account: this.userEmail,
+                tab: 'details'
+            }
+        };
+
         this.supportEmailUri = `mailto:${support.email}`;
         this.helpDeskUri = support.helpDesk;
     }

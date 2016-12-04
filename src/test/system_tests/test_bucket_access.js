@@ -25,10 +25,6 @@ let full_access_user = {
     name: 'full_access',
     email: 'full_access@noobaa.com',
     password: 'master',
-    access_keys: {
-        access_key: 'aabbcc',
-        secret_key: '112233',
-    },
     allowed_buckets: ['bucket1', 'bucket2']
 };
 
@@ -36,10 +32,6 @@ let bucket1_user = {
     name: 'bucket1_access',
     email: 'bucket1_access@noobaa.com',
     password: 'onlyb1',
-    access_keys: {
-        access_key: 'bbbbbb',
-        secret_key: '111111',
-    },
     allowed_buckets: ['bucket1']
 };
 
@@ -47,14 +39,7 @@ let no_access_user = {
     name: 'no_access',
     email: 'no_access@noobaa.com',
     password: 'goaway',
-    access_keys: {
-        access_key: 'nonono',
-        secret_key: '000000',
-    }
 };
-
-
-
 
 module.exports = {
     run_test: run_test
@@ -86,23 +71,27 @@ function setup() {
     if (argv.no_setup) {
         return;
     }
-    return client.bucket.create_bucket({
-            name: 'bucket1'
-        })
-        .then(() => client.bucket.create_bucket({
-            name: 'bucket2'
-        }))
+
+    let account;
+    return P.resolve()
+        // Create test buckets.
+        .then(() => client.bucket.create_bucket({name: 'bucket1'}))
+        .then(() => client.bucket.create_bucket({name: 'bucket2'}))
         // add new accounts:
         .then(() => client.account.create_account(full_access_user))
-        //        .then(() => client.system.create_system({
-        // activation_code: '1111',
-        // name: full_access_user.name,
-        // email: full_access_user.email,
-        // password: full_access_user.password,
-        // access_keys: full_access_user.access_keys
-        //         }))
         .then(() => client.account.create_account(bucket1_user))
-        .then(() => client.account.create_account(no_access_user));
+        .then(() => client.account.create_account(no_access_user))
+        .then(() => client.system.read_system())
+        .then(system_info => {
+            account = account_by_name(system_info.accounts, full_access_user.email);
+            full_access_user.access_keys = account.access_keys[0];
+
+            account = account_by_name(system_info.accounts, bucket1_user.email);
+            bucket1_user.access_keys = account.access_keys[0];
+
+            account = account_by_name(system_info.accounts, no_access_user.email);
+            no_access_user.access_keys = account.access_keys[0];
+        });
 }
 
 function get_new_server(user) {
@@ -137,7 +126,6 @@ function run_test() {
         .then(() => test_no_s3_access())
         .then(() => {
             console.log('test_bucket_access PASSED');
-            return;
         });
 }
 
@@ -146,39 +134,39 @@ function run_test() {
 
 
 function test_list_buckets_returns_allowed_buckets() {
+    let account;
     let full_access_user_buckets = 0;
     let bucket1_user_buckets = 0;
-    var server = get_new_server(full_access_user);
-    return client.account.list_account_s3_acl({
-            email: full_access_user.email
+    let server = get_new_server(full_access_user);
+
+    return client.system.read_system()
+        .then(system_info => {
+            account = account_by_name(system_info.accounts, full_access_user.email);
+            full_access_user_buckets = (account.allowed_buckets || []).length;
+
+            account = account_by_name(system_info.accounts, bucket1_user.email);
+            bucket1_user_buckets = (account.allowed_buckets || []).length;
         })
-        .then(acl => {
-            full_access_user_buckets = acl.filter(item => item.is_allowed).length;
-            return client.account.list_account_s3_acl({
-                email: bucket1_user.email
+        .then(() => P.ninvoke(server, 'listBuckets'))
+            .then(data => {
+                assert(data.Buckets.length === full_access_user_buckets,
+                    'expecting ' + full_access_user_buckets + ' buckets in the list, but got ' + data.Buckets.length);
+
+                const buckets = data.Buckets.map(bucket => bucket.Name);
+                assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
+                assert(buckets.indexOf('bucket2') !== -1, 'expecting bucket2 to be in the list');
+            })
+            .then(() => {
+                server = get_new_server(bucket1_user);
+                return P.ninvoke(server, 'listBuckets');
+            })
+            .then(data => {
+                assert(data.Buckets.length === bucket1_user_buckets,
+                    'expecting ' + bucket1_user_buckets + ' bucket in the list, but got ' + data.Buckets.length);
+
+                const buckets = data.Buckets.map(bucket => bucket.Name);
+                assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
             });
-        })
-        .then(acl => {
-            bucket1_user_buckets = acl.filter(item => item.is_allowed).length;
-            return P.ninvoke(server, 'listBuckets')
-                .then(data => {
-                    assert(data.Buckets.length === full_access_user_buckets,
-                        'expecting ' + full_access_user_buckets + ' buckets in the list, but got ' + data.Buckets.length);
-                    let buckets = data.Buckets.map(bucket => bucket.Name);
-                    assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
-                    assert(buckets.indexOf('bucket2') !== -1, 'expecting bucket2 to be in the list');
-                })
-                .then(() => {
-                    var server = get_new_server(bucket1_user);
-                    return P.ninvoke(server, 'listBuckets')
-                        .then(data => {
-                            assert(data.Buckets.length === bucket1_user_buckets,
-                                'expecting ' + bucket1_user_buckets + ' bucket in the list, but got ' + data.Buckets.length);
-                            let buckets = data.Buckets.map(bucket => bucket.Name);
-                            assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
-                        });
-                });
-        });
 }
 
 
@@ -282,7 +270,6 @@ function test_bucket_write_denied() {
         });
 }
 
-
 function test_bucket_read_denied() {
     return ops.generate_random_file(1)
         .then(fname => {
@@ -346,45 +333,36 @@ function test_create_bucket_add_creator_permissions() {
         Bucket: unique_bucket_name
     };
     return P.ninvoke(server, 'createBucket', params)
-        .then(() => {
-            // check account server for permissions of full_access_user
-            return client.account.list_account_s3_acl({
-                    email: 'full_access@noobaa.com'
-                })
-                .then(account_acl => {
-                    let bucket_permissions = account_acl.find(item => item.bucket_name === unique_bucket_name);
-                    assert(bucket_permissions.is_allowed, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
-                });
+        // check account server for permissions of full_access_user
+        .then(() => client.system.read_system())
+        .then(system_info => {
+            const allowed_buckets = account_by_name(system_info.accounts, full_access_user.email).allowed_buckets;
+            const has_access = allowed_buckets.includes(unique_bucket_name);
+            assert(has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
         });
 }
 
 function test_delete_bucket_deletes_permissions() {
     let server = get_new_server(full_access_user);
     let unique_bucket_name = 'bucket' + uuid();
-    let params = {
-        Bucket: unique_bucket_name
-    };
-    return P.ninvoke(server, 'createBucket', params)
-        .then(() => {
-            // check account server for permissions of full_access_user
-            return client.account.list_account_s3_acl({
-                    email: 'full_access@noobaa.com'
-                })
-                .then(account_acl => {
-                    let bucket_permissions = account_acl.find(item => (item.bucket_name === unique_bucket_name));
-                    assert(bucket_permissions.is_allowed, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
-                    let params = {
-                        Bucket: unique_bucket_name
-                    };
-                    return P.ninvoke(server, 'deleteBucket', params)
-                        .then(() => client.account.list_account_s3_acl({
-                            email: 'full_access@noobaa.com'
-                        }))
-                        .then(acl => {
-                            let index = acl.map(item => item.bucket_name).indexOf(unique_bucket_name);
-                            assert(index === -1, 'expecting bucket ' + unique_bucket_name + ' to not exist in ACL');
-                        });
-                });
+
+    return P.ninvoke(server, 'createBucket', {Bucket: unique_bucket_name})
+        .then(() => client.system.read_system())
+        .then(system_info => {
+            const user_has_access = account_by_name(system_info.accounts, full_access_user.email)
+                .allowed_buckets
+                .includes(unique_bucket_name);
+
+            assert(user_has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
+        })
+        .then(() => P.ninvoke(server, 'deleteBucket', {Bucket: unique_bucket_name}))
+        .then(() => client.system.read_system())
+        .then(system_info => {
+            const user_has_access = account_by_name(system_info.accounts, full_access_user.email)
+                .allowed_buckets
+                .includes(unique_bucket_name);
+
+            assert(!user_has_access, 'expecting full_access_user to not have permissions to access ' + unique_bucket_name);
         });
 }
 
@@ -396,6 +374,10 @@ function test_no_s3_access() {
             assert(data.Buckets.length === 0, 'expecting an empty bucket list for no_access_user');
         });
 
+}
+
+function account_by_name(accounts, email) {
+    return accounts.find(account => account.email === email);
 }
 
 if (require.main === module) {

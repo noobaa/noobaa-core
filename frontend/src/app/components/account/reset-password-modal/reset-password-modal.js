@@ -1,5 +1,5 @@
 import template from './reset-password-modal.html';
-import userMessageTemplate from './user-message-template.html';
+import passwordResetMessageTemplate from './password-reset-message.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { resetAccountPassword } from 'actions';
@@ -19,12 +19,6 @@ const screenTitleMapping = deepFreeze({
         severity: 'error'
     }
 });
-
-const userMessage = new Function(
-    'email',
-    'password',
-    'return `' + userMessageTemplate + '`'
-);
 
 class RestPasswordModalViewModel extends Disposable {
     constructor({ onClose, email }) {
@@ -52,10 +46,10 @@ class RestPasswordModalViewModel extends Disposable {
         );
 
         this.userMessage = ko.pureComputed(
-             () => userMessage(
-                 ko.unwrap(this.email),
-                 this.password
-             )
+             () => ko.renderToString(
+                passwordResetMessageTemplate,
+                { email: ko.unwrap(this.email), password: this.password }
+            )
         );
 
         this.errors = ko.validation.group(this);

@@ -99,7 +99,7 @@ function _verify_remote_syslog_cluster_config() {
 
 function _check_ntp() {
     dbg.log2('_check_ntp');
-    if (!server_conf.ntp || !server_conf.ntp.server) return;
+    if (_.isEmpty(server_conf.ntp) || _.isEmpty(server_conf.ntp.server)) return;
     monitoring_status.ntp_status = "UNKNOWN";
     return net_utils.ping(server_conf.ntp.server)
         .catch(err => {
@@ -161,7 +161,7 @@ function _check_dns_and_phonehome() {
 function _check_proxy_configuration() {
     dbg.log2('_check_proxy_configuration');
     let system = system_store.data.systems[0];
-    if (!system.phone_home_proxy_address) return;
+    if (_.isEmpty(system.phone_home_proxy_address)) return;
     return net_utils.ping(system.phone_home_proxy_address)
         .then(() => {
             monitoring_status.proxy_status = "OPERATIONAL";
@@ -175,9 +175,9 @@ function _check_proxy_configuration() {
 function _check_remote_syslog() {
     dbg.log2('_check_remote_syslog');
     let system = system_store.data.systems[0];
-    if (!system.remote_syslog_config) return;
+    if (_.isEmpty(system.remote_syslog_config)) return;
     monitoring_status.remote_syslog_status = "UNKNOWN";
-    if (!system.remote_syslog_config.address) return;
+    if (_.isEmpty(system.remote_syslog_config.address)) return;
     return net_utils.ping(system.remote_syslog_config.address)
         .then(() => {
             monitoring_status.remote_syslog_status = "OPERATIONAL";
@@ -192,7 +192,7 @@ function _check_is_self_in_dns_table() {
     dbg.log2('_check_is_self_in_dns_table');
     let system_dns = system_store.data.systems[0].base_address;
     let address = server_conf.owner_address;
-    if (!system_dns || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
+    if (_.isEmpty(system_dns) || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
     return net_utils.dns_resolve(system_dns)
         .then(ip_address_table => {
             if (_.includes(ip_address_table, address)) {

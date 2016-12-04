@@ -33,7 +33,7 @@ node('node2') {
       sh script: """
           curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L $package_location/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
           fname=\$(unzip -o /tmp/noobaa-NVA-latet.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
-          node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack $fname --target_ip $noobaa_ip
+          node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
       """
     }
     stage('RunningDataSet while machine killing') {

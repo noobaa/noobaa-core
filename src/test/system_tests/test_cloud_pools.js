@@ -11,7 +11,7 @@ var basic_server_ops = require('./basic_server_ops');
 var dotenv = require('dotenv');
 dotenv.load();
 var promise_utils = require('../../util/promise_utils');
-var test_utils = require('test_utils');
+var test_utils = require('./test_utils');
 
 const s3 = new AWS.S3({
     // endpoint: 'https://s3.amazonaws.com',

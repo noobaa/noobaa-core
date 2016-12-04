@@ -11,7 +11,7 @@ const configTypes =  Object.freeze([
 ]);
 
 class ServerTimeFormViewModel extends Disposable{
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
         let cluster = ko.pureComputed(
@@ -28,7 +28,7 @@ class ServerTimeFormViewModel extends Disposable{
             () => server() && server().secret
         );
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
 
         this.time = ko.observableWithDefault(
             () => server() && server().time_epoch * 1000

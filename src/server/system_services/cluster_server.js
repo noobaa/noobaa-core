@@ -6,6 +6,7 @@ const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const RpcError = require('../../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
+const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
@@ -19,11 +20,13 @@ const promise_utils = require('../../util/promise_utils');
 const diag = require('../utils/server_diagnostics');
 const moment = require('moment');
 const url = require('url');
+const net = require('net');
 const upgrade_utils = require('../../util/upgrade_utils');
 const request = require('request');
 const dns = require('dns');
 const cluster_hb = require('../bg_services/cluster_hb');
 const dotenv = require('../../util/dotenv');
+const phone_home_utils = require('../../util/phone_home');
 const pkg = require('../../../package.json');
 const md_store = require('../object_services/md_store');
 
@@ -67,15 +70,11 @@ function new_cluster_info() {
 
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
-    if (!os_utils.is_supervised_env()) {
-        console.warn('Environment is not a supervised one, currently not allowing clustering operations');
-        throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
-    }
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
-    if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
-        throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
-    }
+
+    _validate_add_member_request(req);
+
     let topology = cutil.get_topology();
     var id = topology.cluster_id;
     let is_clusterized = topology.is_clusterized;
@@ -573,7 +572,7 @@ function diagnose_system(req) {
     var target_servers = [];
     const TMP_WORK_DIR = `/tmp/diag`;
     const INNER_PATH = `${process.cwd()}/build`;
-    const OUT_PATH = `/public/cluster_diagnostics.tgz`;
+    const OUT_PATH = '/public/' + req.system.name + '_cluster_diagnostics.tgz';
     const WORKING_PATH = `${INNER_PATH}${OUT_PATH}`;
     if (req.rpc_params.target_secret) {
         let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
@@ -585,10 +584,18 @@ function diagnose_system(req) {
         _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
     }
 
+    Dispatcher.instance().activity({
+        event: 'dbg.diagnose_system',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
+    });
+
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
         .then(() => {
             return P.each(target_servers, function(server) {
-                return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
+                return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
                         address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                         auth_token: req.auth_token
                     })
@@ -604,16 +611,21 @@ function diagnose_system(req) {
         .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
         .then(() => diag.pack_diagnostics(WORKING_PATH))
         .then(() => (OUT_PATH));
-
 }
 
 
 function collect_server_diagnostics(req) {
     const INNER_PATH = `${process.cwd()}/build`;
     return P.resolve()
-        .then(() => server_rpc.client.system.diagnose_system(undefined, {
-            auth_token: req.auth_token
-        }))
+        .then(() => {
+            dbg.log0('Recieved diag req');
+            var out_path = '/public/' + os_utils.os_info().hostname + '_srv_diagnostics.tgz';
+            var inner_path = process.cwd() + '/build' + out_path;
+            return P.resolve()
+                .then(() => diag.collect_server_diagnostics(req))
+                .then(() => diag.pack_diagnostics(inner_path))
+                .then(res => out_path);
+        })
         .then(out_path => {
             dbg.log1('Reading packed file');
             return fs.readFileAsync(`${INNER_PATH}${out_path}`)
@@ -875,7 +887,7 @@ function read_server_config(req) {
                 });
         })
         .then(() => _attach_server_configuration(srvconf, reply.using_dhcp))
-        .then(() => _verify_connection_to_phonehome())
+        .then(() => phone_home_utils.verify_connection_to_phonehome())
         .then(function(connection_reply) {
             reply.phone_home_connectivity_status = connection_reply;
 
@@ -942,107 +954,20 @@ function set_hostname_internal(req) {
 //Internals Cluster Control
 //
 
-
-function _verify_connection_to_phonehome() {
-    if (DEV_MODE) {
-        return 'CONNECTED';
+function _validate_add_member_request(req) {
+    if (!os_utils.is_supervised_env()) {
+        console.warn('Environment is not a supervised one, currently not allowing clustering operations');
+        throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
     }
-    let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);
-    return P.all([
-        P.fromCallback(callback => dns.resolve(parsed_url.host, callback)).reflect(),
-        _get_request('https://google.com').reflect(),
-        _get_request(config.PHONE_HOME_BASE_URL + '/connectivity_test').reflect()
-    ]).then(function(results) {
-        var reply_status;
-        let ph_dns_result = results[0];
-        let google_get_result = results[1];
-        let ph_get_result = results[2];
-        reply_status = _handle_ph_get(ph_get_result, google_get_result, ph_dns_result);
 
-        if (!reply_status) {
-            throw new Error('Could not _verify_connection_to_phonehome');
-        }
+    if (req.rpc_params.address && !net.isIPv4(req.rpc_params.address)) {
+        throw new Error('Adding new members to cluster is allowed by using IP only');
+    }
 
-        dbg.log0('_verify_connection_to_phonehome reply_status:', reply_status);
-        return reply_status;
-    });
-}
-
-
-function _get_request(dest_url) {
-    const options = {
-        url: dest_url,
-        method: 'GET',
-        strictSSL: false, // means rejectUnauthorized: false
-    };
-    dbg.log0('Sending Get Request:', options);
-    return P.fromCallback(callback => request(options, callback), {
-            multiArgs: true
-        })
-        .spread(function(response, body) {
-            dbg.log0(`Received Response From ${dest_url}`, response.statusCode);
-            return {
-                response: response,
-                body: body
-            };
-        });
-}
-
-
-function _handle_ph_get(ph_get_result, google_get_result, ph_dns_result) {
-    if (ph_get_result.isFulfilled()) {
-        let ph_reply = ph_get_result.value();
-        dbg.log0(`Received Response From ${config.PHONE_HOME_BASE_URL}`,
-            ph_reply && ph_reply.response.statusCode, ph_reply.body);
-        if (_.get(ph_reply, 'response.statusCode', 0) === 200) {
-            if (String(ph_reply.body) === 'Phone Home Connectivity Test Passed!') {
-                return 'CONNECTED';
-            } else {
-                return 'MALFORMED_RESPONSE';
-            }
-            // In this case not posible to get reject unless exception
-        } else {
-            return _handle_google_get(google_get_result);
-        }
-    } else {
-        return _handle_ph_dns(ph_dns_result, google_get_result);
+    if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
+        throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
     }
 }
-
-
-function _handle_google_get(google_get_result) {
-    if (google_get_result.isFulfilled()) {
-        let google_reply = google_get_result.value();
-        dbg.log0('Received Response From https://google.com',
-            google_reply && google_reply.response.statusCode);
-        if (_.get(google_reply, 'response.statusCode', 0)
-            .toString()
-            .startsWith(2)) {
-            return 'CANNOT_CONNECT_PHONEHOME_SERVER';
-        } else {
-            return 'CANNOT_CONNECT_INTERNET';
-        }
-    } else {
-        return 'CANNOT_CONNECT_INTERNET';
-    }
-}
-
-
-function _handle_ph_dns(ph_dns_result, google_get_result) {
-    if (ph_dns_result.isRejected()) {
-        let dns_reply = ph_dns_result.reason();
-        dbg.log0('Received Response From DNS Servers', dns_reply);
-
-        if (dns_reply && String(dns_reply.code) === 'ENOTFOUND') {
-            return 'CANNOT_RESOLVE_PHONEHOME_NAME';
-        } else {
-            return 'CANNOT_REACH_DNS_SERVER';
-        }
-    } else {
-        return _handle_google_get(google_get_result);
-    }
-}
-
 
 function _verify_join_preconditons(req) {
     //Verify secrets match
@@ -1374,6 +1299,39 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
         });
 }
 
+function check_cluster_status() {
+    var servers = system_store.data.clusters;
+    dbg.log2('check_cluster_status', servers);
+    return P.map(_.filter(servers,
+            server => server.owner_secret !== system_store.get_server_secret()),
+        server => server_rpc.client.cluster_server.ping({}, {
+            address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
+            timeout: 60000 //60s
+        }).then(res => {
+            if (res === "PONG") {
+                return {
+                    secret: server.owner_secret,
+                    status: "OPERATIONAL"
+                };
+            }
+            return {
+                secret: server.owner_secret,
+                status: "FAULTY"
+            };
+        })
+        .catch(err => {
+            dbg.warn(`error while pinging server ${server.owner_secret}: `, err.stack || err);
+            return {
+                secret: server.owner_secret,
+                status: "UNREACHABLE"
+            };
+        }));
+}
+
+function ping() {
+    return "PONG";
+}
+
 
 // EXPORTS
 exports._init = _init;
@@ -1398,6 +1356,8 @@ exports.read_server_config = read_server_config;
 exports.member_pre_upgrade = member_pre_upgrade;
 exports.do_upgrade = do_upgrade;
 exports.upgrade_cluster = upgrade_cluster;
+exports.check_cluster_status = check_cluster_status;
+exports.ping = ping;
 exports.verify_join_conditions = verify_join_conditions;
 exports.set_server_conf = set_server_conf;
 exports.set_hostname_internal = set_hostname_internal;

@@ -84,7 +84,7 @@ module.exports = {
         },
 
         diagnose_system: {
-            method: 'POST',
+            method: 'GET',
             params: {
                 type: 'object',
                 properties: {
@@ -178,6 +178,39 @@ module.exports = {
             },
             auth: {
                 system: 'admin',
+            }
+        },
+
+        check_cluster_status: {
+            method: 'GET',
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['secret', 'status'],
+                    properties: {
+                        secret: {
+                            type: 'string'
+                        },
+                        status: {
+                            $ref: 'system_api#/definitions/service_status_enum'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        ping: {
+            method: 'GET',
+            reply: {
+                enum: ['PONG'],
+                type: 'string'
+            },
+            auth: {
+                system: false
             }
         }
     },

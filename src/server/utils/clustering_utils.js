@@ -173,6 +173,9 @@ function get_cluster_info() {
             dns_servers: cinfo.dns_servers || [],
             time_epoch: time_epoch
         };
+        if (cinfo.services_status) {
+            server_info.services_status = cinfo.services_status;
+        }
         shard.servers.push(server_info);
     });
     _.each(shards, shard => {

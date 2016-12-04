@@ -242,16 +242,6 @@ module.exports = {
             }
         },
 
-        diagnose_system: {
-            method: 'GET',
-            reply: {
-                type: 'string',
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         diagnose_node: {
             method: 'GET',
             params: {
@@ -426,6 +416,25 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+            }
+        },
+
+        log_client_console: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                },
+            },
+            auth: {
+                system: 'admin',
             }
         }
     },
@@ -734,8 +743,66 @@ module.exports = {
                 },
                 debug_level: {
                     type: 'integer'
+                },
+                services_status: {
+                    $ref: '#/definitions/services_status'
                 }
             }
         },
+
+        services_status: {
+            type: 'object',
+            required: ['dns_status', 'ph_status'],
+            properties: {
+                dns_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                ph_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                dns_name: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                ntp_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                internet_connectivity: {
+                    type: 'string',
+                    enum: ['FAULTY']
+                },
+                proxy_status: {
+                    $ref: '#/definitions/service_status_enum'
+
+                },
+                remote_syslog_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                cluster_status: {
+                    anyOf: [{
+                        type: 'string',
+                        enum: ['UNKNOWN']
+                    }, {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['secret', 'status'],
+                            properties: {
+                                secret: {
+                                    type: 'string'
+                                },
+                                status: {
+                                    $ref: '#/definitions/service_status_enum'
+                                }
+                            }
+                        }
+                    }]
+                }
+            }
+        },
+
+        service_status_enum: {
+            type: 'string',
+            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+        }
     }
 };

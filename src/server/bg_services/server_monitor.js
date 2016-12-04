@@ -52,15 +52,17 @@ function _verify_cluster_configuration() {
 
 function _verify_ntp_cluster_config() {
     dbg.log2('Verifying date and time configuration in relation to cluster config');
+    let cluster_conf = server_conf.ntp;
     return P.all([os_utils.get_ntp(), os_utils.get_time_config()])
         .spread((platform_ntp, platform_time_config) => {
             let platform_conf = {
                 server: platform_ntp,
                 timezone: platform_time_config.timezone
             };
-            if (!_.isEqual(platform_conf, server_conf.ntp)) {
-                dbg.warn(`platform ntp not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', server_conf.ntp);
-                return os_utils.set_ntp(server_conf.ntp.server, server_conf.ntp.timezone);
+            if ((!_.isEmpty(platform_conf) || !_.isEmpty(cluster_conf)) &&
+                !_.isEqual(platform_conf, cluster_conf)) {
+                dbg.warn(`platform ntp not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', cluster_conf);
+                return os_utils.set_ntp(cluster_conf.server, cluster_conf.timezone);
             }
         })
         .catch(err => dbg.error('failed to reconfigure ntp cluster config on the server. reason:', err));
@@ -68,12 +70,14 @@ function _verify_ntp_cluster_config() {
 
 function _verify_dns_cluster_config() {
     dbg.log2('Verifying dns configuration in relation to cluster config');
+    let cluster_conf = server_conf.dns_servers;
     return os_utils.get_dns_servers()
         .then(platform_dns_servers => {
-            if (!_.isEqual(server_conf.dns_servers, platform_dns_servers)) {
-                dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_servers, 'cluster_conf:', server_conf.dns_servers);
-                //return os_utils.set_dns_server(server_conf.dns_servers)
-                //    .then(() => os_utils.restart_services());
+            if ((!_.isEmpty(platform_dns_servers) || !_.isEmpty(cluster_conf)) &&
+                !_.isEqual(platform_dns_servers, cluster_conf)) {
+                dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_servers, 'cluster_conf:', cluster_conf);
+                return os_utils.set_dns_server(cluster_conf)
+                    .then(() => os_utils.restart_services());
             }
         })
         .catch(err => dbg.error('failed to reconfigure dns cluster config on the server. reason:', err));
@@ -81,14 +85,13 @@ function _verify_dns_cluster_config() {
 
 function _verify_remote_syslog_cluster_config() {
     dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
-    let conf = system_store.data.systems[0].remote_syslog_config;
+    let cluster_conf = system_store.data.systems[0].remote_syslog_config;
     return os_utils.get_syslog_server_configuration()
         .then(platform_syslog_server => {
-            if (platform_syslog_server || conf) {
-                if (!_.isEqual(platform_syslog_server, conf)) {
-                    dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', conf);
-                    return os_utils.reload_syslog_configuration(conf);
-                }
+            if ((!_.isEmpty(platform_syslog_server) || !_.isEmpty(cluster_conf)) &&
+                !_.isEqual(platform_syslog_server, cluster_conf)) {
+                dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', cluster_conf);
+                return os_utils.reload_syslog_configuration(cluster_conf);
             }
         })
         .catch(err => dbg.error('failed to reconfigure remote syslog cluster config on the server. reason:', err));

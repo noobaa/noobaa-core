@@ -1,7 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { sessionInfo, systemInfo } from 'model';
-import { deleteAccount } from 'actions';
 import { stringifyAmount } from 'utils/string-utils';
 
 export default class AccountRowViewModel extends Disposable {
@@ -86,7 +85,7 @@ export default class AccountRowViewModel extends Disposable {
             tooltip: ko.pureComputed(
                 () => isSystemOwner() ? 'Cannot delete system owner' : 'Delete account'
             ),
-            onDelete: () => deleteAccount(this.email())
+            onDelete: () => table.deleteAccount(this.email())
         };
     }
 }

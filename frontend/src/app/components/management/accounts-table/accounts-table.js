@@ -2,10 +2,10 @@ import template from './accounts-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
-import { systemInfo, routeContext } from 'model';
+import { sessionInfo, systemInfo, routeContext } from 'model';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { inputThrottle } from 'config';
-import { redirectTo } from 'actions';
+import { redirectTo, deleteAccount } from 'actions';
 
 const columns = deepFreeze([
     {
@@ -92,6 +92,7 @@ class AccountsTableViewModel extends Disposable {
         );
 
         this.isCreateAccountModalVisible = ko.observable(false);
+        this.isDeleteAccountWarningModalVisible = ko.observable(false);
     }
 
     filterAccounts(phrase) {
@@ -112,12 +113,24 @@ class AccountsTableViewModel extends Disposable {
         return new AccountRowViewModel(account, this);
     }
 
-    openCreateAccountModal() {
+    deleteAccount(email) {
+        if (email == sessionInfo().user) {
+            this.isDeleteAccountWarningModalVisible(true);
+        } else {
+            deleteAccount(email);
+        }
+    }
+
+    showCreateAccountModal() {
         this.isCreateAccountModalVisible(true);
     }
 
-    closeCreateAccountModal() {
+    hideCreateAccountModal() {
         this.isCreateAccountModalVisible(false);
+    }
+
+    hideDeleteAccountWarningModal() {
+        this.isDeleteAccountWarningModalVisible(false);
     }
 }
 

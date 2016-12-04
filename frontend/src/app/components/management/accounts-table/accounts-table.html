@@ -19,7 +19,6 @@
 "></data-table>
 
 <!-- ko if: isCreateAccountModalVisible -->
-<create-account-wizard params="
-    onClose: () => closeCreateAccountModal()
-"></create-account-wizard>
+<create-account-modal params="onClose: () => closeCreateAccountModal()">
+</create-account-modal>
 <!-- /ko -->

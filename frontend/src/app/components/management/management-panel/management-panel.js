@@ -22,7 +22,7 @@ class ManagementPanelViewModel extends Disposable {
     tabHref(tab) {
         return {
             route: 'management',
-            params: { tab }
+            params: { tab, section: null }
         };
     }
 

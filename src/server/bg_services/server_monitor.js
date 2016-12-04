@@ -59,7 +59,7 @@ function _verify_ntp_cluster_config() {
                 server: platform_ntp,
                 timezone: platform_time_config.timezone
             };
-            if (!_are_platform_and_cluster_conf_equal(platform_ntp, cluster_conf)) {
+            if (!_are_platform_and_cluster_conf_equal(platform_conf, cluster_conf)) {
                 dbg.warn(`platform ntp not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', cluster_conf);
                 return os_utils.set_ntp(cluster_conf.server, cluster_conf.timezone);
             }
@@ -95,8 +95,8 @@ function _verify_remote_syslog_cluster_config() {
 }
 
 function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
-    return (_.isEmpty(platform_conf) && _.isEmpty(cluster_conf)) ||
-        _.isEqual(platform_conf, cluster_conf);
+    return (_.isEmpty(platform_conf) && _.isEmpty(cluster_conf)) || // are they both either empty or undefined
+        _.isEqual(platform_conf, cluster_conf); // if not, are they equal
 }
 
 function _check_ntp() {

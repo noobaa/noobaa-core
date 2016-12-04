@@ -29,6 +29,7 @@ node('node2') {
               nvm use 6.9.1
               cd $WORKSPACE
               npm install
+              npm install azure
         """
         // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
     }

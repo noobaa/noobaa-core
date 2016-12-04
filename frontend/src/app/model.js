@@ -127,6 +127,8 @@ export const resetPasswordState = ko.observable();
 
 export const regenerateCredentialState = ko.observable();
 
+export const createAccountState = ko.observable();
+
 // Hold funcs information
 export const funcInfo = ko.observable();
 export const funcList = ko.observableArray();

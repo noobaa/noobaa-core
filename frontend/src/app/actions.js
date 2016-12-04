@@ -880,21 +880,29 @@ export function createSystem(
         .done();
 }
 
-export function createAccount(name, email, password, S3AccessList) {
-    logAction('createAccount', { name, email, password: '****', S3AccessList });
+export function createAccount(email, password, S3AccessList) {
+    logAction('createAccount', { email, password: '****', S3AccessList });
 
+    model.createAccountState('IN_PROGRESS');
     api.account.create_account({
-        name: name,
+        name: email.split('@')[0],
         email: email,
         password: password,
         must_change_password: true,
         allowed_buckets: S3AccessList
     })
         .then(
-            () => notify(`Account ${email} created successfully`, 'success'),
-            () => notify(`Account ${email} creation failed`, 'error')
+            () => {
+                model.createAccountState('SUCCESS');
+                loadSystemInfo();
+            }
         )
-        .then(loadSystemInfo)
+        .catch(
+            () => {
+                model.createAccountState('ERROR');
+                notify(`Creating account ${email} failed`, 'error');
+            }
+        )
         .done();
 }
 

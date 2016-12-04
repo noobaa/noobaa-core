@@ -218,7 +218,7 @@ function update_bucket(req) {
 function update_bucket_s3_access(req) {
     const bucket = find_bucket(req);
     const allowed_accounts = req.rpc_params.allowed_accounts.map(
-        email => system_store.data.accounts_by_email[email]
+        email => system_store.get_account_by_email[email]
     );
 
     const added_accounts = [];

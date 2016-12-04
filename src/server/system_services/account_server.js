@@ -123,7 +123,7 @@ function create_account(req) {
 function read_account(req) {
     let email = req.rpc_params.email;
 
-    let account = system_store.data.accounts_by_email[email];
+    let account = system_store.get_account_by_email(email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
     }
@@ -138,7 +138,7 @@ function read_account(req) {
  *
  */
 function generate_account_keys(req) {
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account = system_store.get_account_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -171,7 +171,7 @@ function generate_account_keys(req) {
  *
  */
 function update_account_s3_access(req) {
-    const account = _.cloneDeep(system_store.data.accounts_by_email[req.rpc_params.email]);
+    let account = _.cloneDeep(system_store.data.get_account_by_email(req.rpc_params.email));
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -248,8 +248,8 @@ function update_account_s3_access(req) {
  *
  */
 function update_account(req) {
-    let params = req.rpc_params;
-    let account = system_store.data.accounts_by_email[params.email];
+    const params = req.rpc_params;
+    const account = system_store.get_account_by_email(req.rpc_params.email);
 
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + params.email);
@@ -349,7 +349,7 @@ function reset_password(req) {
  *
  */
 function delete_account(req) {
-    let account_to_delete = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account_to_delete = system_store.get_account_by_email(req.rpc_params.email);
     if (!account_to_delete) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -515,7 +515,6 @@ function check_external_connection(req) {
     );
 }
 
-
 // UTILS //////////////////////////////////////////////////////////
 
 function get_account_info(account, include_connection_cache) {
@@ -630,6 +629,10 @@ function is_support_or_admin_or_me(system, account, target_account) {
 function validate_create_account_params(req) {
     if (req.rpc_params.name !== req.rpc_params.name.trim()) {
         throw new RpcError('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
+    }
+
+    if (system_store.get_account_by_email(req.rpc_params.email)) {
+        throw new RpcError('BAD_REQUEST', 'email address already registered');
     }
 }
 

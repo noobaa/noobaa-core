@@ -125,7 +125,7 @@ mocha.describe('system_servers', function() {
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
             )
             //.then(() => client.system.start_debug({level:0}))
-            .then(() => client.system.diagnose_system())
+            .then(() => client.cluster_server.diagnose_system({}))
             .then(() => client.system.update_system({
                 name: SYS1,
             }))

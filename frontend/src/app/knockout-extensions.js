@@ -41,7 +41,7 @@ ko.subscribable.fn.debug = function(prefix) {
 ko.observableWithDefault = function(valueAccessor) {
     let storage = ko.observable();
     return ko.pureComputed({
-        read: () => typeof storage() !== 'undefined' ? storage() : ko.unwrap(valueAccessor()),
+        read: () => isUndefined(storage()) ? ko.unwrap(valueAccessor()) : storage(),
         write: storage
     });
 };
@@ -88,6 +88,14 @@ ko.touched = function(root) {
     obs();
 
     return obs;
+};
+
+ko.renderToString = function(template, data) {
+    const doc = new DOMParser().parseFromString(template, 'text/html');
+    ko.applyBindings(data, doc.body);
+    const htmlString = doc.body.innerHTML.toString();
+    ko.cleanNode(doc);
+    return htmlString;
 };
 
 // ko.validation specific extentions:

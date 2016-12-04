@@ -25,6 +25,9 @@ node('node2') {
         sh script: """
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
+              nvm install 6.9.1
+              nvm use 6.9.1
+              cd $WORKSPACE
               npm install
         """
         // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
@@ -35,6 +38,8 @@ node('node2') {
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
               curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L $package_location/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
+              # cp -R /root/node_modules/noobaa-core/build $WORKSPACE
+              # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
               fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
       """

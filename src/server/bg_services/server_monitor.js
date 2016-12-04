@@ -59,8 +59,7 @@ function _verify_ntp_cluster_config() {
                 server: platform_ntp,
                 timezone: platform_time_config.timezone
             };
-            if ((!_.isEmpty(platform_conf) || !_.isEmpty(cluster_conf)) &&
-                !_.isEqual(platform_conf, cluster_conf)) {
+            if (!_are_platform_and_cluster_conf_equal(platform_ntp, cluster_conf)) {
                 dbg.warn(`platform ntp not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', cluster_conf);
                 return os_utils.set_ntp(cluster_conf.server, cluster_conf.timezone);
             }
@@ -73,8 +72,7 @@ function _verify_dns_cluster_config() {
     let cluster_conf = server_conf.dns_servers;
     return os_utils.get_dns_servers()
         .then(platform_dns_servers => {
-            if ((!_.isEmpty(platform_dns_servers) || !_.isEmpty(cluster_conf)) &&
-                !_.isEqual(platform_dns_servers, cluster_conf)) {
+            if (!_are_platform_and_cluster_conf_equal(platform_dns_servers, cluster_conf)) {
                 dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_servers, 'cluster_conf:', cluster_conf);
                 return os_utils.set_dns_server(cluster_conf)
                     .then(() => os_utils.restart_services());
@@ -88,13 +86,17 @@ function _verify_remote_syslog_cluster_config() {
     let cluster_conf = system_store.data.systems[0].remote_syslog_config;
     return os_utils.get_syslog_server_configuration()
         .then(platform_syslog_server => {
-            if ((!_.isEmpty(platform_syslog_server) || !_.isEmpty(cluster_conf)) &&
-                !_.isEqual(platform_syslog_server, cluster_conf)) {
+            if (!_are_platform_and_cluster_conf_equal(platform_syslog_server, cluster_conf)) {
                 dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', cluster_conf);
                 return os_utils.reload_syslog_configuration(cluster_conf);
             }
         })
         .catch(err => dbg.error('failed to reconfigure remote syslog cluster config on the server. reason:', err));
+}
+
+function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
+    return (_.isEmpty(platform_conf) && _.isEmpty(cluster_conf)) ||
+        _.isEqual(platform_conf, cluster_conf);
 }
 
 function _check_ntp() {

@@ -25,7 +25,7 @@ node('node2') {
         sh script: """
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
-              npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis
+              npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request
         """
     }
     stage('UpgradingMachine') {

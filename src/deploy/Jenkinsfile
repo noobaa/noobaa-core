@@ -16,11 +16,11 @@ def min_machines = '5' // minimum 3 machine
 def max_machines = '15' // maximum 10 machines
 
 node('node2') {
-    stage('GetTestFromGit') {
+    stage('Get code from GIT') {
         echo 'Checkouting from git!'
         checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
     }
-    stage('NpmInstall') {
+    stage('Installing NPM packages') {
         echo 'Installing all needed npm packages!'
         sh script: """
               export NVM_DIR=/usr/local/nvm
@@ -33,7 +33,7 @@ node('node2') {
         """
         // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
     }
-    stage('UpgradingMachine') {
+    stage('Upgrading noobaa server') {
       echo 'Upgrading machine to latest version!'
       sh script: """
               export NVM_DIR=/usr/local/nvm
@@ -45,7 +45,7 @@ node('node2') {
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
       """
     }
-    stage('RunningDataSet while machine killing') {
+    stage('Test1 - Running dataSet while killing machines') {
       // Run the maven build
       parallel (
           "dataset": {

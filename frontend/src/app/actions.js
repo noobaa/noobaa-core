@@ -941,6 +941,8 @@ export function resetAccountPassword(verificationPassword, email, password, must
         .then(
             () => {
                 model.resetPasswordState('SUCCESS');
+                model.sessionInfo.assign({ mustChangePassword: false });
+
                 notify(`${email} password changed successfully`, 'success');
             }
         )
@@ -954,24 +956,6 @@ export function resetAccountPassword(verificationPassword, email, password, must
                 }
             }
         )
-        .done();
-}
-
-export function updateAccountPassword (email, password) {
-    logAction('updateAccountPassword', { email, password: '****' });
-
-    model.passwordChangeState('IN_PROGRESS');
-    api.account.reset_password({
-        email: email,
-        password: password
-    })
-        .then(
-            () => model.sessionInfo.assign({
-                mustChangePassword: false
-            })
-        )
-
-        .then(refresh)
         .done();
 }
 

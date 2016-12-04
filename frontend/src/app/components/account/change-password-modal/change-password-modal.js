@@ -57,8 +57,6 @@ class ChangePasswordModalViewModel extends Disposable {
                 isModified: this.newPassword.isModified
             });
 
-        this.errors = ko.validation.group(this);
-
         const touched = ko.touched([this.password]);
         this.addToDisposeList(
             resetPasswordState.subscribe(
@@ -70,6 +68,8 @@ class ChangePasswordModalViewModel extends Disposable {
                 }
             )
         );
+
+        this.errors = ko.validation.group(this);
     }
 
     change() {

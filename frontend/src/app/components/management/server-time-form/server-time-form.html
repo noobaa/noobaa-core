@@ -4,36 +4,28 @@
 ">
     <section class="row" data-name="collapsed">
         <p>
-            Server time:
-            <output class="text-tech" data-bind="value: formattedTime"></output>
+            Master server time:
+            <output class="text-tech" data-bind="value: formattedMasterTime">
+            </output>
         </p>
     </section>
 
     <section class="column" data-name="expanded">
-        <radio-group params="
-            options: configTypes,
-            selected: selectedConfigType
-        "></radio-group>
+        <p class="push-next">
+            Servers date and time has to be configured separately for each server
+        </p>
 
-        <timezone-chooser params="timezone: timezone"></timezone-chooser>
-
-        <div class="forms row push-next">
-            <date-time-chooser params="time: time, timezone: timezone"
-                class="manual-form" data-bind="visibility: usingManualTime">
-            </date-time-chooser>
-
-            <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
-                <input type="text" placeholder="IP or DNS name" data-bind="value: ntpServer"/>
-            </editor>
-        </div>
-
-        <div class="row">
-            <button class="btn" data-bind="
-                click: applyChanges,
-                shakeOnClick: !isValid()
-            ">
-                Apply Changes
-            </button>
-        </div>
+        <data-table class="servers-table push-next alt-bg" params="
+            columns: columns,
+            data: servers,
+            rowFactory: server => createRow(server)
+        "></data-table>
     </section>
 </collapsible-section>
+
+<!-- ko if: isServerTimeSettingModalVisible -->
+<server-time-settings-modal params="
+    serverSecret: editContext,
+    onClose: () => hideServerTimeSettingModal()
+"></server-time-settings-modal>
+<!-- /ko -->

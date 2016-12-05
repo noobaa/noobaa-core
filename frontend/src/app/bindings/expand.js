@@ -3,7 +3,7 @@ import ko from 'knockout';
 
 export default {
     init(element, valueAccessor, allBindings, viewModel, bindingContext) {
-        let classList = element.classList;
+        const classList = element.classList;
         let expanded = ko.pureComputed(
             () => ko.unwrap(valueAccessor())
         );
@@ -11,19 +11,16 @@ export default {
         classList.add('expandable');
         if (expanded()) {
             classList.add('expanded');
-            setImmediate(
-                () => { element.style.maxHeight = `${element.offsetHeight}px`; }
-            );
         } else {
             element.style.maxHeight = '0px';
         }
 
         let sub = expanded.subscribe(
             expand => {
+                const { style } = element;
                 if (expand) {
                     classList.add('expanding');
 
-                    const { style } = element;
                     style.removeProperty('max-height');
                     let height = element.offsetHeight;
                     style.maxHeight = '0px';
@@ -32,8 +29,14 @@ export default {
                     );
 
                 } else {
+                    style.maxHeight = `${element.offsetHeight}px`;
+                    setImmediate(
+                        () => {
+                            style.maxHeight = '0px';
+                        }
+                    );
+
                     classList.remove('expanding', 'expanded');
-                    element.style.maxHeight = '0px';
                 }
             }
         );
@@ -42,8 +45,10 @@ export default {
             element,
             () => ({
                 transitionend: () => {
-                    expanded() && classList.add('expanded');
-                    //element.style.maxHeight = `${element.offsetHeight}px`;
+                    if (expanded()) {
+                        classList.add('expanded');
+                        element.style.removeProperty('max-height');
+                    }
                 }
             }),
             allBindings,

@@ -21,8 +21,8 @@ export default function register(ko) {
     ko.components.register('maintenance-sticky',                    require('./layout/maintenance-sticky/maintenance-sticky').default);
     ko.components.register('license-sticky',                        require('./layout/license-sticky/license-sticky').default);
     ko.components.register('phone-home-connectivity-sticky',        require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky').default);
-    ko.components.register('file-uploads-modal', require('./layout/file-uploads-modal/file-uploads-modal').default);
-    ko.components.register('account-menu', require('./layout/account-menu/account-menu').default);
+    ko.components.register('file-uploads-modal',                    require('./layout/file-uploads-modal/file-uploads-modal').default);
+    ko.components.register('account-menu',                          require('./layout/account-menu/account-menu').default);
     /** INJECT:layout **/
 
     // -------------------------------
@@ -113,26 +113,37 @@ export default function register(ko) {
     // -------------------------------
     // Management
     // -------------------------------
-    ko.components.register('management-panel',          require('./management/management-panel/management-panel').default);
-    ko.components.register('accounts-table',            require('./management/accounts-table/accounts-table').default);
-    ko.components.register('reset-password-modal',      require('./management/reset-password-modal/reset-password-modal').default);
-    ko.components.register('create-account-wizard',     require('./management/create-account-wizard/create-account-wizard').default);
-    ko.components.register('account-s3-access-modal',   require('./management/account-s3-access-modal/account-s3-access-modal').default);
-    ko.components.register('p2p-form',                  require('./management/p2p-form/p2p-form').default);
-    ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form').default);
-    ko.components.register('version-form',              require('./management/version-form/version-form').default);
-    ko.components.register('upgrade-modal',             require('./management/upgrade-modal/upgrade-modal').default);
-    ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form').default);
-    ko.components.register('maintenance-form',          require('./management/maintenance-form/maintenance-form').default);
-    ko.components.register('start-maintenance-modal',   require('./management/start-maintenance-modal/start-maintenance-modal').default);
-    ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form').default);
-    ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form').default);
-    ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form').default);
-    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form').default);
-    ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form').default);
-    ko.components.register('update-system-name-modal',  require('./management/update-system-name-modal/update-system-name-modal').default);
-    ko.components.register('update-server-dns-settings-modal', require('./management/update-server-dns-settings-modal/update-server-dns-settings-modal').default);
+    ko.components.register('management-panel',                      require('./management/management-panel/management-panel').default);
+    ko.components.register('accounts-table',                        require('./management/accounts-table/accounts-table').default);
+    ko.components.register('create-account-modal',                  require('./management/create-account-modal/create-account-modal').default);
+    ko.components.register('p2p-form',                              require('./management/p2p-form/p2p-form').default);
+    ko.components.register('server-dns-form',                       require('./management/server-dns-form/server-dns-form').default);
+    ko.components.register('version-form',                          require('./management/version-form/version-form').default);
+    ko.components.register('upgrade-modal',                         require('./management/upgrade-modal/upgrade-modal').default);
+    ko.components.register('diagnostics-form',                      require('./management/diagnostics-form/diagnostics-form').default);
+    ko.components.register('maintenance-form'   ,                   require('./management/maintenance-form/maintenance-form').default);
+    ko.components.register('start-maintenance-modal',               require('./management/start-maintenance-modal/start-maintenance-modal').default);
+    ko.components.register('phone-home-form',                       require('./management/phone-home-form/phone-home-form').default);
+    ko.components.register('remote-syslog-form',                    require('./management/remote-syslog-form/remote-syslog-form').default);
+    ko.components.register('server-ssl-form',                       require('./management/server-ssl-form/server-ssl-form').default);
+    ko.components.register('server-time-form',                      require('./management/server-time-form/server-time-form').default);
+    ko.components.register('server-dns-settings-form',              require('./management/server-dns-settings-form/server-dns-settings-form').default);
+    ko.components.register('update-system-name-modal',              require('./management/update-system-name-modal/update-system-name-modal').default);
+    ko.components.register('update-server-dns-settings-modal',      require('./management/update-server-dns-settings-modal/update-server-dns-settings-modal').default);
+    ko.components.register('delete-current-account-warning-modal',  require('./management/delete-current-account-warning-modal/delete-current-account-warning-modal').default);
     /** INJECT:management **/
+
+    // -------------------------------
+    // Account
+    // -------------------------------
+    ko.components.register('reset-password-modal',                  require('./account/reset-password-modal/reset-password-modal').default);
+    ko.components.register('edit-account-s3-access-modal',          require('./account/edit-account-s3-access-modal/edit-account-s3-access-modal').default);
+    ko.components.register('account-panel',                         require('./account/account-panel/account-panel').default);
+    ko.components.register('account-details-form',                  require('./account/account-details-form/account-details-form').default);
+    ko.components.register('account-s3-access-form',                require('./account/account-s3-access-form/account-s3-access-form').default);
+    ko.components.register('regenerate-account-credentials-modal',  require('./account/regenerate-account-credentials-modal/regenerate-account-credentials-modal').default);
+    ko.components.register('change-password-modal',                 require('./account/change-password-modal/change-password-modal').default);
+    /** INJECT:account **/
 
     // -------------------------------
     // Cluster

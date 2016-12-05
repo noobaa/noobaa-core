@@ -160,6 +160,12 @@ config.DEMO_DEFAULTS = {
     BUCKET_NAME: 'demo-bucket'
 };
 
+//////////////////////////////
+// ALERTING & EVENTS CONFIG //
+//////////////////////////////
+
+config.SEND_EVENTS_REMOTESYS = true;
+
 
 // load a local config file that overwrites some of the config
 try {

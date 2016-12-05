@@ -7,9 +7,10 @@ const copyMessage = 'Copy to Clipboard';
 const copiedMessage = 'Copied';
 
 class CopyToClipboardButtonViewModel extends Disposable {
-    constructor({ value }) {
+    constructor({ value, disabled = false }) {
         super();
         this.value = value;
+        this.disabled = disabled;
         this.tooltip = ko.observable(copyMessage);
     }
 

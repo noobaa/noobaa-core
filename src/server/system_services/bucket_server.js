@@ -82,7 +82,10 @@ function create_bucket(req) {
         let default_pool = req.system.pools_by_name.default_pool;
         let bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
         let tier = tier_server.new_tier_defaults(
-            bucket_with_suffix, req.system._id, [default_pool._id]);
+            bucket_with_suffix, req.system._id, [{
+                spread_pools: [default_pool._id]
+            }]
+        );
         tiering_policy = tier_server.new_policy_defaults(
             bucket_with_suffix, req.system._id, [{
                 tier: tier._id,
@@ -129,9 +132,15 @@ function create_bucket(req) {
  */
 function read_bucket(req) {
     var bucket = find_bucket(req);
-    var pools = _.flatten(_.map(bucket.tiering.tiers,
-        tier_and_order => tier_and_order.tier.pools
-    ));
+    var pools = [];
+
+    _.forEach(bucket.tiering.tiers, tier_and_order => {
+        _.forEach(tier_and_order.tier.mirrors, mirror_object => {
+            pools = _.concat(pools, mirror_object.spread_pools);
+        });
+    });
+    pools = _.compact(pools);
+
     let pool_names = pools.map(pool => pool.name);
     return P.join(
         nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
@@ -811,7 +820,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     info.tag = bucket.tag ? bucket.tag : '';
 
     info.num_objects = num_of_objects || 0;
-    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
+    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.mirrors.length, 1) : 1;
     let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
     let bucket_used = bucket_chunks_capacity
         .multiply(tier_of_bucket.replicas)

@@ -144,7 +144,9 @@ function new_system_changes(name, owner_account) {
         const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
         var system = new_system_defaults(name, owner_account._id);
         var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
-        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [{
+            spread_pools: [pool._id]
+        }]);
         var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
             tier: tier._id,
             order: 0
@@ -170,7 +172,9 @@ function new_system_changes(name, owner_account) {
             const demo_bucket_name = config.DEMO_DEFAULTS.BUCKET_NAME;
             const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
             let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
-            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);
+            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [{
+                spread_pools: [demo_pool._id]
+            }]);
             var demo_policy = tier_server.new_policy_defaults(demo_bucket_with_suffix, system._id, [{
                 tier: demo_tier._id,
                 order: 0

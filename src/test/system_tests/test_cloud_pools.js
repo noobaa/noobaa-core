@@ -251,11 +251,21 @@ function main() {
                 .then(function(tier) {
                     replicas_in_tier = tier.replicas;
                     files_bucket_tier = tier;
-                    let new_pools = [TEST_CTX.cloud_pool_name];
+                    let new_pools = tier.attached_pools.concat(TEST_CTX.cloud_pool_name);
                     return client.tier.update_tier({
                         name: tier.name,
-                        cloud_pools: new_pools
+                        attached_pools: new_pools,
+                        data_placement: 'MIRROR'
                     });
+                })
+                .then(function() {
+                    return client.tier.read_tier({
+                            name: tier_name
+                        })
+                        .then(function(tier) {
+                            replicas_in_tier = tier.replicas;
+                            files_bucket_tier = tier;
+                        });
                 });
         })
         // This is used in order to test removal of blocks that are relevant to the bucket assosiated
@@ -318,10 +328,12 @@ function main() {
                 .then(() => block_ids);
         })
         .then(function(block_ids) {
+            let new_pools = _.filter(files_bucket_tier.attached_pools, pool => String(pool) === TEST_CTX.cloud_pool_name);
             // This is used in order to make sure that the blocks will be deleted from the cloud
             return client.tier.update_tier({
                     name: files_bucket_tier.name,
-                    cloud_pools: []
+                    attached_pools: new_pools,
+                    data_placement: 'SPREAD'
                 })
                 .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
                     _.map(block_ids.first_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3))

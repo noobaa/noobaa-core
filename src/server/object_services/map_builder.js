@@ -47,8 +47,9 @@ class MapBuilder {
                 md_store.load_parts_objects_for_chunks(this.chunks),
                 this.mark_building()
             ))
-            .then(() => this.analyze_chunks())
             .then(() => this.refresh_alloc())
+            .then(() => this.analyze_chunks())
+            // .then(() => this.refresh_alloc())
             .then(() => this.allocate_blocks())
             .then(() => this.replicate_blocks())
             .then(() => this.update_db())
@@ -82,7 +83,8 @@ class MapBuilder {
         _.each(this.chunks, chunk => {
             let bucket = system_store.data.get_by_id(chunk.bucket);
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
-            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, /*async_mirror=*/ false);
+            let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
+            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, /*async_mirror=*/ false, tiering_pools_status);
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (chunk.status.accessible &&

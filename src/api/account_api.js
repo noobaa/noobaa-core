@@ -315,11 +315,8 @@ module.exports = {
             method: 'DELETE',
             params: {
                 type: 'object',
-                required: ['account_name', 'connection_name'],
+                required: ['connection_name'],
                 properties: {
-                    account_name: {
-                        type: 'string'
-                    },
                     connection_name: {
                         type: 'string'
                     },
@@ -387,6 +384,25 @@ module.exports = {
                                     endpoint_type: {
                                         type: 'string',
                                         enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                                    },
+                                    usage: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            required: ['usage_type', 'entity', 'external_entity'],
+                                            properties: {
+                                                usage_type: {
+                                                    type: 'string',
+                                                    enum: ['CLOUD_POOL', 'CLOUD_SYNC']
+                                                },
+                                                entity: {
+                                                    type: 'string'
+                                                },
+                                                external_entity: {
+                                                    type: 'string'
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

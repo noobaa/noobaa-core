@@ -542,25 +542,22 @@ function check_external_connection(req) {
 }
 
 function delete_external_connection(req) {
-    var params = _.pick(req.rpc_params, 'account_name', 'connection_name');
-    let account = _.find(system_store.data.account, account_to_find => account_to_find.name === params.account_name);
-    if (!account) {
-        throw new Error(`User ${params.account_name} does not exist`);
-    }
-    let connection_to_delete = cloud_utils.find_cloud_connection(params.account_name, params.connection_name);
+    var params = _.pick(req.rpc_params, 'connection_name');
+    let account = req.account;
+    let connection_to_delete = cloud_utils.find_cloud_connection(account, params.connection_name);
 
     if (_.find(system_store.data.buckets, bucket => (
             bucket.cloud_sync &&
             bucket.cloud_sync.endpoint === connection_to_delete.endpoint &&
-            bucket.cloud_sync.access_keys.account_name === params.account_name &&
+            bucket.cloud_sync.access_keys.account_id === account._id &&
             bucket.cloud_sync.access_keys.access_key === connection_to_delete.access_key))) {
         throw new Error('Cannot delete connection from account as it is being used for a cloud sync');
     }
     if (_.find(system_store.data.pools, pool => (
-            pool.cloud.cloud_pool_info &&
-            pool.cloud.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
-            pool.cloud.cloud_pool_info.account_name === params.account_name &&
-            pool.cloud.cloud_pool_info.access_key === connection_to_delete.access_key
+            pool.cloud_pool_info &&
+            pool.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
+            pool.cloud_pool_info.account_id === account._id &&
+            pool.cloud_pool_info.access_key === connection_to_delete.access_key
         ))) {
         throw new Error('Cannot delete account as it is being used for a cloud sync');
     }
@@ -570,7 +567,7 @@ function delete_external_connection(req) {
                 accounts: [{
                     _id: account._id,
                     sync_credentials_cache: _.filter(account.sync_credentials_cache,
-                        connection => !_.isEqual(connection, connection_to_delete))
+                        connection => (connection.name !== params.connection_name))
                 }]
             }
         })
@@ -642,7 +639,8 @@ function get_account_info(account, include_connection_cache) {
                 name: credentials.name || credentials.access_key,
                 endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
                 identity: credentials.access_key,
-                endpoint_type: credentials.endpoint_type
+                endpoint_type: credentials.endpoint_type,
+                usage: _list_connection_usage(account, credentials)
             })
         );
     } else {
@@ -737,6 +735,34 @@ function verify_authorized_account(req) {
             }
         });
 }
+
+function _list_connection_usage(account, credentials) {
+    let cloud_sync_usage = _.map(
+        _.filter(system_store.data.buckets, bucket => (
+            bucket.cloud_sync &&
+            bucket.cloud_sync.endpoint === credentials.endpoint &&
+            bucket.cloud_sync.access_keys.account_id === account._id &&
+            bucket.cloud_sync.access_keys.access_key === credentials.access_key
+        )), bucket => ({
+            usage_type: 'CLOUD_SYNC',
+            entity: bucket.name,
+            external_entity: bucket.cloud_sync.target_bucket
+        })) || [];
+    let cloud_pool_usage = _.map(
+        _.filter(system_store.data.pools, pool => (
+            pool.cloud_pool_info &&
+            pool.cloud_pool_info.endpoint === credentials.endpoint &&
+            pool.cloud_pool_info.account_id === account._id &&
+            pool.cloud_pool_info.access_key === credentials.access_key
+        )), pool => ({
+            usage_type: 'CLOUD_POOL',
+            entity: pool.name,
+            external_entity: pool.cloud_pool_info.target_bucket
+        })) || [];
+
+    return cloud_sync_usage.concat(cloud_pool_usage);
+}
+
 
 // EXPORTS
 exports.create_account = create_account;

@@ -78,7 +78,7 @@ function create_cloud_pool(req) {
         access_keys: {
             access_key: connection.access_key,
             secret_key: connection.secret_key,
-            account_name: req.account
+            account_id: req.account._id
         },
         endpoint_type: connection.endpoint_type || 'AWS'
     };

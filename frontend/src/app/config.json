@@ -6,6 +6,7 @@
     "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",
     "defaultIconFile": "icons.svg",
+    "serverRestartWaitInterval": 20000,
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

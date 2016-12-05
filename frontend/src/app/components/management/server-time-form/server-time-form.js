@@ -16,7 +16,7 @@ const columns = deepFreeze([
     },
     {
         name: 'address',
-        label: 'IP'
+        label: 'IP Address'
     },
     {
         name: 'timeSettings'
@@ -63,7 +63,7 @@ class ServerTimeFormViewModel extends Disposable{
         });
 
         this.editContext = ko.observable();
-        this.isServerTimeSettingModalVisible = ko.observable(false);
+        this.isServerTimeSettingsModalVisible = ko.observable(false);
 
         this.addToDisposeList(
             setInterval(
@@ -77,17 +77,15 @@ class ServerTimeFormViewModel extends Disposable{
     createRow(server) {
         return new ServerRow(
             server,
-            () => this.showServerTimeSettingModal(server().secret)
+            () => {
+                this.editContext(server().secret);
+                this.isServerTimeSettingsModalVisible(true);
+            }
         );
     }
 
-    showServerTimeSettingModal(serverSecret)  {
-        this.editContext(serverSecret);
-        this.isServerTimeSettingModalVisible(true);
-    }
-
-    hideServerTimeSettingModal()  {
-        this.isServerTimeSettingModalVisible(false);
+    hideServerTimeSettingsModal()  {
+        this.isServerTimeSettingsModalVisible(false);
     }
 }
 

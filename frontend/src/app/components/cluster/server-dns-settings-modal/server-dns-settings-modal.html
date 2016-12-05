@@ -1,8 +1,18 @@
-<modal class="modal-xsmall" params="
-    title: 'Server DNS Settings',
-    onClose: () => cancel()
+<modal class="modal-small" params="
+    title: 'Edit Server DNS Settings',
+    onClose: () => cancel(),
+    allowBackdropClose: !updating(),
+    disableCloseButton: updating
 ">
-    <p class="push-next">
+    <div class="warning-msg warning row pad alt-bg content-middle push-next">
+        <svg-icon class="push-next warning" params="name: 'notif-warning'">
+        </svg-icon>
+        <span class="greedy">
+            Updating the server's DNS settings will cause a momentarily restart of the NooBaa service. This could take a few moments and you might be required to login again after completion.
+        </span>
+    </div>
+
+    <p class="push-both">
         Setup the server to use the following DNS servers for name resolution
     </p>
 
@@ -16,15 +26,19 @@
     </section>
 
     <div class="row content-middle align-end push-prev">
-        <button class="link push-next" data-bind="click: cancel">
+        <button class="link push-next alt-colors" data-bind="
+            click: cancel,
+            disable: updating
+        ">
             Cancel
         </button>
 
-        <button class="btn" data-bind="
-            click: save,
-            shakeOnClick: errors().length
+        <working-button data-bind="shakeOnClick: errors().length" params="
+            click: update,
+            working: updating,
+            workingLabel: 'Restarting...'
         ">
-            Save
-        </button>
+            Update and restart system
+        </working-button>
     </div>
 </modal>

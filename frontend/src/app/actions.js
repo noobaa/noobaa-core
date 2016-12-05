@@ -16,6 +16,8 @@ const AWS = window.AWS;
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;
 
+
+
 // -----------------------------------------------------
 // Utility function to log actions.
 // -----------------------------------------------------
@@ -1439,7 +1441,7 @@ export function upgradeSystem(upgradePackage) {
             }
         )
         .then(
-            () => sleep(20000)
+            () => sleep(config.serverRestartWaitInterval)
         )
         .then(
             () => httpWaitForResponse('/version', 200)
@@ -1864,9 +1866,9 @@ export function attachServerToCluster(serverAddress, serverSecret) {
 }
 
 export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
-    logAction('updateServerDNSSettings', { primaryDNS, secondaryDNS });
+    logAction('updateServerDNSSettings', { serverSecret, primaryDNS, secondaryDNS });
 
-    let dnsServers = [primaryDNS, secondaryDNS].filter(
+    const dnsServers = [primaryDNS, secondaryDNS].filter(
         server => server
     );
 
@@ -1874,8 +1876,12 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) 
         target_secret: serverSecret,
         dns_servers: dnsServers
     })
-        .then( () => sleep(5000) )
-        .then( () => httpWaitForResponse('/version') )
+        .then(
+            () => sleep(config.serverRestartWaitInterval)
+        )
+        .then(
+            () => httpWaitForResponse('/version', 200)
+        )
         .then(reload)
         .done();
 }

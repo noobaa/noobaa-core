@@ -499,6 +499,10 @@ function get_syslog_server_configuration() {
 }
 
 function restart_services() {
+    if (os.type() !== 'Linux') {
+        return;
+    }
+
     var fname = '/tmp/spawn.log';
     var stdout = fs.openSync(fname, 'a');
     var stderr = fs.openSync(fname, 'a');

@@ -60,7 +60,7 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         );
 
         this.selectedPools = ko.observableArray(
-            Array.from(this.tier().node_pools)
+            Array.from(this.tier().attached_pools)
         ).extend({
             validation: {
                 validator: selected => {

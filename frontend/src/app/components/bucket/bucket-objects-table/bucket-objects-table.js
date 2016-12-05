@@ -24,35 +24,38 @@ const columns = deepFreeze([
 ]);
 
 // TODO: logic should move to server side.
-function hasEnoughBackingNodeForUpload(bucket) {
-    if (!bucket() || !systemInfo()) {
-        return false;
-    }
+function hasEnoughBackingNodeForUpload(/*bucket*/) {
+    // if (!bucket() || !systemInfo()) {
+    //     return false;
+    // }
 
-    let tier = systemInfo().tiers.find(
-        tier => tier.name === bucket().tiering.tiers[0].tier
-    );
+    // const tier = systemInfo().tiers.find(
+    //     tier => tier.name === bucket().tiering.tiers[0].tier
+    // );
 
-    let pools = systemInfo().pools.filter(
-        pool => tier.node_pools.includes(pool.name)
-    );
+    // const poolsInTier = systemInfo().pools.filter(
+    //     pool => tier.attached_pools.includes(pool.name)
+    // );
 
-    if (tier.data_placement === 'SPREAD') {
-        let nodeCount = pools.reduce(
-            (total, pool) => {
-                let { count, has_issues } = pool.nodes;
-                return total + (count - has_issues);
-            },
-            0
-        );
+    // TODO: decision for mixed policy (on-prem + cloud)
+    // if (tier.data_placement === 'SPREAD') {
+    //     const nodeCount = poolsInTier.reduce(
+    //         (total, pool) => {
+    //             const { count, has_issues } = pool.nodes;
+    //             return total + (count - has_issues);
+    //         },
+    //         0
+    //     );
 
-        return nodeCount >= 3;
+    //     return nodeCount >= 3;
 
-    } else {
-        return pools.every(
-            pool => pool.nodes.online >= 3
-        );
-    }
+    // } else {
+    //     return poolsInTier.every(
+    //         pool => pool.nodes.online >= 3
+    //     );
+    // }
+
+    return false;
 }
 
 class BucketObjectsTableViewModel extends Disposable {

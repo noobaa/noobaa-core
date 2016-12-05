@@ -59,16 +59,16 @@ class BucketSummrayViewModel extends Disposable {
                 }
 
                 let tierName = bucket().tiering.tiers[0].tier;
-                let { data_placement , node_pools } = systemInfo().tiers.find(
+                let { data_placement , attached_pools } = systemInfo().tiers.find(
                     tier => tier.name === tierName
                 );
 
                 return `${
                     data_placement === 'SPREAD' ? 'Spread' : 'Mirrored'
                 } on ${
-                    node_pools.length
+                    attached_pools.length
                 } pool${
-                    node_pools.length !== 1 ? 's' : ''
+                    attached_pools.length !== 1 ? 's' : ''
                 }`;
             }
         );

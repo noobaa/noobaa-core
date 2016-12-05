@@ -15,7 +15,6 @@ class PropertySheetViewModel extends Disposable {
 
     copyToClipboard(text) {
         copyTextToClipboard(ko.unwrap(text));
-        // this
     }
 }
 

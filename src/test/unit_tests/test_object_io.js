@@ -28,10 +28,6 @@ mocha.describe('object_io', function() {
     const KEY = 'test-object-key';
     const EMAIL = 'test-object-email@mail.mail';
     const PASSWORD = 'test-object-password';
-    const ACCESS_KEYS = {
-        access_key: 'ydaydayda',
-        secret_key: 'blablabla'
-    };
     // const NODE = 'test-node';
 
     mocha.before(function() {
@@ -44,8 +40,7 @@ mocha.describe('object_io', function() {
                     activation_code: '1111',
                     name: SYS,
                     email: EMAIL,
-                    password: PASSWORD,
-                    access_keys: ACCESS_KEYS
+                    password: PASSWORD
                 });
             })
             .then(res => {

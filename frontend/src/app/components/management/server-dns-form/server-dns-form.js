@@ -56,7 +56,7 @@ class ServerDNSFormViewModel extends Disposable {
                         nameResolutionState.once(
                             ({ valid }) => callback({
                                 isValid: valid,
-                                message: 'Cloud not resolve dns name'
+                                message: 'Could not resolve dns name'
                             })
                         );
                     }

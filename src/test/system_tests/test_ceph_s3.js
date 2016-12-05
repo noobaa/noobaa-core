@@ -13,10 +13,6 @@ var CEPH_TEST = {
         name: 'cephalt',
         email: 'ceph.alt@noobaa.com',
         password: 'ceph',
-        access_keys: {
-            access_key: 'iam',
-            secret_key: 'sloth'
-        },
         allowed_buckets: []
     },
 };
@@ -214,7 +210,7 @@ function deploy_ceph() {
     return promise_utils.exec(command, false, true)
         .then((res) => {
             console.log('Starting Deployment Of Ceph Tests...');
-            command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy}`;
+            command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} > /tmp/ceph_deploy.log`;
             return promise_utils.exec(command, false, true);
         })
         .then((res) => {
@@ -227,8 +223,9 @@ function deploy_ceph() {
 }
 
 function s3_ceph_test() {
-    console.log('Running Ceph S3 Tests...');
+    console.log('Running Ceph S3 Tests... (' + S3_CEPH_TEST_WHITELIST.length + ' tests)');
     var i = -1;
+    var fail_count = 0;
     var had_errors = false;
     return promise_utils.pwhile(
             function() {
@@ -243,6 +240,7 @@ function s3_ceph_test() {
                     })
                     .catch((err) => {
                         if (!IGNORE_S3_CEPH_TEST_LIST.contains(S3_CEPH_TEST_WHITELIST[i])) {
+                            fail_count++;
                             had_errors = true;
                         }
                         console.warn('Test Failed:', S3_CEPH_TEST_WHITELIST[i], '\n' + err);
@@ -252,15 +250,16 @@ function s3_ceph_test() {
             if (!had_errors) {
                 console.log('Finished Running Ceph S3 Tests');
             } else {
-                throw new Error('Failed Running Ceph S3 Tests');
+                throw new Error('Failed Running Ceph S3 Tests (' + fail_count + ' failed )');
             }
             return;
         });
 }
 
 function system_ceph_test() {
-    console.log('Running System Ceph S3 Tests...');
+    console.log('Running System Ceph S3 Tests... (' + SYSTEM_CEPH_TEST_WHITELIST.length + ' tests)');
     var i = -1;
+    var fail_count = 0;
     var had_errors = false;
     return promise_utils.pwhile(
             function() {
@@ -275,6 +274,7 @@ function system_ceph_test() {
                     })
                     .catch((err) => {
                         had_errors = true;
+                        fail_count++;
                         console.warn('Test Failed:', SYSTEM_CEPH_TEST_WHITELIST[i], '\n' + err);
                     });
             })
@@ -282,7 +282,7 @@ function system_ceph_test() {
             if (!had_errors) {
                 console.log('Finished Running System Ceph S3 Tests');
             } else {
-                throw new Error('Failed Running System Ceph S3 Tests');
+                throw new Error('Failed Running System Ceph S3 Tests (' + fail_count + ' failed )');
             }
             return;
         });
@@ -300,13 +300,41 @@ function main() {
 }
 
 function run_test() {
-    var command = `node ${CEPH_TEST.rpc_shell_file} --run call --api account --func create_account --params '${JSON.stringify(CEPH_TEST.new_account_json)}'`;
+    var createAccountCommand = `node ${CEPH_TEST.rpc_shell_file} --run call --api account --func create_account --params '${JSON.stringify(CEPH_TEST.new_account_json)}'`;
+    var readSystemCommand = `node ${CEPH_TEST.rpc_shell_file} --run call --api system --func read_system --json`;
+
     return P.fcall(function() {
             return deploy_ceph();
         })
-        .then(() => promise_utils.exec(command, false, true))
-        .then((res) => console.log(res))
+        .then(() => promise_utils.exec(createAccountCommand, true, true))
+        .then(res => console.log(res))
+        .then(() => promise_utils.exec(readSystemCommand, true, true))
+        .then(res => {
+            console.log(res);
+
+            /*
+                The folowing parsing is needed because even when running the rpc_shell in
+                non-interactive mode (--run) we still get all internal console.logs
+                in the stdout (which is not advisable when programing an non-interactive tool).
+                The best practice (for non-intractive tools) implies returning the JSON result or
+                an error JSON in case of an errors.
+            */
+            const jsonText = res.split('Got back result:')[1];
+            if (jsonText) {
+                return JSON.parse(jsonText.trim());
+            }
+        })
+        .then(system_info => {
+            const access_keys = system_info.accounts.find(
+                account => account.email === CEPH_TEST.new_account_json.email
+            ).access_keys;
+            CEPH_TEST.new_account_json.access_keys = access_keys;
+            console.log('CEPH TEST CONFIGURATION:', JSON.stringify(CEPH_TEST));
+        })
         .then(() => system_ceph_test())
+        .catch(function(err) {
+            throw new Error('System Ceph Tests Failed:', err);
+        })
         .then(() => s3_ceph_test())
         .catch(function(err) {
             throw new Error('Ceph Tests Failed:', err);

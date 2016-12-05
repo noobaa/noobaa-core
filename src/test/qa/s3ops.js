@@ -217,6 +217,9 @@ function get_a_random_file(ip, bucket, prefix) {
     return P.ninvoke(s3bucket, 'listObjects', params)
         .then(function(res) {
             let list = res.Contents;
+            if (list.length === 0) {
+                throw new Error('No files with prefix in bucket');
+            }
             let rand = Math.floor(Math.random() * list.length);
             return list[rand];
         }).catch(err => {

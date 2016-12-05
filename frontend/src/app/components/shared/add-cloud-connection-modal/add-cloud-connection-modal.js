@@ -1,7 +1,7 @@
 import template from './add-cloud-connection-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { CloudConnections, isCloudConnectionValid } from 'model';
+import { systemInfo, sessionInfo, isCloudConnectionValid } from 'model';
 import { checkCloudConnection, addCloudConnection } from 'actions';
 import { deepFreeze } from 'utils/all';
 
@@ -62,8 +62,20 @@ class AddCloudConnectionModalViewModel extends Disposable {
         isCloudConnectionValid(true);
         this.onClose = onClose;
 
-        let existingNames = CloudConnections.map(
-            ({ name }) => name
+        const cloudConnections = ko.pureComputed(
+            () => {
+                const user = (systemInfo() ? systemInfo().accounts : []).find(
+                    account => account.email === sessionInfo().user
+                );
+
+                return user.external_connections.connections;
+            }
+        );
+
+        let existingNames = ko.pureComputed(
+            () => cloudConnections().map(
+                ({ name }) => name
+            )
         );
 
         this.name = ko.observableWithDefault(
@@ -121,7 +133,7 @@ class AddCloudConnectionModalViewModel extends Disposable {
         );
 
         let identityBlackList = ko.pureComputed(
-            () => CloudConnections().map(
+            () => cloudConnections().map(
                 ({ endpoint_type, access_key }) => `${endpoint_type}:${access_key}`
             )
         );

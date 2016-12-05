@@ -20,10 +20,6 @@ mocha.describe('s3_list_objects', function() {
     const BKT = 'files'; // the default bucket name
     const EMAIL = 'test-list-objects-email@mail.mail';
     const PASSWORD = 'test-list-objects-password';
-    const ACCESS_KEYS = {
-        access_key: 'unicorn',
-        secret_key: 'sloth'
-    };
 
     mocha.before(function() {
         const self = this; // eslint-disable-line no-invalid-this
@@ -35,8 +31,7 @@ mocha.describe('s3_list_objects', function() {
                     activation_code: 'rainbow',
                     name: SYS,
                     email: EMAIL,
-                    password: PASSWORD,
-                    access_keys: ACCESS_KEYS
+                    password: PASSWORD
                 });
             })
             .then(res => {

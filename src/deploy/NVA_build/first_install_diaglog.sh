@@ -134,7 +134,7 @@ function configure_ntp_dialog {
   local err_tz=1
   local err_ntp=1
   while [ ${err_tz} -eq 1 ] || [ ${err_ntp} -eq 1 ]; do
-    dialog --colors --backtitle "NooBaa First Install" --title "NTP Configuration" --form "\nPlease supply an NTP server address and Time Zone (TZ format https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)\nYou can configure NTP later in the management console\n${err_ntp_msg}\n${err_tz_msg}\n(Use \Z4\ZbUp/Down\Zn to navigate)" 12 80 2 "NTP Server:" 1 1 "${ntp_server}" 1 25 25 30  "Time Zone:" 2 1 "${tz}" 2 25 25 30 2> answer_ntp
+    dialog --colors --backtitle "NooBaa First Install" --title "NTP Configuration" --form "\nPlease supply an NTP server address and Time Zone (TZ format https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)\nYou can configure NTP later in the management console\n${err_ntp_msg}\n${err_tz_msg}\n(Use \Z4\ZbUp/Down\Zn to navigate)" 15 80 2 "NTP Server:" 1 1 "${ntp_server}" 1 25 25 30  "Time Zone:" 2 1 "${tz}" 2 25 25 30 2> answer_ntp
     ntp_server="$(head -1 answer_ntp)"
     tz=$(tail -1 answer_ntp)
     #check cancel
@@ -151,7 +151,10 @@ function configure_ntp_dialog {
       err_ntp_msg="\Z1NTP Server must be set.\Zn"
     fi
 
-    if [ -f "/usr/share/zoneinfo/${tz}" ]; then
+    if [ -z ${tz} ]; then #TZ was not supplied
+      err_tz=0
+      err_tz_msg=""
+    elif [ -f "/usr/share/zoneinfo/${tz}" ]; then
       err_tz=0
       err_tz_msg=""
     else
@@ -206,7 +209,7 @@ function run_wizard {
 is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"
   while [ "${menu_entry}" -ne "4" ]; do
-    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration" 3 "Password reset" 4 "Exit" 2> choice
+    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration (Optional)" 3 "Password reset" 4 "Exit" 2> choice
     menu_entry=$(cat choice)
   if [ "${menu_entry}" -eq "1" ]; then
     configure_networking_dialog

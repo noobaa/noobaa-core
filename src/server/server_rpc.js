@@ -1,4 +1,7 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
+
+/* eslint-disable global-require */
 
 const api = require('../api');
 
@@ -28,6 +31,32 @@ class ServerRpc {
                 auth_server.authorize,
             ]
         };
+    }
+
+    set_new_router(params) {
+        // check if some domains are changed to fcall://fcall
+        let is_default_fcall = this.rpc.router.default === 'fcall://fcall';
+        let base_address = params.base_address;
+        let master_address = params.master_address;
+        if (base_address) {
+            base_address = 'ws://' + base_address + ':' + this.get_base_port();
+        } else if (is_default_fcall) {
+            base_address = 'ws://127.0.0.1:' + this.get_base_port();
+        } else {
+            base_address = this.rpc.router.default;
+        }
+
+
+        if (master_address) {
+            master_address = 'ws://' + master_address + ':' + this.get_base_port();
+        }
+
+        this.rpc.router = api.new_router(base_address, master_address);
+
+        // restore default to fcall if needed
+        if (is_default_fcall) {
+            this.rpc.router.default = 'fcall://fcall';
+        }
     }
 
     is_service_registered(service) {
@@ -83,6 +112,14 @@ class ServerRpc {
         let options = this.get_server_options();
         rpc.register_service(schema.object_api,
             require('./object_services/object_server'), options);
+    }
+
+    register_func_services() {
+        let rpc = this.rpc;
+        let schema = rpc.schema;
+        let options = this.get_server_options();
+        rpc.register_service(schema.func_api,
+            require('./func_services/func_server'), options);
     }
 
     register_bg_services() {

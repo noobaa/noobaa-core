@@ -63,6 +63,12 @@ output {
     border-bottom: 1px solid transparent;
 }
 
+pre {
+    font-size: @font-size1;
+    line-height: 1.3;
+    margin: 0;
+}
+
 :focus {
     .focused();
 }
@@ -297,4 +303,14 @@ body:not(.preview) .preview-only {
 
 .cursor-pointer {
     cursor: @cursor-pointer;
+}
+
+.no-select {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Chrome/Safari/Opera */
+    -khtml-user-select: none; /* Konqueror */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently
+    not supported by any browser */
 }

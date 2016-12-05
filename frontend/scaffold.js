@@ -195,12 +195,12 @@ class ComponentGenerator extends Generator {
     }
 
     validateName(name) {
-        return /^[a-z][a-z\-]*[a-z]$/.test(name) ||
+        return /^[a-z][a-z0-9\-]*[a-z0-9]$/.test(name) ||
             'Name must start and end with a lowercased letter and may contain only dashes and lowercase letters';
     }
 
     generateRegisterLine(area, name) {
-        return `ko.components.register('${name}', require('./${area}/${name}/${name}'));\n    `;
+        return `ko.components.register('${name}', require('./${area}/${name}/${name}').default);\n    `;
     }
 }
 

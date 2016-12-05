@@ -11,6 +11,10 @@ var spawn = require('child_process').spawn;
 const P = require('./promise');
 const config = require('../../config.js');
 const promise_utils = require('./promise_utils');
+const fs_utils = require('./fs_utils');
+const dbg = require('./debug_module')(__filename);
+
+const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 
 function os_info() {
 
@@ -113,21 +117,21 @@ function remove_linux_readonly_drives(volumes) {
 }
 
 
-
 function read_mac_linux_drives(include_all) {
     return P.fromCallback(callback => node_df({
             // this is a hack to make node_df append the -l flag to the df command
             // in order to get only local file systems.
             file: '-l'
         }, callback))
-        .then(volumes => _.compact(_.map(volumes, function(vol) {
-            //filter Azure temporary storage
-            if (vol.mount.indexOf('/mnt/resource') === 0) {
-                console.log('skipping /mnt/resource mount');
-                return;
-            }
-            return linux_volume_to_drive(vol);
-        })));
+        .then(volumes => P.all(_.map(volumes, function(vol) {
+                return fs_utils.file_must_not_exist(vol.mount + '/' + AZURE_TMP_DISK_README)
+                    .then(() => linux_volume_to_drive(vol))
+                    .catch(err => {
+                        dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
+                        return;
+                    });
+            }))
+            .then(res => _.compact(res)));
 }
 
 
@@ -274,6 +278,19 @@ function set_manual_time(time_epoch, timez) {
     }
 }
 
+function get_ntp() {
+    if (os.type() === 'Linux') {
+        return promise_utils.exec("cat /etc/ntp.conf | grep NooBaa", false, true)
+            .then(res => {
+                let regex_res = (/server (.*) iburst #NooBaa Configured NTP Server/).exec(res);
+                return regex_res ? regex_res[1] : "";
+            });
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return;
+    }
+    throw new Error('NTP not supported on non-Linux platforms');
+}
+
 function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
         var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
@@ -287,6 +304,20 @@ function set_ntp(server, timez) {
     } else {
         throw new Error('setting NTP not supported on non-Linux platforms');
     }
+}
+
+function get_dns_servers() {
+    let res = {};
+    if (os.type() === 'Linux') {
+        return promise_utils.exec("cat /etc/resolv.conf | grep NooBaa", true, true)
+            .then(cmd_res => {
+                let regex_res = (/nameserver (.*) #NooBaa/).exec(cmd_res);
+                if (regex_res) return regex_res.shift();
+            });
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return res;
+    }
+    throw new Error('DNS not supported on non-Linux platforms');
 }
 
 function set_dns_server(servers) {
@@ -427,11 +458,12 @@ function is_supervised_env() {
 }
 
 function reload_syslog_configuration(conf) {
+    dbg.log0('setting syslog configuration to: ', conf);
     if (os.type() !== 'Linux') {
         return;
     }
 
-    if (conf.enabled) {
+    if (conf && conf.enabled) {
         return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
             .then(data => {
                 // Sending everything except NooBaa logs
@@ -445,6 +477,25 @@ function reload_syslog_configuration(conf) {
             .then(data => fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf', data))
             .then(() => promise_utils.exec('service rsyslog restart'));
     }
+}
+
+function get_syslog_server_configuration() {
+    if (os.type() !== 'Linux') {
+        return;
+    }
+    return fs_utils.get_last_line_in_file('/etc/rsyslog.d/noobaa_syslog.conf')
+        .then(conf_line => {
+            if (conf_line) {
+                if (!conf_line.startsWith('#')) {
+                    let regex_res = (/(@+)([\d.]+):(\d+)/).exec(conf_line);
+                    return {
+                        protocol: regex_res[1] === '@@' ? 'TCP' : 'UDP',
+                        address: regex_res[2],
+                        port: parseInt(regex_res[3], 10)
+                    };
+                }
+            }
+        });
 }
 
 function restart_services() {
@@ -462,6 +513,14 @@ function restart_services() {
     });
 }
 
+function set_hostname(hostname) {
+    return promise_utils.exec(`hostname ${hostname}`);
+}
+
+function is_valid_hostname(hostname_string) {
+    const hostname_regex = /^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$/;
+    return Boolean(hostname_regex.exec(hostname_string));
+}
 
 // EXPORTS
 exports.os_info = os_info;
@@ -475,11 +534,16 @@ exports.netstat_single = netstat_single;
 exports.ss_single = ss_single;
 exports.set_manual_time = set_manual_time;
 exports.set_ntp = set_ntp;
+exports.get_ntp = get_ntp;
 exports.get_time_config = get_time_config;
 exports.get_local_ipv4_ips = get_local_ipv4_ips;
 exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.reload_syslog_configuration = reload_syslog_configuration;
+exports.get_syslog_server_configuration = get_syslog_server_configuration;
 exports.set_dns_server = set_dns_server;
+exports.get_dns_servers = get_dns_servers;
 exports.restart_services = restart_services;
+exports.set_hostname = set_hostname;
+exports.is_valid_hostname = is_valid_hostname;

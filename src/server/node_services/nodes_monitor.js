@@ -1,8 +1,4 @@
-/**
- *
- * NODE MONITOR
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -225,10 +221,15 @@ class NodesMonitor extends EventEmitter {
                         protocol: 'wss',
                         slashes: true,
                         hostname: addr,
-                        port: 8443
+                        port: process.env.SSL_PORT || 8443
                     });
                     return reply;
                 });
+        }
+
+        if (req.connection.item_name) {
+            dbg.error(`connection is already used to connect an agent. name=${req.connection.item_name}`);
+            throw new Error('connection is already used to connect an agent');
         }
 
 
@@ -523,6 +524,7 @@ class NodesMonitor extends EventEmitter {
         this._close_node_connection(item);
         conn.on('close', () => this._on_connection_close(item, conn));
         item.connection = conn;
+        conn.item_name = item.node.name;
         item.node.heartbeat = Date.now();
         this._set_need_update.add(item);
         this._update_status(item);
@@ -533,6 +535,7 @@ class NodesMonitor extends EventEmitter {
             'conn', conn.connid,
             'active conn', item.connection && item.connection.connid);
         // if then connection was replaced ignore the close event
+        conn.item_name = null;
         if (item.connection !== conn) return;
         this._disconnect_node(item);
     }
@@ -616,7 +619,7 @@ class NodesMonitor extends EventEmitter {
                 protocol: 'wss',
                 slashes: true,
                 hostname: addr.address,
-                port: 8443
+                port: process.env.SSL_PORT || 8443
             })
         }));
 
@@ -659,6 +662,7 @@ class NodesMonitor extends EventEmitter {
 
     _update_create_node_token(item) {
         if (!item.connection) return;
+        if (!item.node_from_store) return;
         if (item.create_node_token) {
             dbg.log2(`_update_create_node_token: node already has a valid create_node_token. item.create_node_token = ${item.create_node_token}`);
             return;
@@ -684,6 +688,7 @@ class NodesMonitor extends EventEmitter {
 
     _update_rpc_config(item) {
         if (!item.connection) return;
+        if (!item.node_from_store) return;
         const system = system_store.data.get_by_id(item.node.system);
         const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
         const rpc_address = rpc_proto === 'n2n' ?
@@ -697,7 +702,7 @@ class NodesMonitor extends EventEmitter {
         // otherwise the agent is using the ip directly, so no update is needed
         // don't update local agents which are using local host
         if (system.base_address &&
-            system.base_address !== item.agent_info.base_address &&
+            system.base_address.toLowerCase() !== item.agent_info.base_address.toLowerCase() &&
             !item.node.is_internal_node &&
             !is_localhost(item.agent_info.base_address)) {
             rpc_config.base_address = system.base_address;
@@ -793,6 +798,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _test_nodes_validity(item) {
+        if (!item.node_from_store) return;
         dbg.log0('_test_nodes_validity::', item.node.name);
         return P.resolve()
             .then(() => P.join(
@@ -821,7 +827,8 @@ class NodesMonitor extends EventEmitter {
         this._throw_if_not_started_and_loaded();
         const filter_res = this._filter_nodes({
             skip_address: item.node.rpc_address,
-            pool: item.node.pool,
+            skip_no_address: true,
+            pools: [item.node.pool],
             has_issues: false
         });
         const list = filter_res.list;
@@ -829,7 +836,8 @@ class NodesMonitor extends EventEmitter {
             sort: 'shuffle'
         });
         const selected = _.take(list, limit);
-        dbg.log0('_get_detention_test_nodes::', item.node.name, selected, limit);
+        dbg.log0('_get_detention_test_nodes::', item.node.name,
+            _.map(selected, 'node.name'), limit);
         return _.isUndefined(limit) ? list : selected;
     }
 
@@ -1049,6 +1057,7 @@ class NodesMonitor extends EventEmitter {
      */
 
     _update_status(item) {
+        if (!item.node_from_store) return;
         dbg.log0('_update_status:', item.node.name);
 
         const now = Date.now();
@@ -1445,6 +1454,9 @@ class NodesMonitor extends EventEmitter {
         }
         if (query.skip_address) {
             code += `if ('${query.skip_address}' === item.node.rpc_address) return false; `;
+        }
+        if (query.skip_no_address) {
+            code += `if (!item.node.rpc_address) return false; `;
         }
         if (query.skip_cloud_nodes) {
             code += `if (item.node.is_cloud_node) return false; `;
@@ -1878,7 +1890,7 @@ class NodesMonitor extends EventEmitter {
                     proxy_reply: reply
                 };
                 if (method.reply_export_buffers) {
-                    res.proxy_buffer = buffer_utils.get_single(method.reply_export_buffers(reply));
+                    res.proxy_buffer = buffer_utils.concatify(method.reply_export_buffers(reply));
                     // dbg.log5('n2n_proxy: reply_export_buffers', reply);
                 }
                 return res;
@@ -2029,7 +2041,7 @@ function progress_by_time(time, now) {
 
 function is_localhost(address) {
     let addr_url = url.parse(address);
-    return addr_url.hostname === '127.0.0.1' || addr_url.hostname === 'localhost';
+    return addr_url.hostname === '127.0.0.1' || addr_url.hostname.toLowerCase() === 'localhost';
 }
 
 // EXPORTS

@@ -2,7 +2,7 @@ import template from './pool-selection-table.html';
 import Disposable from 'disposable';
 import PoolRowViewModel from './pool-row';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const columns = deepFreeze([
     {

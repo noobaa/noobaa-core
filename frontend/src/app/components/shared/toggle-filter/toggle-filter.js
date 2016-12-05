@@ -1,7 +1,7 @@
 import template from './toggle-filter.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { randomString } from 'utils';
+import { randomString } from 'utils/all';
 
 class ToggleFilterViewModel extends Disposable {
     constructor({

@@ -11,7 +11,7 @@ let argv = require('minimist')(process.argv);
  */
 const SERVICES = [{
     name: 'bg',
-    fork: './src/bg_workers/bg_workers_starter.js'
+    fork: './src/server/bg_workers.js'
 }, {
     name: 'web',
     fork: './src/server/web_server.js'

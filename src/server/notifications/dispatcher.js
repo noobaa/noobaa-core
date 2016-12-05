@@ -11,6 +11,7 @@ const AlertsLog = require('./alerts_log.js');
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_client = require('../node_services/nodes_client');
 const server_rpc = require('../server_rpc');
+const config = require('../../../config');
 
 var NotificationTypes = Object.freeze({
     ALERT: 1,
@@ -34,8 +35,21 @@ class Dispatcher {
 
     //Activity Log
     activity(item) {
+        var self = this;
         dbg.log2('Adding ActivityLog entry', item);
-        return ActivityLog.create(item);
+        return ActivityLog.create(item)
+            .then(() => {
+                if (!config.SEND_EVENTS_REMOTESYS) {
+                    return P.resolve();
+                }
+                var l = {
+                    id: String(item._id),
+                    level: item.level,
+                    event: item.event,
+                };
+                return self._resolve_activity_item(item, l);
+            })
+            .then(logitem => self.send_syslog(JSON.stringify(logitem)));
     }
 
     read_activity_log(req) {
@@ -106,7 +120,7 @@ class Dispatcher {
     send_syslog(item) {
         dbg.log3('Sending external syslog', item);
         const INFO_LEVEL = 5;
-        this._ext_syslog.log(INFO_LEVEL, item.description);
+        this._ext_syslog.log(INFO_LEVEL, 'NooBaa ' + item.description);
     }
 
     //Alerts

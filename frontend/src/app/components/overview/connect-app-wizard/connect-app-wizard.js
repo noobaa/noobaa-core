@@ -4,7 +4,7 @@ import selectAccountSlideTemplate from './select-account.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const steps = deepFreeze([
     'select connection',

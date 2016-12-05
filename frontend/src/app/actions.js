@@ -3,9 +3,10 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
+import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpWaitForResponse,
-    stringifyAmount } from 'utils';
+    downloadFile, deepFreeze, flatMap, httpRequest,
+    httpWaitForResponse, stringifyAmount, toFormData } from 'utils/all';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -276,7 +277,7 @@ export function showNode() {
 export function showManagement() {
     logAction('showManagement');
 
-    let { tab = 'accounts' } = model.routeContext().params;
+    let { tab = 'accounts', section } = model.routeContext().params;
 
     model.uiState({
         layout: 'main-layout',
@@ -287,7 +288,27 @@ export function showManagement() {
         selectedNavItem: 'management',
         panel: 'management',
         tab: tab,
+        section: section,
         working: model.uiState().working
+    });
+}
+
+export function showAccount() {
+    logAction('showAccount');
+
+    let ctx = model.routeContext();
+    let { account, tab = 's3-access' } = ctx.params;
+
+    model.uiState({
+        layout: 'main-layout',
+        title: account,
+        breadcrumbs: [
+            { route: 'management', label: 'System Management' },
+            { route: 'account', label: account }
+        ],
+        selectedNavItem: 'management',
+        panel: 'account',
+        tab: tab
     });
 }
 
@@ -303,6 +324,158 @@ export function showCluster() {
         selectedNavItem: 'cluster',
         panel: 'cluster'
     });
+}
+
+export function showFuncs() {
+    logAction('showFuncs');
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Functions',
+        breadcrumbs: [
+            { route: 'funcs', label: 'Functions' }
+        ],
+        selectedNavItem: 'funcs',
+        panel: 'funcs'
+    });
+
+    loadFuncs();
+}
+
+export function showFunc() {
+    logAction('showFunc');
+
+    let ctx = model.routeContext();
+    let { func, tab = 'monitoring' } = ctx.params;
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'Function',
+        breadcrumbs: [
+            { route: 'funcs', label: 'Functions' },
+            { route: 'func', label: func }
+        ],
+        selectedNavItem: 'funcs',
+        panel: 'func',
+        tab: tab
+    });
+
+    loadFunc(func);
+}
+
+export function loadFuncs() {
+    logAction('loadFuncs');
+
+    api.func.list_funcs({})
+        .then(
+            reply => model.funcList(
+                deepFreeze(reply.functions)
+            )
+        )
+        .done();
+}
+
+export function loadFunc(name) {
+    logAction('loadFunc');
+
+    api.func.read_func({
+        name: name,
+        version: '$LATEST',
+        read_code: true,
+        read_stats: true
+    })
+        .then(reply => {
+            reply.codeFiles = [];
+            const code_zip_data = reply.code && reply.code.zipfile;
+            if (!code_zip_data) {
+                return reply;
+            }
+            // we nullify the buffer since we can't freeze it
+            // and don't need it after reading the zip entries
+            reply.code.zipfile = null;
+            return JSZip.loadAsync(code_zip_data)
+                .then(zip => {
+                    const promises = [];
+                    zip.forEach((relativePath, file) => {
+                        const codeFile = {
+                            path: relativePath,
+                            size: file._data.uncompressedSize, // hacky
+                            dir: file.dir,
+                            content: null
+                        };
+                        reply.codeFiles.push(codeFile);
+                        // only reading files in package root
+                        if (relativePath.includes('/')) return;
+                        promises.push(file.async('string')
+                            .then(content => {
+                                codeFile.content = content;
+                            })
+                        );
+                    });
+                    return Promise.all(promises)
+                        .then(() => reply);
+                });
+        })
+        .then(reply => model.funcInfo(
+            deepFreeze(reply)
+        ))
+        .done();
+}
+
+export function invokeFunc(name, version, event) {
+    logAction('invokeFunc', { name, version, event });
+
+    try {
+        event = JSON.parse(event);
+    } catch(err) {
+        event = String(event || '');
+    }
+
+    api.func.invoke_func({
+        name: name,
+        version: version,
+        event: event
+    })
+        .then(
+            res => {
+                if (res.error) {
+                    notify(`Func ${name} invoked but returned error: ${res.error.message}`, 'warning');
+                } else {
+                    notify(`Func ${name} invoked successfully result: ${JSON.stringify(res.result)}`, 'success');
+                }
+            },
+            () => notify(`Func ${name} invocation failed`, 'error')
+        )
+        .done();
+}
+
+export function updateFunc(config) {
+    logAction('updateFunc', { config });
+
+    api.func.update_func({
+        config: config
+    })
+        .then(
+            () => notify(`Func ${config.name} updated successfully`, 'success'),
+            () => notify(`Func ${config.name} update failed`, 'error')
+        )
+        .then(() => loadFunc(config.name))
+        .done();
+}
+
+export function deleteFunc(name, version) {
+    logAction('deleteFunc', { name, version });
+
+    api.func.delete_func({
+        name: name,
+        version: version
+    })
+        .then(
+            () => notify(`Func ${name} deleted successfully`, 'success'),
+            () => notify(`Func ${name} deletion failed`, 'error')
+        )
+        .then(loadFuncs)
+        .done();
 }
 
 export function handleUnknownRoute() {
@@ -341,7 +514,7 @@ export function clearCompletedUploads() {
 // Sign In/Out actions.
 // -----------------------------------------------------
 export function signIn(email, password, keepSessionAlive = false) {
-    logAction('signIn', { email, password, keepSessionAlive });
+    logAction('signIn', { email, password: '****', keepSessionAlive });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -351,14 +524,14 @@ export function signIn(email, password, keepSessionAlive = false) {
 
                 return api.create_auth_token({ system, email, password })
                     .then(({ token, info }) => {
-                        let storage = keepSessionAlive ? localStorage : sessionStorage;
+                        const storage = keepSessionAlive ? localStorage : sessionStorage;
                         storage.setItem('sessionToken', token);
 
-                        let mustChangePassword = info.account.must_change_password;
+                        const account = info.account;
                         model.sessionInfo({
-                            user: email,
-                            system: system,
-                            mustChangePassword: mustChangePassword
+                            user: account.email,
+                            system: account.system,
+                            mustChangePassword: account.must_change_password
                         });
                         //api.redirector.register_for_alerts(); ////For now comment this out until add it properly
                         model.loginInfo({ retryCount: 0 });
@@ -647,14 +820,6 @@ export function exportAuditEnteries(categories) {
         .done();
 }
 
-export function loadCloudConnections() {
-    logAction('loadCloudConnections');
-
-    api.account.get_account_sync_credentials_cache()
-        .then(model.CloudConnections)
-        .done();
-}
-
 export function loadCloudBucketList(connection) {
     logAction('loadCloudBucketList', { connection });
 
@@ -662,7 +827,7 @@ export function loadCloudBucketList(connection) {
         connection: connection
     })
         .then(
-            model.CloudBucketList,
+            model.cloudBucketList,
             () => model.CloudBucketList(null)
         )
         .done();
@@ -681,20 +846,15 @@ export function createSystem(
     timeConfig
 ) {
     logAction('createSystem', {
-        activationCode, email, password, systemName, dnsName,
+        activationCode, email, password: '****', systemName, dnsName,
         dnsServers, timeConfig
     });
-
-    let accessKeys = (systemName === 'demo' && email === 'demo@noobaa.com') ?
-        { access_key: '123', secret_key: 'abc' } :
-        generateAccessKeys();
 
     api.system.create_system({
         activation_code: activationCode,
         name: systemName,
         email: email,
         password: password,
-        access_keys: accessKeys,
         dns_name: dnsName,
         dns_servers: dnsServers,
         time_config: timeConfig
@@ -720,22 +880,29 @@ export function createSystem(
         .done();
 }
 
-export function createAccount(name, email, password, accessKeys, S3AccessList) {
-    logAction('createAccount', { name, email, password, accessKeys, S3AccessList });
+export function createAccount(email, password, S3AccessList) {
+    logAction('createAccount', { email, password: '****', S3AccessList });
 
+    model.createAccountState('IN_PROGRESS');
     api.account.create_account({
-        name: name,
+        name: email.split('@')[0],
         email: email,
         password: password,
         must_change_password: true,
-        access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })
         .then(
-            () => notify(`Account ${email} created successfully`, 'success'),
-            () => notify(`Account ${email} creation failed`, 'error')
+            () => {
+                model.createAccountState('SUCCESS');
+                loadSystemInfo();
+            }
         )
-        .then(loadSystemInfo)
+        .catch(
+            () => {
+                model.createAccountState('ERROR');
+                notify(`Creating account ${email} failed`, 'error');
+            }
+        )
         .done();
 }
 
@@ -760,35 +927,35 @@ export function deleteAccount(email) {
         .done();
 }
 
-export function resetAccountPassword(email, password) {
-    logAction('resetAccountPassword', { email, password });
+export function resetAccountPassword(verificationPassword, email, password, mustChange) {
+    logAction('resetAccountPassword', { verificationPassword: '****', email,
+        password: '****', mustChange });
 
-    api.account.update_account({
-        email,
-        password,
-        must_change_password: true
+    model.resetPasswordState('IN_PROGRESS');
+    api.account.reset_password({
+        verification_password: verificationPassword,
+        email: email,
+        password: password,
+        must_change_password: mustChange
     })
         .then(
-            () => notify(`${email} password has been reset successfully`, 'success'),
-            () => notify(`Resetting ${email}'s password failed`, 'error')
-        )
-        .done();
-}
+            () => {
+                model.resetPasswordState('SUCCESS');
+                model.sessionInfo.assign({ mustChangePassword: false });
 
-export function updateAccountPassword (email, password) {
-    logAction('updateAccountPassword', { email, password });
-
-    api.account.update_account({
-        email,
-        password,
-        must_change_password: false
-    })
-        .then(
-            () => model.sessionInfo.assign({
-                mustChangePassword: false
-            })
+                notify(`${email} password changed successfully`, 'success');
+            }
         )
-        .then(refresh)
+        .catch(
+            err => {
+                if (err.rpc_code === 'UNAUTHORIZED') {
+                    model.resetPasswordState('UNAUTHORIZED');
+                } else {
+                    model.resetPasswordState('ERROR');
+                    notify(`Changing ${email} password failed`, 'error');
+                }
+            }
+        )
         .done();
 }
 
@@ -1242,64 +1409,49 @@ export function updateHostname(hostname) {
 export function upgradeSystem(upgradePackage) {
     logAction('upgradeSystem', { upgradePackage });
 
-    function ping() {
-        let xhr = new XMLHttpRequest();
-        xhr.open('GET', '/version', true);
-        xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
-        xhr.onerror = () => setTimeout(ping, 3000);
-        xhr.send();
-    }
-
-    let { upgradeStatus } = model;
+    const { upgradeStatus } = model;
     upgradeStatus({
         step: 'UPLOAD',
         progress: 0,
         state: 'IN_PROGRESS'
     });
 
-    let xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upgrade', true);
-
+    const xhr = new XMLHttpRequest();
     xhr.upload.onprogress = function(evt) {
         upgradeStatus.assign({
             progress: evt.lengthComputable && evt.loaded / evt.total
         });
     };
 
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            setTimeout(
-                () => {
-                    upgradeStatus({
-                        step: 'INSTALL',
-                        progress: 0,
-                        state: 'IN_PROGRESS'
-                    });
+    const payload = toFormData({ 'upgrade_file': upgradePackage });
+    httpRequest('/upgrade', {  verb: 'POST', xhr, payload })
+        .then(
+            evt => {
+                if (evt.target.status !== 200) {
+                    throw evt;
+                }
 
-                    setTimeout(ping, 3000);
-                },
-                20000
-            );
-        } else {
-            upgradeStatus.assign({ state: 'FAILED' });
-        }
-    };
-
-    xhr.onerror = function() {
-        upgradeStatus.assign({
-            state: 'FAILED'
-        });
-    };
-
-    xhr.onabort = function() {
-        upgradeStatus.assign({
-            state: 'CANCELED'
-        });
-    };
-
-    let formData = new FormData();
-    formData.append('upgrade_file', upgradePackage);
-    xhr.send(formData);
+                upgradeStatus({
+                    step: 'INSTALL',
+                    progress: 1,
+                    state: 'IN_PROGRESS'
+                });
+            }
+        )
+        .then(
+            () => sleep(20000)
+        )
+        .then(
+            () => httpWaitForResponse('/version', 200)
+        )
+        .then(
+            () => reloadTo(routes.system, undefined, { afterupgrade: true })
+        )
+        .catch(
+            ({ type }) => upgradeStatus.assign({
+                state: type === 'abort' ? 'CANCELED' : 'FAILED'
+            })
+        );
 }
 
 // TODO: Notificaitons - remove message
@@ -1313,57 +1465,37 @@ export function uploadSSLCertificate(SSLCertificate) {
         error: ''
     });
 
-    let xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload_certificate', true);
-
-    xhr.onload = function(evt) {
-        if (xhr.status !== 200) {
-            let error = evt.target.responseText;
-
-            uploadStatus.assign ({
-                state: 'FAILED',
-                error: error
-            });
-
-            notify(`Uploading SSL cartificate failed: ${error}`, 'error');
-
-        } else {
-            uploadStatus.assign ({
-                state: 'SUCCESS'
-            });
-
-            notify('SSL cartificate uploaded successfully', 'success');
-        }
-    };
-
+    const xhr = new XMLHttpRequest();
     xhr.upload.onprogress = function(evt) {
         uploadStatus.assign({
             progress: evt.lengthComputable && (evt.loaded / evt.total)
         });
     };
 
-    xhr.onerror = function(evt) {
-        let error = evt.target.responseText;
+    const payload = toFormData({ upload_file: SSLCertificate });
+    httpRequest('/upload_certificate', { verb: 'POST', xhr, payload })
+        .then(
+            evt => { if(evt.target.status !== 200) throw evt; }
+        )
+        .then(
+            () => {
+                uploadStatus.assign ({ state: 'SUCCESS' });
+                notify('SSL cartificate uploaded successfully', 'success');
+            }
+        )
+        .catch(
+            evt => {
+                if (evt.type === 'abort') {
+                    uploadStatus.assign ({ state: 'CANCELED' });
+                    notify('Uploading SSL cartificate canceled', 'info');
 
-        uploadStatus.assign({
-            state: 'FAILED',
-            error: error
-        });
-
-        notify(`Uploading SSL cartificate failed: ${error}`, 'error');
-    };
-
-    xhr.onabort = function() {
-        uploadStatus.assign ({
-            state: 'CANCELED'
-        });
-
-        notify('Uploading SSL cartificate canceled', 'info');
-    };
-
-    let formData = new FormData();
-    formData.append('upload_file', SSLCertificate);
-    xhr.send(formData);
+                } else {
+                    const error = evt.target.responseText;
+                    uploadStatus.assign ({ state: 'FAILED', error });
+                    notify(`Uploading SSL cartificate failed: ${error}`, 'error');
+                }
+            }
+        );
 }
 
 export function downloadNodeDiagnosticPack(nodeName) {
@@ -1402,7 +1534,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
     logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
 
-    let currentServerKey = `server:${targetHostname}`;
+    let currentServerKey = `server:${targetSecret}`;
     if(model.collectDiagnosticsState[currentServerKey] === true) {
         return;
     }
@@ -1443,7 +1575,7 @@ export function downloadSystemDiagnosticPack() {
 
     model.collectDiagnosticsState.assign({ system: true });
 
-    api.cluster_server.diagnose_system()
+    api.cluster_server.diagnose_system({})
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');
@@ -1474,7 +1606,7 @@ export function setNodeDebugLevel(node, level) {
         )
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for node ${node}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for node ${node}`,
                 'success'
             ),
             () => notify(
@@ -1497,7 +1629,7 @@ export function setServerDebugLevel(targetSecret, targetHostname, level){
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for server ${targetHostname}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${targetHostname}`,
                 'success'
             ),
             () => notify(
@@ -1588,14 +1720,14 @@ export function toogleCloudSync(bucket, pause) {
 export function checkCloudConnection(endpointType, endpoint, identity, secret) {
     logAction('checkCloudConnection', { endpointType, endpoint, identity, secret });
 
-    let credentials = {
+    const connection = {
         endpoint_type: endpointType,
         endpoint: endpoint,
         identity: identity,
         secret: secret
     };
 
-    api.account.check_account_sync_credentials(credentials)
+    api.account.check_external_connection(connection)
         .then(model.isCloudConnectionValid)
         .done();
 }
@@ -1603,7 +1735,7 @@ export function checkCloudConnection(endpointType, endpoint, identity, secret) {
 export function addCloudConnection(name, endpointType, endpoint, identity, secret) {
     logAction('addCloudConnection', { name, endpointType, endpoint, identity, secret });
 
-    let credentials = {
+    let connection = {
         name: name,
         endpoint_type: endpointType,
         endpoint: endpoint,
@@ -1611,8 +1743,8 @@ export function addCloudConnection(name, endpointType, endpoint, identity, secre
         secret: secret
     };
 
-    api.account.add_account_sync_credentials_cache(credentials)
-        .then(loadCloudConnections)
+    api.account.add_external_conenction(connection)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -1626,43 +1758,31 @@ export function loadBucketS3ACL(bucketName) {
         .done();
 }
 
-export function updateBucketS3ACL(bucketName, acl) {
-    logAction('updateBucketS3ACL', { bucketName, acl });
+export function updateBucketS3Access(bucketName, allowedAccounts) {
+    logAction('updateBucketS3Access', { bucketName, allowedAccounts });
 
-    api.bucket.update_bucket_s3_acl({
+    api.bucket.update_bucket_s3_access({
         name: bucketName,
-        access_control: acl
+        allowed_accounts: allowedAccounts
     })
         .then(
             () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
             () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
         )
-        .then(
-            () => model.bucketS3ACL(acl)
-        )
+        .then(loadSystemInfo)
         .done();
 }
 
-export function loadAccountS3ACL(email) {
-    logAction('loadAccountS3ACL', { email });
+export function updateAccountS3Access(email, allowedBuckets) {
+    logAction('updateAccountS3Permissions', { email, allowedBuckets });
 
-    api.account.list_account_s3_acl({
-        email: email
-    })
-        .then(model.accountS3ACL)
-        .done();
-}
-
-export function updateAccountS3ACL(email, acl) {
-    logAction('updateAccountS3ACL', { email, acl });
-
-    api.account.update_account_s3_acl({
+    api.account.update_account_s3_access({
         email: email,
-        access_control: acl
+        allowed_buckets: allowedBuckets
     })
         .then(
-            () => notify(`${email} S3 accces control updated successfully`, 'success'),
-            () => notify(`Updating ${email} S3 access control failed`, 'error')
+            () => notify(`${email} S3 permissions updated successfully`, 'success'),
+            () => notify(`Updating ${email} S3 permissions failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -1801,6 +1921,7 @@ export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress
     );
 
     api.cluster_server.update_time_config({
+        target_secret: serverSecret,
         timezone: timezone,
         ntp_server: ntpServerAddress
     })
@@ -1879,6 +2000,34 @@ export function recommissionNode(name) {
         .done();
 }
 
+
+export function regenerateAccountCredentials(email, verificationPassword) {
+    logAction('regenerateAccountCredentials', { email, verificationPassword: '*****' });
+
+    model.regenerateCredentialState('IN_PROGRESS');
+    api.account.generate_account_keys({
+        email: email,
+        verification_password: verificationPassword
+    })
+        .then(
+            () => {
+                model.regenerateCredentialState('SUCCESS');
+                notify(`${email} credentials regenerated successfully`, 'success');
+            }
+        )
+        .catch(
+            err => {
+                if (err.rpc_code === 'UNAUTHORIZED') {
+                    model.regenerateCredentialState('UNAUTHORIZED');
+                } else {
+                    model.regenerateCredentialState('ERROR');
+                    notify(`Regenerating ${email} credentials failed`, 'error');
+                }
+            }
+        )
+        .then(loadSystemInfo)
+        .done();
+}
 // ------------------------------------------
 // Helper functions:
 // ------------------------------------------

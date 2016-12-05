@@ -2,26 +2,26 @@
 
 'use strict';
 let argv = require('yargs').argv;
-let gulp = require('gulp');
-let del = require('del');
-let VFile = require('vinyl');
-let sourceStream = require('vinyl-source-stream');
-let buffer = require('vinyl-buffer');
-let browserify = require('browserify');
-let stringify = require('stringify');
-let babelify = require('babelify');
-let watchify = require('watchify');
-let runSequence = require('run-sequence');
-let through = require('through2');
-let moment = require('moment');
-let $ = require('gulp-load-plugins')();
+const gulp = require('gulp');
+const del = require('del');
+const VFile = require('vinyl');
+const sourceStream = require('vinyl-source-stream');
+const buffer = require('vinyl-buffer');
+const browserify = require('browserify');
+const stringify = require('stringify');
+const babelify = require('babelify');
+const watchify = require('watchify');
+const runSequence = require('run-sequence');
+const through = require('through2');
+const moment = require('moment');
+const $ = require('gulp-load-plugins')();
 
-let buildPath = './dist';
-let uglify = !!argv.uglify;
-let buildErrors = 0;
+const buildPath = './dist';
+const uglify = !!argv.uglify;
+let  buildErrors = 0;
 let lintErrors = 0;
 
-let libs = [
+const libs = [
     { name: 'knockout',             path: './src/lib/knockout/dist/knockout.debug.js' },
     { name: 'knockout-mapping',     path: './src/lib/knockout-mapping/knockout.mapping' },
     { name: 'knockout-projections', path: './src/lib/knockout-projections/dist/knockout-projections.min.js' },
@@ -31,7 +31,23 @@ let libs = [
     { name: 'moment',               path: './src/lib/moment/moment.js' },
     { name: 'moment-timezone',      path: './src/lib/moment-timezone/builds/moment-timezone-with-data.js' },
     { name: 'shifty',               path: './src/lib/shifty/dist/shifty.js' },
-    { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' }
+    { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
+    { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' },
+    { name: 'chartjs',              path: './src/lib/chart.js/dist/Chart.js' }
+];
+
+let apiBlackList = [
+    'rpc_ws_server',
+    'rpc_n2n_agent',
+    'rpc_tcp_server',
+    'rpc_http_server',
+    'rpc_ntcp_server',
+    'rpc_tcp',
+    'rpc_n2n',
+    'rpc_http',
+    'rpc_nudp',
+    'rpc_ntcp',
+    'rpc_fcall'
 ];
 
 // ----------------------------------
@@ -56,7 +72,10 @@ gulp.task('clean', cb => {
 });
 
 gulp.task('build-lib', ['install-deps'], () => {
-    let b = browserify({ debug: true, noParse: true });
+    let b = browserify({
+        debug: true,
+        noParse: true
+    });
 
     libs.forEach(
         lib => b.require(lib.path, { expose: lib.name })
@@ -76,8 +95,21 @@ gulp.task('build-api', () => {
     let b = browserify({
         paths: ['./node_modules'],
         debug: true
-    })
-        .transform(babelify, { optional: ['runtime'] });
+    });
+
+    // Ignore unused files.
+    apiBlackList.forEach(
+        file => {
+            let path = require.resolve(`../src/rpc/${file}`);
+            console.log(`[${moment().format('HH:mm:ss')}] build-api: Ignoring ${path}`);
+            b.ignore(path);
+        }
+    );
+
+    b.transform(babelify, {
+        presets: ['es2015'],
+        plugins: ['transform-runtime']
+    });
 
     b.require('../src/api/index.js', { expose: 'nb-api' });
 
@@ -132,7 +164,6 @@ gulp.task('install-deps', () => {
 });
 
 gulp.task('lint-app' , () => {
-    lintErrors = 0;
     return gulp.src('src/app/**/*.js')
         .pipe($.eslint())
         .pipe($.eslint.format('table'))
@@ -236,7 +267,10 @@ function bundleApp(watch) {
     let bundler = createBundler(watch);
     bundler
         .require(buildPath + '/style.json', { expose: 'style' })
-        .transform(babelify, { optional: ['runtime', 'es7.decorators'] })
+        .transform(babelify, {
+            presets: ['es2015'],
+            plugins: ['transform-runtime']
+        })
         .transform(stringify({ minify: uglify }))
         .add('src/app/main');
 

@@ -44,6 +44,9 @@ module.exports = {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}
+                    },
+                    new_hostname: {
+                        type: 'string'
                     }
                 }
             },
@@ -57,9 +60,12 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['secret'],
+                required: ['secret', 'version'],
                 properties: {
                     secret: {
+                        type: 'string'
+                    },
+                    version: {
                         type: 'string'
                     }
                 }
@@ -184,14 +190,6 @@ module.exports = {
 
         collect_server_diagnostics: {
             method: 'POST',
-            params: {
-                type: 'object',
-                properties: {
-                    target_secret: {
-                        type: 'string',
-                    }
-                },
-            },
             reply: {
                 type: 'object',
                 required: ['data'],
@@ -253,7 +251,6 @@ module.exports = {
                     mongo_upgrade: {
                         type: 'boolean'
                     }
-
                 }
             },
             auth: {
@@ -274,8 +271,23 @@ module.exports = {
             auth: {
                 system: false,
             }
-        }
+        },
 
+        set_hostname_internal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['hostname'],
+                properties: {
+                    hostname: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        }
     },
 
     definitions: {

@@ -1,7 +1,7 @@
 import template from './main-nav.html';
 import Disposable from 'disposable';
 import { uiState, uploads } from 'model';
-import { deepFreeze, sleep } from 'utils';
+import { deepFreeze, sleep } from 'utils/all';
 import ko from 'knockout';
 import style from 'style';
 
@@ -13,22 +13,22 @@ const navItems = deepFreeze([
         label: 'Overview'
     },
     {
-        name: 'buckets',
-        route: 'buckets',
-        icon: 'buckets',
-        label: 'Buckets'
-    },
-    {
         name: 'resources',
         route: 'pools',
         icon: 'resources',
         label: 'Resources'
     },
     {
-        name: 'management',
-        route: 'management',
-        icon: 'manage',
-        label: 'Management'
+        name: 'buckets',
+        route: 'buckets',
+        icon: 'buckets',
+        label: 'Buckets'
+    },
+    {
+        name: 'funcs',
+        route: 'funcs',
+        icon: 'working',
+        label: 'Functions'
     },
     {
         name: 'cluster',
@@ -36,6 +36,12 @@ const navItems = deepFreeze([
         icon: 'cluster',
         label: 'Cluster',
         preview: true
+    },
+    {
+        name: 'management',
+        route: 'management',
+        icon: 'manage',
+        label: 'Management'
     }
 ]);
 

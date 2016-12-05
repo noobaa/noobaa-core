@@ -14,7 +14,8 @@ const promise_utils = require('./promise_utils');
 const is_windows = (process.platform === "win32");
 const is_mac = (process.platform === "darwin");
 
-const PRIVATE_DIR_PERMISSIONS = parseInt('0700', 8);
+const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
+
 /**
  *
  * file_must_not_exist
@@ -147,6 +148,18 @@ function find_line_in_file(file_name, line_sub_string) {
         });
 }
 
+function get_last_line_in_file(file_name) {
+    return fs.readFileAsync(file_name, 'utf8')
+        .then(data => {
+            let lines = data.split('\n');
+            let idx = lines.length - 1;
+            while (!lines[idx] && idx > 0) {
+                idx -= 1;
+            }
+            return lines[idx] || undefined;
+        });
+}
+
 function create_path(dir, mode) {
     if (mode) {
         return P.fromCallback(callback => mkdirp(dir, mode, callback));
@@ -228,6 +241,14 @@ function tar_pack(tar_file_name, source, ignore_file_changes) {
     return promise_utils.exec(cmd);
 }
 
+function write_file_from_stream(file_path, read_stream) {
+    return new P((resolve, reject) => read_stream
+        .once('error', reject)
+        .pipe(fs.createWriteStream(file_path))
+        .once('error', reject)
+        .once('finish', resolve)
+    );
+}
 
 // EXPORTS
 exports.file_must_not_exist = file_must_not_exist;
@@ -235,6 +256,7 @@ exports.file_must_exist = file_must_exist;
 exports.disk_usage = disk_usage;
 exports.read_dir_recursive = read_dir_recursive;
 exports.find_line_in_file = find_line_in_file;
+exports.get_last_line_in_file = get_last_line_in_file;
 exports.create_path = create_path;
 exports.create_fresh_path = create_fresh_path;
 exports.full_dir_copy = full_dir_copy;
@@ -242,4 +264,5 @@ exports.file_copy = file_copy;
 exports.file_delete = file_delete;
 exports.folder_delete = folder_delete;
 exports.tar_pack = tar_pack;
+exports.write_file_from_stream = write_file_from_stream;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;

@@ -1,21 +1,15 @@
-/**
- *
- * AUTH_SERVER
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const s3_util = require('../../util/s3_utils');
 const RpcError = require('../../rpc/rpc_error');
 const system_store = require('../system_services/system_store').get_instance();
-const s3_auth = new S3Auth();
+const signature_utils = require('../../util/signature_utils');
 
 
 /**
@@ -51,8 +45,9 @@ function create_auth(req) {
         if (!email) return;
 
         // consider email not found the same as bad password to avoid phishing attacks.
-        target_account = system_store.data.accounts_by_email[email];
-        if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials account not found');
+        target_account = system_store.get_account_by_email(email);
+        dbg.log0('credentials account not found', email, system_name);
+        if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials not found');
 
         // when password is not provided it means we want to give authorization
         // by the currently authorized to another specific account instead of
@@ -63,7 +58,8 @@ function create_auth(req) {
         return P.fromCallback(callback =>
                 bcrypt.compare(password, target_account.password, callback))
             .then(function(match) {
-                if (!match) throw new RpcError('UNAUTHORIZED', 'password mismatch');
+                dbg.log0('password mismatch', email, system_name);
+                if (!match) throw new RpcError('UNAUTHORIZED', 'credentials not found');
                 // authentication passed!
                 // so this account is the authenticated_account
                 authenticated_account = target_account;
@@ -76,7 +72,8 @@ function create_auth(req) {
         if (!authenticated_account || !target_account) {
             // find the current authorized account and assign
             if (!req.auth || !req.auth.account_id) {
-                throw new RpcError('UNAUTHORIZED', 'no account_id in auth and no credetials');
+                dbg.log0('no account_id in auth and no credetials', email, system_name);
+                throw new RpcError('UNAUTHORIZED', 'credentials not found');
             }
 
             var account_arg = system_store.data.get_by_id(req.auth.account_id);
@@ -87,10 +84,12 @@ function create_auth(req) {
 
         // check the accounts are valid
         if (!authenticated_account || authenticated_account.deleted) {
-            throw new RpcError('UNAUTHORIZED', 'authenticated account not found');
+            dbg.log0('authenticated account not found', email, system_name);
+            throw new RpcError('UNAUTHORIZED', 'credentials not found');
         }
         if (!target_account || target_account.deleted) {
-            throw new RpcError('UNAUTHORIZED', 'target account not found');
+            dbg.log0('target account not found', email, system_name);
+            throw new RpcError('UNAUTHORIZED', 'credentials not found');
         }
 
         // system is optional, and will not be included in the token if not provided
@@ -257,115 +256,74 @@ function read_auth(req) {
  */
 function authorize(req) {
     _prepare_auth_request(req);
-    var auth_token_obj;
     if (req.auth_token) {
-        try {
-            if (typeof req.auth_token === 'object') {
-                auth_token_obj = req.auth_token;
-                let account = _.find(system_store.data.accounts, function(acc) {
-                    if (acc.access_keys) {
-                        return acc.access_keys[0].access_key.toString() === auth_token_obj.access_key.toString();
-                    } else {
-                        return false;
-                    }
-                });
-
-                if (!account || account.deleted) {
-                    throw new RpcError('UNAUTHORIZED', 'account not found');
-                }
-
-                var role = _.find(system_store.data.roles, function(r) {
-                    return r.account._id.toString() === account._id.toString();
-                });
-
-                if (!role || role.deleted) {
-                    throw new RpcError('UNAUTHORIZED', 'role not found');
-                }
-
-                var system = role.system;
-
-                if (!system) {
-                    throw new RpcError('UNAUTHORIZED', 'system not found');
-                }
-
-                req.auth = {};
-                req.auth.system_id = system && system._id;
-                auth_token_obj.account_id = req.auth.account_id = account && account._id;
-                req.auth.role = role && role.role;
-            } else {
-                req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
-                //auth_token_obj = req.auth;
-            }
-            /*
-            if (req.auth_token.indexOf('auth_token') > 0) {
-                auth_token_obj = JSON.parse(req.auth_token);
-                //console.warn('Auth Token Object3: ', auth_token_obj);
-                auth_token = auth_token_obj.auth_token;
-            } else {
-                //console.warn('Auth Token Object4: ', req.auth_token);
-
-                auth_token = req.auth_token;
-            }
-            req.auth = jwt.verify(auth_token, process.env.JWT_SECRET);
-            auth_token_obj = req.auth;
-            //console.warn('Auth Token Object5: ', req.auth);*/
-
-        } catch (err) {
-            dbg.error('AUTH JWT VERIFY FAILED', req, err);
-            throw new RpcError('UNAUTHORIZED', 'verify auth failed');
+        if (typeof req.auth_token === 'object') {
+            _authorize_signature_token(req);
+        } else {
+            _authorize_jwt_token(req);
         }
     }
-
     if (req.method_api.auth !== false) {
-        dbg.log1('authorize:', req.method_api.auth, req.srv);
         req.load_auth();
-
-        //console.warn('AUTHORIZE S3 AUTH auth_token_obj: ', auth_token_obj);
-        //if request request has access signature, validate the signature
-        if (auth_token_obj) { //&& auth_token_obj.s3_auth) {
-            let account = system_store.data.get_by_id(auth_token_obj.account_id);
-            var secret_key = account.access_keys[0].secret_key;
-            var s3_signature;
-
-            if (auth_token_obj.string_to_sign.indexOf('AWS4') > -1) {
-                s3_signature = s3_util.noobaa_signature_v4({
-                    xamzdate: auth_token_obj.extra && auth_token_obj.extra.xamzdate,
-                    region: auth_token_obj.extra && auth_token_obj.extra.region,
-                    service: auth_token_obj.extra && auth_token_obj.extra.service,
-                    string_to_sign: auth_token_obj.string_to_sign,
-                    secret_key: secret_key
-                });
-            } else {
-                s3_signature = s3_auth.sign(secret_key, auth_token_obj.string_to_sign); //secret_key, string_to_sign);
-                //signature = s3_auth.sign('abcd', string_to_sign);
-                //console.warn('EVG EVG EVG EVG EVG SIGNATURE COMP: ', s3_signature, signature);
-
-            }
-            //var s3_signature = s3_auth.sign(secret_key, string_to_sign);
-            dbg.log1('signature for access key:', account.access_keys[0].access_key, 'string:', auth_token_obj.string_to_sign, ' is', s3_signature);
-
-            //TODO:bring back ASAP!!!! - temporary for V4 "Support"
-            //
-            if (auth_token_obj.signature === s3_signature) {
-                dbg.log1('s3 authentication test passed!!!');
-            } else {
-                throw new RpcError('UNAUTHORIZED', 'SignatureDoesNotMatch');
-            }
-            // var secret_key = _.result(_.find(req.system.access_keys, 'access_key', auth_token_obj.access_key), 'secret_key');
-            // var s3_signature = s3_auth.sign(secret_key, auth_token_obj.string_to_sign);
-
-            //TODO:bring back ASAP!!!! - temporary for V4 "Support"
-
-            // if (auth_token_obj.signature === s3_signature) {
-            //     dbg.log3('Access key authentication (per request) test passed !!!');
-            // } else {
-            //     dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
-            //     throw new RpcError('UNAUTHORIZED', 'SignatureDoesNotMatch');
-            // }
-        }
     }
 }
 
+
+function _authorize_jwt_token(req) {
+    try {
+        req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
+    } catch (err) {
+        dbg.error('AUTH JWT VERIFY FAILED', req, err);
+        throw new RpcError('UNAUTHORIZED', 'verify auth failed');
+    }
+}
+
+
+function _authorize_signature_token(req) {
+    const auth_token_obj = req.auth_token;
+
+    const account = _.find(system_store.data.accounts, function(acc) {
+        return acc.access_keys &&
+            acc.access_keys[0].access_key.toString() ===
+            auth_token_obj.access_key.toString();
+    });
+    if (!account || account.deleted) {
+        throw new RpcError('UNAUTHORIZED', 'account not found');
+    }
+    const secret_key = account.access_keys[0].secret_key;
+
+    const role = _.find(system_store.data.roles, function(r) {
+        return r.account._id.toString() === account._id.toString();
+    });
+    if (!role || role.deleted) {
+        throw new RpcError('UNAUTHORIZED', 'role not found');
+    }
+
+    const system = role.system;
+    if (!system) {
+        throw new RpcError('UNAUTHORIZED', 'system not found');
+    }
+
+    req.auth = {
+        system_id: system._id,
+        account_id: account._id,
+        role: role.role,
+    };
+
+    const signature = signature_utils.signature({
+        secret_key: secret_key,
+        access_key: auth_token_obj.access_key,
+        string_to_sign: auth_token_obj.string_to_sign,
+        noobaa_v4: auth_token_obj.extra,
+    });
+
+    if (auth_token_obj.signature !== signature) {
+        dbg.error('Signature for access key:', auth_token_obj.access_key,
+            'expected:', signature,
+            'received:', auth_token_obj.signature);
+        throw new RpcError('UNAUTHORIZED', 'SignatureDoesNotMatch');
+    }
+}
 
 
 /**

@@ -1,0 +1,23 @@
+collapsible-section {
+    @collapsed-pad: 1.3em;
+    display: block;
+
+    .collapsed-wrapper {
+        opacity: 0;
+        transition: opacity 250ms linear;
+
+        &.show {
+            opacity: 1;
+        }
+    }
+
+    .expandable {
+        padding-top: @collapsed-pad;
+        margin-top: -@collapsed-pad;
+
+        > [data-name="expanded"] {
+            margin-top: -@collapsed-pad;
+        }
+    }
+
+}

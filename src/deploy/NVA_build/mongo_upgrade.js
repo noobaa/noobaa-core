@@ -20,6 +20,7 @@ function upgrade() {
     upgrade_system_access_keys();
     upgrade_object_mds();
     remove_unnamed_nodes();
+    fix_nodes_pool_to_object_id();
     upgrade_cloud_agents();
     upgrade_tier_pools();
     // cluster upgrade: mark that upgrade is completed for this server
@@ -522,4 +523,18 @@ function remove_unnamed_nodes() {
             }
         });
     }
+}
+
+
+function fix_nodes_pool_to_object_id() {
+    // Type 2 is String ref: https://docs.mongodb.com/v3.0/reference/operator/query/type/
+    db.nodes.find({pool: {$type: 2}}).forEach(function(node) {
+        db.nodes.update({
+            _id: node._id
+        }, {
+            $set: {
+                pool: new ObjectId(node.pool)
+            }
+        });
+    });
 }

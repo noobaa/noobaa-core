@@ -1,7 +1,7 @@
 import template from './node-selection-table.html';
 import Disposable from 'disposable';
 import NodeRowViewModel from './node-row';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 import ko from 'knockout';
 
 const columns = deepFreeze([

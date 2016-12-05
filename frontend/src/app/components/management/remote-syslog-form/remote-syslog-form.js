@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { enableRemoteSyslog, disableRemoteSyslog } from 'actions';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const protocols = deepFreeze({
     UDP: { defaultPort: 5014 },
@@ -14,10 +14,10 @@ const defaultProtocol = 'UDP';
 const portValMessage = 'Please enter a port number between 1 and 65535';
 
 class RemoteSyslogFormViewModel extends Disposable {
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
 
         let config = ko.pureComputed(
             () => systemInfo() && systemInfo().remote_syslog_config
@@ -85,7 +85,11 @@ class RemoteSyslogFormViewModel extends Disposable {
             this.errors.showAllMessages();
 
         } else if (this.enabled()) {
-            enableRemoteSyslog(this.protocol(), this.address(), this.port());
+            enableRemoteSyslog(
+                this.protocol(),
+                this.address(),
+                Number(this.port())
+            );
 
         } else {
             disableRemoteSyslog();

@@ -25,10 +25,6 @@ mocha.describe('system_servers', function() {
     const EMAIL = SYS + EMAIL_DOMAIN;
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
-    const ACCESS_KEYS = {
-        access_key: 'ydaydayda',
-        secret_key: 'blablabla'
-    };
     const CLOUD_SYNC_CONNECTION = 'Connection 1';
 
     const client = coretest.new_test_client();
@@ -49,7 +45,6 @@ mocha.describe('system_servers', function() {
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,
-                access_keys: ACCESS_KEYS
             }))
             .then(res => {
                 client.options.auth_token = res.token;
@@ -60,7 +55,6 @@ mocha.describe('system_servers', function() {
                 email: EMAIL
             }))
             .then(() => client.account.list_accounts())
-            .then(() => client.account.get_account_sync_credentials_cache())
             .then(() => client.system.read_system())
             .then(() => {
                 return client.system.update_system({
@@ -80,7 +74,6 @@ mocha.describe('system_servers', function() {
                     name: EMAIL1,
                     email: EMAIL1,
                     password: PASSWORD,
-                    access_keys: ACCESS_KEYS
                 });
             })
             .then(() => client.system.read_system())
@@ -132,7 +125,7 @@ mocha.describe('system_servers', function() {
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
             )
             //.then(() => client.system.start_debug({level:0}))
-            .then(() => client.system.diagnose_system())
+            .then(() => client.cluster_server.diagnose_system({}))
             .then(() => client.system.update_system({
                 name: SYS1,
             }))
@@ -151,7 +144,6 @@ mocha.describe('system_servers', function() {
                 name: SYS,
                 email: EMAIL1,
                 password: PASSWORD,
-                access_keys: ACCESS_KEYS
             }))
             .then(() => client.create_auth_token({
                 email: EMAIL1,
@@ -272,7 +264,7 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
-            .then(() => client.account.add_account_sync_credentials_cache({
+            .then(() => client.account.add_external_conenction({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
                 identity: process.env.AWS_ACCESS_KEY_ID,

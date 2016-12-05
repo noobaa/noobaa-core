@@ -423,6 +423,7 @@ RPC.prototype._get_remote_address = function(req, options) {
         dbg.log3('RPC ROUTER', domain, '=>', address);
     }
     assert(address, 'No RPC Address/Domain');
+    address = address.toLowerCase();
     var addr_url = this._address_to_url_cache.get(address);
     if (!addr_url) {
         addr_url = url_utils.quick_parse(address, true);
@@ -775,7 +776,7 @@ RPC.prototype._proxy = function(api, method, params, options) {
 
     // if we have buffer, add it as raw data.
     if (method.params_export_buffers) {
-        req.proxy_buffer = buffer_utils.get_single(method.params_export_buffers(params));
+        req.proxy_buffer = buffer_utils.concatify(method.params_export_buffers(params));
         // dbg.log5('_proxy: params_export_buffers', req);
     }
 
@@ -899,7 +900,8 @@ RPC.prototype.register_nudp_transport = function(port) {
  */
 RPC.prototype.register_n2n_agent = function(send_signal_func) {
     if (this.n2n_agent) {
-        throw new Error('RPC N2N already registered');
+        console.log('RPC N2N already registered. ignoring');
+        return this.n2n_agent;
     }
     dbg.log0('RPC register_n2n_agent');
     var n2n_agent = new RpcN2NAgent({

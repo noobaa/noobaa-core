@@ -2,7 +2,7 @@ import template from './server-dns-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, nameResolutionState } from 'model';
-import { makeRange } from 'utils';
+import { makeRange } from 'utils/all';
 import { attemptResolveSystemName } from 'actions';
 import { inputThrottle } from 'config';
 
@@ -13,8 +13,10 @@ const addressOptions = [
 ];
 
 class ServerDNSFormViewModel extends Disposable {
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
+
+        this.isCollapsed = isCollapsed;
 
         this.expanded = ko.observable(false);
         this.addressOptions = addressOptions;
@@ -54,7 +56,7 @@ class ServerDNSFormViewModel extends Disposable {
                         nameResolutionState.once(
                             ({ valid }) => callback({
                                 isValid: valid,
-                                message: 'Cloud not resolve dns name'
+                                message: 'Could not resolve dns name'
                             })
                         );
                     }

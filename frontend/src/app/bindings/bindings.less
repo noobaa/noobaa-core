@@ -1,12 +1,10 @@
 .expandable {
     overflow: hidden;
-    max-height: 0;
-    opacity: .5;
-    transition: all 350ms ease-in-out;
+    opacity: 0;
+    transition: all 250ms linear;
     padding: 0;
 
     &.expanding, &.expanded {
-        max-height: 1000px;
         opacity: 1;
     }
 

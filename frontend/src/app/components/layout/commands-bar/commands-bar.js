@@ -2,7 +2,7 @@ import template from './commands-bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { refresh, openDrawer } from 'actions';
-import { sleep } from 'utils';
+import { sleep } from 'utils/all';
 
 class CommandBarViewModel extends Disposable {
     constructor() {

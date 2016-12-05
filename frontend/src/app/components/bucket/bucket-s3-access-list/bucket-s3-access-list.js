@@ -1,20 +1,22 @@
 import template from './bucket-s3-access-list.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { bucketS3ACL } from 'model';
-import { loadBucketS3ACL } from 'actions';
+import { systemInfo } from 'model';
 
 class BucketS3AccessListViewModel extends Disposable {
     constructor({ bucketName }) {
         super();
 
-        this.accessList = bucketS3ACL
-            .filter(
-                ({ is_allowed }) => is_allowed
-            )
-            .map(
-                ({ account }) => account
-            );
+        this.accessList = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().accounts : [])
+                .filter(
+                    account => (account.allowed_buckets || [])
+                        .includes(ko.unwrap(bucketName))
+                )
+                .map(
+                    account => account.email
+                )
+        );
 
         this.isListEmpty = ko.pureComputed(
             () => this.accessList().length === 0
@@ -25,8 +27,6 @@ class BucketS3AccessListViewModel extends Disposable {
         this.bucketName = bucketName;
 
         this.isS3AccessModalVisible = ko.observable(false);
-
-        loadBucketS3ACL(ko.unwrap(bucketName));
     }
 
     openS3AccessModal() {

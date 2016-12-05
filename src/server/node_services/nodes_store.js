@@ -67,7 +67,7 @@ class NodesStore {
     }
 
     collection() {
-        return mongo_client.instance().db.collection('nodes');
+        return mongo_client.instance().db.collection(NODES_COLLECTION.name);
     }
 
     validate(node, fail) {

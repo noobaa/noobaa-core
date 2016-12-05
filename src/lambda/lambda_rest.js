@@ -1,29 +1,46 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // const _ = require('lodash');
 // const moment = require('moment');
+const crypto = require('crypto');
 const express = require('express');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const lambda_errors = require('./lambda_errors');
+const signature_utils = require('../util/signature_utils');
+
+const RPC_ERRORS_TO_LAMBDA = Object.freeze({
+    UNAUTHORIZED: lambda_errors.AccessDenied,
+    FORBIDDEN: lambda_errors.AccessDenied,
+    NO_SUCH_LAMBDA_FUNC: lambda_errors.ResourceNotFoundException,
+    CONFLICT: lambda_errors.ResourceConflictException,
+});
+
 
 function lambda_rest(controller) {
 
     let app = new express.Router();
     app.use(handle_options);
     // app.use(check_headers);
-    // app.use(authenticate_request);
+    app.use(read_json_body);
+    app.use(authenticate_lambda_request);
 
-    app.get('/:api_version/functions',
-        lambda_action('list_functions'));
+    app.get('/',
+        lambda_action('list_funcs'));
 
-    app.post('/:api_version/functions',
-        read_json_body,
-        lambda_action('create_function'));
+    app.post('/',
+        lambda_action('create_func'));
 
-    app.post('/:api_version/functions/:func_name/invocations',
-        read_json_body,
-        lambda_action('invoke'));
+    app.get('/:func_name',
+        lambda_action('read_func'));
+
+    app.delete('/:func_name',
+        lambda_action('delete_func'));
+
+    app.post('/:func_name/invocations',
+        lambda_action('invoke_func'));
 
     app.use(handle_common_lambda_errors);
     return app;
@@ -45,49 +62,78 @@ function lambda_rest(controller) {
      * call a function in the controller, and send the result
      */
     function lambda_call(action_name, req, res, next) {
-        dbg.log0('LAMBDA REQUEST', action_name, req.method, req.url, req.headers);
+        dbg.log0('LAMBDA REQUEST', action_name, req.method, req.originalUrl, req.headers);
         let action = controller[action_name];
         if (!action) {
-            dbg.error('LAMBDA TODO (NotImplemented)', action_name, req.method, req.url);
+            dbg.error('LAMBDA TODO (NotImplemented)', action_name, req.method, req.originalUrl);
             next(new Error('NotImplemented'));
             return;
         }
         P.fcall(() => action.call(controller, req, res))
             .then(reply => {
-                if (reply === false) {
-                    // in this case the controller already replied
-                    return;
-                }
-                dbg.log1('LAMBDA REPLY', action_name, req.method, req.url, reply);
-                if (reply) {
-                    dbg.log0('LAMBDA REPLY', action_name, req.method, req.url,
-                        JSON.stringify(req.headers), reply);
-                    res.status(200).send(reply);
-                } else {
-                    dbg.log0('LAMBDA EMPTY REPLY', action_name, req.method, req.url,
-                        JSON.stringify(req.headers));
-                    if (req.method === 'DELETE') {
-                        res.status(204).end();
+                dbg.log1('LAMBDA REPLY', action_name, req.method, req.originalUrl, reply);
+                if (!res.statusCode) {
+                    if (req.method === 'POST') {
+                        // HTTP Created is the common reply to POST method
+                        // BUT some APIs might require 200 or 202
+                        res.statusCode = 201;
+                    } else if (req.method === 'DELETE') {
+                        // HTTP No Content is the common reply to DELETE method
+                        // BUT some APIs might require 200 or 202
+                        res.statusCode = 204;
                     } else {
-                        res.status(200).end();
+                        // HTTP OK for GET, PUT, HEAD, OPTIONS
+                        res.statusCode = 200;
                     }
+                }
+                if (reply) {
+                    dbg.log0('LAMBDA REPLY', action_name, req.method, req.originalUrl,
+                        JSON.stringify(req.headers), reply);
+                    res.send(reply);
+                } else {
+                    dbg.log0('LAMBDA EMPTY REPLY', action_name, req.method, req.originalUrl,
+                        JSON.stringify(req.headers));
+                    res.end();
                 }
             })
             .catch(err => next(err));
     }
 
+
     /**
      * handle s3 errors and send the response xml
      */
     function handle_common_lambda_errors(err, req, res, next) {
-        if (!err && next) {
-            dbg.log0('LAMBDA DONE.', req.method, req.url);
-            next();
+        if (!err) {
+            dbg.log0('LAMBDA Unknown API', req.method, req.originalUrl);
+            err = lambda_errors.ServiceException;
         }
-        dbg.error('LAMBDA ERROR', JSON.stringify(req.headers), err.stack || err);
-        res.status(500).send('The AWS Lambda service encountered an internal error.');
+        let lambda_err =
+            ((err instanceof lambda_errors.LambdaError) && err) ||
+            RPC_ERRORS_TO_LAMBDA[err.rpc_code] ||
+            lambda_errors.ServiceException;
+        dbg.error('LAMBDA ERROR', lambda_err,
+            JSON.stringify(req.headers),
+            err.stack || err);
+        res.status(lambda_err.http_code).send({
+            Message: lambda_err.message
+        });
     }
 
+    /**
+     * check the signature of the request
+     */
+    function authenticate_lambda_request(req, res, next) {
+        P.fcall(function() {
+                signature_utils.authenticate_request(req);
+                return controller.prepare_request(req);
+            })
+            .then(() => next())
+            .catch(err => {
+                dbg.error('authenticate_s3_request: ERROR', err.stack || err);
+                next(new Error('Unauthorized Lambda Request!'));
+            });
+    }
 
 }
 
@@ -130,9 +176,15 @@ function read_json_body(req, res, next) {
             if (data) {
                 req.body = JSON.parse(data);
             }
-            next();
+            const content_sha256_hex = req.headers['x-amz-content-sha256'];
+            req.content_sha256 =
+                content_sha256_hex ? new Buffer(content_sha256_hex, 'hex') :
+                (crypto.createHash('sha256')
+                    .update(data)
+                    .digest());
+            return next();
         } catch (err) {
-            next(err);
+            return next(err);
         }
     });
 }

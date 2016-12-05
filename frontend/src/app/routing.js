@@ -1,4 +1,4 @@
-import { parseQueryString } from 'utils';
+import { parseQueryString } from 'utils/all';
 import { sessionInfo, routeContext } from 'model';
 import * as routes from 'routes';
 import * as actions from 'actions';
@@ -34,17 +34,19 @@ export default function routing(page) {
     page(`${routes.system}/*`, ensureSystemInfo);
 
     // Screens handlers.
-    page(routes.system, saveContext, actions.showOverview);
-    page(routes.buckets, saveContext, actions.showBuckets);
-    page(routes.bucket, saveContext, actions.showBucket);
-    page(routes.object, saveContext, actions.showObject);
-    page(routes.pools,  saveContext, actions.showResources);
-    page(routes.pool, saveContext, actions.showPool);
-    page(routes.node, saveContext, actions.showNode);
-    page(routes.management, saveContext, actions.showManagement);
-    page(routes.cluster, saveContext, actions.showCluster);
+    page(routes.system,  actions.showOverview);
+    page(routes.buckets, actions.showBuckets);
+    page(routes.bucket, actions.showBucket);
+    page(routes.object, actions.showObject);
+    page(routes.pools,  actions.showResources);
+    page(routes.pool, actions.showPool);
+    page(routes.node, actions.showNode);
+    page(routes.account, actions.showAccount);
+    page(routes.management, actions.showManagement);
+    page(routes.cluster, actions.showCluster);
+    page(routes.funcs, actions.showFuncs);
+    page(routes.func, actions.showFunc);
 
     // Unknown paths
     page('*', actions.handleUnknownRoute);
 }
-

@@ -755,5 +755,3 @@ exports.delete_external_connection = delete_external_connection;
 exports.get_account_info = get_account_info;
 // utility to create the support account from bg_workers
 exports.ensure_support_account = ensure_support_account;
-utility to create the support account from bg_workers
-exports.ensure_support_account = ensure_support_account;

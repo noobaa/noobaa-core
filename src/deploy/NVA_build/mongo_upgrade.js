@@ -494,7 +494,7 @@ function remove_unnamed_nodes() {
 
 function fix_nodes_pool_to_object_id() {
     // Type 2 is String ref: https://docs.mongodb.com/v3.0/reference/operator/query/type/
-    db.nodes.find({ pool: { $type: 2 }}).forEach(function(node) {
+    db.nodes.find({pool: {$type: 2}}).forEach(function(node) {
         db.nodes.update({
             _id: node._id
         }, {

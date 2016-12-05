@@ -40,12 +40,15 @@ module.exports = {
                 },
                 access_keys: {
                     type: 'object',
-                    required: ['access_key', 'secret_key'],
+                    required: ['access_key', 'secret_key', 'account_name'],
                     properties: {
                         access_key: {
                             type: 'string'
                         },
                         secret_key: {
+                            type: 'string'
+                        },
+                        account_name: {
                             type: 'string'
                         }
                     }

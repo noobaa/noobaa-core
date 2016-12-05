@@ -73,6 +73,7 @@ module.exports = {
             }
         },
 
+
         read_account: {
             doc: 'Read the info of the authorized account',
             method: 'GET',
@@ -303,6 +304,26 @@ module.exports = {
             },
             reply: {
                 type: 'boolean'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_external_connection: {
+            doc: 'delete a connection from an account',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['account_name', 'connection_name'],
+                properties: {
+                    account_name: {
+                        type: 'string'
+                    },
+                    connection_name: {
+                        type: 'string'
+                    },
+                }
             },
             auth: {
                 system: 'admin'

@@ -77,7 +77,8 @@ function create_cloud_pool(req) {
         target_bucket: req.rpc_params.target_bucket,
         access_keys: {
             access_key: connection.access_key,
-            secret_key: connection.secret_key
+            secret_key: connection.secret_key,
+            account_name: req.account
         },
         endpoint_type: connection.endpoint_type || 'AWS'
     };

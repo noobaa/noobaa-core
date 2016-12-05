@@ -35,19 +35,42 @@ var agentConf;
 
 var machineCount = 4;
 
-// Ubuntu config
 var os = {
+    // Ubuntu 14 config - default
     publisher: 'Canonical',
     offer: 'UbuntuServer',
     sku: '14.04.3-LTS',
     osType: 'Linux'
 };
-
-// Windows config
-if (argv.os === 'windows') {
+if (argv.os === 'ubuntu16') {
+    // Ubuntu 16 config
+    os.publisher = 'Canonical';
+    os.offer = 'UbuntuServer';
+    os.sku = '16.04.0-LTS';
+    os.osType = 'Linux';
+} else if (argv.os === 'centos6') {
+    // Centos 6.8 config
+    os.publisher = 'OpenLogic';
+    os.offer = 'CentOS';
+    os.sku = '6.8';
+    os.osType = 'Linux';
+} else if (argv.os === 'win2012R2') {
+    // Windows 2012R2 config
     os.publisher = 'MicrosoftWindowsServer';
     os.offer = 'WindowsServer';
     os.sku = '2012-R2-Datacenter';
+    os.osType = 'Windows';
+} else if (argv.os === 'win2008R2') {
+    // Windows 2008R2 config
+    os.publisher = 'MicrosoftWindowsServer';
+    os.offer = 'WindowsServer';
+    os.sku = '2008-R2-SP1';
+    os.osType = 'Windows';
+} else if (argv.os === 'win2016') {
+    // Windows 2016 config
+    os.publisher = 'MicrosoftWindowsServer';
+    os.offer = 'WindowsServer';
+    os.sku = '2016-Datacenter';
     os.osType = 'Windows';
 }
 var azf;
@@ -171,6 +194,7 @@ Usage:
   --resource <resource-group> the azure resource group to use (default is capacity)
   --storage <storage-account> the azure storage account to use (default is capacitystorage)
   --vnet <vnet>               the azure virtual network to use (default is capacity-vnet)
-  --os <linux/windows>        the desired os for the agent (default is linux - ubuntu)
+  --os <name>                 the desired os for the agent (default is linux - ubuntu14)
+                              ubuntu16/ubuntu14/centos6/win2012R2/win2008R2/win2016
 `);
 }

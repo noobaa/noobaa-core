@@ -242,7 +242,6 @@ class AzureFunctions {
     }
 
     listVirtualMachines(prefix, status) {
-        console.log('\nListing Virtual Machines ');
         return P.fromCallback(callback => this.computeClient.virtualMachines.list(this.resourceGroupName, callback))
             .then(machines_in_rg => {
                 var machines_with_prefix = [];
@@ -286,10 +285,9 @@ class AzureFunctions {
         return this.listVirtualMachines(prefix)
             .then(machines => {
                 return promise_utils.pwhile(() => index < machines.length, () => {
-                    return this.getMachineStatus(machines[index]).then(state => {
+                    return this.getMachineStatus(machines[index++]).then(state => {
                         if (state === 'VM running') {
                             count++;
-                            index++;
                         }
                     });
                 });

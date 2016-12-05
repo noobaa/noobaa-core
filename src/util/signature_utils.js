@@ -4,6 +4,8 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const dbg = require('../util/debug_module')(__filename);
+const url = require('url');
+const path = require('path');
 
 /**
  *
@@ -138,7 +140,13 @@ function _string_to_sign_v4(req, signed_headers) {
         !signed_headers_set ||
         signed_headers_set.has(key.toLowerCase());
 
-    v4.hexEncodedBodyHash = () => req.content_sha256.toString('hex');
+    v4.hexEncodedBodyHash = () => (
+        req.content_sha256 ?
+        req.content_sha256.toString('hex') :
+        require('crypto')
+        .createHash('sha256')
+        .digest('hex')
+    );
 
     const canonical_str = v4.canonicalString();
     const string_to_sign = v4.stringToSign(req.noobaa_v4.xamzdate);
@@ -212,18 +220,31 @@ const HEADERS_MAP_FOR_AWS_SDK = {
 };
 
 function _aws_request(req) {
-    const pathname = req.originalUrl.split('?', 1)[0];
-    const search_string = AWS.util.queryParamsToString(req.query);
-    const headers_for_sdk = _.mapKeys(req.headers, (value, key) =>
+    const u = url.parse(req.originalUrl);
+    const pathname = path.normalize(decodeURI(u.pathname));
+    const search_string = u.search ?
+        AWS.util.queryParamsToString(
+            AWS.util.queryStringParse(
+                decodeURI(u.search.slice(1)))) :
+        '';
+    const headers_for_sdk = {};
+    _.each(req.headers, (value, key) => {
         // mapping the headers from nodejs lowercase keys to AWS SDK capilization
         // using predefined map for specific cases used by the signers
-        HEADERS_MAP_FOR_AWS_SDK[key] || (key.split('-')
-            .map(_.capitalize)
-            .join('-')));
+        const sdk_key =
+            HEADERS_MAP_FOR_AWS_SDK[key] ||
+            (key.split('-')
+                .map(_.capitalize)
+                .join('-'));
+        // for headers that were coalesced by nodejs http library
+        // the values were joined with ', ' however we need to join only with ','
+        const sdk_value = value.replace(/, /g, ',');
+        headers_for_sdk[sdk_key] = sdk_value;
+    });
     const aws_request = {
         region: req.noobaa_v4 && req.noobaa_v4.region,
         method: req.method,
-        path: req.originalUrl,
+        path: decodeURI(req.originalUrl),
         headers: headers_for_sdk,
         search: () => search_string,
         pathname: () => pathname,

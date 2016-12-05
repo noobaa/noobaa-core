@@ -303,9 +303,6 @@ function main() {
                     Key: file_names[0]
                 })
                 // This is used in order to make sure that the blocks will be deleted from the cloud
-                .then(() => {
-                    console.warn('JEN JEN JEN these are the blocks', block_ids);
-                })
                 .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
                     _.map(block_ids['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3))
                 .catch(err => {

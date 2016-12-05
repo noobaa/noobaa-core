@@ -332,7 +332,7 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
         }
     });
 
-    console.warn('JEN THIS IS THE END RESULT BABY:', allocations, deletions, chunk_accessible);
+    console.warn('JEN THIS IS THE END RESULT:', allocations, deletions, chunk_accessible);
     return {
         allocations: allocations,
         deletions: deletions,

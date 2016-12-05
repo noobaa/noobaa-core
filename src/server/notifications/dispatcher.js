@@ -11,7 +11,7 @@ const AlertsLog = require('./alerts_log.js');
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_client = require('../node_services/nodes_client');
 const server_rpc = require('../server_rpc');
-const config = require('../../config');
+const config = require('../../../config');
 
 var NotificationTypes = Object.freeze({
     ALERT: 1,

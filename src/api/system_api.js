@@ -19,7 +19,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password', 'access_keys', 'activation_code'],
+                required: ['name', 'email', 'password', 'activation_code'],
                 properties: {
                     name: {
                         type: 'string',
@@ -32,17 +32,6 @@ module.exports = {
                     },
                     activation_code: {
                         type: 'string',
-                    },
-                    access_keys: {
-                        type: 'object',
-                        properties: {
-                            access_key: {
-                                type: 'string'
-                            },
-                            secret_key: {
-                                type: 'string'
-                            }
-                        }
                     },
                     //Optionals: DNS, NTP and NooBaa Domain Name
                     time_config: {
@@ -242,16 +231,6 @@ module.exports = {
             }
         },
 
-        diagnose_system: {
-            method: 'GET',
-            reply: {
-                type: 'string',
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         diagnose_node: {
             method: 'GET',
             params: {
@@ -426,6 +405,25 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+            }
+        },
+
+        log_client_console: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                },
+            },
+            auth: {
+                system: 'admin',
             }
         }
     },
@@ -643,18 +641,6 @@ module.exports = {
             type: 'string',
         },
 
-        access_keys: {
-            type: 'object',
-            required: ['access_key', 'secret_key'],
-            properties: {
-                access_key: {
-                    type: 'string',
-                },
-                secret_key: {
-                    type: 'string',
-                }
-            }
-        },
 
         cluster_info: {
             type: 'object',

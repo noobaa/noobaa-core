@@ -5,7 +5,7 @@ import {  makeArray, deepFreeze } from 'utils/all';
 import style from 'style';
 
 const radius = 84;
-const lineWidth = 30;
+const lineWidth = 20;
 const seperator = (2 * Math.PI) / 1000;
 const threshold = 2 * seperator;
 const silhouetteColor = style['color1'];

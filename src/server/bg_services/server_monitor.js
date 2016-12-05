@@ -52,15 +52,16 @@ function _verify_cluster_configuration() {
 
 function _verify_ntp_cluster_config() {
     dbg.log2('Verifying date and time configuration in relation to cluster config');
+    let cluster_conf = server_conf.ntp;
     return P.all([os_utils.get_ntp(), os_utils.get_time_config()])
         .spread((platform_ntp, platform_time_config) => {
             let platform_conf = {
                 server: platform_ntp,
                 timezone: platform_time_config.timezone
             };
-            if (!_.isEqual(platform_conf, server_conf.ntp)) {
-                dbg.warn(`platform ntp not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', server_conf.ntp);
-                return os_utils.set_ntp(server_conf.ntp.server, server_conf.ntp.timezone);
+            if (!_are_platform_and_cluster_conf_equal(platform_conf, cluster_conf)) {
+                dbg.warn(`platform ntp not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', cluster_conf);
+                return os_utils.set_ntp(cluster_conf.server, cluster_conf.timezone);
             }
         })
         .catch(err => dbg.error('failed to reconfigure ntp cluster config on the server. reason:', err));
@@ -68,11 +69,12 @@ function _verify_ntp_cluster_config() {
 
 function _verify_dns_cluster_config() {
     dbg.log2('Verifying dns configuration in relation to cluster config');
+    let cluster_conf = server_conf.dns_servers;
     return os_utils.get_dns_servers()
         .then(platform_dns_servers => {
-            if (!_.isEqual(server_conf.dns_servers, platform_dns_servers)) {
-                dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_servers, 'cluster_conf:', server_conf.dns_servers);
-                return os_utils.set_dns_server(server_conf.dns_servers)
+            if (!_are_platform_and_cluster_conf_equal(platform_dns_servers, cluster_conf)) {
+                dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_servers, 'cluster_conf:', cluster_conf);
+                return os_utils.set_dns_server(cluster_conf)
                     .then(() => os_utils.restart_services());
             }
         })
@@ -81,22 +83,25 @@ function _verify_dns_cluster_config() {
 
 function _verify_remote_syslog_cluster_config() {
     dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
-    let conf = system_store.data.systems[0].remote_syslog_config;
+    let cluster_conf = system_store.data.systems[0].remote_syslog_config;
     return os_utils.get_syslog_server_configuration()
         .then(platform_syslog_server => {
-            if (platform_syslog_server || conf) {
-                if (!_.isEqual(platform_syslog_server, conf)) {
-                    dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', conf);
-                    return os_utils.reload_syslog_configuration(conf);
-                }
+            if (!_are_platform_and_cluster_conf_equal(platform_syslog_server, cluster_conf)) {
+                dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', cluster_conf);
+                return os_utils.reload_syslog_configuration(cluster_conf);
             }
         })
         .catch(err => dbg.error('failed to reconfigure remote syslog cluster config on the server. reason:', err));
 }
 
+function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
+    return (_.isEmpty(platform_conf) && _.isEmpty(cluster_conf)) || // are they both either empty or undefined
+        _.isEqual(platform_conf, cluster_conf); // if not, are they equal
+}
+
 function _check_ntp() {
     dbg.log2('_check_ntp');
-    if (!server_conf.ntp || !server_conf.ntp.server) return;
+    if (_.isEmpty(server_conf.ntp) || _.isEmpty(server_conf.ntp.server)) return;
     monitoring_status.ntp_status = "UNKNOWN";
     return net_utils.ping(server_conf.ntp.server)
         .catch(err => {
@@ -158,7 +163,7 @@ function _check_dns_and_phonehome() {
 function _check_proxy_configuration() {
     dbg.log2('_check_proxy_configuration');
     let system = system_store.data.systems[0];
-    if (!system.phone_home_proxy_address) return;
+    if (_.isEmpty(system.phone_home_proxy_address)) return;
     return net_utils.ping(system.phone_home_proxy_address)
         .then(() => {
             monitoring_status.proxy_status = "OPERATIONAL";
@@ -172,9 +177,9 @@ function _check_proxy_configuration() {
 function _check_remote_syslog() {
     dbg.log2('_check_remote_syslog');
     let system = system_store.data.systems[0];
-    if (!system.remote_syslog_config) return;
+    if (_.isEmpty(system.remote_syslog_config)) return;
     monitoring_status.remote_syslog_status = "UNKNOWN";
-    if (!system.remote_syslog_config.address) return;
+    if (_.isEmpty(system.remote_syslog_config.address)) return;
     return net_utils.ping(system.remote_syslog_config.address)
         .then(() => {
             monitoring_status.remote_syslog_status = "OPERATIONAL";
@@ -189,7 +194,7 @@ function _check_is_self_in_dns_table() {
     dbg.log2('_check_is_self_in_dns_table');
     let system_dns = system_store.data.systems[0].base_address;
     let address = server_conf.owner_address;
-    if (!system_dns || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
+    if (_.isEmpty(system_dns) || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
     return net_utils.dns_resolve(system_dns)
         .then(ip_address_table => {
             if (_.includes(ip_address_table, address)) {

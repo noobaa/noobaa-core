@@ -6,15 +6,19 @@ chart-legend {
     }
 
     ul {
-        list-style-type: none;
-        padding: 0;
-        margin: 0;
 
         li {
-            border-left: 4px solid;
-            padding-left: .5em;
             margin: @gutter/2 0;
             line-height: 1;
+
+            &:before {
+                content: '';
+                display: inline-block;;
+                border: 4px solid;
+                vertical-align: middle;
+                border-color: inherit;
+                margin-right: 4px;
+            }
 
             span {
                 display: inline-block;

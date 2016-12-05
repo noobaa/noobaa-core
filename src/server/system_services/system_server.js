@@ -50,9 +50,13 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
     has_issues: 0,
 });
 
+var client_syslog;
 // called on rpc server init
 function _init() {
     const DEFUALT_DELAY = 5000;
+
+    var native_core = require('../../util/native_core')();
+    client_syslog = new native_core.Syslog();
 
     function wait_for_system_store() {
         var update_done = false;
@@ -256,7 +260,6 @@ function create_system(req) {
                         name: req.rpc_params.name,
                         email: req.rpc_params.email,
                         password: req.rpc_params.password,
-                        access_keys: req.rpc_params.access_keys,
                         new_system_parameters: {
                             account_id: account._id.toString(),
                             allowed_buckets: allowed_buckets,
@@ -673,28 +676,9 @@ function set_last_stats_report_time(req) {
     }).return();
 }
 
-function diagnose_system(req) {
-    dbg.log0('Recieved diag req');
-    var out_path = '/public/diagnostics.tgz';
-    var inner_path = process.cwd() + '/build' + out_path;
-    return P.resolve()
-        .then(() => diag.collect_server_diagnostics(req))
-        .then(() => diag.pack_diagnostics(inner_path))
-        .then(res => {
-            Dispatcher.instance().activity({
-                event: 'dbg.diagnose_system',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
-            });
-            return out_path;
-        });
-}
-
 function diagnose_node(req) {
     dbg.log0('Recieved diag with agent req', req.rpc_params);
-    var out_path = '/public/diagnostics.tgz';
+    var out_path = '/public/node_' + req.rpc_params.name + '_diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return P.resolve()
         .then(() => diag.collect_server_diagnostics(req))
@@ -907,6 +891,13 @@ function validate_activation(req) {
         }));
 }
 
+function log_client_console(req) {
+    _.each(req.rpc_params.data, function(line) {
+        client_syslog.log(5, req.rpc_params.data, 'LOG_LOCAL1');
+    });
+    return;
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -920,7 +911,7 @@ function get_system_info(system, get_id) {
 }
 
 function find_account_by_email(req) {
-    var account = system_store.data.accounts_by_email[req.rpc_params.email];
+    var account = system_store.get_account_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -975,10 +966,10 @@ exports.list_systems_int = list_systems_int;
 exports.add_role = add_role;
 exports.remove_role = remove_role;
 
-exports.diagnose_system = diagnose_system;
 exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
+exports.log_client_console = log_client_console;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
@@ -990,5 +981,6 @@ exports.update_system_certificate = update_system_certificate;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;
+
 
 exports.validate_activation = validate_activation;

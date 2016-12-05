@@ -26,9 +26,11 @@ if [ "$1" == "from_file" ]; then
                     mkdir ${TMP_PATH}/ssl_old_$old_ssl_folder
                     mv /etc/private_ssl_path/* /tmp/ssl_old_$old_ssl_folder
                 fi
-                cp $TMP_PATH/ssl/* /etc/private_ssl_path
+                //cp $TMP_PATH/ssl/* /etc/private_ssl_path
+                cp $crt_list /etc/private_ssl_path/server.crt
+                cp $key_list /etc/private_ssl_path/server.key
             else
-                echo 'No match between key and certificate'
+                echo 'No match between key and certificate. Please make sure the extensions are .crt and .key'
                 exit 1
             fi
         else

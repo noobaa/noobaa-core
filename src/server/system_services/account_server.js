@@ -633,16 +633,10 @@ function get_account_info(account, include_connection_cache) {
     };
 
     if (!_.isUndefined(include_connection_cache) && include_connection_cache) {
-        external_connections.connections = credentials_cache.map(
-            // The defaults are used for backword compatibility.
-            credentials => ({
-                name: credentials.name || credentials.access_key,
-                endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
-                identity: credentials.access_key,
-                endpoint_type: credentials.endpoint_type,
-                usage: _list_connection_usage(account, credentials)
-            })
-        );
+        external_connections.connections = credentials_cache.map(credentials => {
+            credentials.usage = _list_connection_usage(account, credentials);
+            return credentials;
+        });
     } else {
         external_connections.connections = [];
     }

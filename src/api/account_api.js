@@ -252,7 +252,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'identity', 'secret', 'endpoint'],
+                required: ['name', 'identity', 'secret', 'endpoint', 'endpoint_type'],
                 properties: {
                     name: {
                         type: 'string'
@@ -266,7 +266,6 @@ module.exports = {
                     secret: {
                         type: 'string'
                     },
-
                     endpoint_type: {
                         type: 'string',
                         enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']

@@ -38,8 +38,7 @@ export const bucketObjectList = ko.observable();
 export const bucketS3ACL = ko.observableArray();
 
 // Hold the current cloud sync information.
-export const CloudConnections = ko.observableArray();
-export const CloudBucketList = ko.observableArray();
+export const cloudBucketList = ko.observableArray();
 export const isCloudConnectionValid = ko.observable(true)
     .extend({ notify: 'always' });
 
@@ -96,8 +95,6 @@ uploads.stats = ko.pureComputed(
 export const auditLog = ko.observableArray();
 auditLog.loadedCategories = ko.observableArray();
 
-export const accountS3ACL = ko.observableArray();
-
 // Hold node test information.
 export const nodeTestInfo = ko.observable();
 
@@ -124,6 +121,13 @@ export const nameResolutionState = ko.observable();
 
 // Hold diagnostics information
 export const collectDiagnosticsState = ko.observable({});
+
+// Hold last rest password attampt result.
+export const resetPasswordState = ko.observable();
+
+export const regenerateCredentialState = ko.observable();
+
+export const createAccountState = ko.observable();
 
 // Hold funcs information
 export const funcInfo = ko.observable();

@@ -1,18 +1,22 @@
-<h2 class="heading3">Enter user email address</h2>
+<h2 class="heading3">Account Details</h2>
 
 <editor params="label: 'User Email'">
-    <input type="text" placeholder="Type here" data-bind="
-        value: emailAddress,
-        hasFocus: $inActiveStep
+    <input type="text" placeholder="e.g. momo@g-net.com" data-bind="
+        value: emailAddress
     "/>
 </editor>
 
 
 <h2 class="heading3">
-    Allow S3 access for this user
+    S3 access for this account
 </h2>
 
-<toggle-switch class="push-next" params="value: enableS3Access"></toggle-switch>
+
+<toggle-switch class="push-next" params="
+    value: enableS3Access,
+    onLabel: 'Enabled',
+    offLabel: 'Disabeld'
+"></toggle-switch>
 
 <div class="row content-middle">
     <h2 class="heading3 greedy push-next" data-bind="
@@ -38,8 +42,23 @@
     </div>
 </div>
 
-<multiselect class="greedy" params="
+<multiselect class="greedy push-next" params="
     options: buckets,
     selected: selectedBuckets,
     disabled: !enableS3Access()">
 </multiselect>
+
+<div class="row align-end">
+    <button class="link alt-colors push-next" data-bind="click: () => close()">
+        Cancel
+    </button>
+
+    <working-button params="
+        click: create,
+        working: working,
+        workingLabel: 'Creating...'
+    ">
+        Create Account
+    </working-button>
+</div>
+

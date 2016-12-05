@@ -1,8 +1,8 @@
 import template from './set-cloud-sync-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { CloudConnections, CloudBucketList } from 'model';
-import { loadCloudConnections, loadCloudBucketList, setCloudSyncPolicy } from 'actions';
+import { systemInfo, sessionInfo, cloudBucketList } from 'model';
+import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';
 import { deepFreeze } from 'utils/all';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
@@ -55,11 +55,21 @@ class SetCloudSyncModalViewModel extends Disposable {
         this.onClose = onClose;
         this.bucketName = bucketName;
 
+        const cloudConnections = ko.pureComputed(
+            () => {
+                const user = (systemInfo() ? systemInfo().accounts : []).find(
+                    account => account.email === sessionInfo().user
+                );
+
+                return user.external_connections.connections;
+            }
+        );
+
         this.connectionOptions = ko.pureComputed(
             () => [
                 addConnectionOption,
                 null,
-                ...CloudConnections()
+                ...cloudConnections()
                     .filter(
                         connection => allowedServices.some(
                             service => connection.endpoint_type === service
@@ -101,11 +111,11 @@ class SetCloudSyncModalViewModel extends Disposable {
 
         this.targetBucketsOptions = ko.pureComputed(
             () => {
-                if (!this.connection() || !CloudBucketList()) {
+                if (!this.connection() || !cloudBucketList()) {
                     return;
                 }
 
-                return CloudBucketList().map(
+                return cloudBucketList().map(
                     bucketName => ({ value: bucketName })
                 );
             }
@@ -138,8 +148,6 @@ class SetCloudSyncModalViewModel extends Disposable {
             this.connection,
             this.targetBucket
         ]);
-
-        loadCloudConnections();
     }
 
     loadBucketsList() {

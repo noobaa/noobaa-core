@@ -2,7 +2,7 @@
     title: 'Environment DNS Settings',
     collapsed: isCollapsed
 ">
-    <section data-name="collapsed">
+    <section class="row" data-name="collapsed">
         <span class="push-next">
             Primary:
             <span data-bind="
@@ -20,7 +20,7 @@
         </span>
     </section>
 
-    <section data-name="expanded">
+    <section class="column" data-name="expanded">
         <p>Setup the server to use the following DNS servers for name resolution</p>
 
         <editor params="label: 'Primary DNS'">
@@ -38,13 +38,13 @@
             Update
         </button>
     </section>
-
-    <!-- ko if: isUpdateServerDNSSettingsModelVisible -->
-    <update-server-dns-settings-modal params="
-        onClose: () => hideUpdateDServerDNSSettingsModal(),
-        serverSecret: serverSecret,
-        primaryDNS: primaryDNS,
-        secondaryDNS: secondaryDNS
-    "></update-server-dns-settings-modal>
-    <!-- /ko -->
 </collapsible-section>
+
+<!-- ko if: isUpdateServerDNSSettingsModelVisible -->
+<update-server-dns-settings-modal params="
+    onClose: () => hideUpdateDServerDNSSettingsModal(),
+    serverSecret: serverSecret,
+    primaryDNS: primaryDNS,
+    secondaryDNS: secondaryDNS
+"></update-server-dns-settings-modal>
+<!-- /ko -->

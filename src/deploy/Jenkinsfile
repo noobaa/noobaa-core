@@ -1,5 +1,5 @@
 #!groovy​
-def branch = 'jacky-test'
+def branch = 'master'
 def package_location = 'http://146.148.16.59:8080'+'/job/mdserver/lastSuccessfulBuild/'
 //dataset
 def noobaa_ip = '40.121.83.180'

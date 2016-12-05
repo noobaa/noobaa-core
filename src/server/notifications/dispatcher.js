@@ -120,7 +120,7 @@ class Dispatcher {
     send_syslog(item) {
         dbg.log3('Sending external syslog', item);
         const INFO_LEVEL = 5;
-        this._ext_syslog.log(INFO_LEVEL, 'NooBaa' + item.description);
+        this._ext_syslog.log(INFO_LEVEL, 'NooBaa ' + item.description);
     }
 
     //Alerts

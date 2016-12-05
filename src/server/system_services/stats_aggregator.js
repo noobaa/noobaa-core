@@ -334,10 +334,18 @@ function get_cloud_pool_stats(req) {
 }
 
 function get_tier_stats(req) {
-    return _.map(system_store.data.tiers, tier => ({
-        pools_num: tier.pools.length,
-        data_placement: tier.data_placement,
-    }));
+    return _.map(system_store.data.tiers, tier => {
+        let pools = [];
+        _.forEach(tier.mirrors, mirror_object => {
+            pools = _.concat(pools, mirror_object.spread_pools);
+        });
+        pools = _.compact(pools);
+
+        return {
+            pools_num: pools.length,
+            data_placement: tier.data_placement,
+        };
+    });
 }
 
 //Collect operations related stats and usage

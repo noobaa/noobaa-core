@@ -21,6 +21,7 @@ function upgrade() {
     upgrade_object_mds();
     remove_unnamed_nodes();
     upgrade_cloud_agents();
+    upgrade_tier_pools();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -454,6 +455,39 @@ function upgrade_object_mds() {
             },
             $unset: {
                 create_time: 1
+            }
+        });
+    });
+}
+
+function upgrade_tier_pools() {
+    print('\n*** upgrade_tier_pools ...');
+    db.tier.find({
+        pools: {
+            $exists: true
+        }
+    }).forEach(function(tier) {
+        var mirrors = [];
+        if (tier.data_placement === 'MIRROR') {
+            tier.pools.forEach(function(pool_object_id) {
+                mirrors.push({
+                    spread_pools: [pool_object_id]
+                });
+            });
+        } else {
+            mirrors.push({
+                spread_pools: tier.pools
+            });
+        }
+
+        db.tier.update({
+            _id: tier._id
+        }, {
+            $set: {
+                mirrors: mirrors
+            },
+            $unset: {
+                pools: 1
             }
         });
     });

@@ -507,8 +507,8 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
             .then(() => promise_utils.retry(24, 5000, () => has_expected_num_nodes(TEST_CTX.cloud_pool_name, 1))))
         .then(() => client.tier.create_tier({
             name: TEST_CTX.default_tier_name,
-            node_pools: pool_names,
-            cloud_pools: cloud_pool ? [TEST_CTX.cloud_pool_name] : undefined,
+            attached_pools: cloud_pool ? _.concat(pool_names, [TEST_CTX.cloud_pool_name]) : pool_names,
+            // cloud_pools: cloud_pool ? [TEST_CTX.cloud_pool_name] : undefined,
             data_placement: mirrored ? 'MIRROR' : 'SPREAD'
         }))
         .then(() => client.tiering_policy.create_policy({

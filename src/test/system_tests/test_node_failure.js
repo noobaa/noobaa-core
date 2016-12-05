@@ -99,7 +99,7 @@ function create_test_pool() {
 function create_test_bucket() {
     return client.tier.create_tier({
             name: 'tier-' + TEST_CTX.bucket,
-            node_pools: [TEST_CTX.pool],
+            attached_pools: [TEST_CTX.pool],
             data_placement: 'SPREAD'
         })
         .then(() =>

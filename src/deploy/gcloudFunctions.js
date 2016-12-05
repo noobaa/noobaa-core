@@ -1,9 +1,9 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../../util/promise');
+var P = require('../util/promise');
 
-const promise_utils = require('../../util/promise_utils');
+const promise_utils = require('../util/promise_utils');
 var google = require('googleapis');
 var compute = google.compute('v1');
 

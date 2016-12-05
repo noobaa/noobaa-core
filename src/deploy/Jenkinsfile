@@ -1,0 +1,71 @@
+#!groovy​
+def branch = 'master'
+def package_location = 'http://146.148.16.59:8080'+'/job/mdserver/lastSuccessfulBuild/'
+//dataset
+def noobaa_ip = '40.121.83.180'
+def values = noobaa_ip.tokenize('.')
+def prefix = values[2]+'-'+values[3]
+def dataset_size = '1024' // 10GB of dataset
+def aging_time = '300' // run for 5 hours
+//machinekiller
+def start_killing_time = '30' // start killing after 30 minutes
+def service = 'azure'
+def resource = 'ds_during_nf_rg'
+def zone = 'eastus'
+def min_machines = '5' // minimum 3 machine
+def max_machines = '15' // maximum 10 machines
+
+node('node2') {
+    stage('Get code from GIT') {
+        echo 'Checkouting from git!'
+        checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
+    }
+    stage('Installing NPM packages') {
+        echo 'Installing all needed npm packages!'
+        sh script: """
+              export NVM_DIR=/usr/local/nvm
+              . /opt/nvm/nvm.sh
+              nvm install 6.9.1
+              nvm use 6.9.1
+              cd $WORKSPACE
+              npm install
+              npm install azure
+        """
+        // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
+    }
+    stage('Upgrading noobaa server') {
+      echo 'Upgrading machine to latest version!'
+      sh script: """
+              export NVM_DIR=/usr/local/nvm
+              . /opt/nvm/nvm.sh
+              curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L $package_location/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
+              # cp -R /root/node_modules/noobaa-core/build $WORKSPACE
+              # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
+              fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
+              node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
+      """
+    }
+    stage('Test1 - Running dataSet while killing machines') {
+      // Run the maven build
+      parallel (
+          "dataset": {
+            echo 'Running some dataset!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
+            """
+          },
+          "machinekill": {
+            echo 'Killing some nodes!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                cp /usr/local/noobaa/.env $WORKSPACE
+                sleep '${start_killing_time}'m
+                node $WORKSPACE/src/test/qa/machine_killer.js --service '${service}' --project '${resource}' --zone '${zone}' --prefix '${prefix}' --timeout \$((${aging_time}-${start_killing_time})) --min_machines '${min_machines}' --max_machines '${max_machines}'
+            """
+          }
+      )
+   }
+}

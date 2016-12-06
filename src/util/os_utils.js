@@ -240,7 +240,7 @@ function top_single(dst) {
     } else if (os.type() === 'Linux') {
         return promise_utils.exec('top -c -b -n 1' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
-        return;
+        return P.resolve();
     } else {
         throw new Error('top_single ' + os.type + ' not supported');
     }
@@ -272,7 +272,7 @@ function set_manual_time(time_epoch, timez) {
             .then(() => promise_utils.exec('date +%s -s @' + time_epoch))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return;
+        return P.resolve();
     } else {
         throw new Error('setting time/date not supported on non-Linux platforms');
     }
@@ -286,7 +286,7 @@ function get_ntp() {
                 return regex_res ? regex_res[1] : "";
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return;
+        return P.resolve();
     }
     throw new Error('NTP not supported on non-Linux platforms');
 }
@@ -300,7 +300,7 @@ function set_ntp(server, timez) {
             .then(() => promise_utils.exec('/etc/init.d/ntpd restart'))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return;
+        return P.resolve();
     } else {
         throw new Error('setting NTP not supported on non-Linux platforms');
     }
@@ -341,7 +341,7 @@ function set_dns_server(servers) {
             return promise_utils.exec(command);
         });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return;
+        return P.resolve();
     } else {
         throw new Error('setting DNS not supported on non-Linux platforms');
     }
@@ -460,7 +460,7 @@ function is_supervised_env() {
 function reload_syslog_configuration(conf) {
     dbg.log0('setting syslog configuration to: ', conf);
     if (os.type() !== 'Linux') {
-        return;
+        return P.resolve();
     }
 
     if (conf && conf.enabled) {
@@ -481,7 +481,7 @@ function reload_syslog_configuration(conf) {
 
 function get_syslog_server_configuration() {
     if (os.type() !== 'Linux') {
-        return;
+        return P.resolve();
     }
     return fs_utils.get_last_line_in_file('/etc/rsyslog.d/noobaa_syslog.conf')
         .then(conf_line => {

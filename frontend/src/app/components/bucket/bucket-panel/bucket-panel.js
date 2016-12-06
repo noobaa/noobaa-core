@@ -22,15 +22,21 @@ class BucketPanelViewModel extends Disposable {
         this.bucketName = ko.pureComputed(
             () => this.bucket() && this.bucket().name
         );
-
-        this.selectedTab = ko.pureComputed(
-            () => uiState().tab
-        );
     }
 
-    isTabSelected(tabName) {
-        return this.selectedTab() === tabName;
+    tabHref(tab) {
+        return {
+            route: 'bucket',
+            params: { tab }
+        };
     }
+
+    tabCss(tab) {
+        return {
+            selected: uiState().tab === tab
+        };
+    }
+
 }
 
 export default {

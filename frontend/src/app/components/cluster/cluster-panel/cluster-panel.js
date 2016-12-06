@@ -1,7 +1,20 @@
 import template from './cluster-panel.html';
 import Disposable from 'disposable';
+import { uiState } from 'model';
 
 class ClusterPanelViewModel extends Disposable {
+    tabHref(tab) {
+        return {
+            route: 'cluster',
+            params: { tab }
+        };
+    }
+
+    tabCss(tab) {
+        return {
+            selected: uiState().tab === tab
+        };
+    }
 }
 
 export default {

@@ -163,7 +163,8 @@ export function showBuckets() {
             { route: 'buckets', label: 'Buckets' }
         ],
         selectedNavItem: 'buckets',
-        panel: 'buckets'
+        panel: 'buckets',
+        tab: 'buckets'
     });
 }
 
@@ -218,6 +219,7 @@ export function showResources() {
 
     let ctx = model.routeContext();
     let { tab = 'pools' } = ctx.params;
+
     model.uiState({
         layout: 'main-layout',
         title: 'Resources',
@@ -317,6 +319,9 @@ export function showAccount() {
 export function showCluster() {
     logAction('showCluster');
 
+    let ctx = model.routeContext();
+    let { tab = 'servers' } = ctx.params;
+
     model.uiState({
         layout: 'main-layout',
         title: 'Cluster',
@@ -324,7 +329,28 @@ export function showCluster() {
             { route: 'cluster', label: 'Cluster' }
         ],
         selectedNavItem: 'cluster',
-        panel: 'cluster'
+        panel: 'cluster',
+        tab: tab
+    });
+}
+
+export function showServer() {
+    logAction('showServer');
+
+    const ctx = model.routeContext();
+    const { server, tab = 'details' } = ctx.params;
+
+
+    model.uiState({
+        layout: 'main-layout',
+        title: server,
+        breadcrumbs: [
+            { route: 'cluster', label: 'Cluster' },
+            { route: 'server', label: server }
+        ],
+        selectedNavItem: 'cluster',
+        panel: 'server',
+        tab: tab
     });
 }
 

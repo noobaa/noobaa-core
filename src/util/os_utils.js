@@ -315,7 +315,7 @@ function get_dns_servers() {
                 if (regex_res) return regex_res.shift();
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return res;
+        return P.resolve(res);
     }
     throw new Error('DNS not supported on non-Linux platforms');
 }

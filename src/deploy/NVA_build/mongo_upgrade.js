@@ -502,16 +502,18 @@ function add_defaults_to_sync_credentials_cache() {
     db.accounts.find().forEach(function(account) {
         var credentials = account.sync_credentials_cache;
         if (credentials) {
+            var new_credentials = [];
+            credentials.forEach(function(connection) {
+                var new_connection = connection;
+                new_connection.name = connection.name || connection.access_key;
+                new_connection.endpoint = connection.endpoint || 'https://s3.amazonaws.com';
+                new_credentials.push(new_connection);
+            });
             db.accounts.update({
                 _id: account._id
             }, {
                 $set: {
-                    sync_credentials_cache: {
-                        name: credentials.name || credentials.access_key,
-                        endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
-                        identity: credentials.access_key,
-                        endpoint_type: credentials.endpoint_type,
-                    }
+                    sync_credentials_cache: new_credentials
                 }
             });
         }

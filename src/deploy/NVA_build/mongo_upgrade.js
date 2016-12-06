@@ -571,9 +571,12 @@ function add_credentials_to_missing_account_id(credentials) {
 function find_account_id_by_credentials(access_key) {
     db.accounts.find().forEach(function(account) {
         var candidate_credentials = account.sync_credentials_cache;
-        if (candidate_credentials &&
-            candidate_credentials.access_key === access_key) {
-            return account._id;
+        if (candidate_credentials) {
+            candidate_credentials.forEach(function(connection) {
+                if (connection.access_key === access_key) {
+                    return account._id;
+                }
+            });
         }
     });
 }

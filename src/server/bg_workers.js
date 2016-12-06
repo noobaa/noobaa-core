@@ -52,12 +52,11 @@ register_rpc();
 function register_rpc() {
     server_rpc.register_bg_services();
     server_rpc.register_common_services();
-    let http_port = url.parse(server_rpc.rpc.router.bg).port;
+    const u = url.parse(server_rpc.rpc.router.bg);
     return server_rpc.rpc.start_http_server({
-        port: http_port,
-        ws: true,
+        port: u.port,
+        protocol: u.protocol,
         logging: true,
-        secure: false,
     });
 }
 

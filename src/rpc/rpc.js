@@ -813,7 +813,8 @@ RPC.prototype.start_http_server = function(options) {
     rpc_http_server.on('connection', conn => this._accept_new_connection(conn));
     return rpc_http_server.start(options)
         .then(http_server => {
-            if (options.ws) {
+            if (options.protocol === 'ws:' ||
+                options.protocol === 'wss:') {
                 this.register_ws_transport(http_server);
             }
             return http_server;

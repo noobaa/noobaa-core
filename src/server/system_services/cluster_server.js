@@ -83,7 +83,7 @@ function add_member_to_cluster(req) {
             secret: req.rpc_params.secret,
             version: pkg.version
         }, {
-            address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
+            address: server_rpc.get_base_address(req.rpc_params.address),
             timeout: 60000 //60s
         })
         .then(response => {
@@ -143,7 +143,7 @@ function add_member_to_cluster(req) {
                 jwt_secret: process.env.JWT_SECRET,
                 new_hostname: req.rpc_params.new_hostname
             }, {
-                address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
+                address: server_rpc.get_base_address(req.rpc_params.address),
                 timeout: 60000 //60s
             });
         })
@@ -385,7 +385,7 @@ function update_time_config(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_time_config(time_config, {
-                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
+                    address: server_rpc.get_base_address(server.owner_address)
                 });
             });
         })
@@ -447,7 +447,7 @@ function update_dns_servers(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
-                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
+                    address: server_rpc.get_base_address(server.owner_address)
                 });
             });
         })
@@ -483,7 +483,7 @@ function set_debug_level(req) {
 
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_set_debug_level(debug_params, {
-                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
+                    address: server_rpc.get_base_address(server.owner_address),
                     auth_token: req.auth_token
                 });
             });
@@ -596,7 +596,7 @@ function diagnose_system(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
-                        address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
+                        address: server_rpc.get_base_address(server.owner_address),
                         auth_token: req.auth_token
                     })
                     .then(res_data => {
@@ -653,7 +653,7 @@ function read_server_time(req) {
     }
 
     return server_rpc.client.cluster_internal.apply_read_server_time(req.rpc_params, {
-        address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
+        address: server_rpc.get_base_address(cluster_server.owner_address),
     });
 }
 
@@ -786,7 +786,7 @@ function upgrade_cluster(req) {
         .then(() => P.each(secondary_members, ip => {
             dbg.log0('UPGRADE:', 'sending do_upgrade to server', ip, 'and and waiting for DB_READY state');
             return server_rpc.client.cluster_internal.do_upgrade({}, {
-                    address: 'ws://' + ip + ':' + server_rpc.get_base_port()
+                    address: server_rpc.get_base_address(ip)
                 })
                 .then(() => _wait_for_upgrade_state(ip, 'DB_READY'))
                 .catch(err => {
@@ -925,7 +925,7 @@ function set_server_conf(req) {
                 return server_rpc.client.cluster_internal.set_hostname_internal({
                         hostname: req.rpc_params.hostname,
                     }, {
-                        address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
+                        address: server_rpc.get_base_address(cluster_server.owner_address),
                         timeout: 60000 //60s
                     })
                     .then(() => cluster_server);
@@ -1222,7 +1222,7 @@ function _publish_to_cluster(apiname, req_params) {
     dbg.log0('Sending cluster news:', apiname, 'to:', servers, 'with:', req_params);
     return P.each(servers, function(server) {
         return server_rpc.client.cluster_internal[apiname](req_params, {
-            address: 'ws://' + server + ':' + server_rpc.get_base_port(),
+            address: server_rpc.get_base_address(server),
             timeout: 60000 //60s
         });
     });
@@ -1305,7 +1305,7 @@ function check_cluster_status() {
     return P.map(_.filter(servers,
             server => server.owner_secret !== system_store.get_server_secret()),
         server => server_rpc.client.cluster_server.ping({}, {
-            address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
+            address: server_rpc.get_base_address(server.owner_address),
             timeout: 60000 //60s
         }).then(res => {
             if (res === "PONG") {

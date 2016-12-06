@@ -506,10 +506,12 @@ function add_defaults_to_sync_credentials_cache() {
                 _id: account._id
             }, {
                 $set: {
-                    name: credentials.name || credentials.access_key,
-                    endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
-                    identity: credentials.access_key,
-                    endpoint_type: credentials.endpoint_type,
+                    sync_credentials_cache: {
+                        name: credentials.name || credentials.access_key,
+                        endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
+                        identity: credentials.access_key,
+                        endpoint_type: credentials.endpoint_type,
+                    }
                 }
             });
         }

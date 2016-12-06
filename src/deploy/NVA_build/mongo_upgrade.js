@@ -575,7 +575,7 @@ function find_account_id_by_credentials(access_key) {
         if (candidate_credentials) {
             candidate_credentials.forEach(function(connection) {
                 if (connection.access_key === access_key) {
-                    ret = account._id.valueOf(); //account._id.valueOf();
+                    ret = account._id;
                 }
             });
         }

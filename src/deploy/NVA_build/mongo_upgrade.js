@@ -563,22 +563,24 @@ function add_credentials_to_missing_account_id(credentials) {
         credentials.access_keys &&
         credentials.access_keys.access_key &&
         !credentials.access_keys.account_id) {
-        credentials.account_id = find_account_id_by_credentials(credentials.access_keys.access_key);
+        credentials.access_keys.account_id = find_account_id_by_credentials(credentials.access_keys.access_key);
         return credentials;
     }
 }
 
 function find_account_id_by_credentials(access_key) {
+    var ret;
     db.accounts.find().forEach(function(account) {
         var candidate_credentials = account.sync_credentials_cache;
         if (candidate_credentials) {
             candidate_credentials.forEach(function(connection) {
                 if (connection.access_key === access_key) {
-                    return account._id;
+                    ret = account._id.valueOf(); //account._id.valueOf();
                 }
             });
         }
     });
+    return ret;
 }
 
 function fix_nodes_pool_to_object_id() {

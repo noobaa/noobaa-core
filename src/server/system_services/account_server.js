@@ -633,15 +633,17 @@ function get_account_info(account, include_connection_cache) {
     };
 
     if (!_.isUndefined(include_connection_cache) && include_connection_cache) {
-        external_connections.connections = credentials_cache.map(credentials => {
-            credentials.usage = _list_connection_usage(account, credentials);
-            return credentials;
-        });
+        external_connections.connections = credentials_cache.map(credentials => ({
+            name: credentials.name,
+            endpoint: credentials.endpoint,
+            identity: credentials.access_key,
+            endpoint_type: credentials.endpoint_type,
+            usage: _list_connection_usage(account, credentials)
+        }));
     } else {
         external_connections.connections = [];
     }
     info.external_connections = external_connections;
-
     return info;
 }
 

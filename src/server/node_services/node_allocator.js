@@ -19,8 +19,9 @@ function refresh_tiering_alloc(tiering) {
         tier_and_order => {
             let tier_pools = [];
             // Inside the Tier, pools are unique and we don't need to filter afterwards
-            _.forEach(tier_and_order.tier.mirrors, pools_object =>
-                tier_pools = _.concat(tier_pools, pools_object.spread_pools));
+            _.forEach(tier_and_order.tier.mirrors, mirror_object => {
+                tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
+            });
             return tier_pools;
         }));
     return P.map(pools, refresh_pool_alloc);
@@ -67,14 +68,14 @@ function refresh_pool_alloc(pool) {
 }
 
 
-// TODO TODO TODO
 function get_tiering_pools_status(tiering) {
     let pools = _.flatten(_.map(tiering.tiers,
         tier_and_order => {
             let tier_pools = [];
             // Inside the Tier, pools are unique and we don't need to filter afterwards
-            _.forEach(tier_and_order.tier.mirrors, pools_object =>
-                tier_pools = _.concat(tier_pools, pools_object.spread_pools));
+            _.forEach(tier_and_order.tier.mirrors, mirror_object => {
+                tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
+            });
             return tier_pools;
         }));
 

@@ -62,9 +62,7 @@ mocha.describe('map_utils', function() {
                             frag: 0,
                             node: mock_node(pools[i % num_pools]._id)
                         })));
-                    console.warn('JEN CHECK', chunk, chunk.frags[0].blocks, tiering_pools_status);
                     let status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
-                    console.warn('JEN CHECK2', status);
                     assert.strictEqual(status.allocations.length, 0);
                     assert.strictEqual(status.deletions.length, 0);
                     assert(status.accessible, 'accessible');
@@ -127,10 +125,8 @@ mocha.describe('map_utils', function() {
                         frag: 0,
                         node: mock_node(pools[0]._id)
                     }];
-                    // console.warn('JEN GONE BLOCKS', blocks);
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);
                     let status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
-                    // console.warn('JEN GONE BLOCKS2', status);
                     assert.strictEqual(status.allocations.length, total_num_blocks - 1);
                     assert.strictEqual(status.deletions.length, 1);
                     assert(status.accessible, 'accessible');
@@ -141,10 +137,8 @@ mocha.describe('map_utils', function() {
                             node: mock_node(alloc.pools[0]._id)
                         });
                     });
-                    // console.warn('JEN GONE BLOCK3', blocks);
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);
                     status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
-                    // console.warn('JEN GONE BLOCKS4', status);
                     assert.strictEqual(status.allocations.length, 0);
                     assert.strictEqual(status.deletions.length, 1);
                     assert(status.accessible, 'accessible');

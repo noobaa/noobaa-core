@@ -14,7 +14,6 @@ const request = require('request');
 const ip_module = require('ip');
 const fs = require('fs');
 const path = require('path');
-
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -38,6 +37,7 @@ const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 const node_server = require('../node_services/node_server');
 const dns = require('dns');
+const node_allocator = require('../node_services/node_allocator');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -367,7 +367,12 @@ function read_system(req) {
 
         fs.statAsync(path.join('/etc', 'private_ssl_path', 'server.key'))
         .return(true)
-        .catch(() => false)
+        .catch(() => false),
+
+        promise_utils.all_obj(
+            system.buckets_by_name,
+            bucket => node_allocator.refresh_tiering_alloc(bucket.tiering)
+        )
     ).spread(function(
         nodes_aggregate_pool_no_cloud,
         nodes_aggregate_pool_with_cloud,

@@ -328,7 +328,7 @@ function main() {
                 .then(() => block_ids);
         })
         .then(function(block_ids) {
-            let new_pools = _.filter(files_bucket_tier.attached_pools, pool => String(pool) === TEST_CTX.cloud_pool_name);
+            let new_pools = _.filter(files_bucket_tier.attached_pools, pool => String(pool) !== TEST_CTX.cloud_pool_name);
             // This is used in order to make sure that the blocks will be deleted from the cloud
             return client.tier.update_tier({
                     name: files_bucket_tier.name,

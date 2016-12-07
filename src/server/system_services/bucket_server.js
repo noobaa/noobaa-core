@@ -21,6 +21,7 @@ const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
+const node_allocator = require('../node_services/node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
 const cloud_utils = require('../../util/cloud_utils');
@@ -149,7 +150,8 @@ function read_bucket(req) {
             bucket: bucket._id,
             deleted: null
         }),
-        get_cloud_sync(req, bucket)
+        get_cloud_sync(req, bucket),
+        node_allocator.refresh_tiering_alloc(bucket.tiering)
     ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
         return get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy);
     });
@@ -811,6 +813,12 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         tier_of_bucket = bucket.tiering.tiers[0].tier;
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
+
+    let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
+    _.forEach(tier_of_bucket.mirrors, mirror_object => {
+        info.writable = Boolean(info.writable) || _.some(mirror_object.spread_pools, pool =>
+            _.get(tiering_pools_status[pool.name], 'valid_for_allocation', false));
+    });
 
     let objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,

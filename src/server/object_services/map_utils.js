@@ -277,13 +277,11 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
             current_weight: num_good
         };
 
-        console.warn('JEN STUFF CHECK', num_good, max_replicas, decision_params);
         if (num_good > max_replicas) {
             spill_status = _handle_over_spill(decision_params);
         } else if (num_good < max_replicas) {
             spill_status = _handle_under_spill(decision_params);
         }
-        console.warn('JEN STUFF CHECK2', spill_status);
 
         _.each(block_partitions.bad_blocks, block => deletions.push(block));
 
@@ -337,7 +335,6 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
         }
     });
 
-    console.warn('JEN THIS IS THE END RESULT:', allocations, deletions, chunk_accessible);
     return {
         allocations: allocations,
         deletions: deletions,

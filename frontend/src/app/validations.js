@@ -91,6 +91,15 @@ function includesDigit(value) {
     return patternValidatior(value, /[0-9]/);
 }
 
+function isJSON(value) {
+    try {
+        JSON.parse(value);
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
 export default function register(ko) {
     Object.assign(ko.validation.rules, {
         notIn: {
@@ -124,15 +133,19 @@ export default function register(ko) {
         },
         includesUppercase:{
             validator: includesUppercase,
-            message: 'Please enter at least one uppercase letter'
+            message: 'Use at least one uppercased letter'
         },
         includesLowercase:{
             validator: includesLowercase,
-            message: 'Please enter at least one lowercase letter'
+            message: 'Use at least one lowercased letter'
         },
         includesDigit:{
             validator: includesDigit,
-            message: 'Please enter at least one digit'
+            message: 'Use at least one digit'
+        },
+        isJSON: {
+            validator: isJSON,
+            message: 'Please enter a valid JSON string'
         }
 
     });

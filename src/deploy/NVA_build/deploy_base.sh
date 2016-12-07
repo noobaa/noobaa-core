@@ -6,7 +6,6 @@ ENV_FILE="${CORE_DIR}/.env"
 LOG_FILE="/var/log/noobaa_deploy.log"
 SUPERD="/usr/bin/supervisord"
 SUPERCTL="/usr/bin/supervisorctl"
-NOOBAASEC="/etc/noobaa_sec"
 NOOBAA_ROOTPWD="/etc/nbpwd"
 
 function deploy_log {
@@ -32,7 +31,9 @@ function install_platform {
 		nc \
 		tcpdump \
 		iperf \
-		python-setuptools
+		python-setuptools \
+        bind-utils \
+        vim
 
 	# make crontab start on boot
 	chkconfig crond on
@@ -134,9 +135,9 @@ function install_nodejs {
 	curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash
     export NVM_DIR="$HOME/.nvm"
     source /root/.nvm/nvm.sh
-    nvm install 4.4.4
-	nvm alias default 4.4.4
-    nvm use 4.4.4
+    nvm install 6.9.1
+	nvm alias default 6.9.1
+    nvm use 6.9.1
     cd ~
     ln -sf $(which node) /usr/local/bin/node
 
@@ -183,13 +184,14 @@ function install_mongo {
 function general_settings {
 	deploy_log "----> general_settings start"
 
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
     iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 8081 -j ACCEPT
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 8444 -j ACCEPT
     iptables -I INPUT 1 -i eth0 -p tcp --dport 27000 -j ACCEPT
     iptables -I INPUT 1 -i eth0 -p tcp --dport 26050 -j ACCEPT
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 60100 -j ACCEPT
     #CVE-1999-0524
     iptables -A INPUT -p ICMP --icmp-type timestamp-request -j DROP
     iptables -A INPUT -p ICMP --icmp-type timestamp-reply -j DROP
@@ -206,10 +208,12 @@ function general_settings {
     echo "alias nlog='logger -p local0.warn -t NooBaaBash[1]'"
     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
 
-    #Fix file descriptor limits
+    #Fix file descriptor limits, tcp timeout
     echo "root hard nofile 102400" >> /etc/security/limits.conf
     echo "root soft nofile 102400" >> /etc/security/limits.conf
+    echo "64000" > /proc/sys/kernel/threads-max
     sysctl -w fs.file-max=102400
+    sysctl -w net.ipv4.tcp_keepalive_time=120
     sysctl -e -p
 
     #noobaa user & first install wizard
@@ -266,10 +270,6 @@ function fix_security_issues {
 	fi
 	echo ${rootpwd} | passwd root --stdin
 
-	# set noobaaroot password
-	secret=$(cat ${NOOBAASEC})
-	echo ${secret} | passwd noobaaroot --stdin
-
 	# disable root login from ssh
 	if ! grep -q 'PermitRootLogin no' /etc/ssh/sshd_config; then
 		echo 'PermitRootLogin no' >> /etc/ssh/sshd_config
@@ -280,6 +280,11 @@ function fix_security_issues {
 		echo 'Match User noobaa'  >> /etc/ssh/sshd_config
 		echo '	PasswordAuthentication no'  >> /etc/ssh/sshd_config
 	fi
+
+    # copy fix_server_sec to
+    if ! grep -q 'fix_server_sec' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
+    fi
 }
 
 function setup_supervisors {

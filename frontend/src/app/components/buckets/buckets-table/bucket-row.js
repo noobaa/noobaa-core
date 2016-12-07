@@ -1,8 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import numeral from 'numeral';
 import { systemInfo } from 'model';
-import { deepFreeze, isDefined, capitalize } from 'utils';
+import { deepFreeze, capitalize, stringifyAmount } from 'utils/all';
 import { deleteBucket } from'actions';
 
 const stateIconMapping = deepFreeze({
@@ -90,13 +89,15 @@ export default class BucketRowViewModel extends Disposable {
         this.fileCount = ko.pureComputed(
             () => {
                 if (!bucket()) {
-                    return {};
+                    return 0;
                 }
 
-                let count = bucket().num_objects;
-                return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
+                return bucket().num_objects;
             }
-        );
+        )
+        .extend({
+            formatNumber: true
+        });
 
         let tierName = ko.pureComputed(
             () => bucket() && bucket().tiering.tiers[0].tier
@@ -110,23 +111,23 @@ export default class BucketRowViewModel extends Disposable {
 
         this.placementPolicy = ko.pureComputed(
             () => {
-                if (tier()) {
-                    let { data_placement, node_pools } = tier();
-                    let count = node_pools.length;
-
-                    let text = `${
-                            placementPolicyTypeMapping[data_placement]
-                        } on ${
-                            count
-                        } pool${
-                            count === 1 ? '' : 's'
-                        }`;
-
-                    return {
-                        text: text,
-                        tooltip: node_pools
-                    };
+                if (!tier()) {
+                    return {};
                 }
+
+                let { data_placement, node_pools } = tier();
+                let count = node_pools.length;
+
+                let text = `${
+                        placementPolicyTypeMapping[data_placement]
+                    } on ${
+                        stringifyAmount('pool', count)
+                    }`;
+
+                return {
+                    text: text,
+                    tooltip: node_pools
+                };
             }
         );
 
@@ -137,7 +138,7 @@ export default class BucketRowViewModel extends Disposable {
                     return policy;
                 }
 
-                let a = tier().cloud_pools
+                return tier().cloud_pools
                     .map(
                         name => systemInfo().pools.find(
                             pool => pool.name === name
@@ -150,8 +151,6 @@ export default class BucketRowViewModel extends Disposable {
                         },
                         policy
                     );
-
-                return a;
             }
         );
 
@@ -194,9 +193,10 @@ export default class BucketRowViewModel extends Disposable {
 
 
         this.cloudSync = ko.pureComputed(
-            () => bucket() && cloudSyncStatusMapping[
-                bucket().cloud_sync ? bucket().cloud_sync.status : 'NOTSET'
-            ]
+            () => {
+                let state = (bucket() && bucket().cloud_sync) ? bucket().cloud_sync.status : 'NOTSET';
+                return cloudSyncStatusMapping[state];
+            }
         );
 
         let hasObjects = ko.pureComputed(

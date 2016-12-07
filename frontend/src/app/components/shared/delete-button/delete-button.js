@@ -1,7 +1,7 @@
 import template from './delete-button.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { isFunction, noop } from 'utils';
+import { isFunction, noop } from 'utils/all';
 
 class DeleteButtonViewModel extends Disposable {
     constructor({
@@ -22,7 +22,7 @@ class DeleteButtonViewModel extends Disposable {
         });
 
         this.tooltip = ko.pureComputed(
-            () => this.isActive() ? undefined : { text: tooltip, align: 'right' }
+            () => this.isActive() ? undefined : { text: tooltip, align: 'end' }
         );
 
         this.icon = ko.pureComputed(

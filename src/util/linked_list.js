@@ -22,7 +22,7 @@ class LinkedList {
         new_item[this.head] = this;
         next[this.prev] = new_item;
         item[this.next] = new_item;
-        this.length++;
+        this.length += 1;
         return true;
     }
 
@@ -35,7 +35,7 @@ class LinkedList {
         new_item[this.head] = this;
         prev[this.next] = new_item;
         item[this.prev] = new_item;
-        this.length++;
+        this.length += 1;
         return true;
     }
 
@@ -51,7 +51,7 @@ class LinkedList {
         item[this.next] = null;
         item[this.prev] = null;
         item[this.head] = null;
-        this.length--;
+        this.length -= 1;
         return true;
     }
 

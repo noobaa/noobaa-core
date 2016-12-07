@@ -30,7 +30,9 @@ config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 server_rpc.register_system_services();
 server_rpc.register_node_services();
 server_rpc.register_object_services();
+server_rpc.register_func_services();
 server_rpc.register_bg_services();
+server_rpc.register_hosted_agents_services();
 server_rpc.register_common_services();
 server_rpc.rpc.set_request_logger(function() {
     return console.info.apply(console,
@@ -41,6 +43,7 @@ server_rpc.rpc.set_request_logger(function() {
 server_rpc.rpc.router.default =
     server_rpc.rpc.router.md =
     server_rpc.rpc.router.bg =
+    server_rpc.rpc.router.master =
     'fcall://fcall';
 
 let http_port = 0;
@@ -73,9 +76,8 @@ mocha.before('coretest-before', function() {
         .then(() => console.log('running server_rpc.rpc.start_http_server'))
         .then(() => server_rpc.rpc.start_http_server({
             port: http_port,
-            secure: false,
+            protocol: 'ws:',
             logging: true,
-            ws: true
         }))
         .then(http_server_arg => {
             // the http/ws port is used by the agents

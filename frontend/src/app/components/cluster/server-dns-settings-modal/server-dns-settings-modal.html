@@ -7,7 +7,7 @@
     </p>
 
     <section class="greedy">
-        <editor params="label: 'Pirmary DNS'" class="push-prev">
+        <editor params="label: 'Primary DNS'" class="push-prev">
             <input type="text" data-bind="value: primaryDNS" />
         </editor>
         <editor params="label: 'Secondary DNS'" class="push-next">
@@ -16,7 +16,15 @@
     </section>
 
     <div class="row content-middle align-end push-prev">
-        <button class="link push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn" data-bind="click: save">Save</button>
+        <button class="link push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+
+        <button class="btn" data-bind="
+            click: save,
+            shakeOnClick: errors().length
+        ">
+            Save
+        </button>
     </div>
 </modal>

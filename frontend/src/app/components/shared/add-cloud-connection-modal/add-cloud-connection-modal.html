@@ -44,8 +44,7 @@
         </button>
         <button class="btn" data-bind="
             click: tryConnection,
-            css: { shake: shake },
-            animation: { end: () => shake(false) }
+            shakeOnClick: errors().length
         ">
             Save
         </button>

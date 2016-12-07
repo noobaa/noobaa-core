@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject } from 'utils';
+import { isObject, isUndefined, deepFreeze } from 'utils/all';
 
 ko.subscribable.fn.is = function(value) {
     return ko.pureComputed(
@@ -13,12 +13,14 @@ ko.subscribable.fn.toggle = function() {
 };
 
 ko.subscribable.fn.assign = function(data) {
-    this(Object.assign(this(), ko.unwrap(data)));
+    let changes = ko.unwrap(data);
+    let value = isUndefined(this()) ? changes : Object.assign(this(), changes);
+    this(value);
     return this;
 };
 
 ko.subscribable.fn.once = function(callback, ctx, event) {
-    let sub = this.subscribe(
+    const sub = this.subscribe(
         val => {
             sub.dispose();
             callback(val);
@@ -29,27 +31,71 @@ ko.subscribable.fn.once = function(callback, ctx, event) {
     return sub;
 };
 
+ko.subscribable.fn.debug = function(prefix) {
+    prefix ? console.debug(prefix, this()) : console.debug(this());
+    return this.subscribe(
+        val => prefix ? console.debug(prefix, val) : console.debug(val)
+    );
+};
+
 ko.observableWithDefault = function(valueAccessor) {
     let storage = ko.observable();
     return ko.pureComputed({
-        read: () => typeof storage() !== 'undefined' ? storage() : ko.unwrap(valueAccessor()),
+        read: () => isUndefined(storage()) ? ko.unwrap(valueAccessor()) : storage(),
         write: storage
     });
 };
 
 ko.deepUnwrap = function(value) {
-    let uw = ko.unwrap(value);
-    if (isObject(uw)) {
-        return Object.keys(uw).reduce(
+    const naked = ko.unwrap(value);
+    if (isObject(naked)) {
+        return Object.keys(naked).reduce(
             (res, key) => {
-                res[key] = ko.deepUnwrap(uw[key]);
+                res[key] = ko.deepUnwrap(naked[key]);
                 return res;
             },
-            uw instanceof Array ? [] : {}
+            naked instanceof Array ? [] : {}
         );
     } else {
-        return uw;
+        return naked;
     }
+};
+
+ko.touched = function(root) {
+    let initialized = false;
+    const trigger = ko.observable();
+    const obs = ko.pureComputed(
+        () => {
+            trigger();
+
+            if (!initialized) {
+                ko.deepUnwrap(root);
+                initialized = true;
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    obs.reset = function() {
+        initialized = false;
+        trigger.valueHasMutated();
+    };
+
+    // Force observable to calculate inital value.
+    // (pureComputed does not calculate value until first subscription )
+    obs();
+
+    return obs;
+};
+
+ko.renderToString = function(template, data) {
+    const doc = new DOMParser().parseFromString(template, 'text/html');
+    ko.applyBindings(data, doc.body);
+    const htmlString = doc.body.innerHTML.toString();
+    ko.cleanNode(doc);
+    return htmlString;
 };
 
 // ko.validation specific extentions:
@@ -58,10 +104,10 @@ if (ko.validation) {
     let kv = ko.validation;
 
     const getRuleValidationState = function(observable, appliedRule) {
-        let { 
-            rule = 'inline', 
-            params, 
-            validator = kv.rules[rule].validator, 
+        let {
+            rule = 'inline',
+            params,
+            validator = kv.rules[rule].validator,
             message = kv.rules[rule].message
         } = appliedRule;
 
@@ -76,17 +122,37 @@ if (ko.validation) {
         return ko.pureComputed(
             () => {
                 let rules = observable.rules;
-                
+
                 if (!rules) {
                     return [];
                 }
-                
+
                 return rules().map(
                     rule => getRuleValidationState(observable, rule)
                 );
             }
         );
     };
+
+    const validationGroupExtensions = deepFreeze({
+        validatingCount() {
+            return this.filter( obj => obj.isValidating() ).length;
+        }
+    });
+
+    const kvGroup = ko.validation.group;
+    ko.validation.group = function(obj, options) {
+        return Object.assign(
+            kvGroup(obj, options),
+            validationGroupExtensions
+        );
+    };
+
+    // ko.validation.isValidating = function (validationGroup) {
+    //     return Boolean(
+    //         validationGroup.filter( obs => obs.isValidating() ).length
+    //     );
+    // }
 }
 
 window.ko = ko;

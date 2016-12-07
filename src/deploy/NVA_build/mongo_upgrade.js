@@ -13,21 +13,40 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    fix_server_secret();
     sync_cluster_upgrade();
     upgrade_systems();
     upgrade_cluster();
     upgrade_system_access_keys();
     upgrade_object_mds();
+    remove_unnamed_nodes();
+    fix_nodes_pool_to_object_id();
+    upgrade_cloud_agents();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
+}
+
+
+function fix_server_secret() {
+    var truncated_secret = param_secret.substring(0, param_secret.length - 1);
+    // try to look for a truncated secret and set to the complete one.
+    db.clusters.update({
+        owner_secret: truncated_secret
+    }, {
+        $set: {
+            "owner_secret": param_secret
+        }
+    });
 }
 
 function sync_cluster_upgrade() {
     // find if this server should perform mongo upgrade
     var is_mongo_upgrade = db.clusters.find({
         owner_secret: param_secret
-    }).toArray()[0].upgrade.mongo_upgrade;
+    }).toArray()[0].upgrade ? db.clusters.find({
+        owner_secret: param_secret
+    }).toArray()[0].upgrade.mongo_upgrade : false;
 
     // if this server shouldn't run mongo_upgrade, set status to DB_READY,
     // to indicate that this server is upgraded and with mongo running.
@@ -43,14 +62,21 @@ function sync_cluster_upgrade() {
         var max_iterations = 100;
         var i = 0;
         while (i < max_iterations) {
+            print('waiting for master to complete mongo upgrade...');
             i += 1;
-            var master_status = db.clusters.find({
-                "upgrade.mongo_upgrade": true
-            }).toArray()[0].upgrade.status;
-            if (master_status === 'COMPLETED') {
-                print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
-                mark_completed();
-                quit();
+            try {
+                var master_status = db.clusters.find({
+                    "upgrade.mongo_upgrade": true
+                }).toArray()[0] ? db.clusters.find({
+                    "upgrade.mongo_upgrade": true
+                }).toArray()[0].upgrade.status : 'COMPLETED';
+                if (master_status === 'COMPLETED') {
+                    print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
+                    mark_completed();
+                    quit();
+                }
+            } catch (err) {
+                print(err);
             }
             sleep(10000);
         }
@@ -112,6 +138,11 @@ function upgrade_systems() {
                 }
             }
             updates.access_keys = updated_access_keys;
+        }
+
+        //Add last upgrade time if not exists
+        if (!system.upgrade_date) {
+            updates.upgrade_date = Date.now();
         }
 
         // optional fix - convert to idate format from ISO date
@@ -375,6 +406,40 @@ function upgrade_cluster() {
     db.clusters.insert(cluster);
 }
 
+function upgrade_cloud_agents() {
+    // go over cloud pools and copy
+    db.pools.find({
+        "deleted": {
+            $exists: false
+        },
+        "cloud_pool_info.agent_info": {
+            $exists: false
+        },
+        "cloud_pool_info": {
+            $exists: true
+        }
+    }).forEach(function(pool) {
+        var path = '/root/node_modules/noobaa-core/agent_storage/noobaa-internal-agent-' + pool.name + '/token';
+        var token;
+        try {
+            token = cat(path);
+            db.pools.update({
+                _id: pool._id
+            }, {
+                $set: {
+                    "cloud_pool_info.agent_info": {
+                        "node_token": token
+                    }
+                }
+            });
+        } catch (err) {
+            print('encountered error when upgrading cloud pool ' + pool.name + ' ', err);
+        }
+    });
+
+}
+
+
 function upgrade_object_mds() {
     print('\n*** upgrade_object_mds ...');
     db.objectmds.find({
@@ -390,6 +455,51 @@ function upgrade_object_mds() {
             },
             $unset: {
                 create_time: 1
+            }
+        });
+    });
+}
+
+function remove_unnamed_nodes() {
+    var nodes_ids_to_delete = [];
+    db.nodes.find({
+            name: /^a-node-has-no-name-/
+        })
+        .forEach(function(node) {
+            print('remove_unnamed_nodes: Checking blocks for',
+                node.name, node._id, 'system', node.system);
+            var num_blocks = db.datablocks.count({
+                system: node.system,
+                node: node._id,
+                deleted: null
+            });
+            if (num_blocks > 0) {
+                print('remove_unnamed_nodes: Found', num_blocks, 'blocks (!!!)',
+                    node.name, node._id, 'system', node.system);
+            } else {
+                print('remove_unnamed_nodes: Deleting node',
+                    node.name, node._id, 'system', node.system);
+                nodes_ids_to_delete.push(node._id);
+            }
+        });
+    if (nodes_ids_to_delete.length) {
+        db.nodes.deleteMany({
+            _id: {
+                $in: nodes_ids_to_delete
+            }
+        });
+    }
+}
+
+
+function fix_nodes_pool_to_object_id() {
+    // Type 2 is String ref: https://docs.mongodb.com/v3.0/reference/operator/query/type/
+    db.nodes.find({pool: {$type: 2}}).forEach(function(node) {
+        db.nodes.update({
+            _id: node._id
+        }, {
+            $set: {
+                pool: new ObjectId(node.pool)
             }
         });
     });

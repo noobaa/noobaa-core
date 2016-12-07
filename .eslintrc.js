@@ -39,6 +39,9 @@ module.exports = {
         // prefer to always return when calling callbacks to avoid double calls
         'callback-return': 'warn',
 
+        // not enforcing all class methods to use 'this'
+        'class-methods-use-this': 'off',
+
         // dangling commas are great for arrays and object properties
         'comma-dangle': 'off',
 
@@ -92,6 +95,12 @@ module.exports = {
         // expect empty line before comment to create visual relation to the relevant code
         'lines-around-comment': 'warn',
 
+        // directive means 'use strict', we don't enforce lines around
+        'lines-around-directive': 'off',
+
+        // we don't enforce comments to above/after the line, both work ok
+        'line-comment-position': 'off',
+
         // max depth of blocks in a function
         // TODO eslint max-depth of blocks should be reduced to ~3 instead of 5
         'max-depth': ['error', 5],
@@ -103,11 +112,12 @@ module.exports = {
             tabWidth: 4,
             ignoreComments: true,
             ignoreUrls: true,
+            ignoreTemplateLiterals: true,
         }],
 
         // max file length is 300 by default, we accept longer files
-        // TODO eslint max-lines per file should be reduced to ~500 instead of 2000
-        'max-lines': ['error', 2000],
+        // TODO eslint max-lines per file should be reduced to ~500 instead of 2100
+        'max-lines': ['error', 2100],
 
         // prefer small number of params to functions, otherwise send object
         // TODO eslint max-params per function should be reduced to ~4 instead of 6
@@ -133,6 +143,10 @@ module.exports = {
 
         // don't assign inside a condition, separate the lines for clarity
         'no-cond-assign': ['error', 'always'],
+
+        'no-confusing-arrow': ['error', {
+            allowParens: true
+        }],
 
         // using console in node.js is cool
         'no-console': 'off',
@@ -180,7 +194,7 @@ module.exports = {
         'no-nested-ternary': 'warn',
 
         // prefer to avoid reassigning to function params and use a new variable
-        'no-param-reassign': 'warn',
+        'no-param-reassign': 'off',
 
         // warn on using ++ operator, should replace with +=1
         // to avoid shenanigans of the value returned before/after the action
@@ -219,6 +233,8 @@ module.exports = {
 
         // constructors that do nothing can be deleted
         'no-useless-constructor': 'warn',
+        'no-useless-escape': 'warn',
+        'no-useless-return': 'warn',
 
         // do not allow code using varibles before they are defined and initialized,
         // but ok for functions since function declerations are loaded before the code runs
@@ -276,6 +292,8 @@ module.exports = {
             'words': false,
             'nonwords': false
         }],
+
+        'sort-keys': 'off',
 
         // don't verify the structure of jsdoc comments. let them be for now.
         'valid-jsdoc': ['off', {

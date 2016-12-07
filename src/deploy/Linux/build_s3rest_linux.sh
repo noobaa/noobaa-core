@@ -3,9 +3,9 @@
 
 source ~/.bashrc
 source "$NVM_DIR/nvm.sh"
-nvm install 4.4.4
-nvm alias default 4.4.4
-nvm use 4.4.4
+nvm install 6.9.1
+nvm alias default 6.9.1
+nvm use 6.9.1
 
 
 CLEAN=true;
@@ -57,7 +57,7 @@ else
         echo "copy files"
         cp ../../package.json ./package/
         cp ../../config.js ./package/
-        cp ~/.nvm/versions/node/v4.4.4/bin/node ./package/
+        cp ~/.nvm/versions/node/v6.9.1/bin/node ./package/
 
         mkdir ./package/src/
         cp -R ../../src/s3 ./package/src/
@@ -85,19 +85,14 @@ else
         sed -i '/rebuild/d' package.json
         sed -i '/nodetime/d' package.json
         sed -i '/newrelic/d' package.json
-        sed -i '/selenium-standalone/d' package.json
-        sed -i '/selenium-webdriver/d' package.json
         sed -i '/istanbul/d' package.json
         sed -i '/npm-run-all/d' package.json
-        sed -i '/babel-preset/d' package.json
         sed -i '/heapdump/d' package.json
         sed -i '/selectize/d' package.json
         sed -i '/jsonwebtoken/d' package.json
         sed -i '/googleapis/d' package.json
-        sed -i '/chromedriver/d' package.json
-        sed -i '/phantomjs-prebuilt/d' package.json
         sed -i '/vsphere/d' package.json
-        npm install -dd
+        npm install -dd --production
 
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh

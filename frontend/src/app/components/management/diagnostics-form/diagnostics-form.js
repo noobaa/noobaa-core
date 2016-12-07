@@ -1,9 +1,9 @@
 import template from './diagnostics-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo } from 'model';
+import { systemInfo, collectDiagnosticsState } from 'model';
 import { downloadSystemDiagnosticPack, setSystemDebugLevel } from 'actions';
-import { isUndefined } from 'utils';
+import { isUndefined } from 'utils/all';
 import { support } from 'config';
 
 class DiagnosticsFormViewModel extends Disposable {
@@ -21,7 +21,6 @@ class DiagnosticsFormViewModel extends Disposable {
             }
         ];
 
-
         this.debugLevel = ko.pureComputed(
             () => systemInfo() && systemInfo().debug_level
         );
@@ -38,6 +37,10 @@ class DiagnosticsFormViewModel extends Disposable {
 
         this.toogleDebugLevelButtonText = ko.pureComputed(
             () => `${this.debugLevel() > 0 ? 'Lower' : 'Raise' } Debug Level`
+        );
+
+        this.isCollectingDiagnostics = ko.pureComputed(
+            () => Boolean(collectDiagnosticsState()['system'])
         );
     }
 

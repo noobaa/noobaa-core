@@ -11,7 +11,6 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
-const mongo_utils = require('../../util/mongo_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -83,9 +82,9 @@ function create_tier(req) {
  */
 function read_tier(req) {
     var tier = find_tier_by_name(req);
-    var pool_ids = mongo_utils.uniq_ids(tier.pools, '_id');
+    var pool_names = tier.pools.map(pool => pool.name);
     return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_ids))
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id))
         .then(nodes_aggregate_pool => get_tier_info(tier, nodes_aggregate_pool));
 }
 
@@ -112,11 +111,11 @@ function update_tier(req) {
     // if node_pools are defined use it for the update otherwise use the existing
     if (req.rpc_params.node_pools) {
         // validate that all pools in node pools are actually node pools
-        _.each(req.rpc_params.node_pools, pool_name => {
-            if (req.system.pools_by_name[pool_name].cloud_pool_info) {
-                throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
-            }
-        });
+        // _.each(req.rpc_params.node_pools, pool_name => {
+        //     if (req.system.pools_by_name[pool_name].cloud_pool_info) {
+        //         throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
+        //     }
+        // });
 
         node_pools_update = req.rpc_params.node_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
     } else {
@@ -126,11 +125,11 @@ function update_tier(req) {
     // if cloud_pools are defined use it for the update otherwise use the existing
     if (req.rpc_params.cloud_pools) {
         // validate that all pools in cloud pools are actually cloud pools
-        _.each(req.rpc_params.node_pools, pool_name => {
-            if (!req.system.pools_by_name[pool_name].cloud_pool_info) {
-                throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
-            }
-        });
+        // _.each(req.rpc_params.node_pools, pool_name => {
+        //     if (!req.system.pools_by_name[pool_name].cloud_pool_info) {
+        //         throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
+        //     }
+        // });
         old_cloud_pools = cloud_pools_part.map(cloud_pool => cloud_pool.name);
         cloud_pools_update = req.rpc_params.cloud_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
     } else {
@@ -246,9 +245,9 @@ function read_policy(req) {
     var pools = _.flatten(_.map(policy.tiers,
         tier_and_order => tier_and_order.tier.pools
     ));
-    var pool_ids = mongo_utils.uniq_ids(pools, '_id');
+    var pool_names = pools.map(pool => pool.name);
     return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_ids))
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id))
         .then(nodes_aggregate_pool => get_tiering_policy_info(policy, nodes_aggregate_pool));
 }
 

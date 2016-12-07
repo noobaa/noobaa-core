@@ -1,7 +1,7 @@
 import template from './wizard.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { isObject, noop } from 'utils';
+import { isObject, noop } from 'utils/all';
 
 class WizardViewModel extends Disposable {
     constructor({
@@ -18,7 +18,6 @@ class WizardViewModel extends Disposable {
         super();
 
         this.heading = heading;
-        this.actionLabel = actionLabel;
         this.step = ko.observable(skip);
         this.validateStep = validateStep;
         this.onCancel = onCancel;
@@ -41,14 +40,46 @@ class WizardViewModel extends Disposable {
         );
 
         this.isLastStep = ko.pureComputed(
-            () => this.step() === steps.length -1
+            () => this.step() === steps.length - 1
         );
 
-        this.shake = ko.observable(false);
+        this.prevText = ko.pureComputed(
+            () => this.isFirstStep() ? 'Cancel' : 'Previous'
+        );
+
+        this.nextLabel = ko.pureComputed(
+            () => this.isLastStep() ? ko.unwrap(actionLabel) : 'Next'
+        );
+
+        this.isStepValid = ko.pureComputed(
+            () => this.validateStep(this.step() + 1)
+        );
     }
 
     isInStep(stepNum) {
         return this.step() === stepNum;
+    }
+
+    prev() {
+        if (this.isFirstStep()) {
+            this.cancel();
+
+        } else {
+            this.step(this.step() - 1);
+        }
+    }
+
+    next() {
+        if (!this.isStepValid()) {
+            return;
+        }
+
+        if (this.isLastStep()) {
+            this.complete();
+
+        } else {
+            this.step(this.step() + 1);
+        }
     }
 
     cancel() {
@@ -56,27 +87,9 @@ class WizardViewModel extends Disposable {
         this.onClose();
     }
 
-    prev() {
-        if (this.step() > 0) {
-            this.step(this.step() - 1);
-        }
-    }
-
-    next() {
-        if (!this.isLastStep() && this.validateStep(this.step() + 1)) {
-            this.step(this.step() + 1);
-        } else {
-            this.shake(true);
-        }
-    }
-
-    done() {
-        if (this.validateStep(this.step() + 1)) {
-            this.onComplete();
-            this.onClose();
-        } else {
-            this.shake(true);
-        }
+    complete() {
+        this.onComplete();
+        this.onClose();
     }
 }
 

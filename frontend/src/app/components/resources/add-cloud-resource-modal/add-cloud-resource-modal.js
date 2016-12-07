@@ -1,8 +1,8 @@
 import template from './add-cloud-resource-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { CloudConnections, CloudBucketList, systemInfo } from 'model';
-import { loadCloudConnections, loadCloudBucketList, createCloudResource } from 'actions';
+import { systemInfo, sessionInfo, cloudBucketList } from 'model';
+import { loadCloudBucketList, createCloudResource } from 'actions';
 
 const addConnectionOption = Object.freeze({
     label: 'Add new connection',
@@ -15,11 +15,21 @@ class AddCloudResourceModalViewModel extends Disposable {
 
         this.onClose = onClose;
 
+        const cloudConnections = ko.pureComputed(
+            () => {
+                const user = (systemInfo() ? systemInfo().accounts : []).find(
+                    account => account.email === sessionInfo().user
+                );
+
+                return user.external_connections.connections;
+            }
+        );
+
         this.connectionOptions = ko.pureComputed(
             () => [
                 addConnectionOption,
                 null,
-                ...CloudConnections().map(
+                ...cloudConnections().map(
                     connection => ({
                         label: connection.name || connection.access_key,
                         value: connection
@@ -54,7 +64,7 @@ class AddCloudResourceModalViewModel extends Disposable {
         );
 
         this.targetBucketsOptions = ko.pureComputed(
-            () => this.connection() && CloudBucketList() && CloudBucketList().map(
+            () => this.connection() && cloudBucketList() && cloudBucketList().map(
                 bucketName => ({ value: bucketName })
             )
 
@@ -105,10 +115,6 @@ class AddCloudResourceModalViewModel extends Disposable {
             this.targetBucket,
             this.resourceName
         ]);
-
-        this.shake = ko.observable(false);
-
-        loadCloudConnections();
     }
 
     loadBucketsList() {
@@ -126,7 +132,6 @@ class AddCloudResourceModalViewModel extends Disposable {
     add() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-            this.shake(true);
 
         } else {
             createCloudResource(this.resourceName(), this.connection().name, this.targetBucket());

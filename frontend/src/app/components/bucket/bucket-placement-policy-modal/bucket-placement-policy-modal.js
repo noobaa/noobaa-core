@@ -1,18 +1,18 @@
 import template from './bucket-placement-policy-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop, deepFreeze } from 'utils';
+import { noop, deepFreeze } from 'utils/all';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
 
 const columns = deepFreeze([
     {
         name: 'select',
-        cellTemplate: 'checkbox'
+        type: 'checkbox'
     },
     {
         name: 'state',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     'name',
     'onlineCount',
@@ -74,14 +74,11 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         });
 
         this.errors = ko.validation.group(this);
-
-        this.shake = ko.observable(false);
     }
 
     save() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-            this.shake(true);
 
         } else {
             updateBucketPlacementPolicy(

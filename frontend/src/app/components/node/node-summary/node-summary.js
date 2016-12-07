@@ -2,7 +2,7 @@ import template from './node-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import { deepFreeze, formatSize, bitsToNumber } from 'utils';
+import { deepFreeze, formatSize, bitsToNumber } from 'utils/all';
 import style from 'style';
 
 const stateMapping = deepFreeze({
@@ -168,9 +168,9 @@ class NodeSummaryViewModel extends Disposable {
                 let { stage } = dataActivity();
                 switch (stage.name) {
                     case 'OFFLINE_GRACE':
-                        return `Waiting for heartbeat, ${
-                            moment(stage.time.end).fromNow()
-                        } until restore`;
+                        return `Waiting for heartbeat, start restoring ${
+                            moment(stage.time.end).fromNow(true)
+                        }`;
 
                     case 'REBUILDING':
                         return `Rebuilding ${

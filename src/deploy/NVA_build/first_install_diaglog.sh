@@ -6,7 +6,6 @@ trap "" 2 20
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
 FIRST_INSTALL_MARK="/etc/first_install.mrk"
-NOOBAASEC="/etc/noobaa_sec"
 
 function clean_ifcfg() {
   sudo sed -i 's:.*IPADDR=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
@@ -135,7 +134,7 @@ function configure_ntp_dialog {
   local err_tz=1
   local err_ntp=1
   while [ ${err_tz} -eq 1 ] || [ ${err_ntp} -eq 1 ]; do
-    dialog --colors --backtitle "NooBaa First Install" --title "NTP Configuration" --form "\nPlease supply an NTP server address and Time Zone (TZ format https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)\nYou can configure NTP later in the management console\n${err_ntp_msg}\n${err_tz_msg}\n(Use \Z4\ZbUp/Down\Zn to navigate)" 12 80 2 "NTP Server:" 1 1 "${ntp_server}" 1 25 25 30  "Time Zone:" 2 1 "${tz}" 2 25 25 30 2> answer_ntp
+    dialog --colors --backtitle "NooBaa First Install" --title "NTP Configuration" --form "\nPlease supply an NTP server address and Time Zone (TZ format https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)\nYou can configure NTP later in the management console\n${err_ntp_msg}\n${err_tz_msg}\n(Use \Z4\ZbUp/Down\Zn to navigate)" 15 80 2 "NTP Server:" 1 1 "${ntp_server}" 1 25 25 30  "Time Zone:" 2 1 "${tz}" 2 25 25 30 2> answer_ntp
     ntp_server="$(head -1 answer_ntp)"
     tz=$(tail -1 answer_ntp)
     #check cancel
@@ -152,7 +151,10 @@ function configure_ntp_dialog {
       err_ntp_msg="\Z1NTP Server must be set.\Zn"
     fi
 
-    if [ -f "/usr/share/zoneinfo/${tz}" ]; then
+    if [ -z ${tz} ]; then #TZ was not supplied
+      err_tz=0
+      err_tz_msg=""
+    elif [ -f "/usr/share/zoneinfo/${tz}" ]; then
       err_tz=0
       err_tz_msg=""
     else
@@ -180,8 +182,8 @@ function reset_password {
 
         local number_of_account=$(/usr/bin/mongo nbcore --eval 'db.accounts.count({_id: {$exists: true}})' --quiet)
         if [ ${number_of_account} -lt 2 ]; then
-          echo "Could not find any account. Please setup a system from the web management first"
-          return 0
+            dialog --colors --nocancel --backtitle "NooBaa First Install" --msgbox "Could not find any account. Please setup a system from the web management first" 8 40
+            return 0
         fi
 
         local user_name=$(/usr/bin/mongo nbcore --eval 'db.accounts.find({email:{$ne:"support@noobaa.com"}},{email:1,_id:0}).sort({_id:-1}).limit(1).map(function(u){return u.email})[0]' --quiet)
@@ -207,15 +209,16 @@ function run_wizard {
 is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"
   while [ "${menu_entry}" -ne "4" ]; do
-    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration" 3 "Password reset" 4 "Exit" 2> choice
+    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration (Optional)" 3 "Password reset" 4 "Exit" 2> choice
     menu_entry=$(cat choice)
-    if [ "${menu_entry}" -eq "1" ]; then
-      configure_networking_dialog
-    elif [ "${menu_entry}" -eq "2" ]; then
-      configure_ntp_dialog
+  if [ "${menu_entry}" -eq "1" ]; then
+    configure_networking_dialog
+    /usr/bin/supervisorctl restart all #Restart services after IP and DNS changes
+  elif [ "${menu_entry}" -eq "2" ]; then
+    configure_ntp_dialog
   elif [ "${menu_entry}" -eq "3" ]; then
-        reset_password
-    fi
+    reset_password
+  fi
   done
   dialog --colors --nocancel --backtitle "NooBaa First Install" --infobox "Finalizing \Z5\ZbNooBaa\Zn first install..." 4 40 ; sleep 2
 
@@ -227,20 +230,6 @@ function end_wizard {
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
   date | sudo tee -a ${FIRST_INSTALL_MARK}
   clear
-  if [ ! -f ${NOOBAASEC} ]; then
-    local sec=$(uuidgen | sudo cut -f 1 -d'-')
-    echo ${sec} |sudo tee -a ${NOOBAASEC}
-    #dev/null to avoid output with user name
-    echo ${sec} |sudo passwd noobaaroot --stdin >/dev/null
-    sudo sed -i "s:No Server Secret.*:This server's secret is \x1b[0;32;40m${sec}\x1b[0m:" /etc/issue
-  fi
-
-  #verify JWT_SECRET exists in .env, if not create it
-
-  if ! sudo -s grep -q JWT_SECRET /root/node_modules/noobaa-core/.env; then
-      local jwt=$(cat /etc/noobaa_sec | openssl sha512 -hmac | cut -c10-44)
-      echo "JWT_SECRET=${jwt}" | sudo tee -a /root/node_modules/noobaa-core/.env
-  fi
 
   sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m:" /etc/issue
 

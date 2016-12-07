@@ -8,37 +8,11 @@ const util = require('util');
 const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
 const dbg = require('../../util/debug_module')(__filename);
-const config = require('../../../config');
 const os = require('os');
 const moment = require('moment');
 
 function get_topology() {
     return system_store.get_local_cluster_info();
-}
-
-function update_cluster_info(params) {
-    var current_clustering = system_store.get_local_cluster_info();
-    var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
-    update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
-    update.owner_address = params.owner_address || current_clustering.owner_address;
-    update._id = current_clustering._id;
-
-    dbg.log0('Updating local cluster info for owner', update.owner_secret, 'previous cluster info',
-        pretty_topology(current_clustering), 'new cluster info', pretty_topology(update));
-
-    return system_store.make_changes({
-            update: {
-                clusters: [update]
-            }
-        })
-        .then(() => {
-            dbg.log0('local cluster info updates successfully');
-            return;
-        })
-        .catch((err) => {
-            console.error('failed on local cluster info update with', err.message);
-            throw err;
-        });
 }
 
 
@@ -145,11 +119,17 @@ function find_shard_index(shardname) {
 }
 
 function get_cluster_info() {
-    let local_info = system_store.get_local_cluster_info();
+    const get_hb = true;
+    let local_info = system_store.get_local_cluster_info(get_hb);
     let shards = local_info.shards.map(shard => ({
         shardname: shard.shardname,
         servers: []
     }));
+    // list online members accoring to local mongo rs status
+    let online_members = [local_info.owner_address];
+    if (local_info.is_clusterized && local_info.heartbeat) {
+        online_members = _get_online_members(local_info.heartbeat.health.mongo_rs_status);
+    }
     _.each(system_store.data.clusters, cinfo => {
         let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
         let memory_usage = 0;
@@ -160,6 +140,10 @@ function get_cluster_info() {
         let time_epoch = moment().unix();
         let location = cinfo.location;
         let single_server = system_store.data.clusters.length === 1;
+        let storage = {
+            total: 0,
+            free: 0
+        };
         if (single_server) {
             is_connected = 'CONNECTED';
         }
@@ -167,12 +151,11 @@ function get_cluster_info() {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
             cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
-            let now = Date.now();
-            let diff = now - cinfo.heartbeat.time;
-            if (diff < config.CLUSTER_NODE_MISSING_TIME) {
+            if (online_members.indexOf(cinfo.owner_address) !== -1) {
                 is_connected = 'CONNECTED';
             }
             hostname = cinfo.heartbeat.health.os_info.hostname;
+            storage = cinfo.heartbeat.health.storage;
         }
         let server_info = {
             version: version,
@@ -181,6 +164,7 @@ function get_cluster_info() {
             address: cinfo.owner_address,
             status: is_connected,
             memory_usage: memory_usage,
+            storage: storage,
             cpu_usage: cpu_usage,
             location: location,
             debug_level: cinfo.debug_level,
@@ -189,6 +173,9 @@ function get_cluster_info() {
             dns_servers: cinfo.dns_servers || [],
             time_epoch: time_epoch
         };
+        if (cinfo.services_status) {
+            server_info.services_status = cinfo.services_status;
+        }
         shard.servers.push(server_info);
     });
     _.each(shards, shard => {
@@ -207,6 +194,21 @@ function get_cluster_info() {
     };
     return cluster_info;
 }
+
+function _get_online_members(rs_status) {
+    let online_members = [];
+    if (rs_status && rs_status.members) {
+        _.each(rs_status.members, member => {
+            // STARTUP state is used when a server was just added, and we want to show it as online.
+            if (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY' || member.stateStr.indexOf('STARTUP') > -1) {
+                let res_address = member.name.substring(0, member.name.indexOf(':'));
+                online_members.push(res_address);
+            }
+        });
+    }
+    return online_members;
+}
+
 
 function get_potential_masters() {
     //TODO: For multiple shards, this should probably change?
@@ -230,7 +232,6 @@ function get_member_upgrade_status(ip) {
 
 //Exports
 exports.get_topology = get_topology;
-exports.update_cluster_info = update_cluster_info;
 exports.update_host_address = update_host_address;
 exports.extract_servers_ip = extract_servers_ip;
 exports.verify_cluster_id = verify_cluster_id;

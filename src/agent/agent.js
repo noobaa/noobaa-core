@@ -1,10 +1,4 @@
-/**
- *
- * AGENT
- *
- * the glorious noobaa agent.
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -34,14 +28,19 @@ const RpcError = require('../rpc/rpc_error');
 const url_utils = require('../util/url_utils');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
-const BlockStoreFs = require('./block_store_fs').BlockStoreFs;
-const BlockStoreS3 = require('./block_store_s3').BlockStoreS3;
-const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
-const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
+const FuncNode = require('./func_services/func_node');
+const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
+const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
+const BlockStoreMem = require('./block_store_services/block_store_mem').BlockStoreMem;
+const BlockStoreAzure = require('./block_store_services/block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
+const json_utils = require('../util/json_utils');
+const fs_utils = require('../util/fs_utils');
 
 
+const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
+const MASTER_MAX_CONNECT_ATTEMPTS = 20;
 
 class Agent {
 
@@ -51,15 +50,24 @@ class Agent {
         this.rpc = api.new_rpc(params.address);
         this.client = this.rpc.new_client();
 
-        this.servers = [{
+        this.servers = params.servers || [{
             address: params.address
         }];
 
+        this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
+        dbg.log0(`this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
+
+        this.agent_conf = params.agent_conf || new json_utils.JsonWrapper();
+
+        this.connect_attempts = 0;
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
+
+        this.token_wrapper = params.token_wrapper || {};
+
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
             this.storage_limit = params.storage_limit;
@@ -102,6 +110,11 @@ class Agent {
             this.block_store = new BlockStoreMem(block_store_options);
         }
 
+        this.func_node = new FuncNode({
+            rpc_client: this.client,
+            storage_path: this.storage_path,
+        });
+
         this.agent_app = (() => {
             const app = express();
             app.use(express_morgan_logger('dev'));
@@ -122,8 +135,9 @@ class Agent {
         // AGENT API methods - bind to self
         // (rpc registration requires bound functions)
         js_utils.self_bind(this, [
-            'get_agent_info',
+            'get_agent_info_and_update_masters',
             'update_auth_token',
+            'update_create_node_token',
             'update_rpc_config',
             'n2n_signal',
             'test_store_perf',
@@ -142,6 +156,12 @@ class Agent {
         this.rpc.register_service(
             this.rpc.schema.block_store_api,
             this.block_store, {
+                // TODO verify requests for block store?
+                // middleware: [ ... ]
+            });
+        this.rpc.register_service(
+            this.rpc.schema.func_node_api,
+            this.func_node, {
                 // TODO verify requests for block store?
                 // middleware: [ ... ]
             });
@@ -195,21 +215,43 @@ class Agent {
         });
     }
 
+    _update_servers_list(new_list) {
+        // check if base_address appears in new_list. if not add it.
+        if (_.isUndefined(new_list.find(srv => srv.address.toLowerCase() === this.base_address.toLowerCase()))) {
+            new_list.push({
+                address: this.base_address
+            });
+        }
+        let sorted_new = _.sortBy(new_list, srv => srv.address);
+        let sorted_old = _.sortBy(this.servers, srv => srv.address);
+        if (_.isEqual(sorted_new, sorted_old)) return P.resolve();
+        this.servers = new_list;
+        return this.agent_conf.update({
+            servers: this.servers
+        });
+    }
+
     _handle_server_change(suggested) {
-        dbg.warn('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list', this.servers);
+        dbg.warn('_handle_server_change',
+            suggested ?
+            'suggested server ' + suggested :
+            'no suggested server, trying next in list',
+            this.servers);
         this.connect_attempts = 0;
         if (!this.servers.length) {
             dbg.error('_handle_server_change no server list');
-            return;
+            return P.resolve();
         }
-        const previous_address = this.servers[0].address;
+        const previous_address = this.rpc.router.default;
+        dbg.log0('previous_address =', previous_address);
+        dbg.log0('original servers list =', this.servers);
         if (suggested) {
             //Find if the suggested server appears in the list we got from the initial connect
             const current_server = _.remove(this.servers, function(srv) {
                 return srv.address === suggested;
             });
             if (current_server[0]) {
-                this.servers.unshift(current_server);
+                this.servers.unshift(current_server[0]);
             } else {
                 this.servers.push(this.servers.shift());
             }
@@ -217,11 +259,12 @@ class Agent {
             //Skip to the next server in list
             this.servers.push(this.servers.shift());
         }
+        dbg.log0('new servers list =', this.servers);
         dbg.log('Chosen new address', this.servers[0].address, this.servers);
-        return P.resolve(this._update_rpc_config_internal({
+        return this._update_rpc_config_internal({
             base_address: this.servers[0].address,
             old_base_address: previous_address,
-        }));
+        });
     }
 
     _init_node() {
@@ -238,23 +281,12 @@ class Agent {
                 if (!this.storage_path) return this.token;
 
                 // load the token file
-                const token_path = path.join(this.storage_path, 'token');
-                return fs.readFileAsync(token_path);
+                return this.token_wrapper.read();
+
             })
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
-
-                // test the existing token against the server. if not valid throw error, and let the
-                // agent_cli create new node.
-                return this.client.node.test_node_id({})
-                    .then(valid_node => {
-                        if (!valid_node) {
-                            let err = new Error('INVALID_NODE');
-                            err.DO_NOT_RETRY = true;
-                            throw err;
-                        }
-                    });
             })
             .then(() => P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
@@ -274,11 +306,6 @@ class Agent {
     _do_heartbeat() {
         if (!this.is_started) return;
 
-        /*if (this.connect_attempts > 20) {
-            dbg.error('too many failure to connect, switching servers');
-            return this._handle_server_change();
-        }*/
-
         let hb_info = {
             version: pkg.version
         };
@@ -287,15 +314,34 @@ class Agent {
         } else if (this.is_demo_agent) {
             hb_info.pool_name = config.DEMO_DEFAULTS.POOL_NAME;
         }
-        return this.client.node.heartbeat(hb_info, {
+
+        dbg.log0(`_do_heartbeat called`);
+
+        return P.resolve()
+            .then(() => {
+                if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
+                    dbg.error('too many failure to connect, switching servers');
+                    return this._handle_server_change()
+                        .then(() => {
+                            throw new Error('server change after too many attempts');
+                        });
+                }
+            })
+            .then(() => this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true
-            }).then(req => {
+            }))
+            .timeout(MASTER_RESPONSE_TIMEOUT)
+            .then(req => {
                 this.connect_attempts = 0;
                 const res = req.reply;
                 const conn = req.connection;
                 this._server_connection = conn;
                 if (res.redirect) {
-                    return this._handle_server_change(res.redirect);
+                    dbg.log0('got redirect response:', res.redirect);
+                    return this._handle_server_change(res.redirect)
+                        .then(() => {
+                            throw new Error('redirect to ' + res.redirect);
+                        });
                 }
                 if (res.version !== pkg.version) {
                     dbg.warn('exit on version change:',
@@ -313,15 +359,42 @@ class Agent {
             .catch(err => {
                 dbg.error('heartbeat failed', err);
                 if (err.rpc_code === 'DUPLICATE') {
-                    dbg.error('This agent appears to be duplicated. exiting and starting new agent', err);
-                    process.exit(68); // 68 is 'D' in ascii
+                    dbg.error('This agent appears to be duplicated.',
+                        'exiting and starting new agent', err);
+                    if (this.cloud_info) {
+                        dbg.error(`shouldnt be here. found duplicated node for cloud pool!!`);
+                        throw new Error('found duplicated cloud node');
+                    } else {
+                        process.exit(68); // 68 is 'D' in ascii
+                    }
                 }
-                return P.delay(3000).then(() => {
-                    this.connect_attempts++;
-                    this._do_heartbeat();
-                });
+                if (err.rpc_code === 'NODE_NOT_FOUND') {
+                    dbg.error('This agent appears to be using an old token.',
+                        'cleaning this agent agent_storage directory', this.storage_path);
+                    return this._start_new_agent()
+                        .catch(err => {
+                            // Failed cleaning and starting a new node. should we do anything here?
+                            dbg.error(`failed starting a new node after previous NODE_NOT_FOUND: ${err}`);
+                            throw err;
+                        });
+                }
+                return P.delay(3000)
+                    .then(() => {
+                        this.connect_attempts += 1;
+                        return this._do_heartbeat();
+                    });
 
             });
+    }
+
+    _start_new_agent() {
+        dbg.log0(`cleaning old node data and starting a new agent`);
+        // const token_path = path.join(this.storage_path, 'token');
+        this.stop();
+        return fs_utils.folder_delete(this.storage_path)
+            .then(() => fs_utils.create_path(this.storage_path))
+            .then(() => this.token_wrapper.write(this.token_wrapper.create_node_token))
+            .then(() => this.start());
     }
 
     _start_stop_server() {
@@ -426,38 +499,31 @@ class Agent {
             this._start_stop_server();
         }
 
-        if (params.base_address && params.base_address !== params.old_base_address) {
+        if (params.base_address && params.base_address.toLowerCase() !== params.old_base_address.toLowerCase()) {
             dbg.log0('new base_address', params.base_address,
                 'old', params.old_base_address);
             // test this new address first by pinging it
             return P.fcall(() => this.client.node.ping(null, {
                     address: params.base_address
                 }))
-                .then(() => fs.readFileAsync('agent_conf.json')
-                    .then(data => {
-                        const agent_conf = JSON.parse(data);
-                        dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
-                        return agent_conf;
-                    }, err => {
-                        if (err.code === 'ENOENT') {
-                            dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
-                            return {};
-                        } else {
-                            throw err;
-                        }
-                    }))
-                .then(agent_conf => {
-                    agent_conf.address = params.base_address;
-                    const data = JSON.stringify(agent_conf);
-                    return fs.writeFileAsync('agent_conf.json', data);
+                .then(() => {
+                    if (params.store_base_address) {
+                        // store base_address to send in get_agent_info_and_update_masters
+                        this.base_address = params.base_address.toLowerCase();
+                        return this.agent_conf.update({
+                            address: params.base_address
+                        });
+                    }
                 })
                 .then(() => {
                     dbg.log0('update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
-                    // this.rpc.disconnect_all();
-                    this._do_heartbeat();
+                    // on close the agent should call do_heartbeat again when getting the close event
+                    this._server_connection.close();
                 });
         }
+
+        return P.resolve();
     }
 
     _fix_storage_limit(storage_info) {
@@ -475,17 +541,17 @@ class Agent {
         const extended_hb = true;
         const ip = ip_module.address();
         dbg.log('Recieved potential servers list', req.rpc_params.addresses);
-        this.servers = req.rpc_params.addresses;
         const reply = {
             version: pkg.version || '',
             name: this.node_name || '',
             ip: ip,
             host_id: this.host_id,
             rpc_address: this.rpc_address || '',
-            base_address: this.rpc.router.default,
+            base_address: this.base_address,
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
+            create_node_token: this.token_wrapper.create_node_token,
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
@@ -494,7 +560,7 @@ class Agent {
             reply.os_info = os_utils.os_info();
         }
 
-        return P.resolve()
+        return this._update_servers_list(req.rpc_params.addresses)
             .then(() => this.block_store.get_storage_info())
             .then(storage_info => {
                 dbg.log0('storage_info:', storage_info);
@@ -549,16 +615,25 @@ class Agent {
 
     update_auth_token(req) {
         const auth_token = req.rpc_params.auth_token;
+        dbg.log0('update_auth_token: received new token');
         return P.resolve()
             .then(() => {
                 if (this.storage_path) {
                     const token_path = path.join(this.storage_path, 'token');
-                    return fs.writeFileAsync(token_path, auth_token);
+                    dbg.log0('update_auth_token: write new token', token_path);
+                    return this.token_wrapper.write(auth_token);
                 }
             })
             .then(() => {
+                dbg.log0('update_auth_token: using new token');
                 this.client.options.auth_token = auth_token;
             });
+    }
+
+    update_create_node_token(req) {
+        this.token_wrapper.create_node_token = req.rpc_params.create_node_token;
+        dbg.log0('update_create_node_token: received new token');
+        return this.token_wrapper.update_create_node_token(this.token_wrapper.create_node_token);
     }
 
     update_rpc_config(req) {
@@ -569,12 +644,13 @@ class Agent {
         const old_base_address = this.rpc.router.default;
         dbg.log0('update_rpc_config', req.rpc_params);
 
-        this._update_rpc_config_internal({
+        return this._update_rpc_config_internal({
             n2n_config: n2n_config,
             rpc_address: rpc_address,
             old_rpc_address: old_rpc_address,
             base_address: base_address,
             old_base_address: old_base_address,
+            store_base_address: !_.isUndefined(base_address),
         });
     }
 

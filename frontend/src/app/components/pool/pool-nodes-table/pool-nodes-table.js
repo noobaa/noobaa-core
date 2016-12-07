@@ -3,21 +3,21 @@ import NodeRowViewModel from './node-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle} from 'utils';
-import { redirectTo } from 'actions';
+import { deepFreeze, throttle} from 'utils/all';
+import { navigateTo } from 'actions';
 import { routeContext } from 'model';
 
 let columns = deepFreeze([
     {
         name: 'state',
         sortable: 'online',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     {
         name: 'name',
         label: 'node name',
         sortable: true,
-        cellTemplate: 'link'
+        type: 'link'
     },
     {
         name: 'ip',
@@ -28,10 +28,16 @@ let columns = deepFreeze([
         name: 'capacity',
         label: 'used capacity',
         sortable: 'used',
-        cellTemplate: 'capacity'
+        type: 'capacity'
     },
-    'trustLevel',
-    'dataActivity'
+    {
+        name: 'trustLevel',
+        sortable: 'trusted'
+    },
+    {
+        name: 'dataActivity',
+        sortable: 'data_activity'
+    }
 ]);
 
 class PoolNodesTableViewModel extends Disposable {
@@ -144,7 +150,7 @@ class PoolNodesTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     filterObjects(phrase) {
@@ -157,7 +163,7 @@ class PoolNodesTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     orderBy(sorting) {
@@ -170,7 +176,7 @@ class PoolNodesTableViewModel extends Disposable {
             sorting
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     toggleIssues(value) {
@@ -183,7 +189,7 @@ class PoolNodesTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     showAssignNodesModal() {

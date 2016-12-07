@@ -21,8 +21,6 @@ class ServerDNSSettingsModalViewModel extends Disposable {
             () => server() ? server().dns_servers : []
         );
 
-
-
         this.primaryDNS = ko.observableWithDefault(
             () => dnsServers()[0]
         )

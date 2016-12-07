@@ -1,9 +1,9 @@
 ### Environment info
-- Version: **output of `git rev-parse HEAD`** | **package.json** | **UI**
-- Deployment: **N/A** | **Dev** | **VBox** | **ESX** | **GCloud** | **AWS**
-- Customer: **N/A** | **QA** | **name**
+- Version: **VERSION**
+- Deployment: **AZURE|ESX|AWS|GCLOUD|DEV|VBOX**
+- Customer: **NAME**
 
-### Actual behaviour
+### Actual behavior
 1.
 
 ### Expected behavior

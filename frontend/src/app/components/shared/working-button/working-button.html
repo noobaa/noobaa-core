@@ -1,0 +1,13 @@
+<button class="btn" data-bind="
+    click: click.bind($parent),
+    css: { inactive: working },
+    disable: disabled
+">
+    <div class="content-wrapper" data-bind="template: {
+        nodes: $componentTemplateNodes, data: $parent
+    }"></div>
+    <div class="working-label" data-bind="visible: working">
+        <svg-icon class="spin" params="name: 'in-progress'"></svg-icon>
+        <span data-bind="text: label"></span>
+    </div>
+</button>

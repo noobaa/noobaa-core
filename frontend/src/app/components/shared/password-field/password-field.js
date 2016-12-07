@@ -1,7 +1,8 @@
 import template from './password-field.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
+import { deepFreeze, isFunction, tweenColors } from 'utils/all';
+import style from 'style';
 
 const iconMapping = deepFreeze({
     password: {
@@ -14,11 +15,14 @@ const iconMapping = deepFreeze({
     }
 });
 
+const barTweenDuration = 250;
+
 class PasswordFieldViewModel extends Disposable{
-    constructor({ value, placeholder = '' }) {
+    constructor({ value, disabled, placeholder = '', strengthCalc}) {
         super();
 
         this.value = value;
+        this.disabled = disabled;
         this.type = ko.observable('password');
         this.placeholder = placeholder;
 
@@ -29,6 +33,43 @@ class PasswordFieldViewModel extends Disposable{
         this.tooltip = ko.pureComputed(
             () => iconMapping[this.type()].tooltip
         );
+
+        this.isStrengthVisible = isFunction(strengthCalc);
+        this.passwordStrength = ko.pureComputed (
+            () => {
+                let naked = ko.unwrap(value);
+                return (this.isStrengthVisible && naked) ? strengthCalc(naked) : 0;
+            }
+        ).extend({
+            tween: {
+                duration: barTweenDuration,
+                easing: 'linear'
+            }
+        });
+
+        let passwordStrengthColor = ko.pureComputed(
+            () => tweenColors(
+                this.passwordStrength(),
+                style['color10'],
+                style['color11'],
+                style['color12']
+            )
+        );
+
+        this.barValues = [
+            {
+                value: this.passwordStrength,
+                color: passwordStrengthColor
+            },
+            {
+                value: ko.pureComputed(
+                    () => 1 - this.passwordStrength()
+                ),
+                color: 'transparent'
+            }
+        ];
+
+        this.emptyColor = 'transparent';
     }
 
     toogleType() {

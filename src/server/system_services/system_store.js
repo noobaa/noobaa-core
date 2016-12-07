@@ -161,6 +161,8 @@ const COLLECTIONS = js_utils.deep_freeze([{
 
 const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
 
+let accounts_by_email_lowercase = [];
+
 
 /**
  *
@@ -177,17 +179,35 @@ class SystemStoreData {
         return id ? this.idmap[String(id)] : null;
     }
 
+    //Return the mongo record (if found) and an indication if the
+    //object is linkable (not deleted) -> used in the activity log to link the
+    //various entities
     get_by_id_include_deleted(id, name) {
         const res = this.get_by_id(id);
-        if (res) return res;
+        if (res) {
+            return {
+                record: res,
+                linkable: true
+            };
+        }
         //Query deleted !== null
         const collection = mongo_client.instance().db.collection(name);
         return P.resolve(collection.findOne({
-            _id: id,
-            deleted: {
-                $ne: null
-            }
-        }));
+                _id: id,
+                deleted: {
+                    $ne: null
+                }
+            }))
+            .then(res => {
+                if (res) {
+                    return {
+                        record: res,
+                        linkable: false
+                    };
+                } else {
+                    return;
+                }
+            });
     }
 
     resolve_object_ids_paths(item, paths, allow_missing) {
@@ -203,6 +223,7 @@ class SystemStoreData {
         this.rebuild_object_links();
         this.rebuild_indexes();
         this.rebuild_allowed_buckets_links();
+        this.rebuild_accounts_by_email_lowercase();
     }
 
     rebuild_idmap() {
@@ -267,6 +288,12 @@ class SystemStoreData {
         });
     }
 
+    rebuild_accounts_by_email_lowercase() {
+        _.each(this.accounts, account => {
+            accounts_by_email_lowercase[account.email.toLowerCase()] = account.email;
+        });
+    }
+
     check_indexes(col, item) {
         _.each(col.mem_indexes, index => {
             let key = _.get(item, index.key || '_id');
@@ -309,6 +336,7 @@ class SystemStore extends EventEmitter {
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this._json_validator = new Ajv({
             formats: {
+                date: schema_utils.date_format,
                 idate: schema_utils.idate_format,
                 objectid: val => mongo_utils.is_object_id(val)
             }
@@ -489,16 +517,27 @@ class SystemStore extends EventEmitter {
                     _.each(list, item => {
                         data.check_indexes(col, item);
                         let updates = _.omit(item, '_id');
-                        let first_key;
-                        _.forOwn(updates, (val, key) => {
-                            first_key = key;
-                            return false; // break loop immediately
-                        });
-                        if (first_key[0] !== '$') {
+                        let keys = _.keys(updates);
+
+                        if (_.first(keys)[0] === '$') {
+                            for (const key of keys) {
+                                // Validate that all update keys are mongo operators.
+                                if (!mongo_utils.mongo_operators.has(key)) {
+                                    throw new Error(`SystemStore: make_changes invalid mix of operators and bare value: ${key}`);
+                                }
+
+                                // Delete operators with empty value to comply with
+                                // mongo specification.
+                                if (_.isEmpty(updates[key])) {
+                                    delete updates[key];
+                                }
+                            }
+                        } else {
                             updates = {
                                 $set: updates
                             };
                         }
+
                         // TODO how to _check_schema on update?
                         // if (updates.$set) {
                         //     this._check_schema(col, updates.$set, 'update');
@@ -551,12 +590,12 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    get_local_cluster_info() {
+    get_local_cluster_info(get_hb) {
         let owner_secret = this.get_server_secret();
         let reply;
         _.each(this.data && this.data.clusters, function(cluster_info) {
             if (cluster_info.owner_secret === owner_secret) {
-                reply = _.omit(cluster_info, ['heartbeat']);
+                reply = get_hb ? cluster_info : _.omit(cluster_info, ['heartbeat']);
             }
         });
         return reply;
@@ -564,6 +603,12 @@ class SystemStore extends EventEmitter {
 
     get_server_secret() {
         return this._server_secret;
+    }
+
+    get_account_by_email(email) {
+        if (this.data && this.data.accounts) {
+            return this.data.accounts_by_email[accounts_by_email_lowercase[email.toLowerCase()]];
+        }
     }
 
 }

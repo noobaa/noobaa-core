@@ -764,7 +764,6 @@ class ObjectIO {
             name: 'RangesCache',
             max_usage: 256 * 1024 * 1024, // 128 MB
             item_usage: (data, params) => (data && data.buffer && data.buffer.length) || 1024,
-            expiry_ms: 600000, // 10 minutes
             make_key: params => {
                 let start = range_utils.align_down(
                     params.start, config.IO_OBJECT_RANGE_ALIGN);
@@ -892,10 +891,18 @@ class ObjectIO {
             // in verification mode we read all the blocks
             // which will also verify their digest
             // and finally we return the first of them.
-            return P.map(fragment.blocks,
-                    block => this._read_block(params, block.block_md)
+            let first_block_md = fragment.blocks[0].block_md;
+            return P.map(fragment.blocks, block => P.resolve()
+                    .then(() => {
+                        if (block.block_md.digest_type !== first_block_md.digest_type ||
+                            block.block_md.digest_b64 !== first_block_md.digest_b64) {
+                            throw new Error('_read_fragment: inconsistent replica digests');
+                        }
+                    })
+                    .then(() => this._read_block(params, block.block_md))
                     .catch(err => this._report_error_on_object_read(
-                        params, part, block.block_md, err)))
+                        params, part, block.block_md, err))
+                )
                 .then(buffers => {
                     if (!fragment.blocks.length ||
                         _.compact(buffers).length !== fragment.blocks.length) {

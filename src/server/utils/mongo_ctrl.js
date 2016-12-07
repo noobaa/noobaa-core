@@ -80,28 +80,34 @@ MongoCtrl.prototype.add_member_shard = function(name, ip) {
     return mongo_client.instance().add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT, name);
 };
 
-MongoCtrl.prototype.is_master = function(is_config_set, set_name) {
+MongoCtrl.prototype.is_master = function(is_config_set) {
     var mongo_res;
-    return mongo_client.instance().is_master(is_config_set, set_name)
+    return mongo_client.instance().get_mongo_rs_status({
+            is_config_set: is_config_set,
+        })
         .then((res) => {
             mongo_res = res;
-            return cutil.get_topology();
-        })
-        .then((topo) => {
+            let topo = cutil.get_topology();
             let res_master = false;
+            let master_address = '127.0.0.1';
             _.forEach(mongo_res.members, member => {
-                if (member.name.indexOf(topo.owner_address) > -1 && member.stateStr === 'PRIMARY') {
-                    res_master = true;
+                if (member.stateStr === 'PRIMARY') {
+                    master_address = member.name.substring(0, member.name.indexOf(':'));
+                    if (topo.owner_address === master_address) {
+                        res_master = true;
+                    }
                 }
             });
             return {
-                ismaster: res_master
+                ismaster: res_master,
+                rs_status: mongo_res,
+                master_address: master_address
             };
         });
 };
 
 MongoCtrl.prototype.redirect_to_cluster_master = function() {
-    return mongo_client.instance().is_master()
+    return mongo_client.instance().get_mongo_rs_status()
         .then((mongo_res) => {
             let res_address;
             _.forEach(mongo_res.members, member => {
@@ -128,8 +134,30 @@ MongoCtrl.prototype.update_connection_string = function() {
         .then(() => mongo_client.instance().connect());
 };
 
-MongoCtrl.prototype.get_mongo_rs_status = function() {
-    return mongo_client.instance().get_mongo_rs_status();
+MongoCtrl.prototype.get_hb_rs_status = function() {
+    return mongo_client.instance().get_mongo_rs_status()
+        .then(status => {
+            dbg.log0('got rs status from mongo:', status);
+            if (status.ok) {
+                // return rs status fields specified in HB schema (cluster_schema)
+                let rs_status = {
+                    set: status.set,
+                    members: status.members.map(member => {
+                        let member_status = {
+                            name: member.name,
+                            health: member.health,
+                            uptime: member.uptime,
+                            stateStr: member.stateStr
+                        };
+                        if (member.syncingTo) {
+                            member_status.syncingTo = member.syncingTo;
+                        }
+                        return member_status;
+                    })
+                };
+                return rs_status;
+            }
+        });
 };
 
 //

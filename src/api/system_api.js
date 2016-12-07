@@ -19,7 +19,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password', 'access_keys', 'activation_code'],
+                required: ['name', 'email', 'password', 'activation_code'],
                 properties: {
                     name: {
                         type: 'string',
@@ -32,17 +32,6 @@ module.exports = {
                     },
                     activation_code: {
                         type: 'string',
-                    },
-                    access_keys: {
-                        type: 'object',
-                        properties: {
-                            access_key: {
-                                type: 'string'
-                            },
-                            secret_key: {
-                                type: 'string'
-                            }
-                        }
                     },
                     //Optionals: DNS, NTP and NooBaa Domain Name
                     time_config: {
@@ -242,177 +231,6 @@ module.exports = {
             }
         },
 
-        export_activity_log: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: [],
-                properties: {
-                    event: {
-                        type: 'string',
-                    },
-                    events: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    },
-                    till: {
-                        format: 'idate'
-                    },
-                    since: {
-                        format: 'idate'
-                    }
-                }
-            },
-            reply: {
-                type: 'string',
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
-        read_activity_log: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: [],
-                properties: {
-                    event: {
-                        type: 'string',
-                    },
-                    events: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    },
-                    till: {
-                        format: 'idate'
-                    },
-                    since: {
-                        format: 'idate'
-                    },
-                    skip: {
-                        type: 'integer',
-                    },
-                    limit: {
-                        type: 'integer',
-                    },
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['logs'],
-                properties: {
-                    logs: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['id', 'time', 'level', 'event'],
-                            properties: {
-                                id: {
-                                    type: 'string',
-                                },
-                                time: {
-                                    format: 'idate'
-                                },
-                                level: {
-                                    type: 'string',
-                                },
-                                event: {
-                                    type: 'string',
-                                },
-                                tier: {
-                                    type: 'object',
-                                    required: ['name'],
-                                    properties: {
-                                        name: {
-                                            type: 'string'
-                                        }
-                                    }
-                                },
-                                node: {
-                                    type: 'object',
-                                    required: ['name'],
-                                    properties: {
-                                        name: {
-                                            type: 'string'
-                                        }
-                                    }
-                                },
-                                bucket: {
-                                    type: 'object',
-                                    required: ['name'],
-                                    properties: {
-                                        name: {
-                                            type: 'string'
-                                        }
-                                    }
-                                },
-                                pool: {
-                                    type: 'object',
-                                    required: ['name'],
-                                    properties: {
-                                        name: {
-                                            type: 'string'
-                                        }
-                                    }
-                                },
-                                obj: {
-                                    type: 'object',
-                                    required: ['key'],
-                                    properties: {
-                                        key: {
-                                            type: 'string'
-                                        }
-                                    }
-                                },
-                                account: {
-                                    type: 'object',
-                                    required: ['email'],
-                                    properties: {
-                                        email: {
-                                            type: 'string'
-                                        }
-                                    }
-                                },
-                                actor: {
-                                    type: 'object',
-                                    required: ['email'],
-                                    properties: {
-                                        email: {
-                                            type: 'string'
-                                        }
-                                    }
-                                },
-                                desc: {
-                                    type: 'array',
-                                    items: {
-                                        type: 'string',
-                                    }
-                                },
-                            }
-                        }
-                    },
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
-        diagnose_system: {
-            method: 'GET',
-            reply: {
-                type: 'string',
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         diagnose_node: {
             method: 'GET',
             params: {
@@ -528,6 +346,35 @@ module.exports = {
             }
         },
 
+        attempt_dns_resolve: {
+            doc: 'Attempt to resolve a dns name',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['dns_name'],
+                properties: {
+                    dns_name: {
+                        type: 'string'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['valid'],
+                properties: {
+                    valid: {
+                        type: 'boolean'
+                    },
+                    reason: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        },
 
         validate_activation: {
             method: 'GET',
@@ -558,6 +405,25 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+            }
+        },
+
+        log_client_console: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                },
+            },
+            auth: {
+                system: 'admin',
             }
         }
     },
@@ -723,6 +589,9 @@ module.exports = {
                 system_cap: {
                     type: 'integer'
                 },
+                has_ssl_cert: {
+                    type: 'boolean'
+                },
                 upgrade: {
                     type: 'object',
                     properties: {
@@ -734,6 +603,9 @@ module.exports = {
                             type: 'string',
                         },
                     },
+                },
+                last_upgrade: {
+                    format: 'idate'
                 },
                 cluster: {
                     $ref: '#/definitions/cluster_info'
@@ -772,18 +644,6 @@ module.exports = {
             type: 'string',
         },
 
-        access_keys: {
-            type: 'object',
-            required: ['access_key', 'secret_key'],
-            properties: {
-                access_key: {
-                    type: 'string',
-                },
-                secret_key: {
-                    type: 'string',
-                }
-            }
-        },
 
         cluster_info: {
             type: 'object',
@@ -837,6 +697,9 @@ module.exports = {
                 memory_usage: {
                     type: 'number'
                 },
+                storage: {
+                    $ref: 'common_api#/definitions/storage_info'
+                },
                 cpu_usage: {
                     type: 'number'
                 },
@@ -860,8 +723,66 @@ module.exports = {
                 },
                 debug_level: {
                     type: 'integer'
+                },
+                services_status: {
+                    $ref: '#/definitions/services_status'
                 }
             }
         },
+
+        services_status: {
+            type: 'object',
+            required: ['dns_status', 'ph_status'],
+            properties: {
+                dns_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                ph_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                dns_name: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                ntp_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                internet_connectivity: {
+                    type: 'string',
+                    enum: ['FAULTY']
+                },
+                proxy_status: {
+                    $ref: '#/definitions/service_status_enum'
+
+                },
+                remote_syslog_status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                cluster_status: {
+                    anyOf: [{
+                        type: 'string',
+                        enum: ['UNKNOWN']
+                    }, {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['secret', 'status'],
+                            properties: {
+                                secret: {
+                                    type: 'string'
+                                },
+                                status: {
+                                    $ref: '#/definitions/service_status_enum'
+                                }
+                            }
+                        }
+                    }]
+                }
+            }
+        },
+
+        service_status_enum: {
+            type: 'string',
+            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+        }
     }
 };

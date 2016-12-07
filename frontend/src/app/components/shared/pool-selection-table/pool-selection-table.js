@@ -2,17 +2,17 @@ import template from './pool-selection-table.html';
 import Disposable from 'disposable';
 import PoolRowViewModel from './pool-row';
 import ko from 'knockout';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const columns = deepFreeze([
     {
         name: 'select',
         label: '',
-        cellTemplate: 'checkbox'
+        type: 'checkbox'
     },
     {
         name: 'state',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     'name',
     'onlineCount',
@@ -21,7 +21,7 @@ const columns = deepFreeze([
 
 class PoolSelectionTableViewModel extends Disposable{
     constructor({
-        caption = 'Select pools'    ,
+        caption = 'Select pools',
         pools = [],
         selectedPools = ko.observableArray()
     }) {

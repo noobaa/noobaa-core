@@ -55,16 +55,31 @@ db.getSiblingDB("nbcore").nodes.update({}, {
         pool: db.getSiblingDB("nbcore").pools.find({
             name: 'default_pool'
         })[0]._id
+    },
+    $unset: {
+        issues_report: 1
     }
 }, {
     multi: true
 });
-// Removing all account except Support and Owner
+// Removing all accounts except Support and Owner
 db.getSiblingDB("nbcore").accounts.remove({
     email: {
         $nin: ['demo@noobaa.com', 'support@noobaa.com']
     }
 });
+
+// Update owner allowed_buckets to files bucket only
+db.getSiblingDB("nbcore").accounts.update({
+    email: 'demo@noobaa.com'
+}, {
+    $set: {
+        allowed_buckets: [db.getSiblingDB("nbcore").buckets.find({
+            name: 'files'
+        })[0]._id]
+    }
+});
+
 // Removing roles of the deleted accounts, except demo and support (which doesn't have a role)
 db.getSiblingDB("nbcore").roles.remove({
     account: {

@@ -6,7 +6,7 @@
     </button>
 </div>
 
-<data-table params="
+<data-table class="greedy" params="
     columns: columns,
     rowFactory: resource => newResourceRow(resource),
     sorting: sorting,
@@ -17,10 +17,4 @@
 <!-- ko if: isAddCloudResourceModalVisible -->
 <add-cloud-resource-modal params="onClose: () => hideCloudReousrceModal()">
 </add-cloud-resource-modal>
-<!-- /ko -->
-
-<!-- ko if: isAfterDeleteAlertModalVisible -->
-<cloud-resource-deleted-alert-modal params="
-    onClose: () => hideAfterDeleteAlertModal()
-"></cloud-resource-deleted-alert-modal>
 <!-- /ko -->

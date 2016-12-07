@@ -9,21 +9,13 @@
  */
 module.exports = {
     escapeRegExp: escapeRegExp,
-    toBinary: toBinary,
-    left_pad_zeros: left_pad_zeros
+    left_pad_zeros: left_pad_zeros,
+    random_string: random_string
 };
 
 
 function escapeRegExp(str) {
     return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
-}
-
-function toBinary(str) {
-    var result = '';
-    for (var i = 0, l = str.length; i < l; i += 2) {
-        result += String.fromCharCode(parseInt(str.substr(i, 2), 16));
-    }
-    return result;
 }
 
 function left_pad_zeros(str, to_length) {
@@ -34,4 +26,14 @@ function left_pad_zeros(str, to_length) {
     }
     return zeros + str;
 
+}
+
+
+function random_string(len = 8) {
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const chars = [];
+    for (let i = 0; i < len; ++i) {
+        chars.push(charset.charAt(Math.random() * charset.length | 0));
+    }
+    return chars.join('');
 }

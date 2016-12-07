@@ -2,7 +2,7 @@ import template from './start-maintenance-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import  { enterMaintenanceMode } from 'actions';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 
 const durationUntiOptions = deepFreeze([
     {
@@ -36,7 +36,6 @@ class StartMaintenanceModalViewModel extends Disposable {
         );
 
         this.errors = ko.validation.group(this);
-        this.shake = ko.observable(false);
     }
 
     cancel() {
@@ -46,7 +45,6 @@ class StartMaintenanceModalViewModel extends Disposable {
     start() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-            this.shake(true);
 
         } else {
             enterMaintenanceMode(this.durationInMin());

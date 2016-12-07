@@ -2,20 +2,20 @@ import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze, createCompareFunc } from 'utils';
-import { redirectTo } from 'actions';
+import { deepFreeze, createCompareFunc } from 'utils/all';
+import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 
 const columns = deepFreeze([
     {
         name: 'state',
-        cellTemplate: 'icon',
+        type: 'icon',
         sortable: true
     },
     {
         name: 'name',
         label: 'bucket name',
-        cellTemplate: 'link',
+        type: 'link',
         sortable: true
     },
     {
@@ -24,11 +24,12 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'placementPolicy'
+        name: 'placementPolicy',
+        sortable: true
     },
     {
         name: 'cloudStorage',
-        cellTemplate: 'cloud-storage'
+        type: 'cloud-storage'
     },
     {
         name: 'cloudSync',
@@ -37,23 +38,35 @@ const columns = deepFreeze([
     {
         name: 'capacity',
         label: 'used capacity',
-        cellTemplate: 'capacity',
+        type: 'capacity',
         sortable: true
     },
     {
         name: 'deleteButton',
         label: '',
         css: 'delete-col',
-        cellTemplate: 'delete'
+        type: 'delete'
     }
 ]);
+
+function generatePlacementSortValue(bucket) {
+    let tierName = bucket.tiering.tiers[0].tier;
+    let { data_placement, node_pools } = systemInfo() && systemInfo().tiers.find(
+        tier => tier.name === tierName
+    );
+    return [
+        data_placement === 'SPREAD' ? 0 : 1,
+        node_pools.length
+    ];
+}
 
 const compareAccessors = deepFreeze({
     state: bucket => bucket.state,
     name: bucket => bucket.name,
     fileCount: bucket => bucket.num_objects,
     capacity: bucket => bucket.storage.used,
-    cloudSync: bucket => bucket.cloud_sync_status
+    cloudSync: bucket => bucket.cloud_sync_status,
+    placementPolicy: generatePlacementSortValue
 });
 
 class BucketsTableViewModel extends Disposable {
@@ -69,7 +82,7 @@ class BucketsTableViewModel extends Disposable {
             }),
             write: value => {
                 this.deleteGroup(null);
-                redirectTo(undefined, undefined, value);
+                navigateTo(undefined, undefined, value);
             }
         });
 

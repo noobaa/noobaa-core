@@ -14,16 +14,20 @@ const _ = require('lodash');
 const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_monitor = require('./nodes_monitor');
+const dbg = require('../../util/debug_module')(__filename);
 
 let monitor;
 
 // called on rpc server init
 function _init() {
     monitor = new nodes_monitor.NodesMonitor();
-    //TODO:: return this once we enable HA
-    //if (system_store.is_cluster_master) {
-    return monitor.start();
-    //}
+    // start nodes_monitor if this is master, or this is not part of a rplica set
+    if (system_store.is_cluster_master || !process.env.MONGO_RS_URL) {
+        dbg.log0('this is master. starting nodes_monitor');
+        return monitor.start();
+    } else {
+        dbg.log0('this is not master. nodes_monitor is not started');
+    }
 }
 
 function get_local_monitor() {
@@ -58,15 +62,16 @@ function list_nodes(req) {
 function aggregate_nodes(req) {
     const query = _prepare_nodes_query(req);
     const res = monitor.aggregate_nodes(query, req.rpc_params.group_by);
-    if (res.groups) {
-        res.groups = _.map(res.groups, (group, group_key) => {
-            if (req.rpc_params.group_by === 'pool') {
-                const pool = system_store.get_by_id(group_key);
-                group.name = pool.name;
-            }
-            return group;
-        });
-    }
+    // if (res.groups) {
+    //     res.groups = _.map(res.groups, (group, group_key) => {
+    //         if (req.rpc_params.group_by === 'pool') {
+    //             const pool = system_store.data.get_by_id(group_key);
+    //             group.name = pool.name;
+    //         }
+    //         return group;
+    //     });
+    // }
+    return res;
 }
 
 function _prepare_nodes_query(req) {
@@ -96,6 +101,10 @@ function get_test_nodes(req) {
     const list_res = monitor.list_nodes({
         system: String(req.system._id),
         online: true,
+        decommissioning: false,
+        decommissioned: false,
+        deleting: false,
+        deleted: false,
         skip_address: req.rpc_params.source
     }, {
         pagination: true,
@@ -130,6 +139,7 @@ exports.list_nodes = list_nodes;
 exports.aggregate_nodes = aggregate_nodes;
 exports.get_test_nodes = get_test_nodes;
 exports.allocate_nodes = allocate_nodes;
+exports.migrate_nodes_to_pool = req => monitor.migrate_nodes_to_pool(req.rpc_params.nodes, req.rpc_params.pool_id);
 exports.n2n_signal = req => monitor.n2n_signal(req.rpc_params);
 exports.n2n_proxy = req => monitor.n2n_proxy(req.rpc_params);
 exports.test_node_network = req => monitor.test_node_network(req.rpc_params);

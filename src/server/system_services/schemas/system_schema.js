@@ -13,7 +13,7 @@ module.exports = {
             format: 'objectid'
         },
         deleted: {
-            format: 'idate'
+            format: 'date'
         },
         name: {
             type: 'string'
@@ -112,6 +112,11 @@ module.exports = {
         debug_level: {
             type: 'integer'
         },
+
+        //Last upgrade date
+        upgrade_date: {
+            format: 'idate'
+        }
 
     }
 };

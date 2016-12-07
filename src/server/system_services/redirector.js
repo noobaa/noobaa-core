@@ -13,7 +13,7 @@ const server_rpc = require('../server_rpc');
 // dbg.set_level(5);
 
 const cluster_connections = new Set();
-
+const alerts_connections = new Set();
 
 function register_to_cluster(req) {
     var conn = req.connection;
@@ -50,7 +50,46 @@ function publish_to_cluster(req) {
         });
 }
 
+function register_for_alerts(req) {
+    var conn = req.connection;
+    if (!alerts_connections.has(conn)) {
+        dbg.log0('register_for_alerts', conn.url.href);
+        alerts_connections.add(conn);
+        conn.on('close', function() {
+            alerts_connections.delete(conn);
+        });
+    }
+}
+
+function unregister_from_alerts(req) {
+    var conn = req.connection;
+    if (!alerts_connections.has(conn)) {
+        return;
+    }
+    alerts_connections.delete(conn);
+}
+
+function publish_alerts(req) {
+    var connections = [];
+    alerts_connections.forEach(function(conn) {
+        connections.push(conn);
+    });
+    connections = _.uniq(connections);
+    dbg.log3('publish_alerts:', req.rpc_params.request_params, connections);
+    return P.map(connections, function(conn) {
+            return server_rpc.client.frontend_notifications.alert(req.rpc_params.request_params, {
+                connection: conn,
+            });
+        })
+        .then(() => {
+            dbg.log3('published');
+        });
+}
+
 
 // EXPORTS
+exports.register_for_alerts = register_for_alerts;
+exports.unregister_from_alerts = unregister_from_alerts;
 exports.register_to_cluster = register_to_cluster;
 exports.publish_to_cluster = publish_to_cluster;
+exports.publish_alerts = publish_alerts;

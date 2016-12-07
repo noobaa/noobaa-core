@@ -1,44 +1,39 @@
-<div class="row content-middle cursor-pointer" data-bind="
-    click: () => expanded.toggle()
+<collapsible-section params="
+    title: 'Date & Time',
+    collapsed: isCollapsed
 ">
-    <h2 class="heading3 greedy">
-        Date & Time
-    </h2>
+    <section class="row" data-name="collapsed">
+        <p>
+            Server time:
+            <output class="text-tech" data-bind="value: formattedTime"></output>
+        </p>
+    </section>
 
-    <button class="btn-flat expand-btn no-outline">
-        <svg-icon class="rotate icon-small" params="name: 'chevron'"
-            data-bind="css: { 'deg-90': !expanded() }">
-        </svg-icon>
-    </button>
-</div>
+    <section class="column" data-name="expanded">
+        <radio-group params="
+            options: configTypes,
+            selected: selectedConfigType
+        "></radio-group>
 
-<p data-bind="visible: !expanded()">
-    Server time:
-    <output class="text-tech" data-bind="value: formattedTime"></output>
-</p>
+        <timezone-chooser params="timezone: timezone"></timezone-chooser>
 
+        <div class="forms row push-next">
+            <date-time-chooser params="time: time, timezone: timezone"
+                class="manual-form" data-bind="visibility: usingManualTime">
+            </date-time-chooser>
 
-<section class="column" data-bind="expand: expanded">
-    <radio-group params="
-        options: configTypes,
-        selected: selectedConfigType
-    "></radio-group>
+            <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
+                <input type="text" placeholder="IP or DNS name" data-bind="value: ntpServer"/>
+            </editor>
+        </div>
 
-    <timezone-chooser params="timezone: timezone"></timezone-chooser>
-
-    <div class="forms row push-next">
-        <date-time-chooser params="time: time, timezone: timezone"
-            class="manual-form" data-bind="visibility: usingManualTime">
-        </date-time-chooser>
-
-        <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
-            <input type="text" placeholder="IP or DNS name" data-bind="value: ntpServer"/>
-        </editor>
-    </div>
-
-    <div class="row">
-        <button class="btn" data-bind="click: applyChanges">
-            Apply Changes
-        </button>
-    </div>
-</section>
+        <div class="row">
+            <button class="btn" data-bind="
+                click: applyChanges,
+                shakeOnClick: !isValid()
+            ">
+                Apply Changes
+            </button>
+        </div>
+    </section>
+</collapsible-section>

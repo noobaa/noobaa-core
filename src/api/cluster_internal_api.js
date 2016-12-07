@@ -17,7 +17,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['topology', 'cluster_id', 'secret', 'role', 'shard'],
+                required: ['topology', 'cluster_id', 'secret', 'role', 'shard', 'jwt_secret'],
                 properties: {
                     ip: {
                         type: 'string',
@@ -26,6 +26,9 @@ module.exports = {
                         type: 'string'
                     },
                     secret: {
+                        type: 'string'
+                    },
+                    jwt_secret: {
                         type: 'string'
                     },
                     role: {
@@ -42,6 +45,38 @@ module.exports = {
                         additionalProperties: true,
                         properties: {}
                     },
+                    new_hostname: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        verify_join_conditions: {
+            doc: 'check join conditions to the cluster and return caller ip (stun)',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['secret', 'version'],
+                properties: {
+                    secret: {
+                        type: 'string'
+                    },
+                    version: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['caller_address'],
+                properties: {
+                    caller_address: {
+                        type: 'string'
+                    }
                 }
             },
             auth: {
@@ -155,14 +190,6 @@ module.exports = {
 
         collect_server_diagnostics: {
             method: 'POST',
-            params: {
-                type: 'object',
-                properties: {
-                    target_secret: {
-                        type: 'string',
-                    }
-                },
-            },
             reply: {
                 type: 'object',
                 required: ['data'],
@@ -224,7 +251,6 @@ module.exports = {
                     mongo_upgrade: {
                         type: 'boolean'
                     }
-
                 }
             },
             auth: {
@@ -245,8 +271,23 @@ module.exports = {
             auth: {
                 system: false,
             }
-        }
+        },
 
+        set_hostname_internal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['hostname'],
+                properties: {
+                    hostname: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        }
     },
 
     definitions: {
@@ -281,7 +322,7 @@ module.exports = {
                     items: {
                         type: 'string'
                     },
-                }
+                },
             },
         }
     },

@@ -2,19 +2,19 @@ import template from './cloud-resources-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
-import { systemInfo, routeContext } from 'model';
-import { deepFreeze, createCompareFunc } from 'utils';
-import { redirectTo } from 'actions';
+import { systemInfo, uiState, routeContext } from 'model';
+import { deepFreeze, createCompareFunc } from 'utils/all';
+import { navigateTo } from 'actions';
 
 const columns = deepFreeze([
     {
         name: 'state',
-        cellTemplate: 'icon',
+        type: 'icon',
         sortable: true
     },
     {
         name: 'type',
-        cellTemplate: 'icon',
+        type: 'icon',
         sortable: true
     },
     {
@@ -41,7 +41,7 @@ const columns = deepFreeze([
         name: 'deleteBtn',
         label: '',
         css: 'delete-col',
-        cellTemplate: 'delete'
+        type: 'delete'
     }
 ]);
 
@@ -86,8 +86,8 @@ class CloudResourcesTableViewModel extends Disposable {
 
         this.sorting = ko.pureComputed({
             read: () => {
-                let { params, query } = routeContext();
-                let isOnScreen = params.tab === 'cloud';
+                let { query } = routeContext();
+                let isOnScreen = uiState().tab === 'cloud';
 
                 return {
                     sortBy: (isOnScreen && query.sortBy) || 'name',
@@ -96,7 +96,7 @@ class CloudResourcesTableViewModel extends Disposable {
             },
             write: value => {
                 this.deleteGroup(null);
-                redirectTo(undefined, undefined, value);
+                navigateTo(undefined, undefined, value);
             }
         });
 
@@ -116,15 +116,13 @@ class CloudResourcesTableViewModel extends Disposable {
 
         this.deleteGroup = ko.observable();
         this.isAddCloudResourceModalVisible = ko.observable(false);
-        this.isAfterDeleteAlertModalVisible = ko.observable(false);
     }
 
     newResourceRow(resource) {
         return new CloudResourceRowViewModel(
             resource,
             resourcesToBuckets,
-            this.deleteGroup,
-            () => this.showAfterDeleteAlertModal()
+            this.deleteGroup
         );
     }
 
@@ -134,14 +132,6 @@ class CloudResourcesTableViewModel extends Disposable {
 
     hideCloudReousrceModal() {
         this.isAddCloudResourceModalVisible(false);
-    }
-
-    showAfterDeleteAlertModal() {
-        this.isAfterDeleteAlertModalVisible(true);
-    }
-
-    hideAfterDeleteAlertModal() {
-        this.isAfterDeleteAlertModalVisible(false);
     }
 }
 

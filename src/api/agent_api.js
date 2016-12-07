@@ -77,6 +77,9 @@ module.exports = {
                     cloud_pool_name: {
                         type: 'string'
                     },
+                    create_node_token: {
+                        type: 'string'
+                    }
                 }
             },
         },
@@ -88,6 +91,19 @@ module.exports = {
                 required: ['auth_token'],
                 properties: {
                     auth_token: {
+                        type: 'string'
+                    }
+                }
+            }
+        },
+
+        update_create_node_token: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['create_node_token'],
+                properties: {
+                    create_node_token: {
                         type: 'string'
                     }
                 }

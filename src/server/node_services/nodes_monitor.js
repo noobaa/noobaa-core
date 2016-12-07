@@ -1,8 +1,4 @@
-/**
- *
- * NODE MONITOR
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -10,6 +6,7 @@ const chance = require('chance')();
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../../util/promise');
+const api = require('../../api');
 const util = require('util');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -18,6 +15,7 @@ const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
 const dclassify = require('dclassify');
+const Semaphore = require('../../util/semaphore');
 const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
 const Dispatcher = require('../notifications/dispatcher');
@@ -33,12 +31,16 @@ const cluster_server = require('../system_services/cluster_server');
 const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
 const url = require('url');
+const mongodb = require('mongodb');
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
 const MAX_NUM_LATENCIES = 20;
-const UPDATE_STORE_MIN_ITEMS = 100;
+const UPDATE_STORE_MIN_ITEMS = 30;
 const AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // 10 minutes grace period before an agent is consideref offline
+const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
+const AGENT_TEST_CONNECTION_TIMEOUT = 10 * 1000;
+const NO_NAME_PREFIX = 'a-node-has-no-name-';
 
 const AGENT_INFO_FIELDS = [
     'name',
@@ -152,14 +154,30 @@ class NodesMonitor extends EventEmitter {
         this._started = false;
         this._loaded = false;
         this._num_running_rebuilds = 0;
+        this._run_serial = new Semaphore(1);
+        this._update_nodes_store_serial = new Semaphore(1);
+
+        // This is used in order to test n2n connection from node_monitor to agents
+        this.n2n_rpc = api.new_rpc();
+        this.n2n_client = this.n2n_rpc.new_client();
+        this.n2n_agent = this.n2n_rpc.register_n2n_agent(this.n2n_client.node.n2n_signal);
+        // Notice that this is a mock up address just to ensure n2n connection authorization
+        this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
     }
 
     start() {
+        if (this._started) {
+            dbg.log0('NodesMonitor already started returning.');
+            return P.resolve();
+        }
+        dbg.log0('starting nodes_monitor');
         this._started = true;
-        return this._load_from_store();
+        return P.resolve()
+            .then(() => this._load_from_store());
     }
 
     stop() {
+        dbg.log0('stoping nodes_monitor');
         this._started = false;
     }
 
@@ -167,7 +185,7 @@ class NodesMonitor extends EventEmitter {
      * sync_to_store is used for testing to get the info from all nodes
      */
     sync_to_store() {
-        return P.resolve(this._run()).return();
+        return P.resolve().then(() => this._run()).return();
     }
 
 
@@ -196,14 +214,22 @@ class NodesMonitor extends EventEmitter {
         }
 
         //If this server is not the master, redirect the agent to the master
-        let current_clustering = system_store.get_local_cluster_info();
-        if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+        if (!this._is_master()) {
             return P.resolve(cluster_server.redirect_to_cluster_master())
                 .then(addr => {
-                    dbg.log0('heartbeat: current is not master redirecting to', addr);
-                    reply.redirect = addr;
+                    reply.redirect = url.format({
+                        protocol: 'wss',
+                        slashes: true,
+                        hostname: addr,
+                        port: process.env.SSL_PORT || 8443
+                    });
                     return reply;
                 });
+        }
+
+        if (req.connection.item_name) {
+            dbg.error(`connection is already used to connect an agent. name=${req.connection.item_name}`);
+            throw new Error('connection is already used to connect an agent');
         }
 
 
@@ -227,16 +253,13 @@ class NodesMonitor extends EventEmitter {
     }
 
 
+    // test the passed node id, to verify that it's a valid node
     test_node_id(req) {
-        const extra = req.auth.extra || {};
-        const node_id = String(extra.node_id || '');
-        if (node_id) {
-            // test the passed node id, to verify that it's a valid node
-            const item = this._map_node_id.get(String(node_id));
-            dbg.log0('agent sent node_id', node_id, item ? 'found valid node' : 'did not find a valid node!!!');
-            return Boolean(item);
-        }
-        dbg.log0('agent did not send a node_id. sending valid=true');
+        // Deprecated
+        // this case is handled in heartbeat flow. agent will clean itself when getting NODE_NOT_FOUND
+        // although it is not used by agents in the current version, we need to leave this code for
+        // cases where older versions of the agent call this function on startup.
+        // we can remove it only after we no longer support versions that call test_node_id
         return true;
     }
 
@@ -266,7 +289,7 @@ class NodesMonitor extends EventEmitter {
                 'pool_id', pool_id, 'from pool', item.node.pool);
             if (String(item.node.pool) !== String(pool_id)) {
                 item.node.migrating_to_pool = Date.now();
-                item.node.pool = pool_id;
+                item.node.pool = new mongodb.ObjectId(pool_id);
                 item.suggested_pool = ''; // reset previous suggestion
             }
             this._set_need_update.add(item);
@@ -408,7 +431,7 @@ class NodesMonitor extends EventEmitter {
                 system: system._id,
                 pool: pool._id,
                 heartbeat: Date.now(),
-                name: 'a-node-has-no-name-' + Date.now().toString(36),
+                name: NO_NAME_PREFIX + Date.now().toString(36),
             },
         };
         if (pool.cloud_pool_info) {
@@ -421,18 +444,41 @@ class NodesMonitor extends EventEmitter {
         this._set_node_defaults(item);
         this._set_connection(item, conn);
         this._set_need_update.add(item);
+        // we hurry the next run to save the new node
+        this._schedule_next_run(3000);
     }
 
     _add_node_to_maps(item) {
-        this._map_node_id.set(String(item.node._id), item);
-        this._map_peer_id.set(String(item.node.peer_id), item);
-        this._map_node_name.set(String(item.node.name), item);
+        const node_id = String(item.node._id || '');
+        const peer_id = String(item.node.peer_id || '');
+        const name = String(item.node.name || '');
+
+        const id_collision = this._map_node_id.get(node_id);
+        if (id_collision && id_collision !== item) {
+            dbg.error('NODE ID COLLISSION', node_id, item, id_collision);
+            throw new Error('NODE ID COLLISSION ' + node_id);
+        }
+        const peer_id_collision = this._map_peer_id.get(peer_id);
+        if (peer_id_collision && peer_id_collision !== item) {
+            dbg.error('NODE PEER ID COLLISSION', peer_id, item, peer_id_collision);
+            throw new Error('NODE PEER ID COLLISSION ' + peer_id);
+        }
+        const name_collision = this._map_node_name.get(name);
+        if (name_collision && name_collision !== item) {
+            dbg.error('NODE NAME COLLISSION', name, item, name_collision);
+            throw new Error('NODE NAME COLLISSION ' + name);
+        }
+
+        this._map_node_id.set(node_id, item);
+        this._map_peer_id.set(peer_id, item);
+        this._map_node_name.set(name, item);
     }
 
     _remove_node_from_maps(item) {
         this._map_node_id.delete(String(item.node._id));
         this._map_peer_id.delete(String(item.node.peer_id));
         this._map_node_name.delete(String(item.node.name));
+        this._set_need_update.delete(item);
     }
 
     _set_node_defaults(item) {
@@ -459,90 +505,123 @@ class NodesMonitor extends EventEmitter {
         this._set_connection(item, conn);
     }
 
+    _close_node_connection(item) {
+        if (!item.connection) return;
+        dbg.warn('_close_node_connection', item.node.name, item.connection.connid);
+        item.connection.close();
+        item.connection = null;
+    }
+
+    _disconnect_node(item) {
+        this._close_node_connection(item);
+        this._set_need_update.add(item);
+        this._update_status(item);
+    }
+
     _set_connection(item, conn) {
         if (item.connection === conn) return;
-        if (item.connection) {
-            // make sure it is not a cloned agent. if the old connection is still connected
-            // the assumption is that this is a duplicated agent. in that case throw an error
-            if (conn &&
-                item.connection._state === 'connected' &&
-                conn.url.hostname !== item.connection.url.hostname) {
-                throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort', false);
-            }
-            dbg.warn('heartbeat: closing old connection', item.connection.connid);
-            item.connection.close();
-        }
+        this._check_duplicate_agent(item, conn);
+        this._close_node_connection(item);
+        conn.on('close', () => this._on_connection_close(item, conn));
         item.connection = conn;
+        conn.item_name = item.node.name;
+        item.node.heartbeat = Date.now();
         this._set_need_update.add(item);
-        setTimeout(() => this._run_node(item), 1000).unref();
-        if (conn) {
-            item.node.heartbeat = Date.now();
-            conn.on('close', () => {
-                dbg.warn('got close on node connection for', item.node.name,
-                    'conn', conn.connid,
-                    'active conn', item.connection && item.connection.connid);
-                // if connection already replaced ignore the close event
-                if (item.connection !== conn) return;
-                item.connection = null;
-                // TODO GUYM what to wakeup on disconnect?
-                setTimeout(() => this._run_node(item), 1000).unref();
-            });
+        this._update_status(item);
+    }
+
+    _on_connection_close(item, conn) {
+        dbg.warn('got close on node connection for', item.node.name,
+            'conn', conn.connid,
+            'active conn', item.connection && item.connection.connid);
+        // if then connection was replaced ignore the close event
+        conn.item_name = null;
+        if (item.connection !== conn) return;
+        this._disconnect_node(item);
+    }
+
+    _check_duplicate_agent(item, conn) {
+        // make sure it is not a cloned agent. if the old connection is still connected
+        // the assumption is that this is a duplicated agent. in that case throw an error
+        if (item.connection && conn &&
+            item.connection._state === 'connected' &&
+            conn.url.hostname !== item.connection.url.hostname) {
+            dbg.warn('DUPLICATE AGENT', item.node.name, item.connection.connid, conn.connid);
+            throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort', false);
         }
     }
 
-    _schedule_next_run(delay_ms) {
-        // TODO GUYM _schedule_next_run should check if currently running?
+    _schedule_next_run(optional_delay_ms) {
+        const delay_ms = Math.max(0, Math.min(RUN_DELAY_MS,
+            optional_delay_ms || RUN_DELAY_MS));
+        const now = Date.now();
+        if (this._next_run_time &&
+            this._next_run_time < now + delay_ms) {
+            // nex run is already scheduled earlier than requested
+            return;
+        }
         clearTimeout(this._next_run_timeout);
-        if (!this._started) return;
+        this._next_run_time = now + delay_ms;
         this._next_run_timeout = setTimeout(() => {
+            clearTimeout(this._next_run_timeout);
+            this._next_run_timeout = null;
+            this._next_run_time = 0;
             P.resolve()
                 .then(() => this._run())
                 .finally(() => this._schedule_next_run());
-        }, delay_ms || RUN_DELAY_MS).unref();
+        }, delay_ms).unref();
     }
 
     _run() {
         if (!this._started) return;
-        dbg.log0('_run:', this._map_node_id.size, 'nodes in queue');
-        let next = 0;
-        const queue = Array.from(this._map_node_id.values());
-        const concur = Math.min(queue.length, RUN_NODE_CONCUR);
-        const worker = () => {
-            if (next >= queue.length) return;
-            const item = queue[next];
-            next += 1;
-            return this._run_node(item).then(worker);
-        };
-        return P.all(_.times(concur, worker))
-            .then(() => this._suggest_pool_assign())
-            .then(() => this._update_nodes_store('force'));
+        return this._run_serial.surround(() => {
+            dbg.log0('_run:', this._map_node_id.size, 'nodes in queue');
+            let next = 0;
+            const queue = Array.from(this._map_node_id.values());
+            const concur = Math.min(queue.length, RUN_NODE_CONCUR);
+            const worker = () => {
+                if (next >= queue.length) return;
+                const item = queue[next];
+                next += 1;
+                return this._run_node(item).then(worker);
+            };
+            return P.all(_.times(concur, worker))
+                .then(() => this._suggest_pool_assign())
+                .then(() => this._update_nodes_store('force'))
+                .catch(err => {
+                    dbg.warn('_run: ERROR', err.stack || err);
+                });
+        });
     }
 
     _run_node(item) {
         if (!this._started) return;
-        dbg.log0('_run_node:', item.node.name);
-        // TODO schedule run for node should re-run if requested during run
-        item.run_promise = item.run_promise || P.resolve()
+        item._run_node_serial = item._run_node_serial || new Semaphore(1);
+        return item._run_node_serial.surround(() =>
+            P.resolve()
+            .then(() => dbg.log0('_run_node:', item.node.name))
             .then(() => this._get_agent_info(item))
+            .then(() => this._update_create_node_token(item))
             .then(() => this._update_rpc_config(item))
-            .then(() => this._test_store_perf(item))
-            .then(() => this._test_network_perf(item))
+            .then(() => this._test_nodes_validity(item))
             .then(() => this._update_status(item))
             .then(() => this._update_nodes_store())
             .catch(err => {
                 dbg.warn('_run_node: ERROR', err.stack || err, 'node', item.node);
-            })
-            .finally(() => {
-                item.run_promise = null;
-            });
-        return item.run_promise;
+            }));
     }
 
     _get_agent_info(item) {
-        const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
-        let potential_masters = clustering_utils.get_potential_masters();
+        let potential_masters = clustering_utils.get_potential_masters().map(addr => ({
+            address: url.format({
+                protocol: 'wss',
+                slashes: true,
+                hostname: addr.address,
+                port: process.env.SSL_PORT || 8443
+            })
+        }));
 
         return this.client.agent.get_agent_info_and_update_masters({
                 addresses: potential_masters
@@ -552,16 +631,28 @@ class NodesMonitor extends EventEmitter {
             .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(info => {
                 item.agent_info = info;
-                if (info.name !== item.node.name) {
-                    dbg.log0('_get_agent_info: rename node from', item.node.name,
-                        'to', info.name);
-                    this._map_node_name.delete(String(item.node.name));
-                    this._map_node_name.set(String(info.name), item);
-                }
                 const updates = _.pick(info, AGENT_INFO_FIELDS);
                 updates.heartbeat = Date.now();
+                // node name is set once before the node is created in nodes_store
+                // we take the name the agent sent as base, and add suffix if needed
+                // to prevent collisions.
+                if (item.node_from_store) {
+                    delete updates.name;
+                } else {
+                    this._map_node_name.delete(String(item.node.name));
+                    let base_name = updates.name || 'node';
+                    let counter = 1;
+                    while (this._map_node_name.has(updates.name)) {
+                        updates.name = base_name + '-' + counter;
+                        counter += 1;
+                    }
+                    this._map_node_name.set(String(updates.name), item);
+                    dbg.log0('_get_agent_info: set node name',
+                        item.node.name, 'to', updates.name);
+                }
                 _.extend(item.node, updates);
                 this._set_need_update.add(item);
+                item.create_node_token = info.create_node_token;
             })
             .catch(err => {
                 dbg.error('got error in _get_agent_info:', err);
@@ -569,8 +660,35 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
+    _update_create_node_token(item) {
+        if (!item.connection) return;
+        if (!item.node_from_store) return;
+        if (item.create_node_token) {
+            dbg.log2(`_update_create_node_token: node already has a valid create_node_token. item.create_node_token = ${item.create_node_token}`);
+            return;
+        }
+        dbg.log0('node does not have a valid create_node_token. creating new one and sending to agent');
+        let auth_parmas = {
+            system_id: String(item.node.system),
+            account_id: system_store.data.get_by_id(item.node.system).owner._id,
+            role: 'create_node'
+        };
+        let token = auth_server.make_auth_token(auth_parmas);
+        dbg.log0(`new create_node_token: ${token}`);
+
+        return this.client.agent.update_create_node_token({
+                create_node_token: token
+            }, {
+                connection: item.connection
+            })
+            .timeout(AGENT_RESPONSE_TIMEOUT);
+
+    }
+
+
     _update_rpc_config(item) {
         if (!item.connection) return;
+        if (!item.node_from_store) return;
         const system = system_store.data.get_by_id(item.node.system);
         const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
         const rpc_address = rpc_proto === 'n2n' ?
@@ -584,7 +702,7 @@ class NodesMonitor extends EventEmitter {
         // otherwise the agent is using the ip directly, so no update is needed
         // don't update local agents which are using local host
         if (system.base_address &&
-            system.base_address !== item.agent_info.base_address &&
+            system.base_address.toLowerCase() !== item.agent_info.base_address.toLowerCase() &&
             !item.node.is_internal_node &&
             !is_localhost(item.agent_info.base_address)) {
             rpc_config.base_address = system.base_address;
@@ -593,6 +711,11 @@ class NodesMonitor extends EventEmitter {
         const n2n_config = _.extend(null,
             item.agent_info.n2n_config,
             _.cloneDeep(system.n2n_config));
+        if (item.node.is_cloud_node) {
+            n2n_config.tcp_permanent_passive = {
+                port: config.CLOUD_AGENTS_N2N_PORT
+            };
+        }
         if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
             rpc_config.n2n_config = n2n_config;
         }
@@ -602,7 +725,7 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.update_rpc_config(rpc_config, {
                 connection: item.connection
             })
-            .timeout(3 * 60000)
+            .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(() => {
                 _.extend(item.node, rpc_config);
                 this._set_need_update.add(item);
@@ -611,14 +734,14 @@ class NodesMonitor extends EventEmitter {
 
     _test_store_perf(item) {
         if (!item.connection) return;
-        // TODO check how much time passed since last test
-        dbg.log0('_test_store_perf:', item.node.name);
+
+        dbg.log0('_test_store_perf::', item.node.name);
         return this.client.agent.test_store_perf({
                 count: 5
             }, {
                 connection: item.connection
             })
-            .timeout(3 * 60000)
+            .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(res => {
                 this._set_need_update.add(item);
                 item.node.latency_of_disk_read = js_utils.array_push_keep_latest(
@@ -628,83 +751,175 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-    _test_network_perf(item) {
+
+    _test_network_to_server(item) {
         if (!item.connection) return;
-        // TODO GUYM _test_network_perf with few other nodes
-        // and detect if we have a NAT preventing TCP to this node
-        this._set_need_update.add(item);
-        item.node.latency_to_server = js_utils.array_push_keep_latest(
-            item.node.latency_to_server, [0], MAX_NUM_LATENCIES);
+
+        const start = Date.now();
+
+        dbg.log0('_test_network_to_server::', item.node.name);
+        return this.n2n_client.agent.test_network_perf({
+                source: this.n2n_agent.rpc_address,
+                target: item.node.rpc_address,
+                data: new Buffer(1),
+                response_length: 1,
+            }, {
+                address: item.node.rpc_address,
+                return_rpc_req: true // we want to check req.connection
+            })
+            .timeout(AGENT_TEST_CONNECTION_TIMEOUT)
+            .then(req => {
+                var took = Date.now() - start;
+                this._set_need_update.add(item);
+                item.node.latency_to_server = js_utils.array_push_keep_latest(
+                    item.node.latency_to_server, [took], MAX_NUM_LATENCIES);
+                dbg.log0('_test_network_to_server:: Succeeded in sending n2n rpc to ',
+                    item.node.name, 'took', took);
+                req.connection.close();
+            });
     }
 
-    _update_nodes_store(force) {
-        // skip the update if not forced and not enough coalescing
-        if (!this._set_need_update.size) return;
-        if (!force && this._set_need_update.size < UPDATE_STORE_MIN_ITEMS) return;
 
-        const new_nodes = [];
-        const deleted_nodes = [];
-        const bulk_items = this._set_need_update;
-        this._set_need_update = new Set();
-        for (const item of bulk_items) {
-            if (!item.node_from_store) {
-                new_nodes.push(item);
-            }
-            // Here we gather all of the nodes that ready and need to be deleted
-            // TODO: At this time, the code is relevant to nodes of cloud resources
-            // Ready means that they evacuated their data from the cloud resource
-            // And currently waiting for their process to be deleted and removed from DB
-            // Notice that we do not update the DB and then try to remeve the process
-            // This is done in order to attempt and remove the process until we succeed
-            // The node won't be deleted from the DB until the process is down and dead
-            // This is why we are required to use a new variable by the name ready_to_be_deleted
-            // In order to mark the nodes that wait for their processes to be removed (cloud resource)
-            // If the node is not relevant to a cloud resouce it will be just marked as deleted
-            if (item.ready_to_be_deleted) {
-                deleted_nodes.push(item);
-            }
-        }
+    // Test with few other nodes and detect if we have a NAT preventing TCP to this node
+    _test_network_perf(item) {
+        if (!item.connection) return;
 
+        const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
+        return P.each(items_without_issues, item_without_issues => {
+            dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
+                item.node.rpc_address, item_without_issues.node.rpc_address);
+            return this.client.agent.test_network_perf_to_peer({
+                    source: item_without_issues.node.rpc_address,
+                    target: item.node.rpc_address,
+                    request_length: 1,
+                    response_length: 1,
+                    count: 1,
+                    concur: 1
+                }, {
+                    connection: item_without_issues.connection
+                })
+                .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
+        });
+    }
+
+    _test_nodes_validity(item) {
+        if (!item.node_from_store) return;
+        dbg.log0('_test_nodes_validity::', item.node.name);
         return P.resolve()
-            // Handle and complete the full deletion of cloud resource nodes
-            .then(() => P.map(deleted_nodes, item => {
-                dbg.log0('_update_nodes_store deleted_node:', util.inspect(item));
-                if (item.node.is_cloud_node) {
-                    // Removing the internal node from the processes
-                    return server_rpc.client.hosted_agents.remove_agent({
-                            // Remove agent expects to receive the cloud pool name, so we cut it out
-                            name: item.node.name
-                        })
-                        .then(() => {
-                            // Marking the node as deleted since we've removed it completely
-                            // If we did not succeed at removing the process we don't mark the deletion
-                            // This is done in order to cycle the node once again and attempt until
-                            // We succeed
-                            item.node.deleted = Date.now();
-                        })
-                        .catch(err => {
-                            // We will just wait another cycle and attempt to delete it fully again
-                            dbg.warn('delete_cloud_pool_node ERROR node', item.node, err);
-                        });
+            .then(() => P.join(
+                this._test_network_perf(item),
+                this._test_store_perf(item),
+                this._test_network_to_server(item)
+            ))
+            .then(() => {
+                dbg.log0('_test_nodes_validity:: success in test', item.node.name);
+                if (item.io_detention &&
+                    Date.now() - item.io_detention > config.NODE_IO_DETENTION_THRESHOLD) {
+                    dbg.log0('_test_nodes_validity:: turning off detention in node', item.node.name);
+                    item.io_detention = 0;
+                }
+            })
+            .catch(() => {
+                if (!item.io_detention) {
+                    dbg.log0('_test_nodes_validity:: node in io_detention', item.node.name);
+                    item.io_detention = Date.now();
+                }
+            });
+    }
+
+
+    _get_detention_test_nodes(item, limit) {
+        this._throw_if_not_started_and_loaded();
+        const filter_res = this._filter_nodes({
+            skip_address: item.node.rpc_address,
+            skip_no_address: true,
+            pools: [item.node.pool],
+            has_issues: false
+        });
+        const list = filter_res.list;
+        this._sort_nodes_list(list, {
+            sort: 'shuffle'
+        });
+        const selected = _.take(list, limit);
+        dbg.log0('_get_detention_test_nodes::', item.node.name,
+            _.map(selected, 'node.name'), limit);
+        return _.isUndefined(limit) ? list : selected;
+    }
+
+
+    /*
+     *
+     * UPDATE NODES STORE FOR PERSISTENCY
+     *
+     */
+
+    _update_nodes_store(force) {
+        return this._update_nodes_store_serial.surround(() => {
+            // skip the update if not forced and not enough coalescing
+            if (!this._set_need_update.size) return;
+            if (!force && this._set_need_update.size < UPDATE_STORE_MIN_ITEMS) return;
+
+            const new_nodes = [];
+            const existing_nodes = [];
+            const deleted_nodes = [];
+            for (const item of this._set_need_update) {
+                if (item.ready_to_be_deleted) {
+                    deleted_nodes.push(item);
+                } else if (item.node_from_store) {
+                    existing_nodes.push(item);
                 } else {
-                    // Just mark the node as deleted and we will not scan it anymore
-                    // This is done once the node's proccess is deleted (relevant to cloud resource)
-                    // Or in a normal node it is done immediately
-                    item.node.deleted = Date.now();
+                    new_nodes.push(item);
                 }
-            }))
-            .then(() => nodes_store.instance().bulk_update(bulk_items))
-            .then(() => P.map(new_nodes, item => {
-                if (!item.is_internal_node) {
-                    Dispatcher.instance().activity({
-                        level: 'info',
-                        event: 'node.create',
-                        system: item.node.system,
-                        node: item.node._id,
-                        actor: item.account && item.account._id,
-                        desc: `${item.node.name} was added by ${item.account && item.account.email}`,
-                    });
+            }
+
+            // the set is cleared to collect new changes during the update
+            this._set_need_update = new Set();
+
+            return P.join(
+                    this._update_existing_nodes(existing_nodes),
+                    this._update_new_nodes(new_nodes),
+                    this._update_deleted_nodes(deleted_nodes)
+                )
+                .catch(err => {
+                    dbg.warn('_update_nodes_store: had errors', err);
+                });
+        });
+    }
+
+    _update_existing_nodes(existing_nodes) {
+        if (!existing_nodes.length) return;
+        return P.resolve()
+            .then(() => nodes_store.instance().bulk_update(existing_nodes))
+            .then(res => {
+                // mark failed updates to retry
+                if (res.failed) {
+                    for (const item of res.failed) {
+                        this._set_need_update.add(item);
+                    }
                 }
+            })
+            .catch(err => {
+                dbg.warn('_update_existing_nodes: ERROR', err.stack || err);
+            });
+    }
+
+    _update_new_nodes(new_nodes) {
+        if (!new_nodes.length) return;
+        const items_to_create = [];
+        return P.map(new_nodes, item => {
+                if (!item.connection) {
+                    // we discard nodes that disconnected before being created
+                    dbg.warn('discard node that was not created', item.node.name);
+                    this._remove_node_from_maps(item);
+                    return;
+                }
+                if (item.node.name.startsWith(NO_NAME_PREFIX)) {
+                    // in this case we could not get the agent info
+                    // so we avoid creating the node until we get it
+                    this._set_need_update.add(item);
+                    return;
+                }
+                dbg.log0('_update_new_nodes: update_auth_token', item.node.name);
                 return this.client.agent.update_auth_token({
                         auth_token: auth_server.make_auth_token({
                             system_id: String(item.node.system),
@@ -716,49 +931,156 @@ class NodesMonitor extends EventEmitter {
                     }, {
                         connection: item.connection
                     })
-                    .timeout(3 * 60000)
+                    .timeout(AGENT_RESPONSE_TIMEOUT)
+                    .then(() => items_to_create.push(item))
                     .catch(err => {
-                        dbg.warn('update_auth_token ERROR node', item.node._id, err);
-                        // TODO handle error of update_auth_token - disconnect? deleted from store?
+                        // we couldn't update the agent with the token
+                        // so avoid inserting this node to store
+                        dbg.warn('_update_new_nodes: update_auth_token ERROR node',
+                            item.node.name, item, err);
+                        this._set_need_update.add(item);
                     });
             }, {
                 concurrency: 10
-            }))
-            .then(() => {
-                // for all updated nodes we can consider the store updated
-                // if no new updates were requested while we were writing
-                for (const item of bulk_items) {
-                    if (!this._set_need_update.has(item)) {
-                        item.node_from_store = _.cloneDeep(item.node);
+            })
+            .then(() => dbg.log0('_update_new_nodes: nodes to create',
+                _.map(items_to_create, 'node.name')))
+            .then(() => nodes_store.instance().bulk_update(items_to_create))
+            .then(res => {
+                // mark failed updates to retry
+                if (res.failed) {
+                    for (const item of res.failed) {
+                        this._set_need_update.add(item);
                     }
-                    if (item.node.deleted) {
+                }
+                if (res.updated) {
+                    for (const item of res.updated) {
+                        // update the status of readable/writable after node_from_store is updated
+                        this._update_status(item);
+                        if (item.node.is_cloud_node) continue;
+                        if (item.node.is_internal_node) continue;
+                        Dispatcher.instance().activity({
+                            level: 'info',
+                            event: 'node.create',
+                            system: item.node.system,
+                            node: item.node._id,
+                            // actor: item.account && item.account._id,
+                            desc: `${item.node.name} was added`,
+                        });
+                    }
+                }
+            })
+            .catch(err => {
+                dbg.warn('_update_new_nodes: ERROR', err.stack || err);
+            });
+    }
+
+    // Handle nodes that ready and need to be deleted
+    // TODO: At this time, the code is relevant to nodes of cloud resources
+    // Ready means that they evacuated their data from the cloud resource
+    // And currently waiting for their process to be deleted and removed from DB
+    // Notice that we do not update the DB and then try to remeve the process
+    // This is done in order to attempt and remove the process until we succeed
+    // The node won't be deleted from the DB until the process is down and dead
+    // This is why we are required to use a new variable by the name ready_to_be_deleted
+    // In order to mark the nodes that wait for their processes to be removed (cloud resource)
+    // If the node is not relevant to a cloud resouce it will be just marked as deleted
+    _update_deleted_nodes(deleted_nodes) {
+        if (!deleted_nodes.length) return;
+        const items_to_update = [];
+        return P.map(deleted_nodes, item => {
+                dbg.log0('_update_nodes_store deleted_node:', util.inspect(item));
+
+                if (item.node.deleted) {
+                    if (!item.node_from_store.deleted) {
+                        items_to_update.push(item);
+                    }
+                    return;
+                }
+
+                // TODO handle deletion of normal nodes (uninstall?)
+                // Just mark the node as deleted and we will not scan it anymore
+                // This is done once the node's proccess is deleted (relevant to cloud resource)
+                // Or in a normal node it is done immediately
+                if (!item.node.is_cloud_node &&
+                    !item.node.is_internal_node) {
+                    item.node.deleted = Date.now();
+                    items_to_update.push(item);
+                    return;
+                }
+
+                // Removing the internal node from the processes
+                return server_rpc.client.hosted_agents.remove_agent({
+                        name: item.node.name
+                    })
+                    .then(() => {
+                        // Marking the node as deleted since we've removed it completely
+                        // If we did not succeed at removing the process we don't mark the deletion
+                        // This is done in order to cycle the node once again and attempt until
+                        // We succeed
+                        item.node.deleted = Date.now();
+                        items_to_update.push(item);
+                    })
+                    .catch(err => {
+                        // We will just wait another cycle and attempt to delete it fully again
+                        dbg.warn('delete_cloud_pool_node ERROR node', item.node, err);
+                    });
+            }, {
+                concurrency: 10
+            })
+            .then(() => nodes_store.instance().bulk_update(items_to_update))
+            .then(res => {
+                // mark failed updates to retry
+                if (res.failed) {
+                    for (const item of res.failed) {
+                        this._set_need_update.add(item);
+                    }
+                }
+                if (res.updated) {
+                    for (const item of res.updated) {
                         this._remove_node_from_maps(item);
                     }
                 }
             })
             .catch(err => {
-                dbg.error('_update_nodes_store ERROR', err);
-                // add all the failed nodes to set
-                for (const item of bulk_items) {
-                    this._set_need_update.add(item);
-                }
+                dbg.warn('_update_deleted_nodes: ERROR', err.stack || err);
             });
     }
 
+    _is_master() {
+        let current_clustering = system_store.get_local_cluster_info();
+        return !current_clustering || // no cluster info => treat as master
+            !current_clustering.is_clusterized || // not clusterized => treat as master
+            system_store.is_cluster_master; // clusterized and is master
+    }
+
+
+    /*
+     *
+     * UPDATE STATUS AND REBUILDING
+     *
+     */
 
     _update_status(item) {
+        if (!item.node_from_store) return;
         dbg.log0('_update_status:', item.node.name);
-        let now = Date.now();
-        item.online = Boolean(item.connection) && now < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME;
+
+        const now = Date.now();
+        item.online = Boolean(item.connection) &&
+            now < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME;
+
+        // if we still have a connection, but considered offline, close the connection
         if (!item.online && item.connection) {
-            dbg.warn('node HB not received in the last', AGENT_HEARTBEAT_GRACE_TIME / 60000, 'minutes. closing connection');
-            //if we still have a connection, but considered offline, close the connection
-            item.connection.close();
-            item.connection = null;
+            dbg.warn('node HB not received in the last',
+                AGENT_HEARTBEAT_GRACE_TIME / 60000,
+                'minutes. closing connection');
+            this._disconnect_node(item);
         }
 
         // to decide the node trusted status we check the reported issues
         item.trusted = true;
+        let io_detention_recent_issues = 0;
+
         if (item.node.issues_report) {
             for (const issue of item.node.issues_report) {
                 // tampering is a trust issue, but maybe we need to refine this
@@ -767,7 +1089,21 @@ class NodesMonitor extends EventEmitter {
                 if (issue.reason === 'TAMPERING') {
                     item.trusted = false;
                 }
+
+                if (issue.action === 'write' ||
+                    issue.action === 'replicate' ||
+                    issue.action === 'read') {
+                    if (now - issue.time < config.NODE_IO_DETENTION_THRESHOLD) {
+                        io_detention_recent_issues += 1;
+                    }
+                }
             }
+        }
+
+        if (!item.io_detention &&
+            io_detention_recent_issues >= config.NODE_IO_DETENTION_RECENT_ISSUES) {
+            dbg.log0('_update_status:: Node in io_detention', item.node.name);
+            item.io_detention = now;
         }
 
         // TODO GUYM implement node n2n_connectivity & connectivity status
@@ -786,6 +1122,8 @@ class NodesMonitor extends EventEmitter {
         item.has_issues = !(
             item.online &&
             item.trusted &&
+            item.node_from_store &&
+            !item.io_detention &&
             !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
             !item.node.decommissioned &&
@@ -795,6 +1133,8 @@ class NodesMonitor extends EventEmitter {
         item.readable = Boolean(
             item.online &&
             item.trusted &&
+            item.node_from_store &&
+            !item.io_detention &&
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted);
@@ -802,6 +1142,8 @@ class NodesMonitor extends EventEmitter {
         item.writable = Boolean(
             item.online &&
             item.trusted &&
+            item.node_from_store &&
+            !item.io_detention &&
             !item.storage_full &&
             !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
@@ -834,27 +1176,32 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_data_activity_reason(item) {
+        if (!item.node_from_store) return '';
         if (item.node.deleted) return '';
         if (item.node.deleting) return ACT_DELETING;
         if (item.node.decommissioned) return '';
         if (item.node.decommissioning) return ACT_DECOMMISSIONING;
         if (item.node.migrating_to_pool) return ACT_MIGRATING;
-        if (!item.online) return ACT_RESTORING;
+        if (!item.online || !item.trusted || item.io_detention) return ACT_RESTORING;
         return '';
     }
 
     _update_data_activity_stage(item, now) {
         const act = item.data_activity;
+        const start_of_grace = item.io_detention || item.node.heartbeat || 0;
+        const end_of_grace = start_of_grace + config.REBUILD_NODE_OFFLINE_GRACE;
 
-        if (now < item.node.heartbeat + config.REBUILD_NODE_OFFLINE_GRACE) {
+        // Notice that there are only two types of GRACE, one for io_detention and heartbeat
+        // Which means that in case of untrusted node we will not restore/rebuild it
+        if (now < end_of_grace) {
             if (act.reason === ACT_RESTORING) {
                 dbg.log0('_update_data_activity_stage: WAIT OFFLINE GRACE',
                     item.node.name, act);
                 act.stage = {
                     name: STAGE_OFFLINE_GRACE,
                     time: {
-                        start: item.node.heartbeat,
-                        end: item.node.heartbeat + config.REBUILD_NODE_OFFLINE_GRACE,
+                        start: start_of_grace,
+                        end: end_of_grace,
                     },
                     size: {},
                 };
@@ -928,7 +1275,7 @@ class NodesMonitor extends EventEmitter {
     _update_data_activity_progress(item, now) {
         const act = item.data_activity;
 
-        if (act.stage && act.stage.size) {
+        if (act.stage && !_.isEmpty(act.stage.size)) {
             act.stage.size.remaining = Math.max(0,
                 act.stage.size.total - act.stage.size.completed) || 0;
             const completed_time = now - act.stage.time.start;
@@ -1076,6 +1423,12 @@ class NodesMonitor extends EventEmitter {
     }
 
 
+    /*
+     *
+     * QUERYING AND AGGREGATION
+     *
+     */
+
     _filter_nodes(query) {
         const list = [];
         const filter_counts = {
@@ -1107,6 +1460,9 @@ class NodesMonitor extends EventEmitter {
         if (query.skip_address) {
             code += `if ('${query.skip_address}' === item.node.rpc_address) return false; `;
         }
+        if (query.skip_no_address) {
+            code += `if (!item.node.rpc_address) return false; `;
+        }
         if (query.skip_cloud_nodes) {
             code += `if (item.node.is_cloud_node) return false; `;
         }
@@ -1132,6 +1488,8 @@ class NodesMonitor extends EventEmitter {
             this._map_node_id.values();
         for (const item of items) {
             if (!item) continue;
+            // skip new nodes
+            if (!item.node_from_store) continue;
             // update the status of every node we go over
             this._update_status(item);
             if (!filter_item_func(item)) continue;
@@ -1178,7 +1536,7 @@ class NodesMonitor extends EventEmitter {
         } else if (options.sort === 'connectivity') {
             list.sort(js_utils.sort_compare_by(item => item.connectivity, options.order));
         } else if (options.sort === 'data_activity') {
-            list.sort(js_utils.sort_compare_by(item => item.data_activity.reason, options.order));
+            list.sort(js_utils.sort_compare_by(item => _.get(item, 'data_activity.reason', ''), options.order));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }
@@ -1200,6 +1558,8 @@ class NodesMonitor extends EventEmitter {
             const pool = system_store.data.get_by_id(pool_id);
             dbg.log0('_suggest_pool_assign: node', item.node.name, 'pool', pool && pool.name);
             if (!pool) continue;
+            // skip new nodes
+            if (!item.node_from_store) continue;
             let pool_data = pools_data_map.get(pool_id);
             if (!pool_data) {
                 pool_data = {
@@ -1209,41 +1569,7 @@ class NodesMonitor extends EventEmitter {
                 };
                 pools_data_map.set(pool_id, pool_data);
             }
-
-            // cannot use numbers as dclassify tokens only discrete strings,
-            // so we have to transform numbers to some relevant tokens
-            const tokens = [];
-            if (item.node.ip) {
-                const x = item.node.ip.split('.');
-                if (x.length === 4) {
-                    tokens.push('ip:' + x[0] + '.x.x.x');
-                    tokens.push('ip:' + x[0] + '.' + x[1] + '.x.x');
-                    tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.x');
-                    tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.' + x[3]);
-                }
-            }
-            if (item.node.os_info) {
-                tokens.push('platform:' + item.node.os_info.platform);
-                tokens.push('arch:' + item.node.os_info.arch);
-                tokens.push('totalmem:' + scale_size_token(item.node.os_info.totalmem));
-            }
-            if (_.isNumber(item.avg_ping)) {
-                tokens.push('avg_ping:' + scale_number_token(item.avg_ping));
-            }
-            if (_.isNumber(item.avg_disk_read)) {
-                tokens.push('avg_disk_read:' + scale_number_token(item.avg_disk_read));
-            }
-            if (_.isNumber(item.avg_disk_write)) {
-                tokens.push('avg_disk_write:' + scale_number_token(item.avg_disk_write));
-            }
-            if (item.node.storage && _.isNumber(item.node.storage.total)) {
-                const storage_other =
-                    item.node.storage.total -
-                    item.node.storage.used -
-                    item.node.storage.free;
-                tokens.push('storage_other:' + scale_size_token(storage_other));
-                tokens.push('storage_total:' + scale_size_token(item.node.storage.total));
-            }
+            const tokens = this._classify_node_tokens(item);
             pool_data.docs.push(new dclassify.Document(node_id, tokens));
         }
 
@@ -1289,6 +1615,44 @@ class NodesMonitor extends EventEmitter {
                 }
             }
         }
+    }
+
+    _classify_node_tokens(item) {
+        // cannot use numbers as dclassify tokens only discrete strings,
+        // so we have to transform numbers to some relevant tokens
+        const tokens = [];
+        if (item.node.ip) {
+            const x = item.node.ip.split('.');
+            if (x.length === 4) {
+                tokens.push('ip:' + x[0] + '.x.x.x');
+                tokens.push('ip:' + x[0] + '.' + x[1] + '.x.x');
+                tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.x');
+                tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.' + x[3]);
+            }
+        }
+        if (item.node.os_info) {
+            tokens.push('platform:' + item.node.os_info.platform);
+            tokens.push('arch:' + item.node.os_info.arch);
+            tokens.push('totalmem:' + scale_size_token(item.node.os_info.totalmem));
+        }
+        if (_.isNumber(item.avg_ping)) {
+            tokens.push('avg_ping:' + scale_number_token(item.avg_ping));
+        }
+        if (_.isNumber(item.avg_disk_read)) {
+            tokens.push('avg_disk_read:' + scale_number_token(item.avg_disk_read));
+        }
+        if (_.isNumber(item.avg_disk_write)) {
+            tokens.push('avg_disk_write:' + scale_number_token(item.avg_disk_write));
+        }
+        if (item.node.storage && _.isNumber(item.node.storage.total)) {
+            const storage_other =
+                item.node.storage.total -
+                item.node.storage.used -
+                item.node.storage.free;
+            tokens.push('storage_other:' + scale_size_token(storage_other));
+            tokens.push('storage_total:' + scale_size_token(item.node.storage.total));
+        }
+        return tokens;
     }
 
     list_nodes(query, options) {
@@ -1515,7 +1879,7 @@ class NodesMonitor extends EventEmitter {
         const item = this._get_node({
             rpc_address: proxy_params.target
         });
-        const api = proxy_params.method_api.slice(0, -4); //Remove _api suffix
+        const server_api = proxy_params.method_api.slice(0, -4); //Remove _api suffix
         const method_name = proxy_params.method_name;
         const method = server_rpc.rpc.schema[proxy_params.method_api].methods[method_name];
         if (method.params_import_buffers) {
@@ -1523,7 +1887,7 @@ class NodesMonitor extends EventEmitter {
             method.params_import_buffers(proxy_params.request_params, proxy_params.proxy_buffer);
         }
 
-        return this.client[api][method_name](proxy_params.request_params, {
+        return this.client[server_api][method_name](proxy_params.request_params, {
                 connection: item.connection,
             })
             .then(reply => {
@@ -1531,7 +1895,7 @@ class NodesMonitor extends EventEmitter {
                     proxy_reply: reply
                 };
                 if (method.reply_export_buffers) {
-                    res.proxy_buffer = buffer_utils.get_single(method.reply_export_buffers(reply));
+                    res.proxy_buffer = buffer_utils.concatify(method.reply_export_buffers(reply));
                     // dbg.log5('n2n_proxy: reply_export_buffers', reply);
                 }
                 return res;
@@ -1547,7 +1911,7 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.test_network_perf_to_peer(self_test_params, {
                 connection: item.connection
             })
-            .timeout(3 * 60000);
+            .timeout(AGENT_RESPONSE_TIMEOUT);
     }
 
     collect_agent_diagnostics(node_identity) {
@@ -1593,6 +1957,7 @@ class NodesMonitor extends EventEmitter {
         const list = [];
         for (const item of this._map_node_id.values()) {
             this._update_status(item);
+            if (!item.node_from_store) continue;
             if (!item.writable) continue;
             if (String(item.node.pool) !== String(pool_id)) continue;
             list.push(item);
@@ -1639,7 +2004,7 @@ class NodesMonitor extends EventEmitter {
                 'issues_report', item.node.issues_report,
                 'block_report', block_report);
             // disconnect from the node to force reconnect
-            this._set_connection(item, null);
+            this._disconnect_node(item);
         }
     }
 
@@ -1681,7 +2046,7 @@ function progress_by_time(time, now) {
 
 function is_localhost(address) {
     let addr_url = url.parse(address);
-    return addr_url.hostname === '127.0.0.1' || addr_url.hostname === 'localhost';
+    return addr_url.hostname === '127.0.0.1' || addr_url.hostname.toLowerCase() === 'localhost';
 }
 
 // EXPORTS

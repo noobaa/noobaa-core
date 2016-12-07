@@ -20,6 +20,10 @@ config.LONG_BUILD_THRESHOLD = 300000;
 config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
 config.DEMO_NODES_STORAGE_LIMIT = 500 * 1024 * 1024;
 config.NUM_DEMO_NODES = 3;
+config.NODE_IO_DETENTION_THRESHOLD = 60000;
+config.NODE_IO_DETENTION_RECENT_ISSUES = 5;
+// Picked two because minimum of nodes per pool is three
+config.NODE_IO_DETENTION_TEST_NODES = 2;
 
 ////////////////
 // RPC CONFIG //
@@ -27,6 +31,7 @@ config.NUM_DEMO_NODES = 3;
 
 config.RPC_CONNECT_TIMEOUT = 5000;
 config.RPC_SEND_TIMEOUT = 5000;
+config.CLOUD_AGENTS_N2N_PORT = 60100;
 
 ///////////////
 // S3 CONFIG //
@@ -78,6 +83,13 @@ config.REBUILD_NODE_OFFLINE_GRACE = 5 * 60000;
 
 config.SCRUBBER_ENABLED = true;
 config.SCRUBBER_RESTART_DELAY = 30000;
+
+//////////////////////
+// LIFECYCLE CONFIG //
+//////////////////////
+config.LIFECYCLE_INTERVAL = 15 * 60 * 1000;
+
+
 
 //////////////////
 // DEBUG CONFIG //
@@ -132,7 +144,7 @@ config.CLUSTERING_PATHS = {
 };
 
 config.CLUSTER_HB_INTERVAL = 1 * 60000;
-config.CLUSTER_MASTER_INTERVAL = 30000;
+config.CLUSTER_MASTER_INTERVAL = 10000;
 config.BUCKET_FETCH_INTERVAL = 30000;
 config.CLUSTER_NODE_MISSING_TIME = 3 * 60000;
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
@@ -147,6 +159,12 @@ config.DEMO_DEFAULTS = {
     POOL_NAME: 'demo-pool',
     BUCKET_NAME: 'demo-bucket'
 };
+
+//////////////////////////////
+// ALERTING & EVENTS CONFIG //
+//////////////////////////////
+
+config.SEND_EVENTS_REMOTESYS = true;
 
 
 // load a local config file that overwrites some of the config

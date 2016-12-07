@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // load .env file before any other modules so that it will contain
@@ -12,6 +13,7 @@ for (let i = 0; i < process.argv.length; ++i) {
     }
 }
 if (process.env.TESTRUN === 'true') {
+    // eslint-disable-next-line global-require
     var ist = require('../test/framework/istanbul_coverage');
     ist.start_istanbul_coverage();
 }
@@ -47,11 +49,13 @@ const mongoose_utils = require('../util/mongoose_utils');
 const system_store = require('./system_services/system_store').get_instance();
 const promise_utils = require('../util/promise_utils');
 const SupervisorCtl = require('./utils/supervisor_ctrl');
+const account_server = require('./system_services/account_server');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const app = express();
 
+system_store.once('load', account_server.ensure_support_account);
 
 dbg.set_process_name('WebServer');
 mongoose_utils.mongoose_connect();
@@ -66,6 +70,7 @@ var server_rpc = require('./server_rpc');
 server_rpc.register_system_services();
 server_rpc.register_node_services();
 server_rpc.register_object_services();
+server_rpc.register_func_services();
 server_rpc.register_common_services();
 server_rpc.rpc.register_http_transport(app);
 server_rpc.rpc.router.default = 'fcall://fcall';
@@ -74,6 +79,11 @@ var http_port = process.env.PORT = process.env.PORT || 5001;
 var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
+
+// TODO: chang this. a temp fix to block /version until upgrade is finished
+// this is not cleared if upgrade fails, and will block UI until browser refresh.
+// maybe we need to change it to use upgrade status in DB.
+let shutting_down = false;
 
 P.fcall(function() {
         // we register the rpc before listening on the port
@@ -142,20 +152,18 @@ app.use(function(req, res, next) {
     // var fwd_start = req.get('X-Request-Start');
     if (fwd_proto === 'http') {
         var host = req.get('Host');
-        return res.redirect('https://' + host + req.url);
+        return res.redirect('https://' + host + req.originalUrl);
     }
     return next();
 });
 app.use(function(req, res, next) {
     let current_clustering = system_store.get_local_cluster_info();
     if ((current_clustering && current_clustering.is_clusterized) &&
-        !system_store.is_cluster_master && req.url !== '/upload_package') {
-        P.fcall(function() {
-                return server_rpc.client.cluster_internal.redirect_to_cluster_master();
-            })
+        !system_store.is_cluster_master && req.originalUrl !== '/upload_package') {
+        P.fcall(() => server_rpc.client.cluster_internal.redirect_to_cluster_master())
             .then(host => {
                 res.status(307);
-                return res.redirect(`http://${host}:8080` + req.url);
+                return res.redirect(`http://${host}:8080` + req.originalUrl);
             })
             .catch(err => {
                 res.status(500);
@@ -208,7 +216,7 @@ app.get('/agent/package.json', function(req, res) {
     res.status(200).send({
         name: 'agent',
         engines: {
-            node: '4.4.4'
+            node: '6.9.1'
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
@@ -240,6 +248,7 @@ app.post('/upgrade',
         var upgrade_file = req.file;
         dbg.log0('got upgrade file:', upgrade_file);
         dbg.log0('calling cluster.upgrade_cluster()');
+        shutting_down = true;
         server_rpc.client.cluster_internal.upgrade_cluster({
             filepath: upgrade_file.path
         });
@@ -380,7 +389,7 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
-    if (server_rpc.is_service_registered('system_api.read_system')) {
+    if (server_rpc.is_service_registered('system_api.read_system') && !shutting_down) {
         res.send(pkg.version);
         res.end();
     } else {

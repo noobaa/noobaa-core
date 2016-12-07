@@ -84,6 +84,21 @@
     }
 }
 
+@keyframes shrink-in {
+    0% {
+        transform: translateX(100px) scale(4);
+        opacity: .8;
+    }
+
+    70% {
+
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
 @keyframes spin {
     0 { transform: rotateZ(0deg) }
     100% { transform: rotateZ(360deg) }
@@ -109,4 +124,12 @@
 
 .spin {
     animation: spin 2000ms linear infinite;
+}
+
+.fast-spin {
+    animation: spin 1000ms linear infinite;
+}
+
+.shrink-in {
+    animation: shrink-in 1000ms ease-out;
 }

@@ -1,32 +1,47 @@
 server-table {
     .column();
 
-    .state-col {
-        min-width: 44px;
-    }
+    .server-data-table {
+        .header-row, .main-row, .sub-row {
+            border-left: 4px solid transparent;
+            transition: border-color 250ms ease;
+        }
 
-    .hostname-col{
-        text-align: left;
-        width: 100%;
-    }
+        .main-row.high-debug-level {
+            border-color: @color11;
+        }
 
-    .address-col{
-        min-width: 110px;
-    }
+        .state-col {
+            min-width: 44px;
+        }
 
-    .memory-usage-col {
-        min-width: 110px;
-    }
+        .hostname-col{
+            text-align: left;
+            width: 100%;
+        }
 
-    .cpu-usage-col {
-        min-width: 110px;
-    }
+        .address-col{
+            min-width: 110px;
+        }
 
-    .version-col {
-        min-width: 80px;
-    }
+        .disk-usage-col {
+            min-width: 90px;
+        }
 
-    .actions-col {
-        min-width: 80px;
+        .memory-usage-col {
+            min-width: 100px;
+        }
+
+        .cpu-usage-col {
+            min-width: 90px;
+        }
+
+        .version-col {
+            min-width: 80px;
+        }
+
+        .collecting-diagnostics {
+            color: @color15;
+        }
     }
 }

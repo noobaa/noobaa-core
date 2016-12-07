@@ -29,8 +29,7 @@
         </button>
         <button class="btn" data-bind="
             click: start,
-            css: { shake: shake },
-            animation: { end: () => shake(false) }
+            shakeOnClick: errors().length
         ">
             Start maintenance
         </button>

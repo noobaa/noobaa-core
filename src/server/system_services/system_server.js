@@ -7,12 +7,13 @@
 require('../../util/dotenv').load();
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
-const fs = require('fs');
 const url = require('url');
 const net = require('net');
 const request = require('request');
 // const uuid = require('node-uuid');
 const ip_module = require('ip');
+const fs = require('fs');
+const path = require('path');
 
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
@@ -35,6 +36,8 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
+const node_server = require('../node_services/node_server');
+const dns = require('dns');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -49,9 +52,13 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
     has_issues: 0,
 });
 
+var client_syslog;
 // called on rpc server init
 function _init() {
     const DEFUALT_DELAY = 5000;
+
+    var native_core = require('../../util/native_core')();
+    client_syslog = new native_core.Syslog();
 
     function wait_for_system_store() {
         var update_done = false;
@@ -122,6 +129,7 @@ function new_system_defaults(name, owner_account_id) {
             error: '',
         },
         last_stats_report: 0,
+        upgrade_date: Date.now(),
         freemium_cap: {
             phone_home_upgraded: false,
             phone_home_notified: false,
@@ -219,6 +227,19 @@ function create_system(req) {
             return _communicate_license_server(params);
         })
         .then(() => {
+            // Attempt to resolve DNS name, if supplied
+            if (!req.rpc_params.dns_name) {
+                return;
+            }
+            return attempt_dns_resolve(req)
+                .then(result => {
+                    if (!result.valid) {
+                        throw new Error('Could not resolve ' + req.rpc_params.dns_name +
+                            ' Reason ' + result.reason);
+                    }
+                });
+        })
+        .then(() => {
             return P.join(new_system_changes(account.name, account),
                     cluster_server.new_cluster_info())
                 .spread(function(changes, cluster_info) {
@@ -241,7 +262,6 @@ function create_system(req) {
                         name: req.rpc_params.name,
                         email: req.rpc_params.email,
                         password: req.rpc_params.password,
-                        access_keys: req.rpc_params.access_keys,
                         new_system_parameters: {
                             account_id: account._id.toString(),
                             allowed_buckets: allowed_buckets,
@@ -339,13 +359,18 @@ function read_system(req) {
             auth_token: req.auth_token
         })).then(
             response => response.accounts
-        )
+        ),
+
+        fs.statAsync(path.join('/etc', 'private_ssl_path', 'server.key'))
+        .return(true)
+        .catch(() => false)
     ).spread(function(
         nodes_aggregate_pool_no_cloud,
         nodes_aggregate_pool_with_cloud,
         objects_count,
         cloud_sync_by_bucket,
-        accounts
+        accounts,
+        has_ssl_cert
     ) {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
@@ -432,9 +457,11 @@ function read_system(req) {
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
+            last_upgrade: system.upgrade_date || 0,
             debug_level: debug_level,
             upgrade: upgrade,
             system_cap: system_cap,
+            has_ssl_cert: has_ssl_cert,
         };
 
         // fill cluster information if we have a cluster.
@@ -492,10 +519,10 @@ function set_webserver_master_state(req) {
                     auth_token: req.auth_token
                 }));
             //Going Master //TODO:: add this one we get back to HA
-            //node_server.start_monitor();
+            node_server.start_monitor();
         } else {
             //Stepping Down
-            //node_server.stop_monitor();
+            node_server.stop_monitor();
         }
     }
 }
@@ -657,81 +684,15 @@ function set_last_stats_report_time(req) {
     }).return();
 }
 
-function export_activity_log(req) {
-    req.rpc_params.csv = true;
-
-    // generate csv file name:
-    const file_name = 'audit.csv';
-    const out_path = `/public/${file_name}`;
-    const inner_path = `${process.cwd()}/build${out_path}`;
-
-    return Dispatcher.instance().read_activity_log(req)
-        .then(logs => {
-            let lines = logs.logs.reduce(
-                (lines, entry) => {
-                    let time = (new Date(entry.time)).toISOString();
-                    let entity_type = entry.event.split('.')[0];
-                    let account = entry.actor ? entry.actor.email : '';
-                    let entity = entry[entity_type];
-                    let description = entry.desc.join(' ');
-                    let entity_name = entity ?
-                        (entity_type === 'obj' ? entity.key : entity.name) :
-                        '';
-
-                    lines.push(`"${time}",${entry.level},${account},${entry.event},${entity_name},"${description}"`);
-                    return lines;
-                }, ['time,level,account,event,entity,description']
-            );
-
-            return fs.writeFileAsync(inner_path, lines.join('\n'), 'utf8');
-        })
-        .then(() => out_path)
-        .catch(err => {
-            dbg.error('received error when writing to audit csv file:', inner_path, err);
-            throw err;
-        });
-}
-
-
-
-/**
- *
- * READ_ACTIVITY_LOG
- *
- */
-function read_activity_log(req) {
-    return Dispatcher.instance().read_activity_log(req);
-}
-
-
-
-
-function diagnose_system(req) {
-    dbg.log0('Recieved diag req');
-    var out_path = '/public/diagnostics.tgz';
-    var inner_path = process.cwd() + '/build' + out_path;
-    return P.resolve()
-        .then(() => diag.collect_server_diagnostics(req))
-        .then(() => diag.pack_diagnostics(inner_path))
-        .then(res => {
-            Dispatcher.instance().activity({
-                event: 'dbg.diagnose_system',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
-            });
-            return out_path;
-        });
-}
-
 function diagnose_node(req) {
-    dbg.log0('Recieved diag with agent req');
-    var out_path = '/public/diagnostics.tgz';
+    dbg.log0('Recieved diag with agent req', req.rpc_params);
+    var out_path = '/public/node_' + req.rpc_params.name + '_diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return P.resolve()
         .then(() => diag.collect_server_diagnostics(req))
-        .then(() => nodes_client.instance().collect_agent_diagnostics(req.rpc_params))
+        .then(() => nodes_client.instance().collect_agent_diagnostics({
+            name: req.rpc_params.name
+        }, req.system._id))
         .then(res => diag.write_agent_diag_file(res.data))
         .then(() => diag.pack_diagnostics(inner_path))
         .then(() => {
@@ -772,11 +733,10 @@ function update_base_address(req) {
             update: {
                 systems: [{
                     _id: req.system._id,
-                    base_address: req.rpc_params.base_address
+                    base_address: req.rpc_params.base_address.toLowerCase()
                 }]
             }
         })
-        .then(() => cutil.update_host_address(req.rpc_params.base_address))
         .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token
         }))
@@ -874,10 +834,47 @@ function update_hostname(req) {
     // during create system process
 
     req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
-    delete req.rpc_params.hostname;
 
-    return update_base_address(req);
+    return P.resolve()
+        .then(() => {
+            // This will test if we've received IP or DNS name
+            // This check is essential because there is no point of resolving an IP using DNS Servers
+            const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            if (!req.rpc_params.hostname || regExp.test(req.rpc_params.hostname)) {
+                return;
+            }
+            // Use defaults to add dns_name property without altering the original request
+            return attempt_dns_resolve(_.defaults({
+                    rpc_params: {
+                        dns_name: req.rpc_params.hostname
+                    }
+                }, req))
+                .then(result => {
+                    if (!result.valid) {
+                        throw new Error('Could not resolve ' + req.rpc_params.hostname +
+                            ' Reason ' + result.reason);
+                    }
+                });
+        })
+        .then(() => {
+            delete req.rpc_params.hostname;
+            return update_base_address(req);
+        });
 }
+
+
+
+function attempt_dns_resolve(req) {
+    return P.promisify(dns.resolve)(req.rpc_params.dns_name)
+        .return({
+            valid: true
+        })
+        .catch(err => ({
+            valid: false,
+            reason: err.code
+        }));
+}
+
 
 function update_system_certificate(req) {
     throw new RpcError('TODO', 'update_system_certificate');
@@ -902,6 +899,13 @@ function validate_activation(req) {
         }));
 }
 
+function log_client_console(req) {
+    _.each(req.rpc_params.data, function(line) {
+        client_syslog.log(5, req.rpc_params.data, 'LOG_LOCAL1');
+    });
+    return;
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -915,7 +919,7 @@ function get_system_info(system, get_id) {
 }
 
 function find_account_by_email(req) {
-    var account = system_store.data.accounts_by_email[req.rpc_params.email];
+    var account = system_store.get_account_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -970,16 +974,14 @@ exports.list_systems_int = list_systems_int;
 exports.add_role = add_role;
 exports.remove_role = remove_role;
 
-exports.read_activity_log = read_activity_log;
-exports.export_activity_log = export_activity_log;
-
-exports.diagnose_system = diagnose_system;
 exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
+exports.log_client_console = log_client_console;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
+exports.attempt_dns_resolve = attempt_dns_resolve;
 exports.update_phone_home_config = update_phone_home_config;
 exports.phone_home_capacity_notified = phone_home_capacity_notified;
 exports.update_hostname = update_hostname;
@@ -987,5 +989,6 @@ exports.update_system_certificate = update_system_certificate;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;
+
 
 exports.validate_activation = validate_activation;

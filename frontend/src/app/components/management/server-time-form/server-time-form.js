@@ -11,7 +11,7 @@ const configTypes =  Object.freeze([
 ]);
 
 class ServerTimeFormViewModel extends Disposable{
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
         let cluster = ko.pureComputed(
@@ -28,7 +28,7 @@ class ServerTimeFormViewModel extends Disposable{
             () => server() && server().secret
         );
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
 
         this.time = ko.observableWithDefault(
             () => server() && server().time_epoch * 1000
@@ -43,7 +43,7 @@ class ServerTimeFormViewModel extends Disposable{
         );
 
         this.formattedTime = this.time.extend({
-            formatTime: { format: 'MM/DD/YYYY HH:mm:ss ([GMT]Z)' }
+            formatTime: { format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)' }
         });
 
         this.configTypes = configTypes;
@@ -74,6 +74,10 @@ class ServerTimeFormViewModel extends Disposable{
         this.ntpErrors = ko.validation.group([
             this.ntpServer
         ]);
+
+        this.isValid = ko.pureComputed(
+            () => this.usingManualTime() || this.ntpErrors().length === 0
+        );
     }
 
     applyChanges() {

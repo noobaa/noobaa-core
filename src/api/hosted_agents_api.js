@@ -52,7 +52,7 @@ module.exports = {
                                 type: 'string',
                             },
                             access_keys: {
-                                $ref: 'system_api#/definitions/access_keys',
+                                $ref: 'common_api#/definitions/access_keys',
                             },
                             endpoint_type: {
                                 type: 'string',
@@ -79,6 +79,20 @@ module.exports = {
                     }
                 }
             },
+            auth: {
+                system: false
+            }
+        },
+
+        start: {
+            method: 'POST',
+            auth: {
+                system: false
+            }
+        },
+
+        stop: {
+            method: 'POST',
             auth: {
                 system: false
             }

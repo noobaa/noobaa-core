@@ -1,7 +1,12 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze } from 'utils';
+import { collectDiagnosticsState, systemInfo } from 'model';
+import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
+import { deepFreeze, isUndefined, formatSize } from 'utils/all';
+
+const diskUsageErrorBound = .95;
+const diskUsageWarningBound = .85;
 
 const stateIconMapping = deepFreeze({
     CONNECTED: {
@@ -32,27 +37,105 @@ export default class ServerRowViewModel extends Disposable {
         );
 
         this.hostname = ko.pureComputed(
-            () => server() ? server().hostname : ''
+            () => {
+                let masterSecret = systemInfo() && systemInfo().cluster.master_secret;
+                let isMaster = server().secret === masterSecret;
+                return server() ?
+                    `${server().hostname} ${ isMaster ? '(Master)' : '' }` :
+                    '';
+            }
         );
 
         this.address = ko.pureComputed(
             () => server() ? server().address : ''
         );
 
-        this.memoryUsage = ko.pureComputed(
-            () => server() ? numeral(server().memory_usage).format('%') : 'N/A'
+        this.diskUsage = ko.pureComputed(
+            () => {
+                let { free, total } = server().storage;
+                let used = total - free;
+                let usedPercents = used / total;
+                let text = numeral(usedPercents).format('0%');
+                let tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
+                let css = '';
+                if(usedPercents >= diskUsageWarningBound) {
+                    css = usedPercents >= diskUsageErrorBound ? 'error' : 'warning';
+                }
+
+                return { text, tooltip, css };
+            }
         );
 
+        this.memoryUsage = ko.pureComputed(
+            () => server().memory_usage
+        ).extend({
+            formatNumber: { format: '%' }
+        });
+
         this.cpuUsage = ko.pureComputed(
-            () => server() ? numeral(server().cpu_usage).format('%') : 'N/A'
-        );
+            () => server().cpu_usage
+        ).extend({
+            formatNumber: { format: '%' }
+        });
 
         this.version = ko.pureComputed(
             () => server() ? server().version : 'N/A'
         );
 
-        this.actions = ko.pureComputed(
+        this.secret = ko.pureComputed(
             () => server() && server().secret
         );
+
+        this.primaryDNS = ko.pureComputed(
+            () => (server() && server().dns_servers[0]) || 'Not set'
+        );
+
+        this.secondaryDNS = ko.pureComputed(
+            () => (server() && server().dns_servers[1]) || 'Not set'
+        );
+
+        this.timeConfig = ko.pureComputed(
+            () => {
+                let ntpServer = server() && server().ntp_server;
+
+                return ntpServer ?
+                    `Using NTP server at ${ntpServer}` :
+                    'Using local server time';
+            }
+        );
+
+        this.debugLevel = ko.pureComputed(
+            () => {
+                let level = server() && server().debug_level;
+                return isUndefined(level) ? 0 : level;
+            }
+        );
+
+        this.debugLevelText = ko.pureComputed(
+            () => this.debugLevel() > 0 ? 'High' : 'Low'
+        );
+
+        this.toogleDebugLevelButtonText = ko.pureComputed(
+            () => `${this.debugLevel() > 0 ? 'Lower' : 'Raise' } Debug Level`
+        );
+
+        this.debugLevelCss = ko.pureComputed(
+            () => ({ 'high-debug-level': this.debugLevel() > 0 })
+        );
+
+        this.isCollectingDiagnostics = ko.pureComputed(
+            () => Boolean(collectDiagnosticsState()[
+                `server:${this.hostname()}`
+            ])
+        );
+    }
+
+    toogleDebugLevel() {
+        let newDebugLevel = this.debugLevel() === 0 ? 5 : 0;
+        return setServerDebugLevel(this.secret(), this.hostname(), newDebugLevel);
+    }
+
+    downloadDiagnosticPack() {
+        downloadServerDiagnosticPack(this.secret(), this.hostname());
     }
 }

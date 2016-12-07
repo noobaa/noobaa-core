@@ -1,56 +1,51 @@
-<div class="row content-middle cursor-pointer" data-bind="
-    click: () => expanded.toggle()
+<collapsible-section params="
+    title: 'Remote Syslog',
+    collapsed: isCollapsed
 ">
-    <h2 class="heading3 greedy">
-        Remote Syslog
-    </h2>
+    <section class="row" data-name="collapsed">
+        <p>
+            Server address:
+            <output data-bind="
+                value: summaryText,
+                css: { 'text-tech': enabled() }
+            "></output>
+        </p>
+    </section>
 
-    <button class="btn-flat expand-btn no-outline">
-        <svg-icon class="icon-small rotate"
-            params="name: 'chevron'"
-            data-bind="css: { 'deg-90': !expanded() }">
-        </svg-icon>
-    </button>
-</div>
+    <section class="column" data-name="expanded">
+        <p class="push-next">Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server</p>
 
-<p data-bind="visible: !expanded()">
-    Server address:
-    <output data-bind="
-        value: summaryText,
-        css: { 'text-tech': enabled() }
-    "></output>
-</p>
+        <editor params="label: 'Remote syslog'">
+            <toggle-switch params="value: enabled"></toggle-switch>
+        </editor>
 
-<section class="column" data-bind="expand: expanded">
-    <p class="push-next">Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server</p>
+        <editor params="label: 'Protocol', disabled: !enabled()">
+            <radio-group params="
+                options: protocolOptions,
+                selected: protocol,
+                disabled: !enabled()
+            "></radio-group>
+        </editor>
 
-    <editor params="label: 'Remote syslog'">
-        <toggle-switch params="value: enabled"></toggle-switch>
-    </editor>
+        <editor params="label: 'Server address', disabled: !enabled()">
+            <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
+                value: address,
+                enable: enabled
+            "/>
+        </editor>
 
-    <editor params="label: 'Protocol', disabled: !enabled()">
-        <radio-group params="
-            options: protocolOptions,
-            selected: protocol,
-            disabled: !enabled()
-        "></radio-group>
-    </editor>
+        <editor params="label: 'Server port', disabled: !enabled()">
+            <input type="number" min="1" max="65535" placeholder="port" data-bind="
+                value: port,
+                enable: enabled
+            "/>
+       </editor>
 
-    <editor params="label: 'Server address', disabled: !enabled()">
-        <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
-            value: address,
-            enable: enabled
-        "/>
-    </editor>
-
-    <editor params="label: 'Server port', disabled: !enabled()">
-        <input type="number" min="1" max="65535" placeholder="port" data-bind="
-            value: port,
-            enable: enabled
-        "/>
-   </editor>
-
-    <button class="btn align-start push-prev" data-bind="click: applyChanges">
-        Apply Changes
-    </button>
-</section>
+        <button class="btn align-start push-prev" data-bind="
+            click: applyChanges,
+            shakeOnClick: errors().length
+        ">
+            Apply Changes
+        </button>
+    </section>
+</collapsible-section>

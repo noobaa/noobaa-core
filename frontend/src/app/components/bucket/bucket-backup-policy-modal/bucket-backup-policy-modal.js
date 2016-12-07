@@ -2,7 +2,7 @@ import template from './bucket-backup-policy-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import ResourceRow from './resource-row';
-import { deepFreeze } from 'utils';
+import { deepFreeze } from 'utils/all';
 import { systemInfo } from 'model';
 import { updateBucketBackupPolicy } from 'actions';
 
@@ -10,11 +10,11 @@ const columns = deepFreeze([
     {
         name: 'select',
         label: '',
-        cellTemplate: 'checkbox'
+        type: 'checkbox'
     },
     {
         name: 'type',
-        cellTemplate: 'icon'
+        type: 'icon'
     },
     {
         name: 'name',

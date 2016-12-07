@@ -567,7 +567,7 @@ module.exports = {
             }
         },
 
-        list_objects: {
+        list_objects_s3: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -582,7 +582,65 @@ module.exports = {
                     prefix: {
                         type: 'string',
                     },
-                    key_prefix: {
+                    key_marker: {
+                        type: 'string',
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                    upload_mode: {
+                        type: 'boolean'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['objects', 'is_truncated'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['key', 'info'],
+                            properties: {
+                                key: {
+                                    type: 'string',
+                                },
+                                info: {
+                                    $ref: '#/definitions/object_info'
+                                }
+                            }
+                        }
+                    },
+                    common_prefixes: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    next_marker: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        list_objects: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    prefix: {
                         type: 'string',
                     },
                     key_regexp: {
@@ -635,12 +693,6 @@ module.exports = {
                                     $ref: '#/definitions/object_info'
                                 }
                             }
-                        }
-                    },
-                    common_prefixes: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
                         }
                     }
                 }

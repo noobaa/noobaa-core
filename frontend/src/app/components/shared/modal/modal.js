@@ -1,21 +1,52 @@
 import template from './modal.html';
 import Disposable from 'disposable';
-import { noop } from 'utils';
+import { deepFreeze, noop } from 'utils/all';
 import ko from 'knockout';
+
+const severityMapping = deepFreeze({
+    success: {
+        icon: 'notif-success',
+        css: 'success'
+    },
+    warning: {
+        icon: 'notif-warning',
+        css: 'warning'
+    },
+    error: {
+        icon: 'notif-error',
+        css: 'error'
+    }
+});
 
 class ModalViewModel extends Disposable {
     constructor({
         title,
+        severity,
         onClose = noop,
         allowBackdropClose = true,
-        addCloseButton = true
+        hideCloseButton = false,
+        disableCloseButton = false
     }) {
         super();
 
-        this.title = title;
-        this.onClose = onClose;
+        this.titleText = title;
+
+        let meta = ko.pureComputed(
+            () => severityMapping[ko.unwrap(severity)] || {}
+        );
+
+        this.titleCss = ko.pureComputed(
+            () => meta().css
+        );
+
+        this.titleIcon = ko.pureComputed(
+            () => meta().icon
+        );
+
         this.allowBackdropClose = allowBackdropClose;
-        this.addCloseButton = addCloseButton;
+        this.hideCloseButton = hideCloseButton;
+        this.disableCloseButton = disableCloseButton;
+        this.onClose = onClose;
     }
 
     backdropClick() {

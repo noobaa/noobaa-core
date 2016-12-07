@@ -2,20 +2,20 @@ import template from './pools-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
-import { deepFreeze, createCompareFunc } from 'utils';
-import { redirectTo } from 'actions';
-import { routeContext, systemInfo } from 'model';
+import { deepFreeze, createCompareFunc } from 'utils/all';
+import { navigateTo } from 'actions';
+import { uiState, routeContext, systemInfo } from 'model';
 
 const columns = deepFreeze([
     {
         name: 'state',
-        cellTemplate: 'icon',
+        type: 'icon',
         sortable: true
     },
     {
         name: 'name',
         label: 'pool name',
-        cellTemplate: 'link',
+        type: 'link',
         sortable: true
     },
     {
@@ -42,13 +42,13 @@ const columns = deepFreeze([
         name: 'capacity',
         label: 'used capacity',
         sortable: true,
-        cellTemplate: 'capacity'
+        type: 'capacity'
     },
     {
         name: 'deleteButton',
         label: '',
         css: 'delete-col',
-        cellTemplate: 'delete'
+        type: 'delete'
     }
 ]);
 
@@ -104,8 +104,8 @@ class PoolsTableViewModel extends Disposable {
 
         this.sorting = ko.pureComputed({
             read: () => {
-                let { params, query } = routeContext();
-                let isOnScreen = params.tab === 'pools';
+                let { query } = routeContext();
+                let isOnScreen = uiState().tab === 'pools';
 
                 return {
                     sortBy: (isOnScreen && query.sortBy) || 'name',
@@ -114,7 +114,7 @@ class PoolsTableViewModel extends Disposable {
             },
             write: value => {
                 this.deleteGroup(null);
-                redirectTo(undefined, undefined, value);
+                navigateTo(undefined, undefined, value);
             }
         });
 

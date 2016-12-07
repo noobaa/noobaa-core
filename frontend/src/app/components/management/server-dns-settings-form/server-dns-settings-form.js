@@ -2,13 +2,12 @@ import template from './server-dns-settings-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { updateServerDNSSettings } from 'actions';
 
 class ServerDnsSettingsFormViewModel extends Disposable{
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
 
         let cluster = ko.pureComputed(
             () => systemInfo() && systemInfo().cluster
@@ -46,20 +45,22 @@ class ServerDnsSettingsFormViewModel extends Disposable{
                 isIPOrDNSName: true
             });
 
-
         this.errors = ko.validation.group(this);
+
+        this.isUpdateServerDNSSettingsModelVisible = ko.observable();
     }
 
-    applyChanges() {
+    update() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
 
         } else {
-            console.warn(this.serverSecret());
-            updateServerDNSSettings(
-                this.serverSecret(), this.primaryDNS(), this.secondaryDNS()
-            );
+            this.isUpdateServerDNSSettingsModelVisible(true);
         }
+    }
+
+    hideUpdateDServerDNSSettingsModal() {
+        this.isUpdateServerDNSSettingsModelVisible(false);
     }
 }
 

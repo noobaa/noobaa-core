@@ -1,5 +1,7 @@
 import ko from 'knockout';
 
+export const previewMode = ko.observable(false);
+
 // Hold the current ui state.
 export const uiState = ko.observable({
     layout: 'empty'
@@ -29,17 +31,14 @@ export const serverInfo = ko.observable();
 // Hold current system information.
 export const systemInfo = ko.observable();
 
-// Hold agent installation information.
-export const agentInstallationInfo = ko.observable();
-
 // Hold the current bucket object list.
 export const bucketObjectList = ko.observable();
+
 // Hold the current bucket S3 access permissions.
 export const bucketS3ACL = ko.observableArray();
 
 // Hold the current cloud sync information.
-export const CloudConnections = ko.observableArray();
-export const CloudBucketList = ko.observableArray();
+export const cloudBucketList = ko.observableArray();
 export const isCloudConnectionValid = ko.observable(true)
     .extend({ notify: 'always' });
 
@@ -63,14 +62,38 @@ export const objectPartList = ko.observableArray();
 objectPartList.count = ko.observable(0);
 objectPartList.page = ko.observable(0);
 
-// Hold the recent uploads.
-export const recentUploads = ko.observableArray();
+export const uploads = ko.observableArray();
+uploads.lastRequestFileCount = ko.observable(0);
+uploads.stats = ko.pureComputed(
+    () => uploads().reduce(
+        (stats, upload) => {
+            let { archived, completed, error } = upload;
+            stats.count += 1;
+            stats.uploading += Number(!completed);
+            stats.failed += Number(completed && Boolean(error));
+            stats.uploaded += Number(completed && !error);
+
+            if (!archived) {
+                let { size, progress } = upload;
+                stats.batch.size += size;
+                stats.batch.progress += progress;
+            }
+
+            return stats;
+        },
+        {
+            count: 0,
+            uploading: 0,
+            uploaded: 0,
+            failed: 0,
+            batch: { size: 0, progress: 0 }
+        }
+    )
+);
 
 // Hold the audit log
 export const auditLog = ko.observableArray();
 auditLog.loadedCategories = ko.observableArray();
-
-export const accountS3ACL = ko.observableArray();
 
 // Hold node test information.
 export const nodeTestInfo = ko.observable();
@@ -91,5 +114,21 @@ export const sslCertificateUploadStatus = ko.observable();
 export const serverTime = ko.observable();
 
 // Hold system activation information.
-export const activationCodeValid = ko.observable();
-export const activationEmailValid = ko.observable();
+export const activationState = ko.observable();
+
+// Hold system name resolution attempt
+export const nameResolutionState = ko.observable();
+
+// Hold diagnostics information
+export const collectDiagnosticsState = ko.observable({});
+
+// Hold last rest password attampt result.
+export const resetPasswordState = ko.observable();
+
+export const regenerateCredentialState = ko.observable();
+
+export const createAccountState = ko.observable();
+
+// Hold funcs information
+export const funcInfo = ko.observable();
+export const funcList = ko.observableArray();

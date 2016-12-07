@@ -1,24 +1,27 @@
 "use strict";
 
 var vsphere = require("vsphere");
-// var promise_utils = require('../../util/promise_utils');
+var promise_utils = require('../../util/promise_utils');
 var vm_helper = require('../qa/vm-helper');
 var P = require('../../util/promise');
 // var request = require('request');
+var request = require('request');
 var ops = require('../system_tests/basic_server_ops');
 var ssh2 = require('ssh2');
 var argv = require('minimist')(process.argv);
 
 var ssh_client = new ssh2.Client();
-var host_ip = argv.host || '192.168.1.127';
+var host_ip = argv.host || '192.168.100.162';
 var host_user = argv.host_user || 'root';
 var host_password = argv.host_password || 'roonoobaa';
 var vm_name = argv.guest || 'NooBaa-Community-Edition';
-var vm_ip = argv.guest_ip || '192.168.1.211';
+var vm_ip = argv.guest_ip || '192.168.100.137';
 var vm_user = argv.guest_user || 'noobaaroot';
-var vm_password = argv.guest_password || '2ea29727';
+var vm_password = argv.guest_password || '9d4f775f';
 var snap_name = argv.base_snapshot || 'NooBaa-after-wizard';
-var upgrade_file = argv.upgrade_package || '/Users/jacky/Downloads/noobaa-NVA-0.5.1-e3707c4.tar.gz';
+var ova_name = argv.ova_name || 'noobaa-community';
+var upgrade_file = argv.upgrade_package || '/Users/jacky/Downloads/noobaa-NVA-0.5.1-50679c2.tar.gz';
+var description = argv.description || 'NooBaa Community Edition - Build ' + get_build_number(upgrade_file);
 var service;
 var sessionManager;
 var vimPort;
@@ -29,6 +32,52 @@ function ssh_connect(client, options) {
         .once('ready', resolve)
         .once('error', reject)
         .connect(options));
+}
+
+function wait_for_server(ip, wait_for_version) {
+    var isNotListening = true;
+    var version;
+    return promise_utils.pwhile(
+        function() {
+            return isNotListening;
+        },
+        function() {
+            console.log('waiting for Web Server to start');
+            return P.fromCallback(callback => request({
+                    method: 'get',
+                    url: 'http://' + ip + ':8080/version',
+                    strictSSL: false,
+                }, callback), {
+                    multiArgs: true
+                })
+                .spread(function(response, body) {
+                    if (response.statusCode !== 200) {
+                        throw new Error('got error code ' + response.statusCode);
+                    }
+                    if (wait_for_version && body !== wait_for_version) {
+                        throw new Error('version is ' + body +
+                            ' wait for version ' + wait_for_version);
+                    }
+                    console.log('Web Server started. version is: ' + body);
+                    version = body;
+                    isNotListening = false;
+                })
+                .catch(function(err) {
+                    console.log('not up yet...', err.message);
+                    return P.delay(5000);
+                });
+        }).return(version);
+}
+
+function get_build_number(upgrade_pack) {
+    var filename;
+    if (upgrade_pack.indexOf('/') === -1) {
+        filename = upgrade_pack;
+    } else {
+        filename = upgrade_pack.substring(upgrade_pack.indexOf('/'));
+    }
+    var version_match = filename.match(/noobaa-NVA-(.*)\.tar\.gz/);
+    return version_match && version_match[1];
 }
 
 function ssh_exec(client, command, options) {
@@ -64,9 +113,9 @@ vsphere.vimService(host_ip)
     .then(() => vimPort.powerOnVMTask(vm_obj, null))
     .then(task => vm_helper.completeTask(service, task))
     .then(() => console.log('machine is ON'))
-    .then(() => ops.wait_for_server(vm_ip))
+    .then(() => wait_for_server(vm_ip))
     .then(() => ops.upload_and_upgrade(vm_ip, upgrade_file))
-    .then(() => ops.wait_for_server(vm_ip))
+    .then(() => wait_for_server(vm_ip, get_build_number(upgrade_file)))
     .then(() => ssh_connect(ssh_client, {
         host: vm_ip,
         username: vm_user,
@@ -81,13 +130,13 @@ vsphere.vimService(host_ip)
     .then(() => console.log('cleaned the OVA'))
     .then(() => console.log('powering machine OFF'))
     .then(() => vimPort.powerOffVMTask(vm_obj, null))
-    // .then(() => vimPort.exportVm(vm_obj))
-    // .then(nfcLease => vm_helper.downloadOVF(service, vm_obj, nfcLease))
-    // .then(console.log)
     .then(task => vm_helper.completeTask(service, task))
     .then(() => console.log('machine is OFF'))
+    .then(() => P.delay(5000))
+    .then(() => vimPort.exportVm(vm_obj))
+    .then(nfcLease => vm_helper.downloadOVF(service, vm_obj, nfcLease, host_ip, ova_name, description))
     .then(() => vimPort.logout(sessionManager))
     .then(() => console.log('All done.'))
     .catch(function(err) {
-        console.log(err.message);
+        console.log('jacky !', err.stack);
     });

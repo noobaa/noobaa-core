@@ -19,7 +19,6 @@ const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
-const mongo_utils = require('../../util/mongo_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -133,9 +132,9 @@ function read_bucket(req) {
     var pools = _.flatten(_.map(bucket.tiering.tiers,
         tier_and_order => tier_and_order.tier.pools
     ));
-    var pool_ids = mongo_utils.uniq_ids(pools, '_id');
+    let pool_names = pools.map(pool => pool.name);
     return P.join(
-        nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
+        nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
         md_store.ObjectMD.collection.count({
             system: req.system._id,
             bucket: bucket._id,
@@ -177,99 +176,63 @@ function update_bucket(req) {
     }).return();
 }
 
-// TODO Removed by request of Ohad, because seems like we won't be using it
-/*function generate_bucket_access(req) {
-    var bucket = find_bucket(req);
+/**
+ *
+ * UPDATE_BUCKET_S3_ACCESS
+ *
+ */
+function update_bucket_s3_access(req) {
+    const bucket = find_bucket(req);
+    const allowed_accounts = req.rpc_params.allowed_accounts.map(
+        email => system_store.get_account_by_email(email)
+    );
 
-    if (!bucket) {
-        throw new RpcError('INVALID_BUCKET_NAME');
-    }
-    var account_email = req.system.name + system_store.data.accounts.length + '@noobaa.com';
-    //console.warn('Email Generated: ', account_email);
-    return server_rpc.client.account.create_account({
-            name: req.system.name,
-            email: account_email,
-            password: crypto.randomBytes(16).toString('hex')
-        }, {
-            auth_token: req.auth_token
-        })
-        .then(() => {
-            //console.warn('Account Created');set
-            return server_rpc.client.account.update_buckets_permissions({
-                email: account_email,
-                allowed_buckets: [{
-                    bucket_name: bucket.name,
-                    is_allowed: true
-                }]
-            }, {
-                auth_token: req.auth_token
-            });
-        })
-        .then(() => {
-            //console.warn('Permissions Created');
-            return server_rpc.client.account.generate_account_keys({
-                email: account_email
-            }, {
-                auth_token: req.auth_token
-            });
-        })
-        .then(res => res[0]);
-}*/
-
-function list_bucket_s3_acl(req) {
-    let bucket = find_bucket(req);
-    return system_store.data.accounts
-        .filter(
-            account => !account.is_support && account.allowed_buckets
-        )
-        .map(
-            account => {
-                return {
-                    account: account.email,
-                    is_allowed: _.includes(account.allowed_buckets, bucket)
-                };
+    const added_accounts = [];
+    const removed_accounts = [];
+    const updates = [];
+    system_store.data.accounts.forEach(
+        account => {
+            if (!account.allowed_buckets) {
+                return;
             }
-        );
-}
 
-function update_bucket_s3_acl(req) {
-    let bucket = find_bucket(req);
-    // This is a hack not proud of it
-    let original_bucket_accounts = list_bucket_s3_acl(req)
-        .filter(acl => acl.is_allowed)
-        .map(acl => acl.account);
-    let updates = req.rpc_params.access_control
-        .map(
-            record => {
-                let account = system_store.data.accounts_by_email[record.account];
-                let allowed_buckets = record.is_allowed ?
-                    _.unionWith(account.allowed_buckets, [bucket], system_store.has_same_id) :
-                    _.differenceWith(account.allowed_buckets, [bucket], system_store.has_same_id);
+            if (!account.allowed_buckets.includes(bucket) &&
+                allowed_accounts.includes(account)) {
 
-                return {
+                added_accounts.push(account);
+                updates.push({
                     _id: account._id,
-                    allowed_buckets: allowed_buckets.map(bkt => bkt._id)
-                };
+                    allowed_buckets: account.allowed_buckets
+                        .concat(bucket)
+                        .map(bucket2 => bucket2._id)
+                });
             }
-        );
 
-    system_store.make_changes({
-            update: {
-                accounts: updates
+            if (account.allowed_buckets.includes(bucket) &&
+                !allowed_accounts.includes(account)) {
+
+                removed_accounts.push(account);
+                updates.push({
+                    _id: account._id,
+                    allowed_buckets: account.allowed_buckets
+                        .filter(bucket2 => bucket2._id !== bucket._id)
+                        .map(bucket2 => bucket2._id)
+                });
             }
-        })
+        }
+    );
+
+    return system_store.make_changes({
+        update: {
+            accounts: updates
+        }
+    })
         .then(() => {
-            let new_allowed_accounts = req.rpc_params.access_control.filter(acl => acl.is_allowed).map(acl => acl.account);
-            let desc_string = [];
-            let added_accounts = [];
-            let removed_accounts = [];
-            desc_string.push(`${bucket.name} S3 access was updated by ${req.account && req.account.email}`);
-            added_accounts = _.difference(new_allowed_accounts, original_bucket_accounts);
-            removed_accounts = _.difference(original_bucket_accounts, new_allowed_accounts);
-            if (added_accounts.length) {
+            const desc_string = [];
+            if (added_accounts.length > 0) {
                 desc_string.push(`Added accounts: ${added_accounts}`);
             }
-            if (removed_accounts.length) {
+            if (removed_accounts.length > 0) {
                 desc_string.push(`Removed accounts: ${removed_accounts}`);
             }
             Dispatcher.instance().activity({
@@ -959,8 +922,7 @@ exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configur
 exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;
 exports.list_buckets = list_buckets;
 //exports.generate_bucket_access = generate_bucket_access;
-exports.list_bucket_s3_acl = list_bucket_s3_acl;
-exports.update_bucket_s3_acl = update_bucket_s3_acl;
+exports.update_bucket_s3_access = update_bucket_s3_access;
 //Cloud Sync policies
 exports.get_cloud_sync = get_cloud_sync;
 exports.get_all_cloud_sync = get_all_cloud_sync;

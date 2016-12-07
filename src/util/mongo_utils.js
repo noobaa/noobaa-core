@@ -8,6 +8,31 @@ const mongoose = require('mongoose');
 const P = require('./promise');
 const RpcError = require('../rpc/rpc_error');
 
+/* exported constants */
+const mongo_operators = new Set([
+    '$inc',
+    '$mul',
+    '$rename',
+    '$setOnInsert',
+    '$set',
+    '$unset',
+    '$min',
+    '$max',
+    '$currentDate',
+    '$addToSet',
+    '$pop',
+    '$pullAll',
+    '$pull',
+    '$pushAll',
+    '$push',
+    '$each',
+    '$slice',
+    '$sort',
+    '$position',
+    '$bit',
+    '$isolated'
+]);
+
 /*
  *@param base - the array to subtract from
  *@param values - array of values to subtract from base
@@ -165,6 +190,7 @@ function make_object_diff(current, prev) {
 
 
 // EXPORTS
+exports.mongo_operators = mongo_operators;
 exports.obj_ids_difference = obj_ids_difference;
 exports.uniq_ids = uniq_ids;
 exports.populate = populate;

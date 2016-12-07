@@ -1,11 +1,30 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
-module.exports = {
-    to_array_buffer: to_array_buffer,
-    to_buffer: to_buffer,
-    get_single: get_single,
-};
+const P = require('./promise');
 
+/**
+ * concatify returns a single buffer from list of buffers
+ * but optimized for the common case of a single buffer to avoid copyful concat
+ */
+function concatify(buffers) {
+    if (!buffers) return new Buffer(0);
+    if (buffers.length === 1) return buffers[0];
+    return Buffer.concat(buffers);
+}
+
+function buffer_from_stream(stream) {
+    return buffers_from_stream(stream).then(concatify);
+}
+
+function buffers_from_stream(stream) {
+    const chunks = [];
+    return new P((resolve, reject) => stream
+            .on('data', chunk => chunks.push(chunk))
+            .once('error', reject)
+            .once('end', resolve))
+        .return(chunks);
+}
 
 /**
  *
@@ -66,8 +85,8 @@ function to_buffer(ab) {
 }
 
 
-function get_single(buffers) {
-    if (!buffers) return null;
-    if (buffers.length === 1) return buffers[0];
-    return Buffer.concat(buffers);
-}
+exports.concatify = concatify;
+exports.buffer_from_stream = buffer_from_stream;
+exports.buffers_from_stream = buffers_from_stream;
+exports.to_array_buffer = to_array_buffer;
+exports.to_buffer = to_buffer;

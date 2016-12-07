@@ -30,14 +30,14 @@ function fix_iptables {
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n | grep 8081 | wc -l)
-  if [ "${exist}" == "0" ]; then
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 8081 -j ACCEPT
-  fi
-
   local exist=$(iptables -L -n | grep 8443 | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n | grep 8444 | wc -l)
+  if [ "${exist}" == "0" ]; then
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 8444 -j ACCEPT
   fi
 
   local exist=$(iptables -L -n | grep 26050 | wc -l)
@@ -48,6 +48,11 @@ function fix_iptables {
   local exist=$(iptables -L -n | grep 27000 | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1 -i eth0 -p tcp --dport 27000 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n | grep 60100 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 60100 -j ACCEPT
   fi
 
   #If logging rules exist, remove them
@@ -196,6 +201,16 @@ function pre_upgrade {
 		yum install -y dialog
 	fi
 
+	if yum list installed vim >/dev/null 2>&1; then
+		deploy_log "vim installed"
+	else
+		deploy_log "installing vim"
+		yum install -y vim
+	fi
+
+	deploy_log "installing utils"
+	yum install -y bind-utils
+
 	if getent passwd noobaa > /dev/null 2>&1; then
 		echo "noobaa user exists"
 	else
@@ -244,7 +259,9 @@ function pre_upgrade {
     echo "root soft nofile 102400" >> /etc/security/limits.conf
   fi
 
+  echo "64000" > /proc/sys/kernel/threads-max
   sysctl -w fs.file-max=102400
+  sysctl -w net.ipv4.tcp_keepalive_time=120
   sysctl -e -p
   agent_conf=${CORE_DIR}/agent_conf.json
   if [ -f "$agent_conf" ]
@@ -256,23 +273,28 @@ function pre_upgrade {
         deploy_log "$agent_conf not found."
     fi
 
-	#install nvm use v4.4.4
+	# copy fix_server_sec to
+    if ! grep -q 'fix_server_sec' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
+    fi
+
+	#install nvm use v6.9.1
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
 	chmod 777 ~/.nvm/nvm.sh
-	mkdir /tmp/v4.4.4
-	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v4.4.4-linux-x64.tar.xz /tmp/
-	tar -xJf /tmp/node-v4.4.4-linux-x64.tar.xz -C /tmp/v4.4.4 --strip-components 1
-	mkdir -p ~/.nvm/versions/node/v4.4.4/
-	mv /tmp/v4.4.4/* ~/.nvm/versions/node/v4.4.4/
+	mkdir /tmp/v6.9.1
+	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v6.9.1-linux-x64.tar.xz /tmp/
+	tar -xJf /tmp/node-v6.9.1-linux-x64.tar.xz -C /tmp/v6.9.1 --strip-components 1
+	mkdir -p ~/.nvm/versions/node/v6.9.1/
+	mv /tmp/v6.9.1/* ~/.nvm/versions/node/v6.9.1/
 	export NVM_DIR="$HOME/.nvm"
 	. "$NVM_DIR/nvm.sh"
-	export PATH=~/.nvm/versions/node/v4.4.4/bin:$PATH
+	export PATH=~/.nvm/versions/node/v6.9.1/bin:$PATH
 	rm -f /usr/local/bin/node
-	ln -s  ~/.nvm/versions/node/v4.4.4/bin/node /usr/local/bin/node
-	nvm alias default 4.4.4
-	nvm use 4.4.4
+	ln -s  ~/.nvm/versions/node/v6.9.1/bin/node /usr/local/bin/node
+	nvm alias default 6.9.1
+	nvm use 6.9.1
 
 }
 
@@ -327,9 +349,9 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
-  #if noobaa supervisor.conf is pre clustering, fix it
-  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | wc -l)
-  if [ ${FOUND} -eq 0 ]; then
+  #if noobaa supervisor.conf is pre hosted_agents
+  local FOUND=$(grep "bg_workers_starter" /etc/noobaa_supervisor.conf | wc -l)
+  if [ ${FOUND} -eq 1 ]; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
 
@@ -340,6 +362,7 @@ function post_upgrade {
   #NooBaa supervisor services configuration changes
   sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
   sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
+  sed -i 's:src/bg_workers/bg_workers_starter.js:src/server/bg_workers.js:' /etc/supervisord.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
   deploy_log "first install wizard"

@@ -1,8 +1,9 @@
 import template from './node-diagnostics-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
+import { collectDiagnosticsState } from 'model';
 import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
-import { isUndefined } from 'utils';
+import { isUndefined } from 'utils/all';
 
 class NodeDiagnosticsFormViewModel extends Disposable {
     constructor({ node }) {
@@ -14,6 +15,11 @@ class NodeDiagnosticsFormViewModel extends Disposable {
 
         this.areActionsDisabled = ko.pureComputed(
             () => Boolean(node() && (!node().online || node().demo_node))
+        );
+        this.isCollectingDiagnostics = ko.pureComputed(
+            () => Boolean(collectDiagnosticsState()[
+                `node:${this.nodeName()}`
+            ])
         );
 
         this.actionsTooltip = ko.pureComputed(

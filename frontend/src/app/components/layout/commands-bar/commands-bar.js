@@ -1,28 +1,25 @@
 import template from './commands-bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { uiState } from 'model';
-import { refresh, signOut, openDrawer, closeDrawer } from 'actions';
+import { refresh, openDrawer } from 'actions';
+import { sleep } from 'utils/all';
 
 class CommandBarViewModel extends Disposable {
     constructor() {
         super();
 
-        this.isDrawerOpen = ko.pureComputed(
-            () => !!uiState().drawer
-        );
+        this.isRefreshSpinning = ko.observable(false);
     }
 
     refresh() {
         refresh();
+
+        this.isRefreshSpinning(true);
+        sleep(1000, false).then(this.isRefreshSpinning);
     }
 
     showAuditLog() {
-        this.isDrawerOpen() ? closeDrawer() : openDrawer();
-    }
-
-    signOut() {
-        signOut();
+        openDrawer();
     }
 }
 

@@ -2,7 +2,7 @@ import template from './p2p-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { makeRange } from 'utils';
+import { makeRange } from 'utils/all';
 import { updateP2PSettings } from 'actions';
 
 const [ SINGLE_PORT, PORT_RANGE ] = makeRange(2);
@@ -13,10 +13,10 @@ const portOptions = [
 ];
 
 class P2PFormViewModel extends Disposable {
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
         this.portOptions = portOptions;
 
         let ports = ko.pureComputed(

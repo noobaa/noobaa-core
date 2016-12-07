@@ -1,11 +1,11 @@
 import template from './pie-chart.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import {  makeArray, deepFreeze } from 'utils';
+import {  makeArray, deepFreeze } from 'utils/all';
 import style from 'style';
 
 const radius = 84;
-const lineWidth = 30;
+const lineWidth = 20;
 const seperator = (2 * Math.PI) / 1000;
 const threshold = 2 * seperator;
 const silhouetteColor = style['color1'];
@@ -29,27 +29,39 @@ function normalizeValues(values) {
         (sum, value) => sum + value
     );
 
-    let ratios = values.map(
-        value => value / sum
+    let thresholdSize = threshold * sum;
+    let { delta, overhead } = values.reduce(
+        (stats, value) => {
+            if(value === 0){
+                return stats;
+            }
+
+            if(value < thresholdSize) {
+                return {
+                    delta: stats.delta + thresholdSize - value,
+                    overhead: stats.overhead
+                };
+            } else {
+                return {
+                    delta: stats.delta,
+                    overhead: stats.overhead + value - thresholdSize
+                };
+            }
+        },
+        { delta: 0, overhead: 0 }
     );
 
-    let underThreshold = ratios
-        .filter(
-            ratio => 0 < ratio && ratio < threshold
-        )
-        .length;
-
-    return ratios.map(
-        ratio => {
-            if (ratio == 0) {
+    return values.map(
+        value => {
+            if (value === 0) {
                 return 0;
-
-            } else if (ratio < threshold) {
-                return threshold;
-
-            } else  {
-                return ratio * (1 - threshold * underThreshold);
             }
+
+            if (value <= thresholdSize){
+                return threshold;
+            }
+
+            return (value - delta * (value - thresholdSize) / overhead) / sum;
         }
     );
 }

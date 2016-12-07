@@ -160,6 +160,8 @@ function add_member_to_cluster(req) {
             // reload system_store to update after new member HB
             return system_store.load();
         })
+        // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
+        .then(() => cluster_hb.do_heartbeat())
         .return();
 }
 

@@ -529,7 +529,11 @@ function upgrade_buckets() {
 }
 
 function add_account_id_to_cloud_pools() {
-    db.pools.find().forEach(function(pool) {
+    db.pools.find({
+        cloud_pool_info: {
+            $exists: true
+        }
+    }).forEach(function(pool) {
         var cloud_pool_info_to_set = add_credentials_to_missing_account_id(pool.cloud_pool_info);
         if (cloud_pool_info_to_set) {
             db.pools.update({
@@ -544,7 +548,11 @@ function add_account_id_to_cloud_pools() {
 }
 
 function add_account_id_to_cloud_sync() {
-    db.buckets.find().forEach(function(bucket) {
+    db.buckets.find({
+        cloud_sync: {
+            $exists: true
+        }
+    }).forEach(function(bucket) {
         var cloud_sync_info_to_set = add_credentials_to_missing_account_id(bucket.cloud_sync);
         if (cloud_sync_info_to_set) {
             db.buckets.update({
@@ -570,15 +578,17 @@ function add_credentials_to_missing_account_id(credentials) {
 
 function find_account_id_by_credentials(access_key) {
     var ret;
-    db.accounts.find().forEach(function(account) {
-        var candidate_credentials = account.sync_credentials_cache;
-        if (candidate_credentials) {
-            candidate_credentials.forEach(function(connection) {
-                if (connection.access_key === access_key) {
-                    ret = account._id;
-                }
-            });
+    db.accounts.find({
+        sync_credentials_cache: {
+            $exists: true
         }
+    }).forEach(function(account) {
+        var candidate_credentials = account.sync_credentials_cache;
+        candidate_credentials.forEach(function(connection) {
+            if (connection.access_key === access_key) {
+                ret = account._id;
+            }
+        });
     });
     return ret;
 }

@@ -45,7 +45,8 @@ function normalizeValue(value) {
     } else if (isObject(value)) {
         let text = ko.unwrap(value.text);
         if (text instanceof Array) {
-            text = value.length === 1 ? value : toHtmlList(value);
+            text = text.length === 1 ? text : toHtmlList(text);
+
         } else if (isObject(text)) {
             let { title  = '', list = [] } = text;
             text = `<p>${title}:</p>${toHtmlList(list)}`;

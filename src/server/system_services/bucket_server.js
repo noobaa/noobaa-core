@@ -817,7 +817,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
     _.forEach(tier_of_bucket.mirrors, mirror_object => {
         info.writable = Boolean(info.writable) || _.some(mirror_object.spread_pools, pool =>
-            tiering_pools_status[pool.name].valid_for_allocation);
+            _.get(tiering_pools_status[pool.name], 'valid_for_allocation', false));
     });
 
     let objects_aggregate = {

@@ -16,8 +16,8 @@ class ServerRpc {
         this.rpc.register_n2n_proxy(this.client.node.n2n_proxy);
     }
 
-    get_base_port() {
-        return api.get_base_port();
+    get_base_address(base_hostname) {
+        return api.get_base_address(base_hostname);
     }
 
     get_server_options() {
@@ -36,19 +36,19 @@ class ServerRpc {
     set_new_router(params) {
         // check if some domains are changed to fcall://fcall
         let is_default_fcall = this.rpc.router.default === 'fcall://fcall';
-        let base_address = params.base_address;
-        let master_address = params.master_address;
-        if (base_address) {
-            base_address = 'ws://' + base_address + ':' + this.get_base_port();
+        let base_address;
+        let master_address;
+
+        if (params.base_address) {
+            base_address = this.get_base_address(params.base_address);
         } else if (is_default_fcall) {
-            base_address = 'ws://127.0.0.1:' + this.get_base_port();
+            base_address = this.get_base_address();
         } else {
             base_address = this.rpc.router.default;
         }
 
-
-        if (master_address) {
-            master_address = 'ws://' + master_address + ':' + this.get_base_port();
+        if (params.master_address) {
+            master_address = this.get_base_address(params.master_address);
         }
 
         this.rpc.router = api.new_router(base_address, master_address);

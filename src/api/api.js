@@ -52,18 +52,18 @@ RPC.Client.prototype.create_access_key_auth = function(params) {
         });
 };
 
-function get_base_port() {
-    return parseInt(process.env.PORT, 10) || 5001;
+function get_base_port(base_port) {
+    // the default 5443 port is for development
+    return base_port || parseInt(process.env.SSL_PORT, 10) || 5443;
 }
 
-function default_base_address() {
-    // the default 5001 port is for development
-    return 'ws://127.0.0.1:' + get_base_port();
+function get_base_address(base_hostname, base_port) {
+    return 'wss://' + (base_hostname || '127.0.0.1') + ':' + get_base_port(base_port);
 }
 
 function new_router(base_address, master_base_address) {
     if (!base_address) {
-        base_address = default_base_address();
+        base_address = get_base_address();
     }
     let base_url = _.pick(url.parse(base_address),
         'protocol', 'hostname', 'port', 'slashes');
@@ -108,9 +108,34 @@ function new_rpc(base_address) {
     return rpc;
 }
 
+/**
+ *
+ * The following sets all routes to use only the default base address.
+ *
+ * This mode is needed for the frontend browser (see reason below),
+ * and we must assure the default base address will serve all the apis
+ * needed by the frontend.
+ *
+ * The reason for this is that the browser does not allow to connect to wss:// host
+ * that has self-signed certificate, other than the page host.
+ * Trying to do so will immediately error with "WebSocket opening handshake was canceled".
+ *
+ */
+function new_rpc_default_only(base_address) {
+    let rpc = new RPC({
+        schema: api_schema,
+        router: {
+            default: base_address
+        },
+        api_routes: {}
+    });
+    return rpc;
+}
+
 module.exports = {
     new_rpc: new_rpc,
+    new_rpc_default_only: new_rpc_default_only,
     new_router: new_router,
-    default_base_address: default_base_address,
+    get_base_address: get_base_address,
     get_base_port: get_base_port,
 };

@@ -87,9 +87,13 @@ class RpcHttpServer extends EventEmitter {
      *
      */
     start(options) {
-        dbg.log0('HTTP SERVER:', options);
+        const port = parseInt(options.port, 10);
+        const secure = options.protocol === 'https:' || options.protocol === 'wss:';
+        const logging = options.logging;
+        dbg.log0('HTTP SERVER:', 'port', port, 'secure', secure, 'logging', logging);
+
         let app = express();
-        if (options.logging) {
+        if (logging) {
             app.use(express_morgan_logger('dev'));
         }
         app.use(express_body_parser.json());
@@ -106,20 +110,20 @@ class RpcHttpServer extends EventEmitter {
         this.install(app);
 
         return P.fcall(() => {
-                return options.secure && P.fromCallback(callback =>
+                return secure && P.fromCallback(callback =>
                     pem.createCertificate({
                         days: 365 * 100,
                         selfSigned: true
                     }, callback));
             })
             .then(cert => {
-                let http_server = options.secure ?
+                let http_server = secure ?
                     https.createServer({
                         key: cert.serviceKey,
                         cert: cert.certificate
                     }, app) :
                     http.createServer(app);
-                return P.ninvoke(http_server, 'listen', options.port)
+                return P.ninvoke(http_server, 'listen', port)
                     .return(http_server);
             });
     }

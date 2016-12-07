@@ -16,11 +16,10 @@ register_rpc();
 function register_rpc() {
     server_rpc.register_hosted_agents_services();
     server_rpc.register_common_services();
-    let http_port = url.parse(server_rpc.rpc.router.hosted_agents).port;
+    const u = url.parse(server_rpc.rpc.router.hosted_agents);
     return server_rpc.rpc.start_http_server({
-        port: http_port,
-        ws: true,
+        port: u.port,
+        protocol: u.protocol,
         logging: true,
-        secure: false,
     });
 }

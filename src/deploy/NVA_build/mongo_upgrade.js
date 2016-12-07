@@ -577,7 +577,7 @@ function add_credentials_to_missing_account_id(credentials) {
 }
 
 function find_account_id_by_credentials(access_key) {
-    var ret;
+    var ret = "";
     db.accounts.find({
         sync_credentials_cache: {
             $exists: true

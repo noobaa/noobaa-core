@@ -12,7 +12,7 @@ const stateMapping = deepFreeze({
         icon: 'healthy'
     },
     false: {
-        text: 'Offline',
+        text: 'Not enough healthy resources',
         css: 'error',
         icon: 'problem'
     }
@@ -49,7 +49,9 @@ class BucketSummrayViewModel extends Disposable {
         );
 
         this.state = ko.pureComputed(
-            () => stateMapping[true]
+            () => stateMapping[
+                Boolean(bucket() && bucket().writable)
+            ]
         );
 
         this.dataPlacement = ko.pureComputed(

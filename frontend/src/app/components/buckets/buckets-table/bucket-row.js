@@ -15,7 +15,7 @@ const stateIconMapping = deepFreeze({
     false: {
         name: 'problem',
         css: 'error',
-        tooltip: 'Problem'
+        tooltip: 'Not enough healthy storage resources'
     }
 });
 
@@ -69,7 +69,9 @@ export default class BucketRowViewModel extends Disposable {
         super();
 
         this.state = ko.pureComputed(
-            () => bucket() ? stateIconMapping[bucket().state || true] : {}
+            () => stateIconMapping[
+                Boolean(bucket() && bucket().writable)
+            ]
         );
 
         this.name = ko.pureComputed(

@@ -12,7 +12,8 @@ const net = require('net');
 const request = require('request');
 // const uuid = require('node-uuid');
 const ip_module = require('ip');
-
+const fs = require('fs');
+const path = require('path');
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -364,6 +365,10 @@ function read_system(req) {
             response => response.accounts
         ),
 
+        fs.statAsync(path.join('/etc', 'private_ssl_path', 'server.key'))
+        .return(true)
+        .catch(() => false),
+
         promise_utils.all_obj(
             system.buckets_by_name,
             bucket => node_allocator.refresh_tiering_alloc(bucket.tiering)
@@ -373,7 +378,8 @@ function read_system(req) {
         nodes_aggregate_pool_with_cloud,
         objects_count,
         cloud_sync_by_bucket,
-        accounts
+        accounts,
+        has_ssl_cert
     ) {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
@@ -464,6 +470,7 @@ function read_system(req) {
             debug_level: debug_level,
             upgrade: upgrade,
             system_cap: system_cap,
+            has_ssl_cert: has_ssl_cert,
         };
 
         // fill cluster information if we have a cluster.

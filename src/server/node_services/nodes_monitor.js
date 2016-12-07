@@ -711,6 +711,11 @@ class NodesMonitor extends EventEmitter {
         const n2n_config = _.extend(null,
             item.agent_info.n2n_config,
             _.cloneDeep(system.n2n_config));
+        if (item.node.is_cloud_node) {
+            n2n_config.tcp_permanent_passive = {
+                port: config.CLOUD_AGENTS_N2N_PORT
+            };
+        }
         if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
             rpc_config.n2n_config = n2n_config;
         }

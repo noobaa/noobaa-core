@@ -581,7 +581,10 @@ function find_account_id_by_credentials(access_key) {
     db.accounts.find({
         sync_credentials_cache: {
             $exists: true
-        }
+        },
+        deleted: {
+            $exists: false
+        },
     }).forEach(function(account) {
         var candidate_credentials = account.sync_credentials_cache;
         candidate_credentials.forEach(function(connection) {

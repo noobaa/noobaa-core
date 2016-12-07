@@ -195,17 +195,11 @@ function start() {
                     });
             }
 
-            var secure = argv.addr.protocol in {
-                'https:': 1,
-                'wss:': 1,
-            };
-
             // open http listening port for http based protocols
             return rpc.start_http_server({
                 port: argv.addr.port,
-                secure: secure,
+                protocol: argv.addr.protocol,
                 logging: false,
-                ws: true
             });
         })
         .then(function() {

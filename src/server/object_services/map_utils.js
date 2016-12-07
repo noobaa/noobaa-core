@@ -103,19 +103,19 @@ function _handle_under_spill(decision_params) {
         allocations: []
     };
 
-    let any_cloud_allocations = _.every(decision_params.blocks_partitions.good_blocks,
+    let only_on_premise_blocks = _.every(decision_params.blocks_partitions.good_blocks,
             block => !block.node.is_cloud_node) &&
         _.every(decision_params.blocks_partitions.bad_blocks,
             block => !block.node.is_cloud_node);
 
-    if (!any_cloud_allocations) {
+    if (only_on_premise_blocks) {
         if (_.get(decision_params.mirror_status, 'regular_pools_valid', false)) {
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.regular_pools);
         } else if (_.get(decision_params.mirror_status, 'cloud_pools_valid', false)) {
-            if (_.get(decision_params.block_partitions, 'good_on_premise_blocks.length', 0)) {
+            if (_.get(decision_params.blocks_partitions, 'good_on_premise_blocks.length', 0)) {
                 spill_status.deletions = _.concat(spill_status.deletions,
-                    decision_params.block_partitions.good_on_premise_blocks);
+                    decision_params.blocks_partitions.good_on_premise_blocks);
             }
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.cloud_pools);
@@ -139,20 +139,21 @@ function _handle_over_spill(decision_params) {
     };
 
     let current_weight = decision_params.current_weight;
-    let sorted_blocks = _.sortBy(_.get(decision_params, 'block_partitions.good_blocks', []), block => {
-        console.warn('JEN TIMESTAMP BLOCK', block, block._id.getTimestamp().getTime());
+    let sorted_blocks = _.sortBy(_.get(decision_params, 'blocks_partitions.good_blocks', []), block => {
         return block._id.getTimestamp().getTime();
     });
+
     _.forEach(sorted_blocks, block => {
         if (current_weight === decision_params.max_replicas) {
             return spill_status;
         }
 
         // We use max_replicas to support special chunks
-        let block_weight = block.node.is_cloud_node ? decision_params.max_replicas :
+        let block_weight = block.node.is_cloud_node ? decision_params.placement_weights.cloud_pool :
             decision_params.placement_weights.on_premise_pool;
 
         if (current_weight - block_weight >= decision_params.max_replicas) {
+            current_weight -= block_weight;
             spill_status.deletions.push(block);
         }
     });
@@ -225,11 +226,6 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
     }
 
     function check_blocks_group(blocks, fragment) {
-        const PLACEMENT_WEIGHTS = {
-            on_premise_pool: 1,
-            // We consider one replica in cloud valid for any policy
-            cloud_pool: tier.replicas
-        };
         // This is the optimal maximum number of replicas that are required
         // Currently this is mainly used to special replica chunks which are allocated opportunistically
         let max_replicas;
@@ -240,6 +236,12 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
         } else {
             max_replicas = tier.replicas;
         }
+
+        const PLACEMENT_WEIGHTS = {
+            on_premise_pool: 1,
+            // We consider one replica in cloud valid for any policy
+            cloud_pool: max_replicas
+        };
 
         let num_good = 0;
         let num_accessible = 0;
@@ -275,11 +277,13 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
             current_weight: num_good
         };
 
+        console.warn('JEN STUFF CHECK', num_good, max_replicas, decision_params);
         if (num_good > max_replicas) {
             spill_status = _handle_over_spill(decision_params);
         } else if (num_good < max_replicas) {
             spill_status = _handle_under_spill(decision_params);
         }
+        console.warn('JEN STUFF CHECK2', spill_status);
 
         _.each(block_partitions.bad_blocks, block => deletions.push(block));
 
@@ -296,7 +300,8 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
             let is_cloud_allocation = _.every(spill_status.allocations, pool => pool.cloud_pool_info);
             let num_missing = Math.max(0, max_replicas - num_good);
             // These are the minimum required replicas, which are a must to have for the chunk
-            let min_replicas = is_cloud_allocation ? 1 : Math.max(0, Math.min(max_replicas, tier.replicas) - num_good);
+            let min_replicas = is_cloud_allocation ? (max_replicas / PLACEMENT_WEIGHTS.cloud_pool) :
+                Math.max(0, tier.replicas - num_good);
             // Notice that we push the minimum required replicas in higher priority
             // This is done in order to insure that we will allocate them before the additional replicas
             _.times(min_replicas, () => allocations.push(_.clone(alloc)));
@@ -325,7 +330,7 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
         unused_blocks = _.concat(unused_blocks, blocks_partition[1]);
         used_blocks = _.concat(used_blocks, blocks_partition[0]);
 
-        num_accessible += check_blocks_group(blocks_partition[0], f); //{
+        num_accessible += check_blocks_group(blocks_partition[0], f);
 
         if (!num_accessible) {
             chunk_accessible = false;

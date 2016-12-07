@@ -502,7 +502,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'tiering', 'storage', 'data', 'num_objects'],
+            required: ['name', 'tiering', 'storage', 'data', 'num_objects', 'is_writable'],
             properties: {
                 name: {
                     type: 'string',
@@ -541,6 +541,9 @@ module.exports = {
                 },
                 tag: {
                     type: 'string'
+                },
+                is_writable: {
+                    type: 'boolean'
                 },
                 demo_bucket: {
                     type: 'boolean'

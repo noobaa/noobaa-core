@@ -199,7 +199,8 @@ function _get_online_members(rs_status) {
     let online_members = [];
     if (rs_status && rs_status.members) {
         _.each(rs_status.members, member => {
-            if (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY') {
+            // STARTUP state is used when a server was just added, and we want to show it as online.
+            if (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY' || member.stateStr.indexOf('STARTUP') > -1) {
                 let res_address = member.name.substring(0, member.name.indexOf(':'));
                 online_members.push(res_address);
             }

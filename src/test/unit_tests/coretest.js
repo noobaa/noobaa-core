@@ -76,9 +76,8 @@ mocha.before('coretest-before', function() {
         .then(() => console.log('running server_rpc.rpc.start_http_server'))
         .then(() => server_rpc.rpc.start_http_server({
             port: http_port,
-            secure: false,
+            protocol: 'ws:',
             logging: true,
-            ws: true
         }))
         .then(http_server_arg => {
             // the http/ws port is used by the agents

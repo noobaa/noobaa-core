@@ -200,11 +200,11 @@ function _check_is_self_in_dns_table() {
             if (_.includes(ip_address_table, address)) {
                 monitoring_status.dns_name = "OPERATIONAL";
             } else {
-                monitoring_status.dns_name = "UNREACHABLE";
+                monitoring_status.dns_name = "FAULTY";
             }
         })
         .catch(err => {
-            monitoring_status.dns_name = "FAULTY";
+            monitoring_status.dns_name = "UNKNOWN";
             dbg.warn(`Error when trying to find address in dns resolve table: ${server_conf.owner_address}. err:`, err.stack || err);
         });
 }

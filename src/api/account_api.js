@@ -73,6 +73,7 @@ module.exports = {
             }
         },
 
+
         read_account: {
             doc: 'Read the info of the authorized account',
             method: 'GET',
@@ -251,7 +252,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'identity', 'secret', 'endpoint'],
+                required: ['name', 'identity', 'secret', 'endpoint', 'endpoint_type'],
                 properties: {
                     name: {
                         type: 'string'
@@ -265,7 +266,6 @@ module.exports = {
                     secret: {
                         type: 'string'
                     },
-
                     endpoint_type: {
                         type: 'string',
                         enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
@@ -303,6 +303,23 @@ module.exports = {
             },
             reply: {
                 type: 'boolean'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_external_connection: {
+            doc: 'delete a connection from an account',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['connection_name'],
+                properties: {
+                    connection_name: {
+                        type: 'string'
+                    },
+                }
             },
             auth: {
                 system: 'admin'
@@ -366,6 +383,25 @@ module.exports = {
                                     endpoint_type: {
                                         type: 'string',
                                         enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                                    },
+                                    usage: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            required: ['usage_type', 'entity', 'external_entity'],
+                                            properties: {
+                                                usage_type: {
+                                                    type: 'string',
+                                                    enum: ['CLOUD_POOL', 'CLOUD_SYNC']
+                                                },
+                                                entity: {
+                                                    type: 'string'
+                                                },
+                                                external_entity: {
+                                                    type: 'string'
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

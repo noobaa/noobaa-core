@@ -56,7 +56,7 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'object',
-                required: ['endpoint', 'access_key', 'secret_key'],
+                required: ['name', 'endpoint', 'access_key', 'secret_key'],
                 properties: {
                     name: {
                         type: 'string'

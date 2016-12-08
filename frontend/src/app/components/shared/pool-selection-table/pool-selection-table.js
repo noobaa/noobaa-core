@@ -14,9 +14,16 @@ const columns = deepFreeze([
         name: 'state',
         type: 'icon'
     },
+    {
+        name: 'type',
+        type: 'icon'
+    },
     'name',
-    'onlineCount',
-    'freeSpace'
+    'onlineNodes',
+    {
+        name: 'capacityUsage',
+        type: 'resourceCapacity'
+    }
 ]);
 
 class PoolSelectionTableViewModel extends Disposable{

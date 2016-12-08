@@ -19,12 +19,7 @@ class LambdaController {
 
     prepare_request(req) {
         req.rpc_client = this.rpc.new_client();
-        req.rpc_client.options.auth_token = {
-            access_key: req.access_key,
-            string_to_sign: req.string_to_sign,
-            signature: req.signature,
-            extra: req.noobaa_v4
-        };
+        req.rpc_client.options.auth_token = req.auth_token;
     }
 
     create_func(req) {

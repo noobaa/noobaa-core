@@ -1,0 +1,37 @@
+PUT /files/util/crypto_utils.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 760
+Content-MD5: hXZXEly3PtvznLGK81cCTQ==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:37 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:k71RYD6IPUzvQKqW+eSfqRJ6LxA=
+
+'use strict';
+
+const bcrypt = require('bcrypt');
+const P = require('./promise');
+const argv = require('minimist')(process.argv);
+
+// This is to support shell scripts
+// It is used in order to bcrypt support account password in mongo_upgrade
+if (argv.bcrypt_password) {
+    return bcrypt_password(argv.bcrypt_password).then(console.log);
+}
+
+function bcrypt_password(password) {
+    return P.resolve()
+        .then(() => P.fromCallback(callback =>
+            bcrypt.genSalt(10, callback)))
+        .then(salt => P.fromCallback(callback =>
+            bcrypt.hash(password, salt, callback)))
+        .then(password_hash => {
+            password = password_hash;
+            return password;
+        });
+}
+
+// EXPORTS
+exports.bcrypt_password = bcrypt_password;

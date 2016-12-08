@@ -68,7 +68,6 @@ export default function register(ko) {
     ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list').default);
     ko.components.register('s3-access-details-modal',               require('./bucket/s3-access-details-modal/s3-access-details-modal').default);
     ko.components.register('bucket-s3-access-modal',                require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal').default);
-    ko.components.register('bucket-backup-policy-modal',            require('./bucket/bucket-backup-policy-modal/bucket-backup-policy-modal').default);
     /** INJECT:bucket **/
 
     // -------------------------------

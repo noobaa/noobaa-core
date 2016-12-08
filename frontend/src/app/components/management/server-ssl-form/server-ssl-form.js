@@ -4,7 +4,7 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { sslCertificateSuffix } from 'config';
 import { uploadSSLCertificate } from 'actions';
-import { sslCertificateUploadStatus as uploadStatus } from 'model';
+import { systemInfo, sslCertificateUploadStatus as uploadStatus } from 'model';
 
 class SSLFormViewModel extends Disposable {
     constructor({ isCollapsed }) {
@@ -13,7 +13,11 @@ class SSLFormViewModel extends Disposable {
         this.isCollapsed = isCollapsed;
         this.sslCertificateSuffix = sslCertificateSuffix;
 
-        this.sslConfigured = ko.observable('No');
+        this.sslStatus = ko.pureComputed(
+            () => systemInfo() && systemInfo().has_ssl_cert ?
+                'Customer SSL certificate installed' :
+                'Using self signed SSL certificate'
+        );
 
         this.uploading = ko.pureComputed(
             () => uploadStatus() && uploadStatus().state === 'IN_PROGRESS'

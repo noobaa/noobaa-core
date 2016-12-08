@@ -1,0 +1,50 @@
+PUT /files/util/string_utils.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 790
+Content-MD5: wsynNMFa+KK+K/2ahY0uQw==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:40 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:vIWliwi7ExYWwvbSu3maAVmNyYQ=
+
+'use strict';
+
+/**
+ *
+ * string_utils
+ *
+ * various string utils
+ *
+ */
+module.exports = {
+    escapeRegExp: escapeRegExp,
+    left_pad_zeros: left_pad_zeros,
+    random_string: random_string
+};
+
+
+function escapeRegExp(str) {
+    return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+}
+
+function left_pad_zeros(str, to_length) {
+    let num_zeros = to_length - str.length;
+    let zeros = '';
+    if (num_zeros > 0) {
+        zeros = '0'.repeat(num_zeros);
+    }
+    return zeros + str;
+
+}
+
+
+function random_string(len = 8) {
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const chars = [];
+    for (let i = 0; i < len; ++i) {
+        chars.push(charset.charAt(Math.random() * charset.length | 0));
+    }
+    return chars.join('');
+}

@@ -1,0 +1,23 @@
+PUT /files/util/panic.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 380
+Content-MD5: 8E+0ZQdimkaiF2TqoVUskA==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:39 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:1s6n+CKdOTqQSg2NyzBd8lwNNT0=
+
+'use strict';
+
+// catch process uncaught exceptions, and treat as a panic and exit after logging
+// since restarting the process is the most stable way of recovery
+process.on('uncaughtException', err => panic('process uncaughtException', err));
+
+function panic(message, err) {
+    console.error('PANIC:', message, err.stack || err);
+    process.exit(1);
+}
+
+exports.panic = panic;

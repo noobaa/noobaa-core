@@ -1,0 +1,58 @@
+PUT /files/util/time_utils.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 1033
+Content-MD5: OOHitg7REgDS0V5bdBjs3A==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:40 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:Yj9Pn2cynbGAEkl6IOStMAd5wIM=
+
+'use strict';
+
+var perf_now = require('performance-now');
+
+module.exports = {
+    millistamp: millistamp,
+    nanostamp: nanostamp,
+    secstamp: secstamp,
+    millitook: millitook,
+    sectook: sectook,
+    time_suffix: time_suffix,
+    toRFC822: toRFC822
+};
+
+function millistamp() {
+    return perf_now();
+}
+
+function nanostamp() {
+    return perf_now() * 1e6;
+}
+
+function secstamp() {
+    return perf_now() / 1000;
+}
+
+function millitook(since) {
+    return (millistamp() - since).toFixed(1) + 'ms';
+}
+
+function sectook(since) {
+    return (secstamp() - since).toFixed(1) + 'sec';
+}
+
+function time_suffix() {
+    var d = new Date();
+    return d.toISOString().replace(/T/, '-').substr(5, 11);
+}
+
+//UTC is RFC822 + full year presentation (4 digits).
+//This function convert it to 2 digits year, required by S3 (and specifically enforced by hadoop)
+
+function toRFC822(in_date) {
+    return in_date.toUTCString().replace(
+        ' ' + in_date.getFullYear() + ' ',
+        ' ' + (in_date.getFullYear().toString()).substr(2) + ' ');
+}

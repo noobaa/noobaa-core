@@ -1,0 +1,16 @@
+POST /files/jenia HTTP/1.1
+cache-control: no-cache
+Postman-Token: 09eda3e6-3cc4-4e44-875e-5bde17a422a4
+Content-Type: application/x-www-form-urlencoded
+Host: 127.0.0.1
+X-Amz-Content-Sha256: 24b610d7ae236abbd15355bd4de3f8e9cfb4709c2fc3c8a79dc8dd88bc4cf775
+X-Amz-Jenia: White
+X-Amz-Date: 20161207T151216Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161207/us-east-1/s3/aws4_request, SignedHeaders=content-length;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-jenia, Signature=097cd64c409892969b21c430338f9a804151ed0af59e13967a47dcda5e14bd95
+User-Agent: PostmanRuntime/3.0.5
+Accept: */*
+accept-encoding: gzip, deflate
+content-length: 14
+Connection: keep-alive
+
+HAHAHAHAAHAHAH

@@ -1,0 +1,200 @@
+PUT /files/util/dotenv.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 5993
+Content-MD5: xo5zQJXHwSSroTbOwFERzg==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:37 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:m3N+Hugw/OYs5cYgT2cAvqVb0W4=
+
+/*
+Copyright (c) 2015, Scott Motte
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+
+'use strict';
+
+var fs = require('fs');
+var DROPPED_LINES = {
+    LINES: [],
+    INDICES: [],
+};
+
+module.exports = {
+    /*
+     * Main entry point into dotenv. Allows configuration before loading .env
+     * @param {Object} options - valid options: path ('.env'), encoding ('utf8')
+     * @returns {Boolean}
+     */
+    config: function(options) {
+        var path = '.env';
+        var encoding = 'utf8';
+        var silent = false;
+
+        if (options) {
+            if (options.silent) {
+                silent = options.silent;
+            }
+            if (options.path) {
+                path = options.path;
+            }
+            if (options.encoding) {
+                encoding = options.encoding;
+            }
+        }
+
+        try {
+            // specifying an encoding returns a string instead of a buffer
+            var parsedObj = this.parse(fs.readFileSync(path, {
+                encoding: encoding
+            }));
+
+            Object.keys(parsedObj).forEach(function(key) {
+                process.env[key] = parsedObj[key];
+            });
+
+            return parsedObj;
+        } catch (e) {
+            if (!silent) {
+                console.error(e);
+            }
+            return false;
+        }
+    },
+
+    /*
+     * Parses a string or buffer into an object
+     * @param {String|Buffer} src - source to be parsed
+     * @returns {Object}
+     */
+    parse: function(src) {
+        var obj = {};
+        var idx = 0;
+
+        // convert Buffers before splitting into lines and processing
+        src.toString().split('\n').forEach(function(line) {
+            // matching "KEY' and 'VAL' in 'KEY=VAL'
+            var keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
+            // matched?
+            if (keyValueArr !== null) {
+                var key = keyValueArr[1];
+
+                // default undefined or missing values to empty string
+                var value = keyValueArr[2] ? keyValueArr[2] : '';
+
+                // expand newlines in quoted values
+                var len = value ? value.length : 0;
+                if (len > 0 && value.charAt(0) === '"' && value.charAt(len - 1) === '"') {
+                    value = value.replace(/\\n/gm, '\n');
+                }
+
+                // remove any surrounding quotes and extra spaces
+                value = value.replace(/(^['"]|['"]$)/g, '').trim();
+
+                obj[key] = value;
+            } else {
+                DROPPED_LINES.INDICES.push(idx);
+                DROPPED_LINES.LINES.push(line);
+                // console.warn('line', line);
+            }
+            ++idx;
+        });
+
+        return obj;
+    },
+
+    /*
+     * Sets a new value for params
+     * @param {Object} newVal - param name and new value of param
+     */
+    set: function(newVal) {
+        var path = '.env';
+        var encoding = 'utf8';
+        var silent = false;
+
+        try {
+            // specifying an encoding returns a string instead of a buffer
+            var newObj = this.replace(fs.readFileSync(path, {
+                encoding: encoding
+            }), newVal);
+
+
+            fs.writeFileSync(path, '');
+            Object.keys(newObj).forEach(function(key) {
+                fs.appendFileSync(path, key + '=' + newObj[key] + '\n');
+                process.env[key] = newObj[key];
+            });
+
+            return true;
+        } catch (e) {
+            if (!silent) {
+                console.error(e);
+            }
+            return false;
+        }
+    },
+
+    /*
+     * Replaces a value on a given source buffer
+     * @param {Object} newVal - param name and new value of param
+     * @param {String|Buffer} src - source to be parsed
+     * @returns {Object}
+     */
+    replace: function(src, newVal) {
+        var obj = {};
+        var found = false;
+
+        // convert Buffers before splitting into lines and processing
+        src.toString().split('\n').forEach(function(line) {
+            // matching "KEY' and 'VAL' in 'KEY=VAL'
+            var keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
+            // matched?
+            if (keyValueArr !== null) {
+                var key = keyValueArr[1];
+                var value;
+                if (key === newVal.key) {
+                    value = newVal.value;
+                    found = true;
+                } else {
+                    // default undefined or missing values to empty string
+                    value = keyValueArr[2] ? keyValueArr[2] : '';
+                }
+
+                obj[key] = value;
+            }
+        });
+
+        if (!found) {
+            obj[newVal.key] = newVal.value;
+        }
+
+        return obj;
+    }
+
+};
+
+module.exports.load = module.exports.config;

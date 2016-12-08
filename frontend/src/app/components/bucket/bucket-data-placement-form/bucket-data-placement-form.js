@@ -1,9 +1,7 @@
 import template from './bucket-data-placement-form.html';
 import placementSectionTemplate from './placement-policy-section.html';
-import backupPolicySectionTemplate from './backup-policy-section.html';
 import Disposable from 'disposable';
 import PlacementRowViewModel from './placement-row';
-import BackupRowViewModel from './backup-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/all';
@@ -14,29 +12,21 @@ const placementTableColumns = deepFreeze([
         type: 'icon'
     },
     {
-        name: 'poolName',
-        type: 'link'
+        name: 'type',
+        type: 'icon'
+    },
+    {
+        name: 'resourceName',
+        type: 'customLink'
     },
     {
         name: 'onlineNodeCount',
         label: 'online nodes in pool'
     },
     {
-        name: 'freeSpace',
-        label: 'free space in pool'
-    }
-]);
-
-const backupTableColumns = deepFreeze([
-    {
-        name: 'resourceType',
-        label: 'type',
-        type: 'icon'
-    },
-    'resourceName',
-    {
-        name: 'usage',
-        label: 'Used by noobaa'
+        name: 'usedCapacity',
+        label: 'used capacity by bucket',
+        type: 'resourceCapacity'
     }
 ]);
 
@@ -50,9 +40,7 @@ class BucketDataPlacementFormViewModel extends Disposable {
         super();
 
         this.placementSectionTemplate = placementSectionTemplate;
-        this.backupPolicySectionTemplate = backupPolicySectionTemplate;
         this.placementTableColumns = placementTableColumns;
-        this.backupTableColumns = backupTableColumns;
 
         this.bucketName = ko.pureComputed(
             () => ko.unwrap(bucket) && ko.unwrap(bucket).name
@@ -78,7 +66,7 @@ class BucketDataPlacementFormViewModel extends Disposable {
         );
 
         this.nodePools = ko.pureComputed(
-            () => tier() && tier().node_pools.map(
+            () => tier() && tier().attached_pools.map(
                 name => systemInfo().pools.find(
                     pool => pool.name === name
                 )
@@ -86,19 +74,15 @@ class BucketDataPlacementFormViewModel extends Disposable {
         );
 
         this.nodePoolCount = ko.pureComputed(
-            () => this.nodePools() && this.nodePools().length
-        );
-
-        this.cloudResources = ko.pureComputed(
-            () => tier() && tier().cloud_pools.map(
-                name => systemInfo().pools.find(
-                    pool => pool.name === name
-                )
-            )
+            () => this.nodePools() && this.nodePools().filter(
+                pool => Boolean(pool.nodes)
+            ).length
         );
 
         this.cloudResourceCount = ko.pureComputed(
-            () => this.cloudResources() && this.cloudResources().length
+            () => this.nodePools() && this.nodePools().filter(
+                pool => Boolean(pool.cloud_info)
+            ).length
         );
 
         this.editingDisabled = ko.pureComputed(
@@ -111,15 +95,10 @@ class BucketDataPlacementFormViewModel extends Disposable {
         );
 
         this.isPlacementPolicyModalVisible = ko.observable(false);
-        this.isBackupPolicyModalVisible = ko.observable(false);
     }
 
     createPlacementRow(pool) {
         return new PlacementRowViewModel(pool);
-    }
-
-    createBackupRow(cloudResource) {
-        return new BackupRowViewModel(cloudResource);
     }
 
     showPlacementPolicyModal() {
@@ -128,14 +107,6 @@ class BucketDataPlacementFormViewModel extends Disposable {
 
     hidePlacementPolicyModal() {
         this.isPlacementPolicyModalVisible(false);
-    }
-
-    showBackupPolicyModal() {
-        this.isBackupPolicyModalVisible(true);
-    }
-
-    hideBackupPolicyModal() {
-        this.isBackupPolicyModalVisible(false);
     }
 }
 

@@ -66,12 +66,7 @@ class S3Controller {
     prepare_request(req) {
         this.usage_report.s3_usage_info.prepare_request += 1;
         req.rpc_client = this.rpc.new_client();
-        req.rpc_client.options.auth_token = {
-            access_key: req.access_key,
-            string_to_sign: req.string_to_sign,
-            signature: req.signature,
-            extra: req.noobaa_v4
-        };
+        req.rpc_client.options.auth_token = req.auth_token;
         return this._update_usage_report(req);
     }
 
@@ -85,7 +80,10 @@ class S3Controller {
         // *** NOTICE IMPORTANT ***
         // Authentication failure attemps might not be included in the report
         // Because the access_key we won't be able to create a token and update the MD Server
-        if (!s3_error || !_.isObject(s3_error) || !req.access_key) {
+        if (!s3_error ||
+            !_.isObject(s3_error) ||
+            !req.auth_token ||
+            !req.auth_token.access_key) {
             dbg.log0('Could not register error:', s3_error,
                 'Request Headers:', req.headers,
                 'Request Method:', req.method,
@@ -95,12 +93,7 @@ class S3Controller {
         this.usage_report.s3_errors_info.total_errors += 1;
         this.usage_report.s3_errors_info[s3_error.code] = (this.usage_report.s3_errors_info[s3_error.code] || 0) + 1;
         req.rpc_client = this.rpc.new_client();
-        req.rpc_client.options.auth_token = {
-            access_key: req.access_key,
-            string_to_sign: req.string_to_sign,
-            signature: req.signature,
-            extra: req.noobaa_v4
-        };
+        req.rpc_client.options.auth_token = req.auth_token;
         return this._update_usage_report(req);
     }
 

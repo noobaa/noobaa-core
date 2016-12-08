@@ -188,7 +188,9 @@ function update_account_s3_access(req) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
 
-    const update = {_id: account._id};
+    const update = {
+        _id: account._id
+    };
     if (req.rpc_params.allowed_buckets) {
         update.allowed_buckets = req.rpc_params.allowed_buckets.map(
             bucket_name => system.buckets_by_name[bucket_name]._id
@@ -200,10 +202,10 @@ function update_account_s3_access(req) {
     }
 
     return system_store.make_changes({
-        update: {
-            accounts: [update]
-        }
-    })
+            update: {
+                accounts: [update]
+            }
+        })
         .then(() => {
             let new_allowed_buckets = req.rpc_params.allowed_buckets;
             let origin_allowed_buckets = account.allowed_buckets && account.allowed_buckets.map(bucket => bucket.name);
@@ -272,14 +274,14 @@ function update_account(req) {
     };
 
     return system_store.make_changes({
-        update: {
-            accounts: [{
-                _id: account._id,
-                $set: _.omitBy(updates, _.isUndefined),
-                $unset: _.omitBy(removals, _.isUndefined)
-            }]
-        }
-    })
+            update: {
+                accounts: [{
+                    _id: account._id,
+                    $set: _.omitBy(updates, _.isUndefined),
+                    $unset: _.omitBy(removals, _.isUndefined)
+                }]
+            }
+        })
         .then(() => Dispatcher.instance().activity({
             event: 'account.update',
             level: 'info',
@@ -289,7 +291,7 @@ function update_account(req) {
             desc: `${account.email} was updated by ${req.account && req.account.email}`,
         }))
         .return();
-    }
+}
 
 /**
  *
@@ -477,10 +479,34 @@ function add_external_conenction(req) {
     };
     updates.sync_credentials_cache.push(info);
     return system_store.make_changes({
-        update: {
-            accounts: [updates]
-        }
-    }).return();
+            update: {
+                accounts: [updates]
+            }
+        }).then(
+            val => {
+                Dispatcher.instance().activity({
+                    event: 'account.connection.add',
+                    level: 'info',
+                    system: req.system && req.system._id,
+                    actor: req.account && req.account._id,
+                    account: req.account._id,
+                    desc: `${info.name} was added by ${req.account && req.account.email}`,
+                });
+                return val;
+            },
+            err => {
+                Dispatcher.instance().activity({
+                    event: 'account.connection.add',
+                    level: 'alert',
+                    system: req.system && req.system._id,
+                    actor: req.account && req.account._id,
+                    account: req.account._id,
+                    desc: `Error: ${info.name} failed to add by ${req.account && req.account.email}`,
+                });
+                throw err;
+            }
+        )
+        .return();
 }
 
 function check_external_connection(req) {
@@ -513,6 +539,63 @@ function check_external_connection(req) {
         () => true,
         () => false
     );
+}
+
+function delete_external_connection(req) {
+    var params = _.pick(req.rpc_params, 'connection_name');
+    let account = req.account;
+    let connection_to_delete = cloud_utils.find_cloud_connection(account, params.connection_name);
+
+    if (_.find(system_store.data.buckets, bucket => (
+            bucket.cloud_sync &&
+            bucket.cloud_sync.endpoint === connection_to_delete.endpoint &&
+            bucket.cloud_sync.access_keys.account_id === account._id &&
+            bucket.cloud_sync.access_keys.access_key === connection_to_delete.access_key))) {
+        throw new Error('Cannot delete connection from account as it is being used for a cloud sync');
+    }
+    if (_.find(system_store.data.pools, pool => (
+            pool.cloud_pool_info &&
+            pool.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
+            pool.cloud_pool_info.account_id === account._id &&
+            pool.cloud_pool_info.access_key === connection_to_delete.access_key
+        ))) {
+        throw new Error('Cannot delete account as it is being used for a cloud sync');
+    }
+
+    return system_store.make_changes({
+            update: {
+                accounts: [{
+                    _id: account._id,
+                    sync_credentials_cache: _.filter(account.sync_credentials_cache,
+                        connection => (connection.name !== params.connection_name))
+                }]
+            }
+        })
+        .then(
+            val => {
+                Dispatcher.instance().activity({
+                    event: 'account.connection.delete',
+                    level: 'info',
+                    system: req.system && req.system._id,
+                    actor: req.account && req.account._id,
+                    account: account._id,
+                    desc: `${connection_to_delete.name} was deleted by ${req.account && req.account.email}`,
+                });
+                return val;
+            },
+            err => {
+                Dispatcher.instance().activity({
+                    event: 'account.connection.delete',
+                    level: 'alert',
+                    system: req.system && req.system._id,
+                    actor: req.account && req.account._id,
+                    account: account._id,
+                    desc: `Error: ${connection_to_delete.name} failed to delete by ${req.account && req.account.email}`,
+                });
+                throw err;
+            }
+        )
+        .return();
 }
 
 // UTILS //////////////////////////////////////////////////////////
@@ -550,20 +633,17 @@ function get_account_info(account, include_connection_cache) {
     };
 
     if (!_.isUndefined(include_connection_cache) && include_connection_cache) {
-        external_connections.connections = credentials_cache.map(
-            // The defaults are used for backword compatibility.
-            credentials => ({
-                name: credentials.name || credentials.access_key,
-                endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
-                identity: credentials.access_key,
-                endpoint_type: credentials.endpoint_type
-            })
-        );
+        external_connections.connections = credentials_cache.map(credentials => ({
+            name: credentials.name,
+            endpoint: credentials.endpoint,
+            identity: credentials.access_key,
+            endpoint_type: credentials.endpoint_type,
+            usage: _list_connection_usage(account, credentials)
+        }));
     } else {
         external_connections.connections = [];
     }
     info.external_connections = external_connections;
-
     return info;
 }
 
@@ -652,6 +732,34 @@ function verify_authorized_account(req) {
         });
 }
 
+function _list_connection_usage(account, credentials) {
+    let cloud_sync_usage = _.map(
+        _.filter(system_store.data.buckets, bucket => (
+            bucket.cloud_sync &&
+            bucket.cloud_sync.endpoint === credentials.endpoint &&
+            bucket.cloud_sync.access_keys.account_id === account._id &&
+            bucket.cloud_sync.access_keys.access_key === credentials.access_key
+        )), bucket => ({
+            usage_type: 'CLOUD_SYNC',
+            entity: bucket.name,
+            external_entity: bucket.cloud_sync.target_bucket
+        })) || [];
+    let cloud_pool_usage = _.map(
+        _.filter(system_store.data.pools, pool => (
+            pool.cloud_pool_info &&
+            pool.cloud_pool_info.endpoint === credentials.endpoint &&
+            pool.cloud_pool_info.account_id === account._id &&
+            pool.cloud_pool_info.access_key === credentials.access_key
+        )), pool => ({
+            usage_type: 'CLOUD_POOL',
+            entity: pool.name,
+            external_entity: pool.cloud_pool_info.target_bucket
+        })) || [];
+
+    return cloud_sync_usage.concat(cloud_pool_usage);
+}
+
+
 // EXPORTS
 exports.create_account = create_account;
 exports.read_account = read_account;
@@ -665,6 +773,7 @@ exports.accounts_status = accounts_status;
 exports.get_system_roles = get_system_roles;
 exports.add_external_conenction = add_external_conenction;
 exports.check_external_connection = check_external_connection;
+exports.delete_external_connection = delete_external_connection;
 exports.get_account_info = get_account_info;
 // utility to create the support account from bg_workers
 exports.ensure_support_account = ensure_support_account;

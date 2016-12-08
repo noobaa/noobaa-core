@@ -72,15 +72,26 @@ export default class PoolRowViewModel extends Disposable {
         );
 
         this.onlineNodes = ko.pureComputed(
-            () => pool() && pool().nodes ?
-                `${pool().nodes.online} of ${pool().nodes.count}` :
-                '—'
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                return pool().nodes ?
+                    `${pool().nodes.online} of ${pool().nodes.count}` :
+                    '—';
+            }
         );
 
         this.capacityUsage = ko.pureComputed(
-            () => pool() && pool().nodes ?
-                pool().storage :
-                `${formatSize(pool().storage.used)}`
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                const { storage  } = pool();
+                return pool().nodes ? storage : formatSize(storage.used);
+            }
         );
     }
 }

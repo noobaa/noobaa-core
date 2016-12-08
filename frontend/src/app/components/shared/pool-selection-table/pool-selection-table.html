@@ -17,18 +17,17 @@
         data: pools,
         rowFactory: pool => createRow(pool)
     ">
-        <template name="resourceCapacity">
-            <capacity-bar data-bind="visible: ko.unwrap($data).total" params="
-                total: ko.unwrap($data).total,
-                used: ko.unwrap($data).used,
-                color: ko.unwrap($data).color
+        <template name="resource-capacity">
+            <!-- ko if: $data().total -->
+            <capacity-bar data-bind="visible: $data().total" params="
+                total: $data().total,
+                used: $data().used
             "></capacity-bar>
-            <div class="text-cell" data-bind="visible: !ko.unwrap($data).total">
-                <span data-bind="
-                    text: ko.unwrap($data).text || $data,
-                    css: ko.unwrap($data).css
-                "></span>
-            </div>
+            <!-- /ko -->
+
+            <!-- ko ifnot: $data().total -->
+            <span data-bind="text: $data()"></span>
+            <!-- /ko -->
         </template>
     </data-table>
 </div>

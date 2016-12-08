@@ -17,7 +17,7 @@ const placementTableColumns = deepFreeze([
     },
     {
         name: 'resourceName',
-        type: 'customLink'
+        type: 'custom-link'
     },
     {
         name: 'onlineNodeCount',
@@ -26,7 +26,7 @@ const placementTableColumns = deepFreeze([
     {
         name: 'usedCapacity',
         label: 'used capacity by bucket',
-        type: 'resourceCapacity'
+        type: 'resource-capacity'
     }
 ]);
 

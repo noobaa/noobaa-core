@@ -22,7 +22,7 @@ const columns = deepFreeze([
     'onlineNodes',
     {
         name: 'capacityUsage',
-        type: 'resourceCapacity'
+        type: 'resource-capacity'
     }
 ]);
 

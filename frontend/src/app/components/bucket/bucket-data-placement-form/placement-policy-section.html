@@ -3,6 +3,11 @@
         <h3 class="heading3">Resources</h3>
         <div class="row">
             <span>
+                <span>Policy type:</span>
+                <span data-bind="text: placementType"></span>
+            </span>
+            <span class="push-both">|</span>
+            <span>
                 <span>Nodes Pools:</span>
                 <span data-bind="text: nodePoolCount"></span>
             </span>
@@ -10,11 +15,6 @@
             <span>
                 <span>Cloud resources:</span>
                 <span data-bind="text: cloudResourceCount"></span>
-            </span>
-            <span class="push-both">|</span>
-            <span>
-                <span>Policy type:</span>
-                <span data-bind="text: placementType"></span>
             </span>
         </div>
     </div>
@@ -36,32 +36,27 @@
     rowFactory: pool => createPlacementRow(pool),
     emptyMessage: 'No resources participate in policy'
 ">
-    <tempalate name="customLink">
-        <div class="link-cell" data-bind="visible: ko.unwrap($data).href">
-            <a class="link" data-bind="
-                href: ko.unwrap($data).href || $data,
-                text: ko.unwrap($data).text || $data
-            "></a>
-        </div>
-        <div class="text-cell" data-bind="visible: !ko.unwrap($data).href">
-            <span data-bind="
-                text: ko.unwrap($data).text || $data
-            "></span>
-        </div>
-    </tempalate>
+    <template name="custom-link">
+        <!-- ko if: $data().href -->
+        <a class="link" data-bind="text: $data().text, href: $data().href"></a>
+        <!-- /ko -->
 
-    <template name="resourceCapacity">
-        <capacity-bar data-bind="visible: ko.unwrap($data).total" params="
-            total: ko.unwrap($data).total,
-            used: ko.unwrap($data).used,
-            color: ko.unwrap($data).color
+        <!-- ko ifnot: $data().href -->
+        <span data-bind="text: $data().text"></span>
+        <!-- /ko -->
+    </template>
+
+    <template name="resource-capacity">
+        <!-- ko if: $data().total -->
+        <capacity-bar data-bind="visible: $data().total" params="
+            total: $data().total,
+            used: $data().used
         "></capacity-bar>
-        <div class="text-cell" data-bind="visible: !ko.unwrap($data).total">
-            <span data-bind="
-                text: ko.unwrap($data).text || $data,
-                css: ko.unwrap($data).css
-            "></span>
-        </div>
+        <!-- /ko -->
+
+        <!-- ko ifnot: $data().total -->
+        <span data-bind="text: $data()"></span>
+        <!-- /ko -->
     </template>
 </data-table>
 

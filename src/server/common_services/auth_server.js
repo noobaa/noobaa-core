@@ -310,12 +310,7 @@ function _authorize_signature_token(req) {
         role: role.role,
     };
 
-    const signature = signature_utils.signature({
-        secret_key: secret_key,
-        access_key: auth_token_obj.access_key,
-        string_to_sign: auth_token_obj.string_to_sign,
-        noobaa_v4: auth_token_obj.extra,
-    });
+    const signature = signature_utils.signature(auth_token_obj, secret_key);
 
     if (auth_token_obj.signature !== signature) {
         dbg.error('Signature for access key:', auth_token_obj.access_key,

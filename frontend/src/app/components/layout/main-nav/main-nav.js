@@ -27,7 +27,7 @@ const navItems = deepFreeze([
     {
         name: 'funcs',
         route: 'funcs',
-        icon: 'working',
+        icon: 'functions',
         label: 'Functions',
         beta: true
     },

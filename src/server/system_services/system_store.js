@@ -606,7 +606,7 @@ class SystemStore extends EventEmitter {
     }
 
     get_account_by_email(email) {
-        if (this.data && this.data.accounts) {
+        if (this.data && !_.isEmpty(this.data.accounts)) {
             return this.data.accounts_by_email[accounts_by_email_lowercase[email.toLowerCase()]];
         }
     }

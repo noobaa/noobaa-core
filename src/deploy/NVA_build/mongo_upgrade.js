@@ -22,6 +22,7 @@ function upgrade() {
     remove_unnamed_nodes();
     fix_nodes_pool_to_object_id();
     upgrade_cloud_agents();
+    upgrade_tier_pools();
     upgrade_accounts();
     upgrade_pools();
     upgrade_buckets();
@@ -458,6 +459,39 @@ function upgrade_object_mds() {
             },
             $unset: {
                 create_time: 1
+            }
+        });
+    });
+}
+
+function upgrade_tier_pools() {
+    print('\n*** upgrade_tier_pools ...');
+    db.tiers.find({
+        pools: {
+            $exists: true
+        }
+    }).forEach(function(tier) {
+        var mirrors = [];
+        if (tier.data_placement === 'MIRROR') {
+            tier.pools.forEach(function(pool_object_id) {
+                mirrors.push({
+                    spread_pools: [pool_object_id]
+                });
+            });
+        } else {
+            mirrors.push({
+                spread_pools: tier.pools
+            });
+        }
+
+        db.tiers.update({
+            _id: tier._id
+        }, {
+            $set: {
+                mirrors: mirrors
+            },
+            $unset: {
+                pools: 1
             }
         });
     });

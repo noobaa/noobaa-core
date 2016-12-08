@@ -1,0 +1,7 @@
+GET /files?prefix=cyberduck%2F&encoding-type=url HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Date: Wed, 07 Dec 2016 21:36:31 GMT
+Authorization: AWS 123:5eu8jR4bGEbGb93zMgIpSPZP9SI=
+User-Agent: aws-cli/1.11.17 Python/2.7.10 Darwin/16.1.0 botocore/1.4.74
+

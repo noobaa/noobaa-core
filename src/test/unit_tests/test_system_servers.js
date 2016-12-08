@@ -3,7 +3,7 @@
 const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
-const dotenv = require('dotenv');
+const dotenv = require('../../util/dotenv');
 const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');

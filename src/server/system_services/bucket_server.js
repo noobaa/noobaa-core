@@ -118,6 +118,16 @@ function create_bucket(req) {
             .concat(bucket._id),
     }];
 
+    if (req.account && req.account.email !== _.get(req, 'system.owner.email', '')) {
+        // Grant the owner a full access for the newly created bucket.
+        changes.update.accounts.push({
+            _id: req.system.owner._id,
+            allowed_buckets: req.system.owner.allowed_buckets
+                .map(bkt => bkt._id)
+                .concat(bucket._id),
+        });
+    }
+
     return system_store.make_changes(changes)
         .then(() => {
             req.load_auth();

@@ -18,11 +18,15 @@ const columns = deepFreeze([
         name: 'type',
         type: 'icon'
     },
-    'name',
-    'onlineNodes',
     {
-        name: 'capacityUsage',
-        type: 'resourceCapacity'
+        name: 'name'
+    },
+    {
+        name: 'onlineNodes'
+    },
+    {
+        name: 'freeSpace',
+        label: 'Available Capacity'
     }
 ]);
 

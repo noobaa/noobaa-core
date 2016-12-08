@@ -132,18 +132,18 @@ class BucketSummrayViewModel extends Disposable {
 
         this.dataValues = [
             {
-                label: 'Reduced',
-                value: ko.pureComputed(
-                    () => data().size_reduced
-                ),
-                color: style['color13']
-            },
-            {
                 label: 'Size',
                 value: ko.pureComputed(
                     () => data().size
                 ),
                 color: style['color7']
+            },
+            {
+                label: 'Reduced',
+                value: ko.pureComputed(
+                    () => data().size_reduced
+                ),
+                color: style['color13']
             }
         ];
 

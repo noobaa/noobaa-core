@@ -17,16 +17,15 @@ const placementTableColumns = deepFreeze([
     },
     {
         name: 'resourceName',
-        type: 'customLink'
+        type: 'custom-link'
     },
     {
         name: 'onlineNodeCount',
         label: 'online nodes in pool'
     },
     {
-        name: 'usedCapacity',
-        label: 'used capacity by bucket',
-        type: 'resourceCapacity'
+        name: 'freeSpace',
+        label: 'Available Capacity'
     }
 ]);
 

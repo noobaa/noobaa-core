@@ -94,6 +94,7 @@ class HostedAgents {
             let sys = system_store.data.systems[0];
             let cloud_info = sys.pools_by_name[cloud_pool.name].cloud_pool_info;
             cloud_info.agent_info[token_key] = new_token;
+            cloud_info.access_keys.account_id = cloud_info.access_keys.account_id._id;
             return system_store.make_changes({
                 update: {
                     pools: [{
@@ -125,6 +126,7 @@ class HostedAgents {
                         node_token: existing_token || token
                     };
                     cloud_info.agent_info = agent_info;
+                    cloud_info.access_keys.account_id = cloud_info.access_keys.account_id._id;
                     return system_store.make_changes({
                         update: {
                             pools: [{

@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize, deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/all';
 
 const iconMapping = deepFreeze({
     AWS: {
@@ -18,8 +18,8 @@ const iconMapping = deepFreeze({
         tooltip: 'S3 Compatible Cloud Bukcet'
     },
 
-    NODE: {
-        name: 'logo',
+    NODES_POOL: {
+        name: 'nodes-pool',
         tooltip: 'Node Pool'
     }
 });
@@ -63,7 +63,11 @@ export default class PoolRowViewModel extends Disposable {
                     return;
                 }
 
-                return pool().cloud_info ? iconMapping[pool().cloud_info.endpoint_type] : iconMapping['NODE'];
+                const resourceType = pool().cloud_info ?
+                    pool().cloud_info.endpoint_type :
+                    'NODES_POOL';
+
+                return iconMapping[resourceType];
             }
         );
 
@@ -72,15 +76,21 @@ export default class PoolRowViewModel extends Disposable {
         );
 
         this.onlineNodes = ko.pureComputed(
-            () => pool() && pool().nodes ?
-                `${pool().nodes.online} of ${pool().nodes.count}` :
-                '—'
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                return pool().nodes ?
+                    `${pool().nodes.online} of ${pool().nodes.count}` :
+                    '—';
+            }
         );
 
-        this.capacityUsage = ko.pureComputed(
-            () => pool() && pool().nodes ?
-                pool().storage :
-                `${formatSize(pool().storage.used)}`
-        );
+        this.freeSpace = ko.pureComputed(
+            () => pool() && pool().storage.free
+        ).extend({
+            formatSize: true
+        });
     }
 }

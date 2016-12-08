@@ -15,7 +15,7 @@ const signature_utils = require('../util/signature_utils');
 //const s3_auth = new S3Auth();
 
 const S3_XML_ATTRS = Object.freeze({
-    xmlns: 'http://doc.s3.amazonaws.com/2006-03-01'
+    xmlns: 'http://s3.amazonaws.com/doc/2006-03-01'
 });
 const BUCKET_QUERIES = Object.freeze([
     'acl',

@@ -31,6 +31,7 @@ config.NODE_IO_DETENTION_TEST_NODES = 2;
 
 config.RPC_CONNECT_TIMEOUT = 5000;
 config.RPC_SEND_TIMEOUT = 5000;
+config.CLOUD_AGENTS_N2N_PORT = 60100;
 
 ///////////////
 // S3 CONFIG //
@@ -158,6 +159,12 @@ config.DEMO_DEFAULTS = {
     POOL_NAME: 'demo-pool',
     BUCKET_NAME: 'demo-bucket'
 };
+
+//////////////////////////////
+// ALERTING & EVENTS CONFIG //
+//////////////////////////////
+
+config.SEND_EVENTS_REMOTESYS = true;
 
 
 // load a local config file that overwrites some of the config

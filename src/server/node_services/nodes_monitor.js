@@ -31,6 +31,7 @@ const cluster_server = require('../system_services/cluster_server');
 const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
 const url = require('url');
+const mongodb = require('mongodb');
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
@@ -288,7 +289,7 @@ class NodesMonitor extends EventEmitter {
                 'pool_id', pool_id, 'from pool', item.node.pool);
             if (String(item.node.pool) !== String(pool_id)) {
                 item.node.migrating_to_pool = Date.now();
-                item.node.pool = pool_id;
+                item.node.pool = new mongodb.ObjectId(pool_id);
                 item.suggested_pool = ''; // reset previous suggestion
             }
             this._set_need_update.add(item);
@@ -710,6 +711,11 @@ class NodesMonitor extends EventEmitter {
         const n2n_config = _.extend(null,
             item.agent_info.n2n_config,
             _.cloneDeep(system.n2n_config));
+        if (item.node.is_cloud_node) {
+            n2n_config.tcp_permanent_passive = {
+                port: config.CLOUD_AGENTS_N2N_PORT
+            };
+        }
         if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
             rpc_config.n2n_config = n2n_config;
         }

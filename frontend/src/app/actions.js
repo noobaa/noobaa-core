@@ -5,7 +5,7 @@ import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, generateAccessKeys, deepFreeze, flatMap, httpRequest,
+    downloadFile, deepFreeze, flatMap, httpRequest,
     httpWaitForResponse, stringifyAmount, toFormData } from 'utils/all';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -277,7 +277,7 @@ export function showNode() {
 export function showManagement() {
     logAction('showManagement');
 
-    let { tab = 'accounts' } = model.routeContext().params;
+    let { tab = 'accounts', section } = model.routeContext().params;
 
     model.uiState({
         layout: 'main-layout',
@@ -288,7 +288,27 @@ export function showManagement() {
         selectedNavItem: 'management',
         panel: 'management',
         tab: tab,
+        section: section,
         working: model.uiState().working
+    });
+}
+
+export function showAccount() {
+    logAction('showAccount');
+
+    let ctx = model.routeContext();
+    let { account, tab = 's3-access' } = ctx.params;
+
+    model.uiState({
+        layout: 'main-layout',
+        title: account,
+        breadcrumbs: [
+            { route: 'management', label: 'System Management' },
+            { route: 'account', label: account }
+        ],
+        selectedNavItem: 'management',
+        panel: 'account',
+        tab: tab
     });
 }
 
@@ -494,7 +514,7 @@ export function clearCompletedUploads() {
 // Sign In/Out actions.
 // -----------------------------------------------------
 export function signIn(email, password, keepSessionAlive = false) {
-    logAction('signIn', { email, password, keepSessionAlive });
+    logAction('signIn', { email, password: '****', keepSessionAlive });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -504,14 +524,14 @@ export function signIn(email, password, keepSessionAlive = false) {
 
                 return api.create_auth_token({ system, email, password })
                     .then(({ token, info }) => {
-                        let storage = keepSessionAlive ? localStorage : sessionStorage;
+                        const storage = keepSessionAlive ? localStorage : sessionStorage;
                         storage.setItem('sessionToken', token);
 
-                        let mustChangePassword = info.account.must_change_password;
+                        const account = info.account;
                         model.sessionInfo({
-                            user: email,
-                            system: system,
-                            mustChangePassword: mustChangePassword
+                            user: account.email,
+                            system: account.system,
+                            mustChangePassword: account.must_change_password
                         });
                         //api.redirector.register_for_alerts(); ////For now comment this out until add it properly
                         model.loginInfo({ retryCount: 0 });
@@ -800,14 +820,6 @@ export function exportAuditEnteries(categories) {
         .done();
 }
 
-export function loadCloudConnections() {
-    logAction('loadCloudConnections');
-
-    api.account.get_account_sync_credentials_cache()
-        .then(model.CloudConnections)
-        .done();
-}
-
 export function loadCloudBucketList(connection) {
     logAction('loadCloudBucketList', { connection });
 
@@ -815,7 +827,7 @@ export function loadCloudBucketList(connection) {
         connection: connection
     })
         .then(
-            model.CloudBucketList,
+            model.cloudBucketList,
             () => model.CloudBucketList(null)
         )
         .done();
@@ -834,20 +846,15 @@ export function createSystem(
     timeConfig
 ) {
     logAction('createSystem', {
-        activationCode, email, password, systemName, dnsName,
+        activationCode, email, password: '****', systemName, dnsName,
         dnsServers, timeConfig
     });
-
-    let accessKeys = (systemName === 'demo' && email === 'demo@noobaa.com') ?
-        { access_key: '123', secret_key: 'abc' } :
-        generateAccessKeys();
 
     api.system.create_system({
         activation_code: activationCode,
         name: systemName,
         email: email,
         password: password,
-        access_keys: accessKeys,
         dns_name: dnsName,
         dns_servers: dnsServers,
         time_config: timeConfig
@@ -873,22 +880,29 @@ export function createSystem(
         .done();
 }
 
-export function createAccount(name, email, password, accessKeys, S3AccessList) {
-    logAction('createAccount', { name, email, password, accessKeys, S3AccessList });
+export function createAccount(email, password, S3AccessList) {
+    logAction('createAccount', { email, password: '****', S3AccessList });
 
+    model.createAccountState('IN_PROGRESS');
     api.account.create_account({
-        name: name,
+        name: email.split('@')[0],
         email: email,
         password: password,
         must_change_password: true,
-        access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })
         .then(
-            () => notify(`Account ${email} created successfully`, 'success'),
-            () => notify(`Account ${email} creation failed`, 'error')
+            () => {
+                model.createAccountState('SUCCESS');
+                loadSystemInfo();
+            }
         )
-        .then(loadSystemInfo)
+        .catch(
+            () => {
+                model.createAccountState('ERROR');
+                notify(`Creating account ${email} failed`, 'error');
+            }
+        )
         .done();
 }
 
@@ -913,35 +927,35 @@ export function deleteAccount(email) {
         .done();
 }
 
-export function resetAccountPassword(email, password) {
-    logAction('resetAccountPassword', { email, password });
+export function resetAccountPassword(verificationPassword, email, password, mustChange) {
+    logAction('resetAccountPassword', { verificationPassword: '****', email,
+        password: '****', mustChange });
 
-    api.account.update_account({
-        email,
-        password,
-        must_change_password: true
+    model.resetPasswordState('IN_PROGRESS');
+    api.account.reset_password({
+        verification_password: verificationPassword,
+        email: email,
+        password: password,
+        must_change_password: mustChange
     })
         .then(
-            () => notify(`${email} password has been reset successfully`, 'success'),
-            () => notify(`Resetting ${email}'s password failed`, 'error')
-        )
-        .done();
-}
+            () => {
+                model.resetPasswordState('SUCCESS');
+                model.sessionInfo.assign({ mustChangePassword: false });
 
-export function updateAccountPassword (email, password) {
-    logAction('updateAccountPassword', { email, password });
-
-    api.account.update_account({
-        email,
-        password,
-        must_change_password: false
-    })
-        .then(
-            () => model.sessionInfo.assign({
-                mustChangePassword: false
-            })
+                notify(`${email} password changed successfully`, 'success');
+            }
         )
-        .then(refresh)
+        .catch(
+            err => {
+                if (err.rpc_code === 'UNAUTHORIZED') {
+                    model.resetPasswordState('UNAUTHORIZED');
+                } else {
+                    model.resetPasswordState('ERROR');
+                    notify(`Changing ${email} password failed`, 'error');
+                }
+            }
+        )
         .done();
 }
 
@@ -1410,7 +1424,6 @@ export function upgradeSystem(upgradePackage) {
     };
 
     const payload = toFormData({ 'upgrade_file': upgradePackage });
-
     httpRequest('/upgrade', {  verb: 'POST', xhr, payload })
         .then(
             evt => {
@@ -1460,7 +1473,6 @@ export function uploadSSLCertificate(SSLCertificate) {
     };
 
     const payload = toFormData({ upload_file: SSLCertificate });
-
     httpRequest('/upload_certificate', { verb: 'POST', xhr, payload })
         .then(
             evt => { if(evt.target.status !== 200) throw evt; }
@@ -1563,7 +1575,7 @@ export function downloadSystemDiagnosticPack() {
 
     model.collectDiagnosticsState.assign({ system: true });
 
-    api.cluster_server.diagnose_system()
+    api.cluster_server.diagnose_system({})
         .catch(
             err => {
                 notify('Packing system diagnostic file failed', 'error');
@@ -1708,14 +1720,14 @@ export function toogleCloudSync(bucket, pause) {
 export function checkCloudConnection(endpointType, endpoint, identity, secret) {
     logAction('checkCloudConnection', { endpointType, endpoint, identity, secret });
 
-    let credentials = {
+    const connection = {
         endpoint_type: endpointType,
         endpoint: endpoint,
         identity: identity,
         secret: secret
     };
 
-    api.account.check_account_sync_credentials(credentials)
+    api.account.check_external_connection(connection)
         .then(model.isCloudConnectionValid)
         .done();
 }
@@ -1723,7 +1735,7 @@ export function checkCloudConnection(endpointType, endpoint, identity, secret) {
 export function addCloudConnection(name, endpointType, endpoint, identity, secret) {
     logAction('addCloudConnection', { name, endpointType, endpoint, identity, secret });
 
-    let credentials = {
+    let connection = {
         name: name,
         endpoint_type: endpointType,
         endpoint: endpoint,
@@ -1731,8 +1743,8 @@ export function addCloudConnection(name, endpointType, endpoint, identity, secre
         secret: secret
     };
 
-    api.account.add_account_sync_credentials_cache(credentials)
-        .then(loadCloudConnections)
+    api.account.add_external_conenction(connection)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -1746,43 +1758,31 @@ export function loadBucketS3ACL(bucketName) {
         .done();
 }
 
-export function updateBucketS3ACL(bucketName, acl) {
-    logAction('updateBucketS3ACL', { bucketName, acl });
+export function updateBucketS3Access(bucketName, allowedAccounts) {
+    logAction('updateBucketS3Access', { bucketName, allowedAccounts });
 
-    api.bucket.update_bucket_s3_acl({
+    api.bucket.update_bucket_s3_access({
         name: bucketName,
-        access_control: acl
+        allowed_accounts: allowedAccounts
     })
         .then(
             () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
             () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
         )
-        .then(
-            () => model.bucketS3ACL(acl)
-        )
+        .then(loadSystemInfo)
         .done();
 }
 
-export function loadAccountS3ACL(email) {
-    logAction('loadAccountS3ACL', { email });
+export function updateAccountS3Access(email, allowedBuckets) {
+    logAction('updateAccountS3Permissions', { email, allowedBuckets });
 
-    api.account.list_account_s3_acl({
-        email: email
-    })
-        .then(model.accountS3ACL)
-        .done();
-}
-
-export function updateAccountS3ACL(email, acl) {
-    logAction('updateAccountS3ACL', { email, acl });
-
-    api.account.update_account_s3_acl({
+    api.account.update_account_s3_access({
         email: email,
-        access_control: acl
+        allowed_buckets: allowedBuckets
     })
         .then(
-            () => notify(`${email} S3 accces control updated successfully`, 'success'),
-            () => notify(`Updating ${email} S3 access control failed`, 'error')
+            () => notify(`${email} S3 permissions updated successfully`, 'success'),
+            () => notify(`Updating ${email} S3 permissions failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -2000,6 +2000,34 @@ export function recommissionNode(name) {
         .done();
 }
 
+
+export function regenerateAccountCredentials(email, verificationPassword) {
+    logAction('regenerateAccountCredentials', { email, verificationPassword: '*****' });
+
+    model.regenerateCredentialState('IN_PROGRESS');
+    api.account.generate_account_keys({
+        email: email,
+        verification_password: verificationPassword
+    })
+        .then(
+            () => {
+                model.regenerateCredentialState('SUCCESS');
+                notify(`${email} credentials regenerated successfully`, 'success');
+            }
+        )
+        .catch(
+            err => {
+                if (err.rpc_code === 'UNAUTHORIZED') {
+                    model.regenerateCredentialState('UNAUTHORIZED');
+                } else {
+                    model.regenerateCredentialState('ERROR');
+                    notify(`Regenerating ${email} credentials failed`, 'error');
+                }
+            }
+        )
+        .then(loadSystemInfo)
+        .done();
+}
 // ------------------------------------------
 // Helper functions:
 // ------------------------------------------

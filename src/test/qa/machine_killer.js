@@ -9,15 +9,16 @@ const argv = require('minimist')(process.argv);
 var AzureFunctions = require('../../deploy/azureFunctions');
 var GcloudFunctions = require('../../deploy/gcloudFunctions');
 
-var vm_prefix = argv.vm_prefix || 'agent-';
+var vm_prefix = argv.prefix || 'agent-';
 var zone = argv.zone || 'eastus';
 var project = argv.project || 'QA-HA-resources';
 
-var min_timeout = argv.min_timeout || 10; // minimum 20 seconds
-var max_timeout = argv.max_timeout || 30; // maximum 1 minute
+var min_timeout = argv.min_timeout || 30; // minimum 30 seconds
+var max_timeout = argv.max_timeout || 90; // maximum 1.5 minute
 var min_machines = argv.min_machines || 2; // minimum 3 machine
 var max_machines = argv.max_machines || 3; // maximum 10 machines
 var service = argv.service || 'azure';
+var timeout = argv.timeout || 0; // time running in minutes
 
 dotenv.load();
 var account_email = argv.account || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -38,11 +39,15 @@ if (service === 'gcloud') {
 // var authClient = new google.auth.JWT(
 //     account_email, account_key, null, ['https://www.googleapis.com/auth/compute']);
 var machines_number = 0;
+var start = Date.now();
 return funcs.authenticate()
     .then(() => funcs.countOnMachines(vm_prefix))
     .then(count => {
+        if (timeout !== 0) {
+            console.log('will keep killing machines for ', timeout, 'minutes');
+        }
         machines_number = count;
-        return promise_utils.pwhile(() => true, () => {
+        return promise_utils.pwhile(() => (timeout === 0 || ((Date.now() - start) / (60 * 1000)) < timeout), () => {
             var rand_machine;
             var rand_timeout = Math.floor(Math.random() * (max_timeout - min_timeout) + min_timeout);
             console.log('Number of ON machines are: ' + machines_number);
@@ -67,4 +72,12 @@ return funcs.authenticate()
                     }
                 });
         });
+    })
+    .then(() => {
+        console.log(':) :) :) The Killing has stopped successfully! (: (: (:');
+        process.exit(0);
+    })
+    .catch(err => {
+        console.error(':( :( Errors during test ): ):', err);
+        process.exit(1);
     });

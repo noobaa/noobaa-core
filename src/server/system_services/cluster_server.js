@@ -6,6 +6,7 @@ const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const RpcError = require('../../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
+const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
@@ -19,6 +20,7 @@ const promise_utils = require('../../util/promise_utils');
 const diag = require('../utils/server_diagnostics');
 const moment = require('moment');
 const url = require('url');
+const net = require('net');
 const upgrade_utils = require('../../util/upgrade_utils');
 const request = require('request');
 const dns = require('dns');
@@ -68,15 +70,11 @@ function new_cluster_info() {
 
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
-    if (!os_utils.is_supervised_env()) {
-        console.warn('Environment is not a supervised one, currently not allowing clustering operations');
-        throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
-    }
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
-    if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
-        throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
-    }
+
+    _validate_add_member_request(req);
+
     let topology = cutil.get_topology();
     var id = topology.cluster_id;
     let is_clusterized = topology.is_clusterized;
@@ -85,7 +83,7 @@ function add_member_to_cluster(req) {
             secret: req.rpc_params.secret,
             version: pkg.version
         }, {
-            address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
+            address: server_rpc.get_base_address(req.rpc_params.address),
             timeout: 60000 //60s
         })
         .then(response => {
@@ -145,7 +143,7 @@ function add_member_to_cluster(req) {
                 jwt_secret: process.env.JWT_SECRET,
                 new_hostname: req.rpc_params.new_hostname
             }, {
-                address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
+                address: server_rpc.get_base_address(req.rpc_params.address),
                 timeout: 60000 //60s
             });
         })
@@ -162,6 +160,8 @@ function add_member_to_cluster(req) {
             // reload system_store to update after new member HB
             return system_store.load();
         })
+        // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
+        .then(() => cluster_hb.do_heartbeat())
         .return();
 }
 
@@ -387,7 +387,7 @@ function update_time_config(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_time_config(time_config, {
-                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
+                    address: server_rpc.get_base_address(server.owner_address)
                 });
             });
         })
@@ -449,7 +449,7 @@ function update_dns_servers(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
-                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
+                    address: server_rpc.get_base_address(server.owner_address)
                 });
             });
         })
@@ -485,7 +485,7 @@ function set_debug_level(req) {
 
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_set_debug_level(debug_params, {
-                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
+                    address: server_rpc.get_base_address(server.owner_address),
                     auth_token: req.auth_token
                 });
             });
@@ -574,7 +574,7 @@ function diagnose_system(req) {
     var target_servers = [];
     const TMP_WORK_DIR = `/tmp/diag`;
     const INNER_PATH = `${process.cwd()}/build`;
-    const OUT_PATH = `/public/cluster_diagnostics.tgz`;
+    const OUT_PATH = '/public/' + req.system.name + '_cluster_diagnostics.tgz';
     const WORKING_PATH = `${INNER_PATH}${OUT_PATH}`;
     if (req.rpc_params.target_secret) {
         let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
@@ -586,11 +586,19 @@ function diagnose_system(req) {
         _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
     }
 
+    Dispatcher.instance().activity({
+        event: 'dbg.diagnose_system',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
+    });
+
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
         .then(() => {
             return P.each(target_servers, function(server) {
-                return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
-                        address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
+                return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
+                        address: server_rpc.get_base_address(server.owner_address),
                         auth_token: req.auth_token
                     })
                     .then(res_data => {
@@ -605,16 +613,21 @@ function diagnose_system(req) {
         .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
         .then(() => diag.pack_diagnostics(WORKING_PATH))
         .then(() => (OUT_PATH));
-
 }
 
 
 function collect_server_diagnostics(req) {
     const INNER_PATH = `${process.cwd()}/build`;
     return P.resolve()
-        .then(() => server_rpc.client.system.diagnose_system(undefined, {
-            auth_token: req.auth_token
-        }))
+        .then(() => {
+            dbg.log0('Recieved diag req');
+            var out_path = '/public/' + os_utils.os_info().hostname + '_srv_diagnostics.tgz';
+            var inner_path = process.cwd() + '/build' + out_path;
+            return P.resolve()
+                .then(() => diag.collect_server_diagnostics(req))
+                .then(() => diag.pack_diagnostics(inner_path))
+                .then(res => out_path);
+        })
         .then(out_path => {
             dbg.log1('Reading packed file');
             return fs.readFileAsync(`${INNER_PATH}${out_path}`)
@@ -642,7 +655,7 @@ function read_server_time(req) {
     }
 
     return server_rpc.client.cluster_internal.apply_read_server_time(req.rpc_params, {
-        address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
+        address: server_rpc.get_base_address(cluster_server.owner_address),
     });
 }
 
@@ -775,7 +788,7 @@ function upgrade_cluster(req) {
         .then(() => P.each(secondary_members, ip => {
             dbg.log0('UPGRADE:', 'sending do_upgrade to server', ip, 'and and waiting for DB_READY state');
             return server_rpc.client.cluster_internal.do_upgrade({}, {
-                    address: 'ws://' + ip + ':' + server_rpc.get_base_port()
+                    address: server_rpc.get_base_address(ip)
                 })
                 .then(() => _wait_for_upgrade_state(ip, 'DB_READY'))
                 .catch(err => {
@@ -914,7 +927,7 @@ function set_server_conf(req) {
                 return server_rpc.client.cluster_internal.set_hostname_internal({
                         hostname: req.rpc_params.hostname,
                     }, {
-                        address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
+                        address: server_rpc.get_base_address(cluster_server.owner_address),
                         timeout: 60000 //60s
                     })
                     .then(() => cluster_server);
@@ -943,7 +956,20 @@ function set_hostname_internal(req) {
 //Internals Cluster Control
 //
 
+function _validate_add_member_request(req) {
+    if (!os_utils.is_supervised_env()) {
+        console.warn('Environment is not a supervised one, currently not allowing clustering operations');
+        throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
+    }
 
+    if (req.rpc_params.address && !net.isIPv4(req.rpc_params.address)) {
+        throw new Error('Adding new members to cluster is allowed by using IP only');
+    }
+
+    if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
+        throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
+    }
+}
 
 function _verify_join_preconditons(req) {
     //Verify secrets match
@@ -1198,7 +1224,7 @@ function _publish_to_cluster(apiname, req_params) {
     dbg.log0('Sending cluster news:', apiname, 'to:', servers, 'with:', req_params);
     return P.each(servers, function(server) {
         return server_rpc.client.cluster_internal[apiname](req_params, {
-            address: 'ws://' + server + ':' + server_rpc.get_base_port(),
+            address: server_rpc.get_base_address(server),
             timeout: 60000 //60s
         });
     });
@@ -1281,7 +1307,7 @@ function check_cluster_status() {
     return P.map(_.filter(servers,
             server => server.owner_secret !== system_store.get_server_secret()),
         server => server_rpc.client.cluster_server.ping({}, {
-            address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
+            address: server_rpc.get_base_address(server.owner_address),
             timeout: 60000 //60s
         }).then(res => {
             if (res === "PONG") {

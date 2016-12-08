@@ -13,10 +13,10 @@ const portOptions = [
 ];
 
 class P2PFormViewModel extends Disposable {
-    constructor() {
+    constructor({ isCollapsed }) {
         super();
 
-        this.expanded = ko.observable(false);
+        this.isCollapsed = isCollapsed;
         this.portOptions = portOptions;
 
         let ports = ko.pureComputed(

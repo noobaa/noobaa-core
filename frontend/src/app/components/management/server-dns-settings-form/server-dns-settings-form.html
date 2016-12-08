@@ -1,50 +1,44 @@
-<h2 class="row heading3 cursor-pointer" data-bind="click: () => expanded.toggle()">
-    <span class="greedy align-middle">Environment DNS Settings</span>
+<collapsible-section params="
+    title: 'Environment DNS Settings',
+    collapsed: isCollapsed
+">
+    <section class="row" data-name="collapsed">
+        <span class="push-next">
+            Primary:
+            <span data-bind="
+                css: { 'text-tech': primaryDNS },
+                text: primaryDNS() || 'Not set'
+            "></span>
+        </span>
+        <span class="push-next">|</span>
+        <span>
+            Secondary:
+            <span data-bind="
+                css: { 'text-tech': secondaryDNS },
+                text: secondaryDNS() || 'Not set'
+            "></span>
+        </span>
+    </section>
 
-    <button class="btn-flat expand-btn no-outline" >
-        <svg-icon class="icon-small rotate"
-            params="name: 'chevron'"
-            data-bind="css: { 'deg-90': !expanded() }">
-        </svg-icon>
-    </button>
-</h2>
+    <section class="column" data-name="expanded">
+        <p>Setup the server to use the following DNS servers for name resolution</p>
 
-<div class="summary row" data-bind="visible: !expanded()">
-    <span class="push-next">
-        Primary:
-        <span data-bind="
-            css: { 'text-tech': primaryDNS },
-            text: primaryDNS() || 'Not set'
-        "></span>
-    </span>
-    <span class="push-next">|</span>
-    <span>
-        Secondary:
-        <span data-bind="
-            css: { 'text-tech': secondaryDNS },
-            text: secondaryDNS() || 'Not set'
-        "></span>
-    </span>
-</div>
+        <editor params="label: 'Primary DNS'">
+            <input type="text" data-bind="value: primaryDNS" />
+        </editor>
 
-<div class="column" data-bind="expand: expanded">
-    <p>Setup the server to use the following DNS servers for name resolution</p>
+        <editor params="label: 'Secondary DNS'">
+            <input type="text" data-bind="value: secondaryDNS" />
+        </editor>
 
-    <editor params="label: 'Primary DNS'">
-        <input type="text" data-bind="value: primaryDNS" />
-    </editor>
-
-    <editor params="label: 'Secondary DNS'">
-        <input type="text" data-bind="value: secondaryDNS" />
-    </editor>
-
-    <button class="btn align-start push-prev" data-bind="
-        click: update,
-        shakeOnClick: errors().length
-    ">
-        Update
-    </button>
-</div>
+        <button class="btn align-start push-prev" data-bind="
+            click: update,
+            shakeOnClick: errors().length
+        ">
+            Update
+        </button>
+    </section>
+</collapsible-section>
 
 <!-- ko if: isUpdateServerDNSSettingsModelVisible -->
 <update-server-dns-settings-modal params="

@@ -18,7 +18,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password', 'access_keys'],
+                required: ['name', 'email', 'password'],
                 properties: {
                     name: {
                         type: 'string',
@@ -31,17 +31,6 @@ module.exports = {
                     },
                     must_change_password: {
                         type: 'boolean',
-                    },
-                    access_keys: {
-                        type: 'object',
-                        properties: {
-                            access_key: {
-                                type: 'string'
-                            },
-                            secret_key: {
-                                type: 'string'
-                            }
-                        }
                     },
                     allowed_buckets: {
                         type: 'array',
@@ -84,6 +73,7 @@ module.exports = {
             }
         },
 
+
         read_account: {
             doc: 'Read the info of the authorized account',
             method: 'GET',
@@ -117,9 +107,6 @@ module.exports = {
                     email: {
                         type: 'string',
                     },
-                    password: {
-                        type: 'string',
-                    },
                     must_change_password: {
                         type: 'boolean',
                     },
@@ -133,61 +120,72 @@ module.exports = {
             }
         },
 
+        reset_password: {
+            doc: 'Reset an account password',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email', 'verification_password', 'password'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    verification_password: {
+                        type: 'string',
+                    },
+                    password: {
+                        type: 'string',
+                    },
+                    must_change_password: {
+                        type: 'boolean'
+                    }
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         generate_account_keys: {
             doc: 'Generate new account keys',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email'],
+                required: ['email', 'verification_password'],
                 properties: {
                     email: {
                         type: 'string',
+                    },
+                    verification_password: {
+                        type: 'string'
                     }
                 },
             },
-            reply: {
-                type: 'array',
-                items: {
-                    $ref: 'system_api#/definitions/access_keys'
-                }
-            },
             auth: {
                 system: 'admin'
             }
         },
 
-        list_account_s3_acl: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['email'],
-                properties: {
-                    email: {
-                        type: 'string',
-                    },
-                }
-            },
-            reply: {
-                $ref: '#/definitions/account_acl'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        update_account_s3_acl: {
-            doc: 'Update bucket access permissions',
+        update_account_s3_access: {
+            doc: 'Update bucket s3 access permissions',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email', 'access_control'],
+                required: ['email', 'allowed_buckets'],
                 properties: {
                     email: {
                         type: 'string',
                     },
-                    access_control: {
-                        $ref: '#/definitions/account_acl'
-                    },
+                    allowed_buckets: {
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'array',
+                            items: {
+                                type: 'string'
+                            }
+                        }]
+                    }
                 },
             },
             auth: {
@@ -249,12 +247,12 @@ module.exports = {
             }
         },
 
-        add_account_sync_credentials_cache: {
-            doc: 'Update the credentials cache of the authorized account',
+        add_external_conenction: {
+            doc: 'Add a connection to authorized account\'s connections cache',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'identity', 'secret', 'endpoint'],
+                required: ['name', 'identity', 'secret', 'endpoint', 'endpoint_type'],
                 properties: {
                     name: {
                         type: 'string'
@@ -268,7 +266,6 @@ module.exports = {
                     secret: {
                         type: 'string'
                     },
-
                     endpoint_type: {
                         type: 'string',
                         enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
@@ -281,35 +278,7 @@ module.exports = {
             }
         },
 
-        get_account_sync_credentials_cache: {
-            method: 'GET',
-            reply: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    properties: {
-                        name: {
-                            type: 'string'
-                        },
-                        endpoint: {
-                            type: 'string'
-                        },
-                        identity: {
-                            type: 'string'
-                        },
-                        endpoint_type: {
-                            type: 'string',
-                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        check_account_sync_credentials: {
+        check_external_connection: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -338,6 +307,23 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        delete_external_connection: {
+            doc: 'delete a connection from an account',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['connection_name'],
+                properties: {
+                    connection_name: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 
@@ -362,11 +348,65 @@ module.exports = {
                 access_keys: {
                     type: 'array',
                     items: {
-                        $ref: 'system_api#/definitions/access_keys'
+                        $ref: 'common_api#/definitions/access_keys'
                     }
                 },
                 has_s3_access: {
                     type: 'boolean'
+                },
+                allowed_buckets: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
+                external_connections: {
+                    type: 'object',
+                    properties: {
+                        count: {
+                            type: 'number'
+                        },
+                        connections: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    name: {
+                                        type: 'string'
+                                    },
+                                    endpoint: {
+                                        type: 'string'
+                                    },
+                                    identity: {
+                                        type: 'string'
+                                    },
+                                    endpoint_type: {
+                                        type: 'string',
+                                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                                    },
+                                    usage: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            required: ['usage_type', 'entity', 'external_entity'],
+                                            properties: {
+                                                usage_type: {
+                                                    type: 'string',
+                                                    enum: ['CLOUD_POOL', 'CLOUD_SYNC']
+                                                },
+                                                entity: {
+                                                    type: 'string'
+                                                },
+                                                external_entity: {
+                                                    type: 'string'
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 },
                 systems: {
                     type: 'array',

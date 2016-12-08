@@ -270,6 +270,15 @@ mocha.describe('system_servers', function() {
                 identity: process.env.AWS_ACCESS_KEY_ID,
                 secret: process.env.AWS_SECRET_ACCESS_KEY
             }))
+            .then(() => client.account.delete_external_connection({
+                connection_name: CLOUD_SYNC_CONNECTION,
+            }))
+            .then(() => client.account.add_external_conenction({
+                name: CLOUD_SYNC_CONNECTION,
+                endpoint: 'https://s3.amazonaws.com',
+                identity: process.env.AWS_ACCESS_KEY_ID,
+                secret: process.env.AWS_SECRET_ACCESS_KEY
+            }))
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,
                 connection: CLOUD_SYNC_CONNECTION,

@@ -68,29 +68,42 @@ export default class PlacementRowViewModel {
                     return {};
                 }
 
-                let { name } = pool();
-                let href = {
-                    route: 'pool',
-                    params: { pool: name, tab: null }
-                };
+                const text = pool().name;
+                if (pool().nodes) {
+                    const href = {
+                        route: 'pool',
+                        params: { pool: text, tab: null }
+                    };
 
-                return {
-                    text: name,
-                    href: pool().nodes ? href : null
-                };
+                    return { text, href };
+
+                } else {
+                    return { text };
+                }
             }
         );
 
         this.onlineNodeCount = ko.pureComputed(
-            () => pool() && pool().nodes ?
-                `${pool().nodes.online} of ${pool().nodes.count}` :
-                '—'
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                return pool().nodes ?
+                    `${pool().nodes.online} of ${pool().nodes.count}` :
+                    '—';
+            }
         );
 
         this.usedCapacity = ko.pureComputed(
-            () => pool() && pool().nodes ?
-                pool().storage :
-                `${formatSize(pool().storage.used)}`
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                const { storage  } = pool();
+                return pool().nodes ? storage : formatSize(storage.used);
+            }
         );
     }
 }

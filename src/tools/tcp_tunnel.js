@@ -2,6 +2,7 @@
 'use strict';
 
 const net = require('net');
+const HTTPRecorder = require('../util/http_recorder');
 
 exports.tunnel_port = tunnel_port;
 exports.tunnel_connection = tunnel_connection;
@@ -16,19 +17,44 @@ function main() {
     argv.host = argv.host || '127.0.0.1';
     argv.port = parseInt(argv.port, 10) || 80;
     argv.port2 = parseInt(argv.port2, 10) || 6001;
-    tunnel_port(argv.port, argv.port2, argv.host, 'TCP TUNNEL');
+    tunnel_port({
+        source_port: argv.port,
+        target_port: argv.port2,
+        hostname: argv.host,
+        name: 'TCP TUNNEL',
+        record_http: argv.record_http,
+    });
     if (argv.ssl || argv.ssl2) {
         argv.ssl = parseInt(argv.ssl, 10) || 443;
         argv.ssl2 = parseInt(argv.ssl2, 10) || 6443;
-        tunnel_port(argv.ssl, argv.ssl2, argv.host, 'SSL TUNNEL');
+        tunnel_port({
+            source_port: argv.ssl,
+            target_port: argv.ssl2,
+            hostname: argv.host,
+            name: 'SSL TUNNEL',
+            record_http: argv.record_http,
+        });
     }
 }
 
-function tunnel_port(source_port, target_port, hostname, name) {
-    name = (name || '') + ' [' + source_port + '->' + human_addr(hostname + ':' + target_port) + ']';
+function tunnel_port({
+    source_port,
+    target_port,
+    hostname,
+    name,
+    record_http
+}) {
+    name = (name || '') + ' [' + source_port + '->' +
+        human_addr(hostname + ':' + target_port) + ']';
     return net.createServer()
         .on('connection', conn => {
-            tunnel_connection(conn, target_port, hostname, name);
+            tunnel_connection({
+                conn,
+                target_port,
+                hostname,
+                name,
+                record_http
+            });
         })
         .on('error', err => {
             console.error(name, 'server error', err.stack || err);
@@ -39,7 +65,13 @@ function tunnel_port(source_port, target_port, hostname, name) {
         .listen(source_port);
 }
 
-function tunnel_connection(conn, target_port, hostname, name) {
+function tunnel_connection({
+    conn,
+    target_port,
+    hostname,
+    name,
+    record_http
+}) {
     const conn_name = human_addr(conn.remoteAddress + ':' + conn.remotePort);
     const target_conn = net.connect(target_port, hostname);
     conn.on('close', () => on_error('source closed'));
@@ -50,6 +82,17 @@ function tunnel_connection(conn, target_port, hostname, name) {
         console.log(name, conn_name, 'tunneling ...');
         conn.pipe(target_conn);
         target_conn.pipe(conn);
+        if (record_http) {
+            conn.pipe(new HTTPRecorder(msg => {
+                const prefix =
+                    (msg.headers['user-agent'] || 'http_recorder')
+                    .split('/', 1)[0]
+                    .replace(/-/g, '')
+                    .toLowerCase();
+                const extension = typeof(record_http) === 'string' ? record_http : 'sreq';
+                return `${prefix}_${Date.now().toString(36)}.${extension}`;
+            }));
+        }
     });
 
     let last_bytes_read = conn.bytesRead;

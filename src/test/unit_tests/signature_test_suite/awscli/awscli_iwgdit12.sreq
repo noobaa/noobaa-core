@@ -1,0 +1,116 @@
+PUT /files/util/phone_home.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 3557
+Content-MD5: Kigbem/cqmomksIv6A5lhQ==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:39 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:w+Q6MDK8dMEcg+FPKSoUx+6Tntc=
+
+'use strict';
+
+const DEV_MODE = (process.env.DEV_MODE === 'true');
+const P = require('./promise');
+const url = require('url');
+const dns = require('dns');
+const dbg = require('./debug_module')(__filename);
+const config = require('../../config.js');
+const _ = require('lodash');
+const request = require('request');
+
+
+function verify_connection_to_phonehome() {
+    if (DEV_MODE) {
+        return P.resolve('CONNECTED');
+    }
+    let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);
+    return P.all([
+        P.fromCallback(callback => dns.resolve(parsed_url.host, callback)).reflect(),
+        _get_request('https://google.com').reflect(),
+        _get_request(config.PHONE_HOME_BASE_URL + '/connectivity_test').reflect()
+    ]).then(function(results) {
+        var reply_status;
+        let ph_dns_result = results[0];
+        let google_get_result = results[1];
+        let ph_get_result = results[2];
+        reply_status = _handle_ph_get(ph_get_result, google_get_result, ph_dns_result);
+
+        if (!reply_status) {
+            throw new Error('Could not _verify_connection_to_phonehome');
+        }
+
+        dbg.log0('_verify_connection_to_phonehome reply_status:', reply_status);
+        return reply_status;
+    });
+}
+
+
+function _get_request(dest_url) {
+    const options = {
+        url: dest_url,
+        method: 'GET',
+        strictSSL: false, // means rejectUnauthorized: false
+    };
+    dbg.log0('Sending Get Request:', options);
+    return P.fromCallback(callback => request(options, callback), {
+            multiArgs: true
+        })
+        .spread(function(response, body) {
+            dbg.log0(`Received Response From ${dest_url}`, response.statusCode);
+            return {
+                response: response,
+                body: body
+            };
+        });
+}
+
+
+function _handle_ph_get(ph_get_result, google_get_result, ph_dns_result) {
+    if (ph_get_result.isFulfilled()) {
+        let ph_reply = ph_get_result.value();
+        dbg.log0(`Received Response From ${config.PHONE_HOME_BASE_URL}`,
+            ph_reply && ph_reply.response.statusCode, ph_reply.body);
+        if (_.get(ph_reply, 'response.statusCode', 0) === 200) {
+            if (String(ph_reply.body) === 'Phone Home Connectivity Test Passed!') {
+                return 'CONNECTED';
+            }
+            return 'MALFORMED_RESPONSE';
+            // In this case not posible to get reject unless exception
+        }
+        return _handle_google_get(google_get_result);
+    }
+    return _handle_ph_dns(ph_dns_result, google_get_result);
+}
+
+
+function _handle_google_get(google_get_result) {
+    if (google_get_result.isFulfilled()) {
+        let google_reply = google_get_result.value();
+        dbg.log0('Received Response From https://google.com',
+            google_reply && google_reply.response.statusCode);
+        if (_.get(google_reply, 'response.statusCode', 0)
+            .toString()
+            .startsWith(2)) {
+            return 'CANNOT_CONNECT_PHONEHOME_SERVER';
+        }
+    }
+    return 'CANNOT_CONNECT_INTERNET';
+}
+
+
+function _handle_ph_dns(ph_dns_result, google_get_result) {
+    if (ph_dns_result.isRejected()) {
+        let dns_reply = ph_dns_result.reason();
+        dbg.log0('Received Response From DNS Servers', dns_reply);
+
+        if (dns_reply && String(dns_reply.code) === 'ENOTFOUND') {
+            return 'CANNOT_RESOLVE_PHONEHOME_NAME';
+        }
+        return 'CANNOT_REACH_DNS_SERVER';
+    }
+    return _handle_google_get(google_get_result);
+}
+
+exports.verify_connection_to_phonehome = verify_connection_to_phonehome;

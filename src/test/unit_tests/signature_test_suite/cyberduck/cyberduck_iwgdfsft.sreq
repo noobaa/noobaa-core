@@ -1,0 +1,9 @@
+HEAD /files/lib/util.js HTTP/1.1
+Date: Thu, 08 Dec 2016 13:00:18 GMT
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Host: 127.0.0.1
+x-amz-date: 20161208T130018Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161208/us-east-1/s3/aws4_request,SignedHeaders=date;host;x-amz-content-sha256;x-amz-date,Signature=530dff8a7ddee1e3d1b7b20c50fdc292517fa8021b75c7ba2de1fbd7c96e2ccb
+Connection: Keep-Alive
+User-Agent: Cyberduck/5.2.2.21483 (Mac OS X/10.12.1) (x86_64)
+

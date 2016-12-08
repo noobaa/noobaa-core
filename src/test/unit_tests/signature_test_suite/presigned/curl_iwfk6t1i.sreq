@@ -1,0 +1,5 @@
+GET /files?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123%2F20161207%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20161207T232123Z&X-Amz-Expires=900&X-Amz-Signature=e62ab1f9d3512c5d85b1d76422bf4a556c7b07c9176c27e674602ddf7c5222ab&X-Amz-SignedHeaders=host HTTP/1.1
+Host: 127.0.0.1
+User-Agent: curl/7.49.1
+Accept: */*
+

@@ -1,0 +1,7 @@
+GET / HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Date: Wed, 07 Dec 2016 21:43:59 GMT
+Authorization: AWS 123:d2zv0+r4LrnK7xb7soVkIhE7e8k=
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+

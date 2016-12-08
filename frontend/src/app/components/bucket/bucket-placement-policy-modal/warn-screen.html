@@ -1,0 +1,16 @@
+<p class="greedy">
+    Removing all resources from data placement policy will cause data inaccessability.<br/>
+    Would you like to leave this bucket without any resource?
+</p>
+
+<div class="row push-prev content-middle align-end">
+    <button class="btn alt-colors push-next" data-bind="click: backToEdit">
+        Back to edit resources
+    </button>
+    <button class="btn" data-bind="
+        click: save,
+        shakeOnClick: errors().length
+    ">
+        Yes, Continue without resources
+    </button>
+</div>

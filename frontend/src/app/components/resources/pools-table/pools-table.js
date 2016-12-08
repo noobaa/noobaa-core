@@ -63,7 +63,7 @@ const poolsToBuckets = ko.pureComputed(
                 .find(
                     tier => tier.name === bucket.tiering.tiers[0].tier
                 )
-                .node_pools.reduce(
+                .attached_pools.reduce(
                     (mapping, pool) => {
                         mapping[pool] = mapping[pool] || [];
                         mapping[pool].push(bucket.name);

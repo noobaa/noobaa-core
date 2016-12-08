@@ -3,10 +3,7 @@
     collapsed: isCollapsed
 ">
     <section class="row" data-name="collapsed">
-        <p>
-            SSL Configured:
-            <output data-bind="value: sslConfigured"></output>
-        </p>
+        <p data-bind="text: sslStatus"></p>
     </section>
 
     <section class="column" data-name="expanded">
@@ -15,7 +12,7 @@
         </p>
 
         <file-selector class="push-next" params="
-            message: 'Drag SSL certificate here',
+            message: 'Drag an SSL certificate here',
             filter: sslCertificateSuffix,
             onFilesReady: files => uploadCertificate(files)
         "></file-selector>

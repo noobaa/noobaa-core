@@ -198,7 +198,7 @@ mocha.describe('system_servers', function() {
             ////////////
             .then(() => client.tier.create_tier({
                 name: TIER,
-                node_pools: [POOL],
+                attached_pools: [POOL],
                 data_placement: 'SPREAD',
                 replicas: 17,
                 data_fragments: 919,

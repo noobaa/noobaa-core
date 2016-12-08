@@ -1,4 +1,27 @@
 import ko from 'knockout';
+import { formatSize, deepFreeze } from 'utils/all';
+
+const iconMapping = deepFreeze({
+    AWS: {
+        name: 'aws-s3-resource',
+        tooltip: 'AWS S3 Bucket'
+    },
+
+    AZURE: {
+        name: 'azure-resource',
+        tooltip: 'Azure Container'
+    },
+
+    S3_COMPATIBLE: {
+        name: 'cloud-resource',
+        tooltip: 'S3 Compatible Cloud Bukcet'
+    },
+
+    NODE: {
+        name: 'logo',
+        tooltip: 'Node Pool'
+    }
+});
 
 export default class PlacementRowViewModel {
     constructor(pool) {
@@ -8,22 +31,38 @@ export default class PlacementRowViewModel {
                     return;
                 }
 
-                let { count, has_issues } = pool().nodes;
-                let isHealthy = count - has_issues >= 3;
+                let state;
+                if (pool().nodes) {
+                    let { count, has_issues } = pool().nodes;
+                    state = count - has_issues >= 3;
+                } else {
+                    state = true;
+                }
+
                 let tooltip = {
-                    text: isHealthy ? 'Healthy' : 'Not enough healthy nodes',
+                    text: state ? 'Healthy' : 'Not enough healthy nodes',
                     align: 'start'
                 };
 
                 return {
-                    css: isHealthy ? 'success' : 'error',
-                    name: isHealthy ? 'healthy' : 'problem',
+                    css: state ? 'success' : 'error',
+                    name: state ? 'healthy' : 'problem',
                     tooltip: tooltip
                 };
             }
         );
 
-        this.poolName = ko.pureComputed(
+        this.type = ko.pureComputed(
+            () => {
+                if (!pool()) {
+                    return;
+                }
+
+                return pool().cloud_info ? iconMapping[pool().cloud_info.endpoint_type] : iconMapping['NODE'];
+            }
+        );
+
+        this.resourceName = ko.pureComputed(
             () => {
                 if (!pool()) {
                     return {};
@@ -37,21 +76,21 @@ export default class PlacementRowViewModel {
 
                 return {
                     text: name,
-                    href: href
+                    href: pool().nodes ? href : null
                 };
             }
         );
 
         this.onlineNodeCount = ko.pureComputed(
-            () => pool() && pool().nodes.online
-        ).extend({
-            formatNumber: true
-        });
+            () => pool() && pool().nodes ?
+                `${pool().nodes.online} of ${pool().nodes.count}` :
+                '—'
+        );
 
-        this.freeSpace = ko.pureComputed(
-            () => pool() && pool().storage.free
-        ).extend({
-            formatSize: true
-        });
+        this.usedCapacity = ko.pureComputed(
+            () => pool() && pool().nodes ?
+                pool().storage :
+                `${formatSize(pool().storage.used)}`
+        );
     }
 }

@@ -244,8 +244,10 @@ function get_associated_buckets(req) {
 function get_associated_buckets_int(pool) {
     var associated_buckets = _.filter(pool.system.buckets_by_name, function(bucket) {
         return _.find(bucket.tiering.tiers, function(tier_and_order) {
-            return _.find(tier_and_order.tier.pools, function(pool2) {
-                return String(pool._id) === String(pool2._id);
+            return _.find(tier_and_order.tier.mirrors, function(mirror) {
+                return _.find(mirror.spread_pools, function(spread_pool) {
+                    return String(pool._id) === String(spread_pool._id);
+                });
             });
         });
     });

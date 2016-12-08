@@ -29,12 +29,12 @@ const cloudSyncStatusMapping = deepFreeze({
 
 const graphOptions = deepFreeze([
     {
-        label: 'Storage',
-        value: 'STORAGE'
-    },
-    {
         label: 'Data',
         value: 'DATA'
+    },
+    {
+        label: 'Storage',
+        value: 'STORAGE'
     }
 ]);
 

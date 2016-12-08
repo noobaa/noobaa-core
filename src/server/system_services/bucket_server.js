@@ -21,6 +21,7 @@ const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
+const node_allocator = require('../node_services/node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
 const cloud_utils = require('../../util/cloud_utils');
@@ -82,7 +83,10 @@ function create_bucket(req) {
         let default_pool = req.system.pools_by_name.default_pool;
         let bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
         let tier = tier_server.new_tier_defaults(
-            bucket_with_suffix, req.system._id, [default_pool._id]);
+            bucket_with_suffix, req.system._id, [{
+                spread_pools: [default_pool._id]
+            }]
+        );
         tiering_policy = tier_server.new_policy_defaults(
             bucket_with_suffix, req.system._id, [{
                 tier: tier._id,
@@ -129,9 +133,15 @@ function create_bucket(req) {
  */
 function read_bucket(req) {
     var bucket = find_bucket(req);
-    var pools = _.flatten(_.map(bucket.tiering.tiers,
-        tier_and_order => tier_and_order.tier.pools
-    ));
+    var pools = [];
+
+    _.forEach(bucket.tiering.tiers, tier_and_order => {
+        _.forEach(tier_and_order.tier.mirrors, mirror_object => {
+            pools = _.concat(pools, mirror_object.spread_pools);
+        });
+    });
+    pools = _.compact(pools);
+
     let pool_names = pools.map(pool => pool.name);
     return P.join(
         nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
@@ -140,7 +150,8 @@ function read_bucket(req) {
             bucket: bucket._id,
             deleted: null
         }),
-        get_cloud_sync(req, bucket)
+        get_cloud_sync(req, bucket),
+        node_allocator.refresh_tiering_alloc(bucket.tiering)
     ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
         return get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy);
     });
@@ -223,10 +234,10 @@ function update_bucket_s3_access(req) {
     );
 
     return system_store.make_changes({
-        update: {
-            accounts: updates
-        }
-    })
+            update: {
+                accounts: updates
+            }
+        })
         .then(() => {
             const desc_string = [];
             if (added_accounts.length > 0) {
@@ -475,7 +486,8 @@ function set_cloud_sync(req) {
         target_bucket: req.rpc_params.target_bucket,
         access_keys: {
             access_key: connection.access_key,
-            secret_key: connection.secret_key
+            secret_key: connection.secret_key,
+            account_id: req.account._id
         },
         schedule_min: js_utils.default_value(req.rpc_params.policy.schedule_min, 60),
         last_sync: new Date(0),
@@ -803,6 +815,12 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
+    let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
+    _.forEach(tier_of_bucket.mirrors, mirror_object => {
+        info.writable = Boolean(info.writable) || _.some(mirror_object.spread_pools, pool =>
+            _.get(tiering_pools_status[pool.name], 'valid_for_allocation', false));
+    });
+
     let objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
         count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
@@ -811,10 +829,10 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     info.tag = bucket.tag ? bucket.tag : '';
 
     info.num_objects = num_of_objects || 0;
-    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
+    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.mirrors.length, 1) : 1;
     let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
     let bucket_used = bucket_chunks_capacity
-        .multiply(tier_of_bucket.replicas)
+        .multiply(tier_of_bucket.replicas) // JEN TODO when we save on cloud we only create 1 replica
         .multiply(placement_mul);
     let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
     let bucket_used_other = size_utils.BigInteger.max(

@@ -1,6 +1,10 @@
 export function noop() {
 }
 
+export function echo(val) {
+    return val;
+}
+
 export function deepFreeze(val) {
     if (isObject(val) && !Object.isFrozen(val)) {
         Object.keys(val).forEach(
@@ -153,5 +157,24 @@ export function averageBy(array, predicate) {
 export function entries(obj) {
     return Object.keys(obj).map(
         key => ({ key, value: obj[key] })
+    );
+}
+
+export function keyBy(array, keySelector, valueGenerator = echo) {
+    return array.reduce(
+        (map, item) => {
+            const key = keySelector(item);
+            map[key] = valueGenerator(item);
+            return map;
+        },
+        {}
+    );
+}
+
+export function keyByProperty(array, keyName, valueGenerator) {
+    return keyBy(
+        array,
+        item => item[keyName],
+        valueGenerator
     );
 }

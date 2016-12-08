@@ -125,7 +125,8 @@ function lambda_rest(controller) {
      */
     function authenticate_lambda_request(req, res, next) {
         P.fcall(function() {
-                signature_utils.authenticate_request(req);
+                req.auth_token = signature_utils.authenticate_request(req);
+                signature_utils.check_expiry(req);
                 return controller.prepare_request(req);
             })
             .then(() => next())

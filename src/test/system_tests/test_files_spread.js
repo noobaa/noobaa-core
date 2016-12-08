@@ -64,7 +64,7 @@ function run_test() {
         }))
         .then(() => client.tier.create_tier({
             name: 'tier1',
-            node_pools: ['pool1', 'pool2'],
+            attached_pools: ['pool1', 'pool2'],
             data_placement: 'SPREAD'
         }))
         .then(() =>

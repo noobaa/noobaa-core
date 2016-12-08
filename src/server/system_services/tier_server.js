@@ -99,9 +99,13 @@ function read_tier(req) {
 function _convert_pools_to_data_placement_structure(pool_ids, data_placement) {
     let mirrors = [];
     if (data_placement === 'MIRROR') {
-        _.forEach(pool_ids, pool_id => mirrors.push({spread_pools: [pool_id]}));
+        _.forEach(pool_ids, pool_id => mirrors.push({
+            spread_pools: [pool_id]
+        }));
     } else {
-        mirrors.push({spread_pools: pool_ids});
+        mirrors.push({
+            spread_pools: pool_ids
+        });
     }
     return mirrors;
 }
@@ -119,25 +123,17 @@ function update_tier(req) {
         updates.name = req.rpc_params.new_name;
     }
 
-    // updates.pools = tier.pools;
-
-    // if (tier.data_placement !== req.rpc_params.data_placement) {
-    //     let a = ;
-    //
-    //     updates.pools = _convert_pools_to_data_placement_structure(, req.rpc_params.data_placement);
-    // }
-    // let pools_partitions = _.partition(tier.pools, pool => _.isUndefined(pool.cloud_pool_info));
-    // let node_pools_part = pools_partitions[0];
-    // // let cloud_pools_part = pools_partitions[1];
-    // let node_pools_update = [];
-    // // let cloud_pools_update = [];
-    // // let old_cloud_pools = [];
+    let old_pool_names = [];
     // if node_pools are defined use it for the update otherwise use the existing
     if (req.rpc_params.attached_pools) {
         updates.mirrors = _convert_pools_to_data_placement_structure(
             _.map(req.rpc_params.attached_pools, pool_name => req.system.pools_by_name[pool_name]._id),
             req.rpc_params.data_placement || tier.data_placement);
-        // node_pools_update = _.map(req.rpc_params.attached_pools, pool_name => req.system.pools_by_name[pool_name]._id);
+
+        _.forEach(tier.mirrors, mirror_object => {
+            old_pool_names = _.concat(old_pool_names, _.map(_.get(mirror_object, 'spread_pools', []), pool => pool.name));
+        });
+        old_pool_names = _.compact(old_pool_names);
     } else if (tier.data_placement !== req.rpc_params.data_placement) {
         let pool_ids = [];
         _.forEach(tier.mirrors, mirror_object => {
@@ -147,38 +143,7 @@ function update_tier(req) {
 
         updates.mirrors = _convert_pools_to_data_placement_structure(pool_ids, req.rpc_params.data_placement);
     }
-    // } else {
-    //     node_pools_update = tier.pools;//node_pools_part.map(node_pool => node_pool._id);
-    // }
-    // // if node_pools are defined use it for the update otherwise use the existing
-    // if (req.rpc_params.node_pools) {
-    //     // validate that all pools in node pools are actually node pools
-    //     _.each(req.rpc_params.node_pools, pool_name => {
-    //         if (req.system.pools_by_name[pool_name].cloud_pool_info) {
-    //             throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
-    //         }
-    //     });
-    //
-    //     node_pools_update = req.rpc_params.node_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
-    // } else {
-    //     node_pools_update = node_pools_part.map(node_pool => node_pool._id);
-    // }
 
-    // // if cloud_pools are defined use it for the update otherwise use the existing
-    // if (req.rpc_params.cloud_pools) {
-    //     // validate that all pools in cloud pools are actually cloud pools
-    //     _.each(req.rpc_params.node_pools, pool_name => {
-    //         if (!req.system.pools_by_name[pool_name].cloud_pool_info) {
-    //             throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
-    //         }
-    //     });
-    //     old_cloud_pools = cloud_pools_part.map(cloud_pool => cloud_pool.name);
-    //     cloud_pools_update = req.rpc_params.cloud_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
-    // } else {
-    //     cloud_pools_update = cloud_pools_part.map(cloud_pool => cloud_pool._id);
-    // }
-
-    // updates.pools = //node_pools_update.concat(cloud_pools_update);
     updates._id = tier._id;
     return system_store.make_changes({
             update: {
@@ -191,27 +156,17 @@ function update_tier(req) {
             if (req.rpc_params.data_placement) { //Placement policy changes
                 let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
                     `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
-                // let tier_pools = _.map(tier.pools, pool => pool.name);
-                // let added_pools = [] || _.difference(req.rpc_params.node_pools.concat(req.rpc_params.cloud_pools), tier_pools);
-                // let removed_pools = [] || _.difference(tier_pools, req.rpc_params.node_pools.concat(req.rpc_params.cloud_pools));
+                let removed_pools = _.difference(old_pool_names, req.rpc_params.attached_pools || []);
+                let added_pools = _.difference(req.rpc_params.attached_pools || [], old_pool_names);
                 desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
                 desc_string.push(`Policy type: ${policy_type_change}`);
-                // if (added_pools.length) {
-                //     desc_string.push(`Added pools: ${added_pools}`);
-                // }
-                // if (removed_pools.length) {
-                //     desc_string.push(`Removed pools: ${removed_pools}`);
-                // }
-            }// else if (req.rpc_params.cloud_pools) { //Update to cloud pools
-            //     if (!old_cloud_pools.length) {
-            //         old_cloud_pools = 'no cloud resources';
-            //     }
-            //     let new_pools = req.rpc_params.cloud_pools.length ?
-            //         req.rpc_params.cloud_pools :
-            //         'no cloud resources';
-            //     desc_string.push(`Bucket cloud policy changes from using ${old_cloud_pools} to
-            //         using ${new_pools}`);
-            // }
+                if (removed_pools.length) {
+                    desc_string.push(`Removed resources: ${removed_pools.join(', ')}`);
+                }
+                if (added_pools.length) {
+                    desc_string.push(`Added resources: ${added_pools.join(', ')}`);
+                }
+            }
 
             if (bucket) {
                 Dispatcher.instance().activity({
@@ -293,10 +248,6 @@ function read_policy(req) {
     });
     pools = _.compact(pools);
 
-    // _.flatten(_.map(policy.tiers, tier_and_order => {
-    //         return _.map(tier_and_order.tier.pools
-    //     }
-    // ));
     var pool_names = pools.map(pool => pool.name);
     return P.resolve()
         .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id))
@@ -367,37 +318,48 @@ function get_tier_info(tier, nodes_aggregate_pool) {
     });
     info.attached_pools = _.compact(info.attached_pools).map(pool => pool.name);
 
-    var reducer;
-    if (tier.data_placement === 'MIRROR') {
-        reducer = size_utils.reduce_minimum;
-    } else if (tier.data_placement === 'SPREAD') {
-        reducer = size_utils.reduce_sum;
-    } else {
-        dbg.error('BAD TIER DATA PLACEMENT (assuming spread)', tier);
-        reducer = size_utils.reduce_sum;
-    }
+    let mirrors_storage = [];
+    _.forEach(tier.mirrors, mirror_object => {
+        let spread_storage;
+        var pools_storage = _.map(mirror_object.spread_pools, pool =>
+            _.defaults(_.get(nodes_aggregate_pool, ['groups', String(pool._id), 'storage']), {
+                free: 0,
+            })
+        );
+        spread_storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage, 1, 1);
+        _.defaults(spread_storage, {
+            used: 0,
+            total: 0,
+            // free: 0,
+            unavailable_free: 0,
+            used_other: 0,
+            reserved: 0
+        });
 
-    var pools_storage = _.map(_.filter(info.attached_pools, filter_pool => _.isUndefined(filter_pool.cloud_pool_info)), pool =>
-        _.defaults(_.get(nodes_aggregate_pool, ['groups', String(pool._id), 'storage']), {
+        let temp_storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage, 1, tier.replicas);
+        _.defaults(temp_storage, {
             free: 0,
-        })
-    );
+        });
 
-    info.storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage, 1, 1);
+        spread_storage.real = temp_storage.free;
+        mirrors_storage.push(spread_storage);
+    });
+
+    info.storage = size_utils.reduce_storage(size_utils.reduce_minimum, mirrors_storage, 1, 1);
     _.defaults(info.storage, {
         used: 0,
         total: 0,
-        // free: 0,
+        free: 0,
         unavailable_free: 0,
         used_other: 0,
         reserved: 0
     });
 
-    let temp_storage = size_utils.reduce_storage(reducer, pools_storage, 1, tier.replicas);
-    _.defaults(temp_storage, {
+    let actual_free = size_utils.reduce_storage(size_utils.reduce_minimum, mirrors_storage, 1, tier.replicas);
+    _.defaults(actual_free, {
         free: 0,
     });
-    info.storage.real = temp_storage.free;
+    info.storage.real = actual_free.free;
 
     return info;
 }

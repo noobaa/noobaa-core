@@ -443,13 +443,13 @@ function read_system(req) {
             buckets: _.map(system.buckets_by_name,
                 bucket => bucket_server.get_bucket_info(
                     bucket,
-                    nodes_aggregate_pool_no_cloud,
+                    nodes_aggregate_pool_with_cloud,
                     objects_count[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
-                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_no_cloud)),
+                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_with_cloud)),
             storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
             }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),

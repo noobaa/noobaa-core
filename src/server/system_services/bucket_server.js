@@ -831,7 +831,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.mirrors.length, 1) : 1;
     let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
     let bucket_used = bucket_chunks_capacity
-        .multiply(tier_of_bucket.replicas)
+        .multiply(tier_of_bucket.replicas) // JEN TODO when we save on cloud we only create 1 replica
         .multiply(placement_mul);
     let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
     let bucket_used_other = size_utils.BigInteger.max(

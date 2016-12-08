@@ -5,6 +5,7 @@ import CloudResourceRowViewModel from './cloud-resource-row';
 import { systemInfo, uiState, routeContext } from 'model';
 import { deepFreeze, createCompareFunc } from 'utils/all';
 import { navigateTo } from 'actions';
+import { keyByProperty } from 'utils/core-utils';
 
 const columns = deepFreeze([
     {
@@ -51,19 +52,24 @@ const resourcesToBuckets = ko.pureComputed(
             return {};
         }
 
+        const poolsByName = keyByProperty(systemInfo().pools, 'name');
         return systemInfo().buckets.reduce(
             (mapping, bucket) => systemInfo().tiers
                 .find(
                     tier => tier.name === bucket.tiering.tiers[0].tier
                 )
-                .cloud_pools.reduce(
-                    (mapping, pool) => {
-                        mapping[pool] = mapping[pool] || [];
-                        mapping[pool].push(bucket.name);
-                        return mapping;
-                    },
-                    mapping
-                ),
+                .attached_pools
+                    .filter(
+                        poolName => Boolean(poolsByName[poolName].cloud_info)
+                    )
+                    .reduce(
+                        (mapping, pool) => {
+                            mapping[pool] = mapping[pool] || [];
+                            mapping[pool].push(bucket.name);
+                            return mapping;
+                        },
+                        mapping
+                    ),
             {}
         );
     }

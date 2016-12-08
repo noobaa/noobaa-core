@@ -11,7 +11,7 @@ module.exports = {
         'data_fragments',
         'parity_fragments',
         'data_placement',
-        'pools',
+        'mirrors',
     ],
     properties: {
         _id: {
@@ -41,14 +41,32 @@ module.exports = {
             enum: ['MIRROR', 'SPREAD']
         },
 
-        // Each tier can be composed of pools OR nodes
-        // This is done for ease of use in cases of small servers number (use nodes)
-        // or large desktop numbers (use pools)
-        pools: {
+        // Consist of two dimensional array, spread_pools is an array of pools that will be spread_pools
+        // Upper level array (pools) will mirror these spread pools
+        mirrors: {
             type: 'array',
             items: {
-                format: 'objectid' // pool id
+                type: 'object',
+                // required: ['spread_pools'],
+                properties: {
+                    spread_pools: {
+                        type: 'array',
+                        items: {
+                            format: 'objectid' // pool id
+                        }
+                    }
+                }
             }
         },
+
+        // // Each tier can be composed of pools OR nodes
+        // // This is done for ease of use in cases of small servers number (use nodes)
+        // // or large desktop numbers (use pools)
+        // pools: {
+        //     type: 'array',
+        //     items: {
+        //         format: 'objectid' // pool id
+        //     }
+        // },
     }
 };

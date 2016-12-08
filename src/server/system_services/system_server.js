@@ -14,7 +14,6 @@ const request = require('request');
 const ip_module = require('ip');
 const fs = require('fs');
 const path = require('path');
-
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -38,6 +37,7 @@ const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 const node_server = require('../node_services/node_server');
 const dns = require('dns');
+const node_allocator = require('../node_services/node_allocator');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -146,7 +146,9 @@ function new_system_changes(name, owner_account) {
         const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
         var system = new_system_defaults(name, owner_account._id);
         var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
-        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [{
+            spread_pools: [pool._id]
+        }]);
         var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
             tier: tier._id,
             order: 0
@@ -172,7 +174,9 @@ function new_system_changes(name, owner_account) {
             const demo_bucket_name = config.DEMO_DEFAULTS.BUCKET_NAME;
             const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
             let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
-            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);
+            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [{
+                spread_pools: [demo_pool._id]
+            }]);
             var demo_policy = tier_server.new_policy_defaults(demo_bucket_with_suffix, system._id, [{
                 tier: demo_tier._id,
                 order: 0
@@ -363,7 +367,12 @@ function read_system(req) {
 
         fs.statAsync(path.join('/etc', 'private_ssl_path', 'server.key'))
         .return(true)
-        .catch(() => false)
+        .catch(() => false),
+
+        promise_utils.all_obj(
+            system.buckets_by_name,
+            bucket => node_allocator.refresh_tiering_alloc(bucket.tiering)
+        )
     ).spread(function(
         nodes_aggregate_pool_no_cloud,
         nodes_aggregate_pool_with_cloud,
@@ -434,13 +443,13 @@ function read_system(req) {
             buckets: _.map(system.buckets_by_name,
                 bucket => bucket_server.get_bucket_info(
                     bucket,
-                    nodes_aggregate_pool_no_cloud,
+                    nodes_aggregate_pool_with_cloud,
                     objects_count[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
-                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_no_cloud)),
+                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_with_cloud)),
             storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
             }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),

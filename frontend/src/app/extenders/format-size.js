@@ -1,11 +1,16 @@
 import ko from 'knockout';
-import { formatSize as format } from 'utils/all';
+import { formatSize as format } from 'utils/string-utils';
+import { isObject,  isUndefined } from 'utils/core-utils';
 
 export default function formatSize(target) {
     return ko.pureComputed(
         () => {
-            let value = target();
-            return value == null || isNaN(value) ? 'N/A' : format(value);
+            const value = target();
+            if (isNaN(value) && (!isObject(value) || isUndefined(value.peta))) {
+                return 'N/A';
+            }
+
+            return format(value);
         }
     );
 }

@@ -1,30 +1,29 @@
 import template from './bucket-placement-policy-modal.html';
+import editScreenTemplate from './edit-screen.html';
+import warningScreenTemplate from './warn-screen.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop, deepFreeze } from 'utils/all';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
 
-const columns = deepFreeze([
-    {
-        name: 'select',
-        type: 'checkbox'
-    },
-    {
-        name: 'state',
-        type: 'icon'
-    },
-    'name',
-    'onlineCount',
-    'freeSpace'
-]);
+const screenMapping = deepFreeze({
+    0: { title: 'Bucket Data Placement Policy', sizeCss: 'modal-large' },
+    1: { title: 'Empty Data Placement Policy', sizeCss: 'modal-xsmall', severity: 'warn' }
+});
 
 class BacketPlacementPolicyModalViewModel extends Disposable {
     constructor({ bucketName, onClose = noop }) {
         super();
 
         this.onClose = onClose;
-        this.columns = columns;
+        this.screen = ko.observable(0);
+        this.editScreenTemplate = editScreenTemplate;
+        this.warningScreenTemplate = warningScreenTemplate;
+
+        this.modalInfo = ko.pureComputed(
+            () => screenMapping[this.screen()]
+        );
 
         this.tierName = ko.pureComputed(
             () => {
@@ -57,13 +56,11 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         );
 
         this.pools = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : []).filter(
-                pool => pool.nodes && !pool.demo_pool
-            )
+            () => (systemInfo() ? systemInfo().pools : [])
         );
 
         this.selectedPools = ko.observableArray(
-            Array.from(this.tier().node_pools)
+            Array.from(this.tier().attached_pools)
         ).extend({
             validation: {
                 validator: selected => {
@@ -74,6 +71,37 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         });
 
         this.errors = ko.validation.group(this);
+
+        this.isWarningVisible = ko.pureComputed(
+            () => {
+                if (this.placementType() === 'MIRROR') {
+                    return false;
+                }
+
+                let { nodes, cloud } = this.selectedPools().reduce(
+                    (counts, poolName) => {
+                        this.pools().filter( pool => pool.name === poolName)[0].nodes ?
+                            counts.nodes++ :
+                            counts.cloud++ ;
+                        return counts;
+                    },
+                    { nodes: 0, cloud: 0 }
+                );
+                return nodes > 0 && cloud > 0;
+            }
+        );
+    }
+
+    backToEdit() {
+        this.screen(0);
+    }
+
+    beforeSave() {
+        if (this.selectedPools().length === 0) {
+            this.screen(1);
+        } else {
+            this.save();
+        }
     }
 
     save() {

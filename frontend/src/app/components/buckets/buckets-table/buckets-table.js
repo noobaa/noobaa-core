@@ -51,12 +51,12 @@ const columns = deepFreeze([
 
 function generatePlacementSortValue(bucket) {
     let tierName = bucket.tiering.tiers[0].tier;
-    let { data_placement, node_pools } = systemInfo() && systemInfo().tiers.find(
+    let { data_placement, attached_pools } = systemInfo() && systemInfo().tiers.find(
         tier => tier.name === tierName
     );
     return [
         data_placement === 'SPREAD' ? 0 : 1,
-        node_pools.length
+        attached_pools.length
     ];
 }
 

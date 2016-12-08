@@ -1,10 +1,15 @@
 <div class="row content-middle pad alt-bg">
     <div class="cloumn greedy">
-        <h3 class="heading3">Node pools</h3>
+        <h3 class="heading3">Resources</h3>
         <div class="row">
             <span>
-                <span>Pool count:</span>
+                <span>Nodes Pools:</span>
                 <span data-bind="text: nodePoolCount"></span>
+            </span>
+            <span class="push-both">|</span>
+            <span>
+                <span>Cloud resources:</span>
+                <span data-bind="text: cloudResourceCount"></span>
             </span>
             <span class="push-both">|</span>
             <span>
@@ -20,7 +25,7 @@
             disable: editingDisabled,
             click: showPlacementPolicyModal
         ">
-            Edit placement policy
+            Edit data placement
         </button>
     </div>
 </div>
@@ -29,8 +34,36 @@
     columns: placementTableColumns,
     data: nodePools,
     rowFactory: pool => createPlacementRow(pool),
-    emptyMessage: 'No node pools participate in policy'
-"></data-table>
+    emptyMessage: 'No resources participate in policy'
+">
+    <tempalate name="customLink">
+        <div class="link-cell" data-bind="visible: ko.unwrap($data).href">
+            <a class="link" data-bind="
+                href: ko.unwrap($data).href || $data,
+                text: ko.unwrap($data).text || $data
+            "></a>
+        </div>
+        <div class="text-cell" data-bind="visible: !ko.unwrap($data).href">
+            <span data-bind="
+                text: ko.unwrap($data).text || $data
+            "></span>
+        </div>
+    </tempalate>
+
+    <template name="resourceCapacity">
+        <capacity-bar data-bind="visible: ko.unwrap($data).total" params="
+            total: ko.unwrap($data).total,
+            used: ko.unwrap($data).used,
+            color: ko.unwrap($data).color
+        "></capacity-bar>
+        <div class="text-cell" data-bind="visible: !ko.unwrap($data).total">
+            <span data-bind="
+                text: ko.unwrap($data).text || $data,
+                css: ko.unwrap($data).css
+            "></span>
+        </div>
+    </template>
+</data-table>
 
 <!-- ko if: isPlacementPolicyModalVisible -->
 <bucket-placement-policy-modal params="

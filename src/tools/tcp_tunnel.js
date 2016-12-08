@@ -85,7 +85,9 @@ function tunnel_connection({
         if (record_http) {
             conn.pipe(new HTTPRecorder(msg => {
                 const prefix =
-                    (msg.headers['user-agent'] || 'http_recorder')
+                    (msg.headers['x-amz-user-agent'] ||
+                        msg.headers['user-agent'] ||
+                        'http_recorder')
                     .split('/', 1)[0]
                     .replace(/-/g, '')
                     .toLowerCase();

@@ -81,7 +81,7 @@ function _authenticate_query_v4(req) {
 const EMPTY_SHA256 = crypto.createHash('sha256').digest('hex');
 
 function _string_to_sign_v4(req, signed_headers, xamzdate, region, service) {
-    const aws_request = _aws_request(req, region);
+    const aws_request = _aws_request(req, region, service);
     const v4 = new AWS.Signers.V4(aws_request, service, 'signatureCache');
 
     // If Signed Headers param doesn't exist we sign everything in order to support
@@ -191,9 +191,11 @@ const HEADERS_MAP_FOR_AWS_SDK = {
     'presigned-expires': 'presigned-expires',
 };
 
-function _aws_request(req, region) {
+function _aws_request(req, region, service) {
     const u = url.parse(req.originalUrl);
-    const pathname = path.normalize(decodeURI(u.pathname));
+    const pathname = service === 's3' ?
+        u.pathname :
+        path.normalize(decodeURI(u.pathname));
     const search_string = u.search ?
         AWS.util.queryParamsToString(
             _.omit(AWS.util.queryStringParse(
@@ -220,7 +222,7 @@ function _aws_request(req, region) {
     const aws_request = {
         region: region,
         method: req.method,
-        path: decodeURI(req.originalUrl),
+        path: req.originalUrl,
         headers: headers_for_sdk,
         search: () => search_string,
         pathname: () => pathname,

@@ -39,6 +39,8 @@ mocha.describe('signature_utils', function() {
 
     add_tests_from(path.join(SIG_TEST_SUITE, 'aws4_testsuite'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'awscli'), '.sreq');
+    add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkjs'), '.sreq');
+    add_tests_from(path.join(SIG_TEST_SUITE, 'awssdknodejs'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'cyberduck'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'postman'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'presigned'), '.sreq');
@@ -105,8 +107,8 @@ mocha.describe('signature_utils', function() {
             )
             .then(() => {
                 socket.destroy();
-                console.log('REPLY:', reply);
                 reply = reply.trim();
+                console.log('REPLY:', reply);
                 const CONT = 'HTTP/1.1 100 Continue';
                 if (reply.startsWith(CONT)) {
                     reply = reply.slice(CONT.length).trim();
@@ -130,6 +132,7 @@ mocha.describe('signature_utils', function() {
         req.url = parsed_url.pathname;
         req.query = parsed_url.query;
         res.setHeader('Connection', 'close');
+        if (req.method === 'OPTIONS') return res.end();
         console.log(
             'Handle:', req.method, req.originalUrl,
             'query', req.query,
@@ -161,6 +164,7 @@ mocha.describe('signature_utils', function() {
                 }
                 const auth_token = signature_utils.authenticate_request(req);
                 const signature = signature_utils.signature(auth_token, SECRETS[auth_token.access_key]);
+                console.log('auth_token', auth_token, 'signature', signature);
                 if (signature !== auth_token.signature) {
                     throw new Error('Signature mismatch');
                 }

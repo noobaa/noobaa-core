@@ -68,7 +68,7 @@ if (argv.help) {
 
 
 function make_simple_request(op, params) {
-    const req = s3.makeRequst(op, params);
+    const req = s3.makeRequest(op, params);
     if (argv.presign) {
         return console.log(req.presign(argv.presign));
     }

@@ -40,24 +40,11 @@
         <!-- ko if: $data().href -->
         <a class="link" data-bind="text: $data().text, href: $data().href"></a>
         <!-- /ko -->
-
         <!-- ko ifnot: $data().href -->
         <span data-bind="text: $data().text"></span>
         <!-- /ko -->
     </template>
 
-    <template name="resource-capacity">
-        <!-- ko if: $data().total -->
-        <capacity-bar data-bind="visible: $data().total" params="
-            total: $data().total,
-            used: $data().used
-        "></capacity-bar>
-        <!-- /ko -->
-
-        <!-- ko ifnot: $data().total -->
-        <span data-bind="text: $data()"></span>
-        <!-- /ko -->
-    </template>
 </data-table>
 
 <!-- ko if: isPlacementPolicyModalVisible -->

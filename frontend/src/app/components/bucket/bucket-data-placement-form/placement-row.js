@@ -95,15 +95,10 @@ export default class PlacementRowViewModel {
             }
         );
 
-        this.usedCapacity = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return '';
-                }
-
-                const { storage  } = pool();
-                return pool().nodes ? storage : formatSize(storage.used);
-            }
-        );
+        this.freeSpace = ko.pureComputed(
+            () => pool() && pool().storage.free
+        ).extend({
+            formatSize: true
+        });
     }
 }

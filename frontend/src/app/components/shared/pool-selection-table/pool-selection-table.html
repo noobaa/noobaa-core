@@ -16,19 +16,6 @@
         columns: columns,
         data: pools,
         rowFactory: pool => createRow(pool)
-    ">
-        <template name="resource-capacity">
-            <!-- ko if: $data().total -->
-            <capacity-bar data-bind="visible: $data().total" params="
-                total: $data().total,
-                used: $data().used
-            "></capacity-bar>
-            <!-- /ko -->
-
-            <!-- ko ifnot: $data().total -->
-            <span data-bind="text: $data()"></span>
-            <!-- /ko -->
-        </template>
-    </data-table>
+    "></data-table>
 </div>
 <p class="val-msg" data-bind="validationMessage: selectedPools"></p>

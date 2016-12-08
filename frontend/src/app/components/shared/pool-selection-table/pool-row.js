@@ -18,8 +18,8 @@ const iconMapping = deepFreeze({
         tooltip: 'S3 Compatible Cloud Bukcet'
     },
 
-    NODE: {
-        name: 'logo',
+    NODES_POOL: {
+        name: 'nodes-pool',
         tooltip: 'Node Pool'
     }
 });
@@ -63,7 +63,11 @@ export default class PoolRowViewModel extends Disposable {
                     return;
                 }
 
-                return pool().cloud_info ? iconMapping[pool().cloud_info.endpoint_type] : iconMapping['NODE'];
+                const resourceType = pool().cloud_info ?
+                    pool().cloud_info.endpoint_type :
+                    'NODES_POOL';
+
+                return iconMapping[resourceType];
             }
         );
 

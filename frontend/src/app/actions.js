@@ -530,7 +530,7 @@ export function signIn(email, password, keepSessionAlive = false) {
                         const account = info.account;
                         model.sessionInfo({
                             user: account.email,
-                            system: account.system,
+                            system: info.system.name,
                             mustChangePassword: account.must_change_password
                         });
                         //api.redirector.register_for_alerts(); ////For now comment this out until add it properly

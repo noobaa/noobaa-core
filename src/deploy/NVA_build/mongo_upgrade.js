@@ -466,7 +466,7 @@ function upgrade_object_mds() {
 
 function upgrade_tier_pools() {
     print('\n*** upgrade_tier_pools ...');
-    db.tier.find({
+    db.tiers.find({
         pools: {
             $exists: true
         }
@@ -484,7 +484,7 @@ function upgrade_tier_pools() {
             });
         }
 
-        db.tier.update({
+        db.tiers.update({
             _id: tier._id
         }, {
             $set: {

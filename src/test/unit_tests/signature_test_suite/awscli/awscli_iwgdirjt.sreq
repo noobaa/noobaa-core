@@ -1,0 +1,68 @@
+PUT /files/util/chunk_stream.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 1529
+Content-MD5: ObjF8LE5DQSHlsN++c5s7Q==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:37 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:NvegI4+31A9UJLmlUGa9/lY3l6w=
+
+// module targets: nodejs & browserify
+'use strict';
+
+var stream = require('stream');
+
+/**
+ *
+ * ChunkStream
+ *
+ * A transforming stream that chunks the input to fixes size chunks.
+ *
+ */
+class ChunkStream extends stream.Transform {
+
+    constructor(chunk_size, options) {
+        super(options);
+        this.chunk_size = chunk_size;
+        this.pending_buffers = [];
+        this.pending_bytes = 0;
+    }
+
+
+    /**
+     * implement the stream's Transform._transform() function.
+     */
+    _transform(data, encoding, callback) {
+        // console.log('ChunkStream transform', data.length);
+        while (data && data.length) {
+            let room = this.chunk_size - this.pending_bytes;
+            let buf = (room < data.length) ? data.slice(0, room) : data;
+            this.pending_buffers.push(buf);
+            this.pending_bytes += buf.length;
+            if (this.pending_bytes === this.chunk_size) {
+                this._flush();
+            }
+            data = (room < data.length) ? data.slice(room) : null;
+        }
+        callback();
+    }
+
+    /**
+     * implement the stream's Transform._flush() function.
+     */
+    _flush(callback) {
+        if (this.pending_buffers.length) {
+            // console.log('ChunkStream flush', this.pending_bytes, this.pending_buffers.length);
+            this.push(this.pending_buffers);
+            this.pending_buffers = [];
+            this.pending_bytes = 0;
+        }
+        if (callback) {
+            callback();
+        }
+    }
+}
+
+module.exports = ChunkStream;

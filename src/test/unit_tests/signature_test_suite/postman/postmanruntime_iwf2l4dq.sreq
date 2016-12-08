@@ -1,0 +1,13 @@
+GET / HTTP/1.1
+cache-control: no-cache
+Postman-Token: 7cb6433d-199d-4baf-9d4c-e737d4c09fdb
+Content-Type: application/x-www-form-urlencoded
+Host: 127.0.0.1
+X-Amz-Content-Sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+X-Amz-Date: 20161207T150845Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161207/us-east-1/s3/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date, Signature=25fdd83451179bb5573358f6c03b32cd665d93b2c472800b852e45e04cf26711
+User-Agent: PostmanRuntime/3.0.1
+Accept: */*
+accept-encoding: gzip, deflate
+Connection: keep-alive
+

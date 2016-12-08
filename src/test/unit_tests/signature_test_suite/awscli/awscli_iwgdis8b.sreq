@@ -1,0 +1,160 @@
+PUT /files/util/js_utils.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 4037
+Content-MD5: AthYIkfaaE93+cwkwdPWTg==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:38 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:3hmF9oVXWVhFQWmsF3HGv9jHW5M=
+
+'use strict';
+
+var _ = require('lodash');
+
+module.exports = {
+    self_bind: self_bind,
+    array_push_all: array_push_all,
+    array_push_keep_latest: array_push_keep_latest,
+    named_array_push: named_array_push,
+    append_buffer_or_array: append_buffer_or_array,
+    deep_freeze: deep_freeze,
+    make_object: make_object,
+    default_value: default_value,
+    sort_compare_by: sort_compare_by,
+};
+
+
+/**
+ *
+ * self_bind
+ *
+ * create a lightweight bind which is based on simple closure of the object.
+ *
+ * the native Function.bind() produces a function with very slow performance,
+ * the reason for that seems to be that the spec for bind() is bigger than simple closure.
+ *
+ * see http://stackoverflow.com/questions/17638305/why-is-bind-slower-than-a-closure
+ *
+ * see src/test/measure_bind_perf.js
+ *
+ * @param method_desc optional string or array of strings of method names
+ *      to bind, if not supplied all enumerable functions will be used.
+ */
+function self_bind(object, method_desc) {
+    if (!_.isString(method_desc)) {
+        method_desc = method_desc || _.functionsIn(object);
+        _.each(method_desc, function(method) {
+            self_bind(object, method);
+        });
+        return;
+    }
+
+    var func = object[method_desc];
+
+    // create a closure function that applies the original function on object
+    function closure_func() {
+        return func.apply(object, arguments);
+    }
+
+    object[method_desc] = closure_func;
+
+    return closure_func;
+}
+
+
+// see http://jsperf.com/concat-vs-push-apply/39
+var _cached_array_push = Array.prototype.push;
+
+
+/**
+ * push list of items into array
+ */
+function array_push_all(array, items) {
+    // see http://jsperf.com/concat-vs-push-apply/39
+    // using Function.apply with items list to sends all the items
+    // to the push function which actually does: array.push(items[0], items[1], ...)
+    _cached_array_push.apply(array, items);
+    return array;
+}
+
+function array_push_keep_latest(array, items, limit) {
+    array = array || [];
+    array_push_all(array, items);
+    return array.length > limit ? array.slice(-limit) : array;
+}
+
+/**
+ * add to array, create it in the object if doesnt exist
+ */
+function named_array_push(obj, arr_name, item) {
+    var arr = obj[arr_name];
+    if (arr) {
+        _cached_array_push.call(arr, item);
+    } else {
+        arr = obj[arr_name] = [item];
+    }
+    return arr;
+}
+
+
+function append_buffer_or_array(buffer_or_array, item) {
+    if (_.isArray(buffer_or_array)) {
+        if (_.isArray(item)) {
+            return array_push_all(buffer_or_array, item);
+        } else {
+            buffer_or_array.push(item);
+        }
+    } else if (_.isArray(item)) {
+        buffer_or_array = Buffer.concat(array_push_all([buffer_or_array], item));
+    } else {
+        buffer_or_array = Buffer.concat([buffer_or_array, item]);
+    }
+    return buffer_or_array;
+}
+
+
+function deep_freeze(obj) {
+    Object.freeze(obj);
+    _.each(obj, val => {
+        if (typeof(val) === 'object' && val !== null && !Object.isFrozen(val)) {
+            deep_freeze(val);
+        }
+    });
+    return obj;
+}
+
+
+/**
+ * Creates an object from a list of keys, intializing each key using the given value provider.
+ */
+function make_object(keys, valueProvider) {
+    valueProvider = _.isFunction(valueProvider) ? valueProvider : _.noop;
+    return _.reduce(keys, (obj, key) => {
+        obj[key] = valueProvider(key);
+        return obj;
+    }, {});
+}
+
+
+function default_value(val, def_val) {
+    return _.isUndefined(val) ? def_val : val;
+}
+
+/**
+ * returns a compare function for array.sort(compare_func)
+ * @param key_getter takes array item and returns a comparable key
+ * @param order should be 1 or -1
+ */
+function sort_compare_by(key_getter, order) {
+    key_getter = key_getter || (item => item);
+    order = order || 1;
+    return function(item1, item2) {
+        const key1 = key_getter(item1);
+        const key2 = key_getter(item2);
+        if (key1 < key2) return -order;
+        if (key1 > key2) return order;
+        return 0;
+    };
+}

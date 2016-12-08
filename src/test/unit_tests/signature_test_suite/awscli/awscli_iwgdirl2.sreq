@@ -1,0 +1,42 @@
+PUT /files/util/hash_stream.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 633
+Content-MD5: G63NXT+uglPYp3KL+SVqFw==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:37 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:QymXywGvg5pj8C6Z349LvQRcz9c=
+
+'use strict';
+
+var P = require('./promise');
+var crypto = require('crypto');
+var Transform = require('stream').Transform;
+
+class HashStream extends Transform {
+
+    constructor(options) {
+        super(options);
+        this._defer = P.defer();
+        this._hash = crypto.createHash(options.hash_type);
+    }
+
+    _transform(data, encoding, callback) {
+        this._hash.update(data);
+        callback(null, data);
+    }
+
+    _flush(callback) {
+        this._defer.resolve(this._hash.digest()); // raw buffer
+        callback();
+    }
+
+    wait_digest() {
+        return this._defer.promise;
+    }
+
+}
+
+module.exports = HashStream;

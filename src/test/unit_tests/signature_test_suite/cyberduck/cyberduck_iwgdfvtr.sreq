@@ -1,0 +1,9 @@
+DELETE /files/lib/protocol/ HTTP/1.1
+Date: Thu, 08 Dec 2016 13:00:23 GMT
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Host: 127.0.0.1
+x-amz-date: 20161208T130023Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161208/us-east-1/s3/aws4_request,SignedHeaders=date;host;x-amz-content-sha256;x-amz-date,Signature=c46cabbac1efca51fda1b286ef2d43cab4e9111a12739cd9ee8e3c459eef5c71
+Connection: Keep-Alive
+User-Agent: Cyberduck/5.2.2.21483 (Mac OS X/10.12.1) (x86_64)
+

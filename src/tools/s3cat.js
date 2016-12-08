@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 let _ = require('lodash');
@@ -14,10 +15,14 @@ let RandStream = require('../util/rand_stream');
 
 argv.bucket = argv.bucket || 'files';
 
+if (argv.presign && !_.isNumber(argv.presign)) {
+    argv.presign = 3600;
+}
+
 let s3_config = {
     accessKeyId: argv.access_key || process.env.AWS_ACCESS_KEY_ID || '123',
     secretAccessKey: argv.secret_key || process.env.AWS_SECRET_ACCESS_KEY || 'abc',
-    signatureVersion: argv.sigver || 'v4', // use s3/v4, v2 seems irrelevant
+    signatureVersion: argv.sig || 'v4', // use s3/v4, v2 seems irrelevant
     sslEnabled: argv.ssl || false,
     computeChecksums: argv.checksum || false,
     region: argv.region || 'us-east-1',
@@ -37,188 +42,145 @@ let s3 = new AWS.S3(s3_config);
 
 if (argv.help) {
     print_usage();
-} else if (argv.upload || argv.put) {
-    upload_file();
-} else if (argv.delete) {
-    delete_objects();
-} else if (argv.get) {
-    get_file();
+} else if (argv.lb) {
+    list_buckets();
+} else if (argv.ls || argv.ll) {
+    list_objects();
 } else if (argv.head) {
     if (_.isString(argv.head)) {
-        head_file();
+        head_object();
     } else {
         head_bucket();
     }
-} else if (argv.lb || argv.buckets) {
-    list_buckets();
+} else if (argv.get) {
+    get_object();
+} else if (argv.upload || argv.put) {
+    upload_object();
+} else if (argv.rm) {
+    delete_objects();
 } else if (argv.mb) {
     create_bucket();
 } else if (argv.rb) {
     delete_bucket();
-} else if (argv.list || argv.ls || argv.ll || true) {
-    list_objects();
+} else {
+    list_buckets();
 }
+
+
+function make_simple_request(op, params) {
+    const req = s3.makeRequst(op, params);
+    if (argv.presign) {
+        return console.log(req.presign(argv.presign));
+    }
+    return req.promise()
+        .then(data => console.log('DONE', op, data))
+        .catch(err => console.error('ERROR:', op, params, _.omit(err, 'stack')));
+}
+
 
 function list_objects() {
     const params = {
-        Bucket: argv.bucket,
+        Bucket:
+            (typeof(argv.ls) === 'string' && argv.ls) ||
+            (typeof(argv.ll) === 'string' && argv.ll) ||
+            argv.bucket,
         Prefix: argv.prefix,
         Delimiter: argv.delimiter,
         MaxKeys: argv.maxkeys,
         Marker: argv.marker,
     };
-    if (argv.signed_url) {
-        console.log(s3.getSignedUrl('listObjects', params));
-        return;
-    }
-    s3.listObjects(params, function(err, data) {
-        if (err) {
-            console.error('LIST ERROR:', err.stack);
-            return;
-        }
-        let contents = data.Contents;
-        let prefixes = data.CommonPrefixes;
-        delete data.Contents;
-        delete data.CommonPrefixes;
-        if (argv.long) {
-            console.log('List:', JSON.stringify(data));
-        }
-        _.each(prefixes, prefix => {
-            console.log('Prefix:', prefix.Prefix);
-        });
-        _.each(contents, obj => {
-            let key = obj.Key;
-            let size = size_utils.human_size(obj.Size);
-            size = '        '.slice(size.length) + size;
-            let mtime = moment(new Date(obj.LastModified)).format('MMM D HH:mm');
-            let owner = obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID) || '?';
-            if (argv.long || argv.ll) {
-                delete obj.Key;
-                delete obj.Size;
-                delete obj.Owner;
-                delete obj.LastModified;
-                console.log(owner, size, mtime, key, JSON.stringify(obj));
-            } else {
-                console.log(owner, size, mtime, key);
+    const req = s3.listObjects(params);
+    if (argv.presign) return console.log(req.presign(argv.presign));
+    return req.promise()
+        .then(data => {
+            let contents = data.Contents;
+            let prefixes = data.CommonPrefixes;
+            delete data.Contents;
+            delete data.CommonPrefixes;
+            if (argv.ll) {
+                console.log('List:', JSON.stringify(data));
             }
-        });
-    });
+            _.each(prefixes, prefix => {
+                console.log('Prefix:', prefix.Prefix);
+            });
+            _.each(contents, obj => {
+                let key = obj.Key;
+                let size = size_utils.human_size(obj.Size);
+                size = '        '.slice(size.length) + size;
+                let mtime = moment(new Date(obj.LastModified)).format('MMM D HH:mm');
+                let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
+                if (argv.ll) {
+                    delete obj.Key;
+                    delete obj.Size;
+                    delete obj.Owner;
+                    delete obj.LastModified;
+                    console.log(owner, size, mtime, key, JSON.stringify(obj));
+                } else {
+                    console.log(owner, size, mtime, key);
+                }
+            });
+        })
+        .catch(err => console.error('LIST ERROR:', _.omit(err, 'stack')));
 }
 
 function list_buckets() {
-    if (argv.signed_url) {
-        console.log(s3.getSignedUrl('listBuckets'));
-        return;
-    }
-    s3.listBuckets(function(err, data) {
-        if (err) {
-            console.error('LIST BUCKETS ERROR:', err);
-            return;
-        }
-        _.each(data.Buckets, bucket => {
-            console.log(bucket.Name);
-        });
-    });
+    const req = s3.listBuckets();
+    if (argv.presign) return console.log(req.presign(argv.presign));
+    return req.promise()
+        .then(data => {
+            _.each(data.Buckets, bucket => {
+                console.log(bucket.Name);
+            });
+        })
+        .catch(err => console.error('LIST BUCKETS ERROR:', _.omit(err, 'stack')));
 }
 
 function create_bucket() {
-    const params = {
+    return make_simple_request('createBucket', {
         Bucket: argv.mb
-    };
-    if (argv.signed_url) {
-        console.log(s3.getSignedUrl('createBucket', params));
-        return;
-    }
-    s3.createBucket(params, (err, data) => {
-        if (err) {
-            console.error('CREATE BUCKET ERROR:', err);
-            return;
-        }
-        console.log('CREATED BUCKET', data);
     });
 }
 
 function delete_bucket() {
-    const params = {
+    return make_simple_request('deleteBucket', {
         Bucket: argv.rb
-    };
-    if (argv.signed_url) {
-        console.log(s3.getSignedUrl('deleteBucket', params));
-        return;
-    }
-    s3.deleteBucket(params, (err, data) => {
-        if (err) {
-            console.error('DELETE BUCKET ERROR:', err);
-            return;
-        }
-        console.log('DELETED BUCKET', data);
     });
 }
 
 function head_bucket() {
-    const params = {
+    return make_simple_request('headBucket', {
         Bucket: argv.bucket
-    };
-    if (argv.signed_url) {
-        console.log(s3.getSignedUrl('headBucket', params));
-        return;
-    }
-    s3.headBucket(params, (err, data) => {
-        if (err) {
-            console.error('HEAD BUCKET ERROR:', err);
-            return;
-        }
-        console.log('HEAD BUCKET', data);
     });
 }
 
-function head_file() {
-    const params = {
+function head_object() {
+    return make_simple_request('headObject', {
         Bucket: argv.bucket,
         Key: argv.head
-    };
-    if (argv.signed_url) {
-        console.log(s3.getSignedUrl('headObject', params));
-        return;
-    }
-    s3.headObject(params, (err, data) => {
-        if (err) {
-            console.error('HEAD OBJECT ERROR:', err);
-            return;
-        }
-        console.log('HEAD OBJECT', data);
     });
 }
 
 function delete_objects() {
-    var arr = argv.keys.split(",");
-    var params = {
-        Bucket: argv.bucket,
-        Delete: {
-            Objects: _.map(arr, obj => ({
-                Key: obj,
-            }))
-        }
-    };
-    if (argv.signed_url) {
-        console.log(s3.getSignedUrl('deleteObjects', params));
+    if (typeof(argv.rm) !== 'string') {
+        console.error('missing keys to delete, for example: --rm "key1,/path/to/key2"');
         return;
     }
-    s3.deleteObjects(params, function(err, data) {
-        if (err) {
-            console.error('Delete ERROR:', err.stack);
-            return;
+    return make_simple_request('deleteObjects', {
+        Bucket: argv.bucket,
+        Delete: {
+            Objects: argv.rm.split(',').map(obj => ({
+                Key: obj.trim(),
+            }))
         }
-        console.log(data);
     });
 }
 
-function upload_file() {
+function upload_object() {
     let bucket = argv.bucket;
     let file_path = argv.file || '';
     let upload_key =
-        _.isString(argv.upload) && argv.upload ||
-        _.isString(argv.put) && argv.put ||
+        (_.isString(argv.upload) && argv.upload) ||
+        (_.isString(argv.put) && argv.put) ||
         '';
     argv.size = argv.size || 1024;
     argv.concur = argv.concur || 32;
@@ -287,7 +249,7 @@ function upload_file() {
             CopySource: bucket + '/' + argv.copy,
             ContentType: mime.lookup(upload_key) || '',
         };
-        if (argv.signed_url) {
+        if (argv.presign) {
             console.log(s3.getSignedUrl('copyObject', params));
         } else {
             s3.copyObject(params, on_finish);
@@ -303,7 +265,7 @@ function upload_file() {
             ContentType: mime.lookup(file_path) || '',
             ContentLength: data_size
         };
-        if (argv.signed_url) {
+        if (argv.presign) {
             console.log(s3.getSignedUrl('putObject', params));
         } else {
             s3.putObject(params, on_finish)
@@ -413,12 +375,12 @@ function upload_file() {
     }
 }
 
-function get_file() {
+function get_object() {
     const params = {
         Bucket: argv.bucket,
         Key: argv.get,
     };
-    if (argv.signed_url) {
+    if (argv.presign) {
         console.log(s3.getSignedUrl('getObject', params));
         return;
     }
@@ -479,16 +441,14 @@ function print_usage() {
     console.log(`
 Usage:
   --help               show this usage
-General S3 Flags:
-  --endpoint <host>    (default is 127.0.0.1)
-  --access_key <key>   (default is 123)
-  --secret_key <key>   (default is abc)
-  --bucket <name>      (default is "files")
-List Objects Flags:
-  --list/ls            list objects
-  --long/ll            list objects with long output
+List Flags:
+  --ls                 list objects
+  --ll                 list objects with long output
   --prefix <path>      prefix used for list objects
   --delimiter <key>    delimiter used for list objects
+Get Flags:
+  --get <key>          get key name
+  --head <key>         head key name
 Upload Flags:
   --upload <key>       upload (multipart) to key (key can be omited
   --put <key>          put (single) to key (key can be omited
@@ -497,15 +457,21 @@ Upload Flags:
   --size <MB>          if no file path, generate random data of size (default 10 GB)
   --part_size <MB>     multipart size
   --concur <num>       multipart concurrency
-Get Flags:
-  --get <key>          get key name
-  --head <key>         head key name
 Delete Flags:
-  --delete             delete key or keys
-  --keys <key>,<key>   list of keys
+  --rm <key>,<key>     delete key or keys
 Buckets Flags:
   --lb/buckets         list buckets
   --mb <name>          create bucket
   --rb <name>          delete bucket
+General S3 Flags:
+  --endpoint <host>    (default is 127.0.0.1)
+  --access_key <key>   (default is env.AWS_ACCESS_KEY_ID || 123)
+  --secret_key <key>   (default is env.AWS_SECRET_ACCESS_KEY || abc)
+  --bucket <name>      (default is "files")
+  --sig v4|s3          (default is v4)
+  --ssl                (default is false) Force SSL connection
+  --aws                (default is false) Use AWS endpoint and subdomain-style buckets
+  --checksum           (default is false) Calculate checksums on data. slower.
+  --presign            instead of running the request it prints a presigned url of the request
 `);
 }

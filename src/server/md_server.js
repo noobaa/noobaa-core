@@ -15,13 +15,12 @@ server_rpc.register_func_services();
 server_rpc.register_common_services();
 
 function register_rpc() {
-    let http_port = url.parse(server_rpc.rpc.router.md).port;
     // TODO missing? server_rpc.rpc.router.md = 'fcall://fcall';
+    const u = url.parse(server_rpc.rpc.router.md);
     return server_rpc.rpc.start_http_server({
-        port: http_port,
-        ws: true,
+        port: u.port,
+        protocol: u.protocol,
         logging: true,
-        secure: false,
     }).return(server_rpc.rpc);
 }
 

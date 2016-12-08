@@ -589,6 +589,9 @@ module.exports = {
                 system_cap: {
                     type: 'integer'
                 },
+                has_ssl_cert: {
+                    type: 'boolean'
+                },
                 upgrade: {
                     type: 'object',
                     properties: {

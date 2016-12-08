@@ -52,7 +52,19 @@ module.exports = {
                                 type: 'string',
                             },
                             access_keys: {
-                                $ref: 'common_api#/definitions/access_keys',
+                                type: 'object',
+                                required: ['access_key', 'secret_key', 'account_id'],
+                                properties: {
+                                    access_key: {
+                                        type: 'string'
+                                    },
+                                    secret_key: {
+                                        type: 'string'
+                                    },
+                                    account_id: {
+                                        format: 'objectid'
+                                    }
+                                }
                             },
                             endpoint_type: {
                                 type: 'string',

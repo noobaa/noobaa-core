@@ -816,10 +816,11 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     }
 
     let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
-    _.forEach(tier_of_bucket.mirrors, mirror_object => {
-        info.writable = Boolean(info.writable) || _.some(mirror_object.spread_pools, pool =>
-            _.get(tiering_pools_status[pool.name], 'valid_for_allocation', false));
-    });
+    info.writable = tier_of_bucket.mirrors.some(mirror_object =>
+        (mirror_object.spread_pools || []).some(pool =>
+            _.get(tiering_pools_status[pool.name], 'valid_for_allocation', false)
+        )
+    );
 
     let objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,

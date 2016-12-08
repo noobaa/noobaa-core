@@ -234,10 +234,10 @@ function update_bucket_s3_access(req) {
     );
 
     return system_store.make_changes({
-        update: {
-            accounts: updates
-        }
-    })
+            update: {
+                accounts: updates
+            }
+        })
         .then(() => {
             const desc_string = [];
             if (added_accounts.length > 0) {
@@ -486,7 +486,8 @@ function set_cloud_sync(req) {
         target_bucket: req.rpc_params.target_bucket,
         access_keys: {
             access_key: connection.access_key,
-            secret_key: connection.secret_key
+            secret_key: connection.secret_key,
+            account_id: req.account._id
         },
         schedule_min: js_utils.default_value(req.rpc_params.policy.schedule_min, 60),
         last_sync: new Date(0),

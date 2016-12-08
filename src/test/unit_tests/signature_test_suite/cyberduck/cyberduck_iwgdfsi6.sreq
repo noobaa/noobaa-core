@@ -1,0 +1,9 @@
+DELETE /files/lib/util.js HTTP/1.1
+Date: Thu, 08 Dec 2016 13:00:19 GMT
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Host: 127.0.0.1
+x-amz-date: 20161208T130019Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161208/us-east-1/s3/aws4_request,SignedHeaders=date;host;x-amz-content-sha256;x-amz-date,Signature=124ffd4e83ba76b0c9ff246c248f64ce2f6e4b45500a72481a3165a378cbdc02
+Connection: Keep-Alive
+User-Agent: Cyberduck/5.2.2.21483 (Mac OS X/10.12.1) (x86_64)
+

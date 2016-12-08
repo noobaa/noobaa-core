@@ -125,7 +125,8 @@ function install() {
     }
     return P.resolve()
         .then(() => install_func(word_count_func))
-        .then(() => install_func(dos_func));
+        .then(() => install_func(dos_func))
+        .then(() => install_func(sync_func));
 }
 
 function install_func(fn) {

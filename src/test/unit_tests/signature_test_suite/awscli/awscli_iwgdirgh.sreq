@@ -1,0 +1,7 @@
+GET /files?prefix=util%2F&encoding-type=url HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Date: Thu, 08 Dec 2016 13:02:37 GMT
+Authorization: AWS 123:c2/G63WucySY4FrMDbOVtXxCEyA=
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+

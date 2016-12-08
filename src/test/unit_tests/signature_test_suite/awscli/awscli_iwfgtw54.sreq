@@ -1,0 +1,8 @@
+GET / HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+X-Amz-Content-SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+X-Amz-Date: 20161207T214729Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161207/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=a1c03e4ccd2b0f6dc19a6d33eb2f956765d87505587b1a85de43681b27d746cc
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+

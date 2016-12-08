@@ -1,0 +1,141 @@
+PUT /files/util/semaphore.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 3747
+Content-MD5: B5CGwOuDRKi8m1VnDS4IAw==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:39 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:WQUpmOu08KISJOHlk3npf5gHxMc=
+
+'use strict';
+
+const P = require('../util/promise');
+const WaitQueue = require('./wait_queue');
+const dbg = require('./debug_module')(__filename);
+
+class Semaphore {
+
+    /**
+     * construct a semaphore with initial count
+     */
+    constructor(initial, verbose) {
+        this._value = to_sem_count(initial);
+        this._wq = new WaitQueue();
+        this._verbose = Boolean(verbose);
+    }
+
+    /**
+     * surround the function call with a wait() and release()
+     */
+    surround(func) {
+        return P.resolve()
+            .then(() => this.wait())
+            .then(func)
+            .finally(() => this.release());
+    }
+
+    /**
+     * surround the function call with a wait(count) and release(count)
+     */
+    surround_count(count, func) {
+        return P.resolve()
+            .then(() => this.wait(count))
+            .then(func)
+            .finally(() => this.release(count));
+    }
+
+    // read-only properties
+    get length() {
+        return this._wq.length;
+    }
+
+    get value() {
+        return this._value;
+    }
+
+    /**
+     *
+     * wait on the semaphore if count cannot be allocated immediatly.
+     * the semaphore is fair - so only the first waiter has the right to allocate.
+     *
+     * if count is not a number (like undefined) or negative, we assume count of 1.
+     * if count===0 it will only wait if there are other waiters - which might be
+     * useful in order to "get in the back of the line".
+     *
+     * returns undefined if was allocated immediately, or a promise that will be resolved
+     * once the allocated ammount is available.
+     *
+     */
+    wait(count) {
+        count = to_sem_count(count);
+
+        // if the queue is not empty we wait to keep fairness
+        if (!this._wq.length && this._value >= count) {
+            if (this._verbose) {
+                dbg.log2('Semaphore wait updating value ', this._value, ' -> ',
+                    this._value - count);
+            }
+            this._value -= count;
+            return;
+        }
+
+        // push the waiter's count to the wait queue and return a promise
+        return this._wq.wait({
+            count: count
+        });
+    }
+
+    /**
+     *
+     * release count to the semaphore, and wakeup waiters if they can allocate now.
+     *
+     * if count is not a number (like undefined) or negative, we assume count of 1.
+     * if count===0 it will only do wakeups if value is enough for the first waiter.
+     *
+     */
+    release(count) {
+        count = to_sem_count(count);
+
+        if (this._verbose) {
+            dbg.log2('Semaphore release updating value ', this._value, ' -> ',
+                this._value + count);
+        }
+
+        this._value += count;
+
+        while (this._value > 0) {
+            // check if the first waiter can be woken up already
+            const waiter = this._wq.head();
+            if (!waiter || waiter.count > this._value) {
+                break;
+            }
+
+            if (this._verbose) {
+                dbg.log2('Semaphore release waking next worker, updating value ',
+                    this._value, ' -> ', this._value - waiter.count);
+            }
+
+            this._value -= waiter.count;
+            this._wq.wakeup(waiter);
+        }
+    }
+
+    /**
+     * Pretty print of Semaphore internals
+     */
+    print() {
+        return 'Semaphore: {value: ' + this._value + ', waitq.length:' + this._wq.length +
+            '[' + this._wq.enum_items() + ']}';
+    }
+
+}
+
+// if count is not a number (like undefined) or negative, we assume count of 1.
+// NOTE that count===0 is a special case for wait/release - see comments above.
+function to_sem_count(count) {
+    return (typeof(count) === 'number' && count >= 0) ? (count | 0) : 1;
+}
+
+module.exports = Semaphore;

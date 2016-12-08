@@ -530,7 +530,7 @@ export function signIn(email, password, keepSessionAlive = false) {
                         const account = info.account;
                         model.sessionInfo({
                             user: account.email,
-                            system: account.system,
+                            system: info.system.name,
                             mustChangePassword: account.must_change_password
                         });
                         //api.redirector.register_for_alerts(); ////For now comment this out until add it properly
@@ -969,7 +969,7 @@ export function createBucket(name, dataPlacement, pools) {
     api.tier.create_tier({
         name: bucket_with_suffix,
         data_placement: dataPlacement,
-        node_pools: pools
+        attached_pools: pools
     })
         .then(
             tier => {
@@ -1010,8 +1010,8 @@ export function deleteBucket(name) {
         .done();
 }
 
-export function updateBucketPlacementPolicy(tierName, placementType, node_pools) {
-    logAction('updateBucketPlacementPolicy', { tierName, placementType, node_pools });
+export function updateBucketPlacementPolicy(tierName, placementType, attachedPools) {
+    logAction('updateBucketPlacementPolicy', { tierName, placementType, attachedPools });
 
     let bucket = model.systemInfo().buckets.find(
         bucket => bucket.tiering.tiers.find(
@@ -1022,32 +1022,11 @@ export function updateBucketPlacementPolicy(tierName, placementType, node_pools)
     api.tier.update_tier({
         name: tierName,
         data_placement: placementType,
-        node_pools: node_pools
+        attached_pools: attachedPools
     })
         .then(
             () => notify(`${bucket.name} placement policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
-export function updateBucketBackupPolicy(tierName, cloudResources) {
-    logAction('updateBucketBackupPolicy', { tierName, cloudResources });
-
-    let bucket = model.systemInfo().buckets.find(
-        bucket => bucket.tiering.tiers.find(
-            entry => entry.tier === tierName
-        )
-    );
-
-    api.tier.update_tier({
-        name: tierName,
-        cloud_pools: cloudResources
-    })
-        .then(
-            () => notify(`${bucket.name} cloud storage policy updated successfully`, 'success'),
-            () => notify(`Updating ${bucket.name} cloud storage policy failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

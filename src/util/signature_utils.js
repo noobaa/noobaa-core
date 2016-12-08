@@ -4,71 +4,15 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const dbg = require('../util/debug_module')(__filename);
+const url = require('url');
+const path = require('path');
+const crypto = require('crypto');
 
-/**
- *
- * Calculates AWS signature based on auth_server request
- *
- */
-function signature(params) {
-    const access_key = params.access_key;
-    const secret_key = params.secret_key;
-    const string_to_sign = params.string_to_sign;
-    const noobaa_v4 = params.noobaa_v4;
 
-    // using S3 signer unless V4
-    if (!noobaa_v4) {
-        const s3 = new AWS.Signers.S3();
-        return s3.sign(secret_key, string_to_sign);
-    }
+///////////////////////////////////////
+//                V4                 //
+///////////////////////////////////////
 
-    const aws_request = {
-        region: noobaa_v4.region,
-    };
-    const aws_credentials = {
-        accessKeyId: access_key,
-        secretAccessKey: secret_key,
-    };
-    const v4 = new AWS.Signers.V4(
-        aws_request,
-        noobaa_v4.service,
-        'signatureCache');
-
-    // string_to_sign is already calculated in the proxy,
-    // we override the signer function to just return the calculated string
-    v4.stringToSign = () => string_to_sign;
-
-    return v4.signature(aws_credentials, noobaa_v4.xamzdate);
-}
-
-/**
- *
- * Prepare HTTP request (express) authentication for sending to auth_server
- *
- */
-function authenticate_request(req) {
-    if (req.headers.authorization) {
-        if (req.headers.authorization.startsWith('AWS4-HMAC-SHA256')) {
-            _authenticate_header_v4(req);
-        } else if (req.headers.authorization.startsWith('AWS ')) {
-            _authenticate_header_s3(req);
-        } else {
-            throw new Error('Invalid Authorization Header: ' + req.headers.authorization);
-        }
-    } else if (req.query['X-Amz-Algorithm'] === 'AWS4-HMAC-SHA256') {
-        _authenticate_query_v4(req);
-    } else if (req.query.AWSAccessKeyId && req.query.Signature) {
-        _authenticate_query_s3(req);
-    } else {
-        throw new Error('No Authorization');
-    }
-    dbg.log0('authenticate_request:', _.pick(req,
-        'access_key', 'signature', 'string_to_sign', 'noobaa_v4'));
-}
-
-////////
-// V4 //
-////////
 
 /**
  * See: http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-auth-using-authorization-header.html
@@ -81,20 +25,28 @@ function authenticate_request(req) {
  * - Cyberduck does not include spaces after the commas
  */
 function _authenticate_header_v4(req) {
-    const v4 = req.headers.authorization.match(/^AWS4-HMAC-SHA256 Credential=(\S*),\s*SignedHeaders=(\S*),\s*Signature=(\S*)$/);
+    const v4 = req.headers.authorization.match(
+        /^AWS4-HMAC-SHA256 Credential=(\S*),\s*SignedHeaders=(\S*),\s*Signature=(\S*)$/
+    );
     if (!v4) {
-        throw new Error('Invalid AWS V4 Authorization: ' + req.headers.authorization);
+        dbg.warn('Could not match AWS V4 Authorization:', req.headers.authorization);
+        return;
     }
     const credentials = v4[1].split('/', 5);
     const signed_headers = v4[2];
-    req.access_key = credentials[0];
-    req.signature = v4[3];
-    req.noobaa_v4 = {
-        xamzdate: req.headers['x-amz-date'],
-        region: credentials[2],
-        service: credentials[3],
+    const xamzdate = req.headers['x-amz-date'];
+    const region = credentials[2];
+    const service = credentials[3];
+    return {
+        access_key: credentials[0],
+        signature: v4[3],
+        string_to_sign: _string_to_sign_v4(req, signed_headers, xamzdate, region, service),
+        extra: {
+            xamzdate,
+            region,
+            service,
+        },
     };
-    req.string_to_sign = _string_to_sign_v4(req, signed_headers);
 }
 
 /**
@@ -109,25 +61,28 @@ function _authenticate_header_v4(req) {
  *          &X-Amz-Signature=<signature-value>
  */
 function _authenticate_query_v4(req) {
-    _expiry_query_v4(req.query['X-Amz-Date'], req.query['X-Amz-Expires']);
     const credentials = req.query['X-Amz-Credential'].split('/', 5);
     const signed_headers = req.query['X-Amz-SignedHeaders'];
-    req.access_key = credentials[0];
-    req.signature = req.query['X-Amz-Signature'];
-    req.noobaa_v4 = {
-        xamzdate: req.query['X-Amz-Date'],
-        region: credentials[2],
-        service: credentials[3],
+    const xamzdate = req.query['X-Amz-Date'];
+    const region = credentials[2];
+    const service = credentials[3];
+    return {
+        access_key: credentials[0],
+        signature: req.query['X-Amz-Signature'],
+        string_to_sign: _string_to_sign_v4(req, signed_headers, xamzdate, region, service),
+        extra: {
+            xamzdate,
+            region,
+            service,
+        },
     };
-    req.string_to_sign = _string_to_sign_v4(req, signed_headers);
 }
 
-function _string_to_sign_v4(req, signed_headers) {
-    const aws_request = _aws_request(req);
-    const v4 = new AWS.Signers.V4(
-        aws_request,
-        req.noobaa_v4.service,
-        'signatureCache');
+const EMPTY_SHA256 = crypto.createHash('sha256').digest('hex');
+
+function _string_to_sign_v4(req, signed_headers, xamzdate, region, service) {
+    const aws_request = _aws_request(req, region, service);
+    const v4 = new AWS.Signers.V4(aws_request, service, 'signatureCache');
 
     // If Signed Headers param doesn't exist we sign everything in order to support
     // chunked upload: http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
@@ -138,10 +93,18 @@ function _string_to_sign_v4(req, signed_headers) {
         !signed_headers_set ||
         signed_headers_set.has(key.toLowerCase());
 
-    v4.hexEncodedBodyHash = () => req.content_sha256.toString('hex');
+    v4.hexEncodedBodyHash = () => {
+        if (req.query['X-Amz-Signature'] && service === 's3') {
+            return 'UNSIGNED-PAYLOAD';
+        }
+        if (req.content_sha256) {
+            return req.content_sha256.toString('hex');
+        }
+        return EMPTY_SHA256;
+    };
 
     const canonical_str = v4.canonicalString();
-    const string_to_sign = v4.stringToSign(req.noobaa_v4.xamzdate);
+    const string_to_sign = v4.stringToSign(xamzdate);
     console.log('_string_to_sign_v4',
         'method', aws_request.method,
         'pathname', aws_request.pathname(),
@@ -154,7 +117,7 @@ function _string_to_sign_v4(req, signed_headers) {
     return string_to_sign;
 }
 
-function _expiry_query_v4(request_date, expires_seconds) {
+function _check_expiry_query_v4(request_date, expires_seconds) {
     const now = Date.now();
     const expires = (new Date(request_date).getTime()) + (Number(expires_seconds) * 1000);
     if (now > expires) {
@@ -163,35 +126,50 @@ function _expiry_query_v4(request_date, expires_seconds) {
 }
 
 
-////////
-// S3 //
-////////
+
+///////////////////////////////////////
+//                S3                 //
+///////////////////////////////////////
+
 
 function _authenticate_header_s3(req) {
-    const s3 = req.headers.authorization.match(/^AWS (\w+):(\S+)$/);
+    const s3 = req.headers.authorization.match(
+        /^AWS (\w+):(\S+)$/
+    );
     if (!s3) {
-        throw new Error('Invalid AWS S3 Authorization: ' + req.headers.authorization);
+        dbg.warn('Could not match AWS S3 Authorization:', req.headers.authorization);
+        return;
     }
-    req.access_key = s3[1];
-    req.signature = s3[2];
-    req.string_to_sign = _string_to_sign_s3(req);
+    return {
+        access_key: s3[1],
+        signature: s3[2],
+        string_to_sign: _string_to_sign_s3(req),
+    };
 }
 
 function _authenticate_query_s3(req) {
-    _expiry_query_s3(req.query.Expires);
-    req.access_key = req.query.AWSAccessKeyId;
-    req.signature = req.query.Signature;
-    req.string_to_sign = _string_to_sign_s3(req);
+    return {
+        access_key: req.query.AWSAccessKeyId,
+        signature: req.query.Signature,
+        string_to_sign: _string_to_sign_s3(req),
+    };
 }
 
 function _string_to_sign_s3(req) {
     const aws_request = _aws_request(req);
     const s3 = new AWS.Signers.S3(aws_request);
-    aws_request.headers['presigned-expires'] = req.headers.date;
-    return s3.stringToSign();
+    aws_request.headers['presigned-expires'] = req.query.Expires || req.headers.date;
+    const string_to_sign = s3.stringToSign();
+    console.log('_string_to_sign_s3',
+        'method', aws_request.method,
+        'pathname', aws_request.pathname(),
+        'search', aws_request.search(),
+        'headers', aws_request.headers,
+        'string_to_sign', '\n' + string_to_sign + '\n');
+    return string_to_sign;
 }
 
-function _expiry_query_s3(expires_epoch) {
+function _check_expiry_query_s3(expires_epoch) {
     const now = Date.now();
     const expires = Number(expires_epoch) * 1000;
     if (now > expires) {
@@ -199,6 +177,8 @@ function _expiry_query_s3(expires_epoch) {
     }
 }
 
+
+// GENERAL
 
 const HEADERS_MAP_FOR_AWS_SDK = {
     'authorization': 'Authorization',
@@ -211,17 +191,36 @@ const HEADERS_MAP_FOR_AWS_SDK = {
     'presigned-expires': 'presigned-expires',
 };
 
-function _aws_request(req) {
-    const pathname = req.originalUrl.split('?', 1)[0];
-    const search_string = AWS.util.queryParamsToString(req.query);
-    const headers_for_sdk = _.mapKeys(req.headers, (value, key) =>
+function _aws_request(req, region, service) {
+    const u = url.parse(req.originalUrl);
+    const pathname = service === 's3' ?
+        u.pathname :
+        path.normalize(decodeURI(u.pathname));
+    const search_string = u.search ?
+        AWS.util.queryParamsToString(
+            _.omit(AWS.util.queryStringParse(
+                    decodeURI(u.search.slice(1))),
+                'X-Amz-Signature', 'Signature', 'Expires', 'AWSAccessKeyId')) :
+        '';
+    const headers_for_sdk = {};
+    for (let i = 0; i < req.rawHeaders.length; i += 2) {
+        const key = req.rawHeaders[i].toLowerCase();
+        const value = req.rawHeaders[i + 1];
         // mapping the headers from nodejs lowercase keys to AWS SDK capilization
         // using predefined map for specific cases used by the signers
-        HEADERS_MAP_FOR_AWS_SDK[key] || (key.split('-')
-            .map(_.capitalize)
-            .join('-')));
+        const sdk_key =
+            HEADERS_MAP_FOR_AWS_SDK[key] ||
+            (key.split('-')
+                .map(_.capitalize)
+                .join('-'));
+        if (headers_for_sdk[sdk_key]) {
+            headers_for_sdk[sdk_key] += ',' + value;
+        } else {
+            headers_for_sdk[sdk_key] = value;
+        }
+    }
     const aws_request = {
-        region: req.noobaa_v4 && req.noobaa_v4.region,
+        region: region,
         method: req.method,
         path: req.originalUrl,
         headers: headers_for_sdk,
@@ -231,6 +230,77 @@ function _aws_request(req) {
     return aws_request;
 }
 
+/**
+ *
+ * Prepare HTTP request (express) authentication for sending to auth_server
+ *
+ */
+function authenticate_request(req) {
+    if (req.headers.authorization) {
+        if (req.headers.authorization.startsWith('AWS4-HMAC-SHA256')) {
+            return _authenticate_header_v4(req);
+        }
+        if (req.headers.authorization.startsWith('AWS ')) {
+            return _authenticate_header_s3(req);
+        }
+        dbg.warn('Unrecognized Authorization Header:', req.headers.authorization);
+    }
+    if (req.query['X-Amz-Algorithm'] === 'AWS4-HMAC-SHA256') {
+        return _authenticate_query_v4(req);
+    }
+    if (req.query.AWSAccessKeyId && req.query.Signature) {
+        return _authenticate_query_s3(req);
+    }
+    dbg.warn('Anonymous request:', req.method, req.originalUrl, req.headers);
+}
 
-exports.signature = signature;
+
+/**
+ *
+ * checking the expiry of presigned requests
+ *
+ * TODO check_expiry checks the http request, but will be best to check_expiry on auth_token in the server
+ *  the problem is that currently we don't have the needed fields in the token...
+ *
+ */
+function check_expiry(req) {
+    if (req.query['X-Amz-Date'] && req.query['X-Amz-Expires']) {
+        _check_expiry_query_v4(req.query['X-Amz-Date'], req.query['X-Amz-Expires']);
+    } else if (req.query.Expires) {
+        _check_expiry_query_s3(req.query.Expires);
+    }
+}
+
+
+/**
+ *
+ * Calculates AWS signature based on auth_server request
+ *
+ */
+function signature(auth_token, secret_key) {
+
+    // using S3 signer unless V4
+    if (!auth_token.extra) {
+        const s3 = new AWS.Signers.S3();
+        return s3.sign(secret_key, auth_token.string_to_sign);
+    }
+
+    const aws_request = {
+        region: auth_token.extra.region,
+    };
+    const aws_credentials = {
+        accessKeyId: auth_token.access_key,
+        secretAccessKey: secret_key,
+    };
+
+    // string_to_sign is already calculated in the proxy,
+    // we override the signer function to just return the calculated string
+    const v4 = new AWS.Signers.V4(aws_request, auth_token.extra.service, 'signatureCache');
+    v4.stringToSign = () => auth_token.string_to_sign;
+    return v4.signature(aws_credentials, auth_token.extra.xamzdate);
+}
+
+
 exports.authenticate_request = authenticate_request;
+exports.signature = signature;
+exports.check_expiry = check_expiry;

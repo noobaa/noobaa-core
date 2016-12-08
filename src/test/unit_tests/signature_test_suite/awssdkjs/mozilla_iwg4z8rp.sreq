@@ -1,0 +1,13 @@
+GET /files/Danny%20Macaskill%20The%20Ridge.webm?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123%2F20161208%2Feu-central-1%2Fs3%2Faws4_request&X-Amz-Date=20161208T090326Z&X-Amz-Expires=604800&X-Amz-Signature=208d624784b8e76b0f6370b089278798a2e1b62a13b280c9d6bac00339b89ed2&X-Amz-SignedHeaders=host HTTP/1.1
+Host: 127.0.0.1
+Connection: keep-alive
+Pragma: no-cache
+Cache-Control: no-cache
+Accept-Encoding: identity;q=1, *;q=0
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36
+Accept: */*
+Referer: http://127.0.0.1/files/Danny%20Macaskill%20The%20Ridge.webm?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123%2F20161208%2Feu-central-1%2Fs3%2Faws4_request&X-Amz-Date=20161208T090326Z&X-Amz-Expires=604800&X-Amz-Signature=208d624784b8e76b0f6370b089278798a2e1b62a13b280c9d6bac00339b89ed2&X-Amz-SignedHeaders=host
+Accept-Language: en-US,en;q=0.8,he;q=0.6
+Cookie: default-theme=ngax; CSRF-Token-4YGLJ=raPVMQoM4TJyTnzcAHyUvzKHPcjha9AD; firstVisit=1480953685297
+Range: bytes=0-
+

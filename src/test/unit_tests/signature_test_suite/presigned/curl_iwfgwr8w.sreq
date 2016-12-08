@@ -1,0 +1,5 @@
+GET /files/jenia?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600&X-Amz-Credential=123%2F20161207%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Date=20161207T214857Z&X-Amz-Signature=543d3d89f9a0fe511062b86363e9beb00c6dc5a7b7751153d4121aa9e546611e HTTP/1.1
+Host: 127.0.0.1
+User-Agent: curl/7.49.1
+Accept: */*
+

@@ -1,0 +1,9 @@
+HEAD /files/danny2.webm HTTP/1.1
+Date: Thu, 08 Dec 2016 12:59:58 GMT
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Host: 127.0.0.1
+x-amz-date: 20161208T125958Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161208/us-east-1/s3/aws4_request,SignedHeaders=date;host;x-amz-content-sha256;x-amz-date,Signature=0b3edb1179c854995c579731df472b10447994d2ecbcd2e69e9a104ffb6913f8
+Connection: Keep-Alive
+User-Agent: Cyberduck/5.2.2.21483 (Mac OS X/10.12.1) (x86_64)
+

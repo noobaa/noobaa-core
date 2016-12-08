@@ -1,0 +1,37 @@
+PUT /files/S3%20%28HTTPS%29.cyberduckprofile HTTP/1.1
+Host: 127.0.0.1
+Connection: keep-alive
+Content-Length: 606
+Pragma: no-cache
+Cache-Control: no-cache
+Authorization: AWS 123:0p8mbpCRkkfHU9HXvfDMHxEavgQ=
+Origin: http://127.0.0.1:5001
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36
+Content-Type: application/octet-stream
+X-Amz-Date: Thu, 08 Dec 2016 09:15:46 GMT
+X-Amz-User-Agent: aws-sdk-js/2.2.48
+Accept: */*
+Referer: http://127.0.0.1:5001/fe/systems/demo/buckets/files/objects
+Accept-Encoding: gzip, deflate, sdch, br
+Accept-Language: en-US,en;q=0.8,he;q=0.6
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Protocol</key>
+        <string>s3</string>
+        <key>Vendor</key>
+        <string>s3-https</string>
+        <key>Scheme</key>
+        <string>https</string>
+        <key>Description</key>
+        <string>S3 (HTTPS)</string>
+        <key>Default Port</key>
+        <string>443</string>
+        <key>Hostname Configurable</key>
+        <true/>
+        <key>Port Configurable</key>
+        <true/>
+    </dict>
+</plist>

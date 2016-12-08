@@ -1,0 +1,82 @@
+PUT /files/util/slice_reader.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 2017
+Content-MD5: sPPQksJdLAYqbUJ00cR5rw==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:39 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:e4CeRmUZAI04shCknDNNwiEgrZU=
+
+// module targets: nodejs & browserify
+'use strict';
+
+var util = require('util');
+var stream = require('stream');
+
+
+module.exports = SliceReader;
+
+
+/**
+ * SliceReader is a Readable stream that uses slice on a source object.
+ * params is also used for stream.Readable options: highWaterMark, decodeStrings, objectMode, etc.
+ */
+function SliceReader(source, params) {
+    var self = this;
+    params = params || {};
+    stream.Readable.call(self, params);
+    self._source = source;
+    self._pos =
+        typeof(params.start) !== 'undefined' && Number(params.start) || 0;
+    self._end =
+        typeof(params.end) !== 'undefined' && Number(params.end) ||
+        typeof(source.size) === 'undefined' && Number(source.size) ||
+        Infinity;
+
+    if (params.FileReader) {
+        // support for FileReader api
+        // we convert the provided array buffer to a buffer (copyless).
+        self._fr = new params.FileReader();
+        self._fr.onloadend = function(e) {
+            var data = e.target.result;
+            var buf = new Buffer(new Uint8Array(data));
+            if (!buf.length) {
+                self.push(null);
+            } else {
+                self._pos += buf.length;
+                self.push(buf);
+            }
+        };
+        self._fr.onerror = function(e) {
+            self.emit('error', e.target.error);
+        };
+    }
+}
+
+// proper inheritance
+util.inherits(SliceReader, stream.Readable);
+
+
+/**
+ * implement the stream's Readable._read() function.
+ */
+SliceReader.prototype._read = function(requested_size) {
+    try {
+        var next = Math.min(this._end, this._pos + requested_size);
+        var slice = this._source.slice(this._pos, next);
+        if (this._fr) {
+            this._fr.readAsArrayBuffer(slice);
+            return;
+        }
+        if (this._pos >= next || !slice.length) {
+            this.push(null); // EOF
+        } else {
+            this._pos = next;
+            this.push(slice);
+        }
+    } catch (err) {
+        this.emit('error', err);
+    }
+};

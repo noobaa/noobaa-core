@@ -1,0 +1,64 @@
+PUT /files/util/pipeline.js HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 1115
+Content-MD5: hML28mw0L8rH/DDFV52bnQ==
+Expect: 100-continue
+Date: Thu, 08 Dec 2016 13:02:39 GMT
+User-Agent: aws-cli/1.11.26 Python/2.7.10 Darwin/16.1.0 botocore/1.4.83
+Content-Type: application/javascript
+Authorization: AWS 123:gtIH63oQDF0Zzq6qQAYLD4y87wc=
+
+// module targets: nodejs & browserify
+'use strict';
+
+var _ = require('lodash');
+var P = require('../util/promise');
+
+
+module.exports = Pipeline;
+
+
+/**
+ *
+ * Pipeline
+ *
+ * Create a pipeline of transforming streams
+ *
+ */
+function Pipeline(source_stream) {
+    this._last = source_stream;
+    this._queue = [source_stream];
+    this._defer = P.defer();
+}
+
+Pipeline.prototype.pipe = function(next) {
+    next.on('error', this.on_error.bind(this));
+    next.on('close', this.on_close.bind(this));
+    this._last = this._last.pipe(next);
+    this._queue.push(next);
+    return this;
+};
+
+Pipeline.prototype.run = function() {
+    var self = this;
+    self._last.on('finish', function() {
+        self._defer.resolve();
+    });
+    self._last = null;
+    return self._defer.promise;
+};
+
+Pipeline.prototype.on_error = function(err) {
+    this._defer.reject(err);
+    _.each(this._queue, function(strm) {
+        strm.emit('close');
+    });
+};
+
+Pipeline.prototype.on_close = function() {
+    this._defer.reject(new Error('pipeline closed'));
+    _.each(this._queue, function(strm) {
+        strm.emit('close');
+    });
+};

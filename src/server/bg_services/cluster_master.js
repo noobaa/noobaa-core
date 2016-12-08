@@ -104,11 +104,11 @@ function send_master_update(is_master, master_address) {
                     system_id: system._id,
                     role: 'admin'
                 })
-            }).catch(err => dbg.log0('got error on set_webserver_master_state.', err)),
+            }).catch(err => dbg.error('got error on set_webserver_master_state.', err)),
 
-            hosted_agents_promise.catch(err => dbg.log0('got error on hosted_agents_promise.', err)),
+            hosted_agents_promise.catch(err => dbg.error('got error on hosted_agents_promise.', err)),
 
-            update_master_promise.catch(err => dbg.log0('got error on update_master_promise.', err))
+            update_master_promise.catch(err => dbg.error('got error on update_master_promise.', err))
         )
         .return();
 }

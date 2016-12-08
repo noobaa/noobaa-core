@@ -253,6 +253,14 @@ function authenticate_request(req) {
 }
 
 
+/**
+ *
+ * checking the expiry of presigned requests
+ *
+ * TODO check_expiry checks the http request, but will be best to check_expiry on auth_token in the server
+ *  the problem is that currently we don't have the needed fields in the token...
+ *
+ */
 function check_expiry(req) {
     if (req.query['X-Amz-Date'] && req.query['X-Amz-Expires']) {
         _check_expiry_query_v4(req.query['X-Amz-Date'], req.query['X-Amz-Expires']);

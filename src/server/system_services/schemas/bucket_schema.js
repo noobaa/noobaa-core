@@ -43,13 +43,16 @@ module.exports = {
                 },
                 access_keys: {
                     type: 'object',
-                    required: ['access_key', 'secret_key'],
+                    required: ['access_key', 'secret_key', 'account_id'],
                     properties: {
                         access_key: {
                             type: 'string'
                         },
                         secret_key: {
                             type: 'string'
+                        },
+                        account_id: {
+                            format: 'objectid'
                         }
                     }
                 },

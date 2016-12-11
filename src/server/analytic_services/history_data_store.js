@@ -7,25 +7,10 @@ const Ajv = require('ajv');
 const js_utils = require('../../util/js_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
-//const pool_statistics_schema = require('../analytic_services/schemas/pool_stats_schema');
 const system_history_schema = require('../analytic_services/system_history_schema');
 const schema_utils = require('../../util/schema_utils');
 const config = require('../../../config.js');
 const mongodb = require('mongodb');
-
-
-/*
-const COLLECTIONS = js_utils.deep_freeze([{
-    name: 'pool_stats',
-    schema: schema_utils.strictify(pool_statistics_schema),
-    db_indexes: [{
-        fields: {
-            id: 1,
-        }
-    }]
-}]);
-*/
-//const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
 
 const SYSTEM_COLLECTION = js_utils.deep_freeze({
     name: 'system_history',

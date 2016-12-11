@@ -11,7 +11,7 @@ module.exports = {
         time_stamp: {
             format: 'date'
         },
-        system_snapshot: {
+        system_snapshot: { // Future proofing system snapshots. Old snapshots not conforming to upgrades is expected and fine so the data here is not validated
             type: 'object',
             additionalProperties: true,
             properties: {}

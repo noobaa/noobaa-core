@@ -3,13 +3,20 @@ import editScreenTemplate from './edit-screen.html';
 import warningScreenTemplate from './warn-screen.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop, deepFreeze } from 'utils/all';
+import { noop, deepFreeze, keyByProperty } from 'utils/core-utils';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
 
 const screenMapping = deepFreeze({
-    0: { title: 'Bucket Data Placement Policy', sizeCss: 'modal-large' },
-    1: { title: 'Empty Data Placement Policy', sizeCss: 'modal-xsmall', severity: 'warn' }
+    0: {
+        title: 'Bucket Data Placement Policy',
+        sizeCss: 'modal-large'
+    },
+    1: {
+        title: 'Empty Data Placement Policy',
+        sizeCss: 'modal-xsmall',
+        severity: 'warning'
+    }
 });
 
 class BacketPlacementPolicyModalViewModel extends Disposable {
@@ -76,18 +83,18 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
             () => {
                 if (this.placementType() === 'MIRROR') {
                     return false;
-                }
 
-                let { nodes, cloud } = this.selectedPools().reduce(
-                    (counts, poolName) => {
-                        this.pools().filter( pool => pool.name === poolName)[0].nodes ?
-                            counts.nodes++ :
-                            counts.cloud++ ;
-                        return counts;
-                    },
-                    { nodes: 0, cloud: 0 }
-                );
-                return nodes > 0 && cloud > 0;
+                } else {
+                    const poolsByNames = keyByProperty(this.pools(), 'name');
+                    const hasNodesPool = this.selectedPools().some(
+                        name => Boolean(poolsByNames[name].nodes)
+                    );
+                    const hasCloudResource = this.selectedPools().some(
+                        name => Boolean(poolsByNames[name].cloud_info)
+                    );
+
+                    return hasNodesPool && hasCloudResource;
+                }
             }
         );
     }

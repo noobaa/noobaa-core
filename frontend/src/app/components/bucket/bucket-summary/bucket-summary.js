@@ -3,7 +3,8 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 import { systemInfo } from 'model';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
+import { formatSize } from 'utils/string-utils';
 
 const stateMapping = deepFreeze({
     true: {

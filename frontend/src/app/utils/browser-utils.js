@@ -163,3 +163,8 @@ export function httpWaitForResponse(url, status, retryDelay = 3000) {
             );
     })();
 }
+
+export function formatEmailUri(uri, subject) {
+    const query = stringifyQueryString({ subject });
+    return `mailto:${uri}${query ? `?${query}` : ''}`;
+}

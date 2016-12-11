@@ -1853,14 +1853,16 @@ export function disableRemoteSyslog() {
         .done();
 }
 
-export function attachServerToCluster(serverAddress, serverSecret) {
-    logAction('attachServerToCluster', { serverAddress, serverSecret });
+export function attachServerToCluster(serverAddress, serverSecret, hostname, location) {
+    logAction('attachServerToCluster', { serverAddress, serverSecret, hostname, location });
 
     api.cluster_server.add_member_to_cluster({
         address: serverAddress,
         secret: serverSecret,
         role: 'REPLICA',
-        shard: 'shard1'
+        shard: 'shard1',
+        location: location || undefined,
+        new_hostname: hostname || undefined
     })
         .then(
             () => notify(`Server ${serverAddress} attached to cluster successfully`, 'success'),

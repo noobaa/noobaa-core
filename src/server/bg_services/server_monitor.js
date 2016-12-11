@@ -129,7 +129,7 @@ function _check_ntp() {
 
 function _check_dns_and_phonehome() {
     dbg.log2('_check_dns_and_phonehome');
-    return phone_home_utils.verify_connection_to_phonehome()
+    return phone_home_utils.verify_connection_to_phonehome(system_store.data.systems[0].phone_home_proxy_address)
         .then(res => {
             switch (res) {
                 case "CONNECTED":

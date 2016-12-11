@@ -156,6 +156,14 @@ export default function register(ko) {
     /** INJECT:cluster **/
 
     // -------------------------------
+    // Server
+    // -------------------------------
+    ko.components.register('server-panel', require('./server/server-panel/server-panel').default);
+    ko.components.register('server-summary', require('./server/server-summary/server-summary').default);
+    ko.components.register('server-details-form', require('./server/server-details-form/server-details-form').default);
+    /** INJECT:server **/
+
+    // -------------------------------
     // Funcs
     // -------------------------------
     ko.components.register('funcs-panel', require('./funcs/funcs-panel/funcs-panel').default);

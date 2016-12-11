@@ -732,32 +732,28 @@ module.exports = {
 
         services_status: {
             type: 'object',
-            required: ['dns_status', 'ph_status'],
+            required: ['phonehome_server', 'internal_cluster_connectivity'],
             properties: {
-                dns_status: {
+                dns_servers: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                ph_status: {
+                dns_name_resolution: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                dns_name: {
+                phonehome_server: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                ntp_status: {
+                phonehome_proxy: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                internet_connectivity: {
-                    type: 'string',
-                    enum: ['FAULTY']
-                },
-                proxy_status: {
-                    $ref: '#/definitions/service_status_enum'
-
-                },
-                remote_syslog_status: {
+                ntp_server: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                cluster_status: {
+                remote_syslog: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                internal_cluster_connectivity: {
+                    /* TODO: What to do with that ??? */
                     anyOf: [{
                         type: 'string',
                         enum: ['UNKNOWN']

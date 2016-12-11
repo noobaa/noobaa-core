@@ -1,4 +1,4 @@
-<server-summary class="push-next"></pool-summary>
+<server-summary class="push-next"></server-summary>
 
 <div class="tabs greedy">
     <nav>
@@ -16,10 +16,13 @@
         </a>
     </nav>
 
-    <div class="tabs-row" data-bind="css: tabCss('details')">
-        This is the details tab
-    </div>
-    <div class="tabs-row" data-bind="css: tabCss('diagnostics')">
-        This is the diagnostics tab
+    <div class="tabs-row">
+        <server-details-form class="tab" data-bind="css: tabCss('details')">
+            This is the details tab
+        </server-details-form>
+
+        <section class="tab" data-bind="css: tabCss('diagnostics')">
+            This is the diagnostics tab
+        </section>
     </div>
 </div>

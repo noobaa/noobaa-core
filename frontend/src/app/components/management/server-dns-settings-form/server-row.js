@@ -50,11 +50,11 @@ export default class ServerRowViewModel extends Disposable {
         );
 
         this.primaryDNS = ko.pureComputed(
-            () => dnsServers()[0] ? dnsServers()[0] : 'not set'
+            () => dnsServers()[0] || 'not set'
         );
 
         this.secondaryDNS = ko.pureComputed(
-            () => dnsServers()[1] ? dnsServers()[1] : 'not set'
+            () => dnsServers()[1] || 'not set'
         );
 
         this.actions = {

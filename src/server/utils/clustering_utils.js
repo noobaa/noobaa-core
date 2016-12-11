@@ -173,8 +173,18 @@ function get_cluster_info() {
             dns_servers: cinfo.dns_servers || [],
             time_epoch: time_epoch
         };
-        if (cinfo.services_status) {
-            server_info.services_status = cinfo.services_status;
+
+        const status = cinfo.services_status;
+        if (status) {
+            server_info.services_status = _.omitBy({
+                dns_servers: status.dns_status,
+                dns_name_resolution: status.dns_name,
+                phonehome_server: status.ph_status,
+                phonehome_proxy: status.proxy_status,
+                ntp_server: status.ntp_status,
+                remote_syslog: status.remote_syslog_status,
+                internal_cluster_connectivity: status.cluster_status || []
+            }, _.isUndefined);
         }
         shard.servers.push(server_info);
     });

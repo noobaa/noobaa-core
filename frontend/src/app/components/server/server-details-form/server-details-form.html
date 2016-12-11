@@ -1,0 +1,68 @@
+<section class="column pad">
+    <div class="row content-middle">
+        <h2 class="greedy heading3 push-next">
+            Server Information
+        </h2>
+        <button class="btn">
+            Edit Server Details
+        </button>
+    </div>
+    <property-sheet params="properties: infoSheet"></property-sheet>
+</section>
+
+<hr class="push-both">
+
+<section class="column pad">
+    <h2 class="heading3 push-next">
+        External Services
+    </h2>
+
+    <ul class="column list-no-style status-list">
+        <li class="row push-next">
+            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
+            <label class="push-next highlight">Version:</label>
+            <span data-bind="text: version"></span>
+        </li>
+
+        <li class="row push-next">
+            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
+            <label class="push-next highlight">NTP Server:</label>
+            <span data-bind="text: ntpServer"></span>
+        </li>
+
+        <li class="row push-next">
+            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
+            <label class="push-next highlight">DNS Servers:</label>
+            <span class="row push-next">
+                <span class="highlight push-next">Primary:</span>
+                <span data-bind="text: primaryDNS"></span>
+            </span>
+            <span class="row push-prev">
+                <span class="highlight push-next">Secondary:</span>
+                <span data-bind="text: secondaryDNS"></span>
+            </span>
+        </li>
+
+        <li class="row push-next">
+            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
+            <label class="push-next highlight">Server DNS Name:</label>
+        </li>
+
+        <li class="row push-next">
+            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
+            <label class="push-next highlight">Remote Syslog:</label>
+        </li>
+
+        <li class="row push-next">
+            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
+            <label class="push-next highlight">Phone Home Server:</label>
+        </li>
+
+        <li class="row push-next">
+            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
+            <label class="push-next highlight">Phone Home Proxy:</label>
+        </li>
+    </ul>
+    <property-sheet params="properties: status"></property-sheet>
+</section>
+

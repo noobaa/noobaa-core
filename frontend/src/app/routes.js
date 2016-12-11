@@ -13,6 +13,6 @@ export const node           = `${root}/systems/:system/resources/pools/:pool/nod
 export const account        = `${root}/systems/:system/management/accounts/:account/:tab?`;
 export const management     = `${root}/systems/:system/management/:tab?/:section?`;
 export const cluster        = `${root}/systems/:system/cluster/:tab?`;
-export const server         = `${root}/systems/:system/cluster/servers/:server`;
+export const server         = `${root}/systems/:system/cluster/servers/:server/:tab?`;
 export const funcs          = `${root}/systems/:system/functions`;
 export const func           = `${root}/systems/:system/functions/:func/:tab?`;

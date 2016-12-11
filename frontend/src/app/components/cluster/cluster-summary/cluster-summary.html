@@ -1,58 +1,60 @@
-<div class="row">
-    <section class="c3 column borders pad">
+<div class="row greedy">
+    <section class="c4 column borders pad">
         <div class="row greedy content-middle">
             <svg-icon class="push-next success" params="name: 'healthy'"></svg-icon>
-            <span class="heading3">Healthy</span>
+            <span class="highlight">Healthy</span>
         </div>
 
         <hr>
 
         <div class="row greedy content-middle">
-            <span class="c5 highlight push-next">H/A Status:</span>
-            <span class="c7" data-bind="text: HAStatus"></span>
+            <svg-icon class="push-next success" params="
+                name: faultToleranceIcon().name
+            " data-bind="
+                css: faultToleranceIcon().css
+            "></svg-icon>
+            <span class="greedy push-next">
+                <span class="highlight push-next status-label">
+                    Fault Tolerance:
+                </span>
+                <span data-bind="text: faultToleranceText"></span>
+            </span>
+            <svg-icon class="icon-small" params="name: 'notif-info'" data-bind="
+                tooltip: faultToleranceTooltip
+            "></svg-icon>
         </div>
 
         <hr>
 
         <div class="row greedy content-middle">
-            <span class="c5 highlight push-next">Fault Tolerance:</span>
-            <span class="c7" data-bind="text: faultTolerance"></span>
+            <svg-icon class="push-next success" params="name: HAIcon().name"
+                data-bind="css: HAIcon().css"></svg-icon>
+            <span class="greedy push-next">
+                <span class="highlight push-next status-label">High Availability:</span>
+                <span data-bind="text: HAText"></span>
+            </span>
+            <svg-icon class="icon-small" params="name: 'notif-info'" data-bind="
+                tooltip: HATooltip
+            "></svg-icon>
         </div>
     </section>
 
-    <section class="c6 column push-both">
-        <pie-chart class="align-middle" params="
-            values: chartValues,
-            primaryText: connectedPercentage,
-            secondaryText: 'Connected'
-        "></pie-chart>
+    <section class="column c4 column push-both">
+        <chart-legend class="legend-row" params="
+            caption: chartCaption,
+            items: chartValues
+        "></chart-legend>
+
+        <div class="row greedy content-middle">
+            <canvas class="cluster-graph" data-bind="
+                canvas: { draw: drawChart.bind($data), height: 10 },
+                globalEvent: { resize: () => triggerRedraw() }
+            "></canvas>
+        </div>
     </section>
 
-    <section class="c3 column pad borders">
-        <div class="row greedy content-middle">
-            <span class="c5 highlight push-next">Servers:</span>
-            <span class="c7 text-right" data-bind="text: serverCount"></span>
-        </div>
-
+    <section class="c4 column pad borders">
+        <h3 class="heading3" data-bind="text: 'No Activities'"></h3>
         <hr>
-
-        <div class="row greedy content-middle">
-            <span class="c5 highlight push-next">Connected:</span>
-            <span class="c7 text-right" data-bind="text: connectedCount"></span>
-        </div>
-
-        <hr>
-
-        <div class="row greedy content-middle">
-            <span class="c5 highlight push-next">Disconnected:</span>
-            <span  class="c7 text-right" data-bind="text: disconnectedCount"></span>
-        </div>
-
-        <hr>
-
-        <div class="row greedy content-middle">
-            <span class="c5 highlight push-next">In Process:</span>
-            <span class="c7 text-right" data-bind="text: inProcessCount"></span>
-        </div>
     </section>
 </div>

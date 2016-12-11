@@ -40,47 +40,9 @@ const SYSTEM_COLLECTION = js_utils.deep_freeze({
 class StatsStore {
 
     static instance() {
-            StatsStore._instance = StatsStore._instance || new StatsStore();
-            return StatsStore._instance;
-        }
-        /*
-            constructor() {
-                this._json_validator = new Ajv({
-                    formats: {q
-
-                        date: schema_utils.date_format,
-                        idate: schema_utils.idate_format,
-                        objectid: val => mongo_utils.is_object_id(val)
-                    }
-                });
-                _.each(COLLECTIONS, col => {
-                    try {
-                        mongo_client.instance().define_collection(col);
-                    } catch (err) {
-                        dbg.warn('Exception while trying to init', col, err);
-                    }
-                    this._json_validator.addSchema(col.schema, col.name);
-
-                    this[col.name] = {
-                        insert: item => {
-                            item._id = item._id || new mongo_client.ObjectId();
-                            let validator = this._json_validator.getSchema(col.name);
-                            let record_expiration_date = Date.now() - config.STATISTICS_COLLECTOR_EXPIRATION;
-                            if (validator(item)) {
-                                return mongo_client.instance().db.collection(col.name).insert(item)
-                                    .then(() => mongo_client.instance().db.collection(col.name).remove({
-                                        time_stamp: {
-                                            $lt: record_expiration_date
-                                        }
-                                    }));
-                            }
-                            dbg.error('history_data_store: item not valid in collection,', col.name, validator.errors, item);
-                            return P.reject(new Error('history_data_store: item not valid in collection'));
-                        }
-                    };
-                });
-            }
-        */
+        StatsStore._instance = StatsStore._instance || new StatsStore();
+        return StatsStore._instance;
+    }
 
     constructor() {
         this._json_validator = new Ajv({
@@ -93,6 +55,7 @@ class StatsStore {
         try {
             mongo_client.instance().define_collection(SYSTEM_COLLECTION);
         } catch (err) {
+            // this might be a legit exception if system_collection was already defined
             dbg.warn('Exception while trying to init', SYSTEM_COLLECTION, err);
         }
         this._json_validator.addSchema(SYSTEM_COLLECTION.schema, SYSTEM_COLLECTION.name);
@@ -126,7 +89,7 @@ class StatsStore {
         if (validator(record)) {
             return mongo_client.instance().db.collection(SYSTEM_COLLECTION.name).insert(record)
                 .then(() => mongo_client.instance().db.collection(SYSTEM_COLLECTION.name).remove({
-                    time_stamp: {
+                    time_stamp: { // Will remove old snapshots
                         $lt: record_expiration_date
                     }
                 }));

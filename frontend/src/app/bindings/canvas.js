@@ -7,10 +7,11 @@ export default {
             throw new Error('Invalid binding target');
         }
 
-        let {
+        const rect = canvas.getBoundingClientRect();
+        const {
             draw = noop,
-            width = canvas.width,
-            height = canvas.height
+            width = rect.width | 0,
+            height = rect.height | 0
         } = valueAccessor();
 
         canvas.width = width;
@@ -21,5 +22,8 @@ export default {
             canvas.getContext('2d'),
             { width: ko.unwrap(width), height: ko.unwrap(height)
         });
+
+        // canvas.removeAttribute('width');
+        // canvas.removeAttribute('height');
     }
 };

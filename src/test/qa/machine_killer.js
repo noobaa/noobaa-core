@@ -1,7 +1,7 @@
 'use strict';
 
 const promise_utils = require('../../util/promise_utils');
-var dotenv = require('dotenv');
+var dotenv = require('../../util/dotenv');
 // const gcops = require('../qa/gcops');
 const argv = require('minimist')(process.argv);
 // var google = require('googleapis');

@@ -8,8 +8,15 @@ import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
 
 const screenMapping = deepFreeze({
-    0: { title: 'Bucket Data Placement Policy', sizeCss: 'modal-large' },
-    1: { title: 'Empty Data Placement Policy', sizeCss: 'modal-xsmall', severity: 'warn' }
+    0: {
+        title: 'Bucket Data Placement Policy',
+        sizeCss: 'modal-large'
+    },
+    1: {
+        title: 'Empty Data Placement Policy',
+        sizeCss: 'modal-xsmall',
+        severity: 'warning'
+    }
 });
 
 class BacketPlacementPolicyModalViewModel extends Disposable {

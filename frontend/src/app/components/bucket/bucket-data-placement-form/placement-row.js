@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { formatSize, deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/all';
 
 const iconMapping = deepFreeze({
     AWS: {
@@ -17,8 +17,8 @@ const iconMapping = deepFreeze({
         tooltip: 'S3 Compatible Cloud Bukcet'
     },
 
-    NODE: {
-        name: 'logo',
+    NODES_POOL: {
+        name: 'nodes-pool',
         tooltip: 'Node Pool'
     }
 });
@@ -58,7 +58,11 @@ export default class PlacementRowViewModel {
                     return;
                 }
 
-                return pool().cloud_info ? iconMapping[pool().cloud_info.endpoint_type] : iconMapping['NODE'];
+                const resourceType = pool().cloud_info ?
+                    pool().cloud_info.endpoint_type :
+                    'NODES_POOL';
+
+                return iconMapping[resourceType];
             }
         );
 
@@ -95,15 +99,10 @@ export default class PlacementRowViewModel {
             }
         );
 
-        this.usedCapacity = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return '';
-                }
-
-                const { storage  } = pool();
-                return pool().nodes ? storage : formatSize(storage.used);
-            }
-        );
+        this.freeSpace = ko.pureComputed(
+            () => pool() && pool().storage.free
+        ).extend({
+            formatSize: true
+        });
     }
 }

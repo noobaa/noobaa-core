@@ -8,8 +8,8 @@ import { stringifyAmount } from 'utils/string-utils';
 import { drawLine, fillCircle } from 'utils/canvas-utils';
 
 const faultToleranceTooltip = `
-    The number of servers the can disconnect before the clsuter will stop being
-    highly available
+    The number of servers the can disconnect before the clsuter will stop R/W
+    service
 `;
 
 const HATooltip = `
@@ -19,6 +19,8 @@ const HATooltip = `
     To reach an highly available cluster make sure you have an odd number of
     servers connected with at least one fault tolerance server
 `;
+
+const minReadWritePointText = 'Minimum for\nR/W service';
 
 const iconMapping = deepFreeze({
     true: {
@@ -46,37 +48,41 @@ class ClusterSummaryViewModel extends Disposable{
 
 
         const serverCount = ko.pureComputed(
-            () => servers().length
+            // () => servers().length
+            () => connected() + disconnected() + pending()
         );
 
         const connected = ko.pureComputed(
-            () => servers()
-                .filter(
-                    server => server.status === 'CONNECTED'
-                )
-                .length
+            // () => servers()
+            //     .filter(
+            //         server => server.status === 'CONNECTED'
+            //     )
+            //     .length
+            () => 1
         );
 
         const pending = ko.pureComputed(
-            () => servers()
-                .filter(
-                    server => server.status === 'IN_PROGREES'
-                ).length
+            // () => servers()
+            //     .filter(
+            //         server => server.status === 'IN_PROGREES'
+            //     ).length
+            () => 0
         );
 
         const disconnected = ko.pureComputed(
-            () => servers()
-                .filter(
-                    server => server.status === 'DISCONNECTED'
-                ).length
+            // () => servers()
+            //     .filter(
+            //         server => server.status === 'DISCONNECTED'
+            //     ).length
+            () => 0
         );
 
         const faultTolerance = ko.pureComputed(
-            () => Math.ceil(connected() / 2 - 1)
+            () => Math.ceil(serverCount() / 2 - 1) - disconnected()
         );
 
         const missing = ko.pureComputed(
-            () => Math.ceil(serverCount() / 2) * 2 + 1 - serverCount()
+            () => serverCount() === 1 ? 2 : (serverCount()  + 1) % 2
         );
 
         const isHighlyAvailable = ko.pureComputed(
@@ -111,28 +117,31 @@ class ClusterSummaryViewModel extends Disposable{
 
         this.chartValues = [
             {
-                label: 'Connected:',
+                label: 'Conected:',
                 color: style['color12'],
                 value: connected
             },
             {
-                label: 'Disconected:',
+                label: 'Disconnected:',
                 color: style['color10'],
                 value: disconnected
             },
-            {
-                label: 'Pending:',
-                color: style['color11'],
-                value: pending
-            },
+            // Removed until attch server will be implemented as a
+            // 2 step process (non-blocking)
+            // {
+            //     label: 'Pending:',
+            //     color: style['color11'],
+            //     value: pending
+            // },
             {
                 label: ko.pureComputed(
-                    () => `Missing servers for ${
-                        isHighlyAvailable() ? 'next fault tolerance': 'H/A'
+                    () => `Missing installed servers for ${
+                        serverCount() > 3 ? 'next fault tolerance': 'H/A'
                     }:`
                 ),
                 color: style['color15'],
-                value: missing
+                value: missing,
+                visible: missing
             }
         ];
 
@@ -145,32 +154,53 @@ class ClusterSummaryViewModel extends Disposable{
             )
         );
 
+        this.minForReadWrite = ko.pureComputed(
+            () => Math.floor(serverCount() / 2) + 1
+        );
+
         this.redraw = ko.observable();
     }
 
-    drawChart(ctx, { width, height }) {
+    drawChart(ctx, { width }) {
         // Create a dependency on redraw allowing us to redraw every time,
         // the value of redraw changed.
         this.redraw();
 
-        const middle = height / 2 | 0;
+        const baseLine = 6;
         const segments = this.segments();
         const segmentWidth = width / segments.length;
 
         for (let i = 0; i < segments.length; ++i) {
             ctx.strokeStyle = segments[i];
-            drawLine(ctx, i * segmentWidth, middle, (i + 1) * segmentWidth, middle);
+            drawLine(ctx, i * segmentWidth, baseLine, (i + 1) * segmentWidth, baseLine);
 
         }
 
         ctx.lineWidth = 1;
         ctx.strokeStyle = style['color7'];
-        drawLine(ctx, 0, 0, 0, height);
-        drawLine(ctx, width, 0, width, height);
+        drawLine(ctx, 0, 0, 0, baseLine * 2);
+        drawLine(ctx, width, 0, width, baseLine * 2);
 
         ctx.fillStyle = style['color7'];
         for (let i = 1; i < segments.length; ++i) {
-            fillCircle(ctx, i * segmentWidth, middle, 4);
+            const x = i * segmentWidth;
+            fillCircle(ctx, x, baseLine, 4);
+
+            if (i === this.minForReadWrite()) {
+                drawLine(ctx, x, baseLine, x, baseLine + 12);
+
+                ctx.font = `12px ${style['font-family1']}`;
+                ctx.textAlign = 'center';
+
+                minReadWritePointText.split(/\n/g).forEach(
+                    (line, i) => {
+                        const y = baseLine * 2 + 8 + (i +1) * 14;
+                        ctx.fillText(line, x, y);
+                    }
+                );
+
+
+            }
         }
     }
 

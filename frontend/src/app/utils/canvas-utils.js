@@ -14,3 +14,11 @@ export function fillCircle(ctx, x, y, r) {
     ctx.closePath();
     ctx.fill();
 }
+
+export function strokeCircle(ctx, x, y, r) {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.closePath();
+    ctx.stroke();
+}

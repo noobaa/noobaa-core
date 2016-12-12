@@ -33,7 +33,7 @@ class RpcRequest {
         this.params = val;
     }
 
-    new_request(api, method_api, params, auth_token) {
+    _new_request(api, method_api, params, auth_token) {
         // this.reqid will be set by the connection...
         this.time = Date.now();
         this.api = api;
@@ -71,7 +71,7 @@ class RpcRequest {
         };
     }
 
-    export_request_buffers() {
+    _encode_request() {
         let header = {
             op: 'req',
             reqid: this.reqid,
@@ -89,7 +89,7 @@ class RpcRequest {
         return RpcRequest.encode_message(header, buffers);
     }
 
-    import_request_message(msg, api, method_api) {
+    _set_request(msg, api, method_api) {
         this.time = Date.now();
         this.reqid = msg.header.reqid;
         this.api = api;
@@ -103,7 +103,7 @@ class RpcRequest {
         }
     }
 
-    export_response_buffer() {
+    _encode_response() {
         let header = {
             op: 'res',
             reqid: this.reqid
@@ -122,21 +122,21 @@ class RpcRequest {
         return RpcRequest.encode_message(header, buffers);
     }
 
-    import_response_message(msg) {
-        let is_pending = this.response_defer.promise.isPending();
+    _set_response(msg) {
+        let is_pending = this._response_defer.promise.isPending();
         if (!is_pending) {
             return is_pending;
         }
         let err = msg.header.error;
         if (err) {
             this.error = new RpcError(err.rpc_code, err.message, err.retryable);
-            this.response_defer.reject(this.error);
+            this._response_defer.reject(this.error);
         } else {
             this.reply = msg.header.reply;
             if (this.method_api.reply_import_buffers) {
                 this.method_api.reply_import_buffers(this.reply, msg.buffer);
             }
-            this.response_defer.resolve(this.reply);
+            this._response_defer.resolve(this.reply);
         }
         return is_pending;
     }

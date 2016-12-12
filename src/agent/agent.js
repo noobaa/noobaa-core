@@ -58,7 +58,7 @@ class Agent {
         dbg.log0(`this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
 
-        this.agent_conf = params.agent_conf || new json_utils.JsonWrapper();
+        this.agent_conf = params.agent_conf || new json_utils.JsonObjectWrapper();
 
         this.connect_attempts = 0;
 
@@ -66,7 +66,8 @@ class Agent {
         this.node_name = params.node_name;
         this.token = params.token;
 
-        this.token_wrapper = params.token_wrapper || {};
+        this.token_wrapper = params.token_wrapper;
+        this.create_node_token_wrapper = params.create_node_token_wrapper;
 
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
@@ -394,7 +395,8 @@ class Agent {
         this.stop();
         return fs_utils.folder_delete(this.storage_path)
             .then(() => fs_utils.create_path(this.storage_path))
-            .then(() => this.token_wrapper.write(this.token_wrapper.create_node_token))
+            .then(() => this.create_node_token_wrapper.read())
+            .then(create_node_token => this.token_wrapper.write(create_node_token))
             .then(() => this.start());
     }
 
@@ -552,7 +554,6 @@ class Agent {
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
-            create_node_token: this.token_wrapper.create_node_token,
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
@@ -561,7 +562,12 @@ class Agent {
             reply.os_info = os_utils.os_info();
         }
 
-        return this._update_servers_list(req.rpc_params.addresses)
+        return P.resolve()
+            .then(() => this._update_servers_list(req.rpc_params.addresses))
+            .then(() => this.create_node_token_wrapper.read())
+            .then(create_node_token => {
+                reply.create_node_token = create_node_token;
+            })
             .then(() => this.block_store.get_storage_info())
             .then(storage_info => {
                 dbg.log0('storage_info:', storage_info);
@@ -574,12 +580,12 @@ class Agent {
                     // reply.storage.total = Math.min(limited_total, reply.storage.total);
                     // reply.storage.free = Math.min(limited_free, reply.storage.free);
                 }
-
             })
             .then(() => extended_hb && os_utils.read_drives()
                 .catch(err => {
                     dbg.error('read_drives: ERROR', err.stack || err);
-                }))
+                })
+            )
             .then(drives => {
                 if (!drives) return;
                 // for now we only use a single drive,
@@ -632,9 +638,8 @@ class Agent {
     }
 
     update_create_node_token(req) {
-        this.token_wrapper.create_node_token = req.rpc_params.create_node_token;
-        dbg.log0('update_create_node_token: received new token');
-        return this.token_wrapper.update_create_node_token(this.token_wrapper.create_node_token);
+        dbg.log0('update_create_node_token: received new token', req.rpc_params);
+        return this.create_node_token_wrapper.write(req.rpc_params.create_node_token);
     }
 
     update_rpc_config(req) {

@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -6,6 +7,7 @@ const ncp = require('ncp').ncp;
 const path = require('path');
 const rimraf = require('rimraf');
 const mkdirp = require('mkdirp');
+const crypto = require('crypto');
 
 const P = require('./promise');
 const Semaphore = require('./semaphore');
@@ -249,6 +251,40 @@ function write_file_from_stream(file_path, read_stream) {
     );
 }
 
+// lock per full file path, to avoid parallel replace to same path, at least from the same process
+const process_file_locks = new Map();
+
+/**
+ * replace_file is a concurrency-safe way to update the file content
+ * the issue with simply doing writeFileAsync is that write is composed from 2 system calls -
+ * first truncate to 0 and then write data, and running them concurrently will race and might
+ * produce a non stable result. Using rename is a stable way of doing that on most filesystems.
+ */
+function replace_file(file_path, data) {
+    const unique_suffix = `${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
+    const tmp_name = `${file_path}.${unique_suffix}`;
+    const lock_key = path.resolve(file_path);
+    if (!process_file_locks.has(lock_key)) {
+        process_file_locks.set(lock_key, new Semaphore(1));
+    }
+    const lock = process_file_locks.get(lock_key);
+    return lock.surround(() =>
+            P.resolve()
+            .then(() => fs.writeFileAsync(tmp_name, data))
+            .then(() => fs.renameAsync(tmp_name, file_path))
+            .catch(err => fs.unlinkAsync(tmp_name)
+                .then(() => {
+                    throw err;
+                })
+            )
+        )
+        .finally(() => {
+            if (!lock.length) {
+                process_file_locks.delete(lock_key);
+            }
+        });
+}
+
 // EXPORTS
 exports.file_must_not_exist = file_must_not_exist;
 exports.file_must_exist = file_must_exist;
@@ -264,4 +300,5 @@ exports.file_delete = file_delete;
 exports.folder_delete = folder_delete;
 exports.tar_pack = tar_pack;
 exports.write_file_from_stream = write_file_from_stream;
+exports.replace_file = replace_file;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;

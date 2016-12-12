@@ -1,4 +1,4 @@
-// make jshint ignore mocha globals
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 console.log('loading .env file');
@@ -150,23 +150,11 @@ function init_test_nodes(client, system, count) {
 
 // delete all edge nodes directly from the db
 function clear_test_nodes() {
-    return P.fcall(() => {
-            console.log('REMOVE NODES');
-            var warning_timeout = setTimeout(() => {
-                console.log(
-                    '\n\n\nWaiting too long?\n\n',
-                    'the test got stuck on deleting nodes.',
-                    'this is known when running in mocha standalone (root cause unknown).',
-                    'it does work fine when running with gulp, so we let it be.\n\n');
-                process.exit(1);
-            }, 3000);
-            return nodes_store.instance().test_code_delete_all_nodes()
-                .finally(() => clearTimeout(warning_timeout));
-        })
-        .then(() => {
-            console.log('CLEANING AGENTS');
-            return core_agent_control.cleanup_agents();
-        });
+    return P.resolve()
+        .then(() => console.log('REMOVE NODES'))
+        .then(() => nodes_store.instance().test_code_delete_all_nodes())
+        .then(() => console.log('CLEANING AGENTS'))
+        .then(() => core_agent_control.cleanup_agents());
 }
 
 exports.client = new_test_client();
@@ -174,6 +162,3 @@ exports.new_test_client = new_test_client;
 exports.init_test_nodes = init_test_nodes;
 exports.clear_test_nodes = clear_test_nodes;
 exports.set_incomplete_rpc_coverage = set_incomplete_rpc_coverage;
-
-//Expose Agent Control API via coretest
-_.assign(exports, core_agent_control);

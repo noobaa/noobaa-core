@@ -1,9 +1,7 @@
 <h3 class="legend-caption heading3" data-bind="text: caption"></h3>
 <ul class="list-no-style legend-items " data-bind="foreach: items">
-    <li class="legend-item" data-bind="style: { 'border-color': color }">
+    <li class="legend-item" data-bind="visible: visible, style: style">
         <span class="highlight legend-label" data-bind="text: label"></span>
-        <span class="legend-value" data-bind="
-            text: $component.getFormattedValue(value)
-        "></span>
+        <span class="legend-value" data-bind="text: formattedValue"></span>
     </li>
 </ul>

@@ -5,7 +5,7 @@ import { formatSize } from 'utils/string-utils';
 import ko from 'knockout';
 
 const formatMapping = deepFreeze({
-    echo: echo,
+    none: echo,
     size: formatSize
 });
 
@@ -13,19 +13,29 @@ class ChartLegendViewModel extends Disposable{
     constructor({
         caption = '',
         items,
-        format = 'echo',
+        format = 'none',
         formatter = formatMapping[format]
     }) {
         super();
 
         this.caption = caption;
-        this.items = items;
         this.formatter = formatter;
+
+        this.items = ko.pureComputed(
+            () => ko.unwrap(items).map(
+                item => this.normalizeItem(item)
+            )
+        );
+
     }
 
-    getFormattedValue(value) {
-        return this.formatter(ko.unwrap(value));
+    normalizeItem({ label, color, value, visible = true }) {
+        const formattedValue = this.formatter(ko.unwrap(value));
+        const style = { 'border-color': color };
+
+        return { label, style, formattedValue, visible };
     }
+
 }
 
 export default {

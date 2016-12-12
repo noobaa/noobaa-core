@@ -89,7 +89,13 @@ config.SCRUBBER_RESTART_DELAY = 30000;
 //////////////////////
 config.LIFECYCLE_INTERVAL = 15 * 60 * 1000;
 
+//////////////////////////
+// STATISTICS_COLLECTOR //
+/////////////////////////
 
+config.STATISTICS_COLLECTOR_ENABLED = true;
+config.STATISTICS_COLLECTOR_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+config.STATISTICS_COLLECTOR_EXPIRATION = 30 * 24 * 60 * 60 * 1000; // 1 month
 
 //////////////////
 // DEBUG CONFIG //

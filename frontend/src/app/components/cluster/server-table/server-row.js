@@ -177,7 +177,7 @@ export default class ServerRowViewModel extends Disposable {
 
                 return {
                     text: numeral(server().memory_usage).format('%'),
-                    tooltip: 'Averaged over the last minute'
+                    tooltip: 'Avg. over the last minute'
                 };
             }
         );
@@ -190,7 +190,7 @@ export default class ServerRowViewModel extends Disposable {
 
                 return {
                     text: numeral(server().cpu_usage).format('%'),
-                    tooltip: 'Averaged over the last minute'
+                    tooltip: 'Avg. over the last minute'
                 };
             }
         );

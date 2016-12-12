@@ -575,7 +575,7 @@ class SystemStore extends EventEmitter {
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: ''
-                })
+                });
             });
     }
 

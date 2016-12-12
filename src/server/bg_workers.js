@@ -35,6 +35,7 @@ var cluster_master = require('./bg_services/cluster_master');
 var stats_aggregator = require('./system_services/stats_aggregator');
 var bucket_storage_fetch = require('./bg_services/bucket_storage_fetch');
 var background_scheduler = require('../util/background_scheduler').get_instance();
+var stats_collector = require('./bg_services/stats_collector');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
@@ -109,6 +110,13 @@ function run_master_workers() {
             name: 'lifecycle',
             delay: config.LIFECYCLE_INTERVAL,
         }, lifecycle.background_worker);
+    }
+
+    if (config.STATISTICS_COLLECTOR_ENABLED) {
+        register_bg_worker({
+            name: 'statistics_collector',
+            delay: config.STATISTICS_COLLECTOR_INTERVAL
+        }, stats_collector.collect_all_stats);
     }
 }
 

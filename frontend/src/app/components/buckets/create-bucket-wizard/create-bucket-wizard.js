@@ -37,9 +37,7 @@ class CreateBucketWizardViewModel extends Disposable {
         this.placementType = ko.observable('SPREAD');
 
         this.pools = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : []).filter(
-                pool => Boolean(pool.nodes)
-            )
+            () => systemInfo() ? systemInfo().pools : []
         );
 
         this.selectedPools = ko.observableArray([ defaultPoolName ])

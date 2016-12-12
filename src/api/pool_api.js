@@ -166,8 +166,53 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
-        }
+        },
 
+        get_pool_history: {
+            doc: 'Return usage history for the specified pools',
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    pool_list: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['time_stamp', 'pool_list'],
+                    properties: {
+                        time_stamp: {
+                            format: 'idate'
+                        },
+                        pool_list: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                required: ['name', 'storage'],
+                                properties: {
+                                    name: {
+                                        type: 'string'
+                                    },
+                                    storage: {
+                                        $ref: 'common_api#/definitions/storage_info'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
     },
 
     definitions: {
@@ -250,6 +295,5 @@ module.exports = {
                 }
             }
         },
-
     }
 };

@@ -563,14 +563,20 @@ class SystemStore extends EventEmitter {
                 return P.all(_.map(bulk_per_collection,
                     bulk => bulk.length && P.resolve(bulk.execute())));
             })
-            .then(() =>
+            .then(() => {
+                // notify frontend on changes made to system_store
+                // we don't want to wait for this call, hence no return!!!
+                server_rpc.client.redirector.publish_system_store_change({
+                    event: 'CHANGE'
+                });
+
                 // notify all the cluster (including myself) to reload
-                server_rpc.client.redirector.publish_to_cluster({
+                return server_rpc.client.redirector.publish_to_cluster({
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: ''
                 })
-            );
+            });
     }
 
     make_changes_in_background(changes) {

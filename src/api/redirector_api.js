@@ -38,6 +38,18 @@ module.exports = {
             }
         },
 
+        register_for_system_changes: {
+            method: 'POST',
+            reply: {
+                enum: ['CONNECT', 'DISCONNECT', 'CHANGE'],
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+                skip_resolve: true, //skip account resolve on RPC authorize for this call
+            }
+        },
+
         unregister_from_alerts: {
             method: 'POST',
             auth: {
@@ -54,6 +66,21 @@ module.exports = {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        publish_system_store_change: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    event: {
+                        type: 'string'
                     },
                 }
             },

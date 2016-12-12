@@ -356,9 +356,13 @@ function _prepare_auth_request(req) {
 
         dbg.log1('load_auth:', options, req.auth);
         if (req.auth) {
-            req.account = system_store.data.get_by_id(req.auth.account_id);
-            req.system = system_store.data.get_by_id(req.auth.system_id);
+            req.account = system_store.data && system_store.data.get_by_id(req.auth.account_id);
+            req.system = system_store.data && system_store.data.get_by_id(req.auth.system_id);
             req.role = req.auth.role;
+        }
+
+        if (options.skip_resolve) {
+            return;
         }
 
         // when the account field in method_api.auth is missing

@@ -80,6 +80,20 @@ var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
 
+mongo_client.instance().on('close', () => {
+    server_rpc.client.redirector.publish_system_store_change({
+        event: 'DISCONNECT'
+    });
+});
+mongo_client.instance().on('reconnect', () => {
+    server_rpc.client.redirector.publish_system_store_change({
+        event: 'CONNECT'
+    });
+});
+
+
+
+
 // TODO: chang this. a temp fix to block /version until upgrade is finished
 // this is not cleared if upgrade fails, and will block UI until browser refresh.
 // maybe we need to change it to use upgrade status in DB.

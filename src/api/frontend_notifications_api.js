@@ -29,7 +29,23 @@ module.exports = {
                 system: false
             }
         },
+
+        notify_on_system_store: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    event: {
+                        enum: ['CONNECT', 'DISCONNECT', 'CHANGE'],
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
     },
-    definitions: {
-    }
+    definitions: {}
 };

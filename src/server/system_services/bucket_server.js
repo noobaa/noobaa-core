@@ -599,6 +599,8 @@ function update_cloud_sync(req) {
         _id: bucket._id,
         cloud_sync: Object.assign({}, bucket.cloud_sync, req.rpc_params.policy)
     };
+    //System store holds the connected items, we want to break the chain and hold only the id
+    updated_policy.cloud_sync.access_keys.account_id = updated_policy.cloud_sync.access_keys.account_id._id.toString();
 
     var sync_directions_changed = Object.keys(req.rpc_params.policy)
         .filter(
@@ -619,6 +621,8 @@ function update_cloud_sync(req) {
     } else {
         should_resync = should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
     }
+
+    console.warn('NBNB:: updated_policy', updated_policy.cloud_sync.access_keys);
 
     return system_store.make_changes({
             update: {

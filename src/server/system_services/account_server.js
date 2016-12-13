@@ -213,7 +213,7 @@ function update_account_s3_access(req) {
             let added_buckets = [];
             let removed_buckets = [];
             desc_string.push(`${account.email} S3 access was updated by ${req.account && req.account.email}`);
-            if (req.rpc_params.access_control) {
+            if (new_allowed_buckets) {
                 added_buckets = _.difference(new_allowed_buckets, origin_allowed_buckets);
                 removed_buckets = _.difference(origin_allowed_buckets, new_allowed_buckets);
                 // Here we need a new toggle or something instead of just null

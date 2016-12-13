@@ -7,7 +7,7 @@ instdate=$(date -u +"%m-%d-%H:%M")
 echo $(date)
 
 function verify_command_run {
-        $@ >> /var/log/noobaa_service_${instdate}
+        $@ >> /var/log/noobaa_service_${instdate} 2>&1
         local rc=$?
         if [ $rc -ne 0 ]; then
                 echo "NooBaa installation failed"
@@ -18,7 +18,7 @@ function verify_command_run {
 PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
 chmod 777 /usr/local/noobaa/remove_service.sh
-/usr/local/noobaa/remove_service.sh ignore_rc >> /var/log/noobaa_service_${instdate}
+/usr/local/noobaa/remove_service.sh ignore_rc >> /var/log/noobaa_service_${instdate} 2>&1
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
   cp /usr/local/noobaa/src/agent/system_d.conf /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
@@ -36,12 +36,12 @@ elif [[ -d /etc/init ]]; then
   verify_command_run initctl start noobaalocalservice
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Installing service"
-  verify_command_run /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer >> /var/log/noobaa_service_${instdate}
+  verify_command_run /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
   type chkconfig &> /dev/null
   if [ $? -eq 0 ]; then
     verify_command_run chkconfig noobaalocalservice on
   else
-    verify_command_run update-rc.d noobaalocalservice enable
+    verify_command_run update-rc.d noobaalocalservice enable 
   fi
   echo "Starting Service"
   verify_command_run service noobaalocalservice start

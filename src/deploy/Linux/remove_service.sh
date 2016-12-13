@@ -14,7 +14,7 @@ if [ "$1" == "ignore_rc" ]; then
 fi
 
 function verify_command_run {
-        $@ >> /var/log/noobaa_service_rem_${instdate}
+        $@ >> /var/log/noobaa_service_rem_${instdate} 2>&1
         local rc=$?
         if [ $ignore_rc -eq 1 ]; then
             if [ $rc -ne 0 ]; then
@@ -30,13 +30,13 @@ verify_command_run /usr/local/noobaa/node /usr/local/noobaa/node_modules/forever
 echo "Uninstalling NooBaa local service"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Uninstalling service"
-  systemctl stop noobaalocalservice
+  systemctl stop noobaalocalservice >> /var/log/noobaa_service_rem_${instdate} 2>&1
   verify_command_run systemctl disable noobaalocalservice
   rm /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
   verify_command_run systemctl daemon-reload
 elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Removing init script"
-  initctl stop noobaalocalservice
+  initctl stop noobaalocalservice >> /var/log/noobaa_service_rem_${instdate} 2>&1
   rm /etc/init/noobaalocalservice.conf
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Uninstalling service"
@@ -47,8 +47,8 @@ elif [[ -d /etc/init.d ]]; then
   else
     verify_command_run update-rc.d noobaalocalservice disable
   fi
-  service noobaalocalservice stop
-  /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
+  service noobaalocalservice stop >> /var/log/noobaa_service_rem_${instdate} 2>&1
+  /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall >> /var/log/noobaa_service_rem_${instdate} 2>&1
   rm /etc/init.d/noobaalocalservice
 else
   echo "ERROR: Cannot detect init mechanism, NooBaa uninstallation failed"

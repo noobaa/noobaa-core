@@ -133,7 +133,10 @@ function get_cluster_info() {
     _.each(system_store.data.clusters, cinfo => {
         let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
         let memory_usage = 0;
-        let cpu_usage = 0;
+        let cpus = {
+            count: 0,
+            usage: 0
+        };
         let version = '0';
         let is_connected = 'DISCONNECTED';
         let hostname = os.hostname();
@@ -149,7 +152,8 @@ function get_cluster_info() {
         }
         if (cinfo.heartbeat) {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
-            cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
+            cpus.count = cinfo.heartbeat.health.os_info.cpus.length;
+            cpus.usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
             if (online_members.indexOf(cinfo.owner_address) !== -1) {
                 is_connected = 'CONNECTED';
@@ -165,7 +169,7 @@ function get_cluster_info() {
             status: is_connected,
             memory_usage: memory_usage,
             storage: storage,
-            cpu_usage: cpu_usage,
+            cpus: cpus,
             location: location,
             debug_level: cinfo.debug_level,
             ntp_server: cinfo.ntp && cinfo.ntp.server,

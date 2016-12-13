@@ -700,8 +700,17 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
-                cpu_usage: {
-                    type: 'number'
+                cpus: {
+                    type: 'object',
+                    required: ['count', 'usage'],
+                    properties: {
+                        count: {
+                            type: 'number'
+                        },
+                        usage: {
+                            type: 'number'
+                        }
+                    }
                 },
                 location: {
                     type: 'string'

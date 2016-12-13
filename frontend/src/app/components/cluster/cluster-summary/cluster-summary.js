@@ -54,7 +54,7 @@ const statusMapping = deepFreeze({
 
 // Check if server has issues.
 function serverHasIssues(server, systemVersion) {
-    const { version, services_status } = server;
+    const { version, services_status = {} } = server;
 
     if (version !== systemVersion) {
         return true;

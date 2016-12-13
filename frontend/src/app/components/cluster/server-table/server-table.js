@@ -54,7 +54,7 @@ const compareAccessors = deepFreeze({
     address: server => server.address,
     diskUsage: server => 1 - server.storage.free / server.storage.total,
     memoryUsage: server => server.memory_usage,
-    cpuUsage: server => server.cpu_usage,
+    cpuUsage: server => server.cpus.usage,
     location: server => server.location,
     version: server => server.version
 });

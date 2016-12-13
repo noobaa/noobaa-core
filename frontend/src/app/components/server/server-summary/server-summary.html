@@ -1,35 +1,34 @@
 <section class="row">
-    <section class="c3 column pad borders">
-<!--         <div class="greedy r7ow content-middle">
-            <svg-icon class="push-next" params="name: 'healthy'"
-                data-bind="css: 'success'">
-            </svg-icon>
-            <span class="heading3" data-bind="text: 'Connected'"></span>
+    <section class="c4 column pad borders">
+        <div class="row greedy content-middle">
+            <svg-icon class="push-next"
+                params="name: statusIcon().name"
+                data-bind="css: statusIcon().css"
+            ></svg-icon>
+            <span class="highlight" data-bind="text: statusText"></span>
         </div>
-        <hr />
-        <div class="greedy row content-middle">
-            <svg-icon class="push-next" params="name: 'healthy'"
-                data-bind="css: 'success'">
-            </svg-icon>
-            <span class="heading3" data-bind="text: 'All Services Healthy'"></span>
-        </div> -->
+
+        <hr>
+
+        <div class="row greedy content-middle">
+            <svg-icon class="push-next"
+                params="name: issuesIcon().name"
+                data-bind="css: issuesIcon().css"
+            ></svg-icon>
+            <span class="highlight" data-bind="
+                text: issuesText,
+                css: { disabled: notConnected }
+            "></span>
+        </div>
     </section>
 
-    <section class="c6 column push-both">
-<!--         <div class="row align-middle">
-            <div class="column greedy push-next">
-                <toggle-filter class="push-next" params="
-                    options: graphOptions,
-                    selected: selectedGraph
-                "></toggle-filter>
-
-                <chart-legend params="items: legend"></chart-legend>
-            </div>
-        </div> -->
+    <section class="c4 column push-both">
+        <h3 class="heading3">Average utilization over last minute</h3>
+        <bar-chart params="values: barValues, options: barOptions">
     </section>
 
-    <section class="c3 column pad borders">
-        <h3 class="heading3" data-bind="text: 'No Activities'"></h3>
+    <section class="c4 column pad borders">
+        <h3 class="heading3" data-bind="text: 'No Server Activities'"></h3>
         <hr>
     </section>
 </section>

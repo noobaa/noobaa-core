@@ -59,7 +59,7 @@ function create_nodes_pool(req) {
                 pool._id, req.account && req.account._id))
         .then(res => {
             Dispatcher.instance().activity({
-                event: 'pool.create',
+                event: 'resource.create',
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
@@ -106,7 +106,7 @@ function create_cloud_pool(req) {
         .then(() => {
             // TODO: should we add different event for cloud pool?
             Dispatcher.instance().activity({
-                event: 'pool.create',
+                event: 'resource.cloud_create',
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
@@ -182,7 +182,7 @@ function _delete_nodes_pool(system, pool, account) {
         })
         .then(res => {
             Dispatcher.instance().activity({
-                event: 'pool.delete',
+                event: 'resource.delete',
                 level: 'info',
                 system: system._id,
                 actor: account && account._id,
@@ -217,7 +217,7 @@ function _delete_cloud_pool(system, pool, account) {
         })
         .then(() => {
             Dispatcher.instance().activity({
-                event: 'pool.delete',
+                event: 'resource.cloud_delete',
                 level: 'info',
                 system: system._id,
                 actor: account && account._id,

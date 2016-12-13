@@ -314,7 +314,7 @@ class NodesMonitor extends EventEmitter {
                 desc_string.push(`${node} was assigned from ${original_pool_name} to ${new_pool_name}`);
             });
             Dispatcher.instance().activity({
-                event: 'pool.assign_nodes',
+                event: 'resource.assign_nodes',
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,

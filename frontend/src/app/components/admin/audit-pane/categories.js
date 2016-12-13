@@ -118,7 +118,7 @@ export default {
         }
     },
 
-    pool: {
+    resource: {
         displayName: 'Resources',
         events: {
             create: {
@@ -128,6 +128,16 @@ export default {
 
             delete: {
                 message: 'Pool Deleted',
+                entityId: ({ pool }) => pool && pool.name
+            },
+
+            cloud_create: {
+                message: 'Cloud Resource Created',
+                entityId: ({ pool }) => pool && pool.name
+            },
+
+            cloud_delete: {
+                message: 'Cloud Resource Deleted',
                 entityId: ({ pool }) => pool && pool.name
             },
 

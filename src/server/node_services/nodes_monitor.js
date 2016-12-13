@@ -306,7 +306,7 @@ class NodesMonitor extends EventEmitter {
         });
         this._schedule_next_run(1);
 
-        if (items.length) {
+        if (node_names.length) {
             let desc_string = [];
             let new_pool_name = system_store.data.get_by_id(items[0].node.pool).name;
             desc_string.push(`${node_names.length} Nodes were assigned to ${new_pool_name} successfully by ${req.account && req.account.email}`);

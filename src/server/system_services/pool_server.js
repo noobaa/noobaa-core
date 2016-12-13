@@ -55,7 +55,8 @@ function create_nodes_pool(req) {
                 pools: [pool]
             }
         })
-        .then(() => nodes_client.instance().migrate_nodes_to_pool(req.system._id, nodes, pool._id))
+        .then(() => nodes_client.instance().migrate_nodes_to_pool(req.system._id, nodes,
+                pool._id, req.account && req.account._id))
         .then(res => {
             Dispatcher.instance().activity({
                 event: 'pool.create',
@@ -231,7 +232,8 @@ function _delete_cloud_pool(system, pool, account) {
 function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
-    return nodes_client.instance().migrate_nodes_to_pool(req.system._id, req.rpc_params.nodes, pool._id);
+    return nodes_client.instance().migrate_nodes_to_pool(req.system._id, req.rpc_params.nodes,
+            pool._id, req.account && req.account._id);
 }
 
 

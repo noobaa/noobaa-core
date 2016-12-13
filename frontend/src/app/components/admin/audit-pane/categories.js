@@ -109,12 +109,17 @@ export default {
             s3_access_updated: {
                 message: 'Account S3 Access Updated',
                 entityId: ({ account }) => account && account.email
+            },
+
+            generate_credentials: {
+                message: 'Account Credentials Generated',
+                entityId: ({ account }) => account && account.email
             }
         }
     },
 
     pool: {
-        displayName: 'Pools',
+        displayName: 'Resources',
         events: {
             create: {
                 message: 'Pool Created',

@@ -161,6 +161,16 @@ function generate_account_keys(req) {
                 }
             });
         })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'account.generate_credentials',
+                level: 'info',
+                system: req.system && req.system._id,
+                actor: req.account && req.account._id,
+                account: account._id,
+                desc: `Credentials for ${account.email} were regenarated ${req.account && 'by ' + req.account.email}`,
+            });
+        })
         .return();
 }
 

@@ -1,10 +1,10 @@
 import template from './chart-legend.html';
 import Disposable from 'disposable';
-import { echo, deepFreeze } from 'utils/core-utils';
+import { echo, deepFreeze, isFunction } from 'utils/core-utils';
 import { formatSize } from 'utils/string-utils';
 import ko from 'knockout';
 
-const formatMapping = deepFreeze({
+const namedFormats = deepFreeze({
     none: echo,
     size: formatSize
 });
@@ -13,13 +13,12 @@ class ChartLegendViewModel extends Disposable{
     constructor({
         caption = '',
         items,
-        format = 'none',
-        formatter = formatMapping[format]
+        format = 'none'
     }) {
         super();
 
         this.caption = caption;
-        this.formatter = formatter;
+        this.formatter = isFunction(format) ? format : namedFormats[format];
 
         this.items = ko.pureComputed(
             () => ko.unwrap(items).map(

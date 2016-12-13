@@ -251,11 +251,16 @@ function update_bucket_s3_access(req) {
         .then(() => {
             const desc_string = [];
             if (added_accounts.length > 0) {
-                desc_string.push(`Added accounts: ${added_accounts}`);
+                desc_string.push('Added accounts: ' + _.map(added_accounts, function(acc) {
+                    return acc.email;
+                }));
             }
             if (removed_accounts.length > 0) {
-                desc_string.push(`Removed accounts: ${removed_accounts}`);
+                desc_string.push('Removed accounts: ' + _.map(removed_accounts, function(acc) {
+                    return acc.email;
+                }));
             }
+
             Dispatcher.instance().activity({
                 event: 'bucket.s3_access_updated',
                 level: 'info',

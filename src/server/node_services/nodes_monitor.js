@@ -274,8 +274,13 @@ class NodesMonitor extends EventEmitter {
         return this._get_node_info(item);
     }
 
-    migrate_nodes_to_pool(nodes_identities, pool_id) {
+    migrate_nodes_to_pool(req) {
         this._throw_if_not_started_and_loaded();
+        let nodes_identities = req.rpc_params.nodes;
+        let pool_id = req.rpc_params.pool_id;
+        let node_names = [];
+        let original_pool_name;
+
         const items = _.map(nodes_identities, node_identity => {
             let item = this._get_node(node_identity, 'allow_offline');
             // validate that the node doesn't belong to a cloud pool
@@ -287,28 +292,36 @@ class NodesMonitor extends EventEmitter {
         _.each(items, item => {
             dbg.log0('migrate_nodes_to_pool:', item.node.name,
                 'pool_id', pool_id, 'from pool', item.node.pool);
+            if (!original_pool_name) {
+                original_pool_name = system_store.data.get_by_id(item.node.pool).name;
+            }
             if (String(item.node.pool) !== String(pool_id)) {
                 item.node.migrating_to_pool = Date.now();
                 item.node.pool = new mongodb.ObjectId(pool_id);
                 item.suggested_pool = ''; // reset previous suggestion
+                node_names.push(item.node.name);
             }
             this._set_need_update.add(item);
             this._update_status(item);
         });
         this._schedule_next_run(1);
-        // let desc_string = [];
-        // desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
-        // _.forEach(nodes_before_change, node => {
-        //     desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
-        // });
-        // Dispatcher.instance().activity({
-        //     event: 'pool.assign_nodes',
-        //     level: 'info',
-        //     system: req.system._id,
-        //     actor: req.account && req.account._id,
-        //     pool: pool._id,
-        //     desc: desc_string.join('\n'),
-        // });
+
+        if (items.length) {
+            let desc_string = [];
+            let new_pool_name = system_store.data.get_by_id(items[0].node.pool).name;
+            desc_string.push(`${node_names.length} Nodes were assigned to ${new_pool_name} successfully by ${req.account && req.account.email}`);
+            _.forEach(node_names, node => {
+                desc_string.push(`${node} was assigned from ${original_pool_name} to ${new_pool_name}`);
+            });
+            Dispatcher.instance().activity({
+                event: 'pool.assign_nodes',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                pool: pool_id,
+                desc: desc_string.join('\n'),
+            });
+        }
     }
 
     decommission_node(req) {

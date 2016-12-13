@@ -620,9 +620,7 @@ function update_cloud_sync(req) {
         should_resync = sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
     } else {
         should_resync = should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
-    }
-
-    console.warn('NBNB:: updated_policy', updated_policy.cloud_sync.access_keys);
+    }    
 
     return system_store.make_changes({
             update: {

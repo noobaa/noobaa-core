@@ -109,12 +109,17 @@ export default {
             s3_access_updated: {
                 message: 'Account S3 Access Updated',
                 entityId: ({ account }) => account && account.email
+            },
+
+            generate_credentials: {
+                message: 'Account Credentials Generated',
+                entityId: ({ account }) => account && account.email
             }
         }
     },
 
-    pool: {
-        displayName: 'Pools',
+    resource: {
+        displayName: 'Resources',
         events: {
             create: {
                 message: 'Pool Created',
@@ -123,6 +128,16 @@ export default {
 
             delete: {
                 message: 'Pool Deleted',
+                entityId: ({ pool }) => pool && pool.name
+            },
+
+            cloud_create: {
+                message: 'Cloud Resource Created',
+                entityId: ({ pool }) => pool && pool.name
+            },
+
+            cloud_delete: {
+                message: 'Cloud Resource Deleted',
                 entityId: ({ pool }) => pool && pool.name
             },
 

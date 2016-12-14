@@ -68,6 +68,15 @@ function register_for_system_changes(req) {
     return system_store.get_current_state();
 }
 
+
+function unregister_from_system_changes(req) {
+    var conn = req.connection;
+    if (!system_changes_connections.has(conn)) {
+        return;
+    }
+    system_changes_connections.delete(conn);
+}
+
 function register_for_alerts(req) {
     var conn = req.connection;
     if (!alerts_connections.has(conn)) {
@@ -86,6 +95,7 @@ function unregister_from_alerts(req) {
     }
     alerts_connections.delete(conn);
 }
+
 
 function publish_alerts(req) {
     var connections = [];
@@ -124,8 +134,9 @@ function publish_system_store_change(req) {
 
 // EXPORTS
 exports.register_for_alerts = register_for_alerts;
-exports.register_for_system_changes = register_for_system_changes;
 exports.unregister_from_alerts = unregister_from_alerts;
+exports.unregister_from_system_changes = unregister_from_system_changes;
+exports.register_for_system_changes = register_for_system_changes;
 exports.register_to_cluster = register_to_cluster;
 exports.publish_to_cluster = publish_to_cluster;
 exports.publish_alerts = publish_alerts;

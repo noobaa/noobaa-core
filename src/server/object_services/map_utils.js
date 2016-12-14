@@ -57,13 +57,14 @@ function select_prefered_mirrors(tier, tiering_pools_status) {
         return pool_weight ? (pool_weight / _.get(mirror.spread_pools, 'length', 1)) : pool_weight;
     });
 
-    return [_.first(sorted_spread_tiers)];
+    let best_spread = _.first(sorted_spread_tiers);
+    return best_spread ? [best_spread] : [];
 }
 
 
 function select_pool_type(spread_pools, tiering_pools_status) {
     if (!_.get(spread_pools, 'length', 0)) {
-        throw new Error('select_pool_type:: There are no pools in tier spread_pools');
+        console.warn('select_pool_type:: There are no pools in current mirror');
     }
 
     let mirror_status = {
@@ -81,9 +82,9 @@ function select_pool_type(spread_pools, tiering_pools_status) {
     mirror_status.regular_pools = pools_partitions[0];
     mirror_status.cloud_pools = pools_partitions[1];
     mirror_status.regular_pools_valid = _.some(mirror_status.regular_pools,
-        pool => _.get(tiering_pools_status, `${pool.name}`, false));
+        pool => _.get(tiering_pools_status, pool.name, false));
     mirror_status.cloud_pools_valid = _.some(mirror_status.cloud_pools,
-        pool => _.get(tiering_pools_status, `${pool.name}`, false));
+        pool => _.get(tiering_pools_status, pool.name, false));
 
     if (_.get(selected_pool_type, 'cloud_pool_info', false)) {
         mirror_status.picked_pools = mirror_status.regular_pools_valid ?
@@ -108,7 +109,11 @@ function _handle_under_spill(decision_params) {
         _.every(decision_params.blocks_partitions.bad_blocks,
             block => !block.node.is_cloud_node);
 
-    if (only_on_premise_blocks) {
+    let num_of_allocated_blocks =
+        _.get(decision_params, 'blocks_partitions.good_blocks.length', 0) +
+        _.get(decision_params, 'blocks_partitions.bad_blocks.length', 0);
+
+    if (num_of_allocated_blocks > 0 && only_on_premise_blocks) {
         if (_.get(decision_params.mirror_status, 'regular_pools_valid', false)) {
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.regular_pools);
@@ -181,7 +186,7 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
     // on build_chunks flow we will not ignore cloud pools.
     const participating_mirrors = async_mirror ?
         select_prefered_mirrors(tier, tiering_pools_status) :
-        tier.mirrors;
+        tier.mirrors || [];
 
     // let blocks_by_pool_name = _.groupBy(
     //     _.flatten(_.map(chunk.frags, 'blocks')),

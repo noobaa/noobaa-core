@@ -163,6 +163,7 @@ const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
 
 let accounts_by_email_lowercase = [];
 
+let mongo_connection_state = 'CONNECT';
 
 /**
  *
@@ -170,6 +171,8 @@ let accounts_by_email_lowercase = [];
  *
  */
 class SystemStoreData {
+
+
 
     constructor(data) {
         this.time = Date.now();
@@ -564,19 +567,48 @@ class SystemStore extends EventEmitter {
                     bulk => bulk.length && P.resolve(bulk.execute())));
             })
             .then(() => {
-                // notify frontend on changes made to system_store
-                // we don't want to wait for this call, hence no return!!!
-                server_rpc.client.redirector.publish_system_store_change({
-                    event: 'CHANGE'
-                });
-
                 // notify all the cluster (including myself) to reload
                 return server_rpc.client.redirector.publish_to_cluster({
                     method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: ''
                 });
+            })
+            .then(() => {
+                // notify frontend on changes made to system_store
+                // we don't want to wait for this call, hence no return
+                server_rpc.client.redirector.publish_system_store_change({
+                        event: 'CHANGE'
+                    })
+                    .catch(err => {
+                        dbg.error('got error on publish_system_store_change', err);
+                    });
             });
+    }
+
+    listen_for_changes() {
+        mongo_client.instance().on('close', () => {
+            mongo_connection_state = 'DISCONNECT';
+            server_rpc.client.redirector.publish_system_store_change({
+                    event: 'DISCONNECT'
+                })
+                .catch(err => {
+                    dbg.error('got error on publish_system_store_change', err);
+                });
+        });
+        mongo_client.instance().on('reconnect', () => {
+            mongo_connection_state = 'CONNECT';
+            server_rpc.client.redirector.publish_system_store_change({
+                    event: 'CONNECT'
+                })
+                .catch(err => {
+                    dbg.error('got error on publish_system_store_change', err);
+                });
+        });
+    }
+
+    get_current_state() {
+        return mongo_connection_state;
     }
 
     make_changes_in_background(changes) {

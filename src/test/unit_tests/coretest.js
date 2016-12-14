@@ -110,8 +110,8 @@ mocha.after('coretest-after', function() {
 
     return core_agent_control.cleanup_agents()
         .delay(1000)
-        .then(() => server_rpc.rpc.set_disconnected_state(true))
         .then(() => mongo_client.instance().disconnect())
+        .then(() => server_rpc.rpc.set_disconnected_state(true))
         .then(() => {
             mongoose.connection.removeAllListeners('disconnected');
             mongoose.connection.removeAllListeners('error');

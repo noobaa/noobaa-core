@@ -9,21 +9,16 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const server_rpc = require('../server_rpc');
-const mongo_client = require('../../util/mongo_client');
+const system_store = require('../system_services/system_store').get_instance();
+
 
 // dbg.set_level(5);
 
 const cluster_connections = new Set();
 const alerts_connections = new Set();
 const system_changes_connections = new Set();
-let current_mongo_state = 'CONNECT';
 
-mongo_client.instance().on('close', () => {
-    current_mongo_state = 'DISCONNECT';
-});
-mongo_client.instance().on('reconnect', () => {
-    current_mongo_state = 'CONNECT';
-});
+system_store.listen_for_changes();
 
 
 function register_to_cluster(req) {
@@ -69,8 +64,8 @@ function register_for_system_changes(req) {
         conn.on('close', function() {
             system_changes_connections.delete(conn);
         });
-        return current_mongo_state;
     }
+    return system_store.get_current_state();
 }
 
 function register_for_alerts(req) {
@@ -97,7 +92,6 @@ function publish_alerts(req) {
     alerts_connections.forEach(function(conn) {
         connections.push(conn);
     });
-    connections = _.uniq(connections);
     dbg.log3('publish_alerts:', req.rpc_params.request_params, connections);
     return P.map(connections, function(conn) {
             return server_rpc.client.frontend_notifications.alert(req.rpc_params.request_params, {
@@ -114,7 +108,6 @@ function publish_system_store_change(req) {
     system_changes_connections.forEach(function(conn) {
         connections.push(conn);
     });
-    connections = _.uniq(connections);
     dbg.log3('publish_system_store_change:', req.rpc_params.event, connections);
     return P.map(connections, function(conn) {
             return server_rpc.client.frontend_notifications.notify_on_system_store({

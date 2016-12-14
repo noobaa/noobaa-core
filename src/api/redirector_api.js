@@ -46,7 +46,7 @@ module.exports = {
             },
             auth: {
                 system: 'admin',
-                skip_resolve: true, //skip account resolve on RPC authorize for this call
+                skip_checks: true, //skip account checks on RPC authorize for this call
             }
         },
 

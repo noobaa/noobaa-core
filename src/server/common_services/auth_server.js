@@ -361,7 +361,7 @@ function _prepare_auth_request(req) {
             req.role = req.auth.role;
         }
 
-        if (options.skip_resolve) {
+        if (options.skip_checks) {
             return;
         }
 

@@ -70,7 +70,7 @@ function select_prefered_mirrors(tier, tiering_pools_status) {
 // This decision may be changed when we actually check the status of the blocks
 function select_pool_type(spread_pools, tiering_pools_status) {
     if (!_.get(spread_pools, 'length', 0)) {
-        throw new Error('select_pool_type:: There are no pools in tier spread_pools');
+        console.warn('select_pool_type:: There are no pools in current mirror');
     }
 
     let mirror_status = {
@@ -91,10 +91,10 @@ function select_pool_type(spread_pools, tiering_pools_status) {
 
     // Checking if there are any valid on premise pools
     mirror_status.regular_pools_valid = _.some(mirror_status.regular_pools,
-        pool => _.get(tiering_pools_status, `${pool.name}`, false));
+        pool => _.get(tiering_pools_status, pool.name, false));
     // Checking if there are any valid cloud pools
     mirror_status.cloud_pools_valid = _.some(mirror_status.cloud_pools,
-        pool => _.get(tiering_pools_status, `${pool.name}`, false));
+        pool => _.get(tiering_pools_status, pool.name, false));
 
     // Checking what type of a pool we've selected above
     if (_.get(selected_pool_type, 'cloud_pool_info', false)) {
@@ -122,13 +122,13 @@ function _handle_under_policy_threshold(decision_params) {
         _.every(decision_params.blocks_partitions.bad_blocks,
             block => !block.node.is_cloud_node);
 
-    // Checking if we've had any allocations prior (does not include blocks not in policy)
-    let not_first_allocation = _.get(decision_params, 'blocks_partitions.good_blocks.length', 0) &&
+    let num_of_allocated_blocks =
+        _.get(decision_params, 'blocks_partitions.good_blocks.length', 0) +
         _.get(decision_params, 'blocks_partitions.bad_blocks.length', 0);
 
     // We will always prefer to allocate on premise pools
     // In case that we did not have any blocks on cloud pools
-    if (not_first_allocation && only_on_premise_blocks) {
+    if (num_of_allocated_blocks > 0 && only_on_premise_blocks) {
         if (_.get(decision_params.mirror_status, 'regular_pools_valid', false)) {
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.regular_pools);

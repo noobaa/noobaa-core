@@ -24,7 +24,9 @@ function check_mongo_status {
     fi
 
     # even if the supervisor reports the service is running try to connect to it
-    local mongo_status=$(mongo nbcore --quiet --eval 'quit(!db.serverStatus().ok)')
+    local mongo_status
+    # beware not to run "local" in the same line changes the exit code
+    mongo_status=$(mongo nbcore --quiet --eval 'quit(!db.serverStatus().ok)')
     if [ $? -ne 0 ]
     then
         deploy_log "check_mongo_status: Failed to connect to mongod: $mongo_status"

@@ -306,9 +306,9 @@ function run_test() {
     return P.fcall(function() {
             return deploy_ceph();
         })
-        .then(() => promise_utils.exec(createAccountCommand, true, true))
+        .then(() => promise_utils.exec(createAccountCommand, false, true))
         .then(res => console.log(res))
-        .then(() => promise_utils.exec(readSystemCommand, true, true))
+        .then(() => promise_utils.exec(readSystemCommand, false, true))
         .then(res => {
             console.log(res);
 

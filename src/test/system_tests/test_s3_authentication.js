@@ -9,7 +9,7 @@ var basic_server_ops = require('./basic_server_ops');
 // var _ = require('lodash');
 // var assert = require('assert');
 // var promise_utils = require('../../util/promise_utils');
-var dotenv = require('dotenv');
+var dotenv = require('../../util/dotenv');
 var http = require('http');
 dotenv.load();
 

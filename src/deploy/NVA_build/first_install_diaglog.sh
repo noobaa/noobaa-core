@@ -35,7 +35,7 @@ function validate_mask() {
 function configure_networking_dialog {
       local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
 
-      dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Current IP: \Z4\Zb${current_ip}\Zn .\nChoose IP Assignment (Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 2 1 "Static IP" 2 "Dynamic IP" 2> choice
+      dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Current IP for \Z4\Zbeth0\Z : \Z4\Zb${current_ip}\Zn .\nChoose IP Assignment (Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 2 1 "Static IP" 2 "Dynamic IP" 2> choice
 
       local dynamic=$(cat choice)
       local rc

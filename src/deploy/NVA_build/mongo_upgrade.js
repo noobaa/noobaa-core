@@ -50,7 +50,7 @@ function sync_cluster_upgrade() {
         owner_secret: param_secret
     }).toArray()[0].upgrade ? db.clusters.find({
         owner_secret: param_secret
-    }).toArray()[0].upgrade.mongo_upgrade : false;
+    }).toArray()[0].upgrade.mongo_upgrade : true;
 
     // if this server shouldn't run mongo_upgrade, set status to DB_READY,
     // to indicate that this server is upgraded and with mongo running.

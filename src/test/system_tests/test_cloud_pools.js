@@ -8,7 +8,7 @@ var AWS = require('aws-sdk');
 var argv = require('minimist')(process.argv);
 var P = require('../../util/promise');
 var basic_server_ops = require('./basic_server_ops');
-var dotenv = require('dotenv');
+var dotenv = require('../../util/dotenv');
 dotenv.load();
 var promise_utils = require('../../util/promise_utils');
 var test_utils = require('./test_utils');

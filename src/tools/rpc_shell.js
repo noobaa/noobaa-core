@@ -1,6 +1,6 @@
 'use strict';
 
-var dotenv = require('dotenv');
+var dotenv = require('../util/dotenv');
 dotenv.load();
 
 var _ = require('lodash');

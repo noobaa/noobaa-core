@@ -122,9 +122,13 @@ function _handle_under_policy_threshold(decision_params) {
         _.every(decision_params.blocks_partitions.bad_blocks,
             block => !block.node.is_cloud_node);
 
+    // Checking if we've had any allocations prior (does not include blocks not in policy)
+    let not_first_allocation = _.get(decision_params, 'blocks_partitions.good_blocks.length', 0) &&
+        _.get(decision_params, 'blocks_partitions.bad_blocks.length', 0);
+
     // We will always prefer to allocate on premise pools
     // In case that we did not have any blocks on cloud pools
-    if (only_on_premise_blocks) {
+    if (not_first_allocation && only_on_premise_blocks) {
         if (_.get(decision_params.mirror_status, 'regular_pools_valid', false)) {
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.regular_pools);
@@ -136,13 +140,13 @@ function _handle_under_policy_threshold(decision_params) {
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.cloud_pools);
         } else {
-            // TODO some weird shit that we cannot allocate anywhere
+            throw new Error('_handle_under_policy_threshold:: Cannot allocate without valid pools');
         }
     } else if (_.get(decision_params.mirror_status, 'picked_pools.length', 0)) {
         spill_status.allocations = _.concat(spill_status.allocations,
             decision_params.mirror_status.picked_pools);
     } else {
-        // TODO some weird shit that we cannot allocate anywhere
+        throw new Error('_handle_under_policy_threshold:: Cannot allocate without valid pools');
     }
 
     return spill_status;

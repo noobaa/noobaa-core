@@ -13,7 +13,7 @@
             href: tabHref('diagnostics'),
             css: tabCss('diagnostics')
         ">
-            Connectivity &amp; Diagnostics
+            Communication &amp; Diagnostics
         </a>
     </nav>
 
@@ -22,11 +22,12 @@
             class="tab"
             params="serverSecret: serverSecret"
             data-bind="css: tabCss('details')
-        ">
-        </server-details-form>
+        "></server-details-form>
 
-        <section class="tab" data-bind="css: tabCss('diagnostics')">
-            This is the diagnostics tab
-        </section>
+        <server-diagnostics-form
+            class="tab"
+            params="serverSecret: serverSecret"
+            data-bind="css: tabCss('diagnostics')
+        "></server-diagnostics-form>
     </div>
 </div>

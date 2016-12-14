@@ -1538,36 +1538,30 @@ export function downloadNodeDiagnosticPack(nodeName) {
         .done();
 }
 
-export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
-    logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
+export function downloadServerDiagnosticPack(secret, hostname) {
+    logAction('downloadServerDiagnosticPack', { secret, hostname });
 
-    let currentServerKey = `server:${targetSecret}`;
-    if(model.collectDiagnosticsState[currentServerKey] === true) {
+    const name = `${hostname}-${secret}`;
+    const key = `server:${secret}`;
+    if(model.collectDiagnosticsState[key]) {
         return;
     }
 
-    model.collectDiagnosticsState.assign({
-        [currentServerKey]: true
-    });
-
+    model.collectDiagnosticsState.assign({ [key]: true });
     api.cluster_server.diagnose_system({
-        target_secret: targetSecret
+        target_secret: secret
     })
         .catch(
             err => {
-                notify(`Packing server diagnostic file for ${targetHostname} failed`, 'error');
-                model.collectDiagnosticsState.assign({
-                    [currentServerKey]: false
-                });
+                notify(`Packing server diagnostic file for ${name} failed`, 'error');
+                model.collectDiagnosticsState.assign({ [key]: false });
                 throw err;
             }
         )
         .then(
             url => {
                 downloadFile(url);
-                model.collectDiagnosticsState.assign({
-                    [currentServerKey]: false
-                });
+                model.collectDiagnosticsState.assign({ [key]: false });
             }
         )
         .done();
@@ -1627,20 +1621,21 @@ export function setNodeDebugLevel(node, level) {
         .done();
 }
 
-export function setServerDebugLevel(targetSecret, targetHostname, level){
-    logAction('setServerDebugLevel', { targetSecret, targetHostname, level });
+export function setServerDebugLevel(secret, hostname, level){
+    logAction('setServerDebugLevel', { secret, name, level });
 
+    const name = `${hostname}-${secret}`;
     api.cluster_server.set_debug_level({
-        target_secret: targetSecret,
+        target_secret: secret,
         level: level
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${targetHostname}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${name}`,
                 'success'
             ),
             () => notify(
-                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${targetHostname}`,
+                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${name}`,
                 'error'
             )
         )

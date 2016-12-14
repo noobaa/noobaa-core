@@ -1,4 +1,4 @@
-function warningText(subject, status, plural = false) {
+function formatIssueMessage(subject, status, plural = false) {
     switch (status) {
         case 'FAULTY':
             return `${subject} ${plural ? 'are' : 'is'} faulty`;
@@ -26,7 +26,7 @@ export function getServerIssues(server, systemInfo) {
 
     const { dns_servers } = services_status;
     if (dns_servers && dns_servers !== 'OPERATIONAL') {
-        issues.dnsServers = warningText('DNS servers', dns_servers, true);
+        issues.dnsServers = formatIssueMessage('DNS servers', dns_servers, true);
     }
 
     const { dns_name_resolution } = services_status;
@@ -36,22 +36,22 @@ export function getServerIssues(server, systemInfo) {
 
     const { phonehome_server } = services_status;
     if (phonehome_server && phonehome_server !== 'OPERATIONAL') {
-        issues.phoneHomeServer = warningText('Phone Home server', phonehome_server);
+        issues.phoneHomeServer = formatIssueMessage('Phone Home server', phonehome_server);
     }
 
     const { phonehome_proxy } = services_status;
     if (phonehome_proxy && phonehome_proxy !== 'OPERATIONAL') {
-        issues.phoneHomeProxy = warningText('Phone Home proxy', phonehome_proxy);
+        issues.phoneHomeProxy = formatIssueMessage('Phone Home proxy', phonehome_proxy);
     }
 
     const { ntp_server } = services_status;
     if (ntp_server && ntp_server !== 'OPERATIONAL') {
-        issues.ntpServer = warningText('NTP server', ntp_server);
+        issues.ntpServer = formatIssueMessage('NTP server', ntp_server);
     }
 
     const { remote_syslog } = services_status;
     if (remote_syslog && remote_syslog !== 'OPERATIONAL') {
-        issues.remoteSyslog = warningText('Remote syslog', remote_syslog);
+        issues.remoteSyslog = formatIssueMessage('Remote syslog', remote_syslog);
     }
 
     const { internal_cluster_connectivity = {} } = services_status;

@@ -10,7 +10,7 @@ const _ = require('lodash');
 const request = require('request');
 
 
-function verify_connection_to_phonehome(phone_home_proxy_address) {
+function verify_connection_to_phonehome(phone_home_options) {
     if (DEV_MODE) {
         return P.resolve('CONNECTED');
     }
@@ -18,9 +18,7 @@ function verify_connection_to_phonehome(phone_home_proxy_address) {
     return P.all([
         P.fromCallback(callback => dns.resolve(parsed_url.host, callback)).reflect(),
         _get_request('https://google.com').reflect(),
-        _get_request(config.PHONE_HOME_BASE_URL + '/connectivity_test', {
-            proxy: phone_home_proxy_address
-        }).reflect()
+        _get_request(config.PHONE_HOME_BASE_URL + '/connectivity_test', phone_home_options).reflect()
     ]).then(function(results) {
         var reply_status;
         let ph_dns_result = results[0];

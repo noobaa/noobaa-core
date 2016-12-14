@@ -38,6 +38,8 @@ const system_server_utils = require('../utils/system_server_utils');
 const node_server = require('../node_services/node_server');
 const dns = require('dns');
 const node_allocator = require('../node_services/node_allocator');
+const config_file_store = require('./config_file_store').instance();
+const fs_utils = require('../../util/fs_utils');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -509,10 +511,20 @@ function set_maintenance_mode(req) {
     // duration is in minutes (?!$%)
     updates.maintenance_mode = Date.now() + (req.rpc_params.duration * 60000);
     return system_store.make_changes({
-        update: {
-            systems: [updates]
-        }
-    }).return();
+            update: {
+                systems: [updates]
+            }
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'dbg.maintenance_mode',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: `Maintanance mode activated`,
+            });
+        })
+        .return();
 }
 
 function set_webserver_master_state(req) {
@@ -764,10 +776,14 @@ function update_base_address(req) {
 function update_phone_home_config(req) {
     dbg.log0('update_phone_home_config', req.rpc_params);
 
+    const previous_value = system_store.data.systems[0].phone_home_proxy_address;
+    let desc_line = `Phone home proxy address was `;
+    desc_line += req.rpc_params.proxy_address ? `set to ${req.rpc_params.proxy_address}. ` : `cleared. `;
+    desc_line += previous_value ? `Was previously set to ${previous_value}` : `Was not previously set`;
+
     let update = {
         _id: req.system._id
     };
-
     if (req.rpc_params.proxy_address === null) {
         update.$unset = {
             phone_home_proxy_address: 1
@@ -780,6 +796,15 @@ function update_phone_home_config(req) {
             update: {
                 systems: [update]
             }
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.set_phone_home_proxy_address',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: desc_line,
+            });
         })
         .return();
 }
@@ -812,15 +837,16 @@ function configure_remote_syslog(req) {
     let update = {
         _id: req.system._id
     };
-
+    let desc_line = '';
     if (params.enabled) {
         if (!params.protocol || !params.address || !params.port) {
             throw new RpcError('INVALID_REQUEST', 'Missing protocol, address or port');
         }
-
+        desc_line = `remote syslog was directed to: ${params.address}:${params.port}`;
         update.remote_syslog_config = _.pick(params, 'protocol', 'address', 'port');
 
     } else {
+        desc_line = 'Disabled remote syslog';
         update.$unset = {
             remote_syslog_config: 1
         };
@@ -834,9 +860,65 @@ function configure_remote_syslog(req) {
         .then(
             () => os_utils.reload_syslog_configuration(params)
         )
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.remote_syslog',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: desc_line,
+            });
+        })
         .return();
 }
 
+function set_certificate(zip_file) {
+    const tmp_dir = '/tmp/ssl';
+    const dest_dir = '/etc/private_ssl_path';
+    dbg.log0('upload_certificate');
+    return fs_utils.create_fresh_path(tmp_dir)
+        .then(() => promise_utils.exec(`/usr/bin/unzip '${zip_file.path}' -d ${tmp_dir}`))
+        .then(() => fs.readdirAsync(tmp_dir))
+        .then(files => {
+            const cert_file = _throw_if_not_single_item(files, '.cert');
+            const key_file = _throw_if_not_single_item(files, '.key');
+            return promise_utils.exec(`(/usr/bin/openssl x509 -noout -modulus -in ${cert_file} | /usr/bin/openssl md5 ; /usr/bin/openssl rsa -noout -modulus -in ${key_file} | /usr/bin/openssl md5) | uniq | wc -l`,
+                    false, true).then(openssl_res => {
+                    if (openssl_res.trim() !== '1') {
+                        throw new Error('No match between key and certificate');
+                    }
+                })
+                .then(() => fs_utils.create_fresh_path(dest_dir))
+                .then(() => P.join(
+                    _move_and_insert_config_file_to_store(`${tmp_dir}/${cert_file}`, `${dest_dir}/server.crt`),
+                    _move_and_insert_config_file_to_store(`${tmp_dir}/${key_file}`, `${dest_dir}/server.key`)
+                ));
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.set_certificate',
+                level: 'info',
+                desc: `New certificate was successfully set`
+            });
+        });
+}
+
+function _move_and_insert_config_file_to_store(src, dest) {
+    return fs.readFileAsync(src, 'utf8')
+        .then(file_data => config_file_store.insert({
+            filename: dest,
+            data: file_data
+        }))
+        .then(() => fs.renameAsync(src, dest));
+}
+
+function _throw_if_not_single_item(arr, extension) {
+    const list = _.filter(arr, item => item.endsWith(extension));
+    if (list.length !== 1) {
+        throw new Error(`There should be exactly one ${extension} file in zip. Instead got ${list.length}`);
+    }
+    return list[0];
+}
 
 function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
@@ -998,6 +1080,6 @@ exports.update_system_certificate = update_system_certificate;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;
-
+exports.set_certificate = set_certificate;
 
 exports.validate_activation = validate_activation;

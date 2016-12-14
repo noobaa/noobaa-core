@@ -21,6 +21,7 @@ const diag = require('../utils/server_diagnostics');
 const moment = require('moment');
 const url = require('url');
 const net = require('net');
+const util = require('util');
 const upgrade_utils = require('../../util/upgrade_utils');
 const request = require('request');
 const dns = require('dns');
@@ -145,6 +146,15 @@ function add_member_to_cluster(req) {
             }, {
                 address: server_rpc.get_base_address(req.rpc_params.address),
                 timeout: 60000 //60s
+            });
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'cluster.added_member_to_cluster',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: `Server ${req.rpc_params.new_hostname || ''} added to cluster`,
             });
         })
         .catch(function(err) {
@@ -391,6 +401,16 @@ function update_time_config(req) {
                 });
             });
         })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.server_date_time_updated',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: `Server data and time successfully updated to: ` +
+                    util.inspect(_.pick(time_config, ['timezone', 'ntp_server', 'epoch'])),
+            });
+        })
         .return();
 }
 
@@ -453,6 +473,16 @@ function update_dns_servers(req) {
                 });
             });
         })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.dns_servers',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: _.isEmpty(dns_servers_config.dns_servers) ?
+                    `DNS servers cleared` : `DNS servers set to: ${util.inspect(dns_servers_config.dns_servers)}`
+            });
+        })
         .return();
 }
 
@@ -488,6 +518,15 @@ function set_debug_level(req) {
                     address: server_rpc.get_base_address(server.owner_address),
                     auth_token: req.auth_token
                 });
+            });
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'dbg.set_debug_level',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: `Debug level was set to ${debug_params.level}`
             });
         })
         .return();

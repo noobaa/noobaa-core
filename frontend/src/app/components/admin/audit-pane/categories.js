@@ -164,10 +164,30 @@ export default {
             diagnose_system: {
                 message: 'System Diagnose',
                 entityId: () => ''
-            }
+            },
+
+            set_debug_level: {
+                message: 'Server Debug Level Changed',
+                entityId: () => ''
+            },
+
+            maintenance_mode: {
+                message: 'Entered Maintenance Mode',
+                entityId: () => ''
+            }            
         }
     },
 
+    cluster: {
+        displayName: 'Cluster',
+        events: {
+            added_member_to_cluster: {
+                message: 'Server Added To Cluster',
+                entityId: () => ''
+            }
+        }
+    },
+    
     conf: {
         displayName: 'Configuration',
         events: {
@@ -182,9 +202,30 @@ export default {
             },
 
             dns_address: {
-                message: 'Set/Edit DNS Address',
+                message: 'DNS Address Set',
+                entityId: () => ''
+            },
+
+            set_phone_home_proxy_address: {
+                message: 'Proxy Address Set',
+                entityId: () => ''
+            },
+
+            dns_servers: {
+                message: 'DNS Servers Set',
+                entityId: () => ''
+            },
+
+            remote_syslog: {
+                message: 'Remote Syslog Set',
+                entityId: () => ''
+            },
+
+            set_certificate: {
+                message: 'Certificate Set',
                 entityId: () => ''
             }
         }
     }
 };
+

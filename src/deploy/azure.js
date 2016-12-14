@@ -109,7 +109,7 @@ function args_builder(count) {
         var vmName;
         if (net.isIP(serverName)) {
             var octets = serverName.split(".");
-            vmName = octets[2] + '-' + octets[3]
+            vmName = octets[2] + '-' + octets[3];
         } else {
             vmName = serverName.substring(0, 7);
         }

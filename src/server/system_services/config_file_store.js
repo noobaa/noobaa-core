@@ -18,6 +18,9 @@ const CONFIG_FILE_COLLECTION = js_utils.deep_freeze({
     db_indexes: [{
         fields: {
             filename: 1,
+        },
+        options: {
+            unique: true,
         }
     }]
 });
@@ -56,7 +59,26 @@ class ConfigFileStore {
             _id: new mongodb.ObjectId()
         });
         if (validator(item)) {
-            return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).insert(item);
+            return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).update({
+                    filename: {
+                        $eq: item.filename
+                    }
+                }, {
+                    $set: {
+                        data: item.data
+                    }
+                })
+                .then(res => {
+                    if (res && res.result) {
+                        if (res.result.nModified === 0) {
+                            dbg.log0(`item ${item.filename} did not exist in db. Inserted`);
+                            return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).insert(item);
+                        }
+                        dbg.log0(`item ${item.filename} existed in db and was updated`);
+                    } else {
+                        return P.reject(new Error('Unkown result from mongo client: ', res));
+                    }
+                });
         }
         dbg.error(`item not valid in config file store`, validator.errors, item);
         return P.reject(new Error('history_data_store: item not valid in config file store'));

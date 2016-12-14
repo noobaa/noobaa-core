@@ -275,7 +275,7 @@ app.post('/upload_certificate',
         const dest_dir = '/etc/private_ssl_path';
         dbg.log0('upload_certificate');
         fs_utils.clear_dir(tmp_dir)
-            .then(() => promise_utils.exec(`/usr/bin/unzip ${zip_file.path} -d ${tmp_dir}`))
+            .then(() => promise_utils.exec(`/usr/bin/unzip '${zip_file.path}' -d ${tmp_dir}`))
             .then(() => fs.readdirAsync(tmp_dir))
             .then(files => {
                 const cert_file = _throw_if_not_single_item(files, '.cert');

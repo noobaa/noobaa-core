@@ -140,7 +140,7 @@ exports.list_nodes = list_nodes;
 exports.aggregate_nodes = aggregate_nodes;
 exports.get_test_nodes = get_test_nodes;
 exports.allocate_nodes = allocate_nodes;
-exports.migrate_nodes_to_pool = req => monitor.migrate_nodes_to_pool(req.rpc_params.nodes, req.rpc_params.pool_id);
+exports.migrate_nodes_to_pool = req => monitor.migrate_nodes_to_pool(req);
 exports.n2n_signal = req => monitor.n2n_signal(req.rpc_params);
 exports.n2n_proxy = req => monitor.n2n_proxy(req.rpc_params);
 exports.test_node_network = req => monitor.test_node_network(req.rpc_params);

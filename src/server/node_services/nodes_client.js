@@ -70,14 +70,15 @@ class NodesClient {
         return nodes_aggregate_pool;
     }
 
-    migrate_nodes_to_pool(system_id, node_identities, pool_id) {
+    migrate_nodes_to_pool(system_id, node_identities, pool_id, account_id) {
         return server_rpc.client.node.migrate_nodes_to_pool({
             nodes: node_identities,
             pool_id: String(pool_id)
         }, {
             auth_token: auth_server.make_auth_token({
                 system_id: system_id,
-                role: 'admin'
+                role: 'admin',
+                account_id: account_id
             })
         });
     }

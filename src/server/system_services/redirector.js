@@ -15,8 +15,7 @@ const system_store = require('../system_services/system_store').get_instance();
 // dbg.set_level(5);
 
 const cluster_connections = new Set();
-const alerts_connections = new Set();
-const system_changes_connections = new Set();
+const system_events_connections = new Set();
 
 system_store.listen_for_changes();
 
@@ -56,55 +55,39 @@ function publish_to_cluster(req) {
         });
 }
 
-function register_for_system_changes(req) {
+function register_for_system_events(req) {
     var conn = req.connection;
-    if (!system_changes_connections.has(conn)) {
-        dbg.log0('register_for_system_changes', conn.url.href);
-        system_changes_connections.add(conn);
+    if (!system_events_connections.has(conn)) {
+        dbg.log0('register_for_system_events', conn.url.href);
+        system_events_connections.add(conn);
         conn.on('close', function() {
-            system_changes_connections.delete(conn);
-        });
-    }
-    return system_store.get_current_state();
-}
-
-
-function unregister_from_system_changes(req) {
-    var conn = req.connection;
-    if (!system_changes_connections.has(conn)) {
-        return;
-    }
-    system_changes_connections.delete(conn);
-}
-
-function register_for_alerts(req) {
-    var conn = req.connection;
-    if (!alerts_connections.has(conn)) {
-        dbg.log0('register_for_alerts', conn.url.href);
-        alerts_connections.add(conn);
-        conn.on('close', function() {
-            alerts_connections.delete(conn);
+            system_events_connections.delete(conn);
         });
     }
 }
 
-function unregister_from_alerts(req) {
+
+function unregister_from_system_events(req) {
     var conn = req.connection;
-    if (!alerts_connections.has(conn)) {
+    if (!system_events_connections.has(conn)) {
         return;
     }
-    alerts_connections.delete(conn);
+    dbg.log0('unregister_for_system_events', conn.url.href);
+    system_events_connections.delete(conn);
 }
 
 
 function publish_alerts(req) {
     var connections = [];
-    alerts_connections.forEach(function(conn) {
+    system_events_connections.forEach(function(conn) {
         connections.push(conn);
     });
     dbg.log3('publish_alerts:', req.rpc_params.request_params, connections);
     return P.map(connections, function(conn) {
-            return server_rpc.client.frontend_notifications.alert(req.rpc_params.request_params, {
+            return server_rpc.client.frontend_notifications.emit_event({
+                event: 'ALERT',
+                args: req.rpc_params.request_params
+            }, {
                 connection: conn,
             });
         })
@@ -115,12 +98,12 @@ function publish_alerts(req) {
 
 function publish_system_store_change(req) {
     var connections = [];
-    system_changes_connections.forEach(function(conn) {
+    system_events_connections.forEach(function(conn) {
         connections.push(conn);
     });
     dbg.log3('publish_system_store_change:', req.rpc_params.event, connections);
     return P.map(connections, function(conn) {
-            return server_rpc.client.frontend_notifications.notify_on_system_store({
+            return server_rpc.client.frontend_notifications.emit_event({
                 event: req.rpc_params.event
             }, {
                 connection: conn,
@@ -132,11 +115,29 @@ function publish_system_store_change(req) {
 }
 
 
+function publish_current_state(req) {
+    var connections = [];
+    system_events_connections.forEach(function(conn) {
+        connections.push(conn);
+    });
+    dbg.log3('publish_current_state:', req.rpc_params.request_params, connections);
+    return P.map(connections, function(conn) {
+            return server_rpc.client.frontend_notifications.emit_event({
+                event: system_store.get_current_state()
+            }, {
+                connection: conn,
+            });
+        })
+        .then(() => {
+            dbg.log3('published');
+        });
+}
+
+
 // EXPORTS
-exports.register_for_alerts = register_for_alerts;
-exports.unregister_from_alerts = unregister_from_alerts;
-exports.unregister_from_system_changes = unregister_from_system_changes;
-exports.register_for_system_changes = register_for_system_changes;
+exports.register_for_system_events = register_for_system_events;
+exports.unregister_from_system_events = unregister_from_system_events;
+exports.publish_current_state = publish_current_state;
 exports.register_to_cluster = register_to_cluster;
 exports.publish_to_cluster = publish_to_cluster;
 exports.publish_alerts = publish_alerts;

@@ -31,26 +31,21 @@ module.exports = {
             }
         },
 
-        register_for_alerts: {
+        register_for_system_events: {
             method: 'POST',
             auth: {
                 system: 'admin'
             }
         },
 
-        register_for_system_changes: {
+        unregister_from_system_events: {
             method: 'POST',
-            reply: {
-                enum: ['CONNECT', 'DISCONNECT', 'CHANGE'],
-                type: 'string',
-            },
             auth: {
-                system: 'admin',
-                skip_checks: true, //skip account checks on RPC authorize for this call
+                system: 'admin'
             }
         },
 
-        unregister_from_alerts: {
+        publish_current_state: {
             method: 'POST',
             auth: {
                 system: 'admin'
@@ -73,6 +68,8 @@ module.exports = {
                 system: false
             }
         },
+
+
 
         publish_system_store_change: {
             method: 'POST',

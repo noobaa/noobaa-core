@@ -11,6 +11,7 @@ var AzureFunctions = require('./azureFunctions');
 var promise_utils = require('../util/promise_utils');
 var crypto = require('crypto');
 var argv = require('minimist')(process.argv);
+var net = require('net');
 var _ = require('lodash');
 
 
@@ -54,6 +55,24 @@ if (argv.os === 'ubuntu16') {
     os.offer = 'CentOS';
     os.sku = '6.8';
     os.osType = 'Linux';
+} else if (argv.os === 'centos7') {
+    // Centos 6.8 config
+    os.publisher = 'OpenLogic';
+    os.offer = 'CentOS';
+    os.sku = '7.2';
+    os.osType = 'Linux';
+} else if (argv.os === 'redhat6') {
+    // RHEL 6.8 config
+    os.publisher = 'RedHat';
+    os.offer = 'RHEL';
+    os.sku = '6.8';
+    os.version = 'latest';
+} else if (argv.os === 'redhat7') {
+    // RHEL 7.2 config
+    os.publisher = 'RedHat';
+    os.offer = 'RHEL';
+    os.sku = '7.2';
+    os.version = 'latest';
 } else if (argv.os === 'win2012R2') {
     // Windows 2012R2 config
     os.publisher = 'MicrosoftWindowsServer';
@@ -88,16 +107,21 @@ function args_builder(count) {
     var vmNames = [];
     for (let i = 0; i < count; i++) {
         var vmName;
-        var octets = serverName.split(".");
+        if (net.isIP(serverName)) {
+            var octets = serverName.split(".");
+            vmName = octets[2] + '-' + octets[3]
+        } else {
+            vmName = serverName.substring(0, 7);
+        }
         var shasum = crypto.createHash('sha1');
         shasum.update(timestamp.toString() + i);
         var dateSha = shasum.digest('hex');
         var postfix = dateSha.substring(dateSha.length - 7);
         if (os.osType === 'Windows') {
-            vmName = octets[2] + '-' + octets[3] + 'W' + postfix;
+            vmName += 'W' + postfix;
             console.log('the Windows machine name is: ', vmName);
         } else {
-            vmName = octets[2] + '-' + octets[3] + 'Linux' + postfix;
+            vmName += 'Linux' + postfix;
             console.log('the Linux machine name is: ', vmName);
         }
         vmNames.push(vmName);
@@ -139,8 +163,13 @@ function vmOperations(operationCallback) {
     } else {
         machineCount = argv.scale;
     }
-    var octets = serverName.split(".");
-    var prefix = octets[2] + '-' + octets[3];
+    var prefix;
+    if (net.isIP(serverName)) {
+        var octets = serverName.split(".");
+        prefix = octets[2] + '-' + octets[3];
+    } else {
+        prefix = serverName.substring(0, 7);
+    }
     azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
     return azf.authenticate()
         .then(() => azf.countOnMachines(prefix))

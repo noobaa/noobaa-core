@@ -50,6 +50,8 @@ const system_store = require('./system_services/system_store').get_instance();
 const promise_utils = require('../util/promise_utils');
 const SupervisorCtl = require('./utils/supervisor_ctrl');
 const account_server = require('./system_services/account_server');
+const config_file_store = require('./system_services/config_file_store').instance();
+const fs_utils = require('../util/fs_utils');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -267,40 +269,58 @@ app.post('/upload_certificate',
             }
         })
     })
-    .single('upload_file'),
-    function(req, res) {
-        var ssl_certificate = req.file;
-        dbg.log0('upload ssl certificate file', ssl_certificate);
-        promise_utils.spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
-                'from_file', ssl_certificate.path
-            ], {}, false)
-            .then(function() {
+    .single('upload_file'), (req, res) => {
+        const zip_file = req.file;
+        const tmp_dir = '/tmp/ssl';
+        const dest_dir = '/etc/private_ssl_path';
+        dbg.log0('upload_certificate');
+        fs_utils.clear_dir(tmp_dir)
+            .then(() => promise_utils.exec(`/usr/bin/unzip ${zip_file.path} -d ${tmp_dir}`))
+            .then(() => fs.readdirAsync(tmp_dir))
+            .then(files => {
+                const cert_file = _throw_if_not_single_item(files, '.cert');
+                const key_file = _throw_if_not_single_item(files, '.key');
+                return promise_utils.exec(`(/usr/bin/openssl x509 -noout -modulus -in ${cert_file} | /usr/bin/openssl md5 ; /usr/bin/openssl rsa -noout -modulus -in ${key_file} | /usr/bin/openssl md5) | uniq | wc -l`,
+                        false, true).then(openssl_res => {
+                        if (openssl_res.trim() !== '1') {
+                            throw new Error('No match between key and certificate');
+                        }
+                    })
+                    .then(() => fs_utils.clear_dir(dest_dir))
+                    .then(() => P.join(
+                        _move_and_insert_config_file_to_store(`${tmp_dir}/${cert_file}`, `${dest_dir}/server.crt`),
+                        _move_and_insert_config_file_to_store(`${tmp_dir}/${key_file}`, `${dest_dir}/server.key`)
+                    ));
+            })
+            .then(() => {
                 res.status(200).send('SUCCESS');
                 if (os.type() === 'Linux') {
+                    dbg.log0('Restarting server on certificate set');
                     return SupervisorCtl.restart(['s3rver', 'webserver']);
                 }
-            }).catch(function(err) {
-                let error_message = '';
-                //TODO: replace this ugly code.
-                dbg.log0('failed to upload certificate. ' + err.message, err);
-                if (err.message.indexOf(' error code 1') > 0) {
-                    error_message = 'No match between key and certificate.';
-                } else if (err.message.indexOf(' error code 2') > 0) {
-                    error_message = 'Only one key is required.';
-                } else if (err.message.indexOf(' error code 3') > 0) {
-                    error_message = 'Only one certificate is required.';
-                } else if (err.message.indexOf(' error code 5') > 0) {
-                    error_message = 'Not a zip file. Please upload zip with certificate and key in pem format';
-                } else {
-                    error_message = err.message;
-                }
-                dbg.error(error_message);
-
-                res.status(500).send(error_message);
-
+            })
+            .catch(err => {
+                dbg.error('Was unable to set certificate', err);
+                res.status(500).send('Was unable to set certificate');
             });
-
     });
+
+function _move_and_insert_config_file_to_store(src, dest) {
+    return fs.readFileAsync(src, 'utf8')
+        .then(file_data => config_file_store.insert({
+            filename: dest,
+            data: file_data
+        }))
+        .then(() => fs.renameAsync(src, dest));
+}
+
+function _throw_if_not_single_item(arr, extension) {
+    const list = _.filter(arr, item => item.endsWith(extension));
+    if (list.length !== 1) {
+        throw new Error(`There should be exactly one ${extension} file in zip. Instead got ${list.length}`);
+    }
+    return list[0];
+}
 
 app.post('/upload_package',
     multer({

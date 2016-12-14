@@ -40,6 +40,11 @@ function file_must_exist(file_path) {
     return fs.statAsync(file_path).return();
 }
 
+function clear_dir(dir) {
+    return folder_delete(dir)
+        .catch(err => console.log(`dir ${dir} deletion failed: `, err))
+        .then(() => fs.mkdirAsync(dir));
+}
 
 /**
  * options.on_entry - function({path, stat})
@@ -253,6 +258,7 @@ function write_file_from_stream(file_path, read_stream) {
 // EXPORTS
 exports.file_must_not_exist = file_must_not_exist;
 exports.file_must_exist = file_must_exist;
+exports.clear_dir = clear_dir;
 exports.disk_usage = disk_usage;
 exports.read_dir_recursive = read_dir_recursive;
 exports.find_line_in_file = find_line_in_file;

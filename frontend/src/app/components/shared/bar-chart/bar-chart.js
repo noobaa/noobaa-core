@@ -2,7 +2,7 @@ import template from './bar-chart.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
-import { deepFreeze, echo, isFunction, clamp } from 'utils/core-utils';
+import { deepFreeze, echo, isFunction, clamp, isString } from 'utils/core-utils';
 import { formatSize } from 'utils/string-utils';
 import numeral from 'numeral';
 
@@ -37,43 +37,58 @@ const namedFormats = deepFreeze({
 class BarChartViewModel extends Disposable{
     constructor({ values, options = {} }) {
         super();
-        this.values = values;
-        this.options = Object.assign({}, defaultOptions, options);
 
-        this.canvasWidth = this.calcCanvasWidth(values.length, this.options.spacing);
+        this.values = ko.pureComputed(
+            () => ko.deepUnwrap(values)
+        );
+
+        // Normalize the options
+        this.options = ko.pureComputed(
+            () => Object.assign(
+                {},
+                defaultOptions,
+                ko.deepUnwrap(options)
+            )
+        );
+
+        this.canvasWidth = ko.pureComputed(
+            () => this.calcCanvasWidth(this.values().length, this.options().spacing)
+        );
+
         this.canvasHeight = height;
 
-        const { format = 'none' } = options;
-        this.format = isFunction(format) ? options.format : namedFormats[format];
+        this.normalized = ko.pureComputed(
+            () => {
+                const max = this.options().scale || this.values().reduce(
+                    (max, { value }) => Math.max(max, value),
+                    0
+                );
 
-        const max = ko.pureComputed(
-            () => this.options.scale || values.reduce(
-                (max, { value }) => Math.max(max, ko.unwrap(value)),
-                0
-            )
+                return this.values().map(
+                    ({ value }) => ko.pureComputed(
+                        () => {
+                            if (value === 0) {
+                                return 0;
+                            }
+
+                            return clamp(value / max, minBarHeight / maxBarHeight, 1);
+                        }
+                    )
+                    .extend({
+                        tween: {
+                            resetOnChange: true,
+                            resetValue: 0
+                        }
+                    })
+                );
+            }
         );
+    }
 
-        this.normalized = values.map(
-            ({ value }) => ko.pureComputed(
-                () => {
-                    if (ko.unwrap(value) === 0) {
-                        return 0;
-                    }
-
-                    return clamp(
-                        ko.unwrap(value) / max(),
-                        minBarHeight / maxBarHeight,
-                        1
-                    );
-                }
-            )
-            .extend({
-                tween: {
-                    resetOnChange: true,
-                    resetValue: 0
-                }
-            })
-        );
+    format(value) {
+        const { format = 'none' } = this.options();
+        const formatter = isFunction(format) ? format : namedFormats[format];
+        return formatter(value);
     }
 
     calcCanvasWidth(barCount, spacing) {
@@ -84,28 +99,31 @@ class BarChartViewModel extends Disposable{
     }
 
     draw(ctx) {
-        const options = this.options;
-        const contentWidth = (barWidth + options.spacing) * this.values.length - options.spacing;
-        const left = (this.canvasWidth - contentWidth) / 2;
+        const options = this.options();
+        const values = this.values();
+        const contentWidth = (barWidth + options.spacing) * values.length - options.spacing;
+        const left = (this.canvasWidth() - contentWidth) / 2;
+        const bgColor = isString(options.background) ?
+            options.background :
+            backgroundColor;
 
-        this.normalized.reduce(
+        this.normalized().reduce(
             (offset, size, i) => {
-                const { color, label, value } = this.values[i];
+                const { color, label, value } = values[i];
                 const top = gutter + (1 - size()) * maxBarHeight + .5|0;
 
                 if (options.background) {
-                    this.drawBar(ctx, offset, gutter, backgroundColor);
+                    this.drawBar(ctx, offset, gutter, bgColor);
                 }
 
                 this.drawBar(ctx, offset, top, color);
 
                 if (options.values) {
-                    this.drawValue(ctx, offset, top, ko.unwrap(value));
+                    this.drawValue(ctx, offset, top, value);
                 }
 
-                const nakedLabel = ko.unwrap(label);
-                if (options.labels && nakedLabel) {
-                    this.drawLabel(ctx, offset, nakedLabel);
+                if (options.labels && label) {
+                    this.drawLabel(ctx, offset, label);
                 }
 
                 return offset += barWidth + options.spacing;
@@ -153,7 +171,7 @@ class BarChartViewModel extends Disposable{
 
     drawUnderline(ctx) {
         ctx.fillStyle = underlineColor;
-        ctx.fillRect(0, this.canvasHeight - gutter, this.canvasWidth, 1);
+        ctx.fillRect(0, this.canvasHeight - gutter, this.canvasWidth(), 1);
     }
 }
 

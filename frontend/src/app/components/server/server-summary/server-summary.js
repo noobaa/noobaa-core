@@ -51,7 +51,6 @@ const barOptions = deepFreeze({
     values: false,
     labels: true,
     underline: false,
-    background: true,
     format: 'percentage',
     spacing: 50,
     scale: 1
@@ -61,52 +60,37 @@ class ServerSummaryViewModel extends Disposable{
     constructor({ serverSecret }) {
         super();
 
-        const server = ko.pureComputed(
-            // () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
-            //     ({ secret }) => secret === ko.unwrap(serverSecret)
-            // )
-            () => ({
-                status: 'DISCONNECTED',
-                version: '0.5.4',
-                debug_level: true,
-                cpus: {
-                    usage: 1.4,
-                    count: 3
-                },
-                memory_usage: .4,
-                storage: {
-                    free: 1000,
-                    total: 50034
-                },
-                services_status: {
-                    dns_servers: 'BLAAA'
-                }
-            })
+        this.server = ko.pureComputed(
+            () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
+                ({ secret }) => secret === ko.unwrap(serverSecret)
+            )
         );
 
-        this.notConnected = ko.pureComputed(
-            () => !server() || server().status !== 'CONNECTED'
+        this.isConnected = ko.pureComputed(
+            () => this.server() && this.server().status === 'CONNECTED'
         );
 
         this.statusIcon = ko.pureComputed(
-            () => server() ? statusMapping[server().status].icon : ''
+            () => this.server() ? statusMapping[this.server().status].icon : ''
         );
 
 
         this.statusText = ko.pureComputed(
-            () => server() ? statusMapping[server().status].text : ''
+            () => this.server() ? statusMapping[this.server().status].text : ''
         );
 
         const issues = ko.pureComputed(
             () => {
-                if (!systemInfo() || this.notConnected()) {
+                if (!systemInfo() || !this.isConnected()) {
                     return {
                         icon: icons.unavailable,
                         text: 'Server services is unavailable'
                     };
                 }
 
-                const issues = getServerIssues(server(), systemInfo());
+                const issues = Object.values(
+                    getServerIssues(this.server(), systemInfo())
+                );
                 if (issues.length === 1) {
                     return {
                         icon: icons.warning,
@@ -136,50 +120,61 @@ class ServerSummaryViewModel extends Disposable{
             () => issues().icon
         );
 
-        this.barValues = this.getBarValues(server);
-        this.barOptions = barOptions;
+        this.barValues = this.getBarValues();
+        this.barOptions = ko.pureComputed(
+            () => Object.assign(
+                { background: this.isConnected() ? true : style['color15'] },
+                 barOptions
+            )
+        );
     }
 
-    getBarValues(server) {
+    getBarValues() {
         const cpus = ko.pureComputed(
-            () => server() ? server().cpus : {}
+            () => this.isConnected() ? this.server().cpus : {}
         );
 
         const diskUsage = ko.pureComputed(
             () => {
-                if (!server()) {
+                if (!this.isConnected() ) {
                     return 0;
                 }
 
-                const { free, total } = server().storage;
+                const { free, total } = this.server().storage;
                 return (total - free) / total;
             }
         );
 
         const memoryUsage = ko.pureComputed(
-            () => server() ? server().memory_usage : 0
+            () => this.isConnected() ? this.server().memory_usage : 0
         );
 
         return [
             {
                 label: ko.pureComputed(
-                    () => `CPU: ${numeral(cpus().usage).format('%')}`
+                    () => `CPU: ${
+                        this.isConnected() ? numeral(cpus().usage).format('%') : 'N/A'
+                    }`
                 ),
                 value: ko.pureComputed(
-                    () => cpus().usage / cpus().count
+                    () => cpus().count ? cpus().usage / cpus().count : 0
                 ),
                 color: style['color13']
             },
             {
                 label: ko.pureComputed(
-                    () => `Disk: ${numeral(diskUsage()).format('%')}`
+                    () => `Disk: ${
+                        this.isConnected() ? numeral(diskUsage()).format('%') : 'N/A'
+                    }`
                 ),
                 value: diskUsage,
                 color: style['color13']
             },
             {
                 label: ko.pureComputed(
-                    () => `Memory: ${numeral(memoryUsage()).format('%')}`
+                    () => `Memory: ${
+                        this.isConnected() ? numeral(memoryUsage()).format('%') : 'N/A'
+                    }`
                 ),
                 value: memoryUsage,
                 color: style['color13']

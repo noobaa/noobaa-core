@@ -64,7 +64,7 @@ export default class ServerRowViewModel extends Disposable {
         );
 
         this.time = time.extend({
-            formatTime: { format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)' }
+            formatTime: 'DD MMM YYYY HH:mm:ss ([GMT]Z)'
         });
 
         this.actions = {

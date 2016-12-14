@@ -762,25 +762,27 @@ module.exports = {
                     $ref: '#/definitions/service_status_enum'
                 },
                 internal_cluster_connectivity: {
-                    /* TODO: What to do with that ??? */
-                    anyOf: [{
-                        type: 'string',
-                        enum: ['UNKNOWN']
-                    }, {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['secret', 'status'],
-                            properties: {
-                                secret: {
-                                    type: 'string'
-                                },
-                                status: {
-                                    $ref: '#/definitions/service_status_enum'
+                    type: 'object',
+                    properties: {
+                        test_completed: {
+                            type: 'boolean'
+                        },
+                        results: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                required: ['secret', 'status'],
+                                properties: {
+                                    secret: {
+                                        type: 'string'
+                                    },
+                                    status: {
+                                        $ref: '#/definitions/service_status_enum'
+                                    }
                                 }
                             }
                         }
-                    }]
+                    }
                 }
             }
         },

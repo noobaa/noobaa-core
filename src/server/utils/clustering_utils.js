@@ -187,7 +187,10 @@ function get_cluster_info() {
                 phonehome_proxy: status.proxy_status,
                 ntp_server: status.ntp_status,
                 remote_syslog: status.remote_syslog_status,
-                internal_cluster_connectivity: status.cluster_status || []
+                internal_cluster_connectivity: {
+                    test_completed: status.cluster_status !== 'UNKNOWN',
+                    results: status.cluster_status !== 'UNKNOWN' && status.cluster_status
+                }
             }, _.isUndefined);
         }
         shard.servers.push(server_info);

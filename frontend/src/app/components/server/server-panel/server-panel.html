@@ -18,8 +18,11 @@
     </nav>
 
     <div class="tabs-row">
-        <server-details-form class="tab" data-bind="css: tabCss('details')">
-            This is the details tab
+        <server-details-form
+            class="tab"
+            params="serverSecret: serverSecret"
+            data-bind="css: tabCss('details')
+        ">
         </server-details-form>
 
         <section class="tab" data-bind="css: tabCss('diagnostics')">

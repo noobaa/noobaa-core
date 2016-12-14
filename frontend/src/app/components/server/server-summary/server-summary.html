@@ -17,13 +17,15 @@
             ></svg-icon>
             <span class="highlight" data-bind="
                 text: issuesText,
-                css: { disabled: notConnected }
+                css: { disabled: !isConnected() }
             "></span>
         </div>
     </section>
 
     <section class="c4 column push-both">
-        <h3 class="heading3">Average utilization over last minute</h3>
+        <h3 class="heading3">
+            Average utilization over last minute:
+        </h3>
         <bar-chart params="values: barValues, options: barOptions">
     </section>
 

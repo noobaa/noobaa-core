@@ -59,7 +59,7 @@ class ServerTimeFormViewModel extends Disposable{
         );
 
         this.formattedMasterTime = this.masterTime.extend({
-            formatTime: { format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)' }
+            formatTime: 'DD MMM YYYY HH:mm:ss ([GMT]Z)'
         });
 
         this.editContext = ko.observable();

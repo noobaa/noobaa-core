@@ -1,126 +1,300 @@
 import template from './server-details-form.html';
 import Disposable from 'disposable';
-import { systemInfo, routeContext } from 'model';
-import { deepFreeze } from 'utils/core-utils';
-import { lastSegment } from 'utils/string-utils';
+import { systemInfo, serverTime } from 'model';
+import { deepFreeze, isDefined } from 'utils/core-utils';
+import { getServerIssues } from 'utils/cluster-utils';
+import { loadServerTime } from 'actions';
 import ko from 'knockout';
 
-const iconMapping = deepFreeze({
-    FAULTY: {
-        name: 'notif-error'
+const icons = deepFreeze({
+    healthy: {
+        name: 'healthy',
+        css: 'success'
     },
-    UNREACHABLE: {
-        name: 'notif-error'
+    problem: {
+        name: 'problem',
+        css: 'error'
     },
-    UNKNOWN: {
-        name: 'notif-error'
-    },
-    OPERATIONAL: {
-        name: 'notif-warning'
+    unavailable: {
+        name: 'healthy',
+        css: 'disabled'
     }
 });
 
-function getServer(cluster, secret) {
-    return cluster.shards[0].servers.find(
-        server => server.secret === secret
-    );
-}
-
 class ServerDetailsFormViewModel extends Disposable{
-    constructor() {
+    constructor({ serverSecret }) {
         super();
 
-        const server = ko.pureComputed(
-            () => {
-                if (!systemInfo()){
-                    return {};
-                }
-
-                const secret = lastSegment(routeContext().params.server, '-');
-                return getServer(systemInfo().cluster, secret);
-            }
-        );
-
-        const master = ko.pureComputed(
+        this.server = ko.pureComputed(
             () => {
                 if (!systemInfo()) {
                     return {};
                 }
 
-                const masterSecret = systemInfo().cluster.master_secret;
-                return getServer(systemInfo().cluster, masterSecret);
+                const mySecret = ko.unwrap(serverSecret);
+                return systemInfo().cluster.shards[0].servers.find(
+                    ({ secret }) => secret === mySecret
+                );
             }
         );
 
-        const isMaster = ko.pureComputed(
-            () => server() === master()
+        this.isConnected = ko.pureComputed(
+            () => this.server().status === 'CONNECTED'
         );
 
-        const isVersionSynced = ko.pureComputed(
-            () => server().secret && master().secret &&
-                (isMaster() || server().version === master().version)
+        this.isMaster = ko.pureComputed(
+            () => {
+                if (!systemInfo()) {
+                    return false;
+                }
+
+                const masterSecret = systemInfo().cluster.master_secret;
+                return this.server().secret == masterSecret;
+            }
         );
 
-        this.infoSheet = [
+        this.issues = ko.pureComputed(
+            () => systemInfo() ? getServerIssues(this.server(), systemInfo()) : {}
+        );
+
+        this.clock = ko.observableWithDefault(
+            () => serverTime() && serverTime().server ===  ko.unwrap(serverSecret) ?
+                serverTime().time * 1000 :
+                0
+        );
+        this.addToDisposeList(
+            setInterval(
+                () => this.clock() && this.clock(this.clock() + 1000),
+                1000
+            ),
+            clearInterval
+        );
+
+        this.infoSheet = this.getInfoSheet();
+        this.version = this.getVersion();
+        this.serverTime = this.getServerTime();
+        this.dnsServers = this.getDNSServers();
+        this.dnsName = this.getDNSName();
+        this.remoteSyslog = this.getRemoteSyslog();
+        this.phoneHome = this.getPhoneHome();
+
+        this.configurationHref = {
+            route: 'management',
+            params: { tab: 'settings' }
+        };
+
+        loadServerTime(ko.unwrap(serverSecret));
+    }
+
+    getInfoSheet() {
+        return [
             {
                 label: 'IP Address',
                 value: ko.pureComputed(
-                    () => server().address
+                    () => this.server().address
                 )
             },
             {
                 label: 'Hostname',
                 value: ko.pureComputed(
-                    () => server().hostname
+                    () => this.server().hostname
                 )
             },
             {
                 label: 'Location Tag',
                 value: ko.pureComputed(
-                    () => server().location
+                    () => this.server().location
                 )
             },
             {
-                label: 'isMaster',
+                label: 'Is Currently Master',
                 value: ko.pureComputed(
-                    () => isMaster() ? 'yes' : 'no'
+                    () => this.isMaster() ? 'yes' : 'no'
                 )
             }
         ];
+    }
 
-        this.version = ko.pureComputed(
+    getVersion() {
+        const icon = ko.pureComputed(
             () => {
-                let note = '';
-                if (!isMaster()) {
-                    note = isVersionSynced() ?
-                        '(Synced with master)' :
-                        '<span class="error">(Not synced with master)</span>';
+                if (!this.isConnected()) {
+                    return icons.unavailable;
                 }
 
-                return `${server().version} ${note}`;
+                return this.issues().version ? icons.problem : icons.healthy;
             }
         );
 
-        this.ntpServer = ko.pureComputed(
-            () => server().ntp_server || 'Not configured'
+        const tooltip = ko.pureComputed(
+            () => ({
+                text: this.issues().version || 'Synced with master',
+                align: 'start'
+            })
         );
 
-        const dnsServers = ko.pureComputed(
-            () => server().dns_servers || []
+        const text = ko.pureComputed(
+            () => this.server().version
         );
 
-        this.primaryDNS = ko.pureComputed(
-            () => dnsServers()[0] || 'Not set'
+        return { icon, tooltip, text };
+    }
+
+    getServerTime() {
+        const icon = ko.pureComputed(
+            () => {
+                if (!this.isConnected()) {
+                    return icons.unavailable;
+                }
+
+                return this.issues().ntpServer ? icons.problem : icons.healthy;
+            }
         );
 
-        this.secondaryDNS = ko.pureComputed(
-            () => dnsServers()[1] || 'Not set'
+        const tooltip = ko.pureComputed(
+            () => ({
+                text: this.issues().ntpServer || 'Working Properly',
+                align: 'start'
+            })
         );
 
-        // this.remoteSyslog = ko.pureComputed(
-        //     () => server().
-        // );
+        const ntp = ko.pureComputed(
+            () => this.server().ntp_server || 'Not configured'
+        );
 
+        const clock = ko.pureComputed(this.clock).extend({
+            formatTime: 'DD MMM YYYY HH:mm:ss ([GMT]Z)'
+        });
+
+        return { icon, tooltip, clock, ntp };
+    }
+
+    getDNSServers() {
+        const servers = ko.pureComputed(
+            () => this.server().dns_servers || []
+        );
+
+        const icon = ko.pureComputed(
+            () => {
+                if (!this.isConnected() || (!servers()[0] && !servers()[1])) {
+                    return icons.unavailable;
+                }
+
+                return this.issues().dnsServers ? icons.problem : icons.healthy;
+            }
+        );
+
+        const tooltip = ko.pureComputed(
+            () => ({
+                text: this.issues().dnsServers || 'Reachable and working',
+                align: 'start'
+            })
+        );
+
+        const primary = ko.pureComputed(
+            () => servers()[0] || 'Not Configured'
+        );
+
+        const secondary = ko.pureComputed(
+            () => servers()[1] || 'Not Configured'
+        );
+
+        return { icon, tooltip, primary, secondary };
+    }
+
+    getDNSName() {
+        const icon = ko.pureComputed(
+            () => {
+                if (!systemInfo() || !systemInfo().dns_name || !this.isConnected()){
+                    return icons.unavailable;
+                }
+
+                return this.issues().dnsName ? icons.problem : icons.healthy;
+            }
+        );
+
+        const tooltip = ko.pureComputed(
+            () => ({
+                text: this.issues().dnsName || 'Resolvable to server\'s IP',
+                align: 'start'
+            })
+        );
+
+        const name = ko.pureComputed(
+            () => (systemInfo() && systemInfo().dns_name) || 'Not configured'
+        );
+
+        return { icon, tooltip, name };
+    }
+
+    getRemoteSyslog() {
+        const config = ko.pureComputed(
+            () => (systemInfo() || {}).remote_syslog_config
+        );
+
+        const icon = ko.pureComputed(
+            () => {
+                if (!this.isConnected() || !config()) {
+                    return icons.unavailable;
+                }
+
+                return this.issues().remoteSyslog ? icons.problem : icons.healthy;
+            }
+        );
+
+        const tooltip = ko.pureComputed(
+            () => ({
+                text: this.issues().remoteSyslog || 'Reachable and working',
+                align: 'start'
+            })
+        );
+
+        const text = ko.pureComputed(
+            () => {
+                if (!config()) {
+                    return 'Not Configured';
+                }
+
+                const { protocol, address, port } = config();
+                return `${protocol}://${address}:${port}`;
+            }
+
+        );
+
+        return { icon, tooltip, text };
+    }
+
+    getPhoneHome() {
+        const icon = ko.pureComputed(
+            () => {
+                if (!this.isConnected()) {
+                    return icons.unavailable;
+                }
+
+                return this.issues().phoneHomeServer || this.issues().phoneHomeProxy ?
+                    icons.problem :
+                    icons.healthy;
+            }
+        );
+
+        const tooltip = ko.pureComputed(
+            () => {
+                const { phoneHomeServer, phoneHomeProxy } = this.issues();
+                const issues = [ phoneHomeServer, phoneHomeProxy ].filter(isDefined);
+                return {
+                    text: issues.length > 0 ? issues : 'Reachable and working',
+                    align: 'start'
+                };
+            }
+        );
+
+        const proxy = ko.pureComputed(
+            () => systemInfo() ?
+                systemInfo().phone_home_config.proxy_address :
+                'Not Configured'
+        );
+
+        return { icon, tooltip, proxy };
     }
 }
 

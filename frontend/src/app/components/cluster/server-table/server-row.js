@@ -45,12 +45,14 @@ export default class ServerRowViewModel extends Disposable {
                 const { status } = server();
                 if (status === 'CONNECTED') {
 
-                    const warnings = getServerIssues(server(), systemInfo());
-                    if (warnings.length > 0) {
+                    const issues = Object.values(
+                        getServerIssues(server(), systemInfo())
+                    );
+                    if (issues.length > 0) {
                         return Object.assign(
                             {
                                 tooltip: {
-                                    text: warnings,
+                                    text: issues,
                                     align: 'start'
                                 }
                             },

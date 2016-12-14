@@ -1,68 +1,104 @@
-<section class="column pad">
-    <div class="row content-middle">
-        <h2 class="greedy heading3 push-next">
+<section class="column push-next">
+    <div class="row content-middle pad alt-bg">
+        <h2 class="greedy heading3  push-next">
             Server Information
         </h2>
-        <button class="btn">
+        <button class="btn" data-bind="disable: !isConnected()">
             Edit Server Details
         </button>
     </div>
-    <property-sheet params="properties: infoSheet"></property-sheet>
+    <property-sheet class="pad" params="properties: infoSheet"></property-sheet>
 </section>
 
-<hr class="push-both">
-
-<section class="column pad">
-    <h2 class="heading3 push-next">
-        External Services
+<section class="column server-monitor" data-bind="css: { disabled: !isConnected() }">
+    <h2 class="heading3 pad alt-bg">
+        External Services and Monitoring
     </h2>
 
-    <ul class="column list-no-style status-list">
-        <li class="row push-next">
-            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
-            <label class="push-next highlight">Version:</label>
-            <span data-bind="text: version"></span>
+    <ul class="pad column list-no-style status-list" >
+        <li class="row push-next" data-bind="with: version">
+            <svg-icon class="push-next" params="name: icon().name" data-bind="
+                css: icon().css,
+                tooltip: tooltip
+            "></svg-icon>
+            <span class="label push-next highlight">Version:</span>
+            <span data-bind="text: text, visible: $component.isConnected"></span>
+            <span data-bind="visible: !$component.isConnected()">Not Available</span>
         </li>
 
-        <li class="row push-next">
-            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
-            <label class="push-next highlight">NTP Server:</label>
-            <span data-bind="text: ntpServer"></span>
+        <li class="row push-next" data-bind="with: serverTime">
+            <svg-icon class="push-next" params="name: icon().name" data-bind="
+                css: icon().css,
+                tooltip: tooltip
+            "></svg-icon>
+            <span class="label push-next highlight">Server Date and Time:</span>
+            <span class="row" data-bind="visible: $component.isConnected">
+                <span class="highlight push-next">Server Clock:</span>
+                <span data-bind="text: clock" class="push-next"></span>
+                <span class="highlight push-both">NTP:</span>
+                <span data-bind="text: ntp"></span>
+            </span>
+            <span data-bind="visible: !$component.isConnected()">Not Available</span>
         </li>
 
-        <li class="row push-next">
-            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
-            <label class="push-next highlight">DNS Servers:</label>
-            <span class="row push-next">
+        <li class="row push-next" data-bind="with: dnsServers">
+            <svg-icon class="push-next" params="name: icon().name" data-bind="
+                css: icon().css,
+                tooltip: tooltip
+            "></svg-icon>
+            <span class="label push-next highlight">DNS Servers:</span>
+            <span class="row push-next" data-bind="visible: $component.isConnected">
                 <span class="highlight push-next">Primary:</span>
-                <span data-bind="text: primaryDNS"></span>
+                <span data-bind="text: primary"></span>
             </span>
-            <span class="row push-prev">
+            <span class="row push-prev" data-bind="visible: $component.isConnected">
                 <span class="highlight push-next">Secondary:</span>
-                <span data-bind="text: secondaryDNS"></span>
+                <span data-bind="text: secondary"></span>
             </span>
+            <span data-bind="visible: !$component.isConnected()">Not Available</span>
         </li>
 
-        <li class="row push-next">
-            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
-            <label class="push-next highlight">Server DNS Name:</label>
+        <li class="row push-next" data-bind="with: dnsName">
+            <svg-icon class="push-next" params="name: icon().name" data-bind="
+                css: icon().css,
+                tooltip: tooltip
+            "></svg-icon>
+            <span class="label push-next highlight">DNS Name:</span>
+            <span data-bind="text: name, visible: $component.isConnected"></span>
+            <span data-bind="visible: !$component.isConnected()">Not Available</span>
         </li>
 
-        <li class="row push-next">
-            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
-            <label class="push-next highlight">Remote Syslog:</label>
+        <li class="row push-next" data-bind="with: remoteSyslog">
+            <svg-icon class="push-next" params="name: icon().name" data-bind="
+                css: icon().css,
+                tooltip: tooltip
+            "></svg-icon>
+            <span class="label push-next highlight">Remote Syslog:</span>
+            <span data-bind="text: text, visible: $component.isConnected"></span>
+            <span data-bind="visible: !$component.isConnected()">Not Available</span>
         </li>
 
-        <li class="row push-next">
-            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
-            <label class="push-next highlight">Phone Home Server:</label>
-        </li>
-
-        <li class="row push-next">
-            <svg-icon class="success push-next" params="name: 'healthy'"></svg-icon>
-            <label class="push-next highlight">Phone Home Proxy:</label>
+        <li class="row push-next" data-bind="with: phoneHome">
+            <svg-icon class="push-next" params="name: icon().name" data-bind="
+                css: icon().css,
+                tooltip: tooltip
+            "></svg-icon>
+            <span class="label push-next highlight">Phone Home:</span>
+            <span class="row" data-bind="visible: $component.isConnected">
+                <span class="highlight push-next">Proxy:</span>
+                <span data-bind="text: proxy"></span>
+            </span>
+            <span data-bind="visible: !$component.isConnected()">Not Available</span>
         </li>
     </ul>
-    <property-sheet params="properties: status"></property-sheet>
+    <div class="config-link hpad">
+        <svg-icon class="info-icon icon-small" params="name: 'notif-info'"></svg-icon>
+        To edit or configure external services go to System Management &gt;
+        <a class="link" data-bind="
+            href: configurationHref,
+            attr: { disabled: !isConnected() }
+        ">
+            Configuration
+        </a>
+    </div>
 </section>
-

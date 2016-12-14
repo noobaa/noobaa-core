@@ -198,21 +198,23 @@ function _delete_cloud_pool(system, pool, account) {
     dbg.log0('Deleting cloud pool', pool.name);
 
     return P.resolve()
-        .then(function() {
+        .then(() => {
             var reason = check_cloud_pool_deletion(pool);
             if (reason) {
                 throw new RpcError(reason, 'Cannot delete pool');
             }
+            return nodes_client.instance().list_nodes_by_pool(pool.name, system._id);
+        })
+        .then(function(pool_nodes) {
+            return P.each(pool_nodes && pool_nodes.nodes, node => {
+                nodes_client.instance().delete_node_by_name(system._id, node.name);
+            });
+        })
+        .then(function() {
             return system_store.make_changes({
                 remove: {
                     pools: [pool._id]
                 }
-            });
-        })
-        .then(() => nodes_client.instance().list_nodes_by_pool(pool.name, system._id))
-        .then(function(pool_nodes) {
-            return P.each(pool_nodes && pool_nodes.nodes, node => {
-                nodes_client.instance().delete_node_by_name(system._id, node.name);
             });
         })
         .then(() => {

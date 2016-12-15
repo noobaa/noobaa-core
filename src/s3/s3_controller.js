@@ -2,14 +2,15 @@
 'use strict';
 
 const _ = require('lodash');
+const uuid = require('node-uuid');
 const xml2js = require('xml2js');
+const moment = require('moment');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const ObjectIO = require('../api/object_io');
 const s3_errors = require('./s3_errors');
-const moment = require('moment');
-const uuid = require('node-uuid');
+const http_utils = require('../util/http_utils');
 
 dbg.set_level(5);
 
@@ -971,12 +972,12 @@ class S3Controller {
             return false;
         }
         if ('if-match' in req.headers &&
-            req.headers['if-match'] !== object_md.etag) {
+            !http_utils.match_etag(req.headers['if-match'], object_md.etag)) {
             res.status(412).end();
             return false;
         }
         if ('if-none-match' in req.headers &&
-            req.headers['if-none-match'] === object_md.etag) {
+            http_utils.match_etag(req.headers['if-none-match'], object_md.etag)) {
             res.status(304).end();
             return false;
         }

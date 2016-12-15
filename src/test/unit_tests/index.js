@@ -27,4 +27,5 @@ require('./test_rpc');
 require('./test_semaphore');
 require('./test_fs_utils');
 require('./test_signature_utils');
+require('./test_http_utils');
 //require('./test_wait_queue');

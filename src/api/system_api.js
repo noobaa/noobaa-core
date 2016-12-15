@@ -741,7 +741,7 @@ module.exports = {
 
         services_status: {
             type: 'object',
-            required: ['phonehome_server', 'internal_cluster_connectivity'],
+            required: ['phonehome_server', 'cluster_communication'],
             properties: {
                 dns_servers: {
                     $ref: '#/definitions/service_status_enum'
@@ -761,7 +761,7 @@ module.exports = {
                 remote_syslog: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                internal_cluster_connectivity: {
+                cluster_communication: {
                     type: 'object',
                     properties: {
                         test_completed: {

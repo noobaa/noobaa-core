@@ -43,7 +43,7 @@ class ServerDiagnosticsFormViewModel extends Disposable{
                     return {};
                 }
 
-                const { results = [] } = this.server().services_status.internal_cluster_connectivity;
+                const { results = [] } = this.server().services_status.cluster_communication;
                 return KeyByProperty(results,'secret');
             }
         );

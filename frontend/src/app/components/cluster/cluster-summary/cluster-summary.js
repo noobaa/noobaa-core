@@ -75,8 +75,8 @@ function serverHasIssues(server, systemVersion) {
         return true;
     }
 
-    const { internal_cluster_connectivity } = services_status;
-    return internal_cluster_connectivity.some(
+    const { cluster_communication } = services_status;
+    return cluster_communication.results.some(
         ({ status }) => status !== 'OPERATIONAL'
     );
 }

@@ -54,8 +54,8 @@ export function getServerIssues(server, systemInfo) {
         issues.remoteSyslog = formatIssueMessage('Remote syslog', remote_syslog);
     }
 
-    const { internal_cluster_connectivity = {} } = services_status;
-    const { test_completed, results = [] } = internal_cluster_connectivity;
+    const { cluster_communication = {} } = services_status;
+    const { test_completed, results = [] } = cluster_communication;
     const hasConnectivityIssues = test_completed && results.some(
         ({ status }) => status !== 'OPERATIONAL'
     );

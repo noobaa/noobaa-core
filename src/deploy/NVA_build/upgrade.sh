@@ -180,9 +180,9 @@ function extract_package {
 }
 
 function do_upgrade {
-  #Update packages before we stop services, minimize downtime
-  packages_upgrade
-  
+  #Update packages before we stop services, minimize downtime, limit run time for yum update so it won't get stuck
+  timeout --signal=SIGINT 360 cat <( packages_upgrade )
+
   disable_supervisord
 
   if [ "$CLUSTER" != 'cluster' ]; then

@@ -1851,6 +1851,7 @@ export function disableRemoteSyslog() {
 export function attachServerToCluster(serverAddress, serverSecret, hostname, location) {
     logAction('attachServerToCluster', { serverAddress, serverSecret, hostname, location });
 
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.add_member_to_cluster({
         address: serverAddress,
         secret: serverSecret,
@@ -1860,23 +1861,38 @@ export function attachServerToCluster(serverAddress, serverSecret, hostname, loc
         new_hostname: hostname || undefined
     })
         .then(
-            () => notify(`Server ${serverAddress} attached to cluster successfully`, 'success'),
-            () => notify(`Adding ${serverAddress} to cluster failed`, 'error')
+            () => notify(`${name} attached to cluster successfully`, 'success'),
+            () => notify(`Adding ${name} to cluster failed`, 'error')
         )
         .then(loadSystemInfo)
+        .done();
+}
+
+export function updateServerDetails(serverSecret, hostname, location) {
+    logAction('updateServerDetails', { serverSecret, hostname, location });
+
+    const name = `${hostname}-${serverSecret}`;
+    api.cluster_server.update_server_conf({
+        target_secret: serverSecret,
+        hostname: hostname,
+        location: location
+    })
+        .then(
+            () => {
+                notify(`${name} details updated successfully`, 'success');
+                redirectTo(routes.server, { server: name });
+            },
+            () => notify(`Updating ${name} details failed`, 'error')
+        )
         .done();
 }
 
 export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
     logAction('updateServerDNSSettings', { serverSecret, primaryDNS, secondaryDNS });
 
-    const dnsServers = [primaryDNS, secondaryDNS].filter(
-        server => server
-    );
-
     api.cluster_server.update_dns_servers({
         target_secret: serverSecret,
-        dns_servers: dnsServers
+        dns_servers: [primaryDNS, secondaryDNS].filter(isDefined)
     })
         .then(
             () => sleep(config.serverRestartWaitInterval)
@@ -1902,40 +1918,34 @@ export function loadServerTime(serverSecret) {
         .done();
 }
 
-export function updateServerClock(serverSecret, timezone, epoch) {
-    logAction('updateServerClock', { serverSecret, timezone, epoch });
+export function updateServerClock(serverSecret, hostname, timezone, epoch) {
+    logAction('updateServerClock', { serverSecret, hostname, timezone, epoch });
 
-    let { address } = model.systemInfo().cluster.shards[0].servers.find(
-        server => server.secret === serverSecret
-    );
-
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.update_time_config({
         target_secret: serverSecret,
         timezone: timezone,
         epoch: epoch
     })
         .then(
-            () => notify(`${address} time settings updated successfully`, 'success'),
-            () => notify(`Updating ${address} time settings failed`, 'error')
+            () => notify(`${name} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${name} time settings failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
 }
-export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress) {
-    logAction('updateServerNTP', { serverSecret, timezone, ntpServerAddress });
+export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpServerAddress) {
+    logAction('updateServerNTP', { serverSecret, hostname, timezone, ntpServerAddress });
 
-    let { address } = model.systemInfo().cluster.shards[0].servers.find(
-        server => server.secret === serverSecret
-    );
-
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.update_time_config({
         target_secret: serverSecret,
         timezone: timezone,
         ntp_server: ntpServerAddress
     })
         .then(
-            () => notify(`${address} time settings updated successfully`, 'success'),
-            () => notify(`Updating ${address} time settings failed`, 'error')
+            () => notify(`${name} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${name} time settings failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

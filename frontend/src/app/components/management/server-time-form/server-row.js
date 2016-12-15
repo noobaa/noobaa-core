@@ -31,13 +31,17 @@ export default class ServerRowViewModel extends Disposable {
             () => server() ? stateIconMapping[server().status] : ''
         );
 
-        this.hostname = ko.pureComputed(
+        this.serverName = ko.pureComputed(
             () => {
-                let masterSecret = systemInfo() && systemInfo().cluster.master_secret;
-                let isMaster = server().secret === masterSecret;
-                return server() ?
-                    `${server().hostname} ${ isMaster ? '(Master)' : '' }` :
-                    '';
+                if (!server()) {
+                    return '';
+                }
+
+                const { secret, hostname } = server();
+                const masterSecret = systemInfo() && systemInfo().cluster.master_secret;
+                const suffix = secret === masterSecret ? '(Master)' : '';
+                return `${hostname}-${secret} ${suffix}`;
+
             }
         );
 

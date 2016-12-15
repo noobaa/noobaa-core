@@ -25,6 +25,8 @@ class ServerDetailsFormViewModel extends Disposable{
     constructor({ serverSecret }) {
         super();
 
+        this.secret = serverSecret;
+
         this.server = ko.pureComputed(
             () => {
                 if (!systemInfo()) {
@@ -82,6 +84,8 @@ class ServerDetailsFormViewModel extends Disposable{
             route: 'management',
             params: { tab: 'settings' }
         };
+
+        this.isEditServerModalVisible = ko.observable(false);
 
         loadServerTime(ko.unwrap(serverSecret));
     }
@@ -295,6 +299,14 @@ class ServerDetailsFormViewModel extends Disposable{
         );
 
         return { icon, tooltip, proxy };
+    }
+
+    showEditServerModal() {
+        this.isEditServerModalVisible(true);
+    }
+
+    hideEditServerModal() {
+        this.isEditServerModalVisible(false);
     }
 }
 

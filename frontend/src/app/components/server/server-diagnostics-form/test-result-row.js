@@ -48,11 +48,13 @@ export default class TestResultRowViewModel extends Disposable {
 
         this.name = ko.pureComputed(
             () => {
+                if (!server()) {
+                    return '';
+                }
+
                 const masterSecret = systemInfo() && systemInfo().cluster.master_secret;
-                const { secret, hostname } = server() || {};
-                return server() ?
-                    `${hostname}-${secret} ${secret === masterSecret ? '(Master)' : ''}` :
-                    '';
+                const { hostname, secret } = server();
+                return `${hostname}-${secret} ${secret === masterSecret ? '(Master)' : ''}`;
             }
         );
 

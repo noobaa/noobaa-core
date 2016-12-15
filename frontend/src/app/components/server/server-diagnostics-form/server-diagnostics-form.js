@@ -66,13 +66,15 @@ class ServerDiagnosticsFormViewModel extends Disposable{
             {
                 label: 'Debug Mode',
                 value: ko.pureComputed(
-                    () => debugModeState() ? 'on' : 'off'
+                    () => debugModeState() ?
+                        'On' :
+                        'Off <span class="warning">(May cause server slowdown)</span>'
                 )
             },
             {
                 label: 'Time Left For Debugging',
                 value: ko.pureComputed(
-                    () => 'none'
+                    () => 'None'
                 )
             }
         ];

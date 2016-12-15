@@ -101,7 +101,8 @@ function isJSON(value) {
 }
 
 function isHostname(value) {
-    return patternValidatior(value, /^[a-zA-Z\-_][a-zA-Z0-9\-_]*$/);
+    const hostnameRegExp = /^[a-zA-Z0-9]+(\-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(\-[a-zA-Z0-9]+)*)*$/;
+    return patternValidatior(value, hostnameRegExp);
 }
 
 export default function register(ko) {

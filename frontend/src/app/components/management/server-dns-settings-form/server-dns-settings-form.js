@@ -11,7 +11,7 @@ const columns = deepFreeze([
         type: 'icon'
     },
     {
-        name: 'hostname'
+        name: 'serverName'
     },
     {
         name: 'address',

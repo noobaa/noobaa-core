@@ -313,6 +313,7 @@ function find_policy_by_name(req) {
 function get_tier_info(tier, nodes_aggregate_pool) {
     var info = _.pick(tier, 'name', TIER_PLACEMENT_FIELDS);
 
+    info.attached_pools = [];
     _.forEach(tier.mirrors, mirror_object => {
         info.attached_pools = _.concat(info.attached_pools, mirror_object.spread_pools);
     });

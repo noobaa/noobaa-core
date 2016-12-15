@@ -8,6 +8,7 @@
 const _ = require('lodash');
 const url = require('url');
 const mime = require('mime');
+const moment = require('moment');
 const ip_module = require('ip');
 const glob_to_regexp = require('glob-to-regexp');
 
@@ -22,16 +23,16 @@ const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
 const Dispatcher = require('../notifications/dispatcher');
 const mongo_utils = require('../../util/mongo_utils');
+const cloud_utils = require('../../util/cloud_utils');
 const ObjectStats = require('../analytic_services/object_stats');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
+const promise_utils = require('../../util/promise_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
+const http_utils = require('../../util/http_utils');
 const system_server_utils = require('../utils/system_server_utils');
-const cloud_utils = require('../../util/cloud_utils');
-const moment = require('moment');
-const promise_utils = require('../../util/promise_utils');
 
 /**
  *
@@ -1090,16 +1091,12 @@ function check_md_conditions(req, conditions, obj) {
         }
     }
     if (conditions.if_match_etag) {
-        if (!obj ||
-            (conditions.if_match_etag !== '*' &&
-                conditions.if_match_etag !== obj.etag)) {
+        if (!(obj && http_utils.match_etag(conditions.if_match_etag, obj.etag))) {
             throw new RpcError('IF_MATCH_ETAG');
         }
     }
     if (conditions.if_none_match_etag) {
-        if (obj &&
-            (conditions.if_none_match_etag === '*' ||
-                conditions.if_none_match_etag === obj.etag)) {
+        if (obj && http_utils.match_etag(conditions.if_none_match_etag, obj.etag)) {
             throw new RpcError('IF_NONE_MATCH_ETAG');
         }
     }

@@ -208,6 +208,7 @@ class Agent {
         this.is_started = false;
         // mark the rpc state as disconnected to close and reject incoming connections
         this.rpc.set_disconnected_state(true);
+        this.rpc_address = '';
         this._start_stop_server();
         // reset the n2n config to close any open ports
         this.n2n_agent.update_n2n_config({

@@ -1,14 +1,18 @@
 'use strict';
+const fs = require('fs');
+const net = require('net');
 const phone_home_utils = require('../../util/phone_home');
 const dbg = require('../../util/debug_module')(__filename);
 const P = require('../../util/promise');
 const _ = require('lodash');
+const path = require('path');
 const promise_utils = require('../../util/promise_utils');
 const os_utils = require('../../util/os_utils');
 const server_rpc = require('../server_rpc');
 const net_utils = require('../../util/net');
-const net = require('net');
 const system_store = require('../system_services/system_store').get_instance();
+const config_file_store = require('../system_services/config_file_store').instance();
+const fs_utils = require('../../util/fs_utils');
 
 let server_conf = {};
 let monitoring_status = {};
@@ -47,7 +51,8 @@ function _verify_cluster_configuration() {
     dbg.log1('Verifying configuration in cluster');
     return _verify_ntp_cluster_config()
         .then(() => _verify_dns_cluster_config())
-        .then(() => _verify_remote_syslog_cluster_config());
+        .then(() => _verify_remote_syslog_cluster_config())
+        .then(() => _verify_server_certificate());
 }
 
 function _verify_ntp_cluster_config() {
@@ -81,6 +86,34 @@ function _verify_dns_cluster_config() {
         .catch(err => dbg.error('failed to reconfigure dns cluster config on the server. reason:', err));
 }
 
+
+function _verify_server_certificate() {
+    dbg.log2('Verifying certificate in relation to cluster config');
+    let dir = path.join('/etc', 'private_ssl_path');
+    let cert_file = path.join(dir, 'server.crt');
+    let key_file = path.join(dir, 'server.key');
+    return P.join(
+            config_file_store.get(cert_file),
+            config_file_store.get(key_file),
+            fs.readFileAsync(cert_file, 'utf8')
+            .catch(err => dbg.warn('could not read crt file', err)),
+            fs.readFileAsync(key_file, 'utf8')
+            .catch(err => dbg.warn('could not read key file', err))
+        )
+        .spread((certificate, key, platform_cert, platform_key) => {
+            if (!_are_platform_and_cluster_conf_equal(platform_cert, certificate && certificate.data) ||
+                !_are_platform_and_cluster_conf_equal(platform_key, key && key.data)) {
+                dbg.warn('platform certificate not synced to cluster. Resetting now');
+                return fs_utils.clear_dir(dir)
+                    .then(() => P.join(
+                        certificate && certificate.data && fs.writeFileAsync(cert_file, certificate.data),
+                        key && key.data && fs.writeFileAsync(key_file, key.data)))
+                    .then(() => os_utils.restart_services());
+            }
+        });
+}
+
+
 function _verify_remote_syslog_cluster_config() {
     dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
     let cluster_conf = system_store.data.systems[0].remote_syslog_config;
@@ -95,6 +128,8 @@ function _verify_remote_syslog_cluster_config() {
 }
 
 function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
+    platform_conf = _.omitBy(platform_conf, _.isEmpty);
+    cluster_conf = _.omitBy(cluster_conf, _.isEmpty);
     return (_.isEmpty(platform_conf) && _.isEmpty(cluster_conf)) || // are they both either empty or undefined
         _.isEqual(platform_conf, cluster_conf); // if not, are they equal
 }
@@ -129,7 +164,10 @@ function _check_ntp() {
 
 function _check_dns_and_phonehome() {
     dbg.log2('_check_dns_and_phonehome');
-    return phone_home_utils.verify_connection_to_phonehome()
+    const options = system_store.data.systems[0].phone_home_proxy_address ? {
+        proxy: system_store.data.systems[0].phone_home_proxy_address
+    } : undefined;
+    return phone_home_utils.verify_connection_to_phonehome(options)
         .then(res => {
             switch (res) {
                 case "CONNECTED":

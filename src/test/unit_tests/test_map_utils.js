@@ -34,7 +34,6 @@ mocha.describe('map_utils', function() {
             _.forEach(pools, pool => {
                 tiering_pools_status[pool.name] = true;
             });
-            // let pools = bucket.tiering.tiers[0].tier.mirrors;
 
             mocha.describe(test_name, function() {
 

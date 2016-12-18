@@ -1,6 +1,5 @@
 'use strict';
 
-const DEV_MODE = (process.env.DEV_MODE === 'true');
 const P = require('./promise');
 const url = require('url');
 const dns = require('dns');
@@ -11,9 +10,6 @@ const request = require('request');
 
 
 function verify_connection_to_phonehome(phone_home_options) {
-    if (DEV_MODE) {
-        return P.resolve('CONNECTED');
-    }
     let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);
     return P.all([
         P.fromCallback(callback => dns.resolve(parsed_url.host, callback)).reflect(),

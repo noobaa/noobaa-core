@@ -128,8 +128,9 @@ export default function register(ko) {
     ko.components.register('server-time-form',                      require('./management/server-time-form/server-time-form').default);
     ko.components.register('server-dns-settings-form',              require('./management/server-dns-settings-form/server-dns-settings-form').default);
     ko.components.register('update-system-name-modal',              require('./management/update-system-name-modal/update-system-name-modal').default);
-    ko.components.register('update-server-dns-settings-modal',      require('./management/update-server-dns-settings-modal/update-server-dns-settings-modal').default);
     ko.components.register('delete-current-account-warning-modal',  require('./management/delete-current-account-warning-modal/delete-current-account-warning-modal').default);
+    ko.components.register('server-dns-settings-modal',             require('./management/server-dns-settings-modal/server-dns-settings-modal').default);
+    ko.components.register('server-time-settings-modal',            require('./management/server-time-settings-modal/server-time-settings-modal').default);
     /** INJECT:management **/
 
     // -------------------------------
@@ -151,9 +152,17 @@ export default function register(ko) {
     ko.components.register('server-table',                  require('./cluster/server-table/server-table').default);
     ko.components.register('attach-server-modal',           require('./cluster/attach-server-modal/attach-server-modal').default);
     ko.components.register('cluster-summary',               require('./cluster/cluster-summary/cluster-summary').default);
-    ko.components.register('server-dns-settings-modal',     require('./cluster/server-dns-settings-modal/server-dns-settings-modal').default);
-    ko.components.register('server-time-settings-modal',    require('./cluster/server-time-settings-modal/server-time-settings-modal').default);
     /** INJECT:cluster **/
+
+    // -------------------------------
+    // Server
+    // -------------------------------
+    ko.components.register('server-panel', require('./server/server-panel/server-panel').default);
+    ko.components.register('server-summary', require('./server/server-summary/server-summary').default);
+    ko.components.register('server-details-form', require('./server/server-details-form/server-details-form').default);
+    ko.components.register('server-diagnostics-form', require('./server/server-diagnostics-form/server-diagnostics-form').default);
+    ko.components.register('edit-server-modal', require('./server/edit-server-modal/edit-server-modal').default);
+    /** INJECT:server **/
 
     // -------------------------------
     // Funcs

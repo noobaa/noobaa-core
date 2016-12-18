@@ -4,47 +4,41 @@
 ">
     <section class="row" data-name="collapsed">
         <span class="push-next">
-            Primary:
+            Master server DNS settings
+        </span>
+        <span class="push-both">
+            Primary DNS:
             <span data-bind="
-                css: { 'text-tech': primaryDNS },
-                text: primaryDNS() || 'Not set'
+                css: { 'text-tech': masterPrimaryDNS },
+                text: masterPrimaryDNS() || 'Not set'
             "></span>
         </span>
         <span class="push-next">|</span>
         <span>
-            Secondary:
+            Secondary DNS:
             <span data-bind="
-                css: { 'text-tech': secondaryDNS },
-                text: secondaryDNS() || 'Not set'
+                css: { 'text-tech': masterSecondaryDNS },
+                text: masterSecondaryDNS() || 'Not set'
             "></span>
         </span>
     </section>
 
     <section class="column" data-name="expanded">
-        <p>Setup the server to use the following DNS servers for name resolution</p>
+        <p class="push-next">
+            Servers DNS settings has to be configured separately for each server
+        </p>
 
-        <editor params="label: 'Primary DNS'">
-            <input type="text" data-bind="value: primaryDNS" />
-        </editor>
-
-        <editor params="label: 'Secondary DNS'">
-            <input type="text" data-bind="value: secondaryDNS" />
-        </editor>
-
-        <button class="btn align-start push-prev" data-bind="
-            click: update,
-            shakeOnClick: errors().length
-        ">
-            Update
-        </button>
+        <data-table class="servers-table push-next alt-bg" params="
+            columns: columns,
+            data: servers,
+            rowFactory: server => createRow(server)
+        "></data-table>
     </section>
 </collapsible-section>
 
-<!-- ko if: isUpdateServerDNSSettingsModelVisible -->
-<update-server-dns-settings-modal params="
-    onClose: () => hideUpdateDServerDNSSettingsModal(),
-    serverSecret: serverSecret,
-    primaryDNS: primaryDNS,
-    secondaryDNS: secondaryDNS
-"></update-server-dns-settings-modal>
+<!-- ko if: isServerDNSSettingsModalVisible -->
+<server-dns-settings-modal params="
+    serverSecret: editContext,
+    onClose: () => hideServerDNSSettingsModal()
+"></server-dns-settings-modal>
 <!-- /ko -->

@@ -160,12 +160,13 @@ module.exports = {
             }
         },
 
-        set_server_conf: {
+        update_server_conf: {
             method: 'POST',
             params: {
                 type: 'object',
+                required: ['target_secret'],
                 properties: {
-                    server_secret: {
+                    target_secret: {
                         type: 'string'
                     },
                     hostname: {

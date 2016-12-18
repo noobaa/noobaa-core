@@ -167,7 +167,7 @@ export default {
             },
 
             set_debug_level: {
-                message: 'Server Debug Level Changed',
+                message: 'System Debug Mode Changed',
                 entityId: () => ''
             },
 
@@ -183,17 +183,34 @@ export default {
         events: {
             added_member_to_cluster: {
                 message: 'Server Added To Cluster',
-                entityId: ({ server }) => server && server.hostname
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return hostname && secret && `${hostname}-${secret}`;
+                }
             },
-            
+
             collect_server_diagnostics: {
                 message: 'Server Diagnostics Collected',
-                entityId: ({ server }) => server && server.hostname
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return hostname && secret && `${hostname}-${secret}`;
+                }
             },
 
             set_server_conf: {
                 message: 'Server Configuration Set',
-                entityId: ({ server }) => server && server.hostname
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return hostname && secret && `${hostname}-${secret}`;
+                }
+            },
+
+            set_server_debug_level: {
+                message: 'Server Debug Mode Changed',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return hostname && secret && `${hostname}-${secret}`;
+                }
             }
         }
     },

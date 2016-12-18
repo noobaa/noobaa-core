@@ -936,7 +936,7 @@ function read_server_config(req) {
                 });
         })
         .then(() => _attach_server_configuration(srvconf, reply.using_dhcp))
-        .then(() => phone_home_utils.verify_connection_to_phonehome())
+        .then(() => (DEV_MODE ? 'CONNECTED' : phone_home_utils.verify_connection_to_phonehome()))
         .then(function(connection_reply) {
             reply.phone_home_connectivity_status = connection_reply;
 

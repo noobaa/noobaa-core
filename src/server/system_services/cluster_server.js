@@ -910,14 +910,16 @@ function read_server_config(req) {
         });
 }
 
-function set_server_conf(req) {
+function update_server_conf(req) {
     dbg.log0('set_server_conf. params:', req.rpc_params);
+
+
     return P.fcall(() => {
-            if (req.rpc_params.server_secret) {
-                if (!system_store.data.cluster_by_server[req.rpc_params.server_secret]) {
-                    throw new Error(`unknown server:`, req.rpc_params.server_secret);
+            if (req.rpc_params.target_secret) {
+                if (!system_store.data.cluster_by_server[req.rpc_params.target_secret]) {
+                    throw new Error(`unknown server:`, req.rpc_params.target_secret);
                 }
-                return system_store.data.cluster_by_server[req.rpc_params.server_secret];
+                return system_store.data.cluster_by_server[req.rpc_params.target_secret];
             }
             return system_store.get_local_cluster_info();
         })
@@ -936,7 +938,7 @@ function set_server_conf(req) {
         })
         .then(cluster_server => {
             if (req.rpc_params.location) {
-                system_store.make_changes({
+                return system_store.make_changes({
                     update: {
                         clusters: [{
                             _id: cluster_server._id,
@@ -945,7 +947,8 @@ function set_server_conf(req) {
                     }
                 });
             }
-        });
+        })
+        .return();
 }
 
 function set_hostname_internal(req) {
@@ -1361,5 +1364,5 @@ exports.upgrade_cluster = upgrade_cluster;
 exports.check_cluster_status = check_cluster_status;
 exports.ping = ping;
 exports.verify_join_conditions = verify_join_conditions;
-exports.set_server_conf = set_server_conf;
+exports.update_server_conf = update_server_conf;
 exports.set_hostname_internal = set_hostname_internal;

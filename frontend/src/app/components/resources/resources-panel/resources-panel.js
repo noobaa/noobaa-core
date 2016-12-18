@@ -8,14 +8,19 @@ class PoolsPanelViewModel extends Disposable {
         super();
 
         this.isCreatePoolWizardVisible = ko.observable(false);
-
-        this.selectedTab = ko.pureComputed(
-            () => uiState().tab
-        );
     }
 
-    isTabSelected(tabName) {
-        return this.selectedTab() === tabName;
+    tabHref(tab) {
+        return {
+            route: 'pools',
+            params: { tab }
+        };
+    }
+
+    tabCss(tab) {
+        return {
+            selected: uiState().tab === tab
+        };
     }
 
     showCreatePoolWizard() {

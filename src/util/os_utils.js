@@ -499,6 +499,10 @@ function get_syslog_server_configuration() {
 }
 
 function restart_services() {
+    if (os.type() !== 'Linux') {
+        return;
+    }
+
     var fname = '/tmp/spawn.log';
     var stdout = fs.openSync(fname, 'a');
     var stderr = fs.openSync(fname, 'a');
@@ -514,6 +518,10 @@ function restart_services() {
 }
 
 function set_hostname(hostname) {
+    if (os.type() !== 'Linux') {
+        return P.resolve();
+    }
+
     return promise_utils.exec(`hostname ${hostname}`);
 }
 

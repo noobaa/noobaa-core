@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isString, deepFreeze } from 'utils/all';
+import { isDefined, isObject, isString, deepFreeze } from 'utils/core-utils';
 
 const tooltip = document.createElement('p');
 const delay = 350;
@@ -35,28 +35,39 @@ function normalizeValue(value) {
         };
 
     } else if (value instanceof Array) {
+        const list = value.filter(isDefined);
+        const text = list.length > 0 ?
+            (list.length === 1 ? list[0] : toHtmlList(list)) :
+            '';
+
         return {
-            text: value.length === 1 ? value : toHtmlList(value),
+            text: text,
             position: 'below',
             align: 'center',
             breakWords: false
         };
 
     } else if (isObject(value)) {
-        let text = ko.unwrap(value.text);
+        let { text, position, align } = value;
         if (text instanceof Array) {
-            text = value.length === 1 ? value : toHtmlList(value);
+            const list = text.filter(isDefined);
+            text = list.length > 0 ?
+                (list.length > 1 ? toHtmlList(list) :  list[0]) :
+                '';
+
         } else if (isObject(text)) {
-            let { title  = '', list = [] } = text;
-            text = `<p>${title}:</p>${toHtmlList(list)}`;
+            const { title  = '', list = [] } = text;
+            text = `<p>${
+                title
+            }:</p>${
+                toHtmlList(list.filter(isDefined))
+            }`;
         }
 
-        let position = ko.unwrap(value.position);
         if (!Object.keys(positions).includes(position)) {
             position = 'below';
         }
 
-        let align = ko.unwrap(value.align);
         if (!Object.keys(alignments).includes(align)) {
             align = 'center';
         }
@@ -65,7 +76,7 @@ function normalizeValue(value) {
             text: text,
             position: position,
             align: align,
-            breakWords: Boolean(ko.unwrap(value.breakWords))
+            breakWords: Boolean(value.breakWords)
         };
 
     } else {
@@ -78,7 +89,7 @@ function showTooltip(target, { text, align, position, breakWords }) {
     tooltip.className = `tooltip ${align} ${position} ${breakWords ? 'break-words' : ''}`;
     document.body.appendChild(tooltip);
 
-    let alignFactor = alignments[align];
+    const alignFactor = alignments[align];
     let { left, top, bottom, right } = target.getBoundingClientRect();
 
     switch (positions[position]) {
@@ -116,19 +127,19 @@ function hideTooltip() {
 
 export default {
     init: function(target, valueAccessor) {
-        let params = ko.pureComputed(
-            () => normalizeValue(ko.unwrap(valueAccessor()))
+        const params = ko.pureComputed(
+            () => normalizeValue(ko.deepUnwrap(valueAccessor()))
         );
 
-        let hover = ko.observable(false);
+        const hover = ko.observable(false);
 
-        let paramsSub = params.subscribe(
+        const paramsSub = params.subscribe(
             params => (hover() && params.text) ?
                     showTooltip(target, params) :
                     hideTooltip()
         );
 
-        let hoverSub = hover
+        const hoverSub = hover
             .extend({
                 rateLimit: {
                     timeout: delay,

@@ -700,8 +700,17 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
-                cpu_usage: {
-                    type: 'number'
+                cpus: {
+                    type: 'object',
+                    required: ['count', 'usage'],
+                    properties: {
+                        count: {
+                            type: 'number'
+                        },
+                        usage: {
+                            type: 'number'
+                        }
+                    }
                 },
                 location: {
                     type: 'string'
@@ -732,50 +741,48 @@ module.exports = {
 
         services_status: {
             type: 'object',
-            required: ['dns_status', 'ph_status'],
+            required: ['phonehome_server', 'cluster_communication'],
             properties: {
-                dns_status: {
+                dns_servers: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                ph_status: {
+                dns_name_resolution: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                dns_name: {
+                phonehome_server: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                ntp_status: {
+                phonehome_proxy: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                internet_connectivity: {
-                    type: 'string',
-                    enum: ['FAULTY']
-                },
-                proxy_status: {
-                    $ref: '#/definitions/service_status_enum'
-
-                },
-                remote_syslog_status: {
+                ntp_server: {
                     $ref: '#/definitions/service_status_enum'
                 },
-                cluster_status: {
-                    anyOf: [{
-                        type: 'string',
-                        enum: ['UNKNOWN']
-                    }, {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['secret', 'status'],
-                            properties: {
-                                secret: {
-                                    type: 'string'
-                                },
-                                status: {
-                                    $ref: '#/definitions/service_status_enum'
+                remote_syslog: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                cluster_communication: {
+                    type: 'object',
+                    properties: {
+                        test_completed: {
+                            type: 'boolean'
+                        },
+                        results: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                required: ['secret', 'status'],
+                                properties: {
+                                    secret: {
+                                        type: 'string'
+                                    },
+                                    status: {
+                                        $ref: '#/definitions/service_status_enum'
+                                    }
                                 }
                             }
                         }
-                    }]
+                    }
                 }
             }
         },

@@ -105,16 +105,16 @@ class DataTableViewModel extends Disposable {
     }
 
     updateRows(data) {
-        let curr = this.rows().length;
-        let target = (ko.unwrap(data) || []).length;
+        const curr = this.rows().length;
+        const target = (ko.unwrap(data) || []).length;
         let diff = curr - target;
 
         if (diff < 0) {
             for (let i = curr; i < target; ++i) {
-                let viewModel = this.rowFactory(
+                const viewModel = this.rowFactory(
                     () => (ko.unwrap(data) || [])[i]
                 );
-                let metaData = this.newRowMetaData(viewModel);
+                const metaData = this.newRowMetaData(viewModel);
 
                 this.rows.push({
                     vm: viewModel,
@@ -124,7 +124,7 @@ class DataTableViewModel extends Disposable {
 
         } else if (diff > 0) {
             while(diff-- > 0) {
-                let viewModel = this.rows.pop().vm;
+                const viewModel = this.rows.pop().vm;
                 isFunction(viewModel.dispose) && viewModel.dispose();
             }
         }
@@ -144,17 +144,25 @@ class DataTableViewModel extends Disposable {
                 undefined
         };
     }
+
+    dispose() {
+        this.rows().forEach(
+            ({ vm }) => isFunction(vm.dispose) && vm.dispose()
+        );
+
+        super.dispose();
+    }
 }
 
 function viewModelFactory(params, info) {
-    let templates = info.templateNodes
+    const templates = info.templateNodes
         .filter(
             ({ nodeType }) => nodeType === 1
         )
         .reduce(
             (templates, template) => {
-                let name = template.getAttribute('name');
-                let html = template.innerHTML;
+                const name = template.getAttribute('name');
+                const html = template.innerHTML;
                 templates[name] = html;
                 return templates;
             },

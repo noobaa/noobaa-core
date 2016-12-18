@@ -1,0 +1,27 @@
+server-details-form {
+    display: block;
+
+    .status-list .label {
+        width: 200px;
+    }
+
+    .config-link {
+        line-height: 2;
+    }
+
+    .info-icon {
+        fill: @color7;
+    }
+
+    .server-monitor.disabled  {
+
+        .link, .heading3, .highlight {
+            color: @color15;
+            pointer-events: none;
+        }
+
+        .info-icon {
+            fill: @color15;
+        }
+    }
+}

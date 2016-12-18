@@ -6,6 +6,7 @@
     "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",
     "defaultIconFile": "icons.svg",
+    "serverRestartWaitInterval": 20000,
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {
@@ -42,6 +43,7 @@
     "support":  {
         "email": "support@noobaa.com",
         "helpDesk": "https://noobaa.desk.com",
-        "upgradeToEnterpriseMailSubject": "Application for upgrade from Community Edition to Enterprise Edition license"
+        "upgradeToEnterpriseMailSubject": "Application for upgrade from Community Edition to Enterprise Edition license",
+        "missingOVAMailSubject": "Please help me find my original OVA"
     }
 }

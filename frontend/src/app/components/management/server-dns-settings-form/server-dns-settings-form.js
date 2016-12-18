@@ -1,7 +1,34 @@
 import template from './server-dns-settings-form.html';
 import Disposable from 'disposable';
+import ServerRow from './server-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
+import { deepFreeze } from 'utils/core-utils';
+
+const columns = deepFreeze([
+    {
+        name: 'state',
+        type: 'icon'
+    },
+    {
+        name: 'serverName'
+    },
+    {
+        name: 'address',
+        label:'IP Address'
+    },
+    {
+        name: 'primaryDNS'
+    },
+    {
+        name: 'secondaryDNS'
+    },
+    {
+        name: 'actions',
+        label: '',
+        type: 'button'
+    }
+]);
 
 class ServerDnsSettingsFormViewModel extends Disposable{
     constructor({ isCollapsed }) {
@@ -9,58 +36,51 @@ class ServerDnsSettingsFormViewModel extends Disposable{
 
         this.isCollapsed = isCollapsed;
 
-        let cluster = ko.pureComputed(
+        this.columns = columns;
+        this.servers = [];
+
+        const cluster = ko.pureComputed(
             () => systemInfo() && systemInfo().cluster
         );
 
-        let server = ko.pureComputed(
-            () => cluster() && cluster().shards[0].servers.find(
-                server => server.secret === cluster().master_secret
-            )
+        this.servers = ko.pureComputed(
+            () => cluster() ? cluster().shards[0].servers : []
         );
 
-        this.serverSecret = ko.pureComputed(
-            () => server() && server().secret
+        const masterDNSServers = ko.pureComputed(
+            () => {
+                const master = this.servers().find(
+                    server => server.secret === (cluster() || {}).master_secret
+                );
+
+                return (master && master.dns_servers) || [];
+            }
         );
 
-        let dnsServers = ko.pureComputed(
-            () => server() ? server().dns_servers : []
+        this.masterPrimaryDNS = ko.observableWithDefault(
+            () => masterDNSServers()[0]
         );
 
-        this.primaryDNS = ko.observableWithDefault(
-            () => dnsServers()[0]
-        )
-            .extend({
-                required: {
-                    onlyIf: () => this.secondaryDNS(),
-                    message: 'A primary DNS must be configured prior to a secondary DNS'
-                },
-                isIPOrDNSName: true
-            });
+        this.masterSecondaryDNS = ko.observableWithDefault(
+            () => masterDNSServers()[1]
+        );
 
-        this.secondaryDNS = ko.observableWithDefault(
-            () => dnsServers()[1]
-        )
-            .extend({
-                isIPOrDNSName: true
-            });
-
-        this.errors = ko.validation.group(this);
-
-        this.isUpdateServerDNSSettingsModelVisible = ko.observable();
+        this.editContext = ko.observable();
+        this.isServerDNSSettingsModalVisible = ko.observable(false);
     }
 
-    update() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
-
-        } else {
-            this.isUpdateServerDNSSettingsModelVisible(true);
-        }
+    createRow(server) {
+        return new ServerRow(
+            server,
+            () => {
+                this.editContext(server().secret);
+                this.isServerDNSSettingsModalVisible(true);
+            }
+        );
     }
 
-    hideUpdateDServerDNSSettingsModal() {
-        this.isUpdateServerDNSSettingsModelVisible(false);
+    hideServerDNSSettingsModal() {
+        this.isServerDNSSettingsModalVisible(false);
     }
 }
 

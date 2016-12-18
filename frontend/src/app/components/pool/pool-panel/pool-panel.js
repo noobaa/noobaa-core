@@ -1,7 +1,7 @@
 import template from './pool-panel.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { poolNodeList, systemInfo, routeContext } from 'model';
+import { poolNodeList, systemInfo, routeContext, uiState } from 'model';
 
 class PoolPanelViewModel extends Disposable {
     constructor() {
@@ -20,8 +20,17 @@ class PoolPanelViewModel extends Disposable {
         );
     }
 
-    isTabSelected() {
-        return true;
+    tabHref(tab) {
+        return {
+            route: 'pool',
+            params: { tab }
+        };
+    }
+
+    tabCss(tab) {
+        return {
+            selected: uiState().tab === tab
+        };
     }
 }
 

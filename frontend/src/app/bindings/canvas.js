@@ -7,11 +7,12 @@ export default {
             throw new Error('Invalid binding target');
         }
 
-        let {
+        const rect = canvas.getBoundingClientRect();
+        const {
             draw = noop,
-            width = canvas.width,
-            height = canvas.height
-        } = valueAccessor();
+            width = rect.width | 0,
+            height = rect.height | 0
+        } = ko.deepUnwrap(valueAccessor());
 
         canvas.width = width;
         canvas.height = height;
@@ -19,7 +20,7 @@ export default {
         draw.call(
             viewModel,
             canvas.getContext('2d'),
-            { width: ko.unwrap(width), height: ko.unwrap(height)
-        });
+            { width, height }
+        );
     }
 };

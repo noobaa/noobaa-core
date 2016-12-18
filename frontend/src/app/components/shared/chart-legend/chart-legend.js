@@ -1,20 +1,40 @@
 import template from './chart-legend.html';
 import Disposable from 'disposable';
-import { formatSize } from 'utils/all';
+import { echo, deepFreeze, isFunction } from 'utils/core-utils';
+import { formatSize } from 'utils/string-utils';
 import ko from 'knockout';
 
+const namedFormats = deepFreeze({
+    none: echo,
+    size: formatSize
+});
+
 class ChartLegendViewModel extends Disposable{
-    constructor({ caption = '', items }) {
+    constructor({
+        caption = '',
+        items,
+        format = 'none'
+    }) {
         super();
 
         this.caption = caption;
-        this.items = items;
-        this.formatSize = formatSize;
+        this.formatter = isFunction(format) ? format : namedFormats[format];
+
+        this.items = ko.pureComputed(
+            () => ko.unwrap(items).map(
+                item => this.normalizeItem(item)
+            )
+        );
+
     }
 
-    getFormattedValue(value) {
-        return formatSize(ko.unwrap(value));
+    normalizeItem({ label, color, value, visible = true }) {
+        const formattedValue = this.formatter(ko.unwrap(value));
+        const style = { 'border-color': color };
+
+        return { label, style, formattedValue, visible };
     }
+
 }
 
 export default {

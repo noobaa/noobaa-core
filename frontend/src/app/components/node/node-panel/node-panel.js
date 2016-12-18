@@ -13,14 +13,19 @@ class NodePanelViewModel extends Disposable {
         this.ready = ko.pureComputed(
             () => !!this.node()
         );
-
-        this.selectedTab = ko.pureComputed(
-            () => uiState().tab
-        );
     }
 
-    isTabSelected(name) {
-        return this.selectedTab() === name;
+    tabHref(tab) {
+        return {
+            route: 'node',
+            params: { tab }
+        };
+    }
+
+    tabCss(tab) {
+        return {
+            selected: uiState().tab === tab
+        };
     }
 }
 

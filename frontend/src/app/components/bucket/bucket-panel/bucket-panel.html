@@ -4,28 +4,27 @@
 <div class="tabs greedy">
     <nav>
         <a data-bind="
-            href: { route: 'bucket', params: { tab: 'data-placement' } },
-            css: { selected: isTabSelected('data-placement') }
+            href: tabHref('data-placement'),
+            css: tabCss('data-placement')
         ">
             Data Placement
         </a>
-
         <a data-bind="
-            href: { route: 'bucket', params: { tab: 'objects' } },
-            css: { selected: isTabSelected('objects') }
+            href: tabHref('objects'),
+            css: tabCss('objects')
         ">
             Files
         </a>
-        <a data-bind="
-            href: { route: 'bucket', params: { tab: 's3-access' } },
-            css: { selected: isTabSelected('s3-access') }
+       <a data-bind="
+            href: tabHref('s3-access'),
+            css: tabCss('s3-access')
         ">
             S3 Access
         </a>
 
         <a data-bind="
-            href: { route: 'bucket', params: { tab: 'cloud-sync' } },
-            css: { selected: isTabSelected('cloud-sync') }
+            href: tabHref('cloud-sync'),
+            css: tabCss('cloud-sync')
         ">
             Cloud sync
         </a>
@@ -34,22 +33,22 @@
     <div class="tabs-row">
         <bucket-data-placement-form class="tab"
             params="bucket: bucket"
-            data-bind="css: { selected: isTabSelected('data-placement') }">
+            data-bind="css: tabCss('data-placement')">
         </bucket-data-placement-form>
 
         <bucket-objects-table class="tab"
             params="bucket: bucket, objectList: objectList"
-            data-bind="css: { selected: isTabSelected('objects') }">
+            data-bind="css: tabCss('objects')">
         </bucket-objects-table>
 
         <bucket-s3-access-list class="tab"
             params="bucketName: bucketName"
-            data-bind="css: { selected: isTabSelected('s3-access') }">
+            data-bind="css: tabCss('s3-access')">
         </bucket-s3-access-list>
 
         <bucket-cloud-sync-form class="tab"
             params="bucket: bucket"
-            data-bind="css: { selected: isTabSelected('cloud-sync') }">
+            data-bind="css: tabCss('cloud-sync')">
         </bucket-cloud-sync-form>
     </div>
 </div>

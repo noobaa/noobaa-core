@@ -31,7 +31,9 @@ const promise_utils = require('../util/promise_utils');
 module.exports = AgentCLI;
 
 const CREATE_TOKEN_RESPONSE_TIMEOUT = 30 * 1000; // 30s timeout for master to respond to HB
-const CREATE_TOKEN_MAX_CONNECT_ATTEMPTS = 24 * 60 * 60 / CREATE_TOKEN_RESPONSE_TIMEOUT;  //24 Hours give up
+const CREATE_TOKEN_RETRY_INTERVAL = 10 * 1000;
+const CREATE_TOKEN_MAX_CONNECT_ATTEMPTS = 24 * 60 * 60 /
+    (CREATE_TOKEN_RESPONSE_TIMEOUT + CREATE_TOKEN_RETRY_INTERVAL); // 24 Hours give up
 
 /**
  *
@@ -657,8 +659,8 @@ AgentCLI.prototype.create_auth_token = function(auth_params) {
         .timeout(CREATE_TOKEN_RESPONSE_TIMEOUT)
         .catch(err => {
             dbg.error('create_auth_token failed', err);
-            return P.delay(1000)
-                .then(() => this.create_auth_token());
+            return P.delay(CREATE_TOKEN_RETRY_INTERVAL)
+                .then(() => this.create_auth_token(auth_params));
 
         });
 };

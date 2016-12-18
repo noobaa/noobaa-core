@@ -133,7 +133,10 @@ function get_cluster_info() {
     _.each(system_store.data.clusters, cinfo => {
         let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
         let memory_usage = 0;
-        let cpu_usage = 0;
+        let cpus = {
+            count: 0,
+            usage: 0
+        };
         let version = '0';
         let is_connected = 'DISCONNECTED';
         let hostname = os.hostname();
@@ -149,7 +152,8 @@ function get_cluster_info() {
         }
         if (cinfo.heartbeat) {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
-            cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
+            cpus.count = cinfo.heartbeat.health.os_info.cpus.length;
+            cpus.usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
             if (online_members.indexOf(cinfo.owner_address) !== -1) {
                 is_connected = 'CONNECTED';
@@ -165,7 +169,7 @@ function get_cluster_info() {
             status: is_connected,
             memory_usage: memory_usage,
             storage: storage,
-            cpu_usage: cpu_usage,
+            cpus: cpus,
             location: location,
             debug_level: cinfo.debug_level,
             ntp_server: cinfo.ntp && cinfo.ntp.server,
@@ -173,8 +177,21 @@ function get_cluster_info() {
             dns_servers: cinfo.dns_servers || [],
             time_epoch: time_epoch
         };
-        if (cinfo.services_status) {
-            server_info.services_status = cinfo.services_status;
+
+        const status = cinfo.services_status;
+        if (status) {
+            server_info.services_status = _.omitBy({
+                dns_servers: status.dns_status,
+                dns_name_resolution: status.dns_name,
+                phonehome_server: status.ph_status,
+                phonehome_proxy: status.proxy_status,
+                ntp_server: status.ntp_status,
+                remote_syslog: status.remote_syslog_status,
+                cluster_communication: {
+                    test_completed: status.cluster_status !== 'UNKNOWN',
+                    results: status.cluster_status !== 'UNKNOWN' && status.cluster_status
+                }
+            }, _.isUndefined);
         }
         shard.servers.push(server_info);
     });

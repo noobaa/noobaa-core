@@ -453,12 +453,10 @@ class NodesMonitor extends EventEmitter {
             item.node.is_internal_node = true;
         }
         dbg.log0('_add_new_node', item.node);
+        this._set_need_update.add(item);
         this._add_node_to_maps(item);
         this._set_node_defaults(item);
         this._set_connection(item, conn);
-        this._set_need_update.add(item);
-        // we hurry the next run to save the new node
-        this._schedule_next_run(3000);
     }
 
     _add_node_to_maps(item) {
@@ -523,6 +521,8 @@ class NodesMonitor extends EventEmitter {
         dbg.warn('_close_node_connection', item.node.name, item.connection.connid);
         item.connection.close();
         item.connection = null;
+        item.agent_info = null;
+        item.node.rpc_address = '';
     }
 
     _disconnect_node(item) {
@@ -541,6 +541,7 @@ class NodesMonitor extends EventEmitter {
         item.node.heartbeat = Date.now();
         this._set_need_update.add(item);
         this._update_status(item);
+        this._run_node_delayed(item);
     }
 
     _on_connection_close(item, conn) {
@@ -622,6 +623,11 @@ class NodesMonitor extends EventEmitter {
             .catch(err => {
                 dbg.warn('_run_node: ERROR', err.stack || err, 'node', item.node);
             }));
+    }
+
+    _run_node_delayed(item) {
+        return P.delay(100)
+            .then(() => this._run_node(item));
     }
 
     _get_agent_info(item) {
@@ -767,6 +773,7 @@ class NodesMonitor extends EventEmitter {
 
     _test_network_to_server(item) {
         if (!item.connection) return;
+        if (!item.node.rpc_address) return;
 
         const start = Date.now();
 
@@ -796,6 +803,7 @@ class NodesMonitor extends EventEmitter {
     // Test with few other nodes and detect if we have a NAT preventing TCP to this node
     _test_network_perf(item) {
         if (!item.connection) return;
+        if (!item.node.rpc_address) return;
 
         const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
         return P.each(items_without_issues, item_without_issues => {
@@ -1136,6 +1144,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            item.node.rpc_address &&
             !item.io_detention &&
             !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
@@ -1147,6 +1156,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            item.node.rpc_address &&
             !item.io_detention &&
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
@@ -1156,6 +1166,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            item.node.rpc_address &&
             !item.io_detention &&
             !item.storage_full &&
             !item.node.migrating_to_pool &&

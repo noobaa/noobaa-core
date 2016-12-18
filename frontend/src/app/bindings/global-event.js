@@ -3,11 +3,11 @@ import ko from 'knockout';
 const { domData, domNodeDisposal } = ko.utils;
 
 function addGlobalListener(event, handler) {
-    document.documentElement.addEventListener(event, handler, false);
+    window.addEventListener(event, handler, false);
 }
 
 function removeGlobalListener(event, handler) {
-    document.documentElement.removeEventListener(event, handler, false);
+    window.removeEventListener(event, handler, false);
 }
 
 export default {

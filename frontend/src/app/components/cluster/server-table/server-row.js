@@ -1,30 +1,34 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { collectDiagnosticsState, systemInfo } from 'model';
-import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
-import { deepFreeze, isUndefined, formatSize } from 'utils/all';
+import { systemInfo } from 'model';
+import { deepFreeze, formatSize } from 'utils/all';
+import { getServerIssues } from 'utils/cluster-utils';
 
 const diskUsageErrorBound = .95;
 const diskUsageWarningBound = .85;
-
 const stateIconMapping = deepFreeze({
     CONNECTED: {
         name: 'healthy',
         css: 'success',
-        tooltip: 'Healthy'
+        tooltip: 'Connected'
     },
 
     IN_PROGRESS: {
         name: 'in-progress',
         css: 'warning',
-        tooltip: 'In Progress'
+        tooltip: 'in progress'
     },
 
     DISCONNECTED: {
         name: 'problem',
         css: 'error',
-        tooltip: 'Problem'
+        tooltip: 'Disconnected'
+    },
+
+    WARNING: {
+        name: 'notif-warning',
+        css: 'warning'
     }
 });
 
@@ -33,16 +37,51 @@ export default class ServerRowViewModel extends Disposable {
         super();
 
         this.state = ko.pureComputed(
-            () => server() ? stateIconMapping[server().status] : ''
+            () => {
+                if (!server()) {
+                    return '';
+                }
+
+                const { status } = server();
+                if (status === 'CONNECTED') {
+
+                    const issues = Object.values(
+                        getServerIssues(server(), systemInfo())
+                    );
+                    if (issues.length > 0) {
+                        return Object.assign(
+                            {
+                                tooltip: {
+                                    text: issues,
+                                    align: 'start'
+                                }
+                            },
+                            stateIconMapping['WARNING']
+                        );
+                    }
+                }
+
+                return stateIconMapping[status];
+            }
         );
 
-        this.hostname = ko.pureComputed(
+        this.name = ko.pureComputed(
             () => {
-                let masterSecret = systemInfo() && systemInfo().cluster.master_secret;
-                let isMaster = server().secret === masterSecret;
-                return server() ?
-                    `${server().hostname} ${ isMaster ? '(Master)' : '' }` :
-                    '';
+                if (!server()) {
+                    return '';
+                }
+
+                const { secret, hostname } = server();
+                const name = `${hostname}-${secret}`;
+                const masterSecret = systemInfo() && systemInfo().cluster.master_secret;
+
+                const text = `${name} ${ secret === masterSecret ? '(Master)' : '' }`;
+                const href = {
+                    route: 'server',
+                    params: { server: `${hostname}-${secret}` }
+                };
+
+                return { text, href };
             }
         );
 
@@ -52,14 +91,19 @@ export default class ServerRowViewModel extends Disposable {
 
         this.diskUsage = ko.pureComputed(
             () => {
-                let { free, total } = server().storage;
-                let used = total - free;
-                let usedPercents = used / total;
-                let text = numeral(usedPercents).format('0%');
-                let tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
+                if(!server()) {
+                    return '';
+                }
+
+                const { free, total } = server().storage;
+                const used = total - free;
+                const usedRatio = used / total;
+                const text = numeral(usedRatio).format('0%');
+                const tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
+
                 let css = '';
-                if(usedPercents >= diskUsageWarningBound) {
-                    css = usedPercents >= diskUsageErrorBound ? 'error' : 'warning';
+                if(usedRatio >= diskUsageWarningBound) {
+                    css = usedRatio >= diskUsageErrorBound ? 'error' : 'warning';
                 }
 
                 return { text, tooltip, css };
@@ -67,75 +111,37 @@ export default class ServerRowViewModel extends Disposable {
         );
 
         this.memoryUsage = ko.pureComputed(
-            () => server().memory_usage
-        ).extend({
-            formatNumber: { format: '%' }
-        });
+            () => {
+                if (!server()) {
+                    return 'N/A';
+                }
+
+                return {
+                    text: numeral(server().memory_usage).format('%'),
+                    tooltip: 'Avg. over the last minute'
+                };
+            }
+        );
 
         this.cpuUsage = ko.pureComputed(
-            () => server().cpu_usage
-        ).extend({
-            formatNumber: { format: '%' }
-        });
+            () => {
+                if (!server()) {
+                    return 'N/A';
+                }
+
+                return {
+                    text: numeral(server().cpus.usage).format('%'),
+                    tooltip: 'Avg. over the last minute'
+                };
+            }
+        );
 
         this.version = ko.pureComputed(
             () => server() ? server().version : 'N/A'
         );
 
-        this.secret = ko.pureComputed(
-            () => server() && server().secret
+        this.location = ko.pureComputed(
+            () => server() ? server().location : 'No location tag'
         );
-
-        this.primaryDNS = ko.pureComputed(
-            () => (server() && server().dns_servers[0]) || 'Not set'
-        );
-
-        this.secondaryDNS = ko.pureComputed(
-            () => (server() && server().dns_servers[1]) || 'Not set'
-        );
-
-        this.timeConfig = ko.pureComputed(
-            () => {
-                let ntpServer = server() && server().ntp_server;
-
-                return ntpServer ?
-                    `Using NTP server at ${ntpServer}` :
-                    'Using local server time';
-            }
-        );
-
-        this.debugLevel = ko.pureComputed(
-            () => {
-                let level = server() && server().debug_level;
-                return isUndefined(level) ? 0 : level;
-            }
-        );
-
-        this.debugLevelText = ko.pureComputed(
-            () => this.debugLevel() > 0 ? 'High' : 'Low'
-        );
-
-        this.toogleDebugLevelButtonText = ko.pureComputed(
-            () => `${this.debugLevel() > 0 ? 'Lower' : 'Raise' } Debug Level`
-        );
-
-        this.debugLevelCss = ko.pureComputed(
-            () => ({ 'high-debug-level': this.debugLevel() > 0 })
-        );
-
-        this.isCollectingDiagnostics = ko.pureComputed(
-            () => Boolean(collectDiagnosticsState()[
-                `server:${this.hostname()}`
-            ])
-        );
-    }
-
-    toogleDebugLevel() {
-        let newDebugLevel = this.debugLevel() === 0 ? 5 : 0;
-        return setServerDebugLevel(this.secret(), this.hostname(), newDebugLevel);
-    }
-
-    downloadDiagnosticPack() {
-        downloadServerDiagnosticPack(this.secret(), this.hostname());
     }
 }

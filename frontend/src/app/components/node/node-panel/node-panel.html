@@ -4,39 +4,38 @@
 <div class="tabs greedy">
     <nav>
         <a data-bind="
-            href: { route: 'node', params: { tab: 'details' } },
-            css: { selected: isTabSelected('details') }
+            href: tabHref('details'),
+            css: tabCss('details')
         ">
             Details
         </a>
 
         <a data-bind="
-            href: { route: 'node', params: { tab: 'parts' } },
-            css: { selected: isTabSelected('parts') }
+            href: tabHref('parts'),
+            css: tabCss('parts')
         ">
             Stored File Parts
         </a>
 
         <a data-bind="
-            href: { route: 'node', params: { tab: 'diagnostics' } },
-            css: { selected: isTabSelected('diagnostics') }
+            href: tabHref('diagnostics'),
+            css: tabCss('diagnostics')
         ">
             Test &amp; Diagnostics
         </a>
     </nav>
 
-
     <div class="tabs-row">
         <node-details-form class="tab" params="node: node" data-bind="
-            css: { selected: isTabSelected('details') }
+            css: tabCss('details')
         "></node-details-form>
 
         <node-parts-table class="tab" params="partList: storedParts" data-bind="
-            css: { selected: isTabSelected('parts') }
+            css: tabCss('parts')
         "></node-parts-table>
 
         <node-diagnostics-form class="tab" params="node: node" data-bind="
-            css: { selected: isTabSelected('diagnostics') }
+            css: tabCss('diagnostics')
         "></node-diagnostics-form>
     </div>
 </div>

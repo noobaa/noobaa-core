@@ -11,13 +11,13 @@ class ServerDNSSettingsModalViewModel extends Disposable {
         this.serverSecret = ko.unwrap(serverSecret);
         this.onClose = onClose;
 
-        let server = ko.pureComputed(
+        const server = ko.pureComputed(
             () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
                 server => server.secret === this.serverSecret
             )
         );
 
-        let dnsServers = ko.pureComputed(
+        const dnsServers = ko.pureComputed(
             () => server() ? server().dns_servers : []
         );
 
@@ -29,18 +29,19 @@ class ServerDNSSettingsModalViewModel extends Disposable {
                     onlyIf: () => this.secondaryDNS(),
                     message: 'A primary DNS must be configured prior to a secondary DNS'
                 },
-                isIPOrDNSName: true
+                isIP: true
             });
 
         this.secondaryDNS = ko.observableWithDefault(
             () => dnsServers()[1]
         )
-            .extend({ isIPOrDNSName: true });
+            .extend({ isIP: true });
 
+        this.updating = ko.observable(false);
         this.errors = ko.validation.group(this);
     }
 
-    save() {
+    update() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
 
@@ -49,7 +50,7 @@ class ServerDNSSettingsModalViewModel extends Disposable {
                 this.serverSecret, this.primaryDNS(), this.secondaryDNS()
             );
 
-            this.onClose();
+            this.updating(true);
         }
     }
 

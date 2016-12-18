@@ -1,10 +1,17 @@
 <section class="column greedy tabs">
     <nav>
-        <a class="selected">
+        <a data-bind="
+            href: tabHref('buckets'),
+            css: tabCss('buckets')
+        ">
             Data Buckets
         </a>
     </nav>
-    <buckets-table class="column greedy"></buckets-table>
+
+    <div class="tabs-row">
+        <buckets-table class="column greedy" data-bind="css: tabCss('buckets')">
+        </buckets-table>
+    </div>
 </section>
 
 

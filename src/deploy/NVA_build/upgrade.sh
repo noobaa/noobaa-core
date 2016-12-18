@@ -290,7 +290,6 @@ else
 
     CLUSTER="$1"
     if [ "$CLUSTER" == 'cluster' ]; then
-      RS_SERVERS=`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'/' -f 3`
       # TODO: handle differenet shard
       set_mongo_cluster_mode
     fi

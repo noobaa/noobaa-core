@@ -13,6 +13,7 @@ function deploy_log {
 
 function set_mongo_cluster_mode {
     MONGO_PROGRAM="mongors-shard1"
+	RS_SERVERS=`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'/' -f 3`
     MONGO_SHELL="/usr/bin/mongo --host shard1/${RS_SERVERS} nbcore"
 }
 
@@ -29,7 +30,7 @@ function check_mongo_status {
     # even if the supervisor reports the service is running try to connect to it
     local mongo_status
     # beware not to run "local" in the same line changes the exit code
-    mongo_status=$(mongo nbcore --quiet --eval 'quit(!db.serverStatus().ok)')
+    mongo_status=$(${MONGO_SHELL} --quiet --eval 'quit(!db.serverStatus().ok)')
     if [ $? -ne 0 ]
     then
         deploy_log "check_mongo_status: Failed to connect to mongod: $mongo_status"

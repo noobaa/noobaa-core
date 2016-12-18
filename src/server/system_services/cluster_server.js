@@ -147,7 +147,7 @@ function add_member_to_cluster(req) {
                 timeout: 60000 //60s
             });
         })
-        .then(() => {
+        .then(res => {
             Dispatcher.instance().activity({
                 event: 'cluster.added_member_to_cluster',
                 level: 'info',
@@ -161,6 +161,7 @@ function add_member_to_cluster(req) {
                 },
                 desc: `Server ${req.rpc_params.new_hostname || ''} added to cluster`,
             });
+            return res;
         })
         .catch(function(err) {
             console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
@@ -530,7 +531,7 @@ function set_debug_level(req) {
                     event: 'cluster.set_server_debug_level',
                     server: {
                         hostname: _.get(cluster_server, 'heartbeat.health.os_info.hostname'),
-                        secret: cluster_server.secret
+                        secret: cluster_server.owner_secret
                     }
                 };
                 target_servers.push(cluster_server);
@@ -703,14 +704,15 @@ function collect_server_diagnostics(req) {
                     throw new Error('Server Collect Diag Error on reading packges diag file');
                 });
         })
-        .then(() => {
+        .then(res => {
             Dispatcher.instance().activity({
                 event: 'cluster.collect_diagnostics',
                 level: 'info',
-                system: req.system._id,
                 actor: req.account && req.account._id,
-                desc: `Collecting serers diagnostics`
+                system: req.system._id,
+                desc: `Collecting server diagnostics`
             });
+            return res;
         })
         .catch(err => {
             dbg.error('DIAGNOSTICS FAILED', err.stack || err);

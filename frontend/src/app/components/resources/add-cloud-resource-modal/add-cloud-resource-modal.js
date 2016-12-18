@@ -46,8 +46,6 @@ class AddCloudResourceModalViewModel extends Disposable {
         );
 
         const _connection = ko.observable();
-
-        _connection.debug();
         this.connection = ko.pureComputed({
             read: _connection,
             write: value => {

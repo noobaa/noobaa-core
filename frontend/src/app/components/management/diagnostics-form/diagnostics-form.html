@@ -1,28 +1,27 @@
-<section class="column pad">
-    <h2 class="heading3">Contact Support</h2>
-    <property-sheet params="properties: contactSupport"></property-sheet>
+<section class="column push-next">
+    <h2 class="heading3 pad alt-bg">Contact Support</h2>
+    <property-sheet class="pad" params="properties: contactSupport"></property-sheet>
 </section>
-<hr>
 
-<section class="row pad">
-    <div class="column greedy">
-        <h2 class="heading3 greedy">Diagnostics</h2>
-        <p class="row">
-            <span class="push-next">Debug level:</span>
-            <span data-bind="text: debugLevelText"></span>
-        </p>
+<section class="column">
+    <div class="row pad alt-bg content-middle">
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Diagnostics</h2>
+        </div>
+
+        <button class="btn align-start push-next" data-bind="
+            click: toogleDebugMode,
+            text: toogleDebugModeButtonText
+        "></button>
+        <working-button class="align-start push-next" params="
+            working: isCollectingDiagnostics,
+            workingLabel: 'Collecting Data...',
+            click: downloadDiagnosticPack
+        ">
+            Download Diagnostics
+        </working-button>
     </div>
+    <property-sheet class="pad" params="properties: debugModeSheet"></property-sheet>
 
-    <button class="btn align-start push-next" data-bind="
-        click: toogleDebugLevel,
-        text: toogleDebugLevelButtonText
-    "></button>
-    <working-button class="align-start push-next" params="
-        working: isCollectingDiagnostics,
-        workingLabel: 'Collecting Data...',
-        click: downloadDiagnosticPack
-    ">
-        Download Diagnostics
-    </working-button>
 </section>
 

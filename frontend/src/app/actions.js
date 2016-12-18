@@ -1878,11 +1878,24 @@ export function updateServerDetails(serverSecret, hostname, location) {
         location: location
     })
         .then(
+            notify(`${name} details updated successfully`, 'success'),
+            err => {
+                notify(`Updating ${name} details failed`, 'error');
+                throw err;
+            }
+        )
+        .then(loadSystemInfo)
+        .then(
             () => {
-                notify(`${name} details updated successfully`, 'success');
-                redirectTo(routes.server, { server: name });
-            },
-            () => notify(`Updating ${name} details failed`, 'error')
+                const { servers } = model.systemInfo().cluster.shards[0];
+                const server = servers.find(
+                    ({ secret }) => secret === serverSecret
+                );
+
+                if (server.hostname !== hostname) {
+                    redirectTo(routes.server, { server: name });
+                }
+            }
         )
         .done();
 }

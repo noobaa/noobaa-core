@@ -912,6 +912,8 @@ function read_server_config(req) {
 
 function update_server_conf(req) {
     dbg.log0('set_server_conf. params:', req.rpc_params);
+
+
     return P.fcall(() => {
             if (req.rpc_params.target_secret) {
                 if (!system_store.data.cluster_by_server[req.rpc_params.target_secret]) {
@@ -936,7 +938,7 @@ function update_server_conf(req) {
         })
         .then(cluster_server => {
             if (req.rpc_params.location) {
-                system_store.make_changes({
+                return system_store.make_changes({
                     update: {
                         clusters: [{
                             _id: cluster_server._id,
@@ -945,7 +947,8 @@ function update_server_conf(req) {
                     }
                 });
             }
-        });
+        })
+        .return();
 }
 
 function set_hostname_internal(req) {

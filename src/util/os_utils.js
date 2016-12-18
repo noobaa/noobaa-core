@@ -518,6 +518,10 @@ function restart_services() {
 }
 
 function set_hostname(hostname) {
+    if (os.type() !== 'Linux') {
+        return P.resolve();
+    }
+
     return promise_utils.exec(`hostname ${hostname}`);
 }
 

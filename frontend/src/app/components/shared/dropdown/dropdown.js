@@ -32,14 +32,14 @@ class DropdownViewModel extends Disposable {
         );
         this.selectedLabel = ko.pureComputed(
             () => {
-                let options = ko.unwrap(this.options);
-                let selected = this.selected();
+                const options = ko.unwrap(this.options);
+                const selected = this.selected();
 
-                let selectedOpt = options && isDefined(selected) ? options.find(
+                const selectedOpt = options && isDefined(selected) ? options.find(
                     opt => !!opt && opt.value === selected
                 ) : null;
 
-                return selectedOpt ? (selectedOpt.label || selectedOpt.value) : placeholder;
+                return selectedOpt ? (selectedOpt.label || selectedOpt.value) : ko.unwrap(placeholder);
             }
         );
 
@@ -65,7 +65,7 @@ class DropdownViewModel extends Disposable {
     }
 
     handleKeyPress({ which }) {
-        let optionsCount = ko.unwrap(this.options).length;
+        const optionsCount = ko.unwrap(this.options).length;
 
         switch(which) {
             case 9: /* tab */
@@ -115,10 +115,10 @@ class DropdownViewModel extends Disposable {
     }
 
     moveSelectionBy(step) {
-        let options = ko.unwrap(this.options);
+        const options = ko.unwrap(this.options);
 
         let i = clamp(this.selectedIndex() + step, 0, options.length - 1);
-        let dir = clamp(step, -1, 1);
+        const dir = clamp(step, -1, 1);
 
         while (options[i] === null) {
             i += dir;
@@ -131,12 +131,12 @@ class DropdownViewModel extends Disposable {
     }
 
     sreachBy(keyCode) {
-        let char = String.fromCharCode(keyCode).toLowerCase();
+        const char = String.fromCharCode(keyCode).toLowerCase();
         this.searchInput = Date.now() - this.lastInput <= INPUT_THROTTLE ?
             this.searchInput + char :
             char;
 
-        let option = ko.unwrap(this.options).find(
+        const option = ko.unwrap(this.options).find(
             option => option && this.matchOperator(option, this.searchInput)
         );
 

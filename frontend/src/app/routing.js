@@ -34,7 +34,7 @@ export default function routing(page) {
     page(`${routes.system}/*`, ensureSystemInfo);
 
     // Screens handlers.
-    page(routes.system,  actions.showOverview);
+    page(routes.system, actions.showOverview);
     page(routes.buckets, actions.showBuckets);
     page(routes.bucket, actions.showBucket);
     page(routes.object, actions.showObject);
@@ -44,6 +44,7 @@ export default function routing(page) {
     page(routes.account, actions.showAccount);
     page(routes.management, actions.showManagement);
     page(routes.cluster, actions.showCluster);
+    page(routes.server, actions.showServer);
     page(routes.funcs, actions.showFuncs);
     page(routes.func, actions.showFunc);
 

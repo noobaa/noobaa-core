@@ -1,0 +1,33 @@
+<server-summary class="push-next" params="serverSecret: serverSecret">
+</server-summary>
+
+<div class="tabs greedy">
+    <nav>
+        <a class="selected" data-bind="
+            href: tabHref('details'),
+            css: tabCss('details')
+        ">
+            Services &amp; Infromation
+        </a>
+        <a class="selected" data-bind="
+            href: tabHref('diagnostics'),
+            css: tabCss('diagnostics')
+        ">
+            Communication &amp; Diagnostics
+        </a>
+    </nav>
+
+    <div class="tabs-row">
+        <server-details-form
+            class="tab"
+            params="serverSecret: serverSecret"
+            data-bind="css: tabCss('details')
+        "></server-details-form>
+
+        <server-diagnostics-form
+            class="tab"
+            params="serverSecret: serverSecret"
+            data-bind="css: tabCss('diagnostics')
+        "></server-diagnostics-form>
+    </div>
+</div>

@@ -2,11 +2,14 @@
 
 <section class="column greedy tabs">
     <nav>
-        <a class="selected">
+        <a data-bind="href: tabHref('servers'), css: tabCss('servers')">
             Servers
         </a>
     </nav>
-    <server-table class="column greedy"></server-table>
+    <div class="tabs-row">
+        <server-table class="column greedy" data-bind="css: tabCss('servers')">
+        </server-table>
+    </div>
 </section>
 
 

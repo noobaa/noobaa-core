@@ -172,7 +172,7 @@ export default {
             },
 
             maintenance_mode: {
-                message: 'Entered Maintenance Mode',
+                message: 'Maintenance Mode Started',
                 entityId: () => ''
             }
         }
@@ -183,16 +183,17 @@ export default {
         events: {
             added_member_to_cluster: {
                 message: 'Server Added To Cluster',
-                entityId: () => ''
+                entityId: ({ server }) => server && server.hostname
             },
+            
             collect_server_diagnostics: {
                 message: 'Server Diagnostics Collected',
-                entityId: () => ''
+                entityId: ({ server }) => server && server.hostname
             },
 
             set_server_conf: {
                 message: 'Server Configuration Set',
-                entityId: () => ''
+                entityId: ({ server }) => server && server.hostname
             }
         }
     },
@@ -216,7 +217,7 @@ export default {
             },
 
             set_phone_home_proxy_address: {
-                message: 'Proxy Address Set',
+                message: 'Phone Home Proxy Address Set',
                 entityId: () => ''
             },
 
@@ -237,5 +238,4 @@ export default {
         }
     }
 };
-
 

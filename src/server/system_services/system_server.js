@@ -507,6 +507,7 @@ function update_system(req) {
 
 function set_maintenance_mode(req) {
     var updates = {};
+    const audit_desc = `Maintanance mode activated for ${req.rpc_params.duration} hour${req.rpc_params.duration === 1 ? '' : 's'}`;
     updates._id = req.system._id;
     // duration is in minutes (?!$%)
     updates.maintenance_mode = Date.now() + (req.rpc_params.duration * 60000);
@@ -521,7 +522,7 @@ function set_maintenance_mode(req) {
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
-                desc: `Maintanance mode activated`,
+                desc: audit_desc,
             });
         })
         .return();

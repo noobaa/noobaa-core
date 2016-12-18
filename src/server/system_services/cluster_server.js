@@ -149,13 +149,19 @@ function add_member_to_cluster(req) {
             });
         })
         .then(() => {
-            Dispatcher.instance().activity({
+            let activity = {
                 event: 'cluster.added_member_to_cluster',
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 desc: `Server ${req.rpc_params.new_hostname || ''} added to cluster`,
-            });
+            };
+            if (req.rpc_params.new_hostname) {
+                activity.server = {
+                    hostname: req.rpc_params.new_hostname
+                };
+            }
+            Dispatcher.instance().activity(activity);
         })
         .catch(function(err) {
             console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
@@ -356,6 +362,8 @@ function redirect_to_cluster_master(req) {
 function update_time_config(req) {
     var time_config = req.rpc_params;
     var target_servers = [];
+    let audit_desc = 'Server date and time successfully updated to: ';
+    let audit_hostname;
     return P.fcall(function() {
             if (time_config.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[time_config.target_secret];
@@ -363,6 +371,7 @@ function update_time_config(req) {
                     throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', time_config.target_secret, ' was not found');
                 }
                 target_servers.push(cluster_server);
+                audit_hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
             } else {
                 _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
             }
@@ -379,8 +388,15 @@ function update_time_config(req) {
                 timezone: time_config.timezone
             };
 
+            audit_desc += `Timezone: ${time_config.timezone}`;
+
             if (time_config.ntp_server) {
+                audit_desc += `, NTP server address: ${time_config.ntp_server}`;
                 config_to_update.server = time_config.ntp_server;
+            }
+
+            if (time_config.epoch) {
+                audit_desc += `, epoch: ${time_config.epoch}`;
             }
 
             let updates = _.map(target_servers, server => ({
@@ -402,14 +418,19 @@ function update_time_config(req) {
             });
         })
         .then(() => {
-            Dispatcher.instance().activity({
+            let activity = {
                 event: 'conf.server_date_time_updated',
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
-                desc: `Server data and time successfully updated to: ` +
-                    util.inspect(_.pick(time_config, ['timezone', 'ntp_server', 'epoch'])),
-            });
+                desc: audit_desc,
+            };
+            if (audit_hostname) {
+                activity.server = {
+                    hostname: audit_hostname
+                };
+            }
+            Dispatcher.instance().activity(activity);
         })
         .return();
 }
@@ -479,7 +500,7 @@ function update_dns_servers(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 desc: _.isEmpty(dns_servers_config.dns_servers) ?
-                    `DNS servers cleared` : `DNS servers set to: ${util.inspect(dns_servers_config.dns_servers)}`
+                    `DNS servers cleared` : `DNS servers set to: ${dns_servers_config.dns_servers.join(', ')}`
             });
         })
         .return();
@@ -525,7 +546,7 @@ function set_debug_level(req) {
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
-                desc: `Debug level was set to ${debug_params.level}`
+                desc: `Debug level was set to ${debug_params.level ? 'high' : 'low'}`
             });
         })
         .return();
@@ -959,7 +980,8 @@ function read_server_config(req) {
 
 function update_server_conf(req) {
     dbg.log0('set_server_conf. params:', req.rpc_params);
-    let audit_desc = `""`;
+    let audit_desc = ``;
+    let audit_hostname;
     return P.fcall(() => {
             if (req.rpc_params.target_secret) {
                 if (!system_store.data.cluster_by_server[req.rpc_params.target_secret]) {
@@ -970,7 +992,9 @@ function update_server_conf(req) {
             return system_store.get_local_cluster_info();
         })
         .then(cluster_server => {
+            audit_hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
             if (req.rpc_params.hostname) {
+                audit_hostname = req.rpc_params.hostname;
                 audit_desc += `Hostname changed to ${req.rpc_params.hostname}. `;
                 if (!os_utils.is_valid_hostname(req.rpc_params.hostname)) throw new Error(`Invalid hostname: ${req.rpc_params.hostname}. See RFC 1123`);
                 return server_rpc.client.cluster_internal.set_hostname_internal({
@@ -997,13 +1021,19 @@ function update_server_conf(req) {
             }
         })
         .then(() => {
-            Dispatcher.instance().activity({
+            let activity = {
                 event: 'cluster.set_server_conf',
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 desc: audit_desc,
-            });
+            };
+            if (audit_hostname) {
+                activity.server = {
+                    hostname: audit_hostname
+                };
+            }
+            Dispatcher.instance().activity(activity);
         })
         .return();
 }

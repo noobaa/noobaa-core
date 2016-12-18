@@ -174,7 +174,7 @@ export default {
             maintenance_mode: {
                 message: 'Entered Maintenance Mode',
                 entityId: () => ''
-            }            
+            }
         }
     },
 
@@ -184,10 +184,19 @@ export default {
             added_member_to_cluster: {
                 message: 'Server Added To Cluster',
                 entityId: () => ''
+            },
+            collect_server_diagnostics: {
+                message: 'Server Diagnostics Collected',
+                entityId: () => ''
+            },
+
+            set_server_conf: {
+                message: 'Server Configuration Set',
+                entityId: () => ''
             }
         }
     },
-    
+
     conf: {
         displayName: 'Configuration',
         events: {
@@ -228,4 +237,5 @@ export default {
         }
     }
 };
+
 

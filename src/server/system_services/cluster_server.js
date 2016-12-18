@@ -459,7 +459,6 @@ function update_dns_servers(req) {
                 _id: server._id,
                 dns_servers: dns_servers_config.dns_servers
             }));
-
             return system_store.make_changes({
                 update: {
                     clusters: updates,
@@ -677,6 +676,15 @@ function collect_server_diagnostics(req) {
                     dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
                     throw new Error('Server Collect Diag Error on reading packges diag file');
                 });
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'cluster.collect_diagnostics',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: `Collecting serers diagnostics`
+            });
         })
         .catch(err => {
             dbg.error('DIAGNOSTICS FAILED', err.stack || err);
@@ -951,6 +959,7 @@ function read_server_config(req) {
 
 function set_server_conf(req) {
     dbg.log0('set_server_conf. params:', req.rpc_params);
+    let audit_desc = `""`;
     return P.fcall(() => {
             if (req.rpc_params.server_secret) {
                 if (!system_store.data.cluster_by_server[req.rpc_params.server_secret]) {
@@ -962,6 +971,7 @@ function set_server_conf(req) {
         })
         .then(cluster_server => {
             if (req.rpc_params.hostname) {
+                audit_desc += `Hostname changed to ${req.rpc_params.hostname}. `;
                 if (!os_utils.is_valid_hostname(req.rpc_params.hostname)) throw new Error(`Invalid hostname: ${req.rpc_params.hostname}. See RFC 1123`);
                 return server_rpc.client.cluster_internal.set_hostname_internal({
                         hostname: req.rpc_params.hostname,
@@ -975,6 +985,7 @@ function set_server_conf(req) {
         })
         .then(cluster_server => {
             if (req.rpc_params.location) {
+                audit_desc += `Location set to ${req.rpc_params.location}`;
                 system_store.make_changes({
                     update: {
                         clusters: [{
@@ -984,6 +995,15 @@ function set_server_conf(req) {
                     }
                 });
             }
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'cluster.set_server_conf',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: audit_desc,
+            });
         });
 }
 

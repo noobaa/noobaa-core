@@ -1,101 +1,91 @@
 import template from './server-time-form.html';
 import Disposable from 'disposable';
+import ServerRow from './server-row';
 import ko from 'knockout';
-import moment from 'moment-timezone';
 import { systemInfo } from 'model';
-import { updateServerClock, updateServerNTPSettings } from 'actions';
+import { deepFreeze } from 'utils/core-utils';
 
-const configTypes =  Object.freeze([
-    { label: 'Manual Time', value: 'MANUAL' },
-    { label: 'Network Time (NTP)', value: 'NTP' }
+const columns = deepFreeze([
+    {
+        name: 'state',
+        label: '',
+        type: 'icon'
+    },
+    {
+        name: 'serverName'
+    },
+    {
+        name: 'address',
+        label: 'IP Address'
+    },
+    {
+        name: 'timeSettings'
+    },
+    {
+        name: 'time',
+        label: 'server time'
+    },
+    {
+        name: 'actions',
+        type: 'button',
+        label: ''
+    }
 ]);
 
 class ServerTimeFormViewModel extends Disposable{
     constructor({ isCollapsed }) {
         super();
 
-        let cluster = ko.pureComputed(
+        this.columns = columns;
+        this.isCollapsed = isCollapsed;
+
+
+        const cluster = ko.pureComputed(
             () => systemInfo() && systemInfo().cluster
         );
 
-        let server = ko.pureComputed(
-            () => cluster() && cluster().shards[0].servers.find(
-                server => server.secret === cluster().master_secret
+        this.servers = ko.pureComputed(
+            () => cluster() ? cluster().shards[0].servers : []
+        );
+
+        const master = ko.pureComputed(
+            () => this.servers().find(
+                server => server.secret === (cluster() || {}).master_secret
             )
         );
 
-        this.serverSecret = ko.pureComputed(
-            () => server() && server().secret
+        this.masterTime = ko.observableWithDefault(
+            () => master() && master().time_epoch * 1000
         );
 
-        this.isCollapsed = isCollapsed;
+        this.formattedMasterTime = this.masterTime.extend({
+            formatTime: 'DD MMM YYYY HH:mm:ss ([GMT]Z)'
+        });
 
-        this.time = ko.observableWithDefault(
-            () => server() && server().time_epoch * 1000
-        );
+        this.editContext = ko.observable();
+        this.isServerTimeSettingsModalVisible = ko.observable(false);
 
         this.addToDisposeList(
             setInterval(
-                () => this.time() && this.time(this.time() + 1000),
+                () => this.masterTime() && this.masterTime(this.masterTime() + 1000),
                 1000
             ),
             clearInterval
         );
+    }
 
-        this.formattedTime = this.time.extend({
-            formatTime: { format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)' }
-        });
-
-        this.configTypes = configTypes;
-        this.selectedConfigType = ko.observableWithDefault(
-            () => server() && server().ntp_server ? 'NTP' : 'MANUAL'
-        );
-
-        this.usingManualTime = ko.pureComputed(
-            () => this.selectedConfigType() === 'MANUAL'
-        );
-
-        this.usingNTP = ko.pureComputed(
-            () => this.selectedConfigType() === 'NTP'
-        );
-
-        this.timezone = ko.observableWithDefault(
-            () => server() && server().timezone
-        );
-
-        this.ntpServer = ko.observableWithDefault(
-            () => server() && server().ntp_server
-        )
-            .extend({
-                isIPOrDNSName: true,
-                required: { message: 'Please enter an NTP server address' }
-            });
-
-        this.ntpErrors = ko.validation.group([
-            this.ntpServer
-        ]);
-
-        this.isValid = ko.pureComputed(
-            () => this.usingManualTime() || this.ntpErrors().length === 0
+    createRow(server) {
+        return new ServerRow(
+            server,
+            () => {
+                this.editContext(server().secret);
+                this.isServerTimeSettingsModalVisible(true);
+            }
         );
     }
 
-    applyChanges() {
-        this.usingNTP() ? this.setNTPTime() : this.setManualTime();
-    }
-
-    setManualTime() {
-        let epoch = moment.tz(this.time(), this.timezone()).unix();
-        updateServerClock(this.serverSecret(), this.timezone(), epoch);
-    }
-
-    setNTPTime() {
-        if (this.ntpErrors().length > 0) {
-            this.ntpErrors.showAllMessages();
-
-        } else {
-            updateServerNTPSettings(this.serverSecret(), this.timezone(), this.ntpServer());
-        }
+    hideServerTimeSettingsModal()  {
+        this.isServerTimeSettingsModalVisible(false);
     }
 }
 

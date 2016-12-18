@@ -1,12 +1,16 @@
 import ko from 'knockout';
 import moment from 'moment';
 
-const timeFormat = 'DD MMM YYYY hh:mm:ss';
+const defaultFormat = 'DD MMM YYYY hh:mm:ss';
 
-export default function formatSize(target, { format = timeFormat }) {
+export default function formatSize(target, format) {
     return ko.pureComputed(
         () => {
-            let value = target();
+            if (format === true) {
+                format = defaultFormat;
+            }
+
+            const value = target();
             return value == null || isNaN(value) ?
                 'N/A' :
                 moment(value).format(format);

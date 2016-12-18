@@ -100,6 +100,11 @@ function isJSON(value) {
     }
 }
 
+function isHostname(value) {
+    const hostnameRegExp = /^[a-zA-Z0-9]+(\-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(\-[a-zA-Z0-9]+)*)*$/;
+    return patternValidatior(value, hostnameRegExp);
+}
+
 export default function register(ko) {
     Object.assign(ko.validation.rules, {
         notIn: {
@@ -131,23 +136,30 @@ export default function register(ko) {
             validator: isURI,
             message: 'Please enter a valid URI'
         },
+        isHostname: {
+            validator: isHostname,
+            message: 'Please enter a valid hostname'
+        },
+
         includesUppercase:{
             validator: includesUppercase,
             message: 'Use at least one uppercased letter'
         },
+
         includesLowercase:{
             validator: includesLowercase,
             message: 'Use at least one lowercased letter'
         },
+
         includesDigit:{
             validator: includesDigit,
             message: 'Use at least one digit'
         },
+
         isJSON: {
             validator: isJSON,
             message: 'Please enter a valid JSON string'
         }
-
     });
 
     ko.validation.registerExtenders();

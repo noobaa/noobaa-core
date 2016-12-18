@@ -3,16 +3,16 @@
 <div class="tabs greedy">
     <nav>
         <a class="selected" data-bind="
-            href: { route: 'pool', params: { tab: 'nodes' } }
+            href: tabHref('nodes'),
+            css: tabCss('nodes')
         ">
             Nodes
         </a>
     </nav>
 
     <div class="tabs-row">
-        <pool-nodes-table class="selected greedy" params="
-            pool: pool,
-            nodeList: nodes
-        "></pool-nodes-table>
+        <pool-nodes-table class="selected greedy" data-bind="css: tabCss('nodes')"
+            params="pool: pool, nodeList: nodes">
+        </pool-nodes-table>
     </div>
 </div>

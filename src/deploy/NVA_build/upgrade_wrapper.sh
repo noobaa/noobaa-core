@@ -2,8 +2,7 @@
 
 EXTRACTION_PATH="/tmp/test/"
 . ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
-
-LOG_FILE="/var/log/noobaa_deploy_wrapper.log"
+. ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/common_funcs.sh
 
 function deploy_log {
 	if [ "$1" != "" ]; then
@@ -68,16 +67,6 @@ function fix_iptables {
   service iptables save
 }
 
-
-function wait_for_mongo {
-  local running=$(supervisorctl status mongodb | awk '{ print $2 }' )
-  while [ "$running" != "RUNNING" ]; do
-    sleep 1
-    running=$(supervisorctl status mongodb | awk '{ print $2 }' )
-  done
-  sleep 1
-}
-
 function fix_bashrc {
   fixbashrc=$(grep servicesstatus ~/.bashrc | wc -l)
   if [ ${fixbashrc} -eq 0 ]; then
@@ -121,13 +110,10 @@ function enable_autostart {
 
 
 function upgrade_mongo_version {
-
-
 	local ver=$(mongo --version | grep 3.2 | wc -l)
 	if [ ${ver} -ne 0 ]; then
 		return
 	fi
-
 
   disable_autostart
 
@@ -190,27 +176,6 @@ function upgrade_mongo_version {
 }
 
 function pre_upgrade {
-	#fix SCL issue (preventing yum install/update)
-	yum -y remove centos-release-SCL
-	yum -y install centos-release-scl
-
-	if yum list installed dialog >/dev/null 2>&1; then
-		deploy_log "dialog installed"
-	else
-		deploy_log "installing dialog"
-		yum install -y dialog
-	fi
-
-	if yum list installed vim >/dev/null 2>&1; then
-		deploy_log "vim installed"
-	else
-		deploy_log "installing vim"
-		yum install -y vim
-	fi
-
-	deploy_log "installing utils"
-	yum install -y bind-utils
-
 	if getent passwd noobaa > /dev/null 2>&1; then
 		echo "noobaa user exists"
 	else
@@ -295,7 +260,6 @@ function pre_upgrade {
 	ln -s  ~/.nvm/versions/node/v6.9.1/bin/node /usr/local/bin/node
 	nvm alias default 6.9.1
 	nvm use 6.9.1
-
 }
 
 function post_upgrade {

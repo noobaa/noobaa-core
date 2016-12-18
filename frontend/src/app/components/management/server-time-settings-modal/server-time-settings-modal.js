@@ -17,10 +17,14 @@ class ServerTimeSettingsModalViewModel extends Disposable {
         this.onClose = onClose;
         this.serverSecret = ko.unwrap(serverSecret);
 
-        let server = ko.pureComputed(
+        const server = ko.pureComputed(
             () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
                 server => server.secret === this.serverSecret
             )
+        );
+
+        this.hostname = ko.pureComputed(
+            () => server() && server().hostname
         );
 
         this.configTypes = configTypes;
@@ -80,7 +84,7 @@ class ServerTimeSettingsModalViewModel extends Disposable {
 
     setManualTime() {
         let epoch = moment.tz(this.time(), this.timezone()).unix();
-        updateServerClock(this.serverSecret, this.timezone(), epoch);
+        updateServerClock(this.serverSecret, this.hostname(), this.timezone(), epoch);
         this.onClose();
     }
 
@@ -89,7 +93,7 @@ class ServerTimeSettingsModalViewModel extends Disposable {
             this.ntpErrors.showAllMessages();
 
         } else {
-            updateServerNTPSettings(this.serverSecret, this.timezone(), this.ntpServer());
+            updateServerNTPSettings(this.serverSecret, this.hostname(), this.timezone(), this.ntpServer());
             this.onClose();
         }
     }

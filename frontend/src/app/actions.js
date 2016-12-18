@@ -16,6 +16,8 @@ const AWS = window.AWS;
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;
 
+
+
 // -----------------------------------------------------
 // Utility function to log actions.
 // -----------------------------------------------------
@@ -161,7 +163,8 @@ export function showBuckets() {
             { route: 'buckets', label: 'Buckets' }
         ],
         selectedNavItem: 'buckets',
-        panel: 'buckets'
+        panel: 'buckets',
+        tab: 'buckets'
     });
 }
 
@@ -216,6 +219,7 @@ export function showResources() {
 
     let ctx = model.routeContext();
     let { tab = 'pools' } = ctx.params;
+
     model.uiState({
         layout: 'main-layout',
         title: 'Resources',
@@ -315,6 +319,9 @@ export function showAccount() {
 export function showCluster() {
     logAction('showCluster');
 
+    let ctx = model.routeContext();
+    let { tab = 'servers' } = ctx.params;
+
     model.uiState({
         layout: 'main-layout',
         title: 'Cluster',
@@ -322,7 +329,28 @@ export function showCluster() {
             { route: 'cluster', label: 'Cluster' }
         ],
         selectedNavItem: 'cluster',
-        panel: 'cluster'
+        panel: 'cluster',
+        tab: tab
+    });
+}
+
+export function showServer() {
+    logAction('showServer');
+
+    const ctx = model.routeContext();
+    const { server, tab = 'details' } = ctx.params;
+
+
+    model.uiState({
+        layout: 'main-layout',
+        title: server,
+        breadcrumbs: [
+            { route: 'cluster', label: 'Cluster' },
+            { route: 'server', label: server }
+        ],
+        selectedNavItem: 'cluster',
+        panel: 'server',
+        tab: tab
     });
 }
 
@@ -1418,7 +1446,7 @@ export function upgradeSystem(upgradePackage) {
             }
         )
         .then(
-            () => sleep(20000)
+            () => sleep(config.serverRestartWaitInterval)
         )
         .then(
             () => httpWaitForResponse('/version', 200)
@@ -1510,36 +1538,30 @@ export function downloadNodeDiagnosticPack(nodeName) {
         .done();
 }
 
-export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
-    logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
+export function downloadServerDiagnosticPack(secret, hostname) {
+    logAction('downloadServerDiagnosticPack', { secret, hostname });
 
-    let currentServerKey = `server:${targetSecret}`;
-    if(model.collectDiagnosticsState[currentServerKey] === true) {
+    const name = `${hostname}-${secret}`;
+    const key = `server:${secret}`;
+    if(model.collectDiagnosticsState[key]) {
         return;
     }
 
-    model.collectDiagnosticsState.assign({
-        [currentServerKey]: true
-    });
-
+    model.collectDiagnosticsState.assign({ [key]: true });
     api.cluster_server.diagnose_system({
-        target_secret: targetSecret
+        target_secret: secret
     })
         .catch(
             err => {
-                notify(`Packing server diagnostic file for ${targetHostname} failed`, 'error');
-                model.collectDiagnosticsState.assign({
-                    [currentServerKey]: false
-                });
+                notify(`Packing server diagnostic file for ${name} failed`, 'error');
+                model.collectDiagnosticsState.assign({ [key]: false });
                 throw err;
             }
         )
         .then(
             url => {
                 downloadFile(url);
-                model.collectDiagnosticsState.assign({
-                    [currentServerKey]: false
-                });
+                model.collectDiagnosticsState.assign({ [key]: false });
             }
         )
         .done();
@@ -1599,20 +1621,21 @@ export function setNodeDebugLevel(node, level) {
         .done();
 }
 
-export function setServerDebugLevel(targetSecret, targetHostname, level){
-    logAction('setServerDebugLevel', { targetSecret, targetHostname, level });
+export function setServerDebugLevel(secret, hostname, level){
+    logAction('setServerDebugLevel', { secret, name, level });
 
+    const name = `${hostname}-${secret}`;
     api.cluster_server.set_debug_level({
-        target_secret: targetSecret,
+        target_secret: secret,
         level: level
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${targetHostname}`,
+                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${name}`,
                 'success'
             ),
             () => notify(
-                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${targetHostname}`,
+                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${name}`,
                 'error'
             )
         )
@@ -1825,36 +1848,71 @@ export function disableRemoteSyslog() {
         .done();
 }
 
-export function attachServerToCluster(serverAddress, serverSecret) {
-    logAction('attachServerToCluster', { serverAddress, serverSecret });
+export function attachServerToCluster(serverAddress, serverSecret, hostname, location) {
+    logAction('attachServerToCluster', { serverAddress, serverSecret, hostname, location });
 
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.add_member_to_cluster({
         address: serverAddress,
         secret: serverSecret,
         role: 'REPLICA',
-        shard: 'shard1'
+        shard: 'shard1',
+        location: location || undefined,
+        new_hostname: hostname || undefined
     })
         .then(
-            () => notify(`Server ${serverAddress} attached to cluster successfully`, 'success'),
-            () => notify(`Adding ${serverAddress} to cluster failed`, 'error')
+            () => notify(`${name} attached to cluster successfully`, 'success'),
+            () => notify(`Adding ${name} to cluster failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
 }
 
-export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
-    logAction('updateServerDNSSettings', { primaryDNS, secondaryDNS });
+export function updateServerDetails(serverSecret, hostname, location) {
+    logAction('updateServerDetails', { serverSecret, hostname, location });
 
-    let dnsServers = [primaryDNS, secondaryDNS].filter(
-        server => server
-    );
+    const name = `${hostname}-${serverSecret}`;
+    api.cluster_server.update_server_conf({
+        target_secret: serverSecret,
+        hostname: hostname,
+        location: location
+    })
+        .then(
+            notify(`${name} details updated successfully`, 'success'),
+            err => {
+                notify(`Updating ${name} details failed`, 'error');
+                throw err;
+            }
+        )
+        .then(loadSystemInfo)
+        .then(
+            () => {
+                const { servers } = model.systemInfo().cluster.shards[0];
+                const server = servers.find(
+                    ({ secret }) => secret === serverSecret
+                );
+
+                if (server.hostname !== hostname) {
+                    redirectTo(routes.server, { server: name });
+                }
+            }
+        )
+        .done();
+}
+
+export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
+    logAction('updateServerDNSSettings', { serverSecret, primaryDNS, secondaryDNS });
 
     api.cluster_server.update_dns_servers({
         target_secret: serverSecret,
-        dns_servers: dnsServers
+        dns_servers: [primaryDNS, secondaryDNS].filter(isDefined)
     })
-        .then( () => sleep(5000) )
-        .then( () => httpWaitForResponse('/version') )
+        .then(
+            () => sleep(config.serverRestartWaitInterval)
+        )
+        .then(
+            () => httpWaitForResponse('/version', 200)
+        )
         .then(reload)
         .done();
 }
@@ -1873,40 +1931,34 @@ export function loadServerTime(serverSecret) {
         .done();
 }
 
-export function updateServerClock(serverSecret, timezone, epoch) {
-    logAction('updateServerClock', { serverSecret, timezone, epoch });
+export function updateServerClock(serverSecret, hostname, timezone, epoch) {
+    logAction('updateServerClock', { serverSecret, hostname, timezone, epoch });
 
-    let { address } = model.systemInfo().cluster.shards[0].servers.find(
-        server => server.secret === serverSecret
-    );
-
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.update_time_config({
         target_secret: serverSecret,
         timezone: timezone,
         epoch: epoch
     })
         .then(
-            () => notify(`${address} time settings updated successfully`, 'success'),
-            () => notify(`Updating ${address} time settings failed`, 'error')
+            () => notify(`${name} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${name} time settings failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
 }
-export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress) {
-    logAction('updateServerNTP', { serverSecret, timezone, ntpServerAddress });
+export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpServerAddress) {
+    logAction('updateServerNTP', { serverSecret, hostname, timezone, ntpServerAddress });
 
-    let { address } = model.systemInfo().cluster.shards[0].servers.find(
-        server => server.secret === serverSecret
-    );
-
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.update_time_config({
         target_secret: serverSecret,
         timezone: timezone,
         ntp_server: ntpServerAddress
     })
         .then(
-            () => notify(`${address} time settings updated successfully`, 'success'),
-            () => notify(`Updating ${address} time settings failed`, 'error')
+            () => notify(`${name} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${name} time settings failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

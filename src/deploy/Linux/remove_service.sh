@@ -25,7 +25,7 @@ function verify_command_run {
 }
 
 #attempting to remove old service installations
-verify_command_run /usr/local/noobaa/node /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
+/usr/local/noobaa/node /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service >> /var/log/noobaa_service_rem_${instdate} 2>&1
 
 echo "Uninstalling NooBaa local service"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then

@@ -47,7 +47,7 @@ class NodeDiagnosticsFormViewModel extends Disposable {
                 label: 'Debug Mode',
                 value: ko.pureComputed(
                     () => this.debugMode() ?
-                        'On <span class="warning">(May cause agent slowdown)</span>' :
+                        'On <span class="warning">(May cause daemon slowdown)</span>' :
                         'Off'
                 )
             },

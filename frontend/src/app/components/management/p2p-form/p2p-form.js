@@ -2,14 +2,11 @@ import template from './p2p-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { makeRange } from 'utils/all';
-import { updateP2PSettings } from 'actions';
-
-const [ SINGLE_PORT, PORT_RANGE ] = makeRange(2);
+import { updateP2PTcpPorts } from 'actions';
 
 const portOptions = [
-    { label: 'Single Port', value: SINGLE_PORT },
-    { label: 'Port Range', value: PORT_RANGE }
+    { label: 'Single Port', value: 'single' },
+    { label: 'Port Range', value: 'range' }
 ];
 
 class P2PFormViewModel extends Disposable {
@@ -19,29 +16,56 @@ class P2PFormViewModel extends Disposable {
         this.isCollapsed = isCollapsed;
         this.portOptions = portOptions;
 
-        let ports = ko.pureComputed(
-            () => (systemInfo() && systemInfo().n2n_config.tcp_permanent_passive)
+        const ports = ko.pureComputed(
+            () => systemInfo() && systemInfo().n2n_config.tcp_permanent_passive
         );
 
         this.portType = ko.observableWithDefault(
-            () => ports() && (ports().port ? SINGLE_PORT : PORT_RANGE)
+            () => ports() && (ports().port ? 'single' : 'range')
         );
-
-        this.usingSinglePort = this.portType.is(SINGLE_PORT);
-        this.usingPortRange = this.portType.is(PORT_RANGE);
 
         this.rangeMin = ko.observableWithDefault(
             () => ports() && (ports().min || ports().port)
         )
-            .extend({ min: 1 });
+            .extend({
+                required: {
+                    message: 'Please enter a valid port number'
+                },
+                min: 1
+            });
+
+        const validateRangeMax = ko.pureComputed(
+            () => this.portType() === 'range' && this.rangeMin.isValid()
+        );
 
         this.rangeMax = ko.observableWithDefault(
             () => ports() && (ports().max || ports().port)
         )
-            .extend({ min: this.rangeMin });
+            .extend({
+                required: {
+                    onlyIf: () => validateRangeMax(),
+                    message: 'Please enter a valid port number'
+                },
+                min: {
+                    onlyIf: () => validateRangeMax(),
+                    params: ko.pureComputed(
+                        () => this.rangeMin() + 1
+                    )
+                },
+                max: {
+                    onlyIf: () => validateRangeMax(),
+                    params: 65535
+                }
+            });
 
-        this.ports = ko.pureComputed(
-            () => this.rangeMin() + (this.usingPortRange() ? ` - ${this.rangeMax()}` : '')
+        this.summaryLabel = ko.pureComputed(
+            () => this.portType() === 'single' ? 'Port Number:' : 'Port Range:'
+        );
+
+        this.summaryValue = ko.pureComputed(
+            () => this.portType() === 'single' ?
+                this.rangeMin() :
+                `${this.rangeMin()}-${this.rangeMax()}`
         );
 
         this.errors = ko.validation.group([
@@ -54,15 +78,19 @@ class P2PFormViewModel extends Disposable {
         );
     }
 
-    applyChanges() {
+    update() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
 
         } else {
-            updateP2PSettings(
-                parseInt(this.rangeMin()),
-                parseInt(this.rangeMax())
+            const min = parseInt(
+                this.rangeMin()
             );
+            const max = parseInt(
+                this.portType() === 'single' ? this.rangeMin() : this.rangeMax()
+            );
+
+            updateP2PTcpPorts(max, min);
         }
     }
 }

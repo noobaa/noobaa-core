@@ -98,9 +98,9 @@ function _verify_server_certificate() {
             config_file_store.get(cert_file),
             config_file_store.get(key_file),
             fs.readFileAsync(cert_file, 'utf8')
-            .catch(err => dbg.warn('could not read crt file', err)),
+            .catch(err => dbg.warn('could not read crt file', (err && err.code) || err)),
             fs.readFileAsync(key_file, 'utf8')
-            .catch(err => dbg.warn('could not read key file', err))
+            .catch(err => dbg.warn('could not read key file', (err && err.code) || err))
         )
         .spread((certificate, key, platform_cert, platform_key) => {
             if (!_are_platform_and_cluster_conf_equal(platform_cert, certificate && certificate.data) ||
@@ -126,7 +126,7 @@ function _verify_remote_syslog_cluster_config() {
                 return os_utils.reload_syslog_configuration(cluster_conf);
             }
         })
-        .catch(err => dbg.error('failed to reconfigure remote syslog cluster config on the server. reason:', err));
+        .catch(err => dbg.error('failed to reconfigure remote syslog cluster config on the server. reason:', (err && err.code) || err));
 }
 
 function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
@@ -232,7 +232,7 @@ function _check_remote_syslog() {
 
 function _check_is_self_in_dns_table() {
     dbg.log2('_check_is_self_in_dns_table');
-    let system_dns = url.parse(system_store.data.systems[0].base_address).hostname;
+    let system_dns = system_store.data.systems[0].base_address && url.parse(system_store.data.systems[0].base_address).hostname;
     let address = server_conf.owner_address;
     if (_.isEmpty(system_dns) || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
     return net_utils.dns_resolve(system_dns)

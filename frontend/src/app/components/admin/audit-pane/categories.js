@@ -166,9 +166,25 @@ export default {
                 entityId: () => ''
             },
 
+            diagnose_server: {
+                message: 'Server Diagnostics Collected',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return (hostname && secret) ? `${hostname}-${secret}` : '';
+                }
+            },
+
             set_debug_level: {
                 message: 'System Debug Mode Changed',
                 entityId: () => ''
+            },
+
+            set_server_debug_level: {
+                message: 'Server Debug Mode Changed',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return (hostname && secret) ? `${hostname}-${secret}` : '';
+                }
             },
 
             maintenance_mode: {
@@ -185,15 +201,7 @@ export default {
                 message: 'Server Added To Cluster',
                 entityId: ({ server = {} }) => {
                     const { hostname, secret } = server;
-                    return hostname && secret && `${hostname}-${secret}`;
-                }
-            },
-
-            collect_server_diagnostics: {
-                message: 'Server Diagnostics Collected',
-                entityId: ({ server = {} }) => {
-                    const { hostname, secret } = server;
-                    return hostname && secret && `${hostname}-${secret}`;
+                    return (hostname && secret) ? `${hostname}-${secret}` : '';
                 }
             },
 
@@ -201,15 +209,7 @@ export default {
                 message: 'Server Configuration Set',
                 entityId: ({ server = {} }) => {
                     const { hostname, secret } = server;
-                    return hostname && secret && `${hostname}-${secret}`;
-                }
-            },
-
-            set_server_debug_level: {
-                message: 'Server Debug Mode Changed',
-                entityId: ({ server = {} }) => {
-                    const { hostname, secret } = server;
-                    return hostname && secret && `${hostname}-${secret}`;
+                    return (hostname && secret) ? `${hostname}-${secret}` : '';
                 }
             }
         }

@@ -58,30 +58,29 @@ class ConfigFileStore {
         _.defaults(item, {
             _id: new mongodb.ObjectId()
         });
-        if (validator(item)) {
-            return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).update({
-                    filename: {
-                        $eq: item.filename
-                    }
-                }, {
-                    $set: {
-                        data: item.data
-                    }
-                })
-                .then(res => {
-                    if (res && res.result) {
-                        if (res.result.nModified === 0) {
-                            dbg.log0(`item ${item.filename} did not exist in db. Inserted`);
-                            return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).insert(item);
-                        }
-                        dbg.log0(`item ${item.filename} existed in db and was updated`);
-                    } else {
-                        return P.reject(new Error('Unkown result from mongo client: ', res));
-                    }
-                });
+        if (!validator(item)) {
+            dbg.error(`item not valid in config file store`, validator.errors, item);
+            return P.reject(new Error('history_data_store: item not valid in config file store'));
         }
-        dbg.error(`item not valid in config file store`, validator.errors, item);
-        return P.reject(new Error('history_data_store: item not valid in config file store'));
+        return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).updateMany({ // There shouldn't be more than one record, this is being on the safe side
+                filename: {
+                    $eq: item.filename
+                }
+            }, {
+                $set: {
+                    data: item.data
+                }
+            })
+            .then(res => {
+                if (!res || !res.result) {
+                    return P.reject(new Error('Unkown result from mongo client: ', res));
+                }
+                if (res.result.nModified === 0) {
+                    dbg.log0(`item ${item.filename} did not exist in db. Inserted`);
+                    return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).insert(item);
+                }
+                dbg.log0(`item ${item.filename} existed in db and was updated`);
+            });
     }
 
     get(filename) {

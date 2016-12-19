@@ -164,6 +164,53 @@ export default {
             diagnose_system: {
                 message: 'System Diagnose',
                 entityId: () => ''
+            },
+
+            set_debug_level: {
+                message: 'System Debug Mode Changed',
+                entityId: () => ''
+            },
+
+            maintenance_mode: {
+                message: 'Maintenance Mode Started',
+                entityId: () => ''
+            }
+        }
+    },
+
+    cluster: {
+        displayName: 'Cluster',
+        events: {
+            added_member_to_cluster: {
+                message: 'Server Added To Cluster',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return hostname && secret && `${hostname}-${secret}`;
+                }
+            },
+
+            collect_server_diagnostics: {
+                message: 'Server Diagnostics Collected',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return hostname && secret && `${hostname}-${secret}`;
+                }
+            },
+
+            set_server_conf: {
+                message: 'Server Configuration Set',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return hostname && secret && `${hostname}-${secret}`;
+                }
+            },
+
+            set_server_debug_level: {
+                message: 'Server Debug Mode Changed',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return hostname && secret && `${hostname}-${secret}`;
+                }
             }
         }
     },
@@ -182,9 +229,30 @@ export default {
             },
 
             dns_address: {
-                message: 'Set/Edit DNS Address',
+                message: 'DNS Address Set',
+                entityId: () => ''
+            },
+
+            set_phone_home_proxy_address: {
+                message: 'Phone Home Proxy Address Set',
+                entityId: () => ''
+            },
+
+            dns_servers: {
+                message: 'DNS Servers Set',
+                entityId: () => ''
+            },
+
+            remote_syslog: {
+                message: 'Remote Syslog Set',
+                entityId: () => ''
+            },
+
+            set_certificate: {
+                message: 'Certificate Set',
                 entityId: () => ''
             }
         }
     }
 };
+

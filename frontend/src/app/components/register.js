@@ -41,7 +41,7 @@ export default function register(ko) {
     // Overview
     // -------------------------------
     ko.components.register('overview-panel',        require('./overview/overview-panel/overview-panel').default);
-    ko.components.register('install-node-wizard',   require('./overview/install-node-wizard/install-node-wizard').default);
+    ko.components.register('install-node-modal',   require('./overview/install-node-modal/install-node-modal').default);
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard').default);
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal').default);
     /** INJECT:overview **/

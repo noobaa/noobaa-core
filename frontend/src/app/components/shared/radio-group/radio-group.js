@@ -7,7 +7,7 @@ class RadioGroupViewModel extends Disposable {
     constructor({
             selected = ko.observable(),
             name = randomString(5),
-            options,
+            options = [],
             multiline = false,
             disabled = false,
             hasFocus = false
@@ -16,10 +16,18 @@ class RadioGroupViewModel extends Disposable {
 
         this.name = name;
         this.selected = selected;
-        this.options = options;
         this.disabled = disabled;
         this.hasFocus = hasFocus;
         this.layoutClass = multiline ? 'column' : 'row';
+
+        this.options = ko.pureComputed(
+            () => ko.deepUnwrap(options).map(
+                opt => {
+                    const { value = opt, label = value } = opt;
+                    return { value, label };
+                }
+            )
+        );
     }
 }
 

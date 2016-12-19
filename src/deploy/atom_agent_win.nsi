@@ -195,7 +195,7 @@ Section "Noobaa Local Service"
 
 	${If} $UPGRADE == "true" ;delete all files that we want to update
 
-		${If} $config == "" ;do not let to install on existing deployment
+		${IfNot} $config == "" ;do not let to install on existing deployment
 			MessageBox MB_OK "Agent already exists, skipping installation"
 			Abort
 		${EndIf}

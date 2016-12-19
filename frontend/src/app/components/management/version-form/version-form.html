@@ -1,30 +1,28 @@
-<seciton class="column pad">
-    <h2 class="heading3">
+<seciton class="column push-next">
+    <h2 class="heading3 pad alt-bg">
         Version Control
     </h1>
 
-    <div class="row content-middle">
-        <span class="push-next">Current Version:</span>
-        <span data-bind="text: version"></span>
-    </div>
+    <property-sheet class="pad" params="properties: versionInfo">
+    </property-sheet>
 </seciton>
 
-<hr>
-
-<section class="column pad">
-    <h2 class="heading3">
-        Upgrade System
+<section class="column">
+    <h2 class="heading3 pad alt-bg">
+        System Upgrade
     </h2>
 
-    <p class="push-next">
-        The upgrading process may take a few minutes to complete.
-    </p>
+    <div class="pad column">
+        <p class="push-next">
+            The upgrading process may take a few minutes to complete.
+        </p>
 
-    <file-selector params="
-        message: 'Drag an upgrade package here',
-        filter: upgradePackageSuffix,
-        onFilesReady: files => upgrade(files)
-    "></file-selector>
+        <file-selector params="
+            message: 'Drag an upgrade package here',
+            filter: upgradePackageSuffix,
+            onFilesReady: files => upgrade(files)
+        "></file-selector>
+    </div>
 </section>
 
 <!-- ko if: isUpgradingModalVisible -->

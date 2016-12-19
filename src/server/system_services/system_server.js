@@ -394,14 +394,12 @@ function read_system(req) {
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
         const debug_level = system.debug_level;
-        const upgrade = {};
-        if (system.upgrade) {
-            upgrade.status = system.upgrade.status;
-            upgrade.message = system.upgrade.error;
-        } else {
-            upgrade.status = 'UNAVAILABLE';
-            upgrade.message = '';
-        }
+
+        const upgrade = {
+            last_upgrade: system.upgrade_date || undefined,
+            status: system.upgrade ? system.upgrade.status : 'UNAVAILABLE',
+            message: system.upgrade ? system.upgrade.error : undefined
+        };
         const maintenance_mode = {
             state: system_server_utils.system_in_maintenance(system._id)
         };
@@ -466,7 +464,6 @@ function read_system(req) {
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
-            last_upgrade: system.upgrade_date || 0,
             debug_level: debug_level,
             upgrade: upgrade,
             system_cap: system_cap,

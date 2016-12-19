@@ -223,7 +223,7 @@ export default class BucketRowViewModel extends Disposable {
                     }
 
                     if (hasObjects()) {
-                        return 'Bucket not empty';
+                        return 'Cannot delete a bucket that contain files';
                     }
 
                     if (isLastBucket()) {

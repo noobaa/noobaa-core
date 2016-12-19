@@ -141,6 +141,8 @@ config.MONGO_DEFAULTS = {
     CFG_RSET_NAME: 'config0',
     SHARD_SRV_PORT: '27000',
     COMMON_PATH: '/var/lib/mongo/cluster',
+    CONNECT_RETRY_INTERVAL: 3 * 1000,
+    CONNECT_MAX_WAIT: 5 * 60 * 1000
 };
 
 config.CLUSTERING_PATHS = {

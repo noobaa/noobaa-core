@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
-const uuid = require('node-uuid');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -91,6 +90,7 @@ class BlockStoreFs extends BlockStoreBase {
 
     _write_block(block_md, data) {
         let overwrite_stat;
+        let md_overwrite_stat;
         const block_path = this._get_block_data_path(block_md.id);
         const meta_path = this._get_block_meta_path(block_md.id);
         const block_md_to_store = _.pick(block_md, 'id', 'digest_type', 'digest_b64');
@@ -107,10 +107,19 @@ class BlockStoreFs extends BlockStoreBase {
                     fs.writeFileAsync(meta_path, block_md_data));
             })
             .then(() => {
+                if (overwrite_stat) {
+                    return fs.statAsync(meta_path).catch(ignore_not_found)
+                        .then(md_stat => {
+                            md_overwrite_stat = md_stat;
+                        });
+                }
+            })
+            .then(() => {
                 let overwrite_size = 0;
                 let overwrite_count = 0;
                 if (overwrite_stat) {
-                    overwrite_size = overwrite_stat.size;
+                    overwrite_size = overwrite_stat.size + (md_overwrite_stat ?
+                        md_overwrite_stat.size : 0);
                     overwrite_count = 1;
                 }
                 let usage = {
@@ -122,10 +131,7 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _write_usage_internal() {
-        let usage_data = JSON.stringify(this._usage);
-        let tmp_usage_path = this.usage_path + uuid();
-        return fs.writeFileAsync(tmp_usage_path, usage_data)
-            .then(() => fs.renameAsync(tmp_usage_path, this.usage_path));
+        return fs_utils.replace_file(this.usage_path, JSON.stringify(this._usage));
     }
 
 
@@ -145,19 +151,23 @@ class BlockStoreFs extends BlockStoreBase {
         const block_path = this._get_block_data_path(block_id);
         const meta_path = this._get_block_meta_path(block_id);
         let del_stat;
-
-        dbg.log("delete block", block_id);
-        return fs.statAsync(block_path).catch(ignore_not_found)
-            .then(stat => {
-                del_stat = stat;
-                return P.join(
-                    fs.unlinkAsync(block_path).catch(ignore_not_found),
-                    fs.unlinkAsync(meta_path).catch(ignore_not_found));
-            })
+        let md_del_stat;
+        dbg.log1("delete block", block_id);
+        return P.join(
+                fs.statAsync(block_path).catch(ignore_not_found)
+                .then(stat => {
+                    del_stat = stat;
+                    return fs.unlinkAsync(block_path).catch(ignore_not_found);
+                }),
+                fs.statAsync(meta_path).catch(ignore_not_found)
+                .then(stat => {
+                    md_del_stat = stat;
+                    return fs.unlinkAsync(meta_path).catch(ignore_not_found);
+                }))
             .then(() => {
                 if (this._usage && del_stat) {
                     let usage = {
-                        size: -del_stat.size,
+                        size: -(del_stat.size + ((md_del_stat && md_del_stat.size) ? md_del_stat.size : 0)),
                         count: -1
                     };
                     return this._update_usage(usage);

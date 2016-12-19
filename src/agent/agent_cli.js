@@ -1,8 +1,4 @@
-/**
- *
- * AGENT CLI
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 require('../util/panic');
@@ -30,6 +26,9 @@ const promise_utils = require('../util/promise_utils');
 
 module.exports = AgentCLI;
 
+const CREATE_TOKEN_RESPONSE_TIMEOUT = 30 * 1000; // 30s timeout for master to respond to HB
+const CREATE_TOKEN_RETRY_INTERVAL = 10 * 1000;
+
 /**
  *
  * AgentCLI
@@ -46,8 +45,7 @@ function AgentCLI(params) {
     this.client = rpc.new_client();
     this.s3 = new S3Auth();
     this.agents = {};
-    this.agent_conf = new json_utils.JsonWrapper('agent_conf.json');
-
+    this.agent_conf = new json_utils.JsonFileWrapper('agent_conf.json');
 }
 
 /**
@@ -59,7 +57,6 @@ function AgentCLI(params) {
  */
 AgentCLI.prototype.init = function() {
     var self = this;
-
 
     if (self.params.cloud_endpoint) {
         self.cloud_info = {
@@ -388,7 +385,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
                         signature: signature,
                     };
                     dbg.log0('create_access_key_auth', auth_params);
-                    return self.client.create_access_key_auth(auth_params);
+                    return self.create_auth_token(auth_params);
                 }
             })
             .then(function(res) {
@@ -410,7 +407,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
             .then(() => fs_utils.create_path(node_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
             .then(function() {
                 dbg.log0('writing token', token_path);
-                return fs.writeFileAsync(token_path, self.params.create_node_token);
+                return fs_utils.replace_file(token_path, self.params.create_node_token);
             })
             .then(function() {
                 if (!fs.existsSync('./uninstall_noobaa_agent.sh')) return;
@@ -526,14 +523,16 @@ AgentCLI.prototype.start = function(node_name, node_path) {
 
     var agent = self.agents[node_name];
     if (!agent) {
-
         // token wrapper is used by agent to read\write token
         let token_path = path.join(node_path, 'token');
         let token_wrapper = {
             read: () => fs.readFileAsync(token_path),
-            write: token => fs.writeFileAsync(token_path, token),
-            create_node_token: self.params.create_node_token,
-            update_create_node_token: new_token => this.agent_conf.update({
+            write: token => fs_utils.replace_file(token_path, token),
+        };
+        let create_node_token_wrapper = {
+            read: () => this.agent_conf.read()
+                .then(agent_conf => agent_conf.create_node_token),
+            write: new_token => this.agent_conf.update({
                 create_node_token: new_token
             })
         };
@@ -548,7 +547,8 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
             agent_conf: self.agent_conf,
-            token_wrapper: token_wrapper
+            token_wrapper: token_wrapper,
+            create_node_token_wrapper: create_node_token_wrapper,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);
@@ -639,6 +639,18 @@ AgentCLI.prototype.show = function(func_name) {
     } else {
         dbg.log0('help not found for function', func_name);
     }
+};
+
+AgentCLI.prototype.create_auth_token = function(auth_params) {
+    return P.resolve()
+        .then(() => this.client.create_access_key_auth(auth_params))
+        .timeout(CREATE_TOKEN_RESPONSE_TIMEOUT)
+        .catch(err => {
+            dbg.error('create_auth_token failed', err);
+            return P.delay(CREATE_TOKEN_RETRY_INTERVAL)
+                .then(() => this.create_auth_token(auth_params));
+
+        });
 };
 
 function populate_general_help(general) {

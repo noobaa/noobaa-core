@@ -23,6 +23,7 @@ class MongoClient extends EventEmitter {
         this.cfg_db = null; // will be set once a part of a cluster & connected
         this.admin_db = null;
         this.collections = {};
+        this.connect_timeout = null; //will be set if connected and conn closed
         this.url =
             process.env.MONGO_RS_URL ||
             process.env.MONGODB_URL ||
@@ -81,19 +82,25 @@ class MongoClient extends EventEmitter {
         if (this._disconnected_state) return;
         if (this[access_db]) return P.resolve(this[access_db]);
         dbg.log0('_connect called with', url);
+        this._set_connect_timeout();
         return mongodb.MongoClient.connect(url, options)
             .then(db => {
                 dbg.log0('MongoClient: connected', url);
+                clearTimeout(this.connect_timeout);
+                this.connect_timeout = null;
                 this[access_db] = db;
                 if (access_db === 'db') { // GGG WORKAROUND
                     db.on('reconnect', () => {
                         this.emit('reconnect');
+                        clearTimeout(this.connect_timeout);
+                        this.connect_timeout = null;
                         this._init_collections();
                         dbg.log('MongoClient: got reconnect', url);
                     });
                     db.on('close', () => {
                         this.emit('close');
                         dbg.warn('MongoClient: got close', url);
+                        this._set_connect_timeout();
                     });
                     this._init_collections();
                 }
@@ -102,7 +109,8 @@ class MongoClient extends EventEmitter {
                 // autoReconnect only works once initial connection is created,
                 // so we need to handle retry in initial connect.
                 dbg.error('MongoClient: initial connect failed, will retry', err.message);
-                return P.delay(3000).then(() => this._connect(access_db, url, options));
+                return P.delay(config.MONGO_DEFAULTS.CONNECT_RETRY_INTERVAL)
+                    .then(() => this._connect(access_db, url, options));
             });
     }
 
@@ -313,6 +321,16 @@ class MongoClient extends EventEmitter {
                 dbg.error('MongoClient: sending command config rs failed', util.inspect(command), err.message);
                 throw err;
             });
+    }
+
+    _set_connect_timeout() {
+        if (!this.connect_timeout) {
+            this.connect_timeout = setTimeout(() => {
+                dbg.error('MongoClient: Connection closed for more ', config.MONGO_DEFAULTS.CONNECT_MAX_WAIT,
+                    ', quitting');
+                process.exit(1);
+            }, config.MONGO_DEFAULTS.CONNECT_MAX_WAIT);
+        }
     }
 }
 

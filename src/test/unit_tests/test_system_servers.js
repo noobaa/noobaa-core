@@ -267,6 +267,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.add_external_conenction({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
+                endpoint_type: 'AWS',
                 identity: process.env.AWS_ACCESS_KEY_ID,
                 secret: process.env.AWS_SECRET_ACCESS_KEY
             }))
@@ -276,6 +277,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.add_external_conenction({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
+                endpoint_type: 'AWS',
                 identity: process.env.AWS_ACCESS_KEY_ID,
                 secret: process.env.AWS_SECRET_ACCESS_KEY
             }))

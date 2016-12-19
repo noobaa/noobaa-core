@@ -18,8 +18,7 @@
  - [ ] Agents changes, Server Platform changes and New packages added to package.json:
 
 ### Technical Debt Created
-  - Opened #xxxx
+- Opened #xxxx
 
 ### Fixed Issues References
-- Fixes #xxxx
 - Fixes #yyyy

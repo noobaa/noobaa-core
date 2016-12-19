@@ -52,14 +52,14 @@ mocha.describe('object_io', function() {
                 system: SYS,
             }))
             .delay(2000)
-            .then(() => coretest.init_test_nodes(client, SYS, 5));
+            .then(() => coretest.init_test_nodes(client, SYS, 20));
     });
 
     mocha.after(function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(30000);
 
-        // return coretest.clear_test_nodes();
+        return coretest.clear_test_nodes();
     });
 
 

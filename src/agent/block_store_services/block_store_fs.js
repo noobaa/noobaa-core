@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
-const uuid = require('node-uuid');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -132,10 +131,7 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _write_usage_internal() {
-        let usage_data = JSON.stringify(this._usage);
-        let tmp_usage_path = this.usage_path + uuid();
-        return fs.writeFileAsync(tmp_usage_path, usage_data)
-            .then(() => fs.renameAsync(tmp_usage_path, this.usage_path));
+        return fs_utils.replace_file(this.usage_path, JSON.stringify(this._usage));
     }
 
 

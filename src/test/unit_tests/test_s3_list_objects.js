@@ -50,7 +50,7 @@ mocha.describe('s3_list_objects', function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(30000);
 
-        // return coretest.clear_test_nodes();
+        return coretest.clear_test_nodes();
     });
 
 

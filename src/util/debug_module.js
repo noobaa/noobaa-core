@@ -57,11 +57,11 @@ if (typeof process !== 'undefined' &&
     }
 
     if (should_log_to_syslog) {
-        console.log('creating syslog');
+        // console.log('creating syslog');
         var native_core = require('./native_core')();
         syslog = new native_core.Syslog();
     } else {
-        console.log('creating winston');
+        // console.log('creating winston');
         winston = require('winston');
     }
 

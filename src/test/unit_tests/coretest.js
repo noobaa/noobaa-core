@@ -22,12 +22,16 @@ const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
 const mongoose = require('mongoose');
-const core_agent_control = require('./core_agent_control');
+
+const api = require('../../api');
+api.get_base_address = () => 'fcall://fcall';
+
 const server_rpc = require('../../server/server_rpc');
 const nodes_store = require('../../server/node_services/nodes_store');
 const node_server = require('../../server/node_services/node_server');
 const mongo_client = require('../../util/mongo_client');
 const mongoose_utils = require('../../util/mongoose_utils');
+const core_agent_control = require('./core_agent_control');
 
 // register api servers and bg_worker servers locally too
 server_rpc.register_system_services();

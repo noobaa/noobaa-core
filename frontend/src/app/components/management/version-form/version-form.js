@@ -9,9 +9,51 @@ class AboutFormViewModel extends Disposable {
     constructor() {
         super();
 
-        this.version = ko.pureComputed(
+        const version = ko.pureComputed(
             () => systemInfo() && systemInfo().version
         );
+
+        const lastUpgrade = ko.pureComputed(
+            () => systemInfo() && systemInfo().upgrade.last_upgrade
+        ).extend({
+            formatTime: true
+        });
+
+        const clusterVersionStatus = ko.pureComputed(
+            () => {
+                if (!systemInfo()) {
+                    return '';
+                }
+
+                const { servers } = systemInfo().cluster.shards[0];
+                const upToDateCount = servers.reduce(
+                    (sum, server) => sum + Number(server.version === version()),
+                    0
+                );
+
+                const countText = upToDateCount < servers.length ?
+                    `${upToDateCount} of ${servers.length}` :
+                    'All';
+
+                return  `${countText} servers are synced with current version`;
+            }
+        );
+
+        this.versionInfo = [
+            {
+                label: 'Current version',
+                value: version
+            },
+            {
+                label: 'Last upgrade',
+                value: lastUpgrade
+
+            },
+            {
+                label: 'Cluster status',
+                value: clusterVersionStatus
+            }
+        ];
 
         this.upgradePackageSuffix = upgradePackageSuffix;
 

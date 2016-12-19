@@ -64,6 +64,14 @@ var activity_log_schema = new Schema({
         //ref: 'Pool',
         type: types.ObjectId,
     },
+    server: {
+        secret: {
+            type: String
+        },
+        hostname: {
+            type: String
+        }
+    },
     //The User that performed the action
     actor: {
         // ref: 'Account',

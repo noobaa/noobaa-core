@@ -79,10 +79,17 @@ class PoolSummaryViewModel extends Disposable {
 
         this.pieValues = [
             {
-                label: 'Avaliable',
+                label: 'Currently Avaliable',
                 color: style['color5'],
                 value: ko.pureComputed(
                     () => storage().free
+                )
+            },
+            {
+                label: 'Unavailable',
+                color: style['color17'],
+                value: ko.pureComputed(
+                    () => storage().unavailable_free
                 )
             },
             {
@@ -105,13 +112,6 @@ class PoolSummaryViewModel extends Disposable {
                 color: style['color7'],
                 value: ko.pureComputed(
                     () => storage().reserved
-                )
-            },
-            {
-                label: 'Unavailable',
-                color: style['color15'],
-                value: ko.pureComputed(
-                    () => storage().unavailable_free
                 )
             }
         ];

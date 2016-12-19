@@ -13,7 +13,7 @@ function formatIssueMessage(subject, status, plural = false) {
 
 
 export function getServerIssues(server, systemInfo) {
-    const { debug_level, services_status } = server;
+    const { debug_level, services_status = {} } = server;
     const issues = {};
 
     if (debug_level > 0) {
@@ -65,3 +65,4 @@ export function getServerIssues(server, systemInfo) {
 
     return issues;
 }
+

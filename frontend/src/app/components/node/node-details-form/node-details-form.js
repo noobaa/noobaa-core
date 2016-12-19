@@ -42,7 +42,7 @@ class NodeInfoViewModel extends Disposable {
                 ''
         );
 
-        let version = ko.pureComputed(
+        const version = ko.pureComputed(
             () => `${
                 node().version
             } ${
@@ -52,78 +52,115 @@ class NodeInfoViewModel extends Disposable {
             }</span>`
         );
 
-        let lastHeartbeat = ko.pureComputed(
+        const lastHeartbeat = ko.pureComputed(
             () => moment(node().heartbeat).fromNow()
         );
 
-        let ip = ko.pureComputed(
+        const ip = ko.pureComputed(
             () => node().ip
         );
 
-        let serverEndpoint = ko.pureComputed(
+        const serverEndpoint = ko.pureComputed(
             () => node().base_address
         );
 
-        let p2pConectivityType = ko.pureComputed(
+        const p2pConectivityType = ko.pureComputed(
             () => conactivityTypeMapping[node().connectivity]
         );
 
-        let RTT = ko.pureComputed(
+        const RTT = ko.pureComputed(
             () => node() && `${
                 node().latency_to_server.reduce(avgOp, 0).toFixed(1)
             } ms`
         );
 
         this.agentInfo = [
-            { label: 'Installed Version', value: version },
-            { label: 'Heartbeat', value: lastHeartbeat },
-            { label: 'Communication IP', value: ip },
-            { label: 'Server Address', value: serverEndpoint },
-            { label: 'Peer to Peer Connectivity', value: p2pConectivityType }
+            {
+                label: 'Node Name',
+                value: this.name
+            },
+            {
+                label: 'Installed Version',
+                value: version
+            },
+            {
+                label: 'Heartbeat',
+                value: lastHeartbeat
+            },
+            {
+                label: 'Communication IP',
+                value: ip
+            },
+            {
+                label: 'Peer to Peer Connectivity',
+                value: p2pConectivityType
+            },
+            {
+                label: 'Server Endpoint',
+                value: serverEndpoint
+            },
+            {
+                label: 'Round Trip Time',
+                value: RTT
+            }
         ];
 
-        let hostname = ko.pureComputed(
+        const hostname = ko.pureComputed(
             () => node().os_info.hostname
         );
 
-        let upTime = ko.pureComputed(
+        const upTime = ko.pureComputed(
             () => moment(node().os_info.uptime).fromNow(true)
         );
 
-        let osType = ko.pureComputed(
+        const osType = ko.pureComputed(
             () => node().os_info.ostype
         );
 
-        let cpus = ko.pureComputed(
+        const cpus = ko.pureComputed(
             () => this._mapCpus(node())
         );
 
-        let memory = ko.pureComputed(
+        const memory = ko.pureComputed(
             () => node().os_info.totalmem
         ).extend({
             formatSize: true
         });
 
         this.systemInfo = [
-            { label: 'Host Name', value: hostname},
-            { label: 'Up Time', value: upTime},
-            { label: 'OS Type', value: osType },
-            { label: 'CPUs', value: cpus },
-            { label: 'Memory', value: memory },
-            { label: 'Round Trip Time', value: RTT }
+            {
+                label: 'Host Name',
+                value: hostname
+            },
+            {
+                label: 'Up Time',
+                value: upTime
+            },
+            {
+                label: 'OS Type',
+                value: osType
+            },
+            {
+                label: 'CPUs',
+                value: cpus
+            },
+            {
+                label: 'Memory',
+                value: memory
+            }
         ];
 
-        let mountName = ko.pureComputed(
+        const mountName = ko.pureComputed(
             () => node().drives[0].mount
         );
 
-        let blockDevice = ko.pureComputed(
+        const blockDevice = ko.pureComputed(
             () => node().drives[0].drive_id
         );
 
-        let diskRead = ko.pureComputed(
+        const diskRead = ko.pureComputed(
             () => {
-                let avg = node() && node().latency_of_disk_read
+                const avg = node() && node().latency_of_disk_read
                     .reduce(avgOp, 0)
                     .toFixed(1);
 
@@ -131,9 +168,9 @@ class NodeInfoViewModel extends Disposable {
             }
         );
 
-        let diskWrite = ko.pureComputed(
+        const diskWrite = ko.pureComputed(
             () => {
-                let avg = node() && node().latency_of_disk_write
+                const avg = node() && node().latency_of_disk_write
                     .reduce(avgOp, 0)
                     .toFixed(1);
 
@@ -142,10 +179,22 @@ class NodeInfoViewModel extends Disposable {
         );
 
         this.driveInfo = [
-            { label: 'Mount', value: mountName },
-            { label: 'Block Device', value: blockDevice },
-            { label: 'Read Latency', value: diskRead },
-            { label: 'Write Latency', value: diskWrite }
+            {
+                label: 'Mount',
+                value: mountName
+            },
+            {
+                label: 'Block Device',
+                value: blockDevice
+            },
+            {
+                label: 'Read Latency',
+                value: diskRead
+            },
+            {
+                label: 'Write Latency',
+                value: diskWrite
+            }
         ];
     }
 

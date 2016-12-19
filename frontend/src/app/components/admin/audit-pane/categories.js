@@ -152,7 +152,7 @@ export default {
         displayName: 'Debug',
         events: {
             set_debug_node: {
-                message: 'Node Debug Level Changed',
+                message: 'Node\'s Debug Mode Change',
                 entityId: ({ node }) => node && node.name
             },
 
@@ -164,6 +164,53 @@ export default {
             diagnose_system: {
                 message: 'System Diagnose',
                 entityId: () => ''
+            },
+
+            diagnose_server: {
+                message: 'Server Diagnostics Collected',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return (hostname && secret) ? `${hostname}-${secret}` : '';
+                }
+            },
+
+            set_debug_level: {
+                message: 'System Debug Mode Changed',
+                entityId: () => ''
+            },
+
+            set_server_debug_level: {
+                message: 'Server Debug Mode Changed',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return (hostname && secret) ? `${hostname}-${secret}` : '';
+                }
+            },
+
+            maintenance_mode: {
+                message: 'Maintenance Mode Started',
+                entityId: () => ''
+            }
+        }
+    },
+
+    cluster: {
+        displayName: 'Cluster',
+        events: {
+            added_member_to_cluster: {
+                message: 'Server Added To Cluster',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return (hostname && secret) ? `${hostname}-${secret}` : '';
+                }
+            },
+
+            set_server_conf: {
+                message: 'Server Configuration Set',
+                entityId: ({ server = {} }) => {
+                    const { hostname, secret } = server;
+                    return (hostname && secret) ? `${hostname}-${secret}` : '';
+                }
             }
         }
     },
@@ -182,9 +229,30 @@ export default {
             },
 
             dns_address: {
-                message: 'Set/Edit DNS Address',
+                message: 'DNS Address Set',
+                entityId: () => ''
+            },
+
+            set_phone_home_proxy_address: {
+                message: 'Phone Home Proxy Address Set',
+                entityId: () => ''
+            },
+
+            dns_servers: {
+                message: 'DNS Servers Set',
+                entityId: () => ''
+            },
+
+            remote_syslog: {
+                message: 'Remote Syslog Set',
+                entityId: () => ''
+            },
+
+            set_certificate: {
+                message: 'Certificate Set',
                 entityId: () => ''
             }
         }
     }
 };
+

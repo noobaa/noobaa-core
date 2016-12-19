@@ -233,6 +233,11 @@ class Dispatcher {
                 if (log_item.obj) {
                     l.obj = _.pick(log_item.obj, 'key');
                 }
+
+                if (log_item.server) {
+                    l.server = log_item.server;
+                }
+
                 return P.resolve(log_item.tier && system_store.data.get_by_id_include_deleted(log_item.tier, 'tiers'));
             })
             .then(tier => {

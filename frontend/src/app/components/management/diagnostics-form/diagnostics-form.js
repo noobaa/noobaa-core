@@ -3,7 +3,6 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, collectDiagnosticsState } from 'model';
 import { downloadSystemDiagnosticPack, setSystemDebugLevel } from 'actions';
-import { isUndefined } from 'utils/all';
 import { support } from 'config';
 
 class DiagnosticsFormViewModel extends Disposable {
@@ -21,22 +20,29 @@ class DiagnosticsFormViewModel extends Disposable {
             }
         ];
 
-        this.debugLevel = ko.pureComputed(
-            () => systemInfo() && systemInfo().debug_level
+        this.debugMode = ko.pureComputed(
+            () => Boolean(systemInfo() && systemInfo().debug_level)
         );
 
-        this.debugLevelText = ko.pureComputed(
-            () => {
-                if (isUndefined(this.debugLevel())) {
-                    return 'N/A';
-                }
-
-                return this.debugLevel() > 0 ? 'High' : 'Low';
+        this.debugModeSheet = [
+            {
+                label: 'Debug Mode',
+                value: ko.pureComputed(
+                    () => this.debugMode() ?
+                        'On <span class="warning">(May cause server slowdown)</span>' :
+                        'Off'
+                )
+            },
+            {
+                label: 'Time Left For Debugging',
+                value: ko.pureComputed(
+                    () => 'None'
+                )
             }
-        );
+        ];
 
-        this.toogleDebugLevelButtonText = ko.pureComputed(
-            () => `${this.debugLevel() > 0 ? 'Lower' : 'Raise' } Debug Level`
+        this.toogleDebugModeButtonText = ko.pureComputed(
+            () => `Turn ${this.debugMode() ? 'Off' : 'On' } Debug Mode`
         );
 
         this.isCollectingDiagnostics = ko.pureComputed(
@@ -44,8 +50,8 @@ class DiagnosticsFormViewModel extends Disposable {
         );
     }
 
-    toogleDebugLevel() {
-        setSystemDebugLevel(this.debugLevel() > 0 ? 0 : 5);
+    toogleDebugMode() {
+        setSystemDebugLevel(this.debugMode() ? 0 : 5);
     }
 
     downloadDiagnosticPack() {

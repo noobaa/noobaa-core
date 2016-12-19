@@ -1607,11 +1607,11 @@ export function setNodeDebugLevel(node, level) {
         )
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for node ${node}`,
+                `Debug mode was turned ${level === 0 ? 'off' : 'on'} for node ${node}`,
                 'success'
             ),
             () => notify(
-                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for node ${node}`,
+                `Could not turn ${level === 0 ? 'off' : 'on'} debug mode for node ${node}`,
                 'error'
             )
         )
@@ -1631,11 +1631,11 @@ export function setServerDebugLevel(secret, hostname, level){
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${name}`,
+                `Debug mode was turned ${level === 0 ? 'off' : 'on'} for server ${name}`,
                 'success'
             ),
             () => notify(
-                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${name}`,
+                `Could not turn ${level === 0 ? 'off' : 'on'} debug mode for server ${name}`,
                 'error'
             )
         )

@@ -27,22 +27,13 @@ const cloudSyncStatusMapping = deepFreeze({
     NOTSET: 'not set'
 });
 
-const graphOptions = deepFreeze([
-    {
-        label: 'Data',
-        value: 'DATA'
-    },
-    {
-        label: 'Storage',
-        value: 'STORAGE'
-    }
-]);
-
 const avaliableForWriteTooltip = 'This number is calculated according to the bucket\'s available capacity and the number of replicas defined in its placement policy';
 
 class BucketSummrayViewModel extends Disposable {
     constructor({ bucket }) {
         super();
+
+        this.graphOptions = [ 'data', 'storage' ];
 
         this.dataReady = ko.pureComputed(
             () => !!bucket()
@@ -60,8 +51,8 @@ class BucketSummrayViewModel extends Disposable {
                     return;
                 }
 
-                let tierName = bucket().tiering.tiers[0].tier;
-                let { data_placement , attached_pools } = systemInfo().tiers.find(
+                const tierName = bucket().tiering.tiers[0].tier;
+                const { data_placement , attached_pools } = systemInfo().tiers.find(
                     tier => tier.name === tierName
                 );
 
@@ -81,22 +72,20 @@ class BucketSummrayViewModel extends Disposable {
                     return;
                 }
 
-                let { cloud_sync } = bucket();
+                const { cloud_sync } = bucket();
                 return cloudSyncStatusMapping[
                     cloud_sync ? cloud_sync.status : 'NOTSET'
                 ];
             }
         );
 
-        this.graphOptions = graphOptions;
+        this.viewType = ko.observable(this.graphOptions[0]);
 
-        this.selectedGraph = ko.observable(graphOptions[0].value);
-
-        let storage = ko.pureComputed(
+        const storage = ko.pureComputed(
             () => bucket() ? bucket().storage : {}
         );
 
-        let data = ko.pureComputed(
+        const data = ko.pureComputed(
             () => bucket() ? bucket().data : {}
         );
 
@@ -107,6 +96,13 @@ class BucketSummrayViewModel extends Disposable {
         });
 
         this.storageValues = [
+            {
+                label: 'Available',
+                color: style['color5'],
+                value: ko.pureComputed(
+                    () => storage().free
+                )
+            },
             {
                 label: 'Used (this bucket)',
                 color: style['color13'],
@@ -120,26 +116,19 @@ class BucketSummrayViewModel extends Disposable {
                 value: ko.pureComputed(
                     () => storage().used_other
                 )
-            },
-            {
-                label: 'Potential available',
-                color: style['color5'],
-                value: ko.pureComputed(
-                    () => storage().free
-                )
             }
         ];
 
         this.dataValues = [
             {
-                label: 'Size',
+                label: 'Total Original Size',
                 value: ko.pureComputed(
                     () => data().size
                 ),
                 color: style['color7']
             },
             {
-                label: 'Reduced',
+                label: 'Compressed & Deduped',
                 value: ko.pureComputed(
                     () => data().size_reduced
                 ),
@@ -149,7 +138,7 @@ class BucketSummrayViewModel extends Disposable {
 
 
         this.legend = ko.pureComputed(
-            () => this.selectedGraph() === 'STORAGE' ?
+            () => this.viewType() === 'storage' ?
                 this.storageValues :
                 this.dataValues
         );
@@ -162,7 +151,7 @@ class BucketSummrayViewModel extends Disposable {
 
         this.avaliableForWriteTooltip = avaliableForWriteTooltip;
 
-        let stats = ko.pureComputed(
+        const stats = ko.pureComputed(
             () => bucket() ? bucket().stats : {}
         );
 

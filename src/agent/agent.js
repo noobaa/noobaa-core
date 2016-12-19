@@ -45,7 +45,7 @@ const MASTER_MAX_CONNECT_ATTEMPTS = 20;
 class Agent {
 
     constructor(params) {
-        dbg.log0('process.env.DEBUG_MODE=' + process.env.DEBUG_MODE);
+        dbg.log0('Creating agent', params);
 
         this.rpc = api.new_rpc(params.address);
         this.client = this.rpc.new_client();
@@ -55,18 +55,18 @@ class Agent {
         }];
 
         this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
-        dbg.log0(`this.base_address=${this.base_address}`);
+        dbg.log0(this.node_name, `this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
 
-        this.agent_conf = params.agent_conf || new json_utils.JsonWrapper();
+        this.agent_conf = params.agent_conf || new json_utils.JsonObjectWrapper();
 
         this.connect_attempts = 0;
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
-
-        this.token_wrapper = params.token_wrapper || {};
+        this.token_wrapper = params.token_wrapper;
+        this.create_node_token_wrapper = params.create_node_token_wrapper;
 
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
@@ -197,14 +197,14 @@ class Agent {
             .then(() => this._init_node())
             .then(() => this._do_heartbeat())
             .catch(err => {
-                dbg.error('server failed to start', err.stack || err);
+                dbg.error(this.node_name, 'server failed to start', err.stack || err);
                 this.stop();
                 throw err;
             });
     }
 
     stop() {
-        dbg.log0('stop agent ' + this.node_name);
+        dbg.log0(this.node_name, 'stop agent ' + this.node_name);
         this.is_started = false;
         // mark the rpc state as disconnected to close and reject incoming connections
         this.rpc.set_disconnected_state(true);
@@ -233,24 +233,22 @@ class Agent {
     }
 
     _handle_server_change(suggested) {
-        dbg.warn('_handle_server_change',
+        dbg.warn(this.node_name, '_handle_server_change',
             suggested ?
             'suggested server ' + suggested :
             'no suggested server, trying next in list',
             this.servers);
         this.connect_attempts = 0;
         if (!this.servers.length) {
-            dbg.error('_handle_server_change no server list');
+            dbg.error(this.node_name, '_handle_server_change no server list');
             return P.resolve();
         }
         const previous_address = this.rpc.router.default;
-        dbg.log0('previous_address =', previous_address);
-        dbg.log0('original servers list =', this.servers);
+        dbg.log0(this.node_name, 'previous_address =', previous_address);
+        dbg.log0(this.node_name, 'original servers list =', this.servers);
         if (suggested) {
             //Find if the suggested server appears in the list we got from the initial connect
-            const current_server = _.remove(this.servers, function(srv) {
-                return srv.address === suggested;
-            });
+            const current_server = _.remove(this.servers, srv => srv.address === suggested);
             if (current_server[0]) {
                 this.servers.unshift(current_server[0]);
             } else {
@@ -260,8 +258,8 @@ class Agent {
             //Skip to the next server in list
             this.servers.push(this.servers.shift());
         }
-        dbg.log0('new servers list =', this.servers);
-        dbg.log('Chosen new address', this.servers[0].address, this.servers);
+        dbg.log0(this.node_name, 'new servers list =', this.servers);
+        dbg.log0(this.node_name, 'Chosen new address', this.servers[0].address, this.servers);
         return this._update_rpc_config_internal({
             base_address: this.servers[0].address,
             old_base_address: previous_address,
@@ -316,12 +314,12 @@ class Agent {
             hb_info.pool_name = config.DEMO_DEFAULTS.POOL_NAME;
         }
 
-        dbg.log0(`_do_heartbeat called`);
+        dbg.log0(this.node_name, `_do_heartbeat called`);
 
         return P.resolve()
             .then(() => {
                 if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
-                    dbg.error('too many failure to connect, switching servers');
+                    dbg.error(this.node_name, 'too many failure to connect, switching servers');
                     return this._handle_server_change()
                         .then(() => {
                             throw new Error('server change after too many attempts');
@@ -338,14 +336,14 @@ class Agent {
                 const conn = req.connection;
                 this._server_connection = conn;
                 if (res.redirect) {
-                    dbg.log0('got redirect response:', res.redirect);
+                    dbg.log0(this.node_name, 'got redirect response:', res.redirect);
                     return this._handle_server_change(res.redirect)
                         .then(() => {
                             throw new Error('redirect to ' + res.redirect);
                         });
                 }
                 if (res.version !== pkg.version) {
-                    dbg.warn('exit on version change:',
+                    dbg.warn(this.node_name, 'exit on version change:',
                         'res.version', res.version,
                         'pkg.version', pkg.version);
                     process.exit(0);
@@ -358,9 +356,9 @@ class Agent {
                 });
             })
             .catch(err => {
-                dbg.error('heartbeat failed', err);
+                dbg.error(this.node_name, 'heartbeat failed', err);
                 if (err.rpc_code === 'DUPLICATE') {
-                    dbg.error('This agent appears to be duplicated.',
+                    dbg.error(this.node_name, 'This agent appears to be duplicated.',
                         'exiting and starting new agent', err);
                     if (this.cloud_info) {
                         dbg.error(`shouldnt be here. found duplicated node for cloud pool!!`);
@@ -370,7 +368,7 @@ class Agent {
                     }
                 }
                 if (err.rpc_code === 'NODE_NOT_FOUND') {
-                    dbg.error('This agent appears to be using an old token.',
+                    dbg.error(this.node_name, 'This agent appears to be using an old token.',
                         'cleaning this agent agent_storage directory', this.storage_path);
                     return this._start_new_agent()
                         .catch(err => {
@@ -389,12 +387,13 @@ class Agent {
     }
 
     _start_new_agent() {
-        dbg.log0(`cleaning old node data and starting a new agent`);
+        dbg.log0(this.node_name, `cleaning old node data and starting a new agent`);
         // const token_path = path.join(this.storage_path, 'token');
         this.stop();
         return fs_utils.folder_delete(this.storage_path)
             .then(() => fs_utils.create_path(this.storage_path))
-            .then(() => this.token_wrapper.write(this.token_wrapper.create_node_token))
+            .then(() => this.create_node_token_wrapper.read())
+            .then(create_node_token => this.token_wrapper.write(create_node_token))
             .then(() => this.start());
     }
 
@@ -422,11 +421,11 @@ class Agent {
         } else if (addr_url.protocol === 'ws:' || addr_url.protocol === 'http:') {
             const http_server = http.createServer(this.agent_app)
                 .on('error', err => {
-                    dbg.error('AGENT HTTP SERVER ERROR', err.stack || err);
+                    dbg.error(this.node_name, 'AGENT HTTP SERVER ERROR', err.stack || err);
                     http_server.close();
                 })
                 .on('close', () => {
-                    dbg.warn('AGENT HTTP SERVER CLOSED');
+                    dbg.warn(this.node_name, 'AGENT HTTP SERVER CLOSED');
                     retry();
                 })
                 .listen(addr_url.port);
@@ -437,11 +436,11 @@ class Agent {
         } else if (addr_url.protocol === 'wss:' || addr_url.protocol === 'https:') {
             const https_server = https.createServer(this.ssl_cert, this.agent_app)
                 .on('error', err => {
-                    dbg.error('AGENT HTTPS SERVER ERROR', err.stack || err);
+                    dbg.error(this.node_name, 'AGENT HTTPS SERVER ERROR', err.stack || err);
                     https_server.close();
                 })
                 .on('close', () => {
-                    dbg.warn('AGENT HTTPS SERVER CLOSED');
+                    dbg.warn(this.node_name, 'AGENT HTTPS SERVER CLOSED');
                     retry();
                 })
                 .listen(addr_url.port);
@@ -452,19 +451,19 @@ class Agent {
         } else if (addr_url.protocol === 'tcp:') {
             const tcp_server = this.rpc.register_tcp_transport(addr_url.port);
             tcp_server.on('close', () => {
-                dbg.warn('AGENT TCP SERVER CLOSED');
+                dbg.warn(this.node_name, 'AGENT TCP SERVER CLOSED');
                 retry();
             });
             this.server = tcp_server;
         } else if (addr_url.protocol === 'tls:') {
             const tls_server = this.rpc.register_tcp_transport(addr_url.port, this.ssl_cert);
             tls_server.on('close', () => {
-                dbg.warn('AGENT TLS SERVER CLOSED');
+                dbg.warn(this.node_name, 'AGENT TLS SERVER CLOSED');
                 retry();
             });
             this.server = tls_server;
         } else {
-            dbg.error('UNSUPPORTED AGENT PROTOCOL', addr_url);
+            dbg.error(this.node_name, 'UNSUPPORTED AGENT PROTOCOL', addr_url);
         }
     }
 
@@ -474,14 +473,14 @@ class Agent {
 
         const auth = req.method_api.auth;
         if (!auth || !auth.n2n) {
-            dbg.error('AGENT API requests only allowed from server',
+            dbg.error(this.node_name, 'AGENT API requests only allowed from server',
                 req.connection && req.connection.connid,
                 this._server_connection && this._server_connection.connid);
             throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
         }
 
         if (req.connection.url.protocol !== 'n2n:') {
-            dbg.error('AGENT API auth requires n2n connection',
+            dbg.error(this.node_name, 'AGENT API auth requires n2n connection',
                 req.connection && req.connection.connid);
             throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');
         }
@@ -494,14 +493,15 @@ class Agent {
         }
 
         if (params.rpc_address && params.rpc_address !== params.old_rpc_address) {
-            dbg.log0('new rpc_address', params.rpc_address,
+            dbg.log0(this.node_name, 'new rpc_address', params.rpc_address,
                 'old', params.old_rpc_address);
             this.rpc_address = params.rpc_address;
             this._start_stop_server();
         }
 
-        if (params.base_address && params.base_address.toLowerCase() !== params.old_base_address.toLowerCase()) {
-            dbg.log0('new base_address', params.base_address,
+        if (params.base_address &&
+            params.base_address.toLowerCase() !== params.old_base_address.toLowerCase()) {
+            dbg.log0(this.node_name, 'new base_address', params.base_address,
                 'old', params.old_base_address);
             // test this new address first by pinging it
             return P.fcall(() => this.client.node.ping(null, {
@@ -517,7 +517,7 @@ class Agent {
                     }
                 })
                 .then(() => {
-                    dbg.log0('update_base_address: done -', params.base_address);
+                    dbg.log0(this.node_name, 'update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
                     // on close the agent should call do_heartbeat again when getting the close event
                     this._server_connection.close();
@@ -541,7 +541,7 @@ class Agent {
     get_agent_info_and_update_masters(req) {
         const extended_hb = true;
         const ip = ip_module.address();
-        dbg.log('Recieved potential servers list', req.rpc_params.addresses);
+        dbg.log0(this.node_name, 'Recieved potential servers list', req.rpc_params.addresses);
         const reply = {
             version: pkg.version || '',
             name: this.node_name || '',
@@ -552,7 +552,6 @@ class Agent {
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
-            create_node_token: this.token_wrapper.create_node_token,
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
@@ -561,10 +560,15 @@ class Agent {
             reply.os_info = os_utils.os_info();
         }
 
-        return this._update_servers_list(req.rpc_params.addresses)
+        return P.resolve()
+            .then(() => this._update_servers_list(req.rpc_params.addresses))
+            .then(() => this.create_node_token_wrapper.read())
+            .then(create_node_token => {
+                reply.create_node_token = create_node_token;
+            })
             .then(() => this.block_store.get_storage_info())
             .then(storage_info => {
-                dbg.log0('storage_info:', storage_info);
+                dbg.log0(this.node_name, 'storage_info:', storage_info);
                 reply.storage = storage_info;
                 if (this.storage_limit) {
                     this._fix_storage_limit(reply.storage);
@@ -574,19 +578,19 @@ class Agent {
                     // reply.storage.total = Math.min(limited_total, reply.storage.total);
                     // reply.storage.free = Math.min(limited_free, reply.storage.free);
                 }
-
             })
             .then(() => extended_hb && os_utils.read_drives()
                 .catch(err => {
-                    dbg.error('read_drives: ERROR', err.stack || err);
-                }))
+                    dbg.error(this.node_name, 'read_drives: ERROR', err.stack || err);
+                })
+            )
             .then(drives => {
                 if (!drives) return;
                 // for now we only use a single drive,
                 // so mark the usage on the drive of our storage folder.
                 const used_size = reply.storage.used;
                 const used_drives = _.filter(drives, drive => {
-                    dbg.log0('used drives:', this.storage_path_mount, drive, used_size);
+                    dbg.log0(this.node_name, 'used drives:', this.storage_path_mount, drive, used_size);
                     //if there is no this.storage_path_mount, it's a memory agent for testing.
                     if (this.storage_path_mount === drive.mount || !this.storage_path_mount) {
                         drive.storage.used = used_size;
@@ -599,12 +603,11 @@ class Agent {
                             // drive.storage.free = Math.min(limited_free, drive.storage.free);
                         }
                         return true;
-                    } else {
-                        return false;
                     }
+                    return false;
                 });
                 reply.drives = used_drives;
-                dbg.log0('DRIVES:', drives, 'used drives', used_drives);
+                dbg.log0(this.node_name, 'DRIVES:', drives, 'used drives', used_drives);
                 // _.each(drives, drive => {
                 //     if (this.storage_path_mount === drive.mount) {
                 //         drive.storage.used = used_size;
@@ -616,25 +619,24 @@ class Agent {
 
     update_auth_token(req) {
         const auth_token = req.rpc_params.auth_token;
-        dbg.log0('update_auth_token: received new token');
+        dbg.log0(this.node_name, 'update_auth_token: received new token');
         return P.resolve()
             .then(() => {
                 if (this.storage_path) {
                     const token_path = path.join(this.storage_path, 'token');
-                    dbg.log0('update_auth_token: write new token', token_path);
+                    dbg.log0(this.node_name, 'update_auth_token: write new token', token_path);
                     return this.token_wrapper.write(auth_token);
                 }
             })
             .then(() => {
-                dbg.log0('update_auth_token: using new token');
+                dbg.log0(this.node_name, 'update_auth_token: using new token');
                 this.client.options.auth_token = auth_token;
             });
     }
 
     update_create_node_token(req) {
-        this.token_wrapper.create_node_token = req.rpc_params.create_node_token;
-        dbg.log0('update_create_node_token: received new token');
-        return this.token_wrapper.update_create_node_token(this.token_wrapper.create_node_token);
+        dbg.log0(this.node_name, 'update_create_node_token: received new token', req.rpc_params);
+        return this.create_node_token_wrapper.write(req.rpc_params.create_node_token);
     }
 
     update_rpc_config(req) {
@@ -643,7 +645,7 @@ class Agent {
         const old_rpc_address = this.rpc_address;
         const base_address = req.rpc_params.base_address;
         const old_base_address = this.rpc.router.default;
-        dbg.log0('update_rpc_config', req.rpc_params);
+        dbg.log0(this.node_name, 'update_rpc_config', req.rpc_params);
 
         return this._update_rpc_config_internal({
             n2n_config: n2n_config,
@@ -668,7 +670,8 @@ class Agent {
             id: '_test_store_perf',
             digest_type: 'sha1',
             digest_b64: crypto.createHash('sha1')
-                .update(data).digest('base64')
+                .update(data)
+                .digest('base64')
         };
         return test_average_latency(count, delay_ms, () =>
                 this.block_store._write_block(block_md, data))
@@ -712,7 +715,7 @@ class Agent {
         const concur = req.rpc_params.concur;
         let count = req.rpc_params.count;
 
-        dbg.log0('test_network_perf_to_peer:',
+        dbg.log0(this.node_name, 'test_network_perf_to_peer:',
             'source', source,
             'target', target,
             'req_len', req_len,
@@ -763,7 +766,7 @@ class Agent {
             .then(() => diag.collect_agent_diagnostics())
             .then(() => diag.pack_diagnostics(inner_path))
             .catch(err => {
-                dbg.error('DIAGNOSTICS COLLECTION FAILED', err.stack || err);
+                dbg.error(this.node_name, 'DIAGNOSTICS COLLECTION FAILED', err.stack || err);
                 throw new Error('Agent Collect Diag Error on collecting diagnostics');
             })
             .then(() => {
@@ -773,12 +776,12 @@ class Agent {
                         data: new Buffer(data),
                     }))
                     .catch(err => {
-                        dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
+                        dbg.error(this.node_name, 'DIAGNOSTICS READ FAILED', err.stack || err);
                         throw new Error('Agent Collect Diag Error on reading packges diag file');
                     });
             })
             .catch(err => {
-                dbg.error('DIAGNOSTICS FAILED', err.stack || err);
+                dbg.error(this.node_name, 'DIAGNOSTICS FAILED', err.stack || err);
                 return {
                     data: new Buffer(),
                 };

@@ -1,9 +1,11 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
+
 var P = require('../../util/promise');
-var Agent = require('../../agent/agent');
 // var dbg = require('../../util/debug_module')(__filename);
+var Agent = require('../../agent/agent');
 
 var agntCtlConfig = {
     use_local: true,
@@ -51,7 +53,7 @@ function use_local_agents(base_address, auth_token) {
 
     agntCtlConfig.use_local = true;
     agntCtlConfig.local_conf.base_address = base_address;
-    agntCtlConfig.local_conf.auth = _.clone(auth_token);
+    agntCtlConfig.local_conf.auth = _.cloneDeep(auth_token);
 }
 
 function use_remote_agents() {
@@ -67,25 +69,38 @@ function use_remote_agents() {
 
 function create_agent(howmany) {
     var count = howmany || 1;
+    let token = _.cloneDeep(agntCtlConfig.local_conf.auth);
+    let create_node_token = _.cloneDeep(token);
     return _.times(count, i => {
         var agent = new Agent({
             address: agntCtlConfig.local_conf.base_address,
             node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
             // passing token instead of storage_path to use memory storage
             token: agntCtlConfig.local_conf.auth,
+            token_wrapper: {
+                read: () => _.cloneDeep(token),
+                write: new_token => {
+                    token = _.cloneDeep(new_token);
+                }
+            },
+            create_node_token_wrapper: {
+                read: () => _.cloneDeep(create_node_token),
+                write: new_token => {
+                    create_node_token = _.cloneDeep(new_token);
+                }
+            },
         });
         agntCtlConfig.allocated_agents[agent.node_name] = {
             agent: agent,
             started: false
         };
-        agntCtlConfig.num_allocated++;
+        agntCtlConfig.num_allocated += 1;
     });
 }
 
 function cleanup_agents() {
-    return P.fcall(() => {
-            return stop_all_agents();
-        })
+    return P.resolve()
+        .then(() => stop_all_agents())
         .then(() => {
             _.each(agntCtlConfig.allocated_agents, id => {
                 id.agent = null;
@@ -97,7 +112,8 @@ function cleanup_agents() {
 
 function start_agent(node_name) {
     var ent;
-    return P.fcall(() => {
+    return P.resolve()
+        .then(() => {
             ent = get_agent_entry(node_name);
             if (!ent.started) {
                 return ent.agent.start();
@@ -110,7 +126,8 @@ function start_agent(node_name) {
 
 function stop_agent(node_name) {
     var ent;
-    return P.fcall(() => {
+    return P.resolve()
+        .then(() => {
             ent = get_agent_entry(node_name);
             if (ent.started) {
                 return ent.agent.stop();

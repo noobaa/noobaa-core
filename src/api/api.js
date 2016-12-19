@@ -1,9 +1,10 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 let _ = require('lodash');
+let url = require('url');
 let RPC = require('../rpc/rpc');
 let RpcSchema = require('../rpc/rpc_schema');
-let url = require('url');
 
 // registring all api's on the same RpcSchema object
 // so they share the schema namespace

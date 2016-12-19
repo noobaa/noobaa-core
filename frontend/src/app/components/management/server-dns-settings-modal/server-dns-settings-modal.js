@@ -3,6 +3,18 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateServerDNSSettings } from 'actions';
+import { deepFreeze } from 'utils/core-utils';
+
+const warnings = deepFreeze({
+    master: `Updating the master's DNS settings will cause a restart of the NooBaa
+             service and may cause a change in the cluster master server.
+             This could take a few moments and you might be automatically logged
+             out from management console`,
+
+    server: `Updating the server's DNS settings will cause a restart of the NooBaa
+             service. This could take a few moments and you might be automatically
+             logged out from the management console`
+});
 
 class ServerDNSSettingsModalViewModel extends Disposable {
     constructor({ serverSecret, onClose }) {
@@ -19,6 +31,17 @@ class ServerDNSSettingsModalViewModel extends Disposable {
 
         const dnsServers = ko.pureComputed(
             () => server() ? server().dns_servers : []
+        );
+
+        this.warning = ko.pureComputed(
+            () => {
+                if (!server()) {
+                    return '';
+                }
+
+                const isMaster = server().secret === systemInfo().cluster.master_secret;
+                return !isMaster ? warnings.master : warnings.server;
+            }
         );
 
         this.primaryDNS = ko.observableWithDefault(

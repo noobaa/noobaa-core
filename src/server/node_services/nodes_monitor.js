@@ -1,20 +1,22 @@
+/* eslint-disable max-lines */
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
+const url = require('url');
+const util = require('util');
 const chance = require('chance')();
+const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../../util/promise');
 const api = require('../../api');
-const util = require('util');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
-const dclassify = require('dclassify');
 const Semaphore = require('../../util/semaphore');
 const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
@@ -28,10 +30,8 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const mongoose_utils = require('../../util/mongoose_utils');
 const cluster_server = require('../system_services/cluster_server');
-const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
-const url = require('url');
-const mongodb = require('mongodb');
+const system_server_utils = require('../utils/system_server_utils');
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;

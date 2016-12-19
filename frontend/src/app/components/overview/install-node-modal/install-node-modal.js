@@ -31,7 +31,7 @@ class InstallNodeWizardViewModel extends Disposable {
         this.manualInstallationTemplate = manualInstallationTemplate;
 
         this.onClose = onClose;
-        this.installationMode = ko.observable('manual');
+        this.installationMode = ko.observable('network');
         this.osTypeOptions = [ 'linux', 'windows' ];
         this.selectedOsType = ko.observable(this.osTypeOptions[0]);
 

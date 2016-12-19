@@ -159,10 +159,11 @@ Section "Noobaa Local Service"
 			${WriteFile} "$INSTDIR\agent_conf.json" "}"
 
 		${Else}
-			IfFileExists $INSTDIR\agent_conf.json DeleteOldFile SkipDelete
-			DeleteOldFile:
-				nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
-				Delete "$INSTDIR\agent_conf.json"
+			IfFileExists $INSTDIR\agent_conf.json AbortInstall SkipDelete
+			AbortInstall:
+				MessageBox MB_OK "Agent already exists, skipping installation"
+				Abort ;do not let to install on existing deployment
+
 			SkipDelete:
 
 			${Base64_Decode} $config
@@ -194,11 +195,6 @@ Section "Noobaa Local Service"
 		Auto_Standard:
 
 	${If} $UPGRADE == "true" ;delete all files that we want to update
-
-		${IfNot} $config == "" ;do not let to install on existing deployment
-			MessageBox MB_OK "Agent already exists, skipping installation"
-			Abort
-		${EndIf}
 
 		${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
 			nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'

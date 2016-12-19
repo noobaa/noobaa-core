@@ -644,7 +644,6 @@ AgentCLI.prototype.show = function(func_name) {
 };
 
 AgentCLI.prototype.create_auth_token = function(auth_params) {
-    this.connect_attempts = 0;
     return P.resolve()
         .then(() => this.client.create_access_key_auth(auth_params))
         .timeout(CREATE_TOKEN_RESPONSE_TIMEOUT)

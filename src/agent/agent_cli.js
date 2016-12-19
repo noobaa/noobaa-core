@@ -32,8 +32,6 @@ module.exports = AgentCLI;
 
 const CREATE_TOKEN_RESPONSE_TIMEOUT = 30 * 1000; // 30s timeout for master to respond to HB
 const CREATE_TOKEN_RETRY_INTERVAL = 10 * 1000;
-const CREATE_TOKEN_MAX_CONNECT_ATTEMPTS = 24 * 60 * 60 /
-    (CREATE_TOKEN_RESPONSE_TIMEOUT + CREATE_TOKEN_RETRY_INTERVAL); // 24 Hours give up
 
 /**
  *
@@ -64,7 +62,6 @@ function AgentCLI(params) {
  */
 AgentCLI.prototype.init = function() {
     var self = this;
-
 
     if (self.params.cloud_endpoint) {
         self.cloud_info = {
@@ -649,12 +646,6 @@ AgentCLI.prototype.show = function(func_name) {
 AgentCLI.prototype.create_auth_token = function(auth_params) {
     this.connect_attempts = 0;
     return P.resolve()
-        .then(() => {
-            if (this.connect_attempts > CREATE_TOKEN_MAX_CONNECT_ATTEMPTS) {
-                dbg.error('too many failure to create_auth_token, giving up');
-                throw new Error('too many failure to create_auth_token, giving up');
-            }
-        })
         .then(() => this.client.create_access_key_auth(auth_params))
         .timeout(CREATE_TOKEN_RESPONSE_TIMEOUT)
         .catch(err => {

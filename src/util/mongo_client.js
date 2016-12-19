@@ -23,6 +23,7 @@ class MongoClient extends EventEmitter {
         this.cfg_db = null; // will be set once a part of a cluster & connected
         this.admin_db = null;
         this.collections = {};
+        this.connect_timeout = null; //will be set if connected and conn closed
         this.url =
             process.env.MONGO_RS_URL ||
             process.env.MONGODB_URL ||
@@ -77,7 +78,8 @@ class MongoClient extends EventEmitter {
         return this.promise;
     }
 
-    _connect(access_db, url, options) {
+    _connect(access_db, url, options, grace) {
+        let grace_time = grace || 0;
         if (this._disconnected_state) return;
         if (this[access_db]) return P.resolve(this[access_db]);
         dbg.log0('_connect called with', url);
@@ -88,21 +90,33 @@ class MongoClient extends EventEmitter {
                 if (access_db === 'db') { // GGG WORKAROUND
                     db.on('reconnect', () => {
                         this.emit('reconnect');
+                        clearTimeout(this.connect_timeout);
                         this._init_collections();
                         dbg.log('MongoClient: got reconnect', url);
                     });
                     db.on('close', () => {
                         this.emit('close');
                         dbg.warn('MongoClient: got close', url);
+                        this.connect_timeout = setTimeout(() => {
+                            dbg.error('MongoClient: Connection closed for more ', config.MONGO_DEFAULTS.CONNECT_MAX_WAIT,
+                                ', quitting');
+                            process.exit(1);
+                        }, config.MONGO_DEFAULTS.CONNECT_MAX_WAIT);
                     });
                     this._init_collections();
                 }
                 return db;
             }, err => {
+                if (grace_time > config.MONGO_DEFAULTS.CONNECT_MAX_WAIT) {
+                    dbg.error('MongoClient: initial connect failed too many times, quitting', err.message);
+                    process.exit(1);
+                }
                 // autoReconnect only works once initial connection is created,
                 // so we need to handle retry in initial connect.
+                grace_time += config.MONGO_DEFAULTS.CONNECT_RETRY_INTERVAL;
                 dbg.error('MongoClient: initial connect failed, will retry', err.message);
-                return P.delay(3000).then(() => this._connect(access_db, url, options));
+                return P.delay(config.MONGO_DEFAULTS.CONNECT_RETRY_INTERVAL)
+                    .then(() => this._connect(access_db, url, options, grace_time));
             });
     }
 

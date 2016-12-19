@@ -195,6 +195,11 @@ Section "Noobaa Local Service"
 
 	${If} $UPGRADE == "true" ;delete all files that we want to update
 
+		${If} $config == "" ;do not let to install on existing deployment
+			MessageBox MB_OK "Agent already exists, skipping installation"
+			Abort
+		${EndIf}
+
 		${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
 			nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
 		${EndIf}
@@ -304,7 +309,7 @@ Section "Noobaa Local Service"
 		${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd remove $\"Noobaa Local Service$\" confirm"
 		${WriteFile} "$INSTDIR\service_uninstaller.bat" "cd .."
 		${WriteFile} "$INSTDIR\service_uninstaller.bat" "del /f/s/q $\"$INSTDIR$\" > nul"
-		${WriteFile} "$INSTDIR\service_uninstaller.bat" "rmdir /s/q $\"$INSTDIR$\""		
+		${WriteFile} "$INSTDIR\service_uninstaller.bat" "rmdir /s/q $\"$INSTDIR$\""
 		CreateDirectory "${SMDIR}"
 		CreateShortCut "${SMDIR}\${UNINST}.lnk" "$INSTDIR\uninstall-noobaa.exe"
 		nsExec::ExecToStack '$\"$INSTDIR\service_installer.bat$\""'

@@ -1,7 +1,7 @@
 import template from './toggle-filter.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { randomString } from 'utils/all';
+import { randomString } from 'utils/string-utils';
 
 class ToggleFilterViewModel extends Disposable {
     constructor({
@@ -12,7 +12,15 @@ class ToggleFilterViewModel extends Disposable {
     {
         super();
 
-        this.options = options;
+        this.options = ko.pureComputed(
+            () => ko.deepUnwrap(options).map(
+                opt => {
+                    const { value = opt, label = value } = opt;
+                    return { value, label };
+                }
+            )
+        );
+
         this.selected = selected;
         this.group = name;
     }

@@ -152,7 +152,7 @@ export default {
         displayName: 'Debug',
         events: {
             set_debug_node: {
-                message: 'Node Debug Level Changed',
+                message: 'Node\'s Debug Mode Change',
                 entityId: ({ node }) => node && node.name
             },
 

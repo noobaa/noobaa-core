@@ -15,11 +15,11 @@
         </editor>
 
         <editor params="
-            label: 'Target Bucket',
+            label: targeBucketLabel,
             disabled: !targetBucketsOptions()
         ">
             <dropdown params="
-                placeholder: 'Choose bucket',
+                placeholder: targetBucketPlaceholder,
                 disabled: !targetBucketsOptions(),
                 options: targetBucketsOptions,
                 selected: targetBucket
@@ -28,7 +28,7 @@
         </editor>
 
         <editor params="
-            label: 'Resource name',
+            label: 'Resource Name',
             disabled: !targetBucket()
         ">
             <input type="text" placeholder="Choose Name" data-bind="

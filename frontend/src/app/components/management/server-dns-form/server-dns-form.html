@@ -1,5 +1,5 @@
 <collapsible-section params="
-    title: 'NooBaa DNS Name / Address',
+    title: 'System DNS Name / Address',
     collapsed: isCollapsed
 ">
     <section data-name="collapsed">
@@ -15,7 +15,7 @@
         </p>
 
         <div class="column push-next">
-            <editor params="label: 'Server Address'">
+            <editor params="label: 'System Address'">
                 <radio-group params="selected: addressType, options: addressOptions"></radio-group>
             </editor>
 
@@ -24,50 +24,51 @@
             </editor>
 
             <editor params="label: 'DNS Name'" data-bind="visible: usingDNS">
-                <input type="text" data-bind="textInput: dnsName" />
+                <div class="input-wrapper push-next align-start">
+                    <input type="text" data-bind="textInput: dnsName" />
 
-                <svg-icon class="validating-indicator spin"
-                    data-bind="visible: dnsName.isValidating"
-                    params="name: 'in-progress'"></svg-icon>
+                    <svg-icon class="validating-indicator spin"
+                        data-bind="visible: dnsName.isValidating"
+                        params="name: 'in-progress'"></svg-icon>
+                </div>
+                <p class="highlight push-both">
+                    Before clicking the update button follow the following procedure:
+                </p>
+
+                <ol class="bullet-list">
+                    <li>
+                        Add the new name in your DNS to have both the old and new names avaliable
+                        <div class="alt-bg pad config">
+                            <span>
+                                <span class="highlight">IP:</span>
+                                <output class="text-tech" data-bind="value: ipAddress"></output>
+                            </span>
+
+                            <span>
+                                <span class="highlight">Name:</span>
+                                <span class="text-tech" data-bind="
+                                    text: dnsName
+                                "></span>
+                            </span>
+                        </div>
+                    </li>
+                    <li>
+                        Click the update button
+                    </li>
+                    <li>
+                        After 24 hours the old name can be removed from your DNS
+                    </li>
+                </ol>
             </editor>
         </div>
 
-        <div class="column push-next" data-bind="
-            visible: usingDNS,
-            validationOptions: { insertMessages: false }
-        ">
-            <p class="push-next">
-                Before you apply changes, add the following entry to your DNS:
-            </p>
-
-            <div class="alt-bg pad config">
-                <span>
-                    <span class="highlight">IP:</span>
-                    <output class="text-tech" data-bind="value: ipAddress"></output>
-                </span>
-
-                <span>
-                    <span class="highlight">Name:</span>
-                    <output class="text-tech" data-bind="value: dnsName"></output>
-                </span>
-            </div>
-        </div>
-
-        <div class="column push-next">
-            Changing DNS name procedure:
-
-            <ol class="remark bullet-list push-next">
-                <li>Add the new name in your DNS to have both old and new names avaliable</li>
-                <li>Apply the changes in the forms above</li>
-                <li>Once all nodes are updated with the new name, the old name can be removed from the DNS</li>
-            </ol>
-
-            <p class="remark">
-                In any case, reinstalling a node (from the install node wizard) will update the server address used by that node.
-                <br>
-                note: make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change, the nodes will lose connectivity.
-            </p>
-        </div>
+        <p class="row remark">
+            <svg-icon class="icon-small" params="name: 'notif-info'">
+            </svg-icon>
+            <span class="greedy">
+                In any case, reinstalling a node (from the install node wizard) will update the server address used by that node. Make sure that the server IP was configured Static and no DHCP, otherwize if the IP will suddenly changes the nodes will lose connectivity.
+            </span>
+        </p>
 
         <button class="btn align-start push-both" data-bind="
             click: update,

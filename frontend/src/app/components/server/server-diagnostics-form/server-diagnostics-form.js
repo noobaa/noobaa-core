@@ -58,17 +58,17 @@ class ServerDiagnosticsFormViewModel extends Disposable{
             () => this.server() && this.server().status === 'CONNECTED'
         );
 
-        const debugModeState = ko.pureComputed(
-            () => this.server() && this.server().debug_level > 0
+        this.debugMode = ko.pureComputed(
+            () => Boolean(this.server() && this.server().debug_level)
         );
 
         this.debugModeSheet = [
             {
                 label: 'Debug Mode',
                 value: ko.pureComputed(
-                    () => debugModeState() ?
-                        'On' :
-                        'Off <span class="warning">(May cause server slowdown)</span>'
+                    () => this.debugMode() ?
+                        'On <span class="warning">(May cause server slowdown)</span>' :
+                        'Off'
                 )
             },
             {
@@ -80,7 +80,7 @@ class ServerDiagnosticsFormViewModel extends Disposable{
         ];
 
         this.toggleDebugModeButtonLabel = ko.pureComputed(
-            () => `Turn ${debugModeState() ? 'Off' : 'On'} Server Debug Mode`
+            () => `Turn ${this.debugMode() ? 'Off' : 'On'} Server Debug Mode`
         );
 
         this.isCollectingDiagnostics = ko.pureComputed(
@@ -91,8 +91,8 @@ class ServerDiagnosticsFormViewModel extends Disposable{
     }
 
     toggleDebugLevel() {
-        const { secret, hostname, debug_level } = this.server();
-        setServerDebugLevel(secret, hostname, debug_level === 0 ? 5 : 0);
+        const { secret, hostname } = this.server();
+        setServerDebugLevel(secret, hostname, this.debugMode() ? 0 : 5);
     }
 
     downloadDiagnosticPack() {

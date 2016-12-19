@@ -23,13 +23,21 @@
             <div class="column greedy push-next">
                 <toggle-filter class="push-next" params="
                     options: graphOptions,
-                    selected: selectedGraph
+                    selected: viewType
                 "></toggle-filter>
 
-                <chart-legend params="items: legend, format: 'size'"></chart-legend>
+                <chart-legend class="greedy" params="items: legend, format: 'size'"></chart-legend>
+
+                <!-- ko if: viewType() === 'data' -->
+                <p class="highlight push-next">
+                 <span data-bind="text: avaliableForWrite"></span>
+                    are available for upload
+
+                </p>
+                <!-- /ko -->
             </div>
 
-            <!-- ko if: selectedGraph() === 'STORAGE' -->
+            <!-- ko if: viewType() === 'storage' -->
             <pie-chart class="push-prev" params="
                 values: storageValues,
                 primaryText: totalStorage,
@@ -37,32 +45,24 @@
             "></pie-chart>
             <!-- /ko -->
 
-            <!-- ko if: selectedGraph() === 'DATA' -->
+            <!-- ko if: viewType() === 'data' -->
             <bar-chart class="push-prev" params="values: dataValues"></bar-chart>
             <!-- /ko -->
         </div>
     </section>
 
     <section class="c3 column">
-        <p class="borders pad highlight row content-middle push-next">
-            <svg-icon class="push-next" params="name: 'notif-info'" data-bind="
-                tooltip: avaliableForWriteTooltip
-            "></svg-icon>
-            <span>
-                <span data-bind="text: avaliableForWrite"></span>
-                of data can be uploaded
-            </span>
-        </p>
-
         <div class="greedy borders pad column">
-            <p class="row">
-                <span class="c4 highlight">Last read:</span>
-                <span class="c8 text-right" data-bind="text: lastRead"></span>
+            <h3 class="heading3">Last Access</h3>
+            <hr>
+            <p class="row greedy content-middle">
+                <span class="c3 highlight">Read:</span>
+                <span class="c9 text-right" data-bind="text: lastRead"></span>
             </p>
             <hr />
-            <p class="row">
-                <span class="c4 highlight">Last write:</span>
-                <span class="c8 text-right" data-bind="text: lastWrite"></span>
+            <p class="row greedy content-middle">
+                <span class="c3 highlight">Write:</span>
+                <span class="c9 text-right" data-bind="text: lastWrite"></span>
             </p>
         </div>
 

@@ -602,10 +602,10 @@ module.exports = {
                         message: {
                             type: 'string',
                         },
+                        last_upgrade: {
+                            format: 'idate'
+                        }
                     },
-                },
-                last_upgrade: {
-                    format: 'idate'
                 },
                 cluster: {
                     $ref: '#/definitions/cluster_info'

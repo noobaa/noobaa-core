@@ -3,10 +3,17 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, createCloudResource } from 'actions';
+import { deepFreeze } from 'utils/core-utils';
 
-const addConnectionOption = Object.freeze({
+const addConnectionOption = deepFreeze({
     label: 'Add new connection',
     value: {}
+});
+
+const targetSubject = deepFreeze({
+    AWS: 'Bucket',
+    AZURE: 'Container',
+    S3_COMPATIBLE: 'Bucket'
 });
 
 class AddCloudResourceModalViewModel extends Disposable {
@@ -38,7 +45,7 @@ class AddCloudResourceModalViewModel extends Disposable {
             ]
         );
 
-        let _connection = ko.observable();
+        const _connection = ko.observable();
         this.connection = ko.pureComputed({
             read: _connection,
             write: value => {
@@ -63,6 +70,20 @@ class AddCloudResourceModalViewModel extends Disposable {
             )
         );
 
+        this.targeBucketLabel = ko.pureComputed(
+            () => {
+                const { endpoint_type = 'AWS' } = this.connection() || {};
+                return `Target ${targetSubject[endpoint_type]}`;
+            }
+        );
+
+        this.targetBucketPlaceholder = ko.pureComputed(
+            () => {
+                const { endpoint_type = 'AWS' } = this.connection() || {};
+                return `Choose ${targetSubject[endpoint_type]}...`;
+            }
+        );
+
         this.targetBucketsOptions = ko.pureComputed(
             () => this.connection() && cloudBucketList() && cloudBucketList().map(
                 bucketName => ({ value: bucketName })
@@ -74,11 +95,16 @@ class AddCloudResourceModalViewModel extends Disposable {
             .extend({
                 required: {
                     onlyIf: this.connection,
-                    message: 'Please select a bucket from the list'
+                    message: () => {
+                        const { endpoint_type = 'AWS' } = this.connection() || {};
+                        return `Please select a ${
+                            targetSubject[endpoint_type].toLowerCase()
+                        } from the list`;
+                    }
                 }
             });
 
-        let namesInUse = ko.pureComputed(
+        const namesInUse = ko.pureComputed(
             () => systemInfo() && systemInfo().pools.map(
                 pool => pool.name
             )
@@ -86,7 +112,7 @@ class AddCloudResourceModalViewModel extends Disposable {
 
         this.resourceName = ko.observableWithDefault(
             () => {
-                let base = this.targetBucket();
+                const base = this.targetBucket();
                 let i = 0;
 
                 let name = base;

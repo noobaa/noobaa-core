@@ -528,7 +528,7 @@ function set_debug_level(req) {
                     throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', debug_params.target_secret, ' was not found');
                 }
                 audit_activity = {
-                    event: 'cluster.set_server_debug_level',
+                    event: 'dbg.set_server_debug_level',
                     server: {
                         hostname: _.get(cluster_server, 'heartbeat.health.os_info.hostname'),
                         secret: cluster_server.owner_secret
@@ -706,11 +706,11 @@ function collect_server_diagnostics(req) {
         })
         .then(res => {
             Dispatcher.instance().activity({
-                event: 'cluster.collect_diagnostics',
+                event: 'dbg.diagnose_server',
                 level: 'info',
                 actor: req.account && req.account._id,
                 system: req.system._id,
-                desc: `Collecting server diagnostics`
+                desc: `Collecting server diagnostics`,
             });
             return res;
         })

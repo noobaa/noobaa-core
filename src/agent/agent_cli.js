@@ -30,6 +30,9 @@ const promise_utils = require('../util/promise_utils');
 
 module.exports = AgentCLI;
 
+const CREATE_TOKEN_RESPONSE_TIMEOUT = 30 * 1000; // 30s timeout for master to respond to HB
+const CREATE_TOKEN_RETRY_INTERVAL = 10 * 1000;
+
 /**
  *
  * AgentCLI
@@ -59,7 +62,6 @@ function AgentCLI(params) {
  */
 AgentCLI.prototype.init = function() {
     var self = this;
-
 
     if (self.params.cloud_endpoint) {
         self.cloud_info = {
@@ -388,7 +390,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
                         signature: signature,
                     };
                     dbg.log0('create_access_key_auth', auth_params);
-                    return self.client.create_access_key_auth(auth_params);
+                    return self.create_auth_token(auth_params);
                 }
             })
             .then(function(res) {
@@ -639,6 +641,18 @@ AgentCLI.prototype.show = function(func_name) {
     } else {
         dbg.log0('help not found for function', func_name);
     }
+};
+
+AgentCLI.prototype.create_auth_token = function(auth_params) {
+    return P.resolve()
+        .then(() => this.client.create_access_key_auth(auth_params))
+        .timeout(CREATE_TOKEN_RESPONSE_TIMEOUT)
+        .catch(err => {
+            dbg.error('create_auth_token failed', err);
+            return P.delay(CREATE_TOKEN_RETRY_INTERVAL)
+                .then(() => this.create_auth_token(auth_params));
+
+        });
 };
 
 function populate_general_help(general) {

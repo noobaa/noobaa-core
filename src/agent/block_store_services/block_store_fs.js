@@ -105,18 +105,22 @@ class BlockStoreFs extends BlockStoreBase {
                 // create/replace the block on fs
                 return P.join(
                     fs.writeFileAsync(block_path, data),
-                    fs.writeFileAsync(meta_path, block_md_data),
-                    overwrite_stat && fs.statAsync(meta_path).catch(ignore_not_found)
-                    .then(md_stat => {
-                        md_overwrite_stat = md_stat;
-                    }));
+                    fs.writeFileAsync(meta_path, block_md_data));
+            })
+            .then(() => {
+                if (overwrite_stat) {
+                    return fs.statAsync(meta_path).catch(ignore_not_found)
+                        .then(md_stat => {
+                            md_overwrite_stat = md_stat;
+                        });
+                }
             })
             .then(() => {
                 let overwrite_size = 0;
                 let overwrite_count = 0;
                 if (overwrite_stat) {
-                    overwrite_size = overwrite_stat.size + md_overwrite_stat ?
-                        md_overwrite_stat.size : 0;
+                    overwrite_size = overwrite_stat.size + (md_overwrite_stat ?
+                        md_overwrite_stat.size : 0);
                     overwrite_count = 1;
                 }
                 let usage = {

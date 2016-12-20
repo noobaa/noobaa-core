@@ -1011,6 +1011,7 @@ function update_server_conf(req) {
                         address: server_rpc.get_base_address(cluster_server.owner_address),
                         timeout: 60000 //60s
                     })
+                    .then(() => cluster_hb.do_heartbeat()) //We call for HB since the hostname changed
                     .then(() => cluster_server);
             }
             return cluster_server;

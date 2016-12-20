@@ -1,0 +1,54 @@
+<h2 class="heading3">Select OS Type</h3>
+<radio-group class="push-next" params="
+    options: osTypeOptions,
+    selected: selectedOsType,
+    hasFocus: true
+"></radio-group>
+
+<h2 class="heading3">Follow The Manual Installation Process</h2>
+
+<!-- ko if: selectedOsType() === 'linux' -->
+<ol class="bullet-list">
+    <li>
+        <a class="link" download data-bind="attr: { href: packageUrl }">
+            Click here to download
+        </a>
+        the daemon installation package
+    </li>
+    <li>Copy the installation package to target machine</li>
+    <li>Open a root shell (or a shell with sudo) on target machine</li>
+    <li>Run the following command</li>
+</ol>
+<!-- /ko -->
+
+<!-- ko if: selectedOsType() === 'windows' -->
+<ol class="bullet-list">
+    <li>
+        <a class="link" download data-bind="attr: { href: packageUrl }">
+            Click here to download
+        </a>
+        the daemon installation package
+    </li>
+    <li>Copy the installation package to target machine</li>
+    <li>Open an elevated Powershell (run as administrator) on target machine</li>
+    <li>Run the following command</li>
+</ol>
+<!-- /ko -->
+
+<div class="pad alt-bg config-box row push-both greedy">
+    <output class="text-tech greedy" data-bind="text: installationCommand">
+    </output>
+
+    <copy-to-clipboard-button params="value: installationCommand">
+    </copy-to-clipboard-button>
+</div>
+
+<p class="remark">
+    <svg-icon class="icon-small" params="name: 'notif-info'"></svg-icon>
+    <span>
+        If you have an available network,
+        <button class="link alt-colors" data-bind="click: toggleInstallationMode">
+            it is recommanded to switch to network installation.
+        </button>
+    </span>
+</p>

@@ -1,7 +1,7 @@
 import template from './server-details-form.html';
 import Disposable from 'disposable';
 import { systemInfo, serverTime } from 'model';
-import { deepFreeze, isDefined } from 'utils/core-utils';
+import { deepFreeze, isDefined} from 'utils/core-utils';
 import { getServerIssues } from 'utils/cluster-utils';
 import { loadServerTime } from 'actions';
 import ko from 'knockout';
@@ -131,10 +131,16 @@ class ServerDetailsFormViewModel extends Disposable{
         );
 
         const tooltip = ko.pureComputed(
-            () => ({
-                text: this.issues().version || 'Synced with master',
-                align: 'start'
-            })
+            () => {
+                if (!this.isConnected()) {
+                    return '';
+                }
+
+                return {
+                    text: this.issues().version || 'Synced with master',
+                    align: 'start'
+                };
+            }
         );
 
         const text = ko.pureComputed(
@@ -156,10 +162,16 @@ class ServerDetailsFormViewModel extends Disposable{
         );
 
         const tooltip = ko.pureComputed(
-            () => ({
-                text: this.issues().ntpServer || 'Working Properly',
-                align: 'start'
-            })
+            () => {
+                if (!this.isConnected()) {
+                    return '';
+                }
+
+                return {
+                    text: this.issues().ntpServer || 'Working Properly',
+                    align: 'start'
+                };
+            }
         );
 
         const ntp = ko.pureComputed(
@@ -175,12 +187,12 @@ class ServerDetailsFormViewModel extends Disposable{
 
     getDNSServers() {
         const servers = ko.pureComputed(
-            () => this.server().dns_servers || []
+            () => (this.server().dns_servers || []).filter(isDefined)
         );
 
         const icon = ko.pureComputed(
             () => {
-                if (!this.isConnected() || (!servers()[0] && !servers()[1])) {
+                if (!this.isConnected() || servers().length == 0) {
                     return icons.unavailable;
                 }
 
@@ -189,10 +201,16 @@ class ServerDetailsFormViewModel extends Disposable{
         );
 
         const tooltip = ko.pureComputed(
-            () => ({
-                text: this.issues().dnsServers || 'Reachable and working',
-                align: 'start'
-            })
+            () => {
+                if (!this.isConnected() || servers().length == 0) {
+                    return '';
+                }
+
+                return {
+                    text: this.issues().dnsServers || 'Reachable and working',
+                    align: 'start'
+                };
+            }
         );
 
         const primary = ko.pureComputed(
@@ -207,9 +225,13 @@ class ServerDetailsFormViewModel extends Disposable{
     }
 
     getDNSName() {
+        const dnsName = ko.pureComputed(
+            () => systemInfo() && !systemInfo().dns_name
+        );
+
         const icon = ko.pureComputed(
             () => {
-                if (!systemInfo() || !systemInfo().dns_name || !this.isConnected()){
+                if (!this.isConnected() || !dnsName()){
                     return icons.unavailable;
                 }
 
@@ -218,10 +240,16 @@ class ServerDetailsFormViewModel extends Disposable{
         );
 
         const tooltip = ko.pureComputed(
-            () => ({
-                text: this.issues().dnsName || 'Resolvable to server\'s IP',
-                align: 'start'
-            })
+            () => {
+                if (!this.isConnected() || !dnsName()) {
+                    return '';
+                }
+
+                return {
+                    text: this.issues().dnsName || 'Resolvable to server\'s IP',
+                    align: 'start'
+                };
+            }
         );
 
         const name = ko.pureComputed(
@@ -247,10 +275,16 @@ class ServerDetailsFormViewModel extends Disposable{
         );
 
         const tooltip = ko.pureComputed(
-            () => ({
-                text: this.issues().remoteSyslog || 'Reachable and working',
-                align: 'start'
-            })
+            () => {
+                if (!this.isConnected() || !config()) {
+                    return '';
+                }
+
+                return {
+                    text: this.issues().remoteSyslog || 'Reachable and working',
+                    align: 'start'
+                };
+            }
         );
 
         const text = ko.pureComputed(
@@ -283,6 +317,10 @@ class ServerDetailsFormViewModel extends Disposable{
 
         const tooltip = ko.pureComputed(
             () => {
+                if (!this.isConnected()){
+                    return '';
+                }
+
                 const { phoneHomeServer, phoneHomeProxy } = this.issues();
                 const issues = [ phoneHomeServer, phoneHomeProxy ].filter(isDefined);
                 return {
@@ -293,9 +331,13 @@ class ServerDetailsFormViewModel extends Disposable{
         );
 
         const proxy = ko.pureComputed(
-            () => systemInfo() ?
-                systemInfo().phone_home_config.proxy_address :
-                'Not Configured'
+            () => {
+                if (!systemInfo()) {
+                    return '';
+                }
+
+                return systemInfo().phone_home_config.proxy_address || 'Not Configured';
+            }
         );
 
         return { icon, tooltip, proxy };

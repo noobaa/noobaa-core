@@ -16,12 +16,13 @@ class PaginatorViewModel extends Disposable {
             () => this.count() === 0
         );
 
-        this.pageStart = ko.pureComputed(
-            () => this.page() * pageSize + 1
-        );
-
-        this.pageEnd = ko.pureComputed(
-            () => Math.min(this.pageStart() + pageSize - 1, this.count())
+        this.rangeText = ko.pureComputed(
+            () => {
+                const count = this.count() || 0;
+                const start = (this.page() || 0) * pageSize + 1;
+                const end = Math.min(start + pageSize - 1, count);
+                return `${start} - ${end} of ${count}`;
+            }
         );
 
         this.isFirstPage = ko.pureComputed(

@@ -24,6 +24,9 @@ else
         rm -rf /usr/local/noobaa
         echo "usage: noobaa-setup /S /Config <configuration string>"
         exit 1
+    else
+        echo "Agent already installed, skipping installation"
+        exit 1
     fi
 fi
 

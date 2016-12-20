@@ -12,8 +12,6 @@ ${StrRep}
 !include "LogicLib.nsh"
 !include "Base64.nsh"
 !include x64.nsh
-!include "FileFunc.nsh"
-!insertmacro GetDrives
 
 !define MAX_PATH 2600
 !define NSIS_MAX_STRLEN=8192
@@ -315,6 +313,14 @@ ${EndIf}
 
 SectionEnd
 
+!include "FileFunc.nsh"
+!insertmacro GetDrives
+
+Function remove_agent_storage_from_drive
+	RMDir "$9agent_storage"
+	Push $0
+FunctionEnd
+
 Section "uninstall"
 	;nsExec::ExecToStack 'NooBaa_Agent_wd stop "Noobaa Local Service" >> "$INSTDIR\uninstall.log"'
 	;sleep 2000
@@ -339,12 +345,5 @@ Section "uninstall"
 	RMDir "$INSTDIR\logs"
 	RMDir "${SMDIR}"
 	RMDir /r "$INSTDIR"
-
 	${GetDrives} "HDD" "remove_agent_storage_from_drive"
-
-	Function remove_agent_storage_from_drive
-		RMDir "$9agent_storage"
-		Push $0
-	FunctionEnd
-
 SectionEnd

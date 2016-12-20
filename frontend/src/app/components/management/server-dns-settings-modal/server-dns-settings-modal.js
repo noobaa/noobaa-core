@@ -40,7 +40,7 @@ class ServerDNSSettingsModalViewModel extends Disposable {
                 }
 
                 const isMaster = server().secret === systemInfo().cluster.master_secret;
-                return !isMaster ? warnings.master : warnings.server;
+                return isMaster ? warnings.master : warnings.server;
             }
         );
 

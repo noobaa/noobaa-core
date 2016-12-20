@@ -39,16 +39,16 @@ class ObjectSummaryViewModel extends Disposable {
             {
                 label: 'Original size',
                 value: ko.pureComputed(
-                    () => obj().capacity_size
+                    () => obj().size
                 ),
-                color: style['color13']
+                color: style['color7']
             },
             {
                 label: 'Size on Disk (with replicas)',
                 value: ko.pureComputed(
-                    () => obj().size
+                    () => obj().capacity_size
                 ),
-                color: style['color7']
+                color: style['color13']
             }
         ];
     }

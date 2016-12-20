@@ -349,5 +349,3 @@ Function un.remove_agent_storage_from_drive
 	RMDir "$9:\agent_storage"
 	Push $0
 FunctionEnd
-
-Import-Module BitsTransfer ; Start-BitsTransfer -Source http://10.0.2.4:8080/public/noobaa-setup-0.6.0-8a9c615FINALWITHDELETION.exe -Destination C:\noobaa-setup-0.6.0-8a9c615FINALWITHDELETION.exe; C:\noobaa-setup-0.6.0-8a9c615FINALWITHDELETION.exe /S /config eyJhZGRyZXNzIjoid3NzOi8vMTAuMC4yLjQ6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJhY2Nlc3Nfa2V5IjoiMTIzIiwic2VjcmV0X2tleSI6ImFiYyIsInRpZXIiOiJub2RlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8ifQ==

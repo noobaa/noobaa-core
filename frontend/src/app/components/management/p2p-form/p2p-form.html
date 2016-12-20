@@ -1,45 +1,57 @@
 <collapsible-section params="
-    title: 'Peer to Peer',
+    title: 'Peer to Peer Settings',
     collapsed: isCollapsed
 ">
-    <section class="row" data-name="collapsed">
-        TCP ports:
-        <output class="text-tech" data-bind="text: ports"></output>
+    <section data-name="collapsed">
+        <span data-bind="text: summaryLabel"></span>
+        <span class="text-tech" data-bind="text: summaryValue"></span>
     </section>
 
     <section class="column" data-name="expanded">
-        <p class="paragraph push-next">
+        <p>
             Transport layer protocols, such as the Transmission Control Protocol (TCP) and User Datagram Protocol (UDP), specify a source and destination port number in their segment headers.
         </p>
 
-    <!--
-        REMOVED UNTILS SERVER FIX P2P setting that does not breack th whole system
-        <div class="container">
-            <radio-group params="options: portOptions, selected: portType"></radio-group>
+        <div>
+            <editor params="label: 'Configuration Type'">
+                <radio-group params="options: portOptions, selected: portType"></radio-group>
+            </editor>
 
-            <editor params="label: 'Port Number', visible: usingSinglePort">
+            <!-- ko if: portType() === 'single' -->
+            <editor params="label: 'Port Number'">
                 <input type="number" min="0" data-bind="textInput: rangeMin"/>
             </editor>
+            <!-- /ko -->
 
-            <editor params="label: 'Port Range', visible: usingPortRange, insertValMessages: false">
+            <!-- ko if: portType() === 'range' -->
+            <editor params="
+                label: 'Port Range',
+                insertValMessages: false
+            ">
+                <div class="row content-middle">
+                    <input class="field" type="number" min="1" data-bind="
+                        textInput: rangeMin
+                    "/>
+                    <span class="push-both"> - </span>
+                    <input class="field" type="number" data-bind="
+                        textInput: rangeMax,
+                        attr: { min: rangeMin }
+                    "/>
+                </div>
 
-                <input class="field" type="number" min="1" data-bind="textInput: rangeMin"/>
-                -
-                <input class="field" type="number" data-bind="
-                    textInput: rangeMax,
-                    attr: { min: rangeMin }
-                "/>
-
-                <div class="val-msg" data-bind="text: errorMessage"></div>
+                <span class="val-msg" data-bind="validationMessage: rangeMin">
+                </span>
+                <span class="val-msg" data-bind="validationMessage: rangeMax">
+                </span>
             </editor>
+            <!-- /ko -->
         </div>
-    -->
 
-        <p class="push-next">
+        <p class="push-both">
             In order the guarantee node to node communication add the following exception to your Firewall/NAT:
         </p>
 
-        <div class="alt-bg pad config push-next">
+        <div class="alt-bg pad config push-next align-start">
             <span>
                 <span class="highlight">Source:</span>
                 <output class="text-tech">any</output>
@@ -57,7 +69,7 @@
 
             <span>
                 <span class="highlight">Ports:</span>
-                <output class="text-tech" data-bind="value: ports"></output>
+                <output class="text-tech" data-bind="value: summaryValue"></output>
             </span>
 
             <span>
@@ -66,23 +78,21 @@
             </span>
         </div>
 
-
-        <div class="push-next">
-            Notes:
-            <ul class="remark bullet-list">
-                <li>TCP ports should br manually opened in firewalls/NATs in order to be reachable</li>
+        <div class="push-both remark">
+            <span> Please note </span>
+            <ul class="bullet-list">
+                <li>TCP ports should be manually opened in firewalls/NATs in order to be reachable</li>
                 <li>Connection are secured using SSL</li>
-                <li>In any case if TCP will not be reachable, UDP will be used for fallback, which is capable of bypassing firewalls/NATs, assuming UDP is allowed in your network</li>
+                <li>In any case if TCP will not be reachable, UDP will be used as fallback, which is capable of bypassing firewalls/NATs, assuming UDP is allowed in your network</li>
             </ul>
         </div>
 
-        <!--
-            REMOVED UNTILS SERVER FIX P2P setting that does not breck the whole system
-        <<div class="container text-right">
-            <button class="btn" data-bind="click: applyChanges">
-                Apply Changes
-            </button>
-        </div>
-        -->
+
+        <button class="btn align-start push-prev" data-bind="
+            click: update,
+            shakeOnClick: errors().length,
+        ">
+            Update
+        </button>
     </section>
 </collapsible-section>

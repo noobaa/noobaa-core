@@ -34,7 +34,7 @@
         </div>
 
         <button class="btn overview-btn push-prev" data-bind="
-            click: () => showInstallNodeWizard()
+            click: () => showInstallNodeModal()
         ">
             install node
         </button>
@@ -88,9 +88,9 @@
 </section>
 
 
- <!-- ko if: isInstallNodeWizardlVisible -->
-<install-node-wizard params="onClose: () => hideInstallNodeWizard()">
-</install-node-wizard>
+ <!-- ko if: isInstallNodeModalVisible -->
+<install-node-modal params="onClose: () => hideInstallNodeModal()">
+</install-node-modal>
 <!-- /ko -->
 
 <!-- ko if: isConnectApplicationWizardVisible -->

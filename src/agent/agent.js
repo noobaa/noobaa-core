@@ -252,7 +252,10 @@ class Agent {
             if (current_server[0]) {
                 this.servers.unshift(current_server[0]);
             } else {
-                this.servers.push(this.servers.shift());
+                //push the new candidate as the one to use
+                this.servers.unshift({
+                    address: suggested
+                });
             }
         } else {
             //Skip to the next server in list
@@ -260,10 +263,14 @@ class Agent {
         }
         dbg.log0(this.node_name, 'new servers list =', this.servers);
         dbg.log0(this.node_name, 'Chosen new address', this.servers[0].address, this.servers);
-        return this._update_rpc_config_internal({
-            base_address: this.servers[0].address,
-            old_base_address: previous_address,
-        });
+        if (this.servers[0].address !== previous_address) {
+            return this._update_rpc_config_internal({
+                base_address: this.servers[0].address,
+                old_base_address: previous_address,
+            });
+        } else {
+            return P.resolve();
+        }
     }
 
     _init_node() {

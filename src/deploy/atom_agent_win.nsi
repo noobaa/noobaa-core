@@ -341,10 +341,10 @@ Section "uninstall"
 	RMDir "$INSTDIR\logs"
 	RMDir "${SMDIR}"
 	RMDir /r "$INSTDIR"
-	${GetDrives} "HDD" "remove_agent_storage_from_drive"
+	${GetDrives} "HDD" "un.remove_agent_storage_from_drive"
 SectionEnd
 
-Function remove_agent_storage_from_drive
+Function un.remove_agent_storage_from_drive
 	RMDir "$9agent_storage"
 	Push $0
 FunctionEnd

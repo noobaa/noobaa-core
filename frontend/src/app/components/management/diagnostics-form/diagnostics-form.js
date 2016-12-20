@@ -29,7 +29,7 @@ class DiagnosticsFormViewModel extends Disposable {
                 label: 'Debug Mode',
                 value: ko.pureComputed(
                     () => this.debugMode() ?
-                        'On <span class="warning">(May cause server slowdown)</span>' :
+                        'On <span class="warning">(May cause system slowdown)</span>' :
                         'Off'
                 )
             },
@@ -42,7 +42,7 @@ class DiagnosticsFormViewModel extends Disposable {
         ];
 
         this.toogleDebugModeButtonText = ko.pureComputed(
-            () => `Turn ${this.debugMode() ? 'Off' : 'On' } Debug Mode`
+            () => `Turn ${this.debugMode() ? 'Off' : 'On' } System Debug Mode`
         );
 
         this.isCollectingDiagnostics = ko.pureComputed(

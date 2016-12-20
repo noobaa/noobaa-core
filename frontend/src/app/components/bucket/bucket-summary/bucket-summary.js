@@ -27,7 +27,9 @@ const cloudSyncStatusMapping = deepFreeze({
     NOTSET: 'not set'
 });
 
-const avaliableForWriteTooltip = 'This number is calculated according to the bucket\'s available capacity and the number of replicas defined in its placement policy';
+const availableForWriteTooltip = `This number is calculated according to the
+    bucket\'s available storage and the number of replicas defined in its placement
+    policy`;
 
 class BucketSummrayViewModel extends Disposable {
     constructor({ bucket }) {
@@ -143,13 +145,13 @@ class BucketSummrayViewModel extends Disposable {
                 this.dataValues
         );
 
-        this.avaliableForWrite = ko.pureComputed(
+        this.availableForWrite = ko.pureComputed(
             () => data().actual_free
         ).extend({
             formatSize: true
         });
 
-        this.avaliableForWriteTooltip = avaliableForWriteTooltip;
+        this.availableForWriteTootlip = availableForWriteTooltip;
 
         const stats = ko.pureComputed(
             () => bucket() ? bucket().stats : {}

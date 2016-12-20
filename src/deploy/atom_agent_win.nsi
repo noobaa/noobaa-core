@@ -345,7 +345,6 @@ Section "uninstall"
 SectionEnd
 
 Function un.remove_agent_storage_from_drive
-	MessageBox MB_OK "JEN DEBUG $9"
-	RMDir "$9:\agent_storage"
+	RMDir /r "$9agent_storage"
 	Push $0
 FunctionEnd

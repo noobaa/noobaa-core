@@ -105,16 +105,16 @@ class OverviewPanelViewModel extends Disposable {
 
 
 
-        this.isInstallNodeWizardlVisible = ko.observable(false);
+        this.isInstallNodeModalVisible = ko.observable(false);
         this.isConnectApplicationWizardVisible = ko.observable(false);
     }
 
-    showInstallNodeWizard() {
-        this.isInstallNodeWizardlVisible(true);
+    showInstallNodeModal() {
+        this.isInstallNodeModalVisible(true);
     }
 
-    hideInstallNodeWizard() {
-        this.isInstallNodeWizardlVisible(false);
+    hideInstallNodeModal() {
+        this.isInstallNodeModalVisible(false);
     }
 
     showConnectApplicationWizard() {

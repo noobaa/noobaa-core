@@ -189,7 +189,7 @@ function get_cluster_info() {
                 remote_syslog: status.remote_syslog_status,
                 cluster_communication: {
                     test_completed: status.cluster_status !== 'UNKNOWN',
-                    results: status.cluster_status !== 'UNKNOWN' && status.cluster_status
+                    results: status.cluster_status !== 'UNKNOWN' ? status.cluster_status : undefined
                 }
             }, _.isUndefined);
         }

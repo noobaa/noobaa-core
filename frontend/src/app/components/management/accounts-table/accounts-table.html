@@ -15,7 +15,8 @@
     columns: columns,
     data: accounts,
     rowFactory: account => createAccountRow(account),
-    sorting: sorting
+    sorting: sorting,
+    emptyMessage: 'The current filter does not match any account'
 "></data-table>
 
 <!-- ko if: isCreateAccountModalVisible -->

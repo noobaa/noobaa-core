@@ -73,19 +73,21 @@ function add_member_to_cluster(req) {
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
 
-    _validate_add_member_request(req);
+    const topology = cutil.get_topology();
+    const id = topology.cluster_id;
+    const is_clusterized = topology.is_clusterized;
 
-    let topology = cutil.get_topology();
-    var id = topology.cluster_id;
-    let is_clusterized = topology.is_clusterized;
-
-    return server_rpc.client.cluster_internal.verify_join_conditions({
+    return _validate_add_member_request(req)
+        .catch(err => {
+            throw err;
+        })
+        .then(() => server_rpc.client.cluster_internal.verify_join_conditions({
             secret: req.rpc_params.secret,
             version: pkg.version
         }, {
             address: server_rpc.get_base_address(req.rpc_params.address),
             timeout: 60000 //60s
-        })
+        }))
         .then(response => {
             if (!is_clusterized && response && response.caller_address) {
                 dbg.log1('updating adding server ip in db');
@@ -1063,6 +1065,17 @@ function _validate_add_member_request(req) {
     if (req.rpc_params.new_hostname && !os_utils.is_valid_hostname(req.rpc_params.new_hostname)) {
         throw new Error(`Invalid hostname: ${req.rpc_params.new_hostname}. See RFC 1123`);
     }
+
+    //Check mongo port 27000
+    //TODO on sharding will also need to add verification to the cfg port
+    return promise_utils.exec(`nc -z ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT}`)
+        .then(() => P.resolve())
+        .catch(err => P.resolve()) //Error in this case still means no FW dropped us on the way
+        .timeout(30 * 1000)
+        .catch(err => {
+            throw new Error(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT},
+            might be due to a FW blocking`);
+        });
 }
 
 function _verify_join_preconditons(req) {

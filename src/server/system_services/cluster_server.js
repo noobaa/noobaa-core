@@ -987,15 +987,15 @@ function read_server_config(req) {
 
 function update_server_conf(req) {
     dbg.log0('set_server_conf. params:', req.rpc_params);
-    if (!system_store.data.cluster_by_server[req.rpc_params.target_secret]) {
-        throw new Error(`unknown server:`, req.rpc_params.target_secret);
+    const cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+    if (!cluster_server) {
+        throw new Error('unknown server: ' + req.rpc_params.target_secret);
     }
 
     let audit_desc = ``;
     let audit_server = {};
     return P.resolve()
         .then(() => {
-            const cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
             audit_server.hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
             audit_server.secret = cluster_server.owner_secret;
             if (req.rpc_params.hostname &&
@@ -1029,18 +1029,15 @@ function update_server_conf(req) {
             }
         })
         .then(() => {
-            if (audit_desc) {
-                Dispatcher.instance().activity({
-                    event: 'cluster.set_server_conf',
-                    level: 'info',
-                    system: req.system._id,
-                    actor: req.account && req.account._id,
-                    server: audit_server,
-                    desc: audit_desc,
-                });
-            } else {
-                return P.resolve();
-            }
+            if (!audit_desc) return P.resolve();
+            Dispatcher.instance().activity({
+                event: 'cluster.set_server_conf',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                server: audit_server,
+                desc: audit_desc,
+            });
         })
         .return();
 }

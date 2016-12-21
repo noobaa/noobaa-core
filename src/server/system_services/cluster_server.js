@@ -987,23 +987,21 @@ function read_server_config(req) {
 
 function update_server_conf(req) {
     dbg.log0('set_server_conf. params:', req.rpc_params);
+    const cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+    if (!cluster_server) {
+        throw new Error('unknown server: ' + req.rpc_params.target_secret);
+    }
+
     let audit_desc = ``;
     let audit_server = {};
-    return P.fcall(() => {
-            if (req.rpc_params.target_secret) {
-                if (!system_store.data.cluster_by_server[req.rpc_params.target_secret]) {
-                    throw new Error(`unknown server:`, req.rpc_params.target_secret);
-                }
-                return system_store.data.cluster_by_server[req.rpc_params.target_secret];
-            }
-            return system_store.get_local_cluster_info();
-        })
-        .then(cluster_server => {
+    return P.resolve()
+        .then(() => {
             audit_server.hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
             audit_server.secret = cluster_server.owner_secret;
-            if (req.rpc_params.hostname) {
+            if (req.rpc_params.hostname &&
+                req.rpc_params.hostname !== audit_server.hostname) { //hostname supplied and actually changed
+                audit_desc += `Hostname changed from ${audit_server.hostname} to ${req.rpc_params.hostname}. `;
                 audit_server.hostname = req.rpc_params.hostname;
-                audit_desc += `Hostname changed to ${req.rpc_params.hostname}. `;
                 if (!os_utils.is_valid_hostname(req.rpc_params.hostname)) throw new Error(`Invalid hostname: ${req.rpc_params.hostname}. See RFC 1123`);
                 return server_rpc.client.cluster_internal.set_hostname_internal({
                         hostname: req.rpc_params.hostname,
@@ -1011,13 +1009,15 @@ function update_server_conf(req) {
                         address: server_rpc.get_base_address(cluster_server.owner_address),
                         timeout: 60000 //60s
                     })
+                    .then(() => cluster_hb.do_heartbeat()) //We call for HB since the hostname changed
                     .then(() => cluster_server);
             }
             return cluster_server;
         })
         .then(cluster_server => {
-            if (req.rpc_params.location) {
-                audit_desc += `Location set to ${req.rpc_params.location}.`;
+            if (req.rpc_params.location &&
+                req.rpc_params.location !== cluster_server.location) { //location supplied and actually changed
+                audit_desc += `Location tag set to ${req.rpc_params.location}.`;
                 return system_store.make_changes({
                     update: {
                         clusters: [{
@@ -1029,6 +1029,7 @@ function update_server_conf(req) {
             }
         })
         .then(() => {
+            if (!audit_desc) return P.resolve();
             Dispatcher.instance().activity({
                 event: 'cluster.set_server_conf',
                 level: 'info',

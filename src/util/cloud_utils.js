@@ -1,37 +1,9 @@
 'use strict';
 
-
-var _ = require('lodash');
 const dbg = require('./debug_module')(__filename);
 const RpcError = require('../rpc/rpc_error');
 const AWS = require('aws-sdk');
 const url = require('url');
-
-
-/**
- *
- * RESOLVE_CLOUD_SYNC_INFO
- *
- */
-function resolve_cloud_sync_info(sync_policy) {
-    var stat;
-    if (_.isEmpty(sync_policy)) {
-        stat = 'NOTSET';
-        //If sync time is epoch (never synced) change to never synced
-    } else if (sync_policy.paused) {
-        stat = 'PAUSED';
-    } else if (!sync_policy.health) {
-        stat = 'UNABLE';
-    } else if (sync_policy.status === 'SYNCING') {
-        stat = 'SYNCING';
-    } else if (sync_policy.last_sync.getTime() === 0) {
-        stat = 'PENDING';
-    } else {
-        // if we have a time for the last sync, and the status isn't syncing (then it's idle) it means we're synced.
-        stat = 'SYNCED';
-    }
-    return stat;
-}
 
 function find_cloud_connection(account, conn_name) {
     let conn = (account.sync_credentials_cache || [])
@@ -83,7 +55,6 @@ function get_azure_connection_string(params) {
 }
 
 
-exports.resolve_cloud_sync_info = resolve_cloud_sync_info;
 exports.find_cloud_connection = find_cloud_connection;
 exports.get_azure_connection_string = get_azure_connection_string;
 exports.get_signed_url = get_signed_url;

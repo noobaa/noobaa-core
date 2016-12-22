@@ -314,10 +314,8 @@ function delete_bucket(req) {
             });
         })
         .then(() => server_rpc.client.cloud_sync.refresh_policy({
-            sysid: req.system._id.toString(),
             bucketid: bucket._id.toString(),
-            force_stop: true,
-            skip_load: true,
+            system_id: req.system._id.toString()
         }, {
             auth_token: req.auth_token
         }))
@@ -410,14 +408,15 @@ function get_cloud_sync(req, bucket) {
                 endpoint_type: bucket.cloud_sync.endpoint_type || 'AWS',
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
-                status: cloud_utils.resolve_cloud_sync_info(bucket.cloud_sync),
+                status: bucket.cloud_sync.status,
                 last_sync: bucket.cloud_sync.last_sync.getTime(),
                 target_bucket: bucket.cloud_sync.target_bucket,
                 policy: {
                     schedule_min: bucket.cloud_sync.schedule_min,
                     c2n_enabled: bucket.cloud_sync.c2n_enabled,
                     n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                    additions_only: bucket.cloud_sync.additions_only
+                    additions_only: bucket.cloud_sync.additions_only,
+                    paused: bucket.cloud_sync.paused,
                 }
             };
         });
@@ -455,10 +454,7 @@ function delete_cloud_sync(req) {
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
-                force_stop: true,
-                skip_load: true
             }, {
                 auth_token: req.auth_token
             });
@@ -487,7 +483,6 @@ function set_cloud_sync(req) {
 
     var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     var bucket = find_bucket(req);
-    var force_stop = false;
     //Verify parameters, bi-directional sync can't be set with additions_only
     if (req.rpc_params.policy.additions_only &&
         req.rpc_params.policy.n2c_enabled &&
@@ -502,7 +497,7 @@ function set_cloud_sync(req) {
         access_keys: {
             access_key: connection.access_key,
             secret_key: connection.secret_key,
-            account_id: req.account._id
+            account_id: req.account._id.toString()
         },
         schedule_min: js_utils.default_value(req.rpc_params.policy.schedule_min, 60),
         last_sync: new Date(0),
@@ -511,16 +506,6 @@ function set_cloud_sync(req) {
         n2c_enabled: js_utils.default_value(req.rpc_params.policy.n2c_enabled, true),
         additions_only: js_utils.default_value(req.rpc_params.policy.additions_only, false)
     };
-
-    if (bucket.cloud_sync) {
-        //If either of the following is changed, signal the cloud sync worker to force stop and reload
-        if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
-            bucket.cloud_sync.target_bucket !== cloud_sync.target_bucket ||
-            bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
-            bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key) {
-            force_stop = true;
-        }
-    }
 
     return system_store.make_changes({
             update: {
@@ -534,16 +519,12 @@ function set_cloud_sync(req) {
             //TODO:: scale, fine for 1000 objects, not for 1M
             return object_server.set_all_files_for_sync(req.system._id, bucket._id);
         })
-        .then(function() {
-            return server_rpc.client.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
-                bucketid: bucket._id.toString(),
-                force_stop: force_stop,
-            }, {
-                auth_token: req.auth_token
-            });
-        })
-        .then(res => {
+        .then(() => server_rpc.client.cloud_sync.refresh_policy({
+            bucketid: bucket._id.toString()
+        }, {
+            auth_token: req.auth_token
+        }))
+        .then(() => {
             let desc_string = [];
             let sync_direction;
             if (cloud_sync.c2n_enabled && cloud_sync.n2c_enabled) {
@@ -574,7 +555,6 @@ function set_cloud_sync(req) {
                 bucket: bucket._id,
                 desc: desc_string.join('\n'),
             });
-            return res;
         })
         .catch(function(err) {
             dbg.error('Error setting cloud sync', err, err.stack);
@@ -599,8 +579,6 @@ function update_cloud_sync(req) {
         _id: bucket._id,
         cloud_sync: Object.assign({}, bucket.cloud_sync, req.rpc_params.policy)
     };
-    //System store holds the connected items, we want to break the chain and hold only the id
-    updated_policy.cloud_sync.access_keys.account_id = updated_policy.cloud_sync.access_keys.account_id._id;
 
     var sync_directions_changed = Object.keys(req.rpc_params.policy)
         .filter(
@@ -635,9 +613,7 @@ function update_cloud_sync(req) {
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
-                force_stop: false,
             }, {
                 auth_token: req.auth_token
             });
@@ -702,9 +678,7 @@ function toggle_cloud_sync(req) {
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
-                bucketid: bucket._id.toString(),
-                force_stop: cloud_sync.paused,
+                bucketid: bucket._id.toString()
             }, {
                 auth_token: req.auth_token
             });

@@ -1745,7 +1745,7 @@ export function addCloudConnection(name, endpointType, endpoint, identity, secre
         secret: secret
     };
 
-    api.account.add_external_conenction(connection)
+    api.account.add_external_connection(connection)
         .then(loadSystemInfo)
         .done();
 }

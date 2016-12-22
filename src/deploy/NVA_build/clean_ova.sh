@@ -33,3 +33,4 @@ sudo sed -i "s:This server's secret is.*:No Server Secret:" /etc/issue
 dd if=/dev/zero of=zeroFile.tmp
 rm -f zeroFile.tmp
 history -c
+history -w

@@ -15,7 +15,7 @@ class PolicyMap extends Map {
         return Object.setPrototypeOf(new Map(), new PolicyMap());
     }
     set_policy(key, value) {
-        this.set(_policy_identifier(key, value));
+        this.set(_policy_identifier(key), value);
     }
     get_policy(key) {
         return this.get(_policy_identifier(key));
@@ -41,11 +41,11 @@ function background_worker() {
     let now = new Date();
     return load_policies()
         .then(() => P.all(_.map(_.filter(CLOUD_SYNC.configured_policies.to_array(), policy =>
-                ((now - policy.last_sync) / 1000 / 60) > policy.schedule_min &&
-                !policy.paused &&
-                policy.status !== 'SYNCING' &&
-                policy.status !== 'NOTSET'
-            ), policy => update_work_list(policy)
+                (((now - policy.last_sync) / 1000 / 60) > policy.schedule_min &&
+                    !policy.paused &&
+                    policy.status !== 'SYNCING' &&
+                    policy.status !== 'NOTSET'
+                )), policy => update_work_list(policy)
             .then(() => {
                 if (_are_worklists_empty(policy)) {
                     policy.health = true;

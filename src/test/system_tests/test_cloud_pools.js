@@ -229,7 +229,7 @@ function main() {
         .then(function() {
             return init_s3();
         })
-        .then(() => client.account.add_external_conenction({
+        .then(() => client.account.add_external_connection({
             name: TEST_CTX.connection_name,
             endpoint: 'https://s3.amazonaws.com',
             identity: process.env.AWS_ACCESS_KEY_ID,

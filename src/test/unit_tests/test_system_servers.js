@@ -264,7 +264,7 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
-            .then(() => client.account.add_external_conenction({
+            .then(() => client.account.add_external_connection({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
                 endpoint_type: 'AWS',
@@ -274,7 +274,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.delete_external_connection({
                 connection_name: CLOUD_SYNC_CONNECTION,
             }))
-            .then(() => client.account.add_external_conenction({
+            .then(() => client.account.add_external_connection({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
                 endpoint_type: 'AWS',

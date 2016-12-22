@@ -247,7 +247,7 @@ module.exports = {
             }
         },
 
-        add_external_conenction: {
+        add_external_connection: {
             doc: 'Add a connection to authorized account\'s connections cache',
             method: 'PUT',
             params: {

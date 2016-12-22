@@ -492,7 +492,7 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
                 concurrency: 1
             }
         )
-        .then(() => cloud_pool && client.account.add_external_conenction({
+        .then(() => cloud_pool && client.account.add_external_connection({
                 name: 'test_build_chunks_cloud',
                 endpoint_type: 'AWS',
                 endpoint: 'https://s3.amazonaws.com',

@@ -29,10 +29,16 @@
                 <chart-legend class="greedy" params="items: legend, format: 'size'"></chart-legend>
 
                 <!-- ko if: viewType() === 'data' -->
-                <p class="highlight push-next">
-                 <span data-bind="text: avaliableForWrite"></span>
-                    are available for upload
+                <p class="row push-next">
+                    <span class="greedy highlight">
+                        <span data-bind="text: availableForWrite"></span>
+                        are available for upload
+                    </span>
 
+                    <svg-icon class="icon-small"
+                        params="name: 'question'"
+                        data-bind="tooltip: availableForWriteTootlip"
+                    "></svg-icon>
                 </p>
                 <!-- /ko -->
             </div>

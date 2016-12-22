@@ -1376,16 +1376,20 @@ export function abortNodeTest() {
     }
 }
 
-export function updateP2PSettings(minPort, maxPort) {
+export function updateP2PTcpPorts(minPort, maxPort) {
     logAction('updateP2PSettings', { minPort, maxPort });
 
-    let tcpPermanentPassive = minPort !== maxPort ?
+    const tcp_permanent_passive = minPort !== maxPort ?
         { min: minPort, max: maxPort } :
         { port: minPort };
 
-    api.system.update_n2n_config({
-        tcp_permanent_passive: tcpPermanentPassive
-    })
+    const config = Object.assign(
+        {},
+        model.systemInfo().n2n_config,
+        { tcp_permanent_passive }
+    );
+
+    api.system.update_n2n_config(config)
         .then(
             () => notify('Peer to peer settings updated successfully', 'success'),
             () => notify('Peer to peer settings update failed', 'error')

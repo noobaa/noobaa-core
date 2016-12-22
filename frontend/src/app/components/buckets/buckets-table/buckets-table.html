@@ -16,7 +16,7 @@
     sorting: sorting,
     data: buckets,
     rowFactory: bucket => newBucketRow(bucket),
-    emptyMessage: ''
+        emptyMessage: 'The current filter does not match any bucket'
 ">
     <template name="cloud-storage">
         <svg-icon class="icon-small" params="name: awsIcon().name" data-bind="

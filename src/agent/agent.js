@@ -251,17 +251,16 @@ class Agent {
             const current_server = _.remove(this.servers, srv => srv.address === suggested);
             if (current_server[0]) {
                 this.servers.unshift(current_server[0]);
-            } else {
-                this.servers.push(this.servers.shift());
             }
         } else {
             //Skip to the next server in list
             this.servers.push(this.servers.shift());
         }
+        const new_address = suggested ? suggested : this.servers[0].address;
         dbg.log0(this.node_name, 'new servers list =', this.servers);
-        dbg.log0(this.node_name, 'Chosen new address', this.servers[0].address, this.servers);
+        dbg.log0(this.node_name, 'Chosen new address', new_address);
         return this._update_rpc_config_internal({
-            base_address: this.servers[0].address,
+            base_address: new_address,
             old_base_address: previous_address,
         });
     }

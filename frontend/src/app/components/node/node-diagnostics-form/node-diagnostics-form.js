@@ -62,7 +62,7 @@ class NodeDiagnosticsFormViewModel extends Disposable {
         this.toggleDebugModeButtonText = ko.pureComputed(
             () => `Turn ${
                     this.debugMode() > 0 ? 'off' : 'on'
-                } Debug Mode`
+                } Node Debug Mode`
         );
 
         this.rpcAddress = ko.pureComputed(

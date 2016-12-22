@@ -32,7 +32,9 @@ if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Uninstalling service"
   systemctl stop noobaalocalservice >> /var/log/noobaa_service_rem_${instdate} 2>&1
   verify_command_run systemctl disable noobaalocalservice
+  #attempting to uninstall bruteforce service installations
   rm /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
+  rm /lib/systemd/system/noobaalocalservice.service
   verify_command_run systemctl daemon-reload
 elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Removing init script"

@@ -52,7 +52,7 @@ module.exports = {
                             type: 'string'
                         },
                         account_id: {
-                            format: 'objectid'
+                            type: 'string'
                         }
                     }
                 },

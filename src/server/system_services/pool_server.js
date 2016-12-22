@@ -56,7 +56,7 @@ function create_nodes_pool(req) {
             }
         })
         .then(() => nodes_client.instance().migrate_nodes_to_pool(req.system._id, nodes,
-                pool._id, req.account && req.account._id))
+            pool._id, req.account && req.account._id))
         .then(res => {
             Dispatcher.instance().activity({
                 event: 'resource.create',
@@ -80,7 +80,7 @@ function create_cloud_pool(req) {
         access_keys: {
             access_key: connection.access_key,
             secret_key: connection.secret_key,
-            account_id: req.account._id
+            account_id: req.account._id.toString()
         },
         endpoint_type: connection.endpoint_type || 'AWS'
     };
@@ -235,7 +235,7 @@ function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
     return nodes_client.instance().migrate_nodes_to_pool(req.system._id, req.rpc_params.nodes,
-            pool._id, req.account && req.account._id);
+        pool._id, req.account && req.account._id);
 }
 
 

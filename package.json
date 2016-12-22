@@ -61,7 +61,7 @@
   },
   "dependencies": {
     "ajv": "4.5.0",
-    "aws-sdk": "2.5.1",
+    "aws-sdk": "2.7.17",
     "azure-storage": "1.3.0",
     "bcrypt": "0.8.7",
     "big-integer": "1.6.15",

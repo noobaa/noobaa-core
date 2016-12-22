@@ -104,51 +104,51 @@ AgentCLI.prototype.init = function() {
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
-            return os_utils.read_drives()
-                .then(drives => os_utils.remove_linux_readonly_drives(drives));
+            // return os_utils.read_drives()
+            //     .then(drives => os_utils.remove_linux_readonly_drives(drives));
+            return os_utils.get_disk_mount_points();
         })
-        .then(function(drives) {
-            dbg.log0('drives:', drives, ' current location ', process.cwd());
-            var hds = _.filter(drives, function(hd_info) {
-                if ((hd_info.drive_id.indexOf('by-uuid') < 0 &&
-                        hd_info.mount.indexOf('/etc/hosts') < 0 &&
-                        (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') &&
-                        hd_info.mount.indexOf('/boot') < 0 &&
-                        hd_info.mount.indexOf('/Volumes/') < 0) ||
-                    (hd_info.drive_id.length === 2 &&
-                        hd_info.drive_id.indexOf(':') === 1)) {
-                    dbg.log0('Found relevant volume', hd_info.drive_id);
-                    return true;
-                }
-            });
-            var server_uuid = self.params.host_id;
-            console.log('Server:' + server_uuid + ' with HD:' + JSON.stringify(hds));
+        .then(function(mount_points) {
+            // dbg.log0('drives:', drives, ' current location ', process.cwd());
+            // var hds = _.filter(drives, function(hd_info) {
+            //     if ((hd_info.drive_id.indexOf('by-uuid') < 0 &&
+            //             hd_info.mount.indexOf('/etc/hosts') < 0 &&
+            //             (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') &&
+            //             hd_info.mount.indexOf('/boot') < 0 &&
+            //             hd_info.mount.indexOf('/Volumes/') < 0) ||
+            //         (hd_info.drive_id.length === 2 &&
+            //             hd_info.drive_id.indexOf(':') === 1)) {
+            //         dbg.log0('Found relevant volume', hd_info.drive_id);
+            //         return true;
+            //     }
+            // });
+            // var server_uuid = self.params.host_id;
+            // console.log('Server:' + server_uuid + ' with HD:' + JSON.stringify(hds));
 
-            var mount_points = [];
+            // var mount_points = [];
+            //
+            // if (os.type() === 'Windows_NT') {
+            //     _.each(hds, function(hd_info) {
+            //         if (process.cwd().toLowerCase().indexOf(hd_info.drive_id.toLowerCase()) === 0) {
+            //             hd_info.mount = './agent_storage/';
+            //             mount_points.push(hd_info);
+            //         } else {
+            //             hd_info.mount += '\\agent_storage\\';
+            //             mount_points.push(hd_info);
+            //         }
+            //     });
+            // } else {
+            //     _.each(hds, function(hd_info) {
+            //         if (hd_info.mount === "/") {
+            //             hd_info.mount = './agent_storage/';
+            //             mount_points.push(hd_info);
+            //         } else {
+            //             hd_info.mount = '/' + hd_info.mount + '/agent_storage/';
+            //             mount_points.push(hd_info);
+            //         }
+            //     });
+            // }
 
-            if (os.type() === 'Windows_NT') {
-                _.each(hds, function(hd_info) {
-                    if (process.cwd().toLowerCase().indexOf(hd_info.drive_id.toLowerCase()) === 0) {
-                        hd_info.mount = './agent_storage/';
-                        mount_points.push(hd_info);
-                    } else {
-                        hd_info.mount += '\\agent_storage\\';
-                        mount_points.push(hd_info);
-                    }
-                });
-            } else {
-                _.each(hds, function(hd_info) {
-                    if (hd_info.mount === "/") {
-                        hd_info.mount = './agent_storage/';
-                        mount_points.push(hd_info);
-                    } else {
-                        hd_info.mount = '/' + hd_info.mount + '/agent_storage/';
-                        mount_points.push(hd_info);
-                    }
-                });
-            }
-
-            dbg.log0('mount_points:', mount_points);
             self.params.root_path = mount_points[0].mount;
 
             dbg.log0('root path:', self.params.root_path);
@@ -157,6 +157,8 @@ AgentCLI.prototype.init = function() {
             if (self.params.cleanup) {
                 return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
                     var storage_path = storage_path_info.mount;
+                    // TODO: There is a bug here regarding local disk/mount agent_storage
+                    // It is fixed in agent_uninstall, I need to investigate who uses this cleanup and fix later
                     var path_modification = storage_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
                     return fs_utils.folder_delete(path_modification);
                 }));

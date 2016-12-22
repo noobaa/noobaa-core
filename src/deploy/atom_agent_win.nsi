@@ -313,8 +313,6 @@ ${EndIf}
 
 SectionEnd
 
-!include "FileFunc.nsh"
-!insertmacro GetDrives
 
 
 Section "uninstall"
@@ -339,12 +337,7 @@ Section "uninstall"
 	Delete "${SMDIR}\${UNINST}.lnk"
 	RMDir "$INSTDIR\atom-shell"
 	RMDir "$INSTDIR\logs"
+	nsExec::ExecToStack '$\"$INSTDIR\node.exe $INSTDIR\src\agent\agent_uninstall.js --remove_agent_storage"'
 	RMDir "${SMDIR}"
 	RMDir /r "$INSTDIR"
-	${GetDrives} "HDD" "un.remove_agent_storage_from_drive"
 SectionEnd
-
-Function un.remove_agent_storage_from_drive
-	RMDir /r "$9agent_storage"
-	Push $0
-FunctionEnd

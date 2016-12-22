@@ -326,7 +326,7 @@ AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
                 return child_process.execAsync(
                     'icacls ' + current_path +
                     ' /t' +
-                    ' /grant:r administrators:(oi)(ci)F' +
+                    ' /grant:r administrators:F' +
                     ' /grant:r system:F' +
                     ' /remove:g BUILTIN\\Users' +
                     ' /inheritance:r');

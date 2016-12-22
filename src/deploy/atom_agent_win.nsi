@@ -337,7 +337,7 @@ Section "uninstall"
 	Delete "${SMDIR}\${UNINST}.lnk"
 	RMDir "$INSTDIR\atom-shell"
 	RMDir "$INSTDIR\logs"
-	nsExec::ExecToStack '"node.exe" $INSTDIR\src\agent\agent_uninstall.js --remove_agent_storage'
+	nsExec::ExecToLog '"$INSTDIR\node.exe" "$INSTDIR\src\agent\agent_uninstall.js" --remove_agent_storage'
 	RMDir "${SMDIR}"
 	RMDir /r "$INSTDIR"
 SectionEnd

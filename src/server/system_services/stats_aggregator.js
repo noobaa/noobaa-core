@@ -616,9 +616,11 @@ function background_worker() {
             if (failed_sent > 5) {
                 successfuly_sent = 0;
                 let updates = {
-                    _id: system_store.data.systems[0]._id.toString()
+                    _id: system_store.data.systems[0]._id.toString(),
+                    freemium_cap: {
+                        phone_home_unable_comm: true
+                    }
                 };
-                updates.freemium_cap.phone_home_unable_comm = true;
                 return system_store.make_changes({
                         update: {
                             systems: [updates]
@@ -631,7 +633,7 @@ function background_worker() {
             throw err;
         })
         .then(() => {
-            successfuly_sent++;
+            successfuly_sent += config.central_stats.send_time_cycle;
             failed_sent = 0;
             if (successfuly_sent > config.central_stats.send_time &&
                 !system_store.data.systems[0].freemium_cap.phone_home_upgraded) {

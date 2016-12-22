@@ -24,7 +24,7 @@ if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   cp /usr/local/noobaa/src/agent/system_d.conf /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
   echo "Updating systemctl"
   verify_command_run systemctl daemon-reload
-  verify_command_run systemctl enable noobaalocalservice
+  systemctl enable noobaalocalservice >> /var/log/noobaa_service_${instdate} 2>&1
   echo "Starting Service"
   verify_command_run systemctl start noobaalocalservice
   verify_command_run systemctl daemon-reload
@@ -41,7 +41,7 @@ elif [[ -d /etc/init.d ]]; then
   if [ $? -eq 0 ]; then
     verify_command_run chkconfig noobaalocalservice on
   else
-    verify_command_run update-rc.d noobaalocalservice enable 
+    verify_command_run update-rc.d noobaalocalservice enable
   fi
   echo "Starting Service"
   verify_command_run service noobaalocalservice start

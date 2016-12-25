@@ -1,27 +1,26 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var path = require('path');
-var look = require('look');
-var P = require('../util/promise');
-var url = require('url');
-var util = require('util');
-var argv = require('minimist')(process.argv);
-var RPC = require('./rpc');
-var pem = require('../util/pem');
-var RpcSchema = require('./rpc_schema');
-var chance = require('chance')();
-var memwatch = null; //require('memwatch');
-var dbg = require('../util/debug_module')(__filename);
-var MB = 1024 * 1024;
+const _ = require('lodash');
+const P = require('../util/promise');
+const url = require('url');
+const path = require('path');
+const util = require('util');
+const argv = require('minimist')(process.argv);
+const RPC = require('./rpc');
+const pem = require('../util/pem');
+const RpcSchema = require('./rpc_schema');
+const chance = require('chance')();
+const memwatch = null; //require('memwatch');
+const dbg = require('../util/debug_module')(__filename);
+const MB = 1024 * 1024;
 
 // test arguments
 // client/server mode
 argv.client = argv.client || false;
 argv.server = argv.server || false;
 
-if (!argv.server && !argv.client) {
+if (argv.help || (!argv.server && !argv.client)) {
     let script_name = path.relative(process.cwd(), process.argv[1]);
     process.stdout.write('Usage: \n');
     process.stdout.write('node ' + script_name + ' --server --addr tcp://server:5656 [--n2n] \n');
@@ -48,32 +47,25 @@ argv.novalidation = argv.novalidation || false;
 
 // retry delay in seconds on failures
 argv.retry = argv.retry || undefined;
-var retry_ms = 1000 * (parseInt(argv.retry, 10) || 0);
-var retry_func = argv.retry && function() {
-    return P.delay(retry_ms);
-};
+const retry_ms = 1000 * (parseInt(argv.retry, 10) || 0);
+const retry_func = argv.retry && (() => P.delay(retry_ms));
 
-var target_addresses;
+let target_addresses;
 
 // debug level
 argv.debug = argv.debug || 0;
 
 // profiling tools
-if (argv.look) {
-    look.start();
-}
 if (argv.leak) {
-    memwatch.on('leak', function(info) {
-        dbg.warn('LEAK', info);
-    });
+    memwatch.on('leak', info => dbg.warn('LEAK', info));
 }
-var heapdiff;
+let heapdiff;
 argv.heap = argv.heap || false;
 
 dbg.log('Arguments', argv);
 dbg.set_level(argv.debug, __dirname);
 
-var schema = new RpcSchema();
+const schema = new RpcSchema();
 schema.register_api({
     id: 'rpcbench',
     methods: {
@@ -123,14 +115,14 @@ schema.register_api({
 schema.compile();
 
 // create rpc
-var rpc = new RPC({
+const rpc = new RPC({
     schema: schema,
     router: {}
 });
 if (argv.novalidation) {
     rpc.disable_validation();
 }
-var client = rpc.new_client({
+const client = rpc.new_client({
     address: url.format(argv.addr)
 });
 
@@ -141,86 +133,68 @@ rpc.register_service(schema.rpcbench, {
     n2n_signal: req => rpc.accept_n2n_signal(req.params)
 });
 
-var io_count = 0;
-var io_rbytes = 0;
-var io_wbytes = 0;
-var start_time = Date.now();
-var report_time = start_time;
-var report_io_count = 0;
-var report_io_rbytes = 0;
-var report_io_wbytes = 0;
+let io_count = 0;
+let io_rbytes = 0;
+let io_wbytes = 0;
+const start_time = Date.now();
+let report_time = start_time;
+let report_io_count = 0;
+let report_io_rbytes = 0;
+let report_io_wbytes = 0;
 start();
 
 function start() {
-    P.fcall(function() {
-
-            if (!argv.server) {
-                return;
-            }
-
-            if (argv.addr.protocol === 'nudp:') {
+    P.resolve()
+        .then(() => {
+            if (!argv.server) return;
+            const proto = argv.addr.protocol;
+            if (proto === 'nudp:') {
                 return rpc.register_nudp_transport(argv.addr.port);
             }
-
-            var tcp = argv.addr.protocol in {
-                'tcp:': 1,
-                'tls:': 1,
-            };
-            if (tcp) {
-                return P.fromCall(callback => pem.createCertificate({
-                        days: 365 * 100,
-                        selfSigned: true
-                    }, callback))
-                    .then(function(cert) {
-                        return rpc.register_tcp_transport(argv.addr.port,
-                            argv.addr.protocol === 'tls:' && {
-                                key: cert.serviceKey,
-                                cert: cert.certificate
-                            });
-                    });
-            }
-
-            var ntcp = argv.addr.protocol in {
-                'ntcp:': 1,
-                'ntls:': 1,
-            };
-            if (ntcp) {
+            if (proto === 'tcp:' || proto === 'tls:') {
                 return P.fromCallback(callback => pem.createCertificate({
                         days: 365 * 100,
                         selfSigned: true
                     }, callback))
-                    .then(function(cert) {
-                        return rpc.register_ntcp_transport(argv.addr.port,
-                            argv.addr.protocol === 'ntls:' && {
-                                key: cert.serviceKey,
-                                cert: cert.certificate
-                            });
-                    });
+                    .then(cert => rpc.register_tcp_transport(argv.addr.port,
+                        proto === 'tls:' && {
+                            key: cert.serviceKey,
+                            cert: cert.certificate
+                        }));
+            }
+            if (proto === 'ntcp:' || proto === 'ntls:') {
+                return P.fromCallback(callback => pem.createCertificate({
+                        days: 365 * 100,
+                        selfSigned: true
+                    }, callback))
+                    .then(cert => rpc.register_ntcp_transport(argv.addr.port,
+                        proto === 'ntls:' && {
+                            key: cert.serviceKey,
+                            cert: cert.certificate
+                        }));
             }
 
             // open http listening port for http based protocols
             return rpc.start_http_server({
                 port: argv.addr.port,
-                protocol: argv.addr.protocol,
+                protocol: proto,
                 logging: false,
             });
         })
-        .then(function() {
+        .then(() => {
 
             if (!argv.n2n) {
                 target_addresses = [url.format(argv.addr)];
                 return;
             }
 
-            target_addresses = _.times(argv.nconn, function(i) {
-                return 'n2n://conn' + i;
-            });
+            target_addresses = _.times(argv.nconn, i => 'n2n://conn' + i);
 
             // register n2n and accept any peer_id
-            var n2n_agent = rpc.register_n2n_agent(client.rpcbench.n2n_signal);
+            const n2n_agent = rpc.register_n2n_agent(client.rpcbench.n2n_signal);
             n2n_agent.set_any_rpc_address();
         })
-        .then(function() {
+        .then(() => {
 
             // start report interval (both server and client)
             setInterval(report, 1000);
@@ -230,12 +204,10 @@ function start() {
             }
 
             // run io with concurrency
-            return P.all(_.times(argv.concur, function() {
-                return call_next_io();
-            }));
+            return P.all(_.times(argv.concur, () => call_next_io()));
 
         })
-        .then(null, function(err) {
+        .catch(err => {
             dbg.error('BENCHMARK ERROR', err.stack || err);
             process.exit(0);
         });
@@ -244,22 +216,23 @@ function start() {
 // test loop
 function call_next_io(req) {
     if (req) {
-        var reply = req.reply;
-        if (reply && reply.data) {
+        const reply = req.reply;
+        if (reply) {
             io_count += 1;
-            io_rbytes += reply.data.length;
             io_wbytes += argv.wsize;
+            if (reply.data) {
+                io_rbytes += reply.data.length;
+            }
         }
-        var conn = req.connection;
+        const conn = req.connection;
         if (conn && argv.closeconn) {
-            setTimeout(function() {
+            setTimeout(() => {
                 conn.close();
             }, argv.closeconn);
         }
     }
-    var data = new Buffer(argv.wsize);
-    data.fill(0xFA);
-    var promise = client.rpcbench.io({
+    const data = Buffer.alloc(argv.wsize, 0xFA);
+    let promise = client.rpcbench.io({
         kushkush: {
             data: data,
             rsize: argv.rsize
@@ -279,25 +252,24 @@ function io_service(req) {
     io_count += 1;
     io_rbytes += req.params.kushkush.data.length;
     io_wbytes += req.params.kushkush.rsize;
-    var data = new Buffer(req.params.kushkush.rsize);
-    data.fill(0x99);
+    const data = Buffer.alloc(req.params.kushkush.rsize, 0x99);
     return {
         data: data
     };
 }
 
 function report() {
-    var now = Date.now();
+    const now = Date.now();
     // deltas
-    var d_time_start = (now - start_time) / 1000;
-    var d_time = (now - report_time) / 1000;
+    const d_time_start = (now - start_time) / 1000;
+    const d_time = (now - report_time) / 1000;
     // velocities
-    var v_count = (io_count - report_io_count) / d_time;
-    var v_rbytes = (io_rbytes - report_io_rbytes) / d_time;
-    var v_wbytes = (io_wbytes - report_io_wbytes) / d_time;
-    var v_count_start = io_count / d_time_start;
-    var v_rbytes_start = io_rbytes / d_time_start;
-    var v_wbytes_start = io_wbytes / d_time_start;
+    const v_count = (io_count - report_io_count) / d_time;
+    const v_rbytes = (io_rbytes - report_io_rbytes) / d_time;
+    const v_wbytes = (io_wbytes - report_io_wbytes) / d_time;
+    const v_count_start = io_count / d_time_start;
+    const v_rbytes_start = io_rbytes / d_time_start;
+    const v_wbytes_start = io_wbytes / d_time_start;
     dbg.log0(
         ' |||  Count ', v_count.toFixed(3),
         ' (~' + v_count_start.toFixed(3) + ')',
@@ -318,7 +290,7 @@ function report() {
         dbg.log0('done.');
         if (heapdiff) {
             memwatch.gc();
-            var diff = heapdiff.end();
+            const diff = heapdiff.end();
             dbg.log('HEAPDIFF', util.inspect(diff, {
                 depth: null
             }));

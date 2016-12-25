@@ -1,14 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let _ = require('lodash');
-let dbg = require('../util/debug_module')(__filename);
-let RpcError = require('../rpc/rpc_error');
+const _ = require('lodash');
+const dbg = require('../util/debug_module')(__filename);
+const time_utils = require('../util/time_utils');
+const RpcError = require('../rpc/rpc_error');
 
 /*
 // TODO zlib in browserify doesn't work?
-// let zlib = require('zlib');
-let ZLIB_OPTIONS = {
+// const zlib = require('zlib');
+const ZLIB_OPTIONS = {
     level: zlib.Z_BEST_SPEED,
     // setup memLevel and windowBits to reduce memory overhead to 32K
     // see https://nodejs.org/api/zlib.html#zlib_memory_usage_tuning
@@ -22,7 +23,9 @@ let ZLIB_OPTIONS = {
  */
 class RpcRequest {
 
-    // constructor() {}
+    constructor() {
+        this.ts = time_utils.millistamp();
+    }
 
     // rpc_params is a synonyms to params.
     // we keep it to make the server code that uses params more explicit
@@ -36,7 +39,6 @@ class RpcRequest {
 
     _new_request(api, method_api, params, auth_token) {
         // this.reqid will be set by the connection...
-        this.time = Date.now();
         this.api = api;
         this.method_api = method_api;
         this.params = params;
@@ -58,11 +60,11 @@ class RpcRequest {
     }
 
     static decode_message(msg_buffer) {
-        let len = msg_buffer.readUInt32BE(0);
+        const len = msg_buffer.readUInt32BE(0);
         dbg.log3('decode_message', msg_buffer.length, len);
-        let header = JSON.parse(msg_buffer.slice(4, 4 + len).toString());
-        // let header = JSON.parse(zlib.inflateRawSync(msg_buffer.slice(4, 4 + len)).toString());
-        let buffer = (4 + len < msg_buffer.length) ? msg_buffer.slice(4 + len) : null;
+        const header = JSON.parse(msg_buffer.slice(4, 4 + len).toString());
+        // const header = JSON.parse(zlib.inflateRawSync(msg_buffer.slice(4, 4 + len)).toString());
+        const buffer = (4 + len < msg_buffer.length) ? msg_buffer.slice(4 + len) : null;
         if (msg_buffer && buffer) {
             dbg.log3('decode_message with buffer', msg_buffer.length, len, 'HEADER', header, 'Buffer', buffer.length);
         }
@@ -73,7 +75,7 @@ class RpcRequest {
     }
 
     _encode_request() {
-        let header = {
+        const header = {
             op: 'req',
             reqid: this.reqid,
             api: this.api.id,
@@ -91,7 +93,6 @@ class RpcRequest {
     }
 
     _set_request(msg, api, method_api) {
-        this.time = Date.now();
         this.reqid = msg.header.reqid;
         this.api = api;
         this.method_api = method_api;
@@ -105,9 +106,10 @@ class RpcRequest {
     }
 
     _encode_response() {
-        let header = {
+        const header = {
             op: 'res',
-            reqid: this.reqid
+            reqid: this.reqid,
+            took: time_utils.millistamp() - this.ts,
         };
         let buffers;
         if (this.error) {
@@ -124,11 +126,12 @@ class RpcRequest {
     }
 
     _set_response(msg) {
-        let is_pending = this._response_defer.promise.isPending();
+        const is_pending = this._response_defer.promise.isPending();
         if (!is_pending) {
             return is_pending;
         }
-        let err = msg.header.error;
+        this._set_times(msg.header.took);
+        const err = msg.header.error;
         if (err) {
             this.error = new RpcError(err.rpc_code, err.message, err.retryable);
             this._response_defer.reject(this.error);
@@ -140,6 +143,12 @@ class RpcRequest {
             this._response_defer.resolve(this.reply);
         }
         return is_pending;
+    }
+
+    _set_times(took_srv) {
+        this.took_srv = took_srv;
+        this.took_total = time_utils.millistamp() - this.ts;
+        this.took_flight = this.took_total - this.took_srv;
     }
 
 }

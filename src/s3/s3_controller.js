@@ -3,10 +3,10 @@
 
 const _ = require('lodash');
 const uuid = require('node-uuid');
-const moment = require('moment');
+
 const dbg = require('../util/debug_module')(__filename);
 const ObjectIO = require('../api/object_io');
-const s3_errors = require('./s3_errors');
+const S3Error = require('./s3_errors').S3Error;
 const http_utils = require('../util/http_utils');
 const time_utils = require('../util/time_utils');
 
@@ -56,7 +56,7 @@ class S3Controller {
             s3_errors_info: {
                 total_errors: 0
             },
-            last_updated: new Date(),
+            start_time: Date.now(),
         };
         this.rpc = rpc;
         this.object_io = new ObjectIO();
@@ -69,34 +69,20 @@ class S3Controller {
         this.usage_report.s3_usage_info.prepare_request += 1;
         req.rpc_client = this.rpc.new_client();
         req.rpc_client.options.auth_token = req.auth_token;
-        return this._update_usage_report(req);
+        this._submit_usage_report(req);
     }
 
     register_s3_error(req, s3_error) {
-        // We check access_key in order to be sure that we've passed authenticate_s3_request
-        // Access_key was chosen because it is the identifier and required
-        // All errors that are prior to authenticate_s3_request won't be registered
-        // This is because we need to create an auth_token in order to register the errors
-        // The only way to create the token is using the s3 authentication path
-        // TODO TODO TODO (Pink Panther Theme)
-        // *** NOTICE IMPORTANT ***
-        // Authentication failure attemps might not be included in the report
-        // Because the access_key we won't be able to create a token and update the MD Server
-        if (!s3_error ||
-            !_.isObject(s3_error) ||
-            !req.auth_token ||
-            !req.auth_token.access_key) {
-            dbg.log0('Could not register error:', s3_error,
-                'Request Headers:', req.headers,
-                'Request Method:', req.method,
-                'Request Url:', req.originalUrl);
-            return;
-        }
+        const code = _.get(s3_error, 'code', 'undefined');
         this.usage_report.s3_errors_info.total_errors += 1;
-        this.usage_report.s3_errors_info[s3_error.code] = (this.usage_report.s3_errors_info[s3_error.code] || 0) + 1;
-        req.rpc_client = this.rpc.new_client();
-        req.rpc_client.options.auth_token = req.auth_token;
-        return this._update_usage_report(req);
+        this.usage_report.s3_errors_info[code] = (this.usage_report.s3_errors_info[code] || 0) + 1;
+
+        // We check we've passed authenticate_s3_request and have an rpc_client.
+        // Errors prior to authenticate_s3_request or bad signature will not be reported and even fail on the report call itself
+        // TODO use appropriate auth for usage report instead of piggybacking the s3 request
+        if (req.rpc_client) {
+            this._submit_usage_report(req);
+        }
     }
 
 
@@ -112,7 +98,7 @@ class S3Controller {
         this.usage_report.s3_usage_info.list_buckets += 1;
         return req.rpc_client.bucket.list_buckets()
             .then(reply => {
-                let date = to_s3_date(new Date());
+                let date = format_s3_xml_date(new Date());
                 return {
                     ListAllMyBucketsResult: {
                         Owner: DEFAULT_S3_USER,
@@ -155,7 +141,7 @@ class S3Controller {
     get_bucket(req) {
         this.usage_report.s3_usage_info.get_bucket += 1;
         if (req.query['list-type'] === '2') {
-            throw s3_errors.NotImplemented;
+            throw new S3Error(S3Error.NotImplemented);
         }
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
         let params = {
@@ -174,7 +160,7 @@ class S3Controller {
 
         let max_keys_received = Number(req.query['max-keys'] || 1000);
         if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
-            throw s3_errors.InvalidArgument;
+            throw new S3Error(S3Error.InvalidArgument);
         }
         params.limit = Math.min(max_keys_received, 1000);
 
@@ -193,7 +179,7 @@ class S3Controller {
                     _.map(reply.objects, obj => ({
                         Contents: {
                             Key: obj.key,
-                            LastModified: to_s3_date(obj.info.create_time),
+                            LastModified: format_s3_xml_date(obj.info.create_time),
                             ETag: obj.info.etag,
                             Size: obj.info.size,
                             Owner: DEFAULT_S3_USER,
@@ -233,7 +219,7 @@ class S3Controller {
 
         let max_keys_received = Number(req.query['max-keys'] || 1000);
         if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
-            throw s3_errors.InvalidArgument;
+            throw new S3Error(S3Error.InvalidArgument);
         }
         params.limit = Math.min(max_keys_received, 1000);
 
@@ -256,7 +242,7 @@ class S3Controller {
                             Key: obj.key,
                             VersionId: '',
                             IsLatest: true,
-                            LastModified: to_s3_date(obj.info.create_time),
+                            LastModified: format_s3_xml_date(obj.info.create_time),
                             ETag: obj.info.etag,
                             Size: obj.info.size,
                             Owner: DEFAULT_S3_USER,
@@ -295,7 +281,7 @@ class S3Controller {
 
         let max_keys_received = Number(req.query['max-uploads'] || 1000);
         if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
-            throw s3_errors.InvalidArgument;
+            throw new S3Error(S3Error.InvalidArgument);
         }
         params.limit = Math.min(max_keys_received, 1000);
 
@@ -316,7 +302,7 @@ class S3Controller {
                         Upload: {
                             Key: obj.key,
                             UploadId: obj.info.version_id,
-                            Initiated: to_s3_date(obj.info.upload_started),
+                            Initiated: format_s3_xml_date(obj.info.upload_started),
                             Initiator: DEFAULT_S3_USER,
                             Owner: DEFAULT_S3_USER,
                             StorageClass: STORAGE_CLASS_STANDARD,
@@ -454,7 +440,7 @@ class S3Controller {
             .then(object_md => {
                 req.object_md = object_md;
                 res.setHeader('ETag', '"' + object_md.etag + '"');
-                res.setHeader('Last-Modified', to_aws_date_for_http_header(object_md.create_time));
+                res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
                 res.setHeader('Content-Type', object_md.content_type);
                 res.setHeader('Content-Length', object_md.size);
                 res.setHeader('Accept-Ranges', 'bytes');
@@ -485,9 +471,9 @@ class S3Controller {
                 let code = this.object_io.serve_http_stream(req, res, params, object_md);
                 switch (code) {
                     case 400:
-                        throw s3_errors.InvalidArgument;
+                        throw new S3Error(S3Error.InvalidArgument);
                     case 416:
-                        throw s3_errors.InvalidRange;
+                        throw new S3Error(S3Error.InvalidRange);
                     case 200:
                         res.status(200);
                         return false; // let the caller know we are handling the response
@@ -495,7 +481,7 @@ class S3Controller {
                         res.status(206);
                         return false; // let the caller know we are handling the response
                     default:
-                        throw s3_errors.InternalError;
+                        throw new S3Error(S3Error.InternalError);
                 }
             });
     }
@@ -509,6 +495,9 @@ class S3Controller {
         this.usage_report.s3_usage_info.put_object += 1;
         if (req.headers['x-amz-copy-source']) {
             return this._copy_object(req, res);
+        }
+        if (!_.isInteger(req.content_length)) {
+            throw new S3Error(S3Error.MissingContentLength);
         }
         let params = {
             client: req.rpc_client,
@@ -559,7 +548,7 @@ class S3Controller {
         return req.rpc_client.object.copy_object(params)
             .then(reply => ({
                 CopyObjectResult: {
-                    LastModified: to_s3_date(reply.source_md.create_time),
+                    LastModified: format_s3_xml_date(reply.source_md.create_time),
                     ETag: '"' + reply.source_md.etag + '"'
                 }
             }));
@@ -688,13 +677,16 @@ class S3Controller {
     put_object_uploadId(req, res) {
         this.usage_report.s3_usage_info.put_object_uploadId += 1;
         const num = Number(req.query.partNumber);
-        if (!_.isInteger(num) || num < 1 || num > 10000) throw s3_errors.InvalidArgument;
+        if (!_.isInteger(num) || num < 1 || num > 10000) throw new S3Error(S3Error.InvalidArgument);
 
         // TODO GGG IMPLEMENT COPY PART
         const copy_source = req.headers['x-amz-copy-source'];
         if (copy_source) {
             // return req.rpc_client.object.copy_part({});
-            throw s3_errors.NotImplemented;
+            throw new S3Error(S3Error.NotImplemented);
+        }
+        if (!_.isInteger(req.content_length)) {
+            throw new S3Error(S3Error.MissingContentLength);
         }
 
         const params = {
@@ -723,8 +715,8 @@ class S3Controller {
         this.usage_report.s3_usage_info.get_object_uploadId += 1;
         const max = Number(req.query['max-parts']);
         const num_marker = Number(req.query['part-number-marker']);
-        if (!_.isInteger(max) || max < 0) throw s3_errors.InvalidArgument;
-        if (!_.isInteger(num_marker) || num_marker < 1 || num_marker > 10000) throw s3_errors.InvalidArgument;
+        if (!_.isInteger(max) || max < 0) throw new S3Error(S3Error.InvalidArgument);
+        if (!_.isInteger(num_marker) || num_marker < 1 || num_marker > 10000) throw new S3Error(S3Error.InvalidArgument);
 
         return req.rpc_client.object.list_multiparts({
                 bucket: req.params.bucket,
@@ -751,7 +743,7 @@ class S3Controller {
                             PartNumber: part.num,
                             Size: part.size,
                             ETag: part.etag,
-                            LastModified: to_s3_date(part.last_modified),
+                            LastModified: format_s3_xml_date(part.last_modified),
                         }
                     }))
                 ]
@@ -790,7 +782,7 @@ class S3Controller {
                     if (rule.Expiration[0].Days) {
                         current_rule.expiration.days = parseInt(rule.Expiration[0].Days[0], 10);
                         if (rule.Expiration[0].Days < 1) {
-                            throw s3_errors.InvalidArgument;
+                            throw new S3Error(S3Error.InvalidArgument);
                         }
                     } else {
                         current_rule.expiration.date = (new Date(rule.Expiration[0].Date[0])).getTime();
@@ -954,41 +946,45 @@ class S3Controller {
         }
     }
 
-    _update_usage_report(req) {
+    _submit_usage_report(req) {
+        const now = Date.now();
+
         // TODO: Maybe we should plus both prepare_request and total_errors and check their limit?
         // TODO: Maybe we should change from 10 seconds to a higher number cycle? Like minutes/hours?
-        if ((this.usage_report.s3_usage_info.prepare_request > 10 ||
-                this.usage_report.s3_errors_info.total_errors > 10) &&
-            Math.abs(moment().diff(this.usage_report.last_updated, 'Seconds')) > 10) {
-            return req.rpc_client.object.add_s3_usage_report({
-                    s3_usage_info: this.usage_report.s3_usage_info,
-                    s3_errors_info: this.usage_report.s3_errors_info
-                })
-                .then(() => {
-                    this.usage_report = {
-                        s3_usage_info: _.cloneDeep(S3_USAGE_INFO_DEFAULTS),
-                        s3_errors_info: {
-                            total_errors: 0
-                        },
-                        last_updated: new Date(),
-                    };
-                })
-                .catch(err => {
-                    console.error('Error Updating S3 Usage Report', err);
-                });
+        if (this.usage_report.s3_usage_info.prepare_request < 10 &&
+            this.usage_report.s3_errors_info.total_errors < 10) {
+            return;
         }
+        if (now - this.usage_report.start_time < 10000) {
+            return;
+        }
+
+        const report_to_send = this.usage_report;
+        report_to_send.end_time = now;
+        this.usage_report = {
+            s3_usage_info: _.cloneDeep(S3_USAGE_INFO_DEFAULTS),
+            s3_errors_info: {
+                total_errors: 0
+            },
+            start_time: Date.now(),
+        };
+
+        req.rpc_client.object.add_s3_usage_report({
+                s3_usage_info: report_to_send.s3_usage_info,
+                s3_errors_info: report_to_send.s3_errors_info
+            })
+            .catch(err => {
+                console.log('add_s3_usage_report did not succeed:', err);
+            });
     }
+
 }
 
 
-function to_s3_date(input) {
+function format_s3_xml_date(input) {
     let date = input ? new Date(input) : new Date();
     date.setMilliseconds(0);
     return date.toISOString();
-}
-
-function to_aws_date_for_http_header(input) {
-    return time_utils.toRFC822(new Date(input));
 }
 
 function get_request_xattr(req) {

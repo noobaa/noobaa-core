@@ -25,6 +25,7 @@ const dbg = require('../util/debug_module')(__filename);
 const pem = require('../util/pem');
 const api = require('../api');
 const config = require('../../config');
+
 const s3_rest = require('./s3_rest');
 const S3Controller = require('./s3_controller');
 const lambda_rest = require('../lambda/lambda_rest');
@@ -139,7 +140,7 @@ function read_config_file() {
 
 function listen_http(port, server) {
     return new P((resolve, reject) => {
-        server.on('connection', connection_setup);
+        setup_s3_http_server(server);
         server.listen(port, err => {
             if (err) {
                 dbg.error('S3RVER FAILED to listen', err);
@@ -151,11 +152,46 @@ function listen_http(port, server) {
     });
 }
 
-function connection_setup(socket) {
-    // this is an attempt to read from the socket in large chunks,
+function setup_s3_http_server(server) {
+    // Handle 'Expect' header different than 100-continue to conform with AWS.
+    // Consider any expect value as if the client is expecting 100-continue.
+    // See https://github.com/ceph/s3-tests/blob/master/s3tests/functional/test_headers.py:
+    // - test_object_create_bad_expect_mismatch()
+    // - test_object_create_bad_expect_empty()
+    // - test_object_create_bad_expect_none()
+    // - test_object_create_bad_expect_unreadable()
+    // See https://nodejs.org/api/http.html#http_event_checkexpectation
+    server.on('checkExpectation', function on_s3_check_expectation(req, res) {
+        res.writeContinue();
+        server.emit('request', req, res);
+    });
+
+    // See https://nodejs.org/api/http.html#http_event_clienterror
+    server.on('clientError', function on_s3_client_error(err, socket) {
+
+        // On parsing errors we reply 400 Bad Request to conform with AWS
+        // These errors come from the nodejs native http parser.
+        if (typeof err.code === 'string' &&
+            err.code.startsWith('HPE_INVALID_') &&
+            err.bytesParsed > 0) {
+            console.error('S3 CLIENT ERROR - REPLY WITH BAD REQUEST', err);
+            socket.write('HTTP/1.1 400 Bad Request\r\n');
+            socket.write(`Date: ${new Date().toUTCString()}\r\n`);
+            socket.write('Connection: close\r\n');
+            socket.write('Content-Length: 0\r\n');
+            socket.end('\r\n');
+        }
+
+        // in any case we destroy the socket
+        socket.destroy();
+    });
+
+    // This was an attempt to read from the socket in large chunks,
     // but it seems like it has no effect and we still get small chunks
+    // server.on('connection', function on_s3_connection(socket) {
     // socket._readableState.highWaterMark = 1024 * 1024;
     // socket.setNoDelay(true);
+    // });
 }
 
 

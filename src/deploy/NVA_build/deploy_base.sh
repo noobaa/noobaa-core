@@ -32,8 +32,11 @@ function install_platform {
 		nc \
 		tcpdump \
 		iperf \
+		iperf3 \
 		python-setuptools \
         bind-utils \
+        screen \
+        strace \
         vim
 
 	# make crontab start on boot

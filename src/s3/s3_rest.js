@@ -2,15 +2,15 @@
 'use strict';
 
 const _ = require('lodash');
-const moment = require('moment');
+const xml2js = require('xml2js');
 const express = require('express');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
-const s3_errors = require('./s3_errors');
+const S3Error = require('./s3_errors').S3Error;
 const xml_utils = require('../util/xml_utils');
-const xml2js = require('xml2js');
+const time_utils = require('../util/time_utils');
 const signature_utils = require('../util/signature_utils');
 
 //const S3Auth = require('aws-sdk/lib/signers/s3');
@@ -80,7 +80,7 @@ const S3_REQ_PUT_BUCKET_POLICY = {
     body_type: S3_REQ_JSON_BODY,
     schema: {},
     required: true,
-    error: s3_errors.InvalidPolicyDocument
+    error: S3Error.InvalidPolicyDocument
 };
 
 // http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlogging.html
@@ -164,7 +164,7 @@ const S3_REQ_POST_OBJECT_UPLOAD_COMPLETE = {
 const S3_REQ_PUT_OBJECT_ACL = {
     body_type: S3_REQ_XML_BODY,
     schema: {},
-    required: true
+    required: false
 };
 
 // http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUTtagging.html
@@ -198,20 +198,20 @@ const UNSIGNED_PAYLOADS = Object.freeze([
     'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'
 ]);
 const RPC_ERRORS_TO_S3 = Object.freeze({
-    UNAUTHORIZED: s3_errors.AccessDenied,
-    FORBIDDEN: s3_errors.AccessDenied,
-    NO_SUCH_BUCKET: s3_errors.NoSuchBucket,
-    NO_SUCH_OBJECT: s3_errors.NoSuchKey,
-    INVALID_BUCKET_NAME: s3_errors.InvalidBucketName,
-    BUCKET_NOT_EMPTY: s3_errors.BucketNotEmpty,
-    BUCKET_ALREADY_EXISTS: s3_errors.BucketAlreadyExists,
-    NO_SUCH_UPLOAD: s3_errors.NoSuchUpload,
-    IF_MODIFIED_SINCE: s3_errors.NotModified,
-    IF_UNMODIFIED_SINCE: s3_errors.PreconditionFailed,
-    IF_MATCH_ETAG: s3_errors.PreconditionFailed,
-    IF_NONE_MATCH_ETAG: s3_errors.PreconditionFailed,
-    BAD_DIGEST: s3_errors.BadDigest,
-    BAD_SIZE: s3_errors.IncompleteBody,
+    UNAUTHORIZED: S3Error.AccessDenied,
+    FORBIDDEN: S3Error.AccessDenied,
+    NO_SUCH_BUCKET: S3Error.NoSuchBucket,
+    NO_SUCH_OBJECT: S3Error.NoSuchKey,
+    INVALID_BUCKET_NAME: S3Error.InvalidBucketName,
+    BUCKET_NOT_EMPTY: S3Error.BucketNotEmpty,
+    BUCKET_ALREADY_EXISTS: S3Error.BucketAlreadyExists,
+    NO_SUCH_UPLOAD: S3Error.NoSuchUpload,
+    IF_MODIFIED_SINCE: S3Error.NotModified,
+    IF_UNMODIFIED_SINCE: S3Error.PreconditionFailed,
+    IF_MATCH_ETAG: S3Error.PreconditionFailed,
+    IF_NONE_MATCH_ETAG: S3Error.PreconditionFailed,
+    BAD_DIGEST: S3Error.BadDigest,
+    BAD_SIZE: S3Error.IncompleteBody,
 });
 
 
@@ -266,7 +266,7 @@ function s3_rest(controller) {
         let func = controller[func_name];
         if (!func) {
             dbg.error('S3 TODO (NotImplemented)', func_name, req.method, req.originalUrl);
-            next(s3_errors.NotImplemented);
+            next(new S3Error(S3Error.NotImplemented));
             return;
         }
         P.fcall(() => func.call(controller, req, res))
@@ -306,34 +306,25 @@ function s3_rest(controller) {
                 // eslint-disable-next-line no-control-regex
                 if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
                     if (key.startsWith('x-amz-meta-')) {
-                        throw s3_errors.InvalidArgument;
+                        throw new S3Error(S3Error.InvalidArgument);
                     }
                     if (key !== 'expect') {
-                        throw s3_errors.AccessDenied;
+                        throw new S3Error(S3Error.AccessDenied);
                     }
                 }
             });
 
-            let content_length_str = req.headers['content-length'];
-            req.content_length = parseInt(content_length_str, 10);
-            if (req.method === 'PUT') {
-                if (content_length_str === '' ||
-                    req.content_length < 0) {
-                    throw new s3_errors.S3Error({
-                        http_code: 400,
-                        reply: () => 'bad request'
-                    });
-                }
-                if (_.isNaN(req.content_length)) {
-                    throw s3_errors.MissingContentLength;
-                }
+            const content_length_str = req.headers['content-length'];
+            if (content_length_str === '') {
+                throw new S3Error(S3Error.BadRequest);
             }
+            req.content_length = parseInt(content_length_str, 10);
 
             const content_md5_b64 = req.headers['content-md5'];
             if (content_md5_b64) {
                 req.content_md5 = new Buffer(content_md5_b64, 'base64');
                 if (req.content_md5.length !== 16) {
-                    throw s3_errors.InvalidDigest;
+                    throw new S3Error(S3Error.InvalidDigest);
                 }
             }
 
@@ -341,20 +332,15 @@ function s3_rest(controller) {
             if (content_sha256_hex && !UNSIGNED_PAYLOADS.includes(content_sha256_hex)) {
                 req.content_sha256 = new Buffer(content_sha256_hex, 'hex');
                 if (req.content_sha256.length !== 32) {
-                    throw s3_errors.InvalidDigest;
+                    throw new S3Error(S3Error.InvalidDigest);
                 }
             }
 
-            // using moment to parse x-amz-date from string iso8601 or iso822.
-            // When using a signedURL we give an expiry of 7days, which will cover
-            // up the skew between the times, so we don't check it
-            const req_date = moment(
-                req.headers.date ||
-                req.headers['x-amz-date'] ||
-                req.query['X-Amz-Date']
-            );
-            if (Math.abs(moment().diff(req_date, 'seconds')) > config.TIME_SKEW_MAX_SECONDS) {
-                throw s3_errors.RequestTimeTooSkewed;
+            const req_time =
+                time_utils.parse_amz_date(req.headers['x-amz-date'] || req.query['X-Amz-Date']) ||
+                time_utils.parse_http_header_date(req.headers.date);
+            if (Math.abs(Date.now() - req_time) > config.TIME_SKEW_MAX_MILLIS) {
+                throw new S3Error(S3Error.RequestTimeTooSkewed);
             }
 
             return next();
@@ -369,14 +355,14 @@ function s3_rest(controller) {
     function handle_common_s3_errors(err, req, res, next) {
         if (!err) {
             dbg.log0('S3 InvalidURI.', req.method, req.originalUrl);
-            err = s3_errors.InvalidURI;
+            err = new S3Error(S3Error.InvalidURI);
         }
         let s3err =
-            ((err instanceof s3_errors.S3Error) && err) ||
-            RPC_ERRORS_TO_S3[err.rpc_code] ||
-            s3_errors.InternalError;
+            ((err instanceof S3Error) && err) ||
+            new S3Error(RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
         let reply = s3err.reply(req.originalUrl, req.request_id);
         dbg.error('S3 ERROR', reply,
+            req.method, req.originalUrl,
             JSON.stringify(req.headers),
             err.stack || err);
         // This doesn't need to affect response if we fail to register
@@ -396,7 +382,7 @@ function s3_rest(controller) {
             .then(() => next())
             .catch(err => {
                 dbg.error('authenticate_s3_request: ERROR', err.stack || err);
-                next(s3_errors.SignatureDoesNotMatch);
+                next(new S3Error(S3Error.SignatureDoesNotMatch));
             });
     }
 
@@ -458,7 +444,7 @@ function read_and_parse_body(req, req_type) {
         .then(body_data => {
             if (!body_data) {
                 if (req_type.required) {
-                    return P.reject(s3_errors.MissingRequestBodyError);
+                    return P.reject(new S3Error(S3Error.MissingRequestBodyError));
                 }
 
                 return P.resolve();
@@ -475,7 +461,7 @@ function read_request_body(req) {
         req.on('data', chunk => {
             content_len += chunk.length;
             if (content_len > S3_MAX_REQ_CONTENT_LEN) {
-                return reject(s3_errors.MaxMessageLengthExceeded);
+                return reject(new S3Error(S3Error.MaxMessageLengthExceeded));
             }
             // Parse the data after the length check
             data += chunk.toString('utf8');
@@ -496,7 +482,7 @@ function parse_request_body(req, req_type) {
             })
             .catch(err => {
                 console.error('parse_request_body: XML parse problem', err);
-                return P.reject(req_type.error || s3_errors.MalformedXML);
+                return P.reject(new S3Error(req_type.error || S3Error.MalformedXML));
             });
     }
 
@@ -506,7 +492,7 @@ function parse_request_body(req, req_type) {
             })
             .catch(err => {
                 console.error('parse_request_body: JSON parse problem', err);
-                return P.reject(req_type.error || s3_errors.InvalidRequest);
+                return P.reject(new S3Error(req_type.error || S3Error.InvalidRequest));
             });
     }
 

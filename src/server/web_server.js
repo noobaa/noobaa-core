@@ -21,9 +21,6 @@ if (process.env.TESTRUN === 'true') {
 
 require('../util/panic');
 
-// dump heap with kill -USR2 <pid>
-require('heapdump');
-
 const _ = require('lodash');
 const fs = require('fs');
 const os = require('os');

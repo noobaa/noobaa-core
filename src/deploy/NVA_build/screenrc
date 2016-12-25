@@ -1,0 +1,44 @@
+# .screenrc
+# see https://wiki.archlinux.org/index.php/GNU_Screen
+
+# Change the escape key
+# It can be a good idea to change the default escape key, not only because "a" is usually typed with the left pinky, 
+# but also because ctrl+a is mapped to the common command  beginning-of-line in GNU Readline and Bash-like shells.
+# Using ctrl-\ (ctrl-\ + \ will resolve back to ctrl-\ if needed)
+escape ^\\
+
+# Increase default windows scrollback since the default of 100 is really small
+defscrollback 10000
+
+# Switch windows with ctrl-[ and ctrl-] and enter copy mode with ctrl-p 
+bindkey ^[ prev
+bindkey ^] next
+bindkey ^p copy
+
+# Start at window 1
+# By default, the first screen window is 0. If you'd rather never have a window 0 and start instead with 1, add the following lines on your configuration:
+bind c screen 1
+bind ^c screen 1
+bind 0 select 10                                                            
+screen 1
+
+# Use 256 colors
+term screen-256color
+
+# Informative statusbar
+hardstatus alwayslastline '%{= G}[%{G}%H%{g}]%{Y}%{w}%1`%{g}[%=%{ =kw}%{w}%-w%{Y}[%{W}%n-%t%{Y}]%{w}%+w%=%{g}][%{y}Load: %l%{g}][%{B}%Y-%m-%d %{W}%c:%s%{g}]'
+
+# Turn welcome message off
+startup_message off
+
+# Turn off visual bell
+# With this setting, screen will not make an ugly screen flash instead of a bell sound.
+vbell off
+
+# Fix for residual editor text
+# When you open a text editor like nano in screen and then close it, the text may stay visible in your terminal. To fix this, put the following:
+altscreen on
+
+# Fix for Name column in windowlist only show "bash"
+windowlist string "%4n %h%=%f"
+

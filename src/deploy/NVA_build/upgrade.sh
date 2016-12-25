@@ -60,22 +60,9 @@ function disable_supervisord {
 function packages_upgrade {
 
     #fix SCL issue (preventing yum install/update)
+    deploy_log "fix SCL issue (centos-release-SCL)"
     yum -y remove centos-release-SCL
     yum -y install centos-release-scl
-
-    if yum list installed dialog >/dev/null 2>&1; then
-        deploy_log "dialog installed"
-    else
-        deploy_log "installing dialog"
-        yum install -y dialog
-    fi
-
-    if yum list installed vim >/dev/null 2>&1; then
-        deploy_log "vim installed"
-    else
-        deploy_log "installing vim"
-        yum install -y vim
-    fi
 
     #update rsyslog to version 8
     deploy_log "update rsyslog - copy src/deploy/NVA_build/rsyslog.repo to /etc/yum.repos.d/rsyslog.repo"
@@ -84,8 +71,27 @@ function packages_upgrade {
     deploy_log "yum update rsyslog..."
     yum update rsyslog -y
 
-    deploy_log "installing utils"
-    yum install -y bind-utils
+    deploy_log "install additional packages"
+    yum install -y \
+        sudo \
+        lsof \
+        wget \
+        curl \
+        ntp \
+        rsyslog \
+        cronie \
+        openssh-server \
+        dialog \
+        expect \
+        nc \
+        tcpdump \
+        iperf \
+        iperf3 \
+        python-setuptools \
+        bind-utils \
+        screen \
+        strace \
+        vim
 }
 
 function mongo_upgrade {

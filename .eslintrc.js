@@ -43,6 +43,8 @@ module.exports = {
         // prefer to always return when calling callbacks to avoid double calls
         'callback-return': 'error',
 
+        'capitalized-comments': 'off',
+
         // not enforcing all class methods to use 'this'
         'class-methods-use-this': 'off',
 
@@ -119,8 +121,8 @@ module.exports = {
         }],
 
         // max file length is 300 by default, we accept longer files
-        // TODO eslint max-lines per file should be reduced to ~500 instead of 2100
-        'max-lines': ['error', 2100],
+        // TODO eslint max-lines per file should be reduced to ~1000 instead
+        'max-lines': ['error', 1700],
 
         // prefer small number of params to functions, otherwise send object
         // TODO eslint max-params per function should be reduced to ~4 instead of 6

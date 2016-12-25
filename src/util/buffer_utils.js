@@ -59,29 +59,8 @@ function to_array_buffer(buffer) {
  * to_buffer
  *
  */
-function to_buffer(ab) {
-    if (Buffer.isBuffer(ab)) {
-        return ab;
-    }
-
-    // for strings or anything other than arraybuffer the class buffer can convert
-    if (!(ab instanceof ArrayBuffer)) {
-        return new Buffer(ab);
-    }
-
-    var bytes_view = new Uint8Array(ab);
-
-    // in browserify the buffer can just convert immediately to arraybuffer
-    if (Buffer.TYPED_ARRAY_SUPPORT) {
-        return new Buffer(bytes_view);
-    }
-
-    // slow convert
-    var buffer = new Buffer(ab.byteLength);
-    for (var i = 0; i < buffer.length; ++i) {
-        buffer[i] = bytes_view[i];
-    }
-    return buffer;
+function to_buffer(b) {
+    return Buffer.isBuffer(b) ? b : Buffer.from(b);
 }
 
 

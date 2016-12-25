@@ -1,5 +1,5 @@
-/* eslint-disable max-lines, header/header */
 /* Copyright (C) 2016 NooBaa */
+/* eslint max-lines: ['error', 2300] */
 'use strict';
 
 const _ = require('lodash');
@@ -812,6 +812,7 @@ class NodesMonitor extends EventEmitter {
     _update_rpc_config(item) {
         if (item.node.deleting || item.node.deleted) return;
         if (!item.connection) return;
+        if (!item.agent_info) return;
         if (!item.node_from_store) return;
         const system = system_store.data.get_by_id(item.node.system);
         const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';

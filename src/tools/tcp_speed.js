@@ -1,13 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let fs = require('fs');
-let net = require('net');
-let tls = require('tls');
-let cluster = require('cluster');
-let Speedometer = require('../util/speedometer');
+const fs = require('fs');
+const net = require('net');
+const tls = require('tls');
+const cluster = require('cluster');
+const Speedometer = require('../util/speedometer');
 
-let argv = require('minimist')(process.argv);
+const argv = require('minimist')(process.argv);
 argv.size = argv.size || 10;
 argv.concur = argv.concur || 16;
 argv.port = parseInt(argv.port, 10) || 50505;
@@ -15,7 +15,7 @@ argv.noframe = argv.noframe || false;
 argv.forks = argv.forks || 1;
 
 if (argv.forks > 1 && cluster.isMaster) {
-    let master_speedometer = new Speedometer('Total Speed');
+    const master_speedometer = new Speedometer('Total Speed');
     master_speedometer.enable_cluster();
     for (let i = 0; i < argv.forks; i++) {
         console.warn('Forking', i + 1);
@@ -36,7 +36,7 @@ function main() {
     if (argv.server) {
         run_server(argv.port, argv.ssl);
     } else if (argv.client) {
-        argv.client = typeof(argv.client) === 'string' && argv.client || '127.0.0.1';
+        argv.client = (typeof(argv.client) === 'string' && argv.client) || '127.0.0.1';
         run_client(argv.port, argv.client, argv.ssl);
     } else {
         return usage();
@@ -52,7 +52,7 @@ function usage() {
 
 function run_server(port, ssl) {
     console.log('SERVER', port, 'size', argv.size);
-    let recv_speedometer = new Speedometer('Receive Speed');
+    const recv_speedometer = new Speedometer('Receive Speed');
     recv_speedometer.enable_cluster();
 
     let server;
@@ -78,11 +78,11 @@ function run_server(port, ssl) {
 
 function run_client(port, host, ssl) {
     console.log('CLIENT', host + ':' + port, 'size', argv.size, 'MB', 'concur', argv.concur);
-    let send_speedometer = new Speedometer('Send Speed');
+    const send_speedometer = new Speedometer('Send Speed');
     send_speedometer.enable_cluster();
 
     for (let i = 0; i < argv.concur; ++i) {
-        let conn = (ssl ? tls : net).connect({
+        const conn = (ssl ? tls : net).connect({
             port: port,
             host: host,
             // we allow self generated certificates to avoid public CA signing:
@@ -111,30 +111,27 @@ function setup_conn(conn) {
 
 function run_sender(conn, send_speedometer) {
     let send;
-    if (!argv.noframe) {
+    if (argv.noframe) {
         send = () => {
-            // conn.cork();
-            let write_more = true;
-            while (write_more) {
-                let hdr = new Buffer(4);
-                let buf = new Buffer(argv.size * 1024 * 1024);
-                hdr.writeUInt32BE(buf.length, 0);
-                write_more = conn.write(hdr) && write_more;
-                write_more = conn.write(buf) && write_more;
+            var write_more;
+            do {
+                const buf = Buffer.allocUnsafe(argv.size * 1024 * 1024);
+                write_more = conn.write(buf);
                 send_speedometer.update(buf.length);
-            }
-            // conn.uncork();
+            } while (write_more);
         };
     } else {
         send = () => {
-            // conn.cork();
-            let write_more = true;
-            while (write_more) {
-                let buf = new Buffer(argv.size * 1024 * 1024);
-                write_more = conn.write(buf) && write_more;
+            var write_more;
+            do {
+                const hdr = Buffer.allocUnsafe(4);
+                const buf = Buffer.allocUnsafe(argv.size * 1024 * 1024);
+                hdr.writeUInt32BE(buf.length, 0);
+                const w1 = conn.write(hdr);
+                const w2 = conn.write(buf);
+                write_more = w1 && w2;
                 send_speedometer.update(buf.length);
-            }
-            // conn.uncork();
+            } while (write_more);
         };
     }
 
@@ -144,36 +141,41 @@ function run_sender(conn, send_speedometer) {
 
 
 function run_receiver(conn, recv_speedometer) {
-    if (!argv.noframe) {
-        let hdr;
-        let run = true;
+    if (argv.noframe) {
         conn.on('readable', () => {
-            while (run) {
+            var read_more;
+            do {
+                let data = conn.read();
+                if (!data) {
+                    read_more = false;
+                    break;
+                }
+                read_more = true;
+                recv_speedometer.update(data.length);
+            } while (read_more);
+        });
+    } else {
+        var hdr;
+        conn.on('readable', () => {
+            var read_more;
+            do {
                 if (!hdr) {
                     hdr = conn.read(4);
-                    if (!hdr) break;
+                    if (!hdr) {
+                        read_more = false;
+                        break;
+                    }
                 }
                 let len = hdr.readUInt32BE(0);
                 let data = conn.read(len);
                 if (!data) {
-                    run = false;
+                    read_more = false;
                     break;
                 }
                 hdr = null;
+                read_more = true;
                 recv_speedometer.update(data.length);
-            }
-        });
-    } else {
-        conn.on('readable', () => {
-            let run = true;
-            while (run) {
-                let data = conn.read();
-                if (!data) {
-                    run = false;
-                    break;
-                }
-                recv_speedometer.update(data.length);
-            }
+            } while (read_more);
         });
     }
 }

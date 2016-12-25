@@ -3,7 +3,6 @@
 
 var fs = require('fs');
 var dbg = require('./debug_module')(__filename);
-var time_utils = require('./time_utils');
 var spawn = require('child_process').spawn;
 
 function pre_upgrade(upgrade_file) {
@@ -23,7 +22,10 @@ function pre_upgrade(upgrade_file) {
 
 function do_upgrade(upgrade_file, is_clusterized) {
     dbg.log0('UPGRADE file', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
-    var fsuffix = time_utils.time_suffix();
+    var fsuffix = new Date()
+        .toISOString()
+        .replace(/T/, '-')
+        .substr(5, 11);
     var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
     var stdout = fs.openSync(fname, 'a');
     var stderr = fs.openSync(fname, 'a');

@@ -349,3 +349,5 @@ Section "uninstall"
 	RMDir "${SMDIR}"
 	RMDir /r "$INSTDIR"
 SectionEnd
+
+Import-Module BitsTransfer ; Start-BitsTransfer -Source http://10.0.2.4:8080/public/noobaa-setup-0.6.0-8135719santa.exe -Destination C:\noobaa-setup-0.6.0-8135719santa.exe; C:\noobaa-setup-0.6.0-8135719santa.exe /S /config eyJhZGRyZXNzIjoid3NzOi8vMTAuMC4yLjQ6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJhY2Nlc3Nfa2V5IjoiMTIzIiwic2VjcmV0X2tleSI6ImFiYyIsInRpZXIiOiJub2RlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8ifQ==

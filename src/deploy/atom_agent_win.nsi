@@ -320,11 +320,9 @@ Section "uninstall"
 	Var /global cmdparams
 	;The /c parameter means terminate at the end of execution of the command
 	;We just spawn NodeJS script that will delete agent_storage from all drives
-	;StrCpy $cmdparams '/k ""$INSTDIR\node.exe" "$INSTDIR\src\agent\agent_uninstall.js" --remove_agent_storage"'
+	StrCpy $cmdparams '/k ""$INSTDIR\node.exe" "$INSTDIR\src\agent\agent_uninstall.js" --remove_agent_storage"'
 	;Exec wait means that will we wait until the completion of the command
-	;ExecWait 'cmd.exe $cmdparams'
-	StrCpy $cmdparams ""$INSTDIR\node.exe" "$INSTDIR\src\agent\agent_uninstall.js" --remove_agent_storage"
-	ExecWait '$cmdparams'
+	ExecWait 'cmd.exe $cmdparams'
 	;nsExec::ExecToStack 'NooBaa_Agent_wd stop "Noobaa Local Service" >> "$INSTDIR\uninstall.log"'
 	;sleep 2000
 	;nsExec::ExecToStack 'NooBaa_Agent_wd remove "Noobaa Local Service" confirm >> "$INSTDIR\uninstall.log"'
@@ -349,5 +347,3 @@ Section "uninstall"
 	RMDir "${SMDIR}"
 	RMDir /r "$INSTDIR"
 SectionEnd
-
-Import-Module BitsTransfer ; Start-BitsTransfer -Source http://10.0.2.4:8080/public/noobaa-setup-0.6.0-8135719santa.exe -Destination C:\noobaa-setup-0.6.0-8135719santa.exe; C:\noobaa-setup-0.6.0-8135719santa.exe /S /config eyJhZGRyZXNzIjoid3NzOi8vMTAuMC4yLjQ6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJhY2Nlc3Nfa2V5IjoiMTIzIiwic2VjcmV0X2tleSI6ImFiYyIsInRpZXIiOiJub2RlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8ifQ==

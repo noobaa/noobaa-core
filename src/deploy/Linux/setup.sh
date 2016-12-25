@@ -25,7 +25,7 @@ else
         echo "usage: noobaa-setup /S /Config <configuration string>"
         exit 1
     else
-        echo "Agent already installed, skipping installation"
+        echo "Agent already installed"
         exit 1
     fi
 fi

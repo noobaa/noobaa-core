@@ -161,7 +161,7 @@ Section "Noobaa Local Service"
 		${Else}
 			IfFileExists $INSTDIR\agent_conf.json AbortInstall SkipDelete
 			AbortInstall:
-				MessageBox MB_OK "Agent already exists, skipping installation"
+				MessageBox MB_OK "Agent already installed"
 				Abort ;do not let to install on existing deployment
 
 			SkipDelete:

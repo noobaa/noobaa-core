@@ -57,11 +57,12 @@ function authenticate() {
 function set_cloud_sync(params) {
     return P.resolve()
         .then(
-            () => client.account.add_external_conenction({
+            () => client.account.add_external_connection({
                 name: TEST_CTX.connection_name,
                 endpoint: TEST_CTX.target_ip,
                 identity: '123',
-                secret: 'abc'
+                secret: 'abc',
+                endpoint_type: 'AWS'
             })
         )
         .then(

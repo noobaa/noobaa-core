@@ -598,7 +598,7 @@ module.exports = {
                 },
                 last_sync: {
                     format: 'idate'
-                }
+                },
             }
         },
 
@@ -618,19 +618,18 @@ module.exports = {
                 //If true, only additions will be synced
                 additions_only: {
                     type: 'boolean',
+                },
+                paused: {
+                    type: 'boolean'
                 }
             }
         },
 
         api_cloud_sync_status: {
-            enum: ['PENDING', 'SYNCING', 'PAUSED', 'UNABLE', 'SYNCED', 'NOTSET'],
+            enum: ['PENDING', 'SYNCING', 'UNABLE', 'SYNCED', 'NOTSET'],
             type: 'string',
         },
 
-        sync_status_enum: {
-            enum: ['IDLE', 'SYNCING'],
-            type: 'string',
-        },
         storage_class_enum: {
             enum: ['STANDARD_IA', 'GLACIER'],
             type: 'string'

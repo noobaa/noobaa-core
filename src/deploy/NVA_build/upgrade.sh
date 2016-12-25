@@ -1,13 +1,14 @@
 #!/bin/bash
 
+EXTRACTION_PATH="/tmp/test/"
+
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
-. /root/node_modules/noobaa-core/src/deploy/NVA_build/common_funcs.sh
+. ${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/common_funcs.sh
 
 PACKAGE_FILE_NAME="new_version.tar.gz"
 WRAPPER_FILE_NAME="upgrade_wrapper.sh"
 WRAPPER_FILE_PATH="/tmp/test/noobaa-core/src/deploy/NVA_build/"
 TMP_PATH="/tmp/"
-EXTRACTION_PATH="/tmp/test/"
 VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"
 NEW_UPGRADE_SCRIPT="${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/upgrade.sh"
 MONGO_SHELL="/usr/bin/mongo nbcore"

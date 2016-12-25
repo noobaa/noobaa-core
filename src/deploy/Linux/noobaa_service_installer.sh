@@ -10,7 +10,7 @@ function verify_command_run {
         $@ >> /var/log/noobaa_service_${instdate} 2>&1
         local rc=$?
         if [ $rc -ne 0 ]; then
-                echo "NooBaa installation failed"
+                echo "NooBaa installation failed (on $@)"
                 exit 1
         fi
 }

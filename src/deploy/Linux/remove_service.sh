@@ -31,7 +31,9 @@ echo "Uninstalling NooBaa local service"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Uninstalling service"
   systemctl stop noobaalocalservice >> /var/log/noobaa_service_rem_${instdate} 2>&1
+  echo "Service stopped. Disabling service"
   verify_command_run systemctl disable noobaalocalservice
+  echo "Service disabled. removing config files"
   #attempting to uninstall bruteforce service installations
   rm /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service >> /var/log/noobaa_service_rem_${instdate} 2>&1
   rm /lib/systemd/system/noobaalocalservice.service
@@ -57,3 +59,4 @@ else
   exit 1
 fi
 echo "Uninstalled NooBaa local agent"
+exit 0

@@ -559,14 +559,14 @@ function delete_external_connection(req) {
     if (_.find(system_store.data.buckets, bucket => (
             bucket.cloud_sync &&
             bucket.cloud_sync.endpoint === connection_to_delete.endpoint &&
-            bucket.cloud_sync.access_keys.account_id === account._id.toString() &&
+            bucket.cloud_sync.access_keys.account_id === account._id &&
             bucket.cloud_sync.access_keys.access_key === connection_to_delete.access_key))) {
         throw new Error('Cannot delete connection from account as it is being used for a cloud sync');
     }
     if (_.find(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
             pool.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
-            pool.cloud_pool_info.account_id === account._id.toString() &&
+            pool.cloud_pool_info.account_id === account._id &&
             pool.cloud_pool_info.access_key === connection_to_delete.access_key
         ))) {
         throw new Error('Cannot delete account as it is being used for a cloud sync');

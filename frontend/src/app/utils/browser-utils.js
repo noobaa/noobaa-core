@@ -118,7 +118,7 @@ export function recognizeBrowser() {
 
 export function toFormData(payload) {
     return entries(payload).reduce(
-        (formData, { key, value }) => {
+        (formData, [ key, value ]) => {
             formData.append(key, value);
             return formData;
         },

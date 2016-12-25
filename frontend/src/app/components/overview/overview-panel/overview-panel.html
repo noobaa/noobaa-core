@@ -1,92 +1,126 @@
-<div class="row bounded push-both">
-    <section class="column left-col greedy">
-        <a class="push-next cursor-pointer" data-bind="
-            href: { route: 'pools', params: { tab: null } }
-        ">
-            <h1 class="overview-heading heading1">
-                Capacity Resources
-            </h1>
-        </a>
+<div class="row content-box push-both">
+<!--     <section class="column c4 pad stars-bg borders push-next">
+        <h2 class="row heading3 content-end">
+            <span class="greedy">Node Pool Resources</span>
+            <a class="link" data-bind="
+                text: nodePoolsCount,
+                href: { route: 'pools', params: { tab: 'pools' } }
+            "></a>
+        </h2>
+        <hr>
+        <chart-legend params="items: nodeChartValue">
+        </chart-legend>
+        <div class="nodes-chart column push-both content-middle">
+            <pie-chart class="push-next" params="
+                values: nodeChartValue,
+                primaryText: nodeCountText,
+                secondaryText: 'Total'
+            "></pie-chart>
 
-        <div class="push-both">
-            <div class="row text-center">
-                <div class="column greedy pad borders no-left-border content-middle">
-                    <a class="link" data-bind="href: {
-                        route: 'pools', params: { tab: 'pools' }
-                    }">
-                        Node Pools
-                    </a>
-                    <hr class="seperator">
-                    <span class="heading1" data-bind="text: nodePoolsCount"></span>
-                </div>
-
-                <div class="column greedy pad borders no-right-border content-middle">
-                    <a class="link" data-bind="href: {
-                        route: 'pools', params: { tab: 'cloud' }
-                    }">
-                        Cloud Storage
-                    </a>
-                    <hr class="seperator">
-                    <span class="heading1" data-bind="text: cloudResourcesCount">
-                    </span>
-                </div>
-            </div>
+            <p class="remark highlight">
+                Total Storage Capacity:
+                <span data-bind="text: systemCapacity"></span>
+            </p>
         </div>
 
-        <button class="btn overview-btn push-prev" data-bind="
+        <button class="btn overview-btn" data-bind="
             click: () => showInstallNodeModal()
         ">
-            install node
+            Install Nodes
         </button>
     </section>
 
-    <section class="column right-col greedy">
-
-        <a class="push-next cursor-pointer" data-bind="
-            href: { route: 'buckets', params: { tab: null } }
-        ">
-            <h1 class="overview-heading heading1">Data Buckets</h1>
-        </a>
-
-
-        <div class="push-both">
-            <div class="row text-center">
-                <div class="column greedy pad borders no-left-border  content-middle">
-                    <a class="link" data-bind="href: { route: 'buckets' }">
-                        Buckets
-                    </a>
-                    <hr class="seperator">
-                    <span class="heading1" data-bind="text: bucketCount"></span>
+    <section class="column c4 push-both">
+        <div class="column pad push-next borders greedy">
+            <h2 class="row heading3 content-end">
+                <span class="greedy">Cloud Resources</span>
+                <a class="link" data-bind="
+                    text: cloudResourceCount,
+                    href: { route: 'pools', params: { tab: 'cloud' } }
+                "></a>
+            </h2>
+            <hr>
+            <div class="row push-prev">
+                <div class="column content-middle greedy">
+                    <svg-icon class="icon-medium push-next"
+                        params="name: awsResourceIcon">
+                    </svg-icon>
+                    <span class="remark highlight" data-bind="
+                        text: awsResourceCount
+                    "></span>
                 </div>
 
-                <div class="column greedy pad borders no-right-border  content-middle">
-                    <a class="link" data-bind="href: { route: 'buckets' }">
-                        Files
-                    </a>
-                    <hr class="seperator">
-                    <span class="heading1" data-bind="text: objectCount">
-                    </span>
+                <div class="column content-middle greedy">
+                    <svg-icon class="icon-medium push-next"
+                        params="name: azureResourceIcon">
+                    </svg-icon>
+                    <span class="remark highlight" data-bind="
+                        text: azureResourceCount
+                    "></span>
+                </div>
+
+                <div class="column content-middle greedy">
+                    <svg-icon  class="icon-medium push-next"
+                        params="name: genericResourceIcon">
+                    </svg-icon>
+                    <span class="remark highlight" data-bind="
+                        text: genericResourceCount
+                    "></span>
                 </div>
             </div>
         </div>
 
-        <button class="btn overview-btn push-prev " data-bind="click: () => showConnectApplicationWizard()">
-            connect application
+        <div class="pad push-next borders greedy">
+            <h2 class="heading3 row content-middle">
+                <span class="greedy">Cluster</span>
+                <a class="link" data-bind="
+                    text: serverCount,
+                    href: { route: 'cluster' }
+                "></a>
+            </h2>
+            <hr>
+        </div>
+
+        <div class="pad greedy borders greedy">
+            <h2 class="heading3 row content-middle">
+                <span class=" greedy">System Health</span>
+
+                <svg-icon class="icon-small" params="name: 'question'"></svg-icon>
+            </h2>
+            <hr>
+        </div>
+    </section> -->
+
+    <section class="column c12 pad stars-bg borders push-prev">
+        <h2 class="heading3 row content-middle">
+            <span class="greedy">Data Buckets</span>
+            <a class="link" data-bind="
+                text: bucketCount,
+                href: { route: 'buckets' }
+            "></a>
+        </h2>
+        <hr>
+        <div class="row content-middle">
+            <span class="greedy push-next">Usage History</span>
+            <toggle-filter class="usage-history-filter" params="
+                options: storageHistoryDurationOptions,
+                selected: selectedStorageHistoryDuration
+            "></toggle-filter>
+        </div>
+        <chart-legend class="push-next" params="items: storageSummary"></chart-legend>
+        <chartjs class="greedy push-both" params="
+            type: 'line',
+            data: storageHistoryChartData,
+            options: storageHistoryChartOptions
+        "></chartjs>
+
+        <button class="btn overview-btn" data-bind="
+            click: () => showConnectApplicationWizard()
+        ">
+            Connect Application
         </button>
     </section>
 </div>
-
-<section class="row counters push-prev">
-    <div class="counter double-pad text-center">
-        <div class="heading1" data-bind="text: systemCapacity"></div>
-        Total Capacity
-    </div>
-    <div class="counter double-pad text-center">
-        <div class="heading1" data-bind="text: systemFreeSpace"></div>
-        Free Capacity
-    </div>
-</section>
-
 
  <!-- ko if: isInstallNodeModalVisible -->
 <install-node-modal params="onClose: () => hideInstallNodeModal()">

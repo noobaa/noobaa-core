@@ -148,8 +148,7 @@ export function showOverview() {
             { route: 'system', label: 'Overview' }
         ],
         selectedNavItem: 'overview',
-        panel: 'overview',
-        useBackground: true
+        panel: 'overview'
     });
 }
 

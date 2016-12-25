@@ -49,7 +49,7 @@ module.exports = {
                             type: 'string'
                         },
                         account_id: {
-                            type: 'string'
+                            format: 'objectid'
                         }
                     }
                 },

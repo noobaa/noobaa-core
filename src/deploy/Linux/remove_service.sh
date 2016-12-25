@@ -16,9 +16,9 @@ fi
 function verify_command_run {
         $@ >> /var/log/noobaa_service_rem_${instdate} 2>&1
         local rc=$?
-        if [ $ignore_rc -eq 1 ]; then
+        if [ $ignore_rc -ne 1 ]; then
             if [ $rc -ne 0 ]; then
-                echo "NooBaa uninstall failed"
+                echo "NooBaa uninstall failed (on $@)"
                 exit 1
             fi
         fi

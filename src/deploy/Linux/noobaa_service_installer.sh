@@ -19,15 +19,19 @@ PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
 chmod 777 /usr/local/noobaa/remove_service.sh
 /usr/local/noobaa/remove_service.sh ignore_rc >> /var/log/noobaa_service_${instdate} 2>&1
+echo "Old services were removed if exited."
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
   cp /usr/local/noobaa/src/agent/system_d.conf /lib/systemd/system/noobaalocalservice.service
   echo "Updating systemctl"
   verify_command_run systemctl daemon-reload
+  echo "systemctl daemons reloaded"
   verify_command_run systemctl enable noobaalocalservice
   echo "Starting Service"
   verify_command_run systemctl start noobaalocalservice
+  echo "Service started"
   verify_command_run systemctl daemon-reload
+  echo "systemctl daemons reloaded"
 elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Creating startup script"
   cp /usr/local/noobaa/src/agent/upstart.conf /etc/init/noobaalocalservice.conf
@@ -51,3 +55,4 @@ else
 fi
 
 echo "NooBaa installation completed successfully"
+exit 0

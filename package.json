@@ -28,7 +28,7 @@
     "bg": "node src/server/bg_workers",
     "s3": "node src/s3/s3rver_starter",
     "hosted_agents": "node src/hosted_agents/hosted_agents_starter",
-    "tunnel": "sudo node src/tools/tcp_tunnel --ssl",
+    "tunnel": "sudo node src/tools/tcp_tunnel",
     "agent": "node src/agent/agent_cli",
     "agents": "node src/agent/agent_cli --scale 20",
     "start": "node src/server",

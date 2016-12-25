@@ -677,10 +677,6 @@ AgentCLI.prototype._is_s3_enabled = function(node_name) {
 AgentCLI.main = main;
 
 function main() {
-    setInterval(function() {
-        dbg.log0('memory usage', process.memoryUsage());
-    }, 30000);
-
     if (argv.node_name) {
         dbg.set_process_name('Internal-Agent-' + argv.node_name);
     } else {

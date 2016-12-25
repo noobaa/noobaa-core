@@ -1,14 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const xml_utils = require('../util/xml_utils');
 
-class S3Error {
+class S3Error extends Error {
 
     constructor(err) {
+        super(err.message);
         this.code = err.code;
-        this.message = err.message;
         this.http_code = err.http_code;
         if (err.reply) {
             this.reply = err.reply;
@@ -221,8 +220,9 @@ const errors_defs = [{
 }, {
     code: 'MissingContentLength',
     message: 'You must provide the Content-Length HTTP header.',
-    http_code: 400,
-    // http_code: 411, // 411 is HTTP "Length Required" but s3-tests require 400
+    // s3-tests require 400 although HTTP "Length Required" is 411
+    // http_code: 400,
+    http_code: 411,
 }, {
     code: 'MissingRequestBodyError',
     message: 'This happens when the user sends an empty xml document as a request. The error message is "Request body is empty."',
@@ -348,14 +348,15 @@ const errors_defs = [{
     code: 'NotModified',
     message: 'The resource was not modified according to the conditions in the provided headers.',
     http_code: 304,
+}, {
+    // not defined in AWS list
+    code: 'BadRequest',
+    message: 'Bad request.',
+    http_code: 400,
 }];
 
-// return a map of code -> error object
-const errors_map = _.mapValues(
-    _.keyBy(errors_defs, 'code'),
-    err => new S3Error(err)
-);
+for (const err_def of errors_defs) {
+    S3Error[err_def.code] = err_def;
+}
 
-errors_map.S3Error = S3Error;
-
-module.exports = errors_map;
+exports.S3Error = S3Error;

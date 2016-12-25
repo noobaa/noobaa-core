@@ -1,42 +1,68 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let _ = require('lodash');
-let fs = require('fs');
-let stream = require('stream');
-let moment = require('moment');
-let mime = require('mime');
-let http = require('http');
-let crypto = require('crypto');
-let AWS = require('aws-sdk');
-var argv = require('minimist')(process.argv);
-let size_utils = require('../util/size_utils');
-let RandStream = require('../util/rand_stream');
+const _ = require('lodash');
+const fs = require('fs');
+const AWS = require('aws-sdk');
+const argv = require('minimist')(process.argv);
+const mime = require('mime');
+const http = require('http');
+const https = require('https');
+const crypto = require('crypto');
+const stream = require('stream');
+const moment = require('moment');
+const size_utils = require('../util/size_utils');
+const RandStream = require('../util/rand_stream');
 
-argv.bucket = argv.bucket || 'files';
+http.globalAgent.keepAlive = true;
+https.globalAgent.keepAlive = true;
 
 if (argv.presign && !_.isNumber(argv.presign)) {
     argv.presign = 3600;
 }
 
-let s3_config = {
-    signatureVersion: argv.sig || 'v4', // use s3/v4, v2 seems irrelevant
-    sslEnabled: argv.ssl || false,
-    computeChecksums: argv.checksum || false,
-    region: argv.region || 'us-east-1',
-    httpOptions: {
-        agent: new http.Agent({
-            keepAlive: true
-        })
-    }
-};
-if (argv.aws) {
-    // s3_config.s3ForcePathStyle = false;
-} else {
-    s3_config.endpoint = argv.endpoint || 'http://127.0.0.1';
-    s3_config.s3ForcePathStyle = true;
+if (argv.endpoint) {
+    if (argv.endpoint === true) argv.endpoint = 'http://127.0.0.1';
+    argv.access_key = argv.access_key || '123';
+    argv.secret_key = argv.secret_key || 'abc';
+    argv.bucket = argv.bucket || 'files';
 }
-let s3 = new AWS.S3(s3_config);
+
+const s3 = new AWS.S3({
+    endpoint: argv.endpoint,
+    accessKeyId: argv.access_key,
+    secretAccessKey: argv.secret_key,
+    s3ForcePathStyle: true,
+    signatureVersion: argv.sig, // s3 or v4
+    computeChecksums: argv.checksum || false, // disabled by default for performance
+    s3DisableBodySigning: !argv.signing || true, // disabled by default for performance
+    region: argv.region || 'us-east-1',
+    params: {
+        Bucket: argv.bucket
+    },
+});
+
+// AWS config does not use https.globalAgent
+// so for https we need to set the agent manually
+if (s3.endpoint.protocol === 'https:') {
+    s3.config.update({
+        httpOptions: {
+            agent: new https.Agent({
+                keepAlive: true,
+                rejectUnauthorized: !argv.selfsigned,
+            })
+        }
+    });
+    if (!argv.selfsigned) {
+        AWS.events.on('error', err => {
+            if (err.message === 'self signed certificate') {
+                setTimeout(() => console.log(
+                    '\n*** You can accept self signed certificates with: --selfsigned\n'
+                ), 10);
+            }
+        });
+    }
+}
 
 if (argv.help) {
     print_usage();
@@ -78,10 +104,6 @@ function make_simple_request(op, params) {
 
 function list_objects() {
     const params = {
-        Bucket:
-            (typeof(argv.ls) === 'string' && argv.ls) ||
-            (typeof(argv.ll) === 'string' && argv.ll) ||
-            argv.bucket,
         Prefix: argv.prefix,
         Delimiter: argv.delimiter,
         MaxKeys: argv.maxkeys,
@@ -146,14 +168,11 @@ function delete_bucket() {
 }
 
 function head_bucket() {
-    return make_simple_request('headBucket', {
-        Bucket: argv.bucket
-    });
+    return make_simple_request('headBucket', {});
 }
 
 function head_object() {
     return make_simple_request('headObject', {
-        Bucket: argv.bucket,
         Key: argv.head
     });
 }
@@ -164,7 +183,6 @@ function delete_objects() {
         return;
     }
     return make_simple_request('deleteObjects', {
-        Bucket: argv.bucket,
         Delete: {
             Objects: argv.rm.split(',').map(obj => ({
                 Key: obj.trim(),
@@ -174,7 +192,6 @@ function delete_objects() {
 }
 
 function upload_object() {
-    let bucket = argv.bucket;
     let file_path = argv.file || '';
     let upload_key =
         (_.isString(argv.upload) && argv.upload) ||
@@ -242,9 +259,8 @@ function upload_object() {
 
     if (argv.copy) {
         const params = {
-            Bucket: bucket,
             Key: upload_key,
-            CopySource: bucket + '/' + argv.copy,
+            CopySource: argv.bucket + '/' + argv.copy,
             ContentType: mime.lookup(upload_key) || '',
         };
         if (argv.presign) {
@@ -258,7 +274,6 @@ function upload_object() {
     if (argv.put) {
         const params = {
             Key: upload_key,
-            Bucket: bucket,
             Body: data_source,
             ContentType: mime.lookup(file_path) || '',
             ContentLength: data_size
@@ -275,7 +290,6 @@ function upload_object() {
     if (!argv.perf) {
         s3.upload({
                 Key: upload_key,
-                Bucket: bucket,
                 Body: data_source,
                 ContentType: mime.lookup(file_path),
                 ContentLength: data_size
@@ -293,7 +307,6 @@ function upload_object() {
         };
         s3.createMultipartUpload({
             Key: upload_key,
-            Bucket: bucket,
             ContentType: mime.lookup(file_path),
         }, (err, create_res) => {
             if (err) {
@@ -308,7 +321,6 @@ function upload_object() {
             function complete() {
                 s3.completeMultipartUpload({
                     Key: upload_key,
-                    Bucket: bucket,
                     UploadId: create_res.UploadId,
                     // MultipartUpload: {
                     //     Parts: [{
@@ -339,7 +351,6 @@ function upload_object() {
                 let part_num = next_part_num;
                 s3.uploadPart({
                     Key: upload_key,
-                    Bucket: bucket,
                     PartNumber: part_num,
                     UploadId: create_res.UploadId,
                     Body: data,
@@ -375,7 +386,6 @@ function upload_object() {
 
 function get_object() {
     const params = {
-        Bucket: argv.bucket,
         Key: argv.get,
     };
     if (argv.presign) {

@@ -10,9 +10,9 @@ const cluster_schema = require('./schemas/cluster_schema');
 const role_schema = require('./schemas/role_schema');
 const account_schema = require('./schemas/account_schema');
 const bucket_schema = require('./schemas/bucket_schema');
-const tieringpolicy_schema = require('./schemas/tiering_policy_schema');
+const tiering_policy_schema = require('./schemas/tiering_policy_schema');
 const tier_schema = require('./schemas/tier_schema');
-const pools_schema = require('./schemas/pool_schema');
+const pool_schema = require('./schemas/pool_schema');
 const agent_config_schema = require('./schemas/agent_config_schema');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -108,7 +108,7 @@ const COLLECTIONS = [{
     }],
 }, {
     name: 'tieringpolicies',
-    schema: tieringpolicy_schema,
+    schema: tiering_policy_schema,
     mem_indexes: [{
         name: 'tiering_policies_by_name',
         context: 'system',
@@ -144,7 +144,7 @@ const COLLECTIONS = [{
     }],
 }, {
     name: 'pools',
-    schema: pools_schema,
+    schema: pool_schema,
     mem_indexes: [{
         name: 'pools_by_name',
         context: 'system',
@@ -219,8 +219,6 @@ class SystemStoreData {
                         record: find_res,
                         linkable: false
                     };
-                } else {
-                    return;
                 }
             });
     }
@@ -438,17 +436,18 @@ class SystemStore extends EventEmitter {
         let non_deleted_query = {
             deleted: null
         };
-        return P.map(COLLECTIONS,
-            col => mongo_client.instance().collection(col.name)
-            .find(non_deleted_query)
-            .toArray()
-            .then(res => {
-                for (const item of res) {
-                    this._check_schema(col, item, 'warn');
-                }
-                target[col.name] = res;
-            })
-        );
+        return mongo_client.instance().connect()
+            .then(() => P.map(COLLECTIONS,
+                col => mongo_client.instance().collection(col.name)
+                .find(non_deleted_query)
+                .toArray()
+                .then(res => {
+                    for (const item of res) {
+                        this._check_schema(col, item, 'warn');
+                    }
+                    target[col.name] = res;
+                })
+            ));
     }
 
     _check_schema(col, item, warn) {
@@ -552,7 +551,8 @@ class SystemStore extends EventEmitter {
                         // if (updates.$set) {
                         //     this._check_schema(col, updates.$set, 'warn');
                         // }
-                        get_bulk(name).find({
+                        get_bulk(name)
+                            .find({
                                 _id: item._id
                             })
                             .updateOne(updates);
@@ -561,7 +561,8 @@ class SystemStore extends EventEmitter {
                 _.each(changes.remove, (list, name) => {
                     get_collection(name);
                     _.each(list, id => {
-                        get_bulk(name).find({
+                        get_bulk(name)
+                            .find({
                                 _id: id
                             })
                             .updateOne({

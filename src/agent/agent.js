@@ -503,15 +503,19 @@ function CreateAgent(agent_params) {
 
             const auth = req.method_api.auth;
             if (!auth || !auth.n2n) {
-                dbg.error('AGENT API requests only allowed from server',
+                dbg.error(this.node_name, 'AGENT API requests only allowed from server',
                     req.connection && req.connection.connid,
                     this._server_connection && this._server_connection.connid);
+                // close the connection but after sending the error response, for supportability of the caller
+                setTimeout(() => req.connection.close(), 1000);
                 throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
             }
 
             if (req.connection.url.protocol !== 'n2n:') {
-                dbg.error('AGENT API auth requires n2n connection',
+                dbg.error(this.node_name, 'AGENT API auth requires n2n connection',
                     req.connection && req.connection.connid);
+                // close the connection but after sending the error response, for supportability of the caller
+                setTimeout(() => req.connection.close(), 1000);
                 throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');
             }
             // otherwise it's good

@@ -39,7 +39,7 @@ config.CLOUD_AGENTS_N2N_PORT = 60100;
 ///////////////
 
 config.S3_FORKS_ENABLED = true;
-config.TIME_SKEW_MAX_SECONDS = 15 * 60;
+config.TIME_SKEW_MAX_MILLIS = 15 * 60 * 1000;
 
 ///////////////
 // MD CONFIG //

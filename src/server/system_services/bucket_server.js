@@ -78,7 +78,7 @@ function create_bucket(req) {
     } else {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
-        let default_pool = req.system.pools_by_name[req.account.default_pool];
+        let default_pool = req.account.default_pool;
         let bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
         let tier = tier_server.new_tier_defaults(
             bucket_with_suffix, req.system._id, [{

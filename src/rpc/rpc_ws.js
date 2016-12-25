@@ -55,13 +55,9 @@ class RpcWsConnection extends RpcBaseConnection {
         this.ws = ws;
         ws.binaryType = 'arraybuffer';
 
-        ws.onclose = () => {
-            let closed_err = new Error('WS CLOSED');
-            closed_err.stack = '';
-            this.emit('error', closed_err);
-        };
+        ws.onclose = () => this.emit('error', closed_err());
 
-        ws.onerror = err => this.emit('error', err);
+        ws.onerror = err => this.emit('error', err || closed_err());
 
         ws.onmessage = msg => {
             try {
@@ -82,6 +78,12 @@ function close_ws(ws) {
         ws.readyState !== WS.CLOSING) {
         ws.close();
     }
+}
+
+function closed_err() {
+    const err = new Error('WS CLOSED');
+    err.stack = '';
+    return err;
 }
 
 

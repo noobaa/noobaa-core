@@ -190,34 +190,34 @@ function InternalDebugLogger() {
     self._log = new(winston.Logger)({
         levels: self._levels,
         transports: [
-            // new(winston.transports.File)({
-            //     name: 'file_transp',
-            //     level: 'ERROR',
-            //     showLevel: false,
-            //     filename: 'noobaa.log',
-            //     dirname: './logs/',
-            //     json: false, //Must be otherwise formatter is not working
-            //     maxsize: (10 * 1024 * 1024), //10 MB
-            //     maxFiles: 100,
-            //     tailable: true,
-            //     zippedArchive: true,
-            //     formatter: function(options) {
-            //         //prefix - time, level, module & pid
-            //         var proc = '[' + self._proc_name + '/' + self._pid + ']';
-            //         var prefix = '\x1B[32m' + formatted_time() +
-            //             '\x1B[35m ' + proc +
-            //             ((self._levels[options.level] === 0) ?
-            //                 ' \x1B[31m[' :
-            //                 ((self._levels[options.level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
-            //             options.level + ']\x1B[39m ';
-            //         //message - one liner for file transport
-            //         var message = (options.message !== undefined ? (options.message.replace(/(\r\n|\n|\r)/gm, "")) : '');
+            new(winston.transports.File)({
+                name: 'file_transp',
+                level: 'ERROR',
+                showLevel: false,
+                filename: 'noobaa.log',
+                dirname: './logs/',
+                json: false, //Must be otherwise formatter is not working
+                maxsize: (10 * 1024 * 1024), //10 MB
+                maxFiles: 100,
+                tailable: true,
+                zippedArchive: true,
+                formatter: function(options) {
+                    //prefix - time, level, module & pid
+                    var proc = '[' + self._proc_name + '/' + self._pid + ']';
+                    var prefix = '\x1B[32m' + formatted_time() +
+                        '\x1B[35m ' + proc +
+                        ((self._levels[options.level] === 0) ?
+                            ' \x1B[31m[' :
+                            ((self._levels[options.level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
+                        options.level + ']\x1B[39m ';
+                    //message - one liner for file transport
+                    var message = (options.message !== undefined ? (options.message.replace(/(\r\n|\n|\r)/gm, "")) : '');
 
-            //         var postfix = (options.meta && Object.keys(options.meta).length ?
-            //             JSON.stringify(options.meta) : '');
-            //         return prefix + message + postfix;
-            //     }
-            // }),
+                    var postfix = (options.meta && Object.keys(options.meta).length ?
+                        JSON.stringify(options.meta) : '');
+                    return prefix + message + postfix;
+                }
+            }),
             new(winston.transports.Console)({
                 name: 'console_transp',
                 level: 'ERROR',

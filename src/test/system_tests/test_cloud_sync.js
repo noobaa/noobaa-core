@@ -35,7 +35,7 @@ var target_client = target_rpc.new_client({
 });
 
 module.exports = {
-    run_test: run_test
+    run_test: run_basic_test
 };
 
 function authenticate() {
@@ -67,9 +67,9 @@ function set_cloud_sync(params) {
         )
         .then(
             () => client.bucket.set_cloud_sync({
-                name: TEST_CTX.source_bucket,
+                name: params.source_bucket_name,
                 connection: TEST_CTX.connection_name,
-                target_bucket: TEST_CTX.target_bucket,
+                target_bucket: params.target_bucket_name,
                 policy: {
                     c2n_enabled: params.c2n,
                     n2c_enabled: params.n2c,
@@ -86,26 +86,37 @@ function set_cloud_sync(params) {
         );
 }
 
-function compare_object_lists(file_names, fail_msg, expected_len) {
+function compare_object_lists(params) {
+    const fail_msg = params.fail_msg;
+    const expected_len = params.expected_len;
     let timeout_ms = 5 * 60 * 1000; // 3 wait up to 3 minutes for changes to sync
     let start_ts = Date.now();
     let done = false;
     var source_list;
     var target_list;
+    let status_list = [];
     return promise_utils.pwhile(
             () => {
                 let diff = Date.now() - start_ts;
                 return (diff < timeout_ms && !done);
             },
             () => {
-                return client.object.list_objects({
-                        bucket: TEST_CTX.source_bucket
+                return client.bucket.get_cloud_sync({
+                        name: params.source_bucket
+                    })
+                    .then(cloud_sync_info => {
+                        if (_.last(status_list) !== cloud_sync_info.status) {
+                            status_list.push(cloud_sync_info.status);
+                        }
+                        return client.object.list_objects({
+                            bucket: params.source_bucket
+                        });
                     })
                     // get objects list on the source
                     .then(function(source_objects) {
                         source_list = _.map(source_objects.objects, 'key');
                         return target_client.object.list_objects({
-                            bucket: TEST_CTX.target_bucket
+                            bucket: params.target_bucket
                         });
                     })
                     .then(target_objects => {
@@ -114,15 +125,17 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
                         source_list.sort();
                         target_list.sort();
                         if (_.isUndefined(expected_len)) {
-                            done = (target_list.length === source_list.length);
+                            done = (target_list.length === source_list.length) && _.last(status_list) === 'SYNCED';
                         } else {
-                            done = (source_list.length === expected_len && target_list.length === expected_len);
+                            done = (source_list.length === expected_len && target_list.length === expected_len) &&
+                                _.last(status_list) === 'SYNCED';
                         }
                     })
                     .delay(5000); // wait 10 seconds between each check
             }
         )
         .then(function() {
+            assert(_.last(status_list) === 'SYNCED', `Did not finish in expected state but instead is now: ${_.last(status_list)}`);
             assert(target_list.length === source_list.length, fail_msg + ': mismatch between lists length.');
             for (var i = 0; i < source_list.length; i++) {
                 assert(target_list[i] === source_list[i], fail_msg + ': mismatch between sorce\\target objects:',
@@ -131,30 +144,47 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
             if (!_.isUndefined(expected_len)) {
                 assert(source_list.length === expected_len, fail_msg + ': expected_len is ' + expected_len + '. got source_list.length=' + source_list.length);
             }
+            console.log('during status checks every 5 seconds, these were the statuses: ', status_list);
+            if (status_list.length === 0 || (!status_list.includes('SYNCING') && !status_list.includes('PENDING'))) {
+                console.warn('Did not pass through expected status states');
+                assert(!params.must_go_through_syncing, fail_msg + 'Did not pass through expected status states');
+            }
             console.log('source bucket and target bucket are synced. sync took ~', (Date.now() - start_ts) / 1000, 'seconds');
         });
 }
 
-function verify_object_lists_after_delete(file_names, fail_msg, deleted_from_target) {
+function verify_object_lists_after_delete(params) {
+    const file_names = params.file_names;
+    const fail_msg = params.fail_msg;
+    const deleted_from_target = params.deleted_from_target;
     let timeout_ms = 3 * 60 * 1000; // 3 wait up to 3 minutes for changes to sync
     let start_ts = Date.now();
     let done = false;
     var source_list;
     var target_list;
+    let status_list = [];
     return promise_utils.pwhile(
             () => {
                 let diff = Date.now() - start_ts;
                 return (diff < timeout_ms && !done);
             },
             () => {
-                return client.object.list_objects({
-                        bucket: TEST_CTX.source_bucket
+                return client.bucket.get_cloud_sync({
+                        name: params.source_bucket
+                    })
+                    .then(cloud_sync_info => {
+                        if (_.last(status_list) !== cloud_sync_info.status) {
+                            status_list.push(cloud_sync_info.status);
+                        }
+                        return client.object.list_objects({
+                            bucket: params.source_bucket
+                        });
                     })
                     // get objects list on the source
                     .then(function(source_objects) {
                         source_list = _.map(source_objects.objects, 'key');
                         return target_client.object.list_objects({
-                            bucket: TEST_CTX.target_bucket
+                            bucket: params.target_bucket
                         });
                     })
                     .then(target_objects => {
@@ -162,7 +192,8 @@ function verify_object_lists_after_delete(file_names, fail_msg, deleted_from_tar
                         // sort all lists:
                         source_list.sort();
                         target_list.sort();
-                        done = (Math.abs(source_list.length - target_list.length) === file_names.length);
+                        done = (Math.abs(source_list.length - target_list.length) === file_names.length) &&
+                            _.last(status_list) === 'SYNCED';
                     })
                     .delay(10000); // wait 10 seconds between each check
             }
@@ -190,7 +221,13 @@ function verify_object_lists_after_delete(file_names, fail_msg, deleted_from_tar
 }
 
 function main() {
-    return run_test()
+    return authenticate()
+        //.then(() => run_basic_test())
+        .then(() => run_policy_edit_test())
+        .then(() => {
+            console.log('test_cloud_sync PASSED');
+            return rpc.disconnect_all();
+        })
         .then(function() {
             process.exit(0);
         })
@@ -199,33 +236,19 @@ function main() {
         });
 }
 
-function run_test() {
+function run_basic_test() {
     let file_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     let file_names = [];
     let expected_after_del = 0;
-    return authenticate()
-        .then(() => {
-            let should_create_bucket = _.isUndefined(argv.target_bucket);
-            if (should_create_bucket) {
-                client.tier.create_tier({
-                        name: 'tier1',
-                        attached_pools: ['default_pool'],
-                        data_placement: 'SPREAD'
-                    })
-                    .then(() =>
-                        client.tiering_policy.create_policy({
-                            name: 'tiering1',
-                            tiers: [{
-                                order: 0,
-                                tier: 'tier1'
-                            }]
-                        }))
-                    .then(() => client.bucket.create_bucket({
-                        name: 'target',
-                        tiering: 'tiering1',
-                    }));
-            }
-        })
+
+    const source_params = _params_by_name({
+        suffix: 'test1-source'
+    });
+    const target_params = _params_by_name({
+        suffix: 'test1-target'
+    });
+
+    return _create_bucket(source_params).then(() => _create_bucket(target_params))
         .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
         .then(function(res_file_names) {
             let i = 0;
@@ -235,7 +258,7 @@ function run_test() {
                 () => {
                     let fname = file_names[i++];
                     console.log('calling upload_file(', fname, ')');
-                    return ops.upload_file(TEST_CTX.source_ip, fname, TEST_CTX.source_bucket, fname)
+                    return ops.upload_file(TEST_CTX.source_ip, fname, source_params.bucket, fname)
                         .delay(1000);
                 });
         })
@@ -244,7 +267,9 @@ function run_test() {
             let cloud_sync_params = {
                 n2c: true,
                 c2n: true,
-                deletions: true
+                deletions: true,
+                source_bucket_name: source_params.bucket,
+                target_bucket_name: target_params.bucket
             };
             return set_cloud_sync(cloud_sync_params)
                 .then(() => {
@@ -253,7 +278,12 @@ function run_test() {
                 })
                 .then(function() {
                     //check target file list against local
-                    return compare_object_lists(file_names, 'sync source to target failed');
+                    return compare_object_lists({
+                        fail_msg: 'sync source to target failed',
+                        source_bucket: source_params.bucket,
+                        target_bucket: target_params.bucket,
+                        must_go_through_syncing: true
+                    });
                 });
         })
         .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
@@ -266,7 +296,7 @@ function run_test() {
                 () => {
                     let fname = file_names[i++];
                     console.log('calling upload_file(', fname, ')');
-                    return ops.upload_file(TEST_CTX.target_ip, fname, TEST_CTX.target_bucket, fname)
+                    return ops.upload_file(TEST_CTX.target_ip, fname, target_params.bucket, fname)
                         .delay(1000);
                 });
         })
@@ -274,7 +304,11 @@ function run_test() {
         // .delay(60000 * 2)
         .then(function() {
             //check target file list against local
-            return compare_object_lists(file_names, 'sync target additions to source failed');
+            return compare_object_lists({
+                fail_msg: 'sync target additions to source failed',
+                source_bucket: source_params.bucket,
+                target_bucket: target_params.bucket,
+            });
         })
         .then(function() {
             let i = 0;
@@ -284,7 +318,7 @@ function run_test() {
                 () => {
                     let fname = file_names[i++];
                     let obj_path = {
-                        bucket: 'files',
+                        bucket: source_params.bucket,
                         key: fname
                     };
                     return client.object.delete_object(obj_path);
@@ -293,7 +327,7 @@ function run_test() {
         // list objects on target to verify the number of objects later
         .then(function() {
             return client.object.list_objects({
-                bucket: TEST_CTX.source_bucket
+                bucket: source_params.bucket
             });
 
         })
@@ -302,12 +336,17 @@ function run_test() {
             console.log('waiting for deletions to sync for 3 minutes..');
         })
         // .delay(2 * 60000)
-        .then(() => compare_object_lists(file_names, 'sync deletions from source to target failed', expected_after_del))
+        .then(() => compare_object_lists({
+            fail_msg: 'sync target additions to source failed',
+            source_bucket: source_params.bucket,
+            target_bucket: target_params.bucket,
+            expected_len: expected_after_del
+        }))
         .then(function() {
             // remove cloud_sync policy
             console.log('removing cloud_sync policy');
             return client.bucket.delete_cloud_sync({
-                name: 'files'
+                name: source_params.bucket
             });
         })
         .then(() => {
@@ -315,7 +354,9 @@ function run_test() {
             let cloud_sync_params = {
                 n2c: true,
                 c2n: false,
-                deletions: false
+                deletions: false,
+                source_bucket_name: source_params.bucket,
+                target_bucket_name: target_params.bucket
             };
             return set_cloud_sync(cloud_sync_params)
                 .then(() => {
@@ -324,7 +365,11 @@ function run_test() {
                 })
                 .then(function() {
                     //check target file list against local
-                    return compare_object_lists(file_names, 'sync source to target failed');
+                    return compare_object_lists({
+                        fail_msg: 'sync source to target failed',
+                        source_bucket: source_params.bucket,
+                        target_bucket: target_params.bucket,
+                    });
                 });
         })
         .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
@@ -337,7 +382,7 @@ function run_test() {
                 () => {
                     let fname = file_names[i++];
                     console.log('calling upload_file(', fname, ')');
-                    return ops.upload_file(TEST_CTX.source_ip, fname, TEST_CTX.source_bucket, fname)
+                    return ops.upload_file(TEST_CTX.source_ip, fname, source_params.bucket, fname)
                         .delay(1000);
                 });
         })
@@ -345,7 +390,11 @@ function run_test() {
         // .delay(60000 * 2)
         .then(function() {
             //check target file list against local
-            return compare_object_lists(file_names, 'sync target additions to source failed');
+            return compare_object_lists({
+                fail_msg: 'sync target additions to source failed',
+                source_bucket: source_params.bucket,
+                target_bucket: target_params.bucket,
+            });
         })
         .then(function() {
             let i = 0;
@@ -355,18 +404,24 @@ function run_test() {
                 () => {
                     let fname = file_names[i++];
                     let obj_path = {
-                        bucket: 'files',
+                        bucket: source_params.bucket,
                         key: fname
                     };
                     return client.object.delete_object(obj_path);
                 });
         })
-        .then(() => verify_object_lists_after_delete(file_names, 'sync deletions from source to target failed', false))
+        .then(() => verify_object_lists_after_delete({
+            file_names,
+            fail_msg: 'sync deletions from source to target failed',
+            deleted_from_target: false,
+            source_bucket: source_params.bucket,
+            target_bucket: target_params.bucket
+        }))
         .then(function() {
             // remove cloud_sync policy
             console.log('removing cloud_sync policy');
             return client.bucket.delete_cloud_sync({
-                name: 'files'
+                name: source_params.bucket
             });
         })
         .then(() => {
@@ -374,7 +429,9 @@ function run_test() {
             let cloud_sync_params = {
                 n2c: false,
                 c2n: true,
-                deletions: false
+                deletions: false,
+                source_bucket_name: source_params.bucket,
+                target_bucket_name: target_params.bucket
             };
             return set_cloud_sync(cloud_sync_params)
                 .then(() => {
@@ -383,7 +440,11 @@ function run_test() {
                 })
                 .then(function() {
                     //check target file list against local
-                    return compare_object_lists(file_names, 'sync source to target failed');
+                    return compare_object_lists({
+                        fail_msg: 'sync source to target failed',
+                        source_bucket: source_params.bucket,
+                        target_bucket: target_params.bucket,
+                    });
                 });
         })
         .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
@@ -396,7 +457,7 @@ function run_test() {
                 () => {
                     let fname = file_names[i++];
                     console.log('calling upload_file(', fname, ')');
-                    return ops.upload_file(TEST_CTX.target_ip, fname, TEST_CTX.target_bucket, fname)
+                    return ops.upload_file(TEST_CTX.target_ip, fname, target_params.bucket, fname)
                         .delay(1000);
                 });
         })
@@ -404,7 +465,11 @@ function run_test() {
         // .delay(60000 * 2)
         .then(function() {
             //check target file list against local
-            return compare_object_lists(file_names, 'sync target additions to source failed');
+            return compare_object_lists({
+                fail_msg: 'sync target additions to source failed',
+                source_bucket: source_params.bucket,
+                target_bucket: target_params.bucket,
+            });
         })
         .then(function() {
             let i = 0;
@@ -414,34 +479,123 @@ function run_test() {
                 () => {
                     let fname = file_names[i++];
                     let obj_path = {
-                        bucket: TEST_CTX.target_bucket,
+                        bucket: target_params.bucket,
                         key: fname
                     };
                     return target_client.object.delete_object(obj_path);
                 });
         })
-        .then(() => verify_object_lists_after_delete(file_names, 'sync deletions from source to target failed', true))
+        .then(() => verify_object_lists_after_delete({
+            file_names,
+            fail_msg: 'sync deletions from source to target failed',
+            deleted_from_target: true,
+            source_bucket: source_params.bucket,
+            target_bucket: target_params.bucket
+        }))
         .then(function() {
             // remove cloud_sync policy
             console.log('removing cloud_sync policy');
             return client.bucket.delete_cloud_sync({
-                name: TEST_CTX.source_bucket,
+                name: source_params.bucket,
             });
         })
-        .then(() => {
-            console.log('test_cloud_sync PASSED');
+        .catch(err => {
             rpc.disconnect_all();
-            return;
-        })
-
-    .catch(err => {
-        rpc.disconnect_all();
-        console.error('test_cloud_sync FAILED: ', err.stack || err);
-        throw new Error('test_cloud_sync FAILED: ', err);
-    });
+            console.error('test_cloud_sync FAILED: ', err.stack || err);
+            throw new Error('test_cloud_sync FAILED: ', err);
+        });
 }
 
+function run_policy_edit_test() {
+    console.log('starting policy edit tests');
+    const source_params = _params_by_name({
+        suffix: 'test2-source'
+    });
+    const target_params = _params_by_name({
+        suffix: 'test2-target'
+    });
+    const cloud_sync_params = {
+        source_bucket_name: source_params.bucket,
+        target_bucket_name: target_params.bucket,
+        policy: {
+            c2n_enabled: true,
+            n2c_enabled: false,
+            schedule_min: 1,
+            additions_only: true
+        }
+    };
+    return _create_bucket(source_params)
+        .then(() => _create_bucket(target_params))
+        .then(() => set_cloud_sync(cloud_sync_params))
+        .then(() => client.bucket.get_cloud_sync({
+            name: source_params.bucket
+        }))
+        .then(cloud_sync => _compare_cloud_sync_policy(cloud_sync_params.policy, cloud_sync.policy))
+        .then(() => {
+            cloud_sync_params.policy.c2n_enabled = false;
+            cloud_sync_params.policy.n2c_enabled = true;
+            cloud_sync_params.policy.schedule_min = 5;
+            return client.bucket.update_cloud_sync({
+                name: cloud_sync_params.source_bucket_name,
+                policy: cloud_sync_params.policy
+            });
+        })
+        .then(() => client.bucket.get_cloud_sync({
+            name: source_params.bucket
+        }))
+        .then(cloud_sync => _compare_cloud_sync_policy(cloud_sync_params.policy, cloud_sync.policy));
+}
+
+function _compare_cloud_sync_policy(expected, actual) {
+    return P.resolve()
+        .then(() => _compare_val_and_throw(expected.schedule_min, actual.schedule_min, 'schedule in minutes'))
+        .then(() => _compare_val_and_throw(expected.c2n_enabled, actual.c2n_enabled, 'c2n_enabled'))
+        .then(() => _compare_val_and_throw(expected.n2c_enabled, actual.n2c_enabled, 'n2c_enabled'))
+        .then(() => _compare_val_and_throw(expected.additions_only, actual.additions_only, 'additions_only'))
+        .then(() => _compare_val_and_throw(expected.paused, actual.paused, 'paused'));
+}
+
+function _compare_val_and_throw(expected, actual, name) {
+    if (!expected || expected === actual) {
+        return P.resolve();
+    }
+    return P.reject(`Policy not as expected. ${name} is ${actual} instead of ${expected}`);
+}
 
 if (require.main === module) {
     main();
+}
+
+/* * * * * * * * * * * *
+    Helper Functions
+* * * * * * * * * * * */
+
+function _params_by_name(input) {
+    return {
+        tier: 'tier-' + input.suffix,
+        tiering_policy: 'tiering-' + input.suffix,
+        pools: input.pools || ['default_pool'],
+        data_placement: input.data_placement || 'SPREAD',
+        bucket: 'bucket-' + input.suffix,
+    };
+}
+
+function _create_bucket(params) {
+    return client.tier.create_tier({
+            name: params.tier,
+            attached_pools: params.pools,
+            data_placement: params.data_placement
+        })
+        .then(() =>
+            client.tiering_policy.create_policy({
+                name: params.tiering_policy,
+                tiers: [{
+                    order: 0,
+                    tier: params.tier
+                }]
+            }))
+        .then(() => client.bucket.create_bucket({
+            name: params.bucket,
+            tiering: params.tiering_policy,
+        }));
 }

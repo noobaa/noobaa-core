@@ -176,7 +176,7 @@ export default class BucketRowViewModel extends Disposable {
                 () => cloudStorageIcon(
                     cloudPolicy().S3_COMPATIBLE,
                     'cloud-resource',
-                    'generic cloud resorurces'
+                    'S3 compatible cloud resorurces'
                 )
             )
         };

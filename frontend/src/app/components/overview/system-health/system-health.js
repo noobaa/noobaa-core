@@ -1,10 +1,10 @@
-import template from './cluster-summary.html';
+import template from './system-health.html';
 import Disposable from 'disposable';
 // import ko from 'knockout';
 // import numeral from 'numeral';
 // import moment from 'moment';
 
-class ClusterSummaryViewModel extends Disposable{
+class SystemHealthViewModel extends Disposable{
     constructor() {
         super();
 
@@ -12,6 +12,6 @@ class ClusterSummaryViewModel extends Disposable{
 }
 
 export default {
-    viewModel: ClusterSummaryViewModel,
+    viewModel: SystemHealthViewModel,
     template: template
 };

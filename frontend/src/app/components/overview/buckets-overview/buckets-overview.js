@@ -1,10 +1,10 @@
-import template from './storage-usage-summary.html';
+import template from './buckets-overview.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, systemUsageHistory } from 'model';
 import { deepFreeze, assignWith, keyBy, interpolateLinear } from 'utils/core-utils';
 import { hexToRgb } from 'utils/color-utils';
-import { formatSize } from 'utils/string-utils';
+import { formatSize, stringifyAmount } from 'utils/string-utils';
 import style from 'style';
 import moment from 'moment';
 import { loadSystemUsageHistory } from 'actions';
@@ -96,9 +96,16 @@ function filterSamples(samples, start, end) {
     return filtered;
 }
 
-class UsageHistoryChartViewModel extends Disposable{
+class BucketsOverviewViewModel extends Disposable{
     constructor() {
         super();
+
+        this.bucketCount = ko.pureComputed(
+            () => {
+                const count = (systemInfo() ? systemInfo().buckets : []).length;
+                return stringifyAmount('Bucket', count, 'No');
+            }
+        );
 
         this.durationOptions = durationOptions;
         this.selectedDuration = ko.observable(durationOptions[0].value);
@@ -133,6 +140,8 @@ class UsageHistoryChartViewModel extends Disposable{
         this.chartData = ko.pureComputed(
             () => this.getChartData()
         );
+
+        this.isConnectApplicationWizardVisible = ko.observable(false);
 
         loadSystemUsageHistory();
     }
@@ -255,9 +264,17 @@ class UsageHistoryChartViewModel extends Disposable{
 
         return { datasets };
     }
+
+    showConnectApplicationWizard() {
+        this.isConnectApplicationWizardVisible(true);
+    }
+
+    hideConnectApplicationWizard() {
+        this.isConnectApplicationWizardVisible(false);
+    }
 }
 
 export default {
-    viewModel: UsageHistoryChartViewModel,
+    viewModel: BucketsOverviewViewModel,
     template: template
 };

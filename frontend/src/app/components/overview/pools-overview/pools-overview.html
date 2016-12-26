@@ -1,0 +1,34 @@
+<section class="column greedy pad borders">
+    <h2 class="row heading3 content-end">
+        <span class="greedy">Node Pool Resources</span>
+        <a class="link" data-bind="
+            text: nodePoolsCount,
+            href: { route: 'pools', params: { tab: 'pools' } }
+        "></a>
+    </h2>
+    <hr>
+    <chart-legend params="items: chartValues">
+    </chart-legend>
+    <div class="nodes-chart column content-middle">
+        <pie-chart class="push-next" params="
+            values: chartValues,
+            primaryText: nodeCountText,
+            secondaryText: 'Total'
+        "></pie-chart>
+
+        <p class="remark highlight">
+            Total Storage Capacity:
+            <span data-bind="text: systemCapacity"></span>
+        </p>
+    </div>
+    <button class="btn overview-btn" data-bind="
+        click: () => showInstallNodeModal()
+    ">
+        Install Nodes
+    </button>
+</section>
+
+ <!-- ko if: isInstallNodeModalVisible -->
+<install-node-modal params="onClose: () => hideInstallNodeModal()">
+</install-node-modal>
+<!-- /ko -->

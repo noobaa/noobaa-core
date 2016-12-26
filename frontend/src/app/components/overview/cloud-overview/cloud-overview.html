@@ -1,0 +1,39 @@
+<div class="column pad borders greedy">
+    <h2 class="row heading3 content-end">
+        <span class="greedy">Cloud Resources</span>
+        <a class="link" data-bind="
+            text: cloudResourceCount,
+            href: { route: 'pools', params: { tab: 'cloud' } }
+        "></a>
+    </h2>
+    <hr>
+    <div class="row push-prev">
+        <div class="column content-middle greedy">
+            <svg-icon class="icon-medium push-next"
+                params="name: awsResourceIcon">
+            </svg-icon>
+            <span class="remark highlight" data-bind="
+                text: awsResourceCount
+            "></span>
+        </div>
+
+        <div class="column content-middle greedy">
+            <svg-icon class="icon-medium push-next"
+                params="name: azureResourceIcon">
+            </svg-icon>
+            <span class="remark highlight" data-bind="
+                text: azureResourceCount
+            "></span>
+        </div>
+
+        <div class="column content-middle greedy">
+            <svg-icon  class="icon-medium push-next"
+                params="name: genericResourceIcon">
+            </svg-icon>
+            <span class="remark highlight" data-bind="
+                text: genericResourceCount
+            "></span>
+        </div>
+    </div>
+</div>
+

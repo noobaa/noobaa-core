@@ -1,10 +1,10 @@
-import template from './cloud-summary.html';
+import template from './cloud-overview.html';
 import Disposable from 'disposable';
 import { stringifyAmount } from 'utils/string-utils';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 
-class CloudSummaryViewModel extends Disposable{
+class CloudOverviewViewModel extends Disposable{
     constructor() {
         super();
 
@@ -22,8 +22,16 @@ class CloudSummaryViewModel extends Disposable{
                         ++counters[type];
                         return counters;
                     },
-                    { AWS: 0, AZURE: 0, S3_COMPATIBLE: 0 }
+                    { ALL: 0, AWS: 0, AZURE: 0, S3_COMPATIBLE: 0 }
                 )
+        );
+
+        this.cloudResourceCount = ko.pureComputed(
+            () => stringifyAmount(
+                'Resource',
+                resourceCounters().ALL,
+                'No'
+            )
         );
 
         this.awsResourceIcon = ko.pureComputed(
@@ -72,6 +80,6 @@ class CloudSummaryViewModel extends Disposable{
 }
 
 export default {
-    viewModel: CloudSummaryViewModel,
+    viewModel: CloudOverviewViewModel,
     template: template
 };

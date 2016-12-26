@@ -1,12 +1,25 @@
-import template from './nodes-summary.html';
+import template from './pools-overview.html';
 import Disposable from 'disposable';
 import style from 'style';
 import { systemInfo } from 'model';
 import ko from 'knockout';
+import { stringifyAmount} from 'utils/string-utils';
 
-class NodesSummaryViewModel extends Disposable{
+class PoolsOverviewViewModel extends Disposable{
     constructor() {
         super();
+
+        this.nodePoolsCount = ko.pureComputed(
+            () => {
+                const count = (systemInfo() ? systemInfo().pools : [])
+                    .filter(
+                        pool => Boolean(pool.nodes)
+                    )
+                    .length;
+
+                return stringifyAmount('Resource', count, 'No');
+            }
+        );
 
         const onlineCount = ko.pureComputed(
             () => systemInfo() ? systemInfo().nodes.online : 0
@@ -64,10 +77,20 @@ class NodesSummaryViewModel extends Disposable{
             () => `${nodeCount()} Nodes`
         );
 
+        this.isInstallNodeModalVisible = ko.observable(false);
+
+    }
+
+    showInstallNodeModal() {
+        this.isInstallNodeModalVisible(true);
+    }
+
+    hideInstallNodeModal() {
+        this.isInstallNodeModalVisible(false);
     }
 }
 
 export default {
-    viewModel: NodesSummaryViewModel,
+    viewModel: PoolsOverviewViewModel,
     template: template
 };

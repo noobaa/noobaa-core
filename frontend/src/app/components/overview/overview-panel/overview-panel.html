@@ -1,80 +1,9 @@
 <div class="row content-box push-both">
-    <section class="column c4 pad stars-bg borders push-next">
-        <h2 class="row heading3 content-end">
-            <span class="greedy">Node Pool Resources</span>
-            <a class="link" data-bind="
-                text: nodePoolsCount,
-                href: { route: 'pools', params: { tab: 'pools' } }
-            "></a>
-        </h2>
-        <hr>
-        <nodes-summary class="greedy"></nodes-summary>
-        <button class="btn overview-btn" data-bind="
-            click: () => showInstallNodeModal()
-        ">
-            Install Nodes
-        </button>
-    </section>
-
+    <pools-overview class="column c4 push-next"></pools-overview>
     <section class="column c4 push-both">
-        <div class="column pad push-next borders greedy">
-            <h2 class="row heading3 content-end">
-                <span class="greedy">Cloud Resources</span>
-                <a class="link" data-bind="
-                    text: cloudResourceCount,
-                    href: { route: 'pools', params: { tab: 'cloud' } }
-                "></a>
-            </h2>
-            <hr>
-            <cloud-summary class="greedy"></cloud-summary>
-        </div>
-
-        <div class="pad push-next borders greedy">
-            <h2 class="heading3 row content-middle">
-                <span class="greedy">Cluster</span>
-                <a class="link" data-bind="
-                    text: serverCount,
-                    href: { route: 'cluster' }
-                "></a>
-            </h2>
-            <hr>
-        </div>
-
-        <div class="pad greedy borders greedy">
-            <h2 class="heading3 row content-middle">
-                <span class=" greedy">System Health</span>
-
-                <svg-icon class="icon-small" params="name: 'question'"></svg-icon>
-            </h2>
-            <hr>
-        </div>
+        <cloud-overview class="column c4"></cloud-overview>
+        <cluster-overview class="column c4 push-both"></cluster-overview>
+        <system-health class="column c4"></system-health>
     </section>
-
-    <section class="column c4 pad stars-bg borders push-prev">
-        <h2 class="heading3 row content-middle">
-            <span class="greedy">Data Buckets</span>
-            <a class="link" data-bind="
-                text: bucketCount,
-                href: { route: 'buckets' }
-            "></a>
-        </h2>
-        <hr>
-        <storage-usage-summary class="greedy"></storage-usage-summary>
-
-        <button class="btn overview-btn" data-bind="
-            click: () => showConnectApplicationWizard()
-        ">
-            Connect Application
-        </button>
-    </section>
+    <buckets-overview class="column c4 push-prev"></buckets-overview>
 </div>
-
- <!-- ko if: isInstallNodeModalVisible -->
-<install-node-modal params="onClose: () => hideInstallNodeModal()">
-</install-node-modal>
-<!-- /ko -->
-
-<!-- ko if: isConnectApplicationWizardVisible -->
-<connect-app-wizard params="onClose: () => hideConnectApplicationWizard()">
-</connect-app-wizard>
-<!-- /ko -->

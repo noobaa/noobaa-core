@@ -320,7 +320,7 @@ Section "uninstall"
 	Var /global cmdparams
 	;The /c parameter means terminate at the end of execution of the command
 	;We just spawn NodeJS script that will delete agent_storage from all drives
-	StrCpy $cmdparams '/k ""$INSTDIR\node.exe" "$INSTDIR\src\agent\agent_uninstall.js" --remove_agent_storage"'
+	StrCpy $cmdparams '/c ""$INSTDIR\node.exe" "$INSTDIR\src\agent\agent_uninstall.js" --remove_agent_storage"'
 	;Exec wait means that will we wait until the completion of the command
 	ExecWait 'cmd.exe $cmdparams'
 	;nsExec::ExecToStack 'NooBaa_Agent_wd stop "Noobaa Local Service" >> "$INSTDIR\uninstall.log"'

@@ -286,7 +286,7 @@ AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
                     ' /grant:r administrators:F' +
                     ' /grant:r system:F' +
                     ' /remove:g BUILTIN\\Users' +
-                    ' /inheritance:r');
+                    ' /inheritance:e');
             });
     }
 };

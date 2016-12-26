@@ -1,0 +1,14 @@
+<chart-legend params="items: chartValues">
+</chart-legend>
+<div class="nodes-chart column push-both content-middle">
+    <pie-chart class="push-next" params="
+        values: chartValues,
+        primaryText: nodeCountText,
+        secondaryText: 'Total'
+    "></pie-chart>
+
+    <p class="remark highlight">
+        Total Storage Capacity:
+        <span data-bind="text: systemCapacity"></span>
+    </p>
+</div>

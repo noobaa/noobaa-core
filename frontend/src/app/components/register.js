@@ -45,6 +45,9 @@ export default function register(ko) {
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard').default);
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal').default);
     ko.components.register('storage-usage-summary', require('./overview/storage-usage-summary/storage-usage-summary').default);
+    ko.components.register('nodes-summary', require('./overview/nodes-summary/nodes-summary').default);
+    ko.components.register('cloud-summary', require('./overview/cloud-summary/cloud-summary').default);
+    ko.components.register('cluster-summary', require('./overview/cluster-summary/cluster-summary').default);
     /** INJECT:overview **/
 
     // -------------------------------

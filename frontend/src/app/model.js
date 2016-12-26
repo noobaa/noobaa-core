@@ -67,7 +67,7 @@ uploads.lastRequestFileCount = ko.observable(0);
 uploads.stats = ko.pureComputed(
     () => uploads().reduce(
         (stats, upload) => {
-            let { archived, completed, error } = upload;
+            const { archived, completed, error } = upload;
             stats.count += 1;
             stats.uploading += Number(!completed);
             stats.failed += Number(completed && Boolean(error));
@@ -133,30 +133,5 @@ export const createAccountState = ko.observable();
 export const funcInfo = ko.observable();
 export const funcList = ko.observableArray();
 
-
 // Model moke data for pool history
-import { makeArray } from 'utils/core-utils';
-export const poolHistory = ko.pureComputed(
-    () => {
-        const now = Date.now();
-        const hour = 1000 * 60 * 60;
-        const pools = makeArray(6);
-
-        return makeArray(
-            31 * 4,
-            i => ({
-                time_stamp: now - i * 6 * hour,
-                pool_list: pools.map(
-                    name => ({
-                        name: name,
-                        storage: {
-                            unavailable_free: Math.random() * 1024 | 0,
-                            free: Math.random() * 1024 | 0,
-                            used: Math.random() * 1024 | 0
-                        }
-                    })
-                )
-            })
-        );
-    }
-);
+export const systemUsageHistory = ko.observable();

@@ -1,12 +1,13 @@
 import template from './storage-usage-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo, poolHistory } from 'model';
+import { systemInfo, systemUsageHistory } from 'model';
 import { deepFreeze, assignWith, keyBy, interpolateLinear } from 'utils/core-utils';
 import { hexToRgb } from 'utils/color-utils';
 import { formatSize } from 'utils/string-utils';
 import style from 'style';
 import moment from 'moment';
+import { loadSystemUsageHistory } from 'actions';
 
 const now = Date.now();
 const endOfDay = moment(now).add(1, 'day').startOf('day').valueOf();
@@ -52,31 +53,12 @@ const chartDatasets = deepFreeze([
     }
 ]);
 
-function summarizeStorage(storageList) {
-    return storageList.reduce(
-        (sum, item) => assignWith(sum, item, (a, b) => (a || 0) + (b || 0)),
-        {}
-    );
-}
-
 function interpolateSamples(sample0, sample1, time) {
     const dt = (time - sample0.timestamp) / (sample1.timestamp - sample0.timestamp);
     return keyBy(
         chartDatasets,
         ({ key }) => key,
         ({ key }) => interpolateLinear(sample0.storage[key], sample1.storage[key], dt)
-    );
-}
-
-function summarizeSamples(samples) {
-    return samples.map(
-        ({ time_stamp, pool_list }) => {
-            const timestamp = time_stamp;
-            const storage = summarizeStorage(
-                pool_list.map( pool => pool .storage )
-            );
-            return { timestamp, storage };
-        }
     );
 }
 
@@ -121,18 +103,21 @@ class UsageHistoryChartViewModel extends Disposable{
         this.durationOptions = durationOptions;
         this.selectedDuration = ko.observable(durationOptions[0].value);
 
-        const currentUsage = ko.pureComputed(
+        this.currentUsage = ko.pureComputed(
             () => {
                 const pools = systemInfo() ? systemInfo().pools : [];
-                const storageList = pools.map( pool => pool.storage );
-                return summarizeStorage(storageList);
+                return assignWith(
+                    {},
+                    ...pools.map( pool => pool.storage ),
+                    (a, b) => (a || 0) + (b || 0)
+                );
             }
         );
 
-        this.currentUsage = chartDatasets.map(
+        this.legendItems = chartDatasets.map(
             ({ label, color, key }) => {
                 const value = ko.pureComputed(
-                    () => currentUsage()[key]
+                    () => this.currentUsage()[key]
                 ).extend({
                     formatSize: true
                 });
@@ -148,6 +133,8 @@ class UsageHistoryChartViewModel extends Disposable{
         this.chartData = ko.pureComputed(
             () => this.getChartData()
         );
+
+        loadSystemUsageHistory();
     }
 
     getChartOptions() {
@@ -203,7 +190,7 @@ class UsageHistoryChartViewModel extends Disposable{
             tooltips: {
                 mode: 'index',
                 position: 'nearest',
-                backgroundColor: style['color4'],
+                backgroundColor: hexToRgb(style['color4'], .85),
                 multiKeyBackground: 'transparent',
                 caretSize: 7,
                 cornerRadius: gutter / 4,
@@ -243,21 +230,19 @@ class UsageHistoryChartViewModel extends Disposable{
         const start = endOfDay - moment.duration(duration, 'days').asMilliseconds();
         const end = endOfDay;
 
-        const currentSample = {
-            time_stamp: now,
-            pool_list: systemInfo() ? systemInfo().pools : []
-        };
+        const samples = (systemUsageHistory() || []).concat({
+            timestamp: now,
+            storage: this.currentUsage()
+        });
 
-        const samples = [...poolHistory(), currentSample];
-        const summarized  = summarizeSamples(samples);
-        const filtered = filterSamples(summarized, start, end);
+        const filtered = filterSamples(samples, start, end);
         const datasets = chartDatasets.map(
             ({ key, color, fill }) => ({
                 lineTension: 0,
                 borderWidth: 1,
                 borderColor: color,
                 backgroundColor: fill,
-                pointRadius: 0,
+                pointRadius: filtered.length > 1 ? 0 : 1,
                 pointHitRadius: 10,
                 data: filtered.map(
                     ({ timestamp, storage }) => ({

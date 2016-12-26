@@ -8,21 +8,7 @@
             "></a>
         </h2>
         <hr>
-        <chart-legend params="items: nodeChartValue">
-        </chart-legend>
-        <div class="nodes-chart column push-both content-middle">
-            <pie-chart class="push-next" params="
-                values: nodeChartValue,
-                primaryText: nodeCountText,
-                secondaryText: 'Total'
-            "></pie-chart>
-
-            <p class="remark highlight">
-                Total Storage Capacity:
-                <span data-bind="text: systemCapacity"></span>
-            </p>
-        </div>
-
+        <nodes-summary class="greedy"></nodes-summary>
         <button class="btn overview-btn" data-bind="
             click: () => showInstallNodeModal()
         ">
@@ -40,34 +26,7 @@
                 "></a>
             </h2>
             <hr>
-            <div class="row push-prev">
-                <div class="column content-middle greedy">
-                    <svg-icon class="icon-medium push-next"
-                        params="name: awsResourceIcon">
-                    </svg-icon>
-                    <span class="remark highlight" data-bind="
-                        text: awsResourceCount
-                    "></span>
-                </div>
-
-                <div class="column content-middle greedy">
-                    <svg-icon class="icon-medium push-next"
-                        params="name: azureResourceIcon">
-                    </svg-icon>
-                    <span class="remark highlight" data-bind="
-                        text: azureResourceCount
-                    "></span>
-                </div>
-
-                <div class="column content-middle greedy">
-                    <svg-icon  class="icon-medium push-next"
-                        params="name: genericResourceIcon">
-                    </svg-icon>
-                    <span class="remark highlight" data-bind="
-                        text: genericResourceCount
-                    "></span>
-                </div>
-            </div>
+            <cloud-summary class="greedy"></cloud-summary>
         </div>
 
         <div class="pad push-next borders greedy">

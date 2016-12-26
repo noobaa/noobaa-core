@@ -1,12 +1,12 @@
 <div class="row content-middle">
     <span class="greedy push-next">Usage History</span>
-    <toggle-filter class="usage-history-filter" params="
+    <toggle-filter class="duration-chooser" params="
         options: durationOptions,
         selected: selectedDuration
     "></toggle-filter>
 </div>
 
-<chart-legend class="push-next" params="items: currentUsage"></chart-legend>
+<chart-legend class="push-next" params="items: legendItems"></chart-legend>
 
 <chartjs class="greedy push-both" params="
     type: 'line',

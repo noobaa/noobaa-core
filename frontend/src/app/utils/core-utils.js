@@ -179,10 +179,17 @@ export function keyByProperty(array, keyName, valueGenerator) {
     );
 }
 
-export function assignWith(target, source, assignOp = (_, value) => value) {
-    for (const [ key, value ] of entries(source)) {
-        target[key] = assignOp(target[key], value);
+export function assignWith(target, ...sources) {
+    const assignOp = isFunction(last(sources)) ?
+        sources.pop() :
+        (_, value) => value;
+
+    for (const source of sources) {
+        for (const [ key, value ] of entries(source)) {
+            target[key] = assignOp(target[key], value);
+        }
     }
+
     return target;
 }
 

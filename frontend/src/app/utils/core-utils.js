@@ -186,3 +186,6 @@ export function assignWith(target, source, assignOp = (_, value) => value) {
     return target;
 }
 
+export function interpolateLinear(a, b, t) {
+    return a + (b - a) * t;
+}

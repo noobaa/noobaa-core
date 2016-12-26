@@ -1,5 +1,5 @@
 <div class="row content-box push-both">
-<!--     <section class="column c4 pad stars-bg borders push-next">
+    <section class="column c4 pad stars-bg borders push-next">
         <h2 class="row heading3 content-end">
             <span class="greedy">Node Pool Resources</span>
             <a class="link" data-bind="
@@ -89,9 +89,9 @@
             </h2>
             <hr>
         </div>
-    </section> -->
+    </section>
 
-    <section class="column c12 pad stars-bg borders push-prev">
+    <section class="column c4 pad stars-bg borders push-prev">
         <h2 class="heading3 row content-middle">
             <span class="greedy">Data Buckets</span>
             <a class="link" data-bind="
@@ -100,19 +100,7 @@
             "></a>
         </h2>
         <hr>
-        <div class="row content-middle">
-            <span class="greedy push-next">Usage History</span>
-            <toggle-filter class="usage-history-filter" params="
-                options: storageHistoryDurationOptions,
-                selected: selectedStorageHistoryDuration
-            "></toggle-filter>
-        </div>
-        <chart-legend class="push-next" params="items: storageSummary"></chart-legend>
-        <chartjs class="greedy push-both" params="
-            type: 'line',
-            data: storageHistoryChartData,
-            options: storageHistoryChartOptions
-        "></chartjs>
+        <storage-usage-summary class="greedy"></storage-usage-summary>
 
         <button class="btn overview-btn" data-bind="
             click: () => showConnectApplicationWizard()

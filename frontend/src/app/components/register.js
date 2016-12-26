@@ -28,22 +28,23 @@ export default function register(ko) {
     // -------------------------------
     // Login
     // -------------------------------
-    ko.components.register('login-layout',              require('./login/login-layout/login-layout').default);
-    ko.components.register('signin-form',               require('./login/signin-form/signin-form').default);
-    ko.components.register('create-system-form',        require('./login/create-system-form/create-system-form').default);
-    ko.components.register('unsupported-form',          require('./login/unsupported-form/unsupported-form').default);
-    ko.components.register('unable-to-activate-modal',  require('./login/unable-to-activate-modal/unable-to-activate-modal').default);
-    ko.components.register('loading-server-information-from', require('./login/loading-server-information-from/loading-server-information-from').default);
-    ko.components.register('change-password-form', require('./login/change-password-form/change-password-form').default);
+    ko.components.register('login-layout',                      require('./login/login-layout/login-layout').default);
+    ko.components.register('signin-form',                       require('./login/signin-form/signin-form').default);
+    ko.components.register('create-system-form',                require('./login/create-system-form/create-system-form').default);
+    ko.components.register('unsupported-form',                  require('./login/unsupported-form/unsupported-form').default);
+    ko.components.register('unable-to-activate-modal',          require('./login/unable-to-activate-modal/unable-to-activate-modal').default);
+    ko.components.register('loading-server-information-from',   require('./login/loading-server-information-from/loading-server-information-from').default);
+    ko.components.register('change-password-form',              require('./login/change-password-form/change-password-form').default);
     /** INJECT:login **/
 
     // -------------------------------
     // Overview
     // -------------------------------
     ko.components.register('overview-panel',        require('./overview/overview-panel/overview-panel').default);
-    ko.components.register('install-node-modal',   require('./overview/install-node-modal/install-node-modal').default);
+    ko.components.register('install-node-modal',    require('./overview/install-node-modal/install-node-modal').default);
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard').default);
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal').default);
+    ko.components.register('storage-usage-summary', require('./overview/storage-usage-summary/storage-usage-summary').default);
     /** INJECT:overview **/
 
     // -------------------------------

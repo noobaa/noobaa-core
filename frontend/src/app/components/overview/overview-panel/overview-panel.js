@@ -8,8 +8,7 @@ import { stringifyAmount } from 'utils/string-utils';
 import { hexToRgb } from 'utils/color-utils';
 import moment from 'moment';
 
-const now = Date.now();
-const endOfToday = moment(now).add(1, 'day').startOf('day').valueOf();
+const endOfToday = moment().add(1, 'day').startOf('day').valueOf();
 
 const storageHistoryDurationOptions = deepFreeze([
     {
@@ -197,137 +196,10 @@ class OverviewPanelViewModel extends Disposable {
             }
         );
 
-        this.storageSummary = [
-            {
-                label: 'Used',
-                value: '640TB'
-            },
-            {
-                label: 'Unavailable',
-                value: '80TB'
-            },
-            {
-                label: 'Free',
-                value: '1.9TB'
-            }
-        ];
-
-        this.storageHistoryDurationOptions = storageHistoryDurationOptions;
-        this.selectedStorageHistoryDuration = ko.observable(
-            storageHistoryDurationOptions[0].value
-        );
-
-        this.storageHistoryChartOptions = ko.pureComputed(
-            () => this._storageHistoryChartOptions()
-        );
-
-        this.storageHistoryChartData = ko.pureComputed(
-            () => this._storageHistoryChartDatasets()
-        );
-
         this.isInstallNodeModalVisible = ko.observable(false);
         this.isConnectApplicationWizardVisible = ko.observable(false);
     }
 
-    _storageHistoryChartOptions() {
-        const duration = this.selectedStorageHistoryDuration();
-        const start = endOfToday - moment.duration(duration, 'day').milliseconds();
-        const end = endOfToday;
-
-        return {
-            padding: 0,
-            maintainAspectRatio: false,
-            legend: {
-                display: false
-            },
-            scales: {
-                xAxes: [
-                    {
-                        type: 'linear',
-                        position: 'bottom',
-                        gridLines: {
-                            color: style['color15']
-                        },
-                        ticks: {
-                            callback: i => moment(i).format('D MMM'),
-                            maxTicksLimit: 10000,
-                            min: start,
-                            max: end,
-                            stepSize: 24 * 60 * 60 * 1000,
-                            fontColor: style['color7'],
-                            fontFamily: style['font-family1'],
-                            fontSize: 8,
-                            maxRotation: 0
-                        }
-                    }
-                ],
-                yAxes: [
-                    {
-                        stacked: true,
-                        gridLines: {
-                            color: style['color15']
-                        },
-                        ticks: {
-                            fontColor: style['color7'],
-                            fontFamily: style['font-family1'],
-                            fontSize: 8,
-                            maxRotation: 0
-                        }
-                    }
-                ]
-            }
-        };
-    }
-
-    _storageHistoryChartDatasets() {
-        const sets = storageHistoryChartSets;
-        const duration = this.selectedStorageHistoryDuration();
-        const start = endOfToday - moment.duration(duration, 'day').milliseconds();
-        const end = endOfToday;
-
-        const sorted = poolHistory().sort(
-            (s1, s2) => s1.time_stamp - s2.time_stamp
-        );
-
-        const filtered = [];
-        for (const sample of sorted) {
-            if (sample.time_stamp <= start) {
-                filtered[0] = sample;
-            } else {
-                filtered.push(sample);
-                if (end <= sample.time_stamp) break;
-            }
-        }
-
-        const compacted = filtered.map(
-            ({ time_stamp, pool_list }) => ({
-                timestamp: clamp(time_stamp, start, end),
-                storage: pool_list.reduce(
-                    (sum, pool) => assignWith(sum, pool.storage, (v1, v2) => v1 + v2),
-                    keyBy(sets, set => set.name, () => 0)
-                )
-            })
-        );
-
-        const datasets = sets.map(
-            ({ name, color, fill }) => ({
-                lineTension: 0,
-                borderWidth: 1,
-                borderColor: color,
-                backgroundColor: fill,
-                pointRadius: 1,
-                pointHitRadius: 10,
-                data: compacted.map(
-                    ({ timestamp, storage }) => ({
-                        x: timestamp,
-                        y: storage[name]
-                    })
-                )
-            })
-        );
-
-        return { datasets };
-    }
 
     showInstallNodeModal() {
         this.isInstallNodeModalVisible(true);

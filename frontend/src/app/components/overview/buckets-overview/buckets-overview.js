@@ -153,6 +153,7 @@ class BucketsOverviewViewModel extends Disposable{
         const gutter = parseInt(style['gutter']);
 
         return {
+            responsive: true,
             padding: 0,
             maintainAspectRatio: false,
             legend: {

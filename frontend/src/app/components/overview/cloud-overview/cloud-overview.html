@@ -10,8 +10,9 @@
     <div class="row push-prev">
         <div class="column content-middle greedy">
             <svg-icon class="icon-medium push-next"
-                params="name: awsResourceIcon">
-            </svg-icon>
+                params="name: awsResourceIcon"
+                data-bind="tooltip: 'AWS S3 resources'"
+            ></svg-icon>
             <span class="remark highlight" data-bind="
                 text: awsResourceCount
             "></span>
@@ -19,8 +20,9 @@
 
         <div class="column content-middle greedy">
             <svg-icon class="icon-medium push-next"
-                params="name: azureResourceIcon">
-            </svg-icon>
+                params="name: azureResourceIcon"
+                data-bind="tooltip: 'Azure resources'"
+            ></svg-icon>
             <span class="remark highlight" data-bind="
                 text: azureResourceCount
             "></span>
@@ -28,8 +30,9 @@
 
         <div class="column content-middle greedy">
             <svg-icon  class="icon-medium push-next"
-                params="name: genericResourceIcon">
-            </svg-icon>
+                params="name: genericResourceIcon"
+                data-bind="tooltip: 'S3 compatible resources'"
+            ></svg-icon>
             <span class="remark highlight" data-bind="
                 text: genericResourceCount
             "></span>

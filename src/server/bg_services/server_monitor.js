@@ -166,9 +166,9 @@ function _check_ntp() {
 
 function _check_dns_and_phonehome() {
     dbg.log2('_check_dns_and_phonehome');
-    const options = system_store.data.systems[0].phone_home_proxy_address ? {
+    const options = _.isEmpty(system_store.data.systems[0].phone_home_proxy_address) ? undefined : {
         proxy: system_store.data.systems[0].phone_home_proxy_address
-    } : undefined;
+    };
     return phone_home_utils.verify_connection_to_phonehome(options)
         .then(res => {
             switch (res) {
@@ -195,6 +195,9 @@ function _check_dns_and_phonehome() {
                     break;
                 default:
                     break;
+            }
+            if (_.isEmpty(server_conf.dns_servers)) {
+                delete monitoring_status.dns_status;
             }
         })
         .catch(err => dbg.warn('Error when trying to check dns and phonehome status.', err.stack || err));
@@ -232,7 +235,7 @@ function _check_remote_syslog() {
 
 function _check_is_self_in_dns_table() {
     dbg.log2('_check_is_self_in_dns_table');
-    let system_dns = system_store.data.systems[0].base_address && url.parse(system_store.data.systems[0].base_address).hostname;
+    let system_dns = !_.isEmpty(system_store.data.systems[0].base_address) && url.parse(system_store.data.systems[0].base_address).hostname;
     let address = server_conf.owner_address;
     if (_.isEmpty(system_dns) || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
     return net_utils.dns_resolve(system_dns)

@@ -207,7 +207,7 @@ module.exports = {
                 },
                 services_status: {
                     type: 'object',
-                    required: ['dns_status', 'ph_status'],
+                    required: ['ph_status'],
                     properties: {
                         dns_status: {
                             type: 'string',

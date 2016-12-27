@@ -93,6 +93,15 @@ function filterSamples(samples, start, end) {
         };
     }
 
+    // This is a check and a fix for the problem if that one sample
+    // that is all zeros creates a wired graph (issue #2433)
+    if (filtered.length === 1) {
+        const { free, unavailable_free, used } = filtered[0].storage;
+        if (free === 0 && unavailable_free === 0 && used === 0) {
+            return [];
+        }
+    }
+
     return filtered;
 }
 

@@ -753,15 +753,12 @@ function update_base_address(req) {
             const db_update = {
                 _id: req.system._id,
             };
-            const hostname = url.parse(req.rpc_params.base_address).hostname;
-            // Updating base address should only be used to set dns name.
-            // If an IP is sent we assume it's the server address and unset the field
-            if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
+            if (db_update.base_address) {
+                db_update.base_address = req.rpc_params.base_address.toLowerCase();
+            } else {
                 db_update.$unset = {
                     base_address: 1
                 };
-            } else {
-                db_update.base_address = req.rpc_params.base_address.toLowerCase();
             }
             return system_store.make_changes({
                 update: {
@@ -778,7 +775,7 @@ function update_base_address(req) {
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
-                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
+                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address || 'server IP'}`,
             });
         });
 }
@@ -935,7 +932,9 @@ function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
 
-    req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
+    if (req.rpc_params.hostname) {
+        req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
+    }
 
     return P.resolve()
         .then(() => {

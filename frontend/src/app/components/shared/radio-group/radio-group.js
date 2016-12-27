@@ -21,7 +21,7 @@ class RadioGroupViewModel extends Disposable {
         this.layoutClass = multiline ? 'column' : 'row';
 
         this.options = ko.pureComputed(
-            () => ko.deepUnwrap(options).map(
+            () => ko.unwrap(options).map(
                 opt => {
                     const { value = opt, label = value } = opt;
                     return { value, label };

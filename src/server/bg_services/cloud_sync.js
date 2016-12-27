@@ -334,8 +334,11 @@ function load_single_policy(bucket_id, system_id) {
     //Cache Configuration, S3 Objects and empty work lists
     const bucket = _.find(system_store.data.buckets, candidate_bucket =>
         (bucket_id.toString() === candidate_bucket._id.toString()));
+    if (!system_id && (!bucket || !bucket.system)) {
+        throw new Error('Attempt to load a policy without system');
+    }
     const policy_id = {
-        sysid: system_id || (bucket && bucket.system && bucket.system._id && bucket.system._id.toString()),
+        sysid: system_id || (bucket && bucket.system._id.toString()),
         bucketid: bucket_id.toString()
     };
     if (!bucket || !bucket.cloud_sync) {

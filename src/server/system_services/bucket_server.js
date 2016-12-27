@@ -497,7 +497,7 @@ function set_cloud_sync(req) {
         access_keys: {
             access_key: connection.access_key,
             secret_key: connection.secret_key,
-            account_id: req.account._id.toString()
+            account_id: req.account._id
         },
         schedule_min: js_utils.default_value(req.rpc_params.policy.schedule_min, 60),
         last_sync: new Date(0),
@@ -506,8 +506,8 @@ function set_cloud_sync(req) {
         n2c_enabled: js_utils.default_value(req.rpc_params.policy.n2c_enabled, true),
         additions_only: js_utils.default_value(req.rpc_params.policy.additions_only, false)
     };
-
     return system_store.make_changes({
+
             update: {
                 buckets: [{
                     _id: bucket._id,
@@ -576,7 +576,6 @@ function update_cloud_sync(req) {
         throw new RpcError('INVALID_REQUEST', 'Bucket has no cloud sync policy configured');
     }
     var updated_policy = {
-        _id: bucket._id,
         cloud_sync: Object.assign({}, bucket.cloud_sync, req.rpc_params.policy)
     };
 
@@ -600,9 +599,16 @@ function update_cloud_sync(req) {
         should_resync = should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
     }
 
+    const db_updates = {
+        _id: bucket._id
+    };
+
+    Object.keys(req.rpc_params.policy).forEach(key => {
+        db_updates['cloud_sync.' + key] = req.rpc_params.policy[key];
+    });
     return system_store.make_changes({
             update: {
-                buckets: [updated_policy]
+                buckets: [db_updates]
             }
         })
         .then(function() {
@@ -672,7 +678,7 @@ function toggle_cloud_sync(req) {
             update: {
                 buckets: [{
                     _id: bucket._id,
-                    cloud_sync: cloud_sync
+                    'cloud_sync.paused': cloud_sync
                 }]
             }
         })

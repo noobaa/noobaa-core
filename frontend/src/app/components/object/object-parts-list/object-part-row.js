@@ -6,17 +6,17 @@ const partStateIcons = Object.freeze({
     available: {
         name: 'healthy',
         css: 'success',
-        tooltip: 'available'
+        tooltip: 'Available'
     },
     building:  {
         name: 'working',
         css: 'warning',
-        tooltip: 'in process'
+        tooltip: 'In process'
     },
     unavailable: {
         name: 'problem',
         css: 'error',
-        tooltip: 'unavailable'
+        tooltip: 'Unavailable'
     }
 });
 
@@ -28,7 +28,7 @@ class BlockRowViewModel extends Disposable {
 
         this.stateIcon = {
             name: online ? 'healthy' : 'problem',
-            tooltip: online ? 'healthy' : 'problem',
+            tooltip: online ? 'Healthy' : 'Problem',
             css: online ? 'success' : 'error'
         };
         this.label = `Replica ${index + 1} of ${count} ${in_cloud_pool ? '(cloud replica)' : ''}`;

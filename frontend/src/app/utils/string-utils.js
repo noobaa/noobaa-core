@@ -115,6 +115,10 @@ export function pluralize(word, amount) {
     return `${word}${amount === 1 ? '' : 's'}`;
 }
 
-export function stringifyAmount(subject, amount) {
-    return `${amount} ${pluralize(subject, amount)}`;
+export function stringifyAmount(subject, amount, zeroMoniker = '0') {
+    return `${
+        amount > 0 ? amount : zeroMoniker
+    } ${
+        pluralize(subject, amount)
+    }`;
 }

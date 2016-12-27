@@ -6,6 +6,7 @@ import style from 'style';
 import { deepFreeze, makeArray } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { drawLine, fillCircle } from 'utils/canvas-utils';
+import { getClusterStatus } from 'utils/cluster-utils';
 
 const faultToleranceTooltip = `
     The number of servers the can disconnect before the clsuter will stop R/W
@@ -52,36 +53,6 @@ const statusMapping = deepFreeze({
     }
 });
 
-// Check if server has issues.
-function serverHasIssues(server, systemVersion) {
-    const { version, services_status = {} } = server;
-
-    if (version !== systemVersion) {
-        return true;
-    }
-
-    const { dns_servers } = services_status;
-    if (dns_servers && dns_servers !== 'OPERATIONAL') {
-        return true;
-    }
-
-    const { dns_name_resolution } = services_status;
-    if (dns_name_resolution && dns_name_resolution !== 'OPERATIONAL') {
-        return true;
-    }
-
-    const { ntp_server } = services_status;
-    if (ntp_server && ntp_server !== 'OPERATIONAL') {
-        return true;
-    }
-
-    const { cluster_communication = {} } = services_status;
-    const { test_completed, results = [] } = cluster_communication;
-    return test_completed && results.some(
-        ({ status }) => status !== 'OPERATIONAL'
-    );
-}
-
 class ClusterSummaryViewModel extends Disposable{
     constructor() {
         super();
@@ -101,24 +72,20 @@ class ClusterSummaryViewModel extends Disposable{
 
         const connected = ko.pureComputed(
             () => servers()
-                .filter(
-                    server => server.status === 'CONNECTED'
-                )
+                .filter( server => server.status === 'CONNECTED' )
                 .length
         );
 
         const pending = ko.pureComputed(
             () => servers()
-                .filter(
-                    server => server.status === 'IN_PROGREES'
-                ).length
+                .filter( server => server.status === 'IN_PROGREES' )
+                .length
         );
 
         const disconnected = ko.pureComputed(
             () => servers()
-                .filter(
-                    server => server.status === 'DISCONNECTED'
-                ).length
+                .filter( server => server.status === 'DISCONNECTED' )
+                .length
         );
 
         const faultTolerance = ko.pureComputed(
@@ -130,29 +97,9 @@ class ClusterSummaryViewModel extends Disposable{
         );
 
         const status = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return 'UNHEALTHY';
-                }
-
-                if (connected() < this.minForReadWrite()) {
-                    return 'UNHEALTHY';
-                }
-
-                const systemVersion = systemInfo().version;
-                const issueCount = servers()
-                    .filter(
-                        server => server.status === 'CONNECTED' &&
-                            serverHasIssues(server, systemVersion)
-                    )
-                    .length;
-
-                if (issueCount > connected() / 2) {
-                    return 'WITH_ISSUES';
-                }
-
-                return 'HEALTHY';
-            }
+            () => systemInfo() ?
+                getClusterStatus(systemInfo().cluster, systemInfo().version) :
+                'UNHEALTHY'
         );
 
         this.statusText = ko.pureComputed(

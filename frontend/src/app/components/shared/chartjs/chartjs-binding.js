@@ -5,22 +5,26 @@ const { domData, domNodeDisposal } = ko.utils;
 const dataKey = 'chartjs';
 
 ko.bindingHandlers.chartjs = {
-    init: function(element, valueAccessor) {
-        let  config = ko.unwrap(valueAccessor());
-        let  chart = new Chart(element, config);
-        domData.set(element, dataKey, chart);
-
+    init: function(canvas) {
         domNodeDisposal.addDisposeCallback(
-            element,
-            () => chart.destroy()
+            canvas,
+            () => {
+                const chart = domData.get(canvas, dataKey);
+                if (chart) chart.destroy();
+            }
         );
     },
 
-    update: function(element, valueAccessor) {
-        let config = ko.unwrap(valueAccessor());
-        let chart = domData.get(element, dataKey);
+    // This update is not optimal if the only change is in the data.
+    // Changes in the type or options must create a new chart from statch.
+    // TODO: Update the code to update the  chart without destorying the it
+    // on data changes.
+    update: function(canvas, valueAccessor) {
+        const config = ko.deepUnwrap(valueAccessor());
 
-        Object.assign(chart.data, config.data);
-        chart.update();
+        const chart = domData.get(canvas, dataKey);
+        if (chart) chart.destroy();
+
+        domData.set(canvas, dataKey, new Chart(canvas, config));
     }
 };

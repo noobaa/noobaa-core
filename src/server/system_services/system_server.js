@@ -753,7 +753,7 @@ function update_base_address(req) {
             const db_update = {
                 _id: req.system._id,
             };
-            if (db_update.base_address) {
+            if (req.rpc_params.base_address) {
                 db_update.base_address = req.rpc_params.base_address.toLowerCase();
             } else {
                 db_update.$unset = {
@@ -932,7 +932,7 @@ function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
 
-    if (req.rpc_params.hostname) {
+    if (req.rpc_params.hostname !== null) {
         req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
     }
 

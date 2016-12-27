@@ -748,13 +748,26 @@ function update_n2n_config(req) {
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
     var prior_base_address = req.system && req.system.base_address;
-    return system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: req.system._id,
-                    base_address: req.rpc_params.base_address.toLowerCase()
-                }]
+    return P.resolve()
+        .then(() => {
+            const db_update = {
+                _id: req.system._id,
+            };
+            const hostname = url.parse(req.rpc_params.base_address).hostname;
+            // Updating base address should only be used to set dns name.
+            // If an IP is sent we assume it's the server address and unset the field
+            if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
+                db_update.$unset = {
+                    base_address: 1
+                };
+            } else {
+                db_update.base_address = req.rpc_params.base_address.toLowerCase();
             }
+            return system_store.make_changes({
+                update: {
+                    systems: [db_update]
+                }
+            });
         })
         .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token

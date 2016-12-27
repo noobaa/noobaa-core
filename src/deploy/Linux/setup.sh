@@ -7,7 +7,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-if [ "$1" == "upgrade" ]; then
+if [ "$1" != "upgrade" ]; then
     if [ ! -d "/usr/local/noobaa" ]; then
         if [[ $# -lt 2 ]]; then
             echo "usage: noobaa-setup /S /Config <configuration string>"

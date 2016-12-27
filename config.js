@@ -95,7 +95,7 @@ config.LIFECYCLE_INTERVAL = 15 * 60 * 1000;
 
 config.STATISTICS_COLLECTOR_ENABLED = true;
 config.STATISTICS_COLLECTOR_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
-config.STATISTICS_COLLECTOR_EXPIRATION = 30 * 24 * 60 * 60 * 1000; // 1 month
+config.STATISTICS_COLLECTOR_EXPIRATION = 31 * 24 * 60 * 60 * 1000; // 1 month
 
 //////////////////
 // DEBUG CONFIG //

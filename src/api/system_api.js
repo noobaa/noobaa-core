@@ -337,7 +337,11 @@ module.exports = {
                 required: ['hostname'],
                 properties: {
                     hostname: {
-                        type: 'string'
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'string'
+                        }]
                     }
                 }
             },

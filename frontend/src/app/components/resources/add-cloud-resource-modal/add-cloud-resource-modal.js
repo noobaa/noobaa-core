@@ -3,6 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, createCloudResource } from 'actions';
+import nameValidationRules from 'name-validation-rules';
 import { deepFreeze } from 'utils/core-utils';
 
 const addConnectionOption = deepFreeze({
@@ -112,26 +113,22 @@ class AddCloudResourceModalViewModel extends Disposable {
 
         this.resourceName = ko.observableWithDefault(
             () => {
-                const base = this.targetBucket();
                 let i = 0;
+                let name = this.targetBucket();
 
-                let name = base;
-                while (namesInUse().includes(name)) {
-                    name = `${base}-${++i}`;
+                while(namesInUse().includes(name)) {
+                    name = `${this.targetBucket()}-${++i}`;
                 }
 
                 return name;
             }
         )
             .extend({
-                required: {
-                    onlyIf: this.targetBucket,
-                    message: 'Please select a name for the resource'
-                },
-                notIn: {
-                    params: namesInUse,
-                    message: 'This name is already in use by another resource'
-                }
+                validation: nameValidationRules(
+                    'resoruce',
+                    namesInUse,
+                    this.targetBucket
+                )
             });
 
         this.isAddCloudConnectionModalVisible = ko.observable(false);

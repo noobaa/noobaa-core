@@ -210,10 +210,11 @@ class Agent {
         this.rpc.set_disconnected_state(true);
         this.rpc_address = '';
         this._start_stop_server();
-        // reset the n2n config to close any open ports
-        this.n2n_agent.update_n2n_config({
-            tcp_permanent_passive: false
-        });
+        // TODO: for now commented out the update_n2n_config. revisit if needed (issue #2379)
+        // // reset the n2n config to close any open ports
+        // this.n2n_agent.update_n2n_config({
+        //     tcp_permanent_passive: false
+        // });
     }
 
     _update_servers_list(new_list) {
@@ -538,6 +539,7 @@ class Agent {
 
 
     get_agent_info_and_update_masters(req) {
+        if (!this.is_started) return;
         const extended_hb = true;
         const ip = ip_module.address();
         dbg.log0(this.node_name, 'Recieved potential servers list', req.rpc_params.addresses);

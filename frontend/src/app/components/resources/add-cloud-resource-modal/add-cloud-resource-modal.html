@@ -1,10 +1,10 @@
-<modal class="modal-small" params="
+<modal class="modal-medium" params="
     title: 'Add Cloud Resource',
     onClose: () => cancel()
 ">
     <p class="push-next">Use a bucket from a public cloud to serve as a NooBaa storage resource</p>
 
-    <section class="greedy">
+    <section class=" column greedy">
         <editor params="label: 'Target Connection'">
             <dropdown params="
                 placeholder: 'Choose a connection',
@@ -27,14 +27,21 @@
             <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
         </editor>
 
-        <editor params="
+        <editor class="push-next" params="
             label: 'Resource Name',
             disabled: !targetBucket()
         ">
-            <input type="text" placeholder="Choose Name" data-bind="
-                enable: targetBucket,
-                textInput: resourceName
-            "/>
+            <div class="push-next">
+                <input type="text" placeholder="Choose Name" data-bind="
+                    enable: targetBucket,
+                    textInput: resourceName
+                "/>
+            </div>
+            <ul class="bullet-list remark push-prev">
+                <li>Resource names must be between 3-63 chars</li>
+                <li>Must contain only lowercase letters, numbers, periods and hyphens</li>
+                <li>Must start and end with a lowercase letter or number</li>
+            </ul>
         </editor>
     </section>
 

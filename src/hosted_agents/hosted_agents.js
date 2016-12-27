@@ -92,15 +92,13 @@ class HostedAgents {
 
         const write_token = (new_token, token_key) => {
             dbg.log1(`write_token with params: ${new_token}, ${token_key}`);
-            const sys = system_store.data.systems[0];
-            const cloud_info = sys.pools_by_name[cloud_pool.name].cloud_pool_info;
-            cloud_info.agent_info[token_key] = new_token;
+            const db_update = {
+                _id: cloud_pool._id,
+            };
+            db_update['cloud_pool_info.agent_info.' + token_key] = new_token;
             return system_store.make_changes({
                 update: {
-                    pools: [{
-                        _id: cloud_pool._id,
-                        cloud_pool_info: cloud_info
-                    }]
+                    pools: [db_update]
                 }
             });
         };
@@ -123,16 +121,14 @@ class HostedAgents {
                     // after upgrade of systems with old cloud_resources we will have a node_token but not create_node_token
                     // in that case we just want to add a new create_node_token
                     const existing_token = cloud_info.agent_info ? cloud_info.agent_info.node_token : null;
-                    const agent_info = {
-                        create_node_token: token,
-                        node_token: existing_token || token
-                    };
-                    cloud_info.agent_info = agent_info;
                     return system_store.make_changes({
                         update: {
                             pools: [{
                                 _id: cloud_pool._id,
-                                cloud_pool_info: cloud_info
+                                'cloud_pool_info.agent_info': {
+                                    create_node_token: token,
+                                    node_token: existing_token || token
+                                }
                             }]
                         }
                     });

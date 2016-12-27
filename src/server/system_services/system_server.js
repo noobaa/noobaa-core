@@ -748,13 +748,23 @@ function update_n2n_config(req) {
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
     var prior_base_address = req.system && req.system.base_address;
-    return system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: req.system._id,
-                    base_address: req.rpc_params.base_address.toLowerCase()
-                }]
+    return P.resolve()
+        .then(() => {
+            const db_update = {
+                _id: req.system._id,
+            };
+            if (req.rpc_params.base_address) {
+                db_update.base_address = req.rpc_params.base_address.toLowerCase();
+            } else {
+                db_update.$unset = {
+                    base_address: 1
+                };
             }
+            return system_store.make_changes({
+                update: {
+                    systems: [db_update]
+                }
+            });
         })
         .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token
@@ -765,7 +775,7 @@ function update_base_address(req) {
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
-                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
+                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address || 'server IP'}`,
             });
         });
 }
@@ -922,7 +932,9 @@ function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
 
-    req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
+    if (req.rpc_params.hostname !== null) {
+        req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
+    }
 
     return P.resolve()
         .then(() => {

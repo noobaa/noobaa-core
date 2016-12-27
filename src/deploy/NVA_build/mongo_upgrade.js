@@ -603,10 +603,9 @@ function add_account_id_to_cloud_sync() {
 function add_credentials_to_missing_account_id(credentials) {
     if (credentials &&
         credentials.access_keys &&
-        credentials.access_keys.access_key) {
-        credentials.access_keys.account_id = credentials.access_keys.account_id ?
-            credentials.access_keys.account_id.toString() :
-            find_account_id_by_credentials(credentials.access_keys.access_key);
+        credentials.access_keys.access_key &&
+        !credentials.access_keys.account_id) {
+        credentials.access_keys.account_id = find_account_id_by_credentials(credentials.access_keys.access_key);
         return credentials;
     }
 }
@@ -624,7 +623,7 @@ function find_account_id_by_credentials(access_key) {
         var candidate_credentials = account.sync_credentials_cache;
         candidate_credentials.forEach(function(connection) {
             if (connection.access_key === access_key) {
-                ret = account._id.toString();
+                ret = account._id;
             }
         });
     });

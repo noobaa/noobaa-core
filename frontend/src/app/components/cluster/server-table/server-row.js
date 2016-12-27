@@ -46,7 +46,7 @@ export default class ServerRowViewModel extends Disposable {
                 if (status === 'CONNECTED') {
 
                     const issues = Object.values(
-                        getServerIssues(server(), systemInfo())
+                        getServerIssues(server(), systemInfo().version)
                     );
                     if (issues.length > 0) {
                         return Object.assign(

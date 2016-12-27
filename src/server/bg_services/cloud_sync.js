@@ -38,6 +38,12 @@ const CLOUD_SYNC = {
  */
 function background_worker() {
     dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
+
+    if (!system_store.is_finished_initial_load) {
+        dbg.log0('System did not finish initial load');
+        return P.resolve();
+    }
+
     let now = new Date();
     return load_policies()
         .then(() => P.all(_.map(_.filter(CLOUD_SYNC.configured_policies.to_array(), policy =>
@@ -102,8 +108,7 @@ function refresh_policy(req) {
     dbg.log2('refresh policy', req.rpc_params);
     return load_policies()
         .then(() => P.fcall(() =>
-            load_single_policy(_.find(system_store.data.buckets, bucket =>
-                (req.rpc_params.bucketid === bucket._id.toString())), req.rpc_params.system_id)))
+            load_single_policy(req.rpc_params.bucket_id, req.rpc_params.system_id)))
         .return();
 }
 
@@ -131,7 +136,7 @@ function load_policies() {
         .then(() => P.all(
             _.map(system_store.data.buckets, bucket => {
                 if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
-                    return P.fcall(() => load_single_policy(bucket));
+                    return P.fcall(() => load_single_policy(bucket._id));
                 }
                 return P.resolve();
             })))
@@ -325,16 +330,23 @@ function diff_worklists(wl1, wl2, sync_time) {
     };
 }
 
-function load_single_policy(bucket, system_id) {
+function load_single_policy(bucket_id, system_id) {
+    //Cache Configuration, S3 Objects and empty work lists
+    const bucket = _.find(system_store.data.buckets, candidate_bucket =>
+        (bucket_id.toString() === candidate_bucket._id.toString()));
+    if (!system_id && (!bucket || !bucket.system)) {
+        throw new Error('Attempt to load a policy without system');
+    }
+    const policy_id = {
+        sysid: system_id || (bucket && bucket.system._id.toString()),
+        bucketid: bucket_id.toString()
+    };
+    if (!bucket || !bucket.cloud_sync) {
+        return CLOUD_SYNC.configured_policies.delete_policy(policy_id);
+    }
     dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id,
         'bucket', bucket, 'to configured policies');
-    //Cache Configuration, S3 Objects and empty work lists
-    if (!bucket.cloud_sync) {
-        return CLOUD_SYNC.configured_policies.delete_policy({
-            sysid: system_id || bucket.system._id.toString(),
-            bucketid: bucket._id.toString()
-        });
-    }
+    let stored_policy = CLOUD_SYNC.configured_policies.get_policy(policy_id);
 
     var policy = {
         endpoint: bucket.cloud_sync.endpoint,
@@ -359,7 +371,7 @@ function load_single_policy(bucket, system_id) {
         health: true,
         s3rver: null,
         s3cloud: null,
-        status: 'PENDING',
+        status: (stored_policy && stored_policy.status) || 'PENDING',
         work_lists: {
             n2c_added: [],
             n2c_deleted: [],
@@ -404,7 +416,6 @@ function load_single_policy(bucket, system_id) {
         });
 
     }
-    let stored_policy = CLOUD_SYNC.configured_policies.get_policy(policy);
     if (stored_policy) {
         Object.assign(stored_policy, policy);
     } else {
@@ -584,11 +595,7 @@ function update_c2n_worklist(policy) {
 //sync a single file to the cloud
 function sync_single_file_to_cloud(policy, object, target) {
     dbg.log3('sync_single_file_to_cloud', object.key, '->', target + '/' + object.key);
-    if (policy.paused) {
-        dbg.warn('Cloud sync paused mid-sync');
-        policy.status = 'PENDING';
-        return P.resolve();
-    }
+
     const read_request = policy.s3rver.getObject({
         Bucket: policy.bucket.name,
         Key: object.key,
@@ -649,11 +656,6 @@ function sync_single_file_to_cloud(policy, object, target) {
 //sync a single file to NooBaa
 function sync_single_file_to_noobaa(policy, object) {
     dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
-    if (policy.paused) {
-        dbg.warn('Cloud sync paused mid-sync');
-        policy.status = 'PENDING';
-        return P.resolve();
-    }
 
     let download_request = policy.s3cloud.getObject({
         Bucket: policy.target_bucket,

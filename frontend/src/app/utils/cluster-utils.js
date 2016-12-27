@@ -11,8 +11,7 @@ function formatIssueMessage(subject, status, plural = false) {
     }
 }
 
-
-export function getServerIssues(server, systemInfo) {
+export function getServerIssues(server, systemVersion) {
     const { debug_level, services_status = {} } = server;
     const issues = {};
 
@@ -20,7 +19,7 @@ export function getServerIssues(server, systemInfo) {
         issues.debug_level ='Server is in debug mode';
     }
 
-    if (server.version !== systemInfo.version) {
+    if (server.version !== systemVersion) {
         issues.version = 'Server version is not synced with master';
     }
 
@@ -66,3 +65,37 @@ export function getServerIssues(server, systemInfo) {
     return issues;
 }
 
+export function getClusterStatus(cluster, systemVersion) {
+    const { servers } = cluster.shards[0];
+    const connected = servers
+        .filter( server => server.status === 'CONNECTED' )
+        .length;
+
+    if (connected < Math.floor(servers.length / 2) + 1) {
+        return 'UNHEALTHY';
+    }
+
+    const issueCount = servers
+        .filter(
+            server => {
+                if (server.status !== 'CONNECTED') {
+                    return false;
+                }
+
+                const issues = getServerIssues(server, systemVersion);
+                return Boolean(issues.version) ||
+                    Boolean(issues.dns_servers) ||
+                    Boolean(issues.dns_name_resolution) ||
+                    Boolean(issues.ntp_server) ||
+                    Boolean(issues.clusterConnectivity);
+            }
+        )
+        .length;
+
+
+    if (issueCount > connected / 2) {
+        return 'WITH_ISSUES';
+    }
+
+    return 'HEALTHY';
+}

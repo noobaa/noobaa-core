@@ -1,0 +1,39 @@
+<section class="column greedy pad borders">
+    <h2 class="heading3 row content-middle">
+        <span class="greedy">Data Buckets</span>
+        <a class="link" data-bind="
+            text: bucketCount,
+            href: { route: 'buckets' }
+        "></a>
+    </h2>
+    <hr>
+
+    <div class="row content-middle">
+        <span class="greedy push-next">Usage History</span>
+        <toggle-filter class="duration-chooser" params="
+            options: durationOptions,
+            selected: selectedDuration
+        "></toggle-filter>
+    </div>
+
+    <chart-legend class="push-next" params="items: legendItems"></chart-legend>
+
+    <chartjs class="greedy push-both" params="
+        type: 'line',
+        options: chartOptions,
+        data: chartData
+    "></chartjs>
+
+    <button class="btn overview-btn" data-bind="
+        click: () => showConnectApplicationWizard()
+    ">
+        Connect Application
+    </button>
+</section>
+
+
+
+<!-- ko if: isConnectApplicationWizardVisible -->
+<connect-app-wizard params="onClose: () => hideConnectApplicationWizard()">
+</connect-app-wizard>
+<!-- /ko -->

@@ -3,16 +3,16 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { removeCloudSyncPolicy, toogleCloudSync } from 'actions';
-import { bitsToNumber, formatDuration } from 'utils/all';
+import { bitsToNumber } from 'utils/core-utils';
+import { formatDuration } from 'utils/string-utils';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
 const syncStateMapping = Object.freeze({
-    PENDING: 'Sync Pending',
+    PENDING: 'Waiting for sync',
     SYNCING: 'Syncing',
-    PAUSED: 'Sync Paused',
     UNABLE: 'Unable to sync',
-    SYNCED: 'Sync Completed'
+    SYNCED: 'Sync completed'
 });
 
 const directionMapping = Object.freeze({
@@ -25,51 +25,62 @@ class BucketCloudSyncFormViewModel extends Disposable {
     constructor({ bucket }) {
         super();
 
+        const cloudSyncInfo = ko.pureComputed(
+            () => bucket() && bucket().cloud_sync
+        );
+
+        const state = ko.pureComputed(
+            () => cloudSyncInfo() && syncStateMapping[cloudSyncInfo().status]
+        );
+
+        const policy = ko.pureComputed(
+            () => cloudSyncInfo() && cloudSyncInfo().policy
+        );
+
         this.bucketName = ko.pureComputed(
             () => bucket() && bucket().name
         );
 
-        let cloudSyncInfo = ko.pureComputed(
-            () => bucket() && bucket().cloud_sync
-        );
 
         this.hasCloudSync = ko.pureComputed(
             () => Boolean(cloudSyncInfo())
         );
 
         this.isPaused = ko.pureComputed(
-            () => this.hasCloudSync() && cloudSyncInfo().status === 'PAUSED'
+            () => this.hasCloudSync() && policy().paused
         );
 
         this.toggleSyncButtonLabel = ko.pureComputed(
-            () => this.isPaused() ? 'Resume' : 'Pause'
+            () => `${this.isPaused() ? 'Resume' : 'Pause'} Schedule`
         );
 
-        let state = ko.pureComputed(
-            () => cloudSyncInfo() && syncStateMapping[cloudSyncInfo().status]
-        );
-
-        let policy = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().policy
-        );
-
-        let lastSync = ko.pureComputed(
+        const lastSync = ko.pureComputed(
             () => {
-                if (!cloudSyncInfo() || cloudSyncInfo().last_sync == 0) {
+                if (!this.hasCloudSync()){
                     return 'N/A';
                 }
 
-                return moment(cloudSyncInfo().last_sync).format(timeFormat);
+                const { last_sync } = cloudSyncInfo();
+                if (!last_sync) {
+                    return 'No previous sync';
+                }
+
+                return moment(last_sync).format(timeFormat);
             }
         );
 
-        let nextSync = ko.pureComputed(
+        const nextSync = ko.pureComputed(
             () => {
-                if (!this.hasCloudSync() ||
-                    this.isPaused() ||
-                    cloudSyncInfo().last_sync == 0
-                ) {
+                if (!this.hasCloudSync()){
                     return 'N/A';
+                }
+
+                if (this.isPaused()) {
+                    return '<span class="warning">Paused by user</span>';
+                }
+
+                if (cloudSyncInfo().status === 'PENDING') {
+                    return 'In a few moments';
                 }
 
                 return moment(cloudSyncInfo().last_sync)
@@ -79,47 +90,74 @@ class BucketCloudSyncFormViewModel extends Disposable {
         );
 
         this.statusDetails = [
-            { label: 'Sync Status', value: state },
-            { label: 'Last sync', value: lastSync },
-            { label: 'Next Sync', value: nextSync }
+            {
+                label: 'Sync Status',
+                value: state
+            },
+            {
+                label: 'Last sync',
+                value: lastSync
+            },
+            {
+                label: 'Next Scheduled Sync',
+                value: nextSync
+            }
         ];
 
-        let endpoint = ko.pureComputed(
+        const endpoint = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().endpoint
         );
 
-        let accessKey = ko.pureComputed(
+        const accessKey = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().access_key
         );
 
-        let targetBucket = ko.pureComputed(
+        const targetBucket = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().target_bucket
         );
 
         this.connectionDetails = [
-            { label: 'Endpoint', value: endpoint },
-            { label: 'Access key', value: accessKey },
-            { label: 'Target bucket', value: targetBucket }
+            {
+                label: 'Endpoint',
+                value: endpoint
+            },
+            {
+                label: 'Access key',
+                value: accessKey
+            },
+            {
+                label: 'Target bucket',
+                value: targetBucket
+            }
         ];
 
-        let frequancy = ko.pureComputed(
+        const frequancy = ko.pureComputed(
             () => policy() && `Every ${formatDuration(policy().schedule_min)}`
         );
 
-        let syncDirection = ko.pureComputed(
+        const syncDirection = ko.pureComputed(
             () => policy() && directionMapping[
                 bitsToNumber(policy().c2n_enabled, policy().n2c_enabled)
             ]
         );
 
-        let syncDeletions = ko.pureComputed(
+        const syncDeconstions = ko.pureComputed(
             () => policy() && policy().additions_only ? 'No' : 'Yes'
         );
 
         this.syncPolicy = [
-            { label: 'Frequency', value: frequancy },
-            { label: 'Direction', value: syncDirection },
-            { label: 'Sync Deletions', value: syncDeletions }
+            {
+                label: 'Frequency',
+                value: frequancy
+            },
+            {
+                label: 'Direction',
+                value: syncDirection
+            },
+            {
+                label: 'Sync Deconstions',
+                value: syncDeconstions
+            }
         ];
 
         this.isSetCloudSyncModalVisible = ko.observable(false);

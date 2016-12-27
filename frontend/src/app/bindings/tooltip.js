@@ -132,11 +132,10 @@ export default {
         );
 
         const hover = ko.observable(false);
-
         const paramsSub = params.subscribe(
-            params => (hover() && params.text) ?
-                    showTooltip(target, params) :
-                    hideTooltip()
+            params => hover() && (
+                params.text ? showTooltip(target, params) : hideTooltip()
+            )
         );
 
         const hoverSub = hover

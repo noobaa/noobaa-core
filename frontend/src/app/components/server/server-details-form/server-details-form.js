@@ -56,7 +56,7 @@ class ServerDetailsFormViewModel extends Disposable{
         );
 
         this.issues = ko.pureComputed(
-            () => systemInfo() ? getServerIssues(this.server(), systemInfo()) : {}
+            () => systemInfo() ? getServerIssues(this.server(), systemInfo().version) : {}
         );
 
         this.clock = ko.observableWithDefault(

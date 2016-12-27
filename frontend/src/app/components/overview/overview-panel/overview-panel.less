@@ -1,58 +1,19 @@
 .overview-panel {
-
-    .bounded {
-        max-width: 900px;
-    }
-
-    .left-col {
-        margin-right: 90px;
-    }
-
-    .right-col {
-        margin-left: 90px;
-    }
-
-    .overview-heading {
-        position: relative;
-        border-bottom: 1px solid;
-        transition: color 300ms ease-in-out;
-
-        &:hover {
-            color: @color8;
-        }
-    }
-
-    .seperator {
-        width: 50px;
-        margin: @gutter;
-    }
-
-    .no-left-border {
-        border-left: none;
-    }
-
-    .no-right-border {
-        border-right: none;
+    .content-box {
+        .bounded();
+        height: 100%;
+        max-width: 1150px;
+        max-height: 550px;
+        margin-top: 50px;
     }
 
     .overview-btn {
-        text-transform: uppercase;
         font-size: @font-size4;
+        width :100%;
         padding: @gutter/2;
     }
 
-    .counters {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 420px;
-        margin-bottom: 60px;
-        background-color: fade(@color6, 7%);
-        justify-content: center;
-
-
-        .counter {
-            margin: 0 2 * @gutter;
-        }
+    hr {
+        border-width: 2px;
     }
 }

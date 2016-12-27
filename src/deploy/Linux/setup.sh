@@ -8,6 +8,11 @@ if [ $? -ne 0 ]; then
 fi
 
 if [ ! -d "/usr/local/noobaa" ]; then
+    if [ -f /usr/local/noobaa/agent_conf.json ]; then
+        echo "Agent already installed"
+        exit 1
+    fi
+
     if [[ $# -lt 2 ]]; then
         echo "usage: noobaa-setup /S /Config <configuration string>"
         exit 1
@@ -23,9 +28,6 @@ else
         #if we don't have the config, cleanup
         rm -rf /usr/local/noobaa
         echo "usage: noobaa-setup /S /Config <configuration string>"
-        exit 1
-    else
-        echo "Agent already installed"
         exit 1
     fi
 fi

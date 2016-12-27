@@ -15,17 +15,7 @@
 
         /* Using a before element allow us to set the opacity of the image
         without changing the opacity of the content */
-        &.background-image::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background-size: cover;
-            opacity: .35;
-            z-index: -1;
-
+        &.background-image {
             /*
             https://unsplash.com/license
             https://unsplash.com/collections/136301/space?photo=NORa8-4ohA0

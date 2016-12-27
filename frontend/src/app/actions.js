@@ -5,8 +5,8 @@ import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, deepFreeze, flatMap, httpRequest,
-    httpWaitForResponse, stringifyAmount, toFormData } from 'utils/all';
+    downloadFile, deepFreeze, flatMap, httpRequest, httpWaitForResponse,
+    stringifyAmount, toFormData, assignWith } from 'utils/all';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -148,8 +148,7 @@ export function showOverview() {
             { route: 'system', label: 'Overview' }
         ],
         selectedNavItem: 'overview',
-        panel: 'overview',
-        useBackground: true
+        panel: 'overview'
     });
 }
 
@@ -2063,6 +2062,28 @@ export function regenerateAccountCredentials(email, verificationPassword) {
         .then(loadSystemInfo)
         .done();
 }
+
+export  function loadSystemUsageHistory() {
+    logAction('loadSystemUsageHistory');
+    api.pool.get_pool_history({})
+        .then(
+            history => history.map(
+                ({ time_stamp, pool_list }) => {
+                    const timestamp = time_stamp;
+                    const storage = assignWith(
+                        {},
+                        ...pool_list.map( pool => pool.storage ),
+                        (a, b) => (a || 0) + (b || 0)
+                    );
+
+                    return { timestamp, storage };
+                }
+            )
+        )
+        .then(model.systemUsageHistory)
+        .done();
+}
+
 // ------------------------------------------
 // Helper functions:
 // ------------------------------------------

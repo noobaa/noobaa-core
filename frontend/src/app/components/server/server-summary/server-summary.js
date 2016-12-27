@@ -89,7 +89,7 @@ class ServerSummaryViewModel extends Disposable{
                 }
 
                 const issues = Object.values(
-                    getServerIssues(this.server(), systemInfo())
+                    getServerIssues(this.server(), systemInfo().version)
                 );
                 if (issues.length === 1) {
                     return {

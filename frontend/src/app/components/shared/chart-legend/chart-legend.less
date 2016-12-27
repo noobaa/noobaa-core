@@ -1,5 +1,6 @@
 chart-legend {
     display: block;
+    min-width: 256px;
 
     .legend-caption {
         margin-bottom: @gutter/2;
@@ -9,6 +10,9 @@ chart-legend {
         margin: @gutter/2 0;
         line-height: 1;
         font-size: @font-size2;
+        display: flex;
+        flex-direction: row;
+
 
         &:before {
             content: '';
@@ -17,26 +21,37 @@ chart-legend {
             vertical-align: middle;
             border-color: inherit;
             margin-right: 4px;
+            height: 0;
+            width: 0;
+            align-self: center;
         }
 
 
         .legend-label {
             display: inline-block;
-            width: 150px;
+            flex-basis: 150px;
         }
 
         .legend-value {
+            text-align: right;
             display: inline-block;
-            width: 68px;
+            flex-grow: 1;
         }
+
     }
 
     &.legend-row {
+        width: auto;
+
         .legend-items {
             .content-middle();
             display: flex;
             flex-direction: row;
             flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: block;
         }
 
         .legend-value {

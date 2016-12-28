@@ -1,9 +1,9 @@
 import template from './object-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
 
-class ObjectSummaryViewModel extends Disposable {
+class ObjectSummaryViewModel extends BaseViewModel {
     constructor({ obj }) {
         super();
 

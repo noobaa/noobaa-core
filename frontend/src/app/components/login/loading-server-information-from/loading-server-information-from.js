@@ -1,9 +1,9 @@
 import template from './loading-server-information-from.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { serverInfo } from 'model';
 
-class LoadingServerInformationFromViewModel extends Disposable{
+class LoadingServerInformationFromViewModel extends BaseViewModel {
     constructor() {
         super();
 

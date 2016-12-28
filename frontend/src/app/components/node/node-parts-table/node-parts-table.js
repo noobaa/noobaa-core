@@ -1,5 +1,5 @@
 import template from './node-parts-table.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/all';
 import PartRowViewModel from './part-row';
@@ -26,7 +26,7 @@ const columns = deepFreeze([
     }
 ]);
 
-class NodePartsViewModel extends Disposable {
+class NodePartsViewModel extends BaseViewModel {
     constructor({ partList }) {
         super();
 

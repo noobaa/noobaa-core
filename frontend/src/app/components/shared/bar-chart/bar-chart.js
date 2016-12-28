@@ -1,5 +1,5 @@
 import template from './bar-chart.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import { deepFreeze, echo, isFunction, clamp, isString } from 'utils/core-utils';
@@ -34,7 +34,7 @@ const namedFormats = deepFreeze({
     percentage: value => numeral(value).format('%')
 });
 
-class BarChartViewModel extends Disposable{
+class BarChartViewModel extends BaseViewModel {
     constructor({ values, options = {} }) {
         super();
 

@@ -1,5 +1,5 @@
 import template from './node-selection-table.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import NodeRowViewModel from './node-row';
 import { deepFreeze } from 'utils/all';
 import ko from 'knockout';
@@ -24,7 +24,7 @@ const columns = deepFreeze([
     'recommended'
 ]);
 
-class NodeSelectionTableViewModel extends Disposable{
+class NodeSelectionTableViewModel extends BaseViewModel {
     constructor({
         caption = 'Select Nodes',
         nodes = [],

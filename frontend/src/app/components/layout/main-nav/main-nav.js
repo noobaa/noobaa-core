@@ -1,5 +1,5 @@
 import template from './main-nav.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { uiState, uploads } from 'model';
 import { deepFreeze, sleep } from 'utils/all';
 import ko from 'knockout';
@@ -55,7 +55,7 @@ const navItems = deepFreeze([
     }
 ]);
 
-class NavMenuViewModel extends Disposable{
+class NavMenuViewModel extends BaseViewModel {
     constructor() {
         super();
 

@@ -1,6 +1,6 @@
 import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
@@ -70,7 +70,7 @@ const compareAccessors = deepFreeze({
     placementPolicy: generatePlacementSortValue
 });
 
-class BucketsTableViewModel extends Disposable {
+class BucketsTableViewModel extends BaseViewModel {
     constructor() {
         super();
 

@@ -1,11 +1,11 @@
 import template from './account-menu.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { sessionInfo } from 'model';
 import { support } from 'config';
 import { signOut } from 'actions';
 
-class AccountMenuViewModel extends Disposable{
+class AccountMenuViewModel extends BaseViewModel {
     constructor() {
         super();
 

@@ -1,4 +1,4 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/all';
 import { deleteCloudResource } from 'actions';
@@ -24,7 +24,7 @@ const serviceIconMapping = deepFreeze({
     }
 });
 
-export default class CloudResourceRowViewModel extends Disposable {
+export default class CloudResourceRowViewModel extends BaseViewModel {
     constructor(resource, resourcesToBuckets, deleteGroup) {
         super();
 

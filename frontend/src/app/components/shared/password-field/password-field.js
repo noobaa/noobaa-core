@@ -1,5 +1,5 @@
 import template from './password-field.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deepFreeze, isFunction, tweenColors } from 'utils/all';
 import style from 'style';
@@ -17,7 +17,7 @@ const iconMapping = deepFreeze({
 
 const barTweenDuration = 250;
 
-class PasswordFieldViewModel extends Disposable{
+class PasswordFieldViewModel extends BaseViewModel {
     constructor({ value, disabled, placeholder = '', strengthCalc}) {
         super();
 

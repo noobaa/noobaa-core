@@ -1,9 +1,9 @@
 import template from './progress-bar.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-class ProgressBarViewModel extends Disposable {
+class ProgressBarViewModel extends BaseViewModel {
     constructor({ progress = 0 }) {
         super();
 

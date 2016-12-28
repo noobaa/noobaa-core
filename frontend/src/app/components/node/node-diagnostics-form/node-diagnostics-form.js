@@ -1,10 +1,10 @@
 import template from './node-diagnostics-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { collectDiagnosticsState } from 'model';
 import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
 
-class NodeDiagnosticsFormViewModel extends Disposable {
+class NodeDiagnosticsFormViewModel extends BaseViewModel {
     constructor({ node }) {
         super();
 

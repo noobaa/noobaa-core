@@ -1,7 +1,7 @@
 import template from './connect-app-wizard.html';
 import selectConnectionSlideTemplate from './select-connection.html';
 import selectAccountSlideTemplate from './select-account.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/all';
@@ -25,7 +25,7 @@ const connectionTypes = deepFreeze([
     }
 ]);
 
-class ConnectApplicationWizardViewModel extends Disposable {
+class ConnectApplicationWizardViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

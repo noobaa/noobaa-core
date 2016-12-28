@@ -1,10 +1,10 @@
 import template from './s3-access-details-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { noop, copyTextToClipboard } from 'utils/all';
 
-class S3AccessDetailsModalViewModel extends Disposable {
+class S3AccessDetailsModalViewModel extends BaseViewModel {
     constructor({ email, onClose = noop }) {
         super();
 

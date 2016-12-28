@@ -1,12 +1,12 @@
 import template from './copy-to-clipboard-button.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { copyTextToClipboard } from 'utils/all';
 
 const copyMessage = 'Copy to Clipboard';
 const copiedMessage = 'Copied';
 
-class CopyToClipboardButtonViewModel extends Disposable {
+class CopyToClipboardButtonViewModel extends BaseViewModel {
     constructor({ value, disabled = false }) {
         super();
         this.value = value;

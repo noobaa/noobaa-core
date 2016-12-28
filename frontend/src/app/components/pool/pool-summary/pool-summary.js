@@ -1,5 +1,5 @@
 import template from './pool-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import moment from 'moment';
@@ -39,7 +39,7 @@ function activityETA(time) {
     return moment(time.end).fromNow();
 }
 
-class PoolSummaryViewModel extends Disposable {
+class PoolSummaryViewModel extends BaseViewModel {
     constructor({ pool }) {
         super();
 

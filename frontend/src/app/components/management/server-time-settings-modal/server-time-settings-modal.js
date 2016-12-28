@@ -1,5 +1,5 @@
 import template from './server-time-settings-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment-timezone';
 import { systemInfo, serverTime } from 'model';
@@ -10,7 +10,7 @@ const configTypes =  Object.freeze([
     { label: 'Network Time (NTP)', value: 'NTP' }
 ]);
 
-class ServerTimeSettingsModalViewModel extends Disposable {
+class ServerTimeSettingsModalViewModel extends BaseViewModel {
     constructor({ serverSecret, onClose }) {
         super();
 

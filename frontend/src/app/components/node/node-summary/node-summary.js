@@ -1,5 +1,5 @@
 import template from './node-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import { deepFreeze, formatSize, bitsToNumber } from 'utils/all';
@@ -61,7 +61,7 @@ const activityNameMapping = deepFreeze({
     DELETING: 'Deleting Node'
 });
 
-class NodeSummaryViewModel extends Disposable {
+class NodeSummaryViewModel extends BaseViewModel {
     constructor({ node }) {
 
         super();

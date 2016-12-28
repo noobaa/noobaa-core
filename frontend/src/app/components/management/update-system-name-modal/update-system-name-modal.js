@@ -1,9 +1,9 @@
 import template from './update-system-name-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { updateHostname } from 'actions';
 import ko from 'knockout';
 
-class UpdatingSystemNameModalViewModel extends Disposable {
+class UpdatingSystemNameModalViewModel extends BaseViewModel {
     constructor({ name, onClose }) {
         super();
 

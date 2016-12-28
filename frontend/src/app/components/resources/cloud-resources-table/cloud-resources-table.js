@@ -1,5 +1,5 @@
 import template from './cloud-resources-table.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
 import { systemInfo, uiState, routeContext } from 'model';
@@ -84,7 +84,7 @@ const compareAccessors = Object.freeze({
     usage: resource => resource.storage.used
 });
 
-class CloudResourcesTableViewModel extends Disposable {
+class CloudResourcesTableViewModel extends BaseViewModel {
     constructor() {
         super();
 

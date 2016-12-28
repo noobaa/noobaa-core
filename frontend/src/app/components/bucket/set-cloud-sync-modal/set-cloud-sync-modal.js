@@ -1,5 +1,5 @@
 import template from './set-cloud-sync-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';
@@ -47,7 +47,7 @@ const allowedServices = deepFreeze([
     'S3_COMPATIBLE'
 ]);
 
-class SetCloudSyncModalViewModel extends Disposable {
+class SetCloudSyncModalViewModel extends BaseViewModel {
     constructor({ bucketName, onClose }) {
         super();
 

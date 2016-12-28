@@ -1,10 +1,10 @@
 import template from './debug-mode-sticky.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { systemInfo } from 'model';
 import { setSystemDebugLevel } from 'actions';
 import ko from 'knockout';
 
-class DebugModeStickyViewModel extends Disposable{
+class DebugModeStickyViewModel extends BaseViewModel {
     constructor() {
         super();
 

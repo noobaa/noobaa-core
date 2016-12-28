@@ -1,12 +1,12 @@
 import template from './maintenance-sticky.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import { systemInfo } from 'model';
 import { exitMaintenanceMode } from 'actions';
 import { pad } from 'utils/all';
 
-class MaintenanceModeStickyViewModel extends Disposable{
+class MaintenanceModeStickyViewModel extends BaseViewModel {
     constructor() {
         super();
 

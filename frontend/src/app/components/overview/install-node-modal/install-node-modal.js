@@ -1,7 +1,7 @@
 import template from './install-node-modal.html';
 import networkInstallationTemplate from './network-installation.html';
 import manualInstallationTemplate from './manual-installation.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { lastSegment } from 'utils/string-utils';
@@ -23,7 +23,7 @@ function getInstallationCommand(mode, os, { pkg, conf, server }) {
     }
 }
 
-class InstallNodeWizardViewModel extends Disposable {
+class InstallNodeWizardViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 
@@ -100,7 +100,7 @@ class InstallNodeWizardViewModel extends Disposable {
     }
 }
 
-// class InstallNodeWizardViewModel extends Disposable {
+// class InstallNodeWizardViewModel extends BaseViewModel {
 //     constructor({ onClose }) {
 //         super();
 

@@ -1,9 +1,9 @@
 import template from './func-code.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { formatSize } from 'utils/all';
 
-class FuncCodeViewModel extends Disposable {
+class FuncCodeViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 

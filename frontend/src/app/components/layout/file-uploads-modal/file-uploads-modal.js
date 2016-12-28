@@ -1,5 +1,5 @@
 import template from './file-uploads-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { uploads } from 'model';
@@ -15,7 +15,7 @@ const columns = deepFreeze([
     'progress'
 ]);
 
-class FileUploadsModalViewModel extends Disposable {
+class FileUploadsModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

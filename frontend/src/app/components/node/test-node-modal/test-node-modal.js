@@ -1,6 +1,6 @@
 import template from './test-node-modal.html';
 import TestRowViewModel from './test-row';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { nodeTestInfo } from 'model';
 import { testNode, abortNodeTest } from 'actions';
@@ -33,7 +33,7 @@ const columns = deepFreeze([
     'progress'
 ]);
 
-class TestNodeModalViewModel extends Disposable {
+class TestNodeModalViewModel extends BaseViewModel {
     constructor({ sourceRpcAddress, onClose }) {
         super();
 

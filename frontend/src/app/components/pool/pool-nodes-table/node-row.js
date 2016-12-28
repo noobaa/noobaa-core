@@ -1,4 +1,4 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils/all';
@@ -34,7 +34,7 @@ const activityStageMapping = deepFreeze({
     WIPING: 'Wiping Data'
 });
 
-export default class NodeRowViewModel extends Disposable {
+export default class NodeRowViewModel extends BaseViewModel {
     constructor(node) {
         super();
 

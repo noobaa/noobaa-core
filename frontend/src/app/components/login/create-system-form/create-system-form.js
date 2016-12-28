@@ -1,5 +1,5 @@
 import template from './create-system-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { validateActivation, attemptResolveSystemName, createSystem } from 'actions';
 import { activationState, nameResolutionState, serverInfo } from 'model';
@@ -12,7 +12,7 @@ const activationFaliureReasonMapping = deepFreeze({
     ACTIVATION_CODE_EMAIL_MISMATCH: 'Email does not match activation code'
 });
 
-class CreateSystemFormViewModel extends Disposable {
+class CreateSystemFormViewModel extends BaseViewModel {
     constructor() {
         super();
 

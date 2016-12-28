@@ -1,9 +1,9 @@
 import template from './delete-button.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { isFunction, noop } from 'utils/all';
 
-class DeleteButtonViewModel extends Disposable {
+class DeleteButtonViewModel extends BaseViewModel {
     constructor({
         subject,
         group = ko.observable(),

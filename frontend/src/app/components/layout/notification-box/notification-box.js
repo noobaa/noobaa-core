@@ -1,11 +1,11 @@
 import template from './notification-box.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { lastNotification } from 'model';
 import { sleep } from 'utils/all';
 import { notificaitons as config } from 'config';
 
-class NotificationBarViewModel extends Disposable {
+class NotificationBarViewModel extends BaseViewModel {
     constructor() {
         super();
 

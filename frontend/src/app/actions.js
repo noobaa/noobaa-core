@@ -1988,7 +1988,7 @@ export function validateActivation(code, email) {
 }
 
 export function attemptResolveSystemName(name) {
-    logAction('attemptResolveServerName', { name });
+    logAction('attemptResolveSystemName', { name });
 
     api.system.attempt_dns_resolve({
         dns_name: name

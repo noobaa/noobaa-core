@@ -1,10 +1,10 @@
 import template from './upgraded-capacity-notification-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { dismissUpgradedCapacityNotification } from 'actions';
 import { realizeUri } from 'utils/all';
 import { asset as assetRoute } from 'routes';
 
-class UpgradedCapacityNotificationModalViewModel extends Disposable {
+class UpgradedCapacityNotificationModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

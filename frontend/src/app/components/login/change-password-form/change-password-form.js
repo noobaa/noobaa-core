@@ -1,11 +1,11 @@
 import template from './change-password-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { resetAccountPassword, signOut, refresh } from 'actions';
 import { sessionInfo, resetPasswordState } from 'model';
 import { calcPasswordStrength } from 'utils/all';
 
-class ChangePasswordFormViewModel extends Disposable{
+class ChangePasswordFormViewModel extends BaseViewModel {
     constructor() {
         super();
 

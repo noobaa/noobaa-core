@@ -1,10 +1,10 @@
 import template from './delete-current-account-warning-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { sessionInfo } from 'model';
 import { deleteAccount } from 'actions';
 
-class DeleteAccountWarningModalViewModel extends Disposable {
+class DeleteAccountWarningModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

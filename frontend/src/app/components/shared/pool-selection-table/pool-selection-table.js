@@ -1,5 +1,5 @@
 import template from './pool-selection-table.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import PoolRowViewModel from './pool-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/all';
@@ -30,7 +30,7 @@ const columns = deepFreeze([
     }
 ]);
 
-class PoolSelectionTableViewModel extends Disposable{
+class PoolSelectionTableViewModel extends BaseViewModel {
     constructor({
         caption = 'Select pools',
         pools = [],

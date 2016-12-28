@@ -1,8 +1,8 @@
 import template from './func-triggers.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-class FuncTriggersViewModel extends Disposable {
+class FuncTriggersViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 

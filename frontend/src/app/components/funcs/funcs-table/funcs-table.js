@@ -1,6 +1,6 @@
 import template from './funcs-table.html';
 import FuncRowViewModel from './func-row';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/all';
 import { funcList } from 'model';
@@ -36,7 +36,7 @@ const columns = deepFreeze([
     }
 ]);
 
-class FuncsTableViewModel extends Disposable {
+class FuncsTableViewModel extends BaseViewModel {
     constructor() {
         super();
 

@@ -1,9 +1,9 @@
 import template from './account-details-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { routeContext, systemInfo, sessionInfo } from 'model';
 
-class AccountDetailsFormViewModel extends Disposable{
+class AccountDetailsFormViewModel extends BaseViewModel {
     constructor() {
         super();
 

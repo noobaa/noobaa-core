@@ -1,9 +1,9 @@
 import template from './account-s3-access-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { routeContext, systemInfo } from 'model';
 
-class AccountS3AccessFormViewModel extends Disposable{
+class AccountS3AccessFormViewModel extends BaseViewModel {
     constructor() {
         super();
 

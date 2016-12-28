@@ -1,6 +1,6 @@
 import template from './audit-pane.html';
 import AuditRowViewModel from './audit-row';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { auditLog } from 'model';
 import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';
@@ -16,7 +16,7 @@ const columns = deepFreeze([
     'entity'
 ]);
 
-class AuditPaneViewModel extends Disposable {
+class AuditPaneViewModel extends BaseViewModel {
     constructor() {
         super();
 

@@ -1,5 +1,5 @@
 import template from './buckets-overview.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo, systemUsageHistory } from 'model';
 import { deepFreeze, assignWith, keyBy, interpolateLinear } from 'utils/core-utils';
@@ -105,7 +105,7 @@ function filterSamples(samples, start, end) {
     return filtered;
 }
 
-class BucketsOverviewViewModel extends Disposable{
+class BucketsOverviewViewModel extends BaseViewModel {
     constructor() {
         super();
 

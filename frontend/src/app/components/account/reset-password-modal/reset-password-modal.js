@@ -1,6 +1,6 @@
 import template from './reset-password-modal.html';
 import passwordResetMessageTemplate from './password-reset-message.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { resetAccountPassword } from 'actions';
 import { resetPasswordState } from 'model';
@@ -20,7 +20,7 @@ const screenTitleMapping = deepFreeze({
     }
 });
 
-class RestPasswordModalViewModel extends Disposable {
+class RestPasswordModalViewModel extends BaseViewModel {
     constructor({ onClose, email }) {
         super();
 

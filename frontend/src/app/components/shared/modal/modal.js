@@ -1,5 +1,5 @@
 import template from './modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { deepFreeze, noop } from 'utils/all';
 import ko from 'knockout';
 
@@ -18,7 +18,7 @@ const severityMapping = deepFreeze({
     }
 });
 
-class ModalViewModel extends Disposable {
+class ModalViewModel extends BaseViewModel {
     constructor({
         title,
         severity,

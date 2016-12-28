@@ -1,5 +1,5 @@
 import template from './unable-to-activate-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { support } from 'config';
 import { serverInfo } from 'model';
@@ -14,7 +14,7 @@ const messages = deepFreeze({
     MALFORMED_RESPONSE: 'Malformed response, this may be the result of using a proxy. Try to configure direct access for the create system process (after activation you can reactivate the proxy)'
 });
 
-class UnableToActivateModalViewModel extends Disposable {
+class UnableToActivateModalViewModel extends BaseViewModel {
     constructor() {
         super();
 

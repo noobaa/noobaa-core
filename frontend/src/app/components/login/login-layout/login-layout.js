@@ -1,11 +1,11 @@
 import template from './login-layout.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { supportedBrowsers} from 'config';
 import { sessionInfo, serverInfo } from 'model';
 import { recognizeBrowser } from 'utils/browser-utils';
 
-class LoginLayoutViewModel extends Disposable {
+class LoginLayoutViewModel extends BaseViewModel {
     constructor() {
         super();
 

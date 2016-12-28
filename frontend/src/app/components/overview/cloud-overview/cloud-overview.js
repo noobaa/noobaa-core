@@ -1,10 +1,10 @@
 import template from './cloud-overview.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { stringifyAmount } from 'utils/string-utils';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 
-class CloudOverviewViewModel extends Disposable{
+class CloudOverviewViewModel extends BaseViewModel {
     constructor() {
         super();
 

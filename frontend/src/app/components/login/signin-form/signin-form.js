@@ -1,10 +1,10 @@
 import template from './signin-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { uiState, loginInfo } from 'model';
 import { signIn } from 'actions';
 
-class SignInFormViewModel extends Disposable {
+class SignInFormViewModel extends BaseViewModel {
     constructor() {
         super();
 

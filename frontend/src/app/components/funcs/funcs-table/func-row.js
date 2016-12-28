@@ -1,10 +1,10 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { stringifyAmount } from 'utils/all';
 import { deleteFunc } from 'actions';
 
 
-export default class FuncRowViewModel extends Disposable {
+export default class FuncRowViewModel extends BaseViewModel {
     constructor(func) {
         super();
 

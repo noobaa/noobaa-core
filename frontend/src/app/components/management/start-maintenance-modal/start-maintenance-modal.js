@@ -1,5 +1,5 @@
 import template from './start-maintenance-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import  { enterMaintenanceMode } from 'actions';
 import { deepFreeze } from 'utils/all';
@@ -15,7 +15,7 @@ const durationUntiOptions = deepFreeze([
     }
 ]);
 
-class StartMaintenanceModalViewModel extends Disposable {
+class StartMaintenanceModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
         this.onClose = onClose;

@@ -1,9 +1,9 @@
 import template from './file-selector.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { noop } from 'utils/all';
 
-class FileSelectorViewModel extends Disposable {
+class FileSelectorViewModel extends BaseViewModel {
     constructor({
         onFilesReady = noop,
         allowMultiSelect = false,

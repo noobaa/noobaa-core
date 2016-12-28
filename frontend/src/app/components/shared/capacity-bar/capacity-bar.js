@@ -1,5 +1,5 @@
 import template from './capacity-bar.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { formatSize } from 'utils/all';
 import style from 'style';
@@ -8,7 +8,7 @@ const minUsedRatio = .03;
 const bgColor = style['color7'];
 const emptyColor = style['color7'];
 
-class CapacityBarViewModel extends Disposable {
+class CapacityBarViewModel extends BaseViewModel {
     constructor({ total, used, color = style['color8'] }) {
         super();
 

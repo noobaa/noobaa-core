@@ -1,11 +1,11 @@
 import template from './welcome-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { sleep } from 'utils/all';
 
 const loadingDelay = 2000;
 
-class WelcomeModalViewModel extends Disposable {
+class WelcomeModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

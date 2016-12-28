@@ -1,5 +1,5 @@
 import template from './bucket-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import { systemInfo } from 'model';
@@ -31,7 +31,7 @@ const availableForWriteTooltip = `This number is calculated according to the
     bucket\'s available storage and the number of replicas defined in its placement
     policy`;
 
-class BucketSummrayViewModel extends Disposable {
+class BucketSummrayViewModel extends BaseViewModel {
     constructor({ bucket }) {
         super();
 

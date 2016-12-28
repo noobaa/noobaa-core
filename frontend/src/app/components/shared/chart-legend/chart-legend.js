@@ -1,5 +1,5 @@
 import template from './chart-legend.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { echo, deepFreeze, isFunction } from 'utils/core-utils';
 import { formatSize } from 'utils/string-utils';
 import ko from 'knockout';
@@ -9,7 +9,7 @@ const namedFormats = deepFreeze({
     size: formatSize
 });
 
-class ChartLegendViewModel extends Disposable{
+class ChartLegendViewModel extends BaseViewModel {
     constructor({
         caption = '',
         items,

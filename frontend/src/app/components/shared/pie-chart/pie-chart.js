@@ -1,5 +1,5 @@
 import template from './pie-chart.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import {  makeArray, deepFreeze } from 'utils/all';
 import style from 'style';
@@ -66,7 +66,7 @@ function normalizeValues(values) {
     );
 }
 
-class PieChartViewModel extends Disposable{
+class PieChartViewModel extends BaseViewModel {
     constructor({
         values = [],
         primaryText = '',

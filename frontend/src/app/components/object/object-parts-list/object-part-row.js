@@ -1,4 +1,4 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { shortString, formatSize } from 'utils/all';
 
@@ -20,7 +20,7 @@ const partStateIcons = Object.freeze({
     }
 });
 
-class BlockRowViewModel extends Disposable {
+class BlockRowViewModel extends BaseViewModel {
     constructor({ adminfo }, index, count) {
         super();
 
@@ -65,7 +65,7 @@ class BlockRowViewModel extends Disposable {
     }
 }
 
-export default class ObjectPartRowViewModel extends Disposable {
+export default class ObjectPartRowViewModel extends BaseViewModel {
     constructor(part, partNumber, partsCount) {
         super();
 

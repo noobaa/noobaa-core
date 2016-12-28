@@ -5,14 +5,17 @@ let crypto = require('crypto');
 let AWS = require('aws-sdk');
 let P = require('../../util/promise');
 
+const accessKeyDefault = '123';
+const secretKeyDefault = 'abc';
+
 // copy_file_with_md5('127.0.0.1', 'files', 'DataSet1470756819/file1', 'DataSet1470756819/file45');
 
 function put_file_with_md5(ip, bucket, file_name, data_size) {
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
-        accessKeyId: '123',
-        secretAccessKey: 'abc',
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
@@ -48,8 +51,8 @@ function copy_file_with_md5(ip, bucket, source, destination) {
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
-        accessKeyId: '123',
-        secretAccessKey: 'abc',
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
@@ -76,8 +79,8 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
-        accessKeyId: '123',
-        secretAccessKey: 'abc',
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
@@ -134,8 +137,8 @@ function get_file_check_md5(ip, bucket, file_name) {
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
-        accessKeyId: '123',
-        secretAccessKey: 'abc',
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
@@ -168,8 +171,8 @@ function check_MD5_all_objects(ip, bucket, prefix) {
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
-        accessKeyId: '123',
-        secretAccessKey: 'abc',
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
@@ -203,8 +206,8 @@ function get_a_random_file(ip, bucket, prefix) {
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
-        accessKeyId: '123',
-        secretAccessKey: 'abc',
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
@@ -228,12 +231,37 @@ function get_a_random_file(ip, bucket, prefix) {
         });
 }
 
+function get_file_number(ip, bucket, prefix) {
+    var rest_endpoint = 'http://' + ip + ':80';
+    var s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    var params = {
+        Bucket: bucket,
+        Prefix: prefix,
+    };
+
+    return P.ninvoke(s3bucket, 'listObjects', params)
+        .then(function(res) {
+            let list = res.Contents;
+            return list.length;
+        }).catch(err => {
+            console.error('Get number of files failed!', err);
+            throw err;
+        });
+}
+
 function delete_file(ip, bucket, file_name) {
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
-        accessKeyId: '123',
-        secretAccessKey: 'abc',
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
@@ -255,6 +283,7 @@ function delete_file(ip, bucket, file_name) {
         });
 }
 
+exports.get_file_number = get_file_number;
 exports.put_file_with_md5 = put_file_with_md5;
 exports.upload_file_with_md5 = upload_file_with_md5;
 exports.copy_file_with_md5 = copy_file_with_md5;

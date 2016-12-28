@@ -58,7 +58,7 @@ fs.readFileAsync('./agent_conf.json')
     })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => P.delay(2000)) // Not sure why this is necessary, but it is.
-    .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' upgrade >> /dev/null'))
+    .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null'))
     .then(() => promise_utils.retry(NUM_UPGRADE_WARNINGS, TIME_BETWEEN_WARNINGS, attempts => {
         let msg = `Still upgrading. ${(NUM_UPGRADE_WARNINGS - attempts) * (TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
         if (attempts !== NUM_UPGRADE_WARNINGS) dbg.warn(msg);

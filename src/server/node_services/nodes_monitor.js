@@ -394,7 +394,8 @@ class NodesMonitor extends EventEmitter {
                 this._set_need_update.add(item);
                 this._update_status(item);
             })
-            .then(() => this._update_nodes_store('force'));
+            .then(() => this._update_nodes_store('force'))
+            .return();
     }
 
 
@@ -639,6 +640,7 @@ class NodesMonitor extends EventEmitter {
     _run_node(item) {
         if (!this._started) return;
         item._run_node_serial = item._run_node_serial || new Semaphore(1);
+        if (item.node.deleting || item.node.deleted) return;
         return item._run_node_serial.surround(() =>
             P.resolve()
             .then(() => dbg.log0('_run_node:', item.node.name))
@@ -666,6 +668,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_agent_info(item) {
+        if (item.node.deleting || item.node.deleted) return;
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
         let potential_masters = clustering_utils.get_potential_masters().map(addr => ({
@@ -684,6 +687,7 @@ class NodesMonitor extends EventEmitter {
             })
             .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(info => {
+                if (!info) return;
                 item.agent_info = info;
                 const updates = _.pick(info, AGENT_INFO_FIELDS);
                 updates.heartbeat = Date.now();
@@ -715,6 +719,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _update_create_node_token(item) {
+        if (item.node.deleting || item.node.deleted) return;
         if (!item.connection) return;
         if (!item.node_from_store) return;
         if (item.create_node_token) {
@@ -741,6 +746,7 @@ class NodesMonitor extends EventEmitter {
 
 
     _update_rpc_config(item) {
+        if (item.node.deleting || item.node.deleted) return;
         if (!item.connection) return;
         if (!item.node_from_store) return;
         const system = system_store.data.get_by_id(item.node.system);
@@ -859,6 +865,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _test_nodes_validity(item) {
+        if (item.node.deleting || item.node.deleted) return;
         if (!item.node_from_store) return;
         dbg.log0('_test_nodes_validity::', item.node.name);
         return P.resolve()

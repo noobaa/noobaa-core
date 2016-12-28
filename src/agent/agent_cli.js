@@ -368,16 +368,6 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
                 return fs_utils.replace_file(token_path, self.params.create_node_token);
             })
             .then(function() {
-                if (!fs.existsSync('./uninstall_noobaa_agent.sh')) return;
-                dbg.log0('Add uninstall command', node_path);
-                return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./uninstall_noobaa_agent.sh ');
-            })
-            .then(function() {
-                if (!fs.existsSync('./service_uninstaller.bat')) return;
-                dbg.log0('Add uninstall command', node_path);
-                return promise_utils.exec('echo rd /s /q ' + current_node_path + ' >> ./service_uninstaller.bat ');
-            })
-            .then(function() {
                 dbg.log0('about to start node', node_path, 'with node name:', node_name);
                 return self.start(node_name, node_path);
             })

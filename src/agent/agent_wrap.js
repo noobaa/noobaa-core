@@ -8,6 +8,7 @@ process.chdir('/usr/local/noobaa');
 
 const fs = require('fs');
 const P = require('../util/promise');
+const fs_utils = require('../util/fs_utils');
 const promise_utils = require('../util/promise_utils');
 const request = require('request');
 const url = require('url');
@@ -35,9 +36,30 @@ fs.readFileAsync('./agent_conf.json')
         }
         throw err;
     })
+    .then(() => {
+        return fs_utils.file_delete(SETUP_FILENAME).catch(console.error);
+    })
     // Currently, to signal an upgrade is required agent_cli exits with 0.
     // It should also upgrade when agent_cli throws,
     // but upgrade needs to be handled better by this script first
+    .then(() => {
+        const output = fs.createWriteStream(SETUP_FILENAME);
+        return new P((resolve, reject) => {
+            dbg.log0('Downloading Noobaa agent upgrade package');
+            request.get({
+                    url: `https://${address}/public/noobaa-setup`,
+                    strictSSL: false,
+                    timeout: 20000
+                })
+                .on('error', err => {
+                    dbg.warn('Error downloading NooBaa agent upgrade from', address);
+                    return reject(err);
+                })
+                .pipe(output)
+                .on('error', err => reject(err))
+                .on('finish', resolve);
+        });
+    })
     .then(() => {
         const output = fs.createWriteStream(SETUP_FILENAME);
         return new P((resolve, reject) => {

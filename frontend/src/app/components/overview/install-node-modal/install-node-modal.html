@@ -1,0 +1,20 @@
+<modal class="modal-medium" params="
+    title: 'Install Nodes',
+    onClose: () => close()
+">
+    <!-- ko if: installationMode() === 'network' -->
+    <section class="column greedy" data-bind="
+        template: { html: networkInstallationTemplate }
+    "></section>
+    <!-- /ko -->
+
+    <!-- ko if: installationMode() === 'manual' -->
+    <section class="column greedy" data-bind="
+        template: { html: manualInstallationTemplate }
+    "></section>
+    <!-- /ko -->
+
+    <button class="btn align-end" data-bind="click: close">
+        Done
+    </button>
+</modal>

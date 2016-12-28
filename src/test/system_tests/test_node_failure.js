@@ -5,7 +5,7 @@ let P = require('../../util/promise');
 let api = require('../../api');
 let ops = require('./basic_server_ops');
 let promise_utils = require('../../util/promise_utils');
-var dotenv = require('dotenv');
+var dotenv = require('../../util/dotenv');
 const uuid = require('node-uuid');
 dotenv.load();
 
@@ -95,7 +95,7 @@ function create_test_pool() {
 function create_test_bucket() {
     return client.tier.create_tier({
             name: 'tier-' + TEST_CTX.bucket,
-            node_pools: [TEST_CTX.pool],
+            attached_pools: [TEST_CTX.pool],
             data_placement: 'SPREAD'
         })
         .then(() =>

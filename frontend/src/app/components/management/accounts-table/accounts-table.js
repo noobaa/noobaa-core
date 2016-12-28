@@ -5,7 +5,7 @@ import AccountRowViewModel from './account-row';
 import { sessionInfo, systemInfo, routeContext } from 'model';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { inputThrottle } from 'config';
-import { redirectTo, deleteAccount } from 'actions';
+import { navigateTo, deleteAccount } from 'actions';
 
 const columns = deepFreeze([
     {
@@ -101,12 +101,12 @@ class AccountsTableViewModel extends Disposable {
             this.sorting()
         );
 
-        redirectTo(undefined, undefined, params);
+        navigateTo(undefined, undefined, params);
     }
 
     orderBy({ sortBy, order }) {
         const filter = this.filter() || undefined;
-        redirectTo(undefined, undefined, { filter, sortBy, order });
+        navigateTo(undefined, undefined, { filter, sortBy, order });
     }
 
     createAccountRow(account) {

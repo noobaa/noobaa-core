@@ -67,7 +67,7 @@ uploads.lastRequestFileCount = ko.observable(0);
 uploads.stats = ko.pureComputed(
     () => uploads().reduce(
         (stats, upload) => {
-            let { archived, completed, error } = upload;
+            const { archived, completed, error } = upload;
             stats.count += 1;
             stats.uploading += Number(!completed);
             stats.failed += Number(completed && Boolean(error));
@@ -132,3 +132,6 @@ export const createAccountState = ko.observable();
 // Hold funcs information
 export const funcInfo = ko.observable();
 export const funcList = ko.observableArray();
+
+// Model moke data for pool history
+export const systemUsageHistory = ko.observable();

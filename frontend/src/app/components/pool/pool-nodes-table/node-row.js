@@ -7,17 +7,17 @@ const nodeStateMapping = deepFreeze({
     offline: {
         css: 'error',
         name: 'problem',
-        tooltip: 'offline'
+        tooltip: 'Offline'
     },
     deactivated: {
         css: 'warning',
         name: 'problem',
-        tooltip: 'deactivated'
+        tooltip: 'Deactivated'
     },
     online: {
         css: 'success',
         name: 'healthy',
-        tooltip: 'online'
+        tooltip: 'Online'
     }
 });
 

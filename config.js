@@ -31,6 +31,7 @@ config.NODE_IO_DETENTION_TEST_NODES = 2;
 
 config.RPC_CONNECT_TIMEOUT = 5000;
 config.RPC_SEND_TIMEOUT = 5000;
+config.CLOUD_AGENTS_N2N_PORT = 60100;
 
 ///////////////
 // S3 CONFIG //
@@ -88,7 +89,13 @@ config.SCRUBBER_RESTART_DELAY = 30000;
 //////////////////////
 config.LIFECYCLE_INTERVAL = 15 * 60 * 1000;
 
+//////////////////////////
+// STATISTICS_COLLECTOR //
+/////////////////////////
 
+config.STATISTICS_COLLECTOR_ENABLED = true;
+config.STATISTICS_COLLECTOR_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+config.STATISTICS_COLLECTOR_EXPIRATION = 31 * 24 * 60 * 60 * 1000; // 1 month
 
 //////////////////
 // DEBUG CONFIG //
@@ -134,6 +141,8 @@ config.MONGO_DEFAULTS = {
     CFG_RSET_NAME: 'config0',
     SHARD_SRV_PORT: '27000',
     COMMON_PATH: '/var/lib/mongo/cluster',
+    CONNECT_RETRY_INTERVAL: 3 * 1000,
+    CONNECT_MAX_WAIT: 5 * 60 * 1000
 };
 
 config.CLUSTERING_PATHS = {
@@ -158,6 +167,12 @@ config.DEMO_DEFAULTS = {
     POOL_NAME: 'demo-pool',
     BUCKET_NAME: 'demo-bucket'
 };
+
+//////////////////////////////
+// ALERTING & EVENTS CONFIG //
+//////////////////////////////
+
+config.SEND_EVENTS_REMOTESYS = true;
 
 
 // load a local config file that overwrites some of the config

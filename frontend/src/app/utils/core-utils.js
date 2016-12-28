@@ -1,6 +1,10 @@
 export function noop() {
 }
 
+export function echo(val) {
+    return val;
+}
+
 export function deepFreeze(val) {
     if (isObject(val) && !Object.isFrozen(val)) {
         Object.keys(val).forEach(
@@ -73,7 +77,7 @@ export function createCompareFunc(accessor, factor = 1) {
 }
 
 export function makeArray(size, initializer) {
-    if (typeof initializer !== 'function') {
+    if (!isFunction(initializer)) {
         let val = initializer;
         initializer = () => val;
     }
@@ -152,6 +156,43 @@ export function averageBy(array, predicate) {
 
 export function entries(obj) {
     return Object.keys(obj).map(
-        key => ({ key, value: obj[key] })
+        key => [ key, obj[key]]
     );
+}
+
+export function keyBy(array, keySelector, valueGenerator = echo) {
+    return array.reduce(
+        (map, item) => {
+            const key = keySelector(item);
+            map[key] = valueGenerator(item);
+            return map;
+        },
+        {}
+    );
+}
+
+export function keyByProperty(array, keyName, valueGenerator) {
+    return keyBy(
+        array,
+        item => item[keyName],
+        valueGenerator
+    );
+}
+
+export function assignWith(target, ...sources) {
+    const assignOp = isFunction(last(sources)) ?
+        sources.pop() :
+        (_, value) => value;
+
+    for (const source of sources) {
+        for (const [ key, value ] of entries(source)) {
+            target[key] = assignOp(target[key], value);
+        }
+    }
+
+    return target;
+}
+
+export function interpolateLinear(a, b, t) {
+    return a + (b - a) * t;
 }

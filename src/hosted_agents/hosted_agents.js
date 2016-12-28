@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -29,17 +30,17 @@ class HostedAgents {
     }
 
     start() {
-        let system = system_store.data.systems[0];
+        const system = system_store.data.systems[0];
         if (!system) return;
-        let cloud_pools = _.filter(system.pools_by_name, pool => Boolean(pool.cloud_pool_info));
+        const cloud_pools = _.filter(system.pools_by_name, pool => Boolean(pool.cloud_pool_info));
         // start agent for all cloud pools that doesn't already have a running agent
-        let pools_to_start = _.filter(cloud_pools, pool => _.isUndefined(this._started_agents[pool.name]));
+        const pools_to_start = _.filter(cloud_pools, pool => _.isUndefined(this._started_agents[pool.name]));
         // stop all running agents that doesn't have a cloud pool in the DB
-        let agents_to_stop = _.filter(this._started_agents, (agent, name) => _.isUndefined(system.pools_by_name[name]));
+        const agents_to_stop = _.pickBy(this._started_agents, (agent, name) => _.isUndefined(system.pools_by_name[name]));
 
         if (!pools_to_start.length && !agents_to_stop.length) return;
 
-        dbg.log0(`stopping the following agents: ${agents_to_stop}`);
+        dbg.log0(`stopping the following agents: ${util.inspect(agents_to_stop)}`);
         _.each(agents_to_stop, (agent, name) => this.stop_agent(name));
 
         this._started = true;
@@ -68,75 +69,73 @@ class HostedAgents {
             return;
         }
 
-        let port = process.env.SSL_PORT || 5443;
-        let host_id = uuid();
-        let node_name = 'noobaa-internal-agent-' + cloud_pool.name;
-        let storage_path = path.join(process.cwd(), 'agent_storage', node_name);
+        const port = process.env.SSL_PORT || 5443;
+        const host_id = uuid();
+        const node_name = 'noobaa-internal-agent-' + cloud_pool.name;
+        const storage_path = path.join(process.cwd(), 'agent_storage', node_name);
 
-        let system = system_store.data.systems[0];
-        let auth_parmas = {
+        const system = system_store.data.systems[0];
+        const auth_parmas = {
             system_id: String(system._id),
             account_id: system.owner._id,
             role: 'create_node'
         };
 
         // read/write token functions to pass to agent. for cloud agents the token is stored in DB
-        let token = auth_server.make_auth_token(auth_parmas);
-        let read_token = () => {
-            let sys = system_store.data.systems[0];
-            let pool = sys.pools_by_name[cloud_pool.name];
-            return P.resolve(pool.cloud_pool_info.agent_info.node_token || token);
+        const token = auth_server.make_auth_token(auth_parmas);
+
+        const read_token = token_key => {
+            const sys = system_store.data.systems[0];
+            const pool = sys.pools_by_name[cloud_pool.name];
+            return P.resolve(pool.cloud_pool_info.agent_info[token_key] || token);
         };
 
-
-        let write_token = (new_token, token_key) => {
+        const write_token = (new_token, token_key) => {
             dbg.log1(`write_token with params: ${new_token}, ${token_key}`);
-            let sys = system_store.data.systems[0];
-            let cloud_info = sys.pools_by_name[cloud_pool.name].cloud_pool_info;
-            cloud_info.agent_info[token_key] = new_token;
+            const db_update = {
+                _id: cloud_pool._id,
+            };
+            db_update['cloud_pool_info.agent_info.' + token_key] = new_token;
             return system_store.make_changes({
                 update: {
-                    pools: [{
-                        _id: cloud_pool._id,
-                        cloud_pool_info: cloud_info
-                    }]
+                    pools: [db_update]
                 }
             });
         };
 
-        let token_wrapper = {
-            read: read_token,
+        const token_wrapper = {
+            read: () => read_token('node_token'),
             write: new_token => write_token(new_token, 'node_token'),
-            create_node_token: token,
-            update_create_node_token: new_token => write_token(new_token, 'create_node_token'),
+        };
+        const create_node_token_wrapper = {
+            read: () => read_token('create_node_token'),
+            write: new_token => write_token(new_token, 'create_node_token')
         };
 
         // TODO: we don't actually need storage_path in cloud agents. see how we can remove it
         fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS)
             .then(() => {
                 // if we don't yet have agent info in the DB add create_node_token
-                let cloud_info = cloud_pool.cloud_pool_info;
+                const cloud_info = cloud_pool.cloud_pool_info;
                 if (!cloud_info.agent_info || !cloud_info.agent_info.create_node_token) {
                     // after upgrade of systems with old cloud_resources we will have a node_token but not create_node_token
                     // in that case we just want to add a new create_node_token
-                    let existing_token = cloud_info.agent_info ? cloud_info.agent_info.node_token : null;
-                    let agent_info = {
-                        create_node_token: token,
-                        node_token: existing_token || token
-                    };
-                    cloud_info.agent_info = agent_info;
+                    const existing_token = cloud_info.agent_info ? cloud_info.agent_info.node_token : null;
                     return system_store.make_changes({
                         update: {
                             pools: [{
                                 _id: cloud_pool._id,
-                                cloud_pool_info: cloud_info
+                                'cloud_pool_info.agent_info': {
+                                    create_node_token: token,
+                                    node_token: existing_token || token
+                                }
                             }]
                         }
                     });
                 }
             })
             .then(() => {
-                let cloud_info = {
+                const cloud_info = {
                     endpoint: cloud_pool.cloud_pool_info.endpoint,
                     endpoint_type: cloud_pool.cloud_pool_info.endpoint_type,
                     target_bucket: cloud_pool.cloud_pool_info.target_bucket,
@@ -146,16 +145,17 @@ class HostedAgents {
                     },
                     cloud_pool_name: cloud_pool.name
                 };
-                let agent_params = {
+                const agent_params = {
                     address: 'wss://127.0.0.1:' + port,
                     node_name: node_name,
                     host_id: host_id,
                     storage_path: storage_path,
                     cloud_info: cloud_info,
-                    token_wrapper: token_wrapper
+                    token_wrapper: token_wrapper,
+                    create_node_token_wrapper: create_node_token_wrapper,
                 };
                 dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
-                let agent = new Agent(agent_params);
+                const agent = new Agent(agent_params);
                 this._started_agents[cloud_pool.name] = agent;
                 return agent.start();
             });
@@ -166,13 +166,13 @@ class HostedAgents {
     start_local_agent(params) {
         if (!this._started) return;
 
-        let port = process.env.SSL_PORT || 5443;
-        let host_id = uuid();
-        let node_name = 'noobaa-internal-agent-' + params.name;
-        let storage_path = path.join(process.cwd(), 'agent_storage', node_name);
+        const port = process.env.SSL_PORT || 5443;
+        const host_id = uuid();
+        const node_name = 'noobaa-internal-agent-' + params.name;
+        const storage_path = path.join(process.cwd(), 'agent_storage', node_name);
 
-        let system = system_store.data.systems[0];
-        let auth_parmas = {
+        const system = system_store.data.systems[0];
+        const auth_parmas = {
             system_id: String(system._id),
             account_id: system.owner._id,
             role: 'create_node'
@@ -181,27 +181,29 @@ class HostedAgents {
         // read/write token functions to pass to agent. for cloud agents the token is stored in DB
         let local_create_node_token = auth_server.make_auth_token(auth_parmas);
 
-        let token_wrapper = {
+        const token_wrapper = {
             read: () => fs.readFileAsync(path.join(storage_path, 'token')),
-            write: token => fs.writeFileAsync(path.join(storage_path, 'token'), token),
-            create_node_token: local_create_node_token,
-            update_create_node_token: new_token => this.agent_conf.update({
-                create_node_token: new_token
-            })
+            write: token => fs_utils.replace_file(path.join(storage_path, 'token'), token),
+        };
+        const create_node_token_wrapper = {
+            read: () => P.resolve(local_create_node_token),
+            write: new_token => {
+                local_create_node_token = new_token;
+            }
         };
 
-
-        let agent_params = {
+        const agent_params = {
             address: 'wss://127.0.0.1:' + port,
             node_name: node_name,
             host_id: host_id,
             storage_path: storage_path,
             token_wrapper: token_wrapper,
-            agent_conf: new json_utils.JsonWrapper('agent_conf.json')
+            create_node_token_wrapper: create_node_token_wrapper,
+            agent_conf: new json_utils.JsonFileWrapper('agent_conf.json')
         };
 
         dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
-        let agent = new Agent(agent_params);
+        const agent = new Agent(agent_params);
         this._started_agents[params.name] = agent;
         return fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS)
             .then(() => token_wrapper.write(local_create_node_token))
@@ -220,10 +222,9 @@ class HostedAgents {
 
 
 
-
 function create_agent(req) {
     if (req.params.cloud_info) {
-        let cloud_pool = system_store.data.systems[0].pools_by_name[req.params.name];
+        const cloud_pool = system_store.data.systems[0].pools_by_name[req.params.name];
         return HostedAgents.instance().start_cloud_agent(cloud_pool);
     }
     return HostedAgents.instance().start_local_agent(req.params);
@@ -231,7 +232,7 @@ function create_agent(req) {
 
 
 function remove_agent(req) {
-    HostedAgents.instance().stop_agent(req.params.name);
+    return HostedAgents.instance().stop_agent(req.params.name);
 }
 
 

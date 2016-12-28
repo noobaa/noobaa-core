@@ -5,7 +5,7 @@ import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils/all';
 import ObjectRowViewModel from './object-row';
 import { navigateTo, uploadFiles } from 'actions';
-import { routeContext, systemInfo } from 'model';
+import { routeContext } from 'model';
 
 const columns = deepFreeze([
     {
@@ -22,38 +22,6 @@ const columns = deepFreeze([
         sortable: true
     }
 ]);
-
-// TODO: logic should move to server side.
-function hasEnoughBackingNodeForUpload(bucket) {
-    if (!bucket() || !systemInfo()) {
-        return false;
-    }
-
-    let tier = systemInfo().tiers.find(
-        tier => tier.name === bucket().tiering.tiers[0].tier
-    );
-
-    let pools = systemInfo().pools.filter(
-        pool => tier.node_pools.includes(pool.name)
-    );
-
-    if (tier.data_placement === 'SPREAD') {
-        let nodeCount = pools.reduce(
-            (total, pool) => {
-                let { count, has_issues } = pool.nodes;
-                return total + (count - has_issues);
-            },
-            0
-        );
-
-        return nodeCount >= 3;
-
-    } else {
-        return pools.every(
-            pool => pool.nodes.online >= 3
-        );
-    }
-}
 
 class BucketObjectsTableViewModel extends Disposable {
     constructor({ bucket, objectList }) {
@@ -73,12 +41,12 @@ class BucketObjectsTableViewModel extends Disposable {
         );
 
         this.uploadDisabled = ko.pureComputed(
-            () => !hasEnoughBackingNodeForUpload(bucket)
+            () => !bucket() || !bucket().writable
         );
 
         this.uploadTooltip = ko.pureComputed(
             () => this.uploadDisabled() &&
-                'Cannot upload, not enough healthy nodes in bucket storage'
+                'Cannot upload, not enough healthy storage resources'
         );
 
         this.fileSelectorExpanded = ko.observable(false);

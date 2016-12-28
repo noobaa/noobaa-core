@@ -1,5 +1,5 @@
 <modal class="modal-large" params="
-    title: 'Upload Transactions',
+    title: 'File Uploads',
     onClose: () => close()
 ">
     <div class="row push-next content-middle">
@@ -38,8 +38,10 @@
             </span>
         </span>
 
-        <span class="row content-middle error push-both">
-            <svg-icon params="name: 'problem'" class="error icon-small"></svg-icon>
+        <span class="row content-middle error push-both"
+            data-bind="css: { disabled: failed() === 0 }">
+            <svg-icon params="name: 'problem'" class="error icon-small">
+            </svg-icon>
             <span>
                 Failed
                 <span data-bind="text: failed"></span>

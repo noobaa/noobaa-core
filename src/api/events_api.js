@@ -127,6 +127,17 @@ module.exports = {
                                         }
                                     }
                                 },
+                                server: {
+                                    type: 'object',
+                                    properties: {
+                                        secret: {
+                                            type: 'string'
+                                        },
+                                        hostname: {
+                                            type: 'string'
+                                        }
+                                    }
+                                },
                                 actor: {
                                     type: 'object',
                                     required: ['email'],

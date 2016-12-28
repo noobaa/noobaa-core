@@ -47,9 +47,9 @@ const config = require('../../config.js');
 const mongo_client = require('../util/mongo_client');
 const mongoose_utils = require('../util/mongoose_utils');
 const system_store = require('./system_services/system_store').get_instance();
-const promise_utils = require('../util/promise_utils');
 const SupervisorCtl = require('./utils/supervisor_ctrl');
 const account_server = require('./system_services/account_server');
+const system_server = require('./system_services/system_server');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -267,40 +267,19 @@ app.post('/upload_certificate',
             }
         })
     })
-    .single('upload_file'),
-    function(req, res) {
-        var ssl_certificate = req.file;
-        dbg.log0('upload ssl certificate file', ssl_certificate);
-        promise_utils.spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
-                'from_file', ssl_certificate.path
-            ], {}, false)
-            .then(function() {
-                res.status(200).send('SUCCESS');
-                if (os.type() === 'Linux') {
-                    return SupervisorCtl.restart(['s3rver', 'webserver']);
-                }
-            }).catch(function(err) {
-                let error_message = '';
-                //TODO: replace this ugly code.
-                dbg.log0('failed to upload certificate. ' + err.message, err);
-                if (err.message.indexOf(' error code 1') > 0) {
-                    error_message = 'No match between key and certificate.';
-                } else if (err.message.indexOf(' error code 2') > 0) {
-                    error_message = 'Only one key is required.';
-                } else if (err.message.indexOf(' error code 3') > 0) {
-                    error_message = 'Only one certificate is required.';
-                } else if (err.message.indexOf(' error code 5') > 0) {
-                    error_message = 'Not a zip file. Please upload zip with certificate and key in pem format';
-                } else {
-                    error_message = err.message;
-                }
-                dbg.error(error_message);
-
-                res.status(500).send(error_message);
-
-            });
-
-    });
+    .single('upload_file'), (req, res) => system_server.set_certificate(req.file)
+    .then(() => {
+        res.status(200).send('SUCCESS');
+        if (os.type() === 'Linux') {
+            dbg.log0('Restarting server on certificate set');
+            return SupervisorCtl.restart(['s3rver', 'webserver']);
+        }
+    })
+    .catch(err => {
+        dbg.error('Was unable to set certificate', err);
+        res.status(500).send('Was unable to set certificate');
+    })
+);
 
 app.post('/upload_package',
     multer({

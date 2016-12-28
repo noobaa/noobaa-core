@@ -21,6 +21,7 @@ const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
+const node_allocator = require('../node_services/node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
 const cloud_utils = require('../../util/cloud_utils');
@@ -82,7 +83,10 @@ function create_bucket(req) {
         let default_pool = req.system.pools_by_name.default_pool;
         let bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
         let tier = tier_server.new_tier_defaults(
-            bucket_with_suffix, req.system._id, [default_pool._id]);
+            bucket_with_suffix, req.system._id, [{
+                spread_pools: [default_pool._id]
+            }]
+        );
         tiering_policy = tier_server.new_policy_defaults(
             bucket_with_suffix, req.system._id, [{
                 tier: tier._id,
@@ -114,6 +118,16 @@ function create_bucket(req) {
             .concat(bucket._id),
     }];
 
+    if (req.account && req.account.email !== _.get(req, 'system.owner.email', '')) {
+        // Grant the owner a full access for the newly created bucket.
+        changes.update.accounts.push({
+            _id: req.system.owner._id,
+            allowed_buckets: req.system.owner.allowed_buckets
+                .map(bkt => bkt._id)
+                .concat(bucket._id),
+        });
+    }
+
     return system_store.make_changes(changes)
         .then(() => {
             req.load_auth();
@@ -129,9 +143,15 @@ function create_bucket(req) {
  */
 function read_bucket(req) {
     var bucket = find_bucket(req);
-    var pools = _.flatten(_.map(bucket.tiering.tiers,
-        tier_and_order => tier_and_order.tier.pools
-    ));
+    var pools = [];
+
+    _.forEach(bucket.tiering.tiers, tier_and_order => {
+        _.forEach(tier_and_order.tier.mirrors, mirror_object => {
+            pools = _.concat(pools, mirror_object.spread_pools);
+        });
+    });
+    pools = _.compact(pools);
+
     let pool_names = pools.map(pool => pool.name);
     return P.join(
         nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
@@ -140,7 +160,8 @@ function read_bucket(req) {
             bucket: bucket._id,
             deleted: null
         }),
-        get_cloud_sync(req, bucket)
+        get_cloud_sync(req, bucket),
+        node_allocator.refresh_tiering_alloc(bucket.tiering)
     ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
         return get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy);
     });
@@ -223,18 +244,23 @@ function update_bucket_s3_access(req) {
     );
 
     return system_store.make_changes({
-        update: {
-            accounts: updates
-        }
-    })
+            update: {
+                accounts: updates
+            }
+        })
         .then(() => {
             const desc_string = [];
             if (added_accounts.length > 0) {
-                desc_string.push(`Added accounts: ${added_accounts}`);
+                desc_string.push('Added accounts: ' + _.map(added_accounts, function(acc) {
+                    return acc.email;
+                }));
             }
             if (removed_accounts.length > 0) {
-                desc_string.push(`Removed accounts: ${removed_accounts}`);
+                desc_string.push('Removed accounts: ' + _.map(removed_accounts, function(acc) {
+                    return acc.email;
+                }));
             }
+
             Dispatcher.instance().activity({
                 event: 'bucket.s3_access_updated',
                 level: 'info',
@@ -288,10 +314,8 @@ function delete_bucket(req) {
             });
         })
         .then(() => server_rpc.client.cloud_sync.refresh_policy({
-            sysid: req.system._id.toString(),
-            bucketid: bucket._id.toString(),
-            force_stop: true,
-            skip_load: true,
+            bucket_id: bucket._id.toString(),
+            system_id: req.system._id.toString()
         }, {
             auth_token: req.auth_token
         }))
@@ -384,14 +408,15 @@ function get_cloud_sync(req, bucket) {
                 endpoint_type: bucket.cloud_sync.endpoint_type || 'AWS',
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
-                status: cloud_utils.resolve_cloud_sync_info(bucket.cloud_sync),
-                last_sync: bucket.cloud_sync.last_sync.getTime(),
+                status: bucket.cloud_sync.status,
+                last_sync: bucket.cloud_sync.last_sync.getTime() || undefined,
                 target_bucket: bucket.cloud_sync.target_bucket,
                 policy: {
                     schedule_min: bucket.cloud_sync.schedule_min,
                     c2n_enabled: bucket.cloud_sync.c2n_enabled,
                     n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                    additions_only: bucket.cloud_sync.additions_only
+                    additions_only: bucket.cloud_sync.additions_only,
+                    paused: bucket.cloud_sync.paused,
                 }
             };
         });
@@ -429,10 +454,7 @@ function delete_cloud_sync(req) {
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
-                bucketid: bucket._id.toString(),
-                force_stop: true,
-                skip_load: true
+                bucket_id: bucket._id.toString(),
             }, {
                 auth_token: req.auth_token
             });
@@ -461,7 +483,6 @@ function set_cloud_sync(req) {
 
     var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     var bucket = find_bucket(req);
-    var force_stop = false;
     //Verify parameters, bi-directional sync can't be set with additions_only
     if (req.rpc_params.policy.additions_only &&
         req.rpc_params.policy.n2c_enabled &&
@@ -475,7 +496,8 @@ function set_cloud_sync(req) {
         target_bucket: req.rpc_params.target_bucket,
         access_keys: {
             access_key: connection.access_key,
-            secret_key: connection.secret_key
+            secret_key: connection.secret_key,
+            account_id: req.account._id
         },
         schedule_min: js_utils.default_value(req.rpc_params.policy.schedule_min, 60),
         last_sync: new Date(0),
@@ -484,18 +506,8 @@ function set_cloud_sync(req) {
         n2c_enabled: js_utils.default_value(req.rpc_params.policy.n2c_enabled, true),
         additions_only: js_utils.default_value(req.rpc_params.policy.additions_only, false)
     };
-
-    if (bucket.cloud_sync) {
-        //If either of the following is changed, signal the cloud sync worker to force stop and reload
-        if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
-            bucket.cloud_sync.target_bucket !== cloud_sync.target_bucket ||
-            bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
-            bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key) {
-            force_stop = true;
-        }
-    }
-
     return system_store.make_changes({
+
             update: {
                 buckets: [{
                     _id: bucket._id,
@@ -507,16 +519,12 @@ function set_cloud_sync(req) {
             //TODO:: scale, fine for 1000 objects, not for 1M
             return object_server.set_all_files_for_sync(req.system._id, bucket._id);
         })
-        .then(function() {
-            return server_rpc.client.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
-                bucketid: bucket._id.toString(),
-                force_stop: force_stop,
-            }, {
-                auth_token: req.auth_token
-            });
-        })
-        .then(res => {
+        .then(() => server_rpc.client.cloud_sync.refresh_policy({
+            bucket_id: bucket._id.toString()
+        }, {
+            auth_token: req.auth_token
+        }))
+        .then(() => {
             let desc_string = [];
             let sync_direction;
             if (cloud_sync.c2n_enabled && cloud_sync.n2c_enabled) {
@@ -547,7 +555,6 @@ function set_cloud_sync(req) {
                 bucket: bucket._id,
                 desc: desc_string.join('\n'),
             });
-            return res;
         })
         .catch(function(err) {
             dbg.error('Error setting cloud sync', err, err.stack);
@@ -569,7 +576,6 @@ function update_cloud_sync(req) {
         throw new RpcError('INVALID_REQUEST', 'Bucket has no cloud sync policy configured');
     }
     var updated_policy = {
-        _id: bucket._id,
         cloud_sync: Object.assign({}, bucket.cloud_sync, req.rpc_params.policy)
     };
 
@@ -593,9 +599,16 @@ function update_cloud_sync(req) {
         should_resync = should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
     }
 
+    const db_updates = {
+        _id: bucket._id
+    };
+
+    Object.keys(req.rpc_params.policy).forEach(key => {
+        db_updates['cloud_sync.' + key] = req.rpc_params.policy[key];
+    });
     return system_store.make_changes({
             update: {
-                buckets: [updated_policy]
+                buckets: [db_updates]
             }
         })
         .then(function() {
@@ -606,9 +619,7 @@ function update_cloud_sync(req) {
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
-                bucketid: bucket._id.toString(),
-                force_stop: false,
+                bucket_id: bucket._id.toString(),
             }, {
                 auth_token: req.auth_token
             });
@@ -667,15 +678,13 @@ function toggle_cloud_sync(req) {
             update: {
                 buckets: [{
                     _id: bucket._id,
-                    cloud_sync: cloud_sync
+                    'cloud_sync.paused': cloud_sync.paused
                 }]
             }
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
-                bucketid: bucket._id.toString(),
-                force_stop: cloud_sync.paused,
+                bucket_id: bucket._id.toString()
             }, {
                 auth_token: req.auth_token
             });
@@ -803,6 +812,13 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
+    let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
+    info.writable = tier_of_bucket.mirrors.some(mirror_object =>
+        (mirror_object.spread_pools || []).some(pool =>
+            _.get(tiering_pools_status[pool.name], 'valid_for_allocation', false)
+        )
+    );
+
     let objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
         count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
@@ -811,10 +827,11 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     info.tag = bucket.tag ? bucket.tag : '';
 
     info.num_objects = num_of_objects || 0;
-    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
+    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ?
+        Math.max(_.get(tier_of_bucket, 'mirrors.length', 0), 1) : 1;
     let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
     let bucket_used = bucket_chunks_capacity
-        .multiply(tier_of_bucket.replicas)
+        .multiply(tier_of_bucket.replicas) // JEN TODO when we save on cloud we only create 1 replica
         .multiply(placement_mul);
     let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
     let bucket_used_other = size_utils.BigInteger.max(

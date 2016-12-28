@@ -1,15 +1,20 @@
 <div class="row content-middle pad alt-bg">
     <div class="cloumn greedy">
-        <h3 class="heading3">Node pools</h3>
+        <h3 class="heading3">Resources</h3>
         <div class="row">
+            <span class="highlight">
+                <span>Policy type:</span>
+                <span data-bind="text: placementType"></span>
+            </span>
+            <span class="push-both">|</span>
             <span>
-                <span>Pool count:</span>
+                <span>Nodes Pools:</span>
                 <span data-bind="text: nodePoolCount"></span>
             </span>
             <span class="push-both">|</span>
             <span>
-                <span>Policy type:</span>
-                <span data-bind="text: placementType"></span>
+                <span>Cloud resources:</span>
+                <span data-bind="text: cloudResourceCount"></span>
             </span>
         </div>
     </div>
@@ -20,7 +25,7 @@
             disable: editingDisabled,
             click: showPlacementPolicyModal
         ">
-            Edit placement policy
+            Edit data placement
         </button>
     </div>
 </div>
@@ -29,8 +34,18 @@
     columns: placementTableColumns,
     data: nodePools,
     rowFactory: pool => createPlacementRow(pool),
-    emptyMessage: 'No node pools participate in policy'
-"></data-table>
+    emptyMessage: 'No resources participate in policy'
+">
+    <template name="custom-link">
+        <!-- ko if: $data().href -->
+        <a class="link" data-bind="text: $data().text, href: $data().href"></a>
+        <!-- /ko -->
+        <!-- ko ifnot: $data().href -->
+        <span data-bind="text: $data().text"></span>
+        <!-- /ko -->
+    </template>
+
+</data-table>
 
 <!-- ko if: isPlacementPolicyModalVisible -->
 <bucket-placement-policy-modal params="

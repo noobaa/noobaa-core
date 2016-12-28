@@ -1,0 +1,9 @@
+GET / HTTP/1.1
+User-Agent: aws-sdk-nodejs/2.5.1 darwin/v6.9.1
+X-Amz-Content-Sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Content-Length: 0
+Host: 127.0.0.1
+X-Amz-Date: 20161207T231908Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161207/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=a08edcb9cd298e350b3c0a6c7214e26b0e977ab2eb0b4bfeb9591316c103916b
+Connection: keep-alive
+

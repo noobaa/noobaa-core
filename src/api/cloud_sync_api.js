@@ -30,7 +30,7 @@ module.exports = {
                 required: ['status', 'health'],
                 properties: {
                     status: {
-                        $ref: 'bucket_api#/definitions/sync_status_enum'
+                        $ref: 'bucket_api#/definitions/api_cloud_sync_status'
                     },
                     health: {
                         type: 'boolean'
@@ -46,19 +46,13 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['sysid', 'bucketid', 'force_stop'],
+                required: ['bucket_id'],
                 properties: {
-                    sysid: {
+                    bucket_id: {
                         type: 'string',
                     },
-                    bucketid: {
-                        type: 'string',
-                    },
-                    force_stop: {
-                        type: 'boolean'
-                    },
-                    skip_load: {
-                        type: 'boolean'
+                    system_id: {
+                        type: 'string'
                     }
                 }
             },

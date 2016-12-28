@@ -1,4 +1,27 @@
 import ko from 'knockout';
+import { deepFreeze } from 'utils/all';
+
+const iconMapping = deepFreeze({
+    AWS: {
+        name: 'aws-s3-resource',
+        tooltip: 'AWS S3 Bucket'
+    },
+
+    AZURE: {
+        name: 'azure-resource',
+        tooltip: 'Azure Container'
+    },
+
+    S3_COMPATIBLE: {
+        name: 'cloud-resource',
+        tooltip: 'S3 Compatible Cloud Bukcet'
+    },
+
+    NODES_POOL: {
+        name: 'nodes-pool',
+        tooltip: 'Node Pool'
+    }
+});
 
 export default class PlacementRowViewModel {
     constructor(pool) {
@@ -8,45 +31,73 @@ export default class PlacementRowViewModel {
                     return;
                 }
 
-                let { count, has_issues } = pool().nodes;
-                let isHealthy = count - has_issues >= 3;
+                let state;
+                if (pool().nodes) {
+                    let { count, has_issues } = pool().nodes;
+                    state = count - has_issues >= 3;
+                } else {
+                    state = true;
+                }
+
                 let tooltip = {
-                    text: isHealthy ? 'Healthy' : 'Not enough healthy nodes',
+                    text: state ? 'Healthy' : 'Not enough healthy nodes',
                     align: 'start'
                 };
 
                 return {
-                    css: isHealthy ? 'success' : 'error',
-                    name: isHealthy ? 'healthy' : 'problem',
+                    css: state ? 'success' : 'error',
+                    name: state ? 'healthy' : 'problem',
                     tooltip: tooltip
                 };
             }
         );
 
-        this.poolName = ko.pureComputed(
+        this.type = ko.pureComputed(
+            () => {
+                if (!pool()) {
+                    return;
+                }
+
+                const resourceType = pool().cloud_info ?
+                    pool().cloud_info.endpoint_type :
+                    'NODES_POOL';
+
+                return iconMapping[resourceType];
+            }
+        );
+
+        this.resourceName = ko.pureComputed(
             () => {
                 if (!pool()) {
                     return {};
                 }
 
-                let { name } = pool();
-                let href = {
-                    route: 'pool',
-                    params: { pool: name, tab: null }
-                };
+                const text = pool().name;
+                if (pool().nodes) {
+                    const href = {
+                        route: 'pool',
+                        params: { pool: text, tab: null }
+                    };
 
-                return {
-                    text: name,
-                    href: href
-                };
+                    return { text, href };
+
+                } else {
+                    return { text };
+                }
             }
         );
 
         this.onlineNodeCount = ko.pureComputed(
-            () => pool() && pool().nodes.online
-        ).extend({
-            formatNumber: true
-        });
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                return pool().nodes ?
+                    `${pool().nodes.online} of ${pool().nodes.count}` :
+                    '—';
+            }
+        );
 
         this.freeSpace = ko.pureComputed(
             () => pool() && pool().storage.free

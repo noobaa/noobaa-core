@@ -57,8 +57,9 @@ function obj_ids_difference(base, values) {
 function uniq_ids(docs, doc_path) {
     const map = {};
     _.each(docs, doc => {
-        const id = _.get(doc, doc_path);
+        let id = _.get(doc, doc_path);
         if (id) {
+            id = id._id || id;
             map[String(id)] = id;
         }
     });

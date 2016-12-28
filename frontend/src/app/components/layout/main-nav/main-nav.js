@@ -6,6 +6,14 @@ import ko from 'knockout';
 import style from 'style';
 
 const navItems = deepFreeze([
+    /*{
+        name: 'name',
+        route: 'route', (see routes.js)
+        icon: 'icon',
+        label: 'label', (display name, optional)
+        beta: true/false, (show beta label)
+        preview: true/false (hide when browser not in preview mode)
+    },*/
     {
         name: 'overview',
         route: 'system',
@@ -27,14 +35,16 @@ const navItems = deepFreeze([
     {
         name: 'funcs',
         route: 'funcs',
-        icon: 'working',
-        label: 'Functions'
+        icon: 'functions',
+        label: 'Functions',
+        beta: true
     },
     {
         name: 'cluster',
         route: 'cluster',
         icon: 'cluster',
         label: 'Cluster',
+        beta: true,
         preview: true
     },
     {

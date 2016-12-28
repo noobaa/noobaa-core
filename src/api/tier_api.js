@@ -23,10 +23,7 @@ module.exports = {
                     name: {
                         type: 'string',
                     },
-                    node_pools: {
-                        $ref: '#/definitions/pool_info'
-                    },
-                    cloud_pools: {
+                    attached_pools: {
                         $ref: '#/definitions/pool_info'
                     },
                     data_placement: {
@@ -84,10 +81,7 @@ module.exports = {
                     new_name: {
                         type: 'string',
                     },
-                    node_pools: {
-                        $ref: '#/definitions/pool_info'
-                    },
-                    cloud_pools: {
+                    attached_pools: {
                         $ref: '#/definitions/pool_info'
                     },
                     data_placement: {
@@ -134,7 +128,6 @@ module.exports = {
             type: 'object',
             required: [
                 'name',
-                'node_pools',
                 'data_placement',
                 'replicas',
                 'data_fragments',
@@ -145,10 +138,7 @@ module.exports = {
                 name: {
                     type: 'string',
                 },
-                node_pools: {
-                    $ref: '#/definitions/pool_info'
-                },
-                cloud_pools: {
+                attached_pools: {
                     $ref: '#/definitions/pool_info'
                 },
                 data_placement: {

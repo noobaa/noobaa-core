@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 import { systemInfo } from 'model';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const stateMapping = deepFreeze({
     true: {
@@ -12,7 +12,7 @@ const stateMapping = deepFreeze({
         icon: 'healthy'
     },
     false: {
-        text: 'Offline',
+        text: 'Not enough healthy resources',
         css: 'error',
         icon: 'problem'
     }
@@ -27,29 +27,24 @@ const cloudSyncStatusMapping = deepFreeze({
     NOTSET: 'not set'
 });
 
-const graphOptions = deepFreeze([
-    {
-        label: 'Storage',
-        value: 'STORAGE'
-    },
-    {
-        label: 'Data',
-        value: 'DATA'
-    }
-]);
-
-const avaliableForWriteTooltip = 'This number is calculated according to the bucket\'s available capacity and the number of replicas defined in its placement policy';
+const availableForWriteTooltip = `This number is calculated according to the
+    bucket\'s available storage and the number of replicas defined in its placement
+    policy`;
 
 class BucketSummrayViewModel extends Disposable {
     constructor({ bucket }) {
         super();
+
+        this.graphOptions = [ 'data', 'storage' ];
 
         this.dataReady = ko.pureComputed(
             () => !!bucket()
         );
 
         this.state = ko.pureComputed(
-            () => stateMapping[true]
+            () => stateMapping[
+                Boolean(bucket() && bucket().writable)
+            ]
         );
 
         this.dataPlacement = ko.pureComputed(
@@ -58,17 +53,17 @@ class BucketSummrayViewModel extends Disposable {
                     return;
                 }
 
-                let tierName = bucket().tiering.tiers[0].tier;
-                let { data_placement , node_pools } = systemInfo().tiers.find(
+                const tierName = bucket().tiering.tiers[0].tier;
+                const { data_placement , attached_pools } = systemInfo().tiers.find(
                     tier => tier.name === tierName
                 );
 
                 return `${
                     data_placement === 'SPREAD' ? 'Spread' : 'Mirrored'
                 } on ${
-                    node_pools.length
+                    attached_pools.length
                 } pool${
-                    node_pools.length !== 1 ? 's' : ''
+                    attached_pools.length !== 1 ? 's' : ''
                 }`;
             }
         );
@@ -79,22 +74,20 @@ class BucketSummrayViewModel extends Disposable {
                     return;
                 }
 
-                let { cloud_sync } = bucket();
+                const { cloud_sync } = bucket();
                 return cloudSyncStatusMapping[
                     cloud_sync ? cloud_sync.status : 'NOTSET'
                 ];
             }
         );
 
-        this.graphOptions = graphOptions;
+        this.viewType = ko.observable(this.graphOptions[0]);
 
-        this.selectedGraph = ko.observable(graphOptions[0].value);
-
-        let storage = ko.pureComputed(
+        const storage = ko.pureComputed(
             () => bucket() ? bucket().storage : {}
         );
 
-        let data = ko.pureComputed(
+        const data = ko.pureComputed(
             () => bucket() ? bucket().data : {}
         );
 
@@ -105,6 +98,13 @@ class BucketSummrayViewModel extends Disposable {
         });
 
         this.storageValues = [
+            {
+                label: 'Available',
+                color: style['color5'],
+                value: ko.pureComputed(
+                    () => storage().free
+                )
+            },
             {
                 label: 'Used (this bucket)',
                 color: style['color13'],
@@ -118,49 +118,42 @@ class BucketSummrayViewModel extends Disposable {
                 value: ko.pureComputed(
                     () => storage().used_other
                 )
-            },
-            {
-                label: 'Potential available',
-                color: style['color5'],
-                value: ko.pureComputed(
-                    () => storage().free
-                )
             }
         ];
 
         this.dataValues = [
             {
-                label: 'Reduced',
-                value: ko.pureComputed(
-                    () => data().size_reduced
-                ),
-                color: style['color13']
-            },
-            {
-                label: 'Size',
+                label: 'Total Original Size',
                 value: ko.pureComputed(
                     () => data().size
                 ),
                 color: style['color7']
+            },
+            {
+                label: 'Compressed & Deduped',
+                value: ko.pureComputed(
+                    () => data().size_reduced
+                ),
+                color: style['color13']
             }
         ];
 
 
         this.legend = ko.pureComputed(
-            () => this.selectedGraph() === 'STORAGE' ?
+            () => this.viewType() === 'storage' ?
                 this.storageValues :
                 this.dataValues
         );
 
-        this.avaliableForWrite = ko.pureComputed(
+        this.availableForWrite = ko.pureComputed(
             () => data().actual_free
         ).extend({
             formatSize: true
         });
 
-        this.avaliableForWriteTooltip = avaliableForWriteTooltip;
+        this.availableForWriteTootlip = availableForWriteTooltip;
 
-        let stats = ko.pureComputed(
+        const stats = ko.pureComputed(
             () => bucket() ? bucket().stats : {}
         );
 

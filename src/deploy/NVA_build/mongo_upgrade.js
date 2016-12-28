@@ -20,7 +20,12 @@ function upgrade() {
     upgrade_system_access_keys();
     upgrade_object_mds();
     remove_unnamed_nodes();
+    fix_nodes_pool_to_object_id();
     upgrade_cloud_agents();
+    upgrade_tier_pools();
+    upgrade_accounts();
+    upgrade_pools();
+    upgrade_buckets();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -45,7 +50,7 @@ function sync_cluster_upgrade() {
         owner_secret: param_secret
     }).toArray()[0].upgrade ? db.clusters.find({
         owner_secret: param_secret
-    }).toArray()[0].upgrade.mongo_upgrade : false;
+    }).toArray()[0].upgrade.mongo_upgrade : true;
 
     // if this server shouldn't run mongo_upgrade, set status to DB_READY,
     // to indicate that this server is upgraded and with mongo running.
@@ -459,6 +464,39 @@ function upgrade_object_mds() {
     });
 }
 
+function upgrade_tier_pools() {
+    print('\n*** upgrade_tier_pools ...');
+    db.tiers.find({
+        pools: {
+            $exists: true
+        }
+    }).forEach(function(tier) {
+        var mirrors = [];
+        if (tier.data_placement === 'MIRROR') {
+            tier.pools.forEach(function(pool_object_id) {
+                mirrors.push({
+                    spread_pools: [pool_object_id]
+                });
+            });
+        } else {
+            mirrors.push({
+                spread_pools: tier.pools
+            });
+        }
+
+        db.tiers.update({
+            _id: tier._id
+        }, {
+            $set: {
+                mirrors: mirrors
+            },
+            $unset: {
+                pools: 1
+            }
+        });
+    });
+}
+
 function remove_unnamed_nodes() {
     var nodes_ids_to_delete = [];
     db.nodes.find({
@@ -488,4 +526,123 @@ function remove_unnamed_nodes() {
             }
         });
     }
+}
+
+function upgrade_accounts() {
+    add_defaults_to_sync_credentials_cache();
+}
+
+function add_defaults_to_sync_credentials_cache() {
+    db.accounts.find().forEach(function(account) {
+        var credentials = account.sync_credentials_cache;
+        if (credentials) {
+            var new_credentials = [];
+            credentials.forEach(function(connection) {
+                var new_connection = connection;
+                new_connection.name = connection.name || connection.access_key;
+                new_connection.endpoint = connection.endpoint || 'https://s3.amazonaws.com';
+                new_credentials.push(new_connection);
+            });
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $set: {
+                    sync_credentials_cache: new_credentials
+                }
+            });
+        }
+    });
+}
+
+function upgrade_pools() {
+    add_account_id_to_cloud_pools();
+}
+
+function upgrade_buckets() {
+    add_account_id_to_cloud_sync();
+}
+
+function add_account_id_to_cloud_pools() {
+    db.pools.find({
+        cloud_pool_info: {
+            $exists: true
+        }
+    }).forEach(function(pool) {
+        var cloud_pool_info_to_set = add_credentials_to_missing_account_id(pool.cloud_pool_info);
+        if (cloud_pool_info_to_set) {
+            db.pools.update({
+                _id: pool._id
+            }, {
+                $set: {
+                    cloud_pool_info: cloud_pool_info_to_set
+                }
+            });
+        }
+    });
+}
+
+function add_account_id_to_cloud_sync() {
+    db.buckets.find({
+        cloud_sync: {
+            $exists: true
+        }
+    }).forEach(function(bucket) {
+        var cloud_sync_info_to_set = add_credentials_to_missing_account_id(bucket.cloud_sync);
+        if (cloud_sync_info_to_set) {
+            db.buckets.update({
+                _id: bucket._id
+            }, {
+                $set: {
+                    cloud_sync: cloud_sync_info_to_set
+                }
+            });
+        }
+    });
+}
+
+function add_credentials_to_missing_account_id(credentials) {
+    if (credentials &&
+        credentials.access_keys &&
+        credentials.access_keys.access_key &&
+        !credentials.access_keys.account_id) {
+        credentials.access_keys.account_id = find_account_id_by_credentials(credentials.access_keys.access_key);
+        return credentials;
+    }
+}
+
+function find_account_id_by_credentials(access_key) {
+    var ret = "";
+    db.accounts.find({
+        sync_credentials_cache: {
+            $exists: true
+        },
+        deleted: {
+            $exists: false
+        },
+    }).forEach(function(account) {
+        var candidate_credentials = account.sync_credentials_cache;
+        candidate_credentials.forEach(function(connection) {
+            if (connection.access_key === access_key) {
+                ret = account._id;
+            }
+        });
+    });
+    return ret;
+}
+
+function fix_nodes_pool_to_object_id() {
+    // Type 2 is String ref: https://docs.mongodb.com/v3.0/reference/operator/query/type/
+    db.nodes.find({
+        pool: {
+            $type: 2
+        }
+    }).forEach(function(node) {
+        db.nodes.update({
+            _id: node._id
+        }, {
+            $set: {
+                pool: new ObjectId(node.pool)
+            }
+        });
+    });
 }

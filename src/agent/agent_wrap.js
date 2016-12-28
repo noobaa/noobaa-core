@@ -47,7 +47,10 @@ fs.readFileAsync('./agent_conf.json')
                     strictSSL: false,
                     timeout: 20000
                 })
-                .on('error', err => reject(err))
+                .on('error', err => {
+                    dbg.warn('Error downloading NooBaa agent upgrade from', address);
+                    return reject(err);
+                })
                 .pipe(output)
                 .on('error', err => reject(err))
                 .on('finish', resolve);

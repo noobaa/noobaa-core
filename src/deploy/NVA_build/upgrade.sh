@@ -1,26 +1,17 @@
 #!/bin/bash
 
+EXTRACTION_PATH="/tmp/test/"
+
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
+. ${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/common_funcs.sh
 
 PACKAGE_FILE_NAME="new_version.tar.gz"
 WRAPPER_FILE_NAME="upgrade_wrapper.sh"
 WRAPPER_FILE_PATH="/tmp/test/noobaa-core/src/deploy/NVA_build/"
 TMP_PATH="/tmp/"
-EXTRACTION_PATH="/tmp/test/"
 VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"
 NEW_UPGRADE_SCRIPT="${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/upgrade.sh"
 MONGO_SHELL="/usr/bin/mongo nbcore"
-MONGO_PROGRAM="mongodb"
-
-
-function wait_for_mongo {
-  local running=$(supervisorctl status ${MONGO_PROGRAM} | awk '{ print $2 }' )
-  while [ "$running" != "RUNNING" ]; do
-    sleep 5
-    running=$(supervisorctl status ${MONGO_PROGRAM} | awk '{ print $2 }' )
-  done
-}
-
 
 function disable_autostart {
   deploy_log "disable_autostart"
@@ -55,10 +46,30 @@ function disable_supervisord {
   deploy_log "Mongo status after disabling supervisord $mongostatus"
 }
 
+function packages_upgrade {
+    #fix SCL issue (preventing yum install/update)
+    yum -y remove centos-release-SCL
+    yum -y install centos-release-scl
+
+    if yum list installed dialog >/dev/null 2>&1; then
+        deploy_log "dialog installed"
+    else
+        deploy_log "installing dialog"
+        yum install -y dialog
+    fi
+
+    if yum list installed vim >/dev/null 2>&1; then
+        deploy_log "vim installed"
+    else
+        deploy_log "installing vim"
+        yum install -y vim
+    fi
+
+    deploy_log "installing utils"
+    yum install -y bind-utils
+}
+
 function mongo_upgrade {
-
-
-
   disable_autostart
 
   ${SUPERD}
@@ -76,9 +87,7 @@ function mongo_upgrade {
   ${MONGO_SHELL} --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
   deploy_log "finished mongo data upgrade"
 
-
   enable_autostart
-
 
   ${SUPERCTL} update
   ${SUPERCTL} start all
@@ -110,7 +119,6 @@ function restart_webserver {
     deploy_log "finished mongo data upgrade"
 
     ${SUPERCTL} start webserver
-
 }
 
 function setup_users {
@@ -173,6 +181,9 @@ function extract_package {
 }
 
 function do_upgrade {
+  #Update packages before we stop services, minimize downtime, limit run time for yum update so it won't get stuck
+  timeout --signal=SIGINT 360 cat <( packages_upgrade )
+
   disable_supervisord
 
   if [ "$CLUSTER" != 'cluster' ]; then
@@ -220,7 +231,6 @@ function do_upgrade {
   deploy_log "Running post upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post ${FSUFFIX}
   deploy_log "Finished post upgrade"
-
 
   mongo_upgrade
   wait_for_mongo
@@ -281,10 +291,8 @@ else
 
     CLUSTER="$1"
     if [ "$CLUSTER" == 'cluster' ]; then
-      RS_SERVERS=`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'/' -f 3`
-      # TODO: handle differenet shards 
-      MONGO_SHELL="/usr/bin/mongo --host shard1/${RS_SERVERS} nbcore"
-      MONGO_PROGRAM="mongors-shard1"
+      # TODO: handle differenet shard
+      set_mongo_cluster_mode
     fi
 
 

@@ -1,0 +1,20 @@
+PUT /files/cyberduck/cyberduck_iwfg6agl.sreq HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Content-Length: 543
+Content-MD5: 9JE33ZjUHDu0bIO4o68ZXg==
+Expect: 100-continue
+Date: Wed, 07 Dec 2016 21:36:31 GMT
+User-Agent: aws-cli/1.11.17 Python/2.7.10 Darwin/16.1.0 botocore/1.4.74
+Authorization: AWS 123:WyVBYdcXCNtVwsFLF3HQE5+f7MI=
+
+GET / HTTP/1.1
+Date: Wed, 07 Dec 2016 21:29:08 GMT
+x-amz-request-payer: requester
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Host: 127.0.0.1
+x-amz-date: 20161207T212908Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20161207/us-east-1/s3/aws4_request,SignedHeaders=date;host;x-amz-content-sha256;x-amz-date;x-amz-request-payer,Signature=736966cc2fd975a17a3f83ff03f0107b2dc892fccf7a4c55df33b5a5f401f7f7
+Connection: Keep-Alive
+User-Agent: Cyberduck/5.2.2.21483 (Mac OS X/10.12.1) (x86_64)
+

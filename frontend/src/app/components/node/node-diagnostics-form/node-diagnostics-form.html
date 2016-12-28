@@ -1,53 +1,43 @@
-<section class="row pad">
-    <div class="column greedy push-next">
-        <h3 class="heading3">Diagnostics</h3>
+<section class="column push-next">
+    <div class="row pad alt-bg content-middle">
+        <h3 class="greedy heading3">Diagnostics</h3>
 
-        <div>
-            Debug Level:
-            <span data-bind="text: debugLevelText"></span>
-            <span data-bind="visible: debugLevel() > 0" class="warning">
-                (May cause agent slowdown)
-            </span>
+        <div class="push-next" data-bind="tooltip: actionsTooltip">
+            <button class="btn" data-bind="
+                disable: areActionsDisabled,
+                click: toggleDebugMode,
+                text: toggleDebugModeButtonText
+            "></button>
+        </div>
+
+        <div data-bind="tooltip: actionsTooltip">
+            <working-button params="
+                working: isCollectingDiagnostics,
+                workingLabel: 'Collecting Data...',
+                click: downloadDiagnosticPack,
+                disabled: areActionsDisabled
+            ">
+                Download Diagnostics
+            </working-button>
+        </div>
+    </div>
+    <property-sheet class="pad" params="properties: debugModeSheet"></property-sheet>
+</section>
+
+<section class="column push-prev">
+    <div class="row pad alt-bg content-middle">
+        <h3 class="greedy heading3">Node's connectivity</h3>
+        <div data-bind="tooltip: actionsTooltip">
+            <button class="btn" data-bind="
+                disable: areActionsDisabled,
+                click: showTestNodeModal
+            ">
+                Run Test
+            </button>
         </div>
     </div>
 
-    <div class="push-next" data-bind="tooltip: actionsTooltip">
-        <button class="btn" data-bind="
-            disable: areActionsDisabled,
-            click: toggleDebugLevel,
-            text: toggleDebugLevelButtonText
-        "></button>
-    </div>
-
-    <div data-bind="tooltip: actionsTooltip">
-        <working-button params="
-            working: isCollectingDiagnostics,
-            workingLabel: 'Collecting Data...',
-            click: downloadDiagnosticPack,
-            disable: areActionsDisabled
-        ">
-            Download Diagnostics
-        </working-button>
-    </div>
-</section>
-
-<hr />
-
-<section class="row pad">
-    <div class="column greedy push-next">
-        <h3 class="heading3">Node's connectivity</h3>
-
-        <p>Testing a node allows you the verify peer to peer connectivity &amp; bandwidth between this node and several of its peers</p>
-    </div>
-
-    <div data-bind="tooltip: actionsTooltip">
-        <button class="btn" data-bind="
-            disable: areActionsDisabled,
-            click: showTestNodeModal
-        ">
-            Run Test
-        </button>
-    </div>
+    <p class="pad">Testing a node allows you the verify peer to peer connectivity &amp; bandwidth between this node and several of its peers</p>
 </section>
 
 <!-- ko if: isTestNodeModalVisible -->

@@ -12,7 +12,8 @@ const net = require('net');
 const request = require('request');
 // const uuid = require('node-uuid');
 const ip_module = require('ip');
-
+const fs = require('fs');
+const path = require('path');
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -36,6 +37,9 @@ const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 const node_server = require('../node_services/node_server');
 const dns = require('dns');
+const node_allocator = require('../node_services/node_allocator');
+const config_file_store = require('./config_file_store').instance();
+const fs_utils = require('../../util/fs_utils');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -144,7 +148,9 @@ function new_system_changes(name, owner_account) {
         const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
         var system = new_system_defaults(name, owner_account._id);
         var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
-        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [{
+            spread_pools: [pool._id]
+        }]);
         var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
             tier: tier._id,
             order: 0
@@ -170,7 +176,9 @@ function new_system_changes(name, owner_account) {
             const demo_bucket_name = config.DEMO_DEFAULTS.BUCKET_NAME;
             const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
             let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
-            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);
+            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [{
+                spread_pools: [demo_pool._id]
+            }]);
             var demo_policy = tier_server.new_policy_defaults(demo_bucket_with_suffix, system._id, [{
                 tier: demo_tier._id,
                 order: 0
@@ -357,13 +365,23 @@ function read_system(req) {
             auth_token: req.auth_token
         })).then(
             response => response.accounts
+        ),
+
+        fs.statAsync(path.join('/etc', 'private_ssl_path', 'server.key'))
+        .return(true)
+        .catch(() => false),
+
+        promise_utils.all_obj(
+            system.buckets_by_name,
+            bucket => node_allocator.refresh_tiering_alloc(bucket.tiering)
         )
     ).spread(function(
         nodes_aggregate_pool_no_cloud,
         nodes_aggregate_pool_with_cloud,
         objects_count,
         cloud_sync_by_bucket,
-        accounts
+        accounts,
+        has_ssl_cert
     ) {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
@@ -378,14 +396,12 @@ function read_system(req) {
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
         const debug_level = system.debug_level;
-        const upgrade = {};
-        if (system.upgrade) {
-            upgrade.status = system.upgrade.status;
-            upgrade.message = system.upgrade.error;
-        } else {
-            upgrade.status = 'UNAVAILABLE';
-            upgrade.message = '';
-        }
+
+        const upgrade = {
+            last_upgrade: system.upgrade_date || undefined,
+            status: system.upgrade ? system.upgrade.status : 'UNAVAILABLE',
+            message: system.upgrade ? system.upgrade.error : undefined
+        };
         const maintenance_mode = {
             state: system_server_utils.system_in_maintenance(system._id)
         };
@@ -427,13 +443,13 @@ function read_system(req) {
             buckets: _.map(system.buckets_by_name,
                 bucket => bucket_server.get_bucket_info(
                     bucket,
-                    nodes_aggregate_pool_no_cloud,
+                    nodes_aggregate_pool_with_cloud,
                     objects_count[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
-                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_no_cloud)),
+                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_with_cloud)),
             storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
             }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),
@@ -450,10 +466,10 @@ function read_system(req) {
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
-            last_upgrade: system.upgrade_date || 0,
             debug_level: debug_level,
             upgrade: upgrade,
             system_cap: system_cap,
+            has_ssl_cert: has_ssl_cert,
         };
 
         // fill cluster information if we have a cluster.
@@ -488,14 +504,25 @@ function update_system(req) {
 
 function set_maintenance_mode(req) {
     var updates = {};
+    const audit_desc = `Maintanance mode activated for ${req.rpc_params.duration} hour${req.rpc_params.duration === 1 ? '' : 's'}`;
     updates._id = req.system._id;
     // duration is in minutes (?!$%)
     updates.maintenance_mode = Date.now() + (req.rpc_params.duration * 60000);
     return system_store.make_changes({
-        update: {
-            systems: [updates]
-        }
-    }).return();
+            update: {
+                systems: [updates]
+            }
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'dbg.maintenance_mode',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: audit_desc,
+            });
+        })
+        .return();
 }
 
 function set_webserver_master_state(req) {
@@ -721,13 +748,23 @@ function update_n2n_config(req) {
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
     var prior_base_address = req.system && req.system.base_address;
-    return system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: req.system._id,
-                    base_address: req.rpc_params.base_address.toLowerCase()
-                }]
+    return P.resolve()
+        .then(() => {
+            const db_update = {
+                _id: req.system._id,
+            };
+            if (req.rpc_params.base_address) {
+                db_update.base_address = req.rpc_params.base_address.toLowerCase();
+            } else {
+                db_update.$unset = {
+                    base_address: 1
+                };
             }
+            return system_store.make_changes({
+                update: {
+                    systems: [db_update]
+                }
+            });
         })
         .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token
@@ -738,7 +775,7 @@ function update_base_address(req) {
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
-                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
+                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address || 'server IP'}`,
             });
         });
 }
@@ -747,10 +784,14 @@ function update_base_address(req) {
 function update_phone_home_config(req) {
     dbg.log0('update_phone_home_config', req.rpc_params);
 
+    const previous_value = system_store.data.systems[0].phone_home_proxy_address;
+    let desc_line = `Phone home proxy address was `;
+    desc_line += req.rpc_params.proxy_address ? `set to ${req.rpc_params.proxy_address}. ` : `cleared. `;
+    desc_line += previous_value ? `Was previously set to ${previous_value}` : `Was not previously set`;
+
     let update = {
         _id: req.system._id
     };
-
     if (req.rpc_params.proxy_address === null) {
         update.$unset = {
             phone_home_proxy_address: 1
@@ -763,6 +804,15 @@ function update_phone_home_config(req) {
             update: {
                 systems: [update]
             }
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.set_phone_home_proxy_address',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: desc_line,
+            });
         })
         .return();
 }
@@ -795,15 +845,16 @@ function configure_remote_syslog(req) {
     let update = {
         _id: req.system._id
     };
-
+    let desc_line = '';
     if (params.enabled) {
         if (!params.protocol || !params.address || !params.port) {
             throw new RpcError('INVALID_REQUEST', 'Missing protocol, address or port');
         }
-
+        desc_line = `remote syslog was directed to: ${params.address}:${params.port}`;
         update.remote_syslog_config = _.pick(params, 'protocol', 'address', 'port');
 
     } else {
+        desc_line = 'Disabled remote syslog';
         update.$unset = {
             remote_syslog_config: 1
         };
@@ -817,15 +868,73 @@ function configure_remote_syslog(req) {
         .then(
             () => os_utils.reload_syslog_configuration(params)
         )
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.remote_syslog',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: desc_line,
+            });
+        })
         .return();
 }
 
+function set_certificate(zip_file) {
+    const tmp_dir = '/tmp/ssl';
+    const dest_dir = '/etc/private_ssl_path';
+    dbg.log0('upload_certificate');
+    return fs_utils.create_fresh_path(tmp_dir)
+        .then(() => promise_utils.exec(`/usr/bin/unzip '${zip_file.path}' -d ${tmp_dir}`))
+        .then(() => fs.readdirAsync(tmp_dir))
+        .then(files => {
+            const cert_file = _throw_if_not_single_item(files, '.cert');
+            const key_file = _throw_if_not_single_item(files, '.key');
+            return promise_utils.exec(`(/usr/bin/openssl x509 -noout -modulus -in ${cert_file} | /usr/bin/openssl md5 ; /usr/bin/openssl rsa -noout -modulus -in ${key_file} | /usr/bin/openssl md5) | uniq | wc -l`,
+                    false, true).then(openssl_res => {
+                    if (openssl_res.trim() !== '1') {
+                        throw new Error('No match between key and certificate');
+                    }
+                })
+                .then(() => fs_utils.create_fresh_path(dest_dir))
+                .then(() => P.join(
+                    _move_and_insert_config_file_to_store(`${tmp_dir}/${cert_file}`, `${dest_dir}/server.crt`),
+                    _move_and_insert_config_file_to_store(`${tmp_dir}/${key_file}`, `${dest_dir}/server.key`)
+                ));
+        })
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.set_certificate',
+                level: 'info',
+                desc: `New certificate was successfully set`
+            });
+        });
+}
+
+function _move_and_insert_config_file_to_store(src, dest) {
+    return fs.readFileAsync(src, 'utf8')
+        .then(file_data => config_file_store.insert({
+            filename: dest,
+            data: file_data
+        }))
+        .then(() => fs.renameAsync(src, dest));
+}
+
+function _throw_if_not_single_item(arr, extension) {
+    const list = _.filter(arr, item => item.endsWith(extension));
+    if (list.length !== 1) {
+        throw new Error(`There should be exactly one ${extension} file in zip. Instead got ${list.length}`);
+    }
+    return list[0];
+}
 
 function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
 
-    req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
+    if (req.rpc_params.hostname !== null) {
+        req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
+    }
 
     return P.resolve()
         .then(() => {
@@ -981,6 +1090,6 @@ exports.update_system_certificate = update_system_certificate;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;
-
+exports.set_certificate = set_certificate;
 
 exports.validate_activation = validate_activation;

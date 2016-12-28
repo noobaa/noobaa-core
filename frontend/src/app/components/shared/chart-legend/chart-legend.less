@@ -1,33 +1,66 @@
 chart-legend {
-    .column();
+    display: block;
+    min-width: 256px;
 
     .legend-caption {
         margin-bottom: @gutter/2;
     }
 
-    ul {
+    .legend-item {
+        margin: @gutter/2 0;
+        line-height: 1;
+        font-size: @font-size2;
+        display: flex;
+        flex-direction: row;
 
-        li {
-            margin: @gutter/2 0;
-            line-height: 1;
 
-            &:before {
-                content: '';
-                display: inline-block;;
-                border: 4px solid;
-                vertical-align: middle;
-                border-color: inherit;
-                margin-right: 4px;
-            }
+        &:before {
+            content: '';
+            display: inline-block;;
+            border: 4px solid;
+            vertical-align: middle;
+            border-color: inherit;
+            margin-right: 4px;
+            height: 0;
+            width: 0;
+            align-self: center;
+        }
 
-            span {
-                display: inline-block;
-                width: 130px;
 
-                + span {
-                    width: 68px;
-                }
-            }
+        .legend-label {
+            display: inline-block;
+            flex-basis: 150px;
+        }
+
+        .legend-value {
+            text-align: right;
+            display: inline-block;
+            flex-grow: 1;
+        }
+
+    }
+
+    &.legend-row {
+        width: auto;
+
+        .legend-items {
+            .content-middle();
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: block;
+        }
+
+        .legend-value {
+            margin-left: @gutter/2;
+            margin-right: @gutter;
+        }
+
+        .legend-label, .legend-value {
+            width: auto;
         }
     }
 }

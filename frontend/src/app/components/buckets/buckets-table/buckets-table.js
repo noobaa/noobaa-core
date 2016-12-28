@@ -2,9 +2,10 @@ import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze, createCompareFunc } from 'utils/all';
+import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
+import { inputThrottle } from 'config';
 
 const columns = deepFreeze([
     {
@@ -50,13 +51,13 @@ const columns = deepFreeze([
 ]);
 
 function generatePlacementSortValue(bucket) {
-    let tierName = bucket.tiering.tiers[0].tier;
-    let { data_placement, node_pools } = systemInfo() && systemInfo().tiers.find(
+    const tierName = bucket.tiering.tiers[0].tier;
+    const { data_placement, attached_pools } = systemInfo() && systemInfo().tiers.find(
         tier => tier.name === tierName
     );
     return [
         data_placement === 'SPREAD' ? 0 : 1,
-        node_pools.length
+        attached_pools.length
     ];
 }
 
@@ -75,24 +76,34 @@ class BucketsTableViewModel extends Disposable {
 
         this.columns = columns;
 
+        const query = ko.pureComputed(
+            () => routeContext().query || {}
+        );
+
+        this.filter = ko.pureComputed({
+            read: () => query().filter,
+            write: throttle(phrase => this.filterBuckets(phrase), inputThrottle)
+        });
+
         this.sorting = ko.pureComputed({
             read: () => ({
-                sortBy: routeContext().query.sortBy || 'name',
-                order: Number(routeContext().query.order) || 1
+                sortBy: query().sortBy || 'name',
+                order: Number(query().order) || 1
             }),
-            write: value => {
-                this.deleteGroup(null);
-                navigateTo(undefined, undefined, value);
-            }
+            write: value => this.orderBy(value)
         });
 
         this.buckets = ko.pureComputed(
             () => {
-                let { sortBy, order } = this.sorting();
-                let compareOp = createCompareFunc(compareAccessors[sortBy], order);
+                const { sortBy, order } = this.sorting();
+                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
 
                 return systemInfo() && systemInfo().buckets
-                    .slice(0)
+                    .filter(
+                        ({ name }) => name.toLowerCase().includes(
+                            (this.filter() || '').toLowerCase()
+                        )
+                    )
                     .sort(compareOp);
             }
         );
@@ -111,6 +122,24 @@ class BucketsTableViewModel extends Disposable {
             this.deleteGroup,
             this.hasSingleBucket
         );
+    }
+
+    orderBy({ sortBy, order }) {
+        this.deleteGroup(null);
+
+        const filter = this.filter() || undefined;
+        navigateTo(undefined, undefined, { filter, sortBy, order });
+    }
+
+    filterBuckets(phrase) {
+        this.deleteGroup(null);
+
+        const params = Object.assign(
+            { filter: phrase || undefined },
+            this.sorting()
+        );
+
+        navigateTo(undefined, undefined, params);
     }
 
     showCreateBucketWizard() {

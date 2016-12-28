@@ -1,0 +1,8 @@
+HEAD /files/lala%20123 HTTP/1.1
+User-Agent: aws-sdk-nodejs/2.5.1 darwin/v6.9.1
+Content-Length: 0
+Host: 127.0.0.1
+X-Amz-Date: Thu, 08 Dec 2016 02:30:57 GMT
+Authorization: AWS 123:w2ovDawhTCLfIieR9Iba3bwHpBc=
+Connection: keep-alive
+

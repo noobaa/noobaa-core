@@ -118,7 +118,7 @@ export function recognizeBrowser() {
 
 export function toFormData(payload) {
     return entries(payload).reduce(
-        (formData, { key, value }) => {
+        (formData, [ key, value ]) => {
             formData.append(key, value);
             return formData;
         },
@@ -162,4 +162,9 @@ export function httpWaitForResponse(url, status, retryDelay = 3000) {
                 () => sleep(retryDelay).then(tryGet)
             );
     })();
+}
+
+export function formatEmailUri(uri, subject) {
+    const query = stringifyQueryString({ subject });
+    return `mailto:${uri}${query ? `?${query}` : ''}`;
 }

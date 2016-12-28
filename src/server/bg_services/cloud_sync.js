@@ -10,85 +10,76 @@ const md_store = require('../object_services/md_store');
 const system_store = require('../system_services/system_store').get_instance();
 const util = require('util');
 
+class PolicyMap extends Map {
+    static create() {
+        return Object.setPrototypeOf(new Map(), new PolicyMap());
+    }
+    set_policy(key, value) {
+        this.set(_policy_identifier(key), value);
+    }
+    get_policy(key) {
+        return this.get(_policy_identifier(key));
+    }
+    delete_policy(key) {
+        this.delete(_policy_identifier(key));
+    }
+    to_array() {
+        return Array.from(this.values());
+    }
+}
+
 const CLOUD_SYNC = {
-    //Policy was changed, list of policies should be refreshed
-    refresh_list: false,
-
     //Configured policies cache & related objects
-    configured_policies: [],
-
-    //works lists (n2c/c2n -> addition/deletion) per each configured cloud synced bucket
-    work_lists: [],
+    configured_policies: PolicyMap.create()
 };
 
 /*
  *************** Cloud Sync Background Worker & Other Eports
  */
 function background_worker() {
-    var should_update_time = false;
-    return P.fcall(function() {
-            dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
-            ///if policies not loaded, load them now
-            if (CLOUD_SYNC.configured_policies.length === 0 || CLOUD_SYNC.refresh_list) {
-                return load_configured_policies();
-            }
-        })
-        .then(function() {
-            var now = Date.now();
-            return P.all(_.map(CLOUD_SYNC.configured_policies, function(policy) {
-                //If refresh time
-                if (((now - policy.last_sync) / 1000 / 60) > policy.schedule_min &&
-                    !policy.paused) {
-                    var cur_work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
-                        return wl.sysid === policy.system._id &&
-                            wl.bucketid === policy.bucket._id;
-                    });
-                    //If currently still in sync from lasy refresh, skip
-                    if (!is_empty_sync_worklist(cur_work_list)) {
-                        dbg.log0('Last sync was not finished for',
-                            policy.system._id, policy.bucket._id,
-                            'skipping current cycle');
-                        return;
-                    }
-                    should_update_time = true;
-                    return update_work_list(policy)
-                        .catch(function(error) {
-                            dbg.error('update_work_list failed for policy:', policy);
-                            return;
-                        });
+    dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
+
+    if (!system_store.is_finished_initial_load) {
+        dbg.log0('System did not finish initial load');
+        return P.resolve();
+    }
+
+    let now = new Date();
+    return load_policies()
+        .then(() => P.all(_.map(_.filter(CLOUD_SYNC.configured_policies.to_array(), policy =>
+                (((now - policy.last_sync) / 1000 / 60) > policy.schedule_min &&
+                    !policy.paused &&
+                    policy.status !== 'SYNCING' &&
+                    policy.status !== 'NOTSET'
+                )), policy => update_work_list(policy)
+            .then(() => {
+                if (_are_worklists_empty(policy)) {
+                    policy.health = true;
+                    return _mark_as_done(policy);
                 }
-            }));
-        })
-        .then(function() {
-            return P.all(_.map(CLOUD_SYNC.work_lists, function(single_bucket) {
-                var current_policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-                    return p.system._id === single_bucket.sysid &&
-                        p.bucket._id === single_bucket.bucketid;
+                policy.status = 'PENDING';
+            })
+            .catch(err => {
+                policy.health = false;
+                policy.status = 'UNABLE';
+                dbg.error('Could not update work_lists for policy ', pretty_policy(policy), err.stack || err);
+            }))))
+        .then(() => P.all(_.map(_.filter(CLOUD_SYNC.configured_policies.to_array(), policy =>
+            !policy.paused &&
+            policy.status === 'PENDING'), policy => {
+            policy.status = 'SYNCING';
+            policy.health = true;
+            return P.resolve(sync_to_cloud_single_bucket(policy))
+                .then(() => sync_from_cloud_single_bucket(policy))
+                .then(() => _mark_as_done(policy))
+                .catch(function(error) {
+                    dbg.error('cloud_sync_refresher failed syncing objects for bucket',
+                        policy.bucket.sysid, policy.bucket.bucketid,
+                        'with', error, error.stack);
+                    policy.health = false;
+                    policy.status = 'UNABLE';
                 });
-                //Sync n2c
-                return P.resolve(sync_to_cloud_single_bucket(single_bucket, current_policy))
-                    .then(function() {
-                        //Sync c2n
-                        return sync_from_cloud_single_bucket(single_bucket, current_policy);
-                    })
-                    .catch(function(error) {
-                        dbg.error('cloud_sync_refresher failed syncing objects for bucket',
-                            single_bucket.sysid, single_bucket.bucketid,
-                            'with', error, error.stack);
-                        return;
-                    })
-                    .then(function() {
-                        dbg.log3('Done syncing', current_policy.bucket.name,
-                            'on sys', current_policy.system._id);
-                        if (should_update_time) {
-                            current_policy.last_sync = new Date();
-                            return update_bucket_last_sync(current_policy.bucket);
-                        } else {
-                            return;
-                        }
-                    });
-            }));
-        })
+        })))
         .catch(function(error) {
             dbg.error('cloud_sync_refresher Failed', error, error.stack);
         })
@@ -100,105 +91,89 @@ function background_worker() {
 
 function get_policy_status(req) {
     dbg.log3('get policy status', req.rpc_params.bucketid, req.rpc_params.sysid);
-    var work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
-        return wl.sysid.toString() === req.rpc_params.sysid &&
-            wl.bucketid.toString() === req.rpc_params.bucketid.toString();
+    let policy;
+    return load_policies().then(() => {
+        policy = CLOUD_SYNC.configured_policies.get_policy(req.rpc_params);
+        return policy ? {
+            status: policy.status,
+            health: policy.health
+        } : {
+            status: 'NOTSET',
+            health: true
+        };
     });
-
-    var status;
-    var health;
-
-    if (!is_empty_sync_worklist(work_list)) {
-        status = 'SYNCING';
-    } else {
-        status = 'IDLE';
-    }
-
-    var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-        return (p.system._id.toString() === req.rpc_params.sysid &&
-            p.bucket._id.toString() === req.rpc_params.bucketid.toString());
-    });
-    if (policy) {
-        health = policy.health;
-    } else {
-        health = false;
-    }
-
-    return {
-        status: status,
-        health: health
-    };
 }
 
 function refresh_policy(req) {
     dbg.log2('refresh policy', req.rpc_params);
-    var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-        return (p.system._id.toString() === req.rpc_params.sysid &&
-            p.bucket._id.toString() === req.rpc_params.bucketid.toString());
-    });
-    if (!policy && !req.rpc_params.skip_load) {
-        dbg.log0('policy not found, loading it');
-        return system_store.load()
-            .then(function() {
-                load_single_policy(system_store.data.get_by_id(req.rpc_params.bucketid));
-            }).then(function() {
-                CLOUD_SYNC.refresh_list = true;
-            });
-    }
-
-    if (req.rpc_params.force_stop) {
-        var cur_work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
-            return wl.sysid.toString() === req.rpc_params.sysid &&
-                wl.bucketid.toString() === req.rpc_params.bucketid;
-        });
-        if (!is_empty_sync_worklist(cur_work_list)) {
-            while (cur_work_list.n2c_deleted.length > 0) {
-                cur_work_list.n2c_deleted.pop();
-            }
-            while (cur_work_list.n2c_added.length > 0) {
-                cur_work_list.n2c_added.pop();
-            }
-            while (cur_work_list.c2n_deleted.length > 0) {
-                cur_work_list.c2n_deleted.pop();
-            }
-            while (cur_work_list.c2n_added.length > 0) {
-                cur_work_list.c2n_added.pop();
-            }
-        }
-    }
-
-    CLOUD_SYNC.refresh_list = true;
+    return load_policies()
+        .then(() => P.fcall(() =>
+            load_single_policy(req.rpc_params.bucket_id, req.rpc_params.system_id)))
+        .return();
 }
 
 /*
  *************** General Cloud Sync Utils
  */
-function is_empty_sync_worklist(work_list) {
-    if (typeof(work_list) === 'undefined') {
-        return true;
-    }
 
-    if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
-        work_list.c2n_added.length || work_list.c2n_deleted.length) {
-        return false;
-    } else {
-        return true;
+function _policy_identifier(policy) {
+    const system_id = _.get(policy, 'system._id') || // Policy 'object'
+        policy.sysid;
+    const bucket_id = _.get(policy, 'bucket._id') ||
+        policy.bucketid;
+    if (!system_id || !bucket_id) {
+        dbg.error('Invalid policy: ', policy);
+        throw new Error('Invalid policy received');
     }
+    return `${system_id.toString()}_${bucket_id.toString()}`;
+}
+
+function load_policies() {
+    if (CLOUD_SYNC.configured_policies.size) {
+        return P.resolve(CLOUD_SYNC.configured_policies);
+    }
+    return system_store.refresh()
+        .then(() => P.all(
+            _.map(system_store.data.buckets, bucket => {
+                if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
+                    return P.fcall(() => load_single_policy(bucket._id));
+                }
+                return P.resolve();
+            })))
+        .then(() => CLOUD_SYNC.configured_policies);
+}
+
+function _mark_as_done(policy, date) {
+    if (!_are_worklists_empty(policy)) {
+        throw new Error('Sync did not complete as expected');
+    }
+    let now = date || new Date();
+    policy.status = 'SYNCED';
+    policy.last_sync = now;
+    return update_bucket_last_sync(policy.bucket, now);
+}
+
+function _are_worklists_empty(policy) {
+    return !(
+        policy.work_lists.n2c_deleted.length ||
+        policy.work_lists.n2c_added.length ||
+        policy.work_lists.c2n_deleted.length ||
+        policy.work_lists.c2n_added.length);
 }
 
 //return pretty (printable) policy obj
 function pretty_policy(policy) {
-    return {
-        bucket_name: policy.bucket.name,
-        bucket_id: policy.bucket._id,
-        system_id: policy.system._id,
-        endpoint: policy.endpoint,
-        schedule_min: policy.schedule_min,
-        last_sync: policy.last_sync,
-        additions_only: policy.additions_only,
-        c2n_enabled: policy.c2n_enabled,
-        n2c_enabled: policy.n2c_enabled,
-    };
+    return _.pick(policy, [
+        'bucket',
+        'system',
+        'endpoint',
+        'schedule_min',
+        'last_sync',
+        'additions_only',
+        'c2n_enabled',
+        'n2c_enabled',
+        'work_lists'
+    ]);
 }
 
 /*
@@ -241,7 +216,7 @@ function list_need_sync(sysid, bucket) {
             .exec())
         .then(function(need_to_sync) {
             _.each(need_to_sync, function(obj) {
-                if (typeof(obj.deleted) !== 'undefined') {
+                if (obj.deleted) {
                     res.deleted.push(obj);
                 } else {
                     res.added.push(obj);
@@ -355,30 +330,33 @@ function diff_worklists(wl1, wl2, sync_time) {
     };
 }
 
-//Load all configured could sync policies into global CLOUD_SYNC
-function load_configured_policies() {
-    dbg.log2('load_configured_policies');
-    CLOUD_SYNC.configured_policies = [];
-    CLOUD_SYNC.work_lists = [];
-    return system_store.refresh().then(function() {
-        _.each(system_store.data.buckets, function(bucket, i) {
-            if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) {
-                return;
-            }
-            load_single_policy(bucket);
-        });
-        CLOUD_SYNC.refresh_list = false;
-    });
-}
-
-function load_single_policy(bucket) {
+function load_single_policy(bucket_id, system_id) {
+    //Cache Configuration, S3 Objects and empty work lists
+    const bucket = _.find(system_store.data.buckets, candidate_bucket =>
+        (bucket_id.toString() === candidate_bucket._id.toString()));
+    if (!system_id && (!bucket || !bucket.system)) {
+        throw new Error('Attempt to load a policy without system');
+    }
+    const policy_id = {
+        sysid: system_id || (bucket && bucket.system._id.toString()),
+        bucketid: bucket_id.toString()
+    };
+    if (!bucket || !bucket.cloud_sync) {
+        return CLOUD_SYNC.configured_policies.delete_policy(policy_id);
+    }
     dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id,
         'bucket', bucket, 'to configured policies');
-    //Cache Configuration, S3 Objects and empty work lists
+    let stored_policy = CLOUD_SYNC.configured_policies.get_policy(policy_id);
+
     var policy = {
-        bucket: bucket,
-        system: bucket.system,
         endpoint: bucket.cloud_sync.endpoint,
+        bucket: {
+            name: bucket.name,
+            _id: bucket._id
+        },
+        system: {
+            _id: bucket.system._id
+        },
         target_bucket: bucket.cloud_sync.target_bucket,
         access_keys: {
             access_key: bucket.cloud_sync.access_keys.access_key,
@@ -388,18 +366,25 @@ function load_single_policy(bucket) {
         paused: bucket.cloud_sync.paused,
         c2n_enabled: bucket.cloud_sync.c2n_enabled,
         n2c_enabled: bucket.cloud_sync.n2c_enabled,
-        last_sync: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
+        last_sync: bucket.cloud_sync.last_sync || 0,
         additions_only: bucket.cloud_sync.additions_only,
         health: true,
         s3rver: null,
         s3cloud: null,
+        status: (stored_policy && stored_policy.status) || 'PENDING',
+        work_lists: {
+            n2c_added: [],
+            n2c_deleted: [],
+            c2n_added: [],
+            c2n_deleted: []
+        }
     };
     //Create a corresponding local bucket s3 object and a cloud bucket object
     policy.s3rver = new AWS.S3({
         endpoint: 'https://127.0.0.1',
         s3ForcePathStyle: true,
-        accessKeyId: policy.system.owner.access_keys[0].access_key,
-        secretAccessKey: policy.system.owner.access_keys[0].secret_key,
+        accessKeyId: bucket.system.owner.access_keys[0].access_key,
+        secretAccessKey: bucket.system.owner.access_keys[0].secret_key,
         maxRedirects: 10,
         httpOptions: {
             agent: new https.Agent({
@@ -431,50 +416,36 @@ function load_single_policy(bucket) {
         });
 
     }
-
-    CLOUD_SYNC.configured_policies.push(policy);
-
-    //Init empty work lists for current policy
-    CLOUD_SYNC.work_lists.push({
-        sysid: bucket.system._id,
-        bucketid: bucket._id,
-        n2c_added: [],
-        n2c_deleted: [],
-        c2n_added: [],
-        c2n_deleted: []
-    });
+    if (stored_policy) {
+        Object.assign(stored_policy, policy);
+    } else {
+        CLOUD_SYNC.configured_policies.set_policy(policy, policy);
+    }
 }
 
 function update_work_list(policy) {
     //order is important, in order to query needed sync objects only once form DB
     //fill the n2c list first
     dbg.log3('update_work_list for', pretty_policy(policy));
-    return P.resolve(update_n2c_worklist(policy))
-        .then(function() {
-            return update_c2n_worklist(policy);
-        });
+    return update_n2c_worklist(policy)
+        .then(() => update_c2n_worklist(policy));
 }
 
 //TODO:: SCALE: Limit to batches like the build worker does
 function update_n2c_worklist(policy) {
     if (!policy.n2c_enabled) {
-        return;
+        return P.resolve();
     }
-
     dbg.log2('update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket._id);
     return P.fcall(function() {
             return list_need_sync(policy.system._id, policy.bucket._id);
         })
         .then(function(res) {
-            var ind = _.findIndex(CLOUD_SYNC.work_lists, function(b) {
-                return b.sysid === policy.system._id &&
-                    b.bucketid === policy.bucket._id;
-            });
-            CLOUD_SYNC.work_lists[ind].n2c_added = res.added;
+            policy.work_lists.n2c_added = res.added;
             if (policy.additions_only) {
                 dbg.log2('update_n2c_worklist not adding deletions');
             } else {
-                CLOUD_SYNC.work_lists[ind].n2c_deleted = res.deleted;
+                policy.work_lists.n2c_deleted = res.deleted;
             }
             dbg.log2('DONE update_n2c_worklist sys', policy.system._id,
                 'bucket', policy.bucket._id,
@@ -487,16 +458,11 @@ function update_n2c_worklist(policy) {
 //TODO:: SCALE: Limit to batches like the build worker does
 function update_c2n_worklist(policy) {
     if (!policy.c2n_enabled) {
-        return;
+        return P.resolve();
     }
-
     dbg.log2('update_c2n_worklist sys', policy.system._id, 'bucket', policy.bucket._id);
 
-    var worklist_ind = _.findIndex(CLOUD_SYNC.work_lists, function(b) {
-        return b.sysid === policy.system._id &&
-            b.bucketid === policy.bucket._id;
-    });
-    var current_worklists = CLOUD_SYNC.work_lists[worklist_ind];
+    let work_list = policy.work_lists;
 
     var target = policy.target_bucket;
     var params = {
@@ -603,13 +569,13 @@ function update_c2n_worklist(policy) {
               For need sync purposes, check the N2C worklist for current policy,
               should be filled before the c2n list
             */
-            var joint_worklist = current_worklists.n2c_added.concat(current_worklists.n2c_deleted);
+            var joint_worklist = work_list.n2c_added.concat(work_list.n2c_deleted);
             if (!policy.additions_only) {
                 _.each(diff.uniq_b, function(bucket_obj) { //Appear in noobaa and not on cloud
                     if (_.findIndex(joint_worklist, function(it) {
                             return it.key === bucket_obj.key;
                         }) === -1) {
-                        current_worklists.c2n_deleted.push(bucket_obj);
+                        work_list.c2n_deleted.push(bucket_obj);
                     }
                 });
             } else {
@@ -619,7 +585,7 @@ function update_c2n_worklist(policy) {
                 if (_.findIndex(joint_worklist, function(it) {
                         return it.key === cloud_obj.key;
                     }) === -1) {
-                    current_worklists.c2n_added.push(cloud_obj);
+                    work_list.c2n_added.push(cloud_obj);
                 }
             });
         })
@@ -630,10 +596,11 @@ function update_c2n_worklist(policy) {
 function sync_single_file_to_cloud(policy, object, target) {
     dbg.log3('sync_single_file_to_cloud', object.key, '->', target + '/' + object.key);
 
-    var body = policy.s3rver.getObject({
+    const read_request = policy.s3rver.getObject({
         Bucket: policy.bucket.name,
         Key: object.key,
-    }).createReadStream().on('error', (err) => console.error('got error on createReadStream', err));
+    });
+    const body = read_request.createReadStream();
 
     //Take all MD as is, and only overwrite what is needed
     var params = _.omit(object.orig_md, [
@@ -649,7 +616,9 @@ function sync_single_file_to_cloud(policy, object, target) {
     params.Bucket = target;
     params.Body = body;
 
-    return P.ninvoke(policy.s3cloud, 'upload', params)
+    let managed_upload = policy.s3cloud.upload(params);
+    return P.join(promise_utils.wait_for_event(body, 'end'),
+            managed_upload.promise())
         .catch(function(err) {
             dbg.error('ERROR statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
             if (err.statusCode === 400 ||
@@ -662,15 +631,22 @@ function sync_single_file_to_cloud(policy, object, target) {
                     signatureVersion: 'v4',
                     region: 'eu-central-1'
                 });
-                return P.ninvoke(policy.s3cloud, 'upload', params)
-                    .catch(function(err) {
-                        dbg.error('Error (upload) sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
-                            err, err.stack);
+                managed_upload = policy.s3cloud.upload(params);
+                return P.join(promise_utils.wait_for_event(body, 'end'),
+                        managed_upload.promise())
+                    .catch(function(err2) {
+                        managed_upload.abort();
+                        read_request.abort();
+                        dbg.error('Error (upload) sync_single_file_to_cloud', object.key, '->', policy.bucket.name + '/' + object.key,
+                            err2, err2.stack);
+                        throw new Error('Failed to sync file from NooBaa to cloud');
                     });
-            } else {
-                dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
-                    err, err.stack);
             }
+            managed_upload.abort();
+            read_request.abort();
+            dbg.error('Error sync_single_file_to_cloud', object.key, '->', policy.bucket.name + '/' + object.key,
+                err, err.stack);
+            throw new Error('Failed to sync file from NooBaa to cloud');
         })
         .then(function() {
             return mark_cloud_synced(object);
@@ -681,10 +657,12 @@ function sync_single_file_to_cloud(policy, object, target) {
 function sync_single_file_to_noobaa(policy, object) {
     dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
 
-    var body = policy.s3cloud.getObject({
+    let download_request = policy.s3cloud.getObject({
         Bucket: policy.target_bucket,
         Key: object.key,
-    }).createReadStream().on('error', (err) => console.error('got error on createReadStream', err));
+    });
+
+    let body = download_request.createReadStream();
 
     //Take all MD as is, and only overwrite what is needed
     var params = object.orig_md;
@@ -692,24 +670,27 @@ function sync_single_file_to_noobaa(policy, object) {
     params.Bucket = policy.bucket.name;
     params.Body = body;
 
-    return P.ninvoke(policy.s3rver, 'upload', params)
+    let managed_download = policy.s3rver.upload(params);
+    return P.join(promise_utils.wait_for_event(body, 'end'),
+            managed_download.promise())
         .catch(function(err) {
+            managed_download.abort();
+            download_request.abort();
             // on any error just continue to the next file
             dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
                 err, err.stack);
         })
-        .then(function() {
-            return;
-        });
+        .return();
 }
 
 //Perform n2c cloud sync for a specific policy with a given work list
-function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
+function sync_to_cloud_single_bucket(policy) {
+
     dbg.log2('Start sync_to_cloud_single_bucket on work list for policy', pretty_policy(policy));
-    if (!bucket_work_lists || !policy) {
+    if (!policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
-
+    var bucket_work_lists = policy.work_lists;
     var target = policy.target_bucket;
     //First delete all the deleted objects
     return P.fcall(function() {
@@ -790,6 +771,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
             }
         })
         .catch(function(error) {
+            policy.health = false;
             dbg.error('sync_to_cloud_single_bucket Failed syncing added objects n2c', error, error.stack);
         })
         .then(function() {
@@ -799,12 +781,12 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
 }
 
 //Perform c2n cloud sync for a specific policy with a given work list
-function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
+function sync_from_cloud_single_bucket(policy) {
     dbg.log2('Start sync_from_cloud_single_bucket on work list for policy', pretty_policy(policy));
-    if (!bucket_work_lists || !policy) {
+    if (!policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
-
+    let bucket_work_lists = policy.work_lists;
     //TODO:: move to a function which is called both by sync_from_cloud_single_bucket and from sync_to_cloud_single_bucket
     return P.fcall(function() {
             if (bucket_work_lists.c2n_deleted.length) {
@@ -835,6 +817,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
         })
         .catch(function(err) {
             dbg.error('sync_from_cloud_single_bucket failed on syncing deletions', err, err.stack);
+            policy.health = false;
         })
         .then(function() {
             //empty deleted work list jsperf http://jsperf.com/empty-javascript-array
@@ -853,6 +836,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
         })
         .catch(function(error) {
             dbg.error('sync_from_cloud_single_bucket Failed syncing added objects c2n', error, error.stack);
+            policy.health = false;
         })
         .then(function() {
             //TODO:: pop per file
@@ -864,12 +848,12 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
         .return();
 }
 
-function update_bucket_last_sync(bucket) {
+function update_bucket_last_sync(bucket, date) {
     return system_store.make_changes({
         update: {
             buckets: [{
                 '_id': bucket._id,
-                'cloud_sync.last_sync': new Date()
+                'cloud_sync.last_sync': date
             }]
         }
     });

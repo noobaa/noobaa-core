@@ -16,7 +16,14 @@ const alloc_group_by_pool_set = {};
 
 function refresh_tiering_alloc(tiering) {
     let pools = _.flatten(_.map(tiering.tiers,
-        tier_and_order => tier_and_order.tier.pools));
+        tier_and_order => {
+            let tier_pools = [];
+            // Inside the Tier, pools are unique and we don't need to filter afterwards
+            _.forEach(tier_and_order.tier.mirrors, mirror_object => {
+                tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
+            });
+            return tier_pools;
+        }));
     return P.map(pools, refresh_pool_alloc);
 }
 
@@ -61,10 +68,17 @@ function refresh_pool_alloc(pool) {
 }
 
 
-// TODO TODO TODO
 function get_tiering_pools_status(tiering) {
     let pools = _.flatten(_.map(tiering.tiers,
-        tier_and_order => tier_and_order.tier.pools));
+        tier_and_order => {
+            let tier_pools = [];
+            // Inside the Tier, pools are unique and we don't need to filter afterwards
+            _.forEach(tier_and_order.tier.mirrors, mirror_object => {
+                tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
+            });
+            return tier_pools;
+        }));
+
     return _get_tiering_pools_status(pools);
 }
 
@@ -127,11 +141,8 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
     dbg.log1('allocate_node: pool_set', pool_set,
         'num_nodes', num_nodes,
         'alloc_group', alloc_group);
-    if (pools[0].cloud_pool_info) {
-        if (num_nodes !== config.NODES_PER_CLOUD_POOL) {
-            throw new Error('allocate_node: cloud_pool allocations should have only one node (cloud node)');
-        }
-    } else if (num_nodes < config.NODES_MIN_COUNT) {
+    if (!pools[0].cloud_pool_info &&
+        num_nodes < config.NODES_MIN_COUNT) { //Not cloud requires NODES_MIN_COUNT
         dbg.warn('allocate_node: not enough online nodes in pool set',
             pools, avoid_nodes, allocated_hosts, content_tiering_params);
         throw new Error('allocate_node: not enough online nodes in pool set ' +

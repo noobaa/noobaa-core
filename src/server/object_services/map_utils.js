@@ -6,7 +6,6 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('./md_store');
 const system_store = require('../system_services/system_store').get_instance();
-// const js_utils = require('../../util/js_utils');
 
 const EMPTY_CONST_ARRAY = Object.freeze([]);
 const SPECIAL_CHUNK_CONTENT_TYPES = ['video/mp4', 'video/webm'];
@@ -30,8 +29,9 @@ function analyze_special_chunks(chunks, parts, objects) {
     });
 }
 
-
-function select_prefered_pools(tier, tiering_pools_status) {
+// This is used in order to select the best possible mirror for the upload allocation (first alloc)
+function select_prefered_mirrors(tier, tiering_pools_status) {
+    // We will always prefer to allocate on working premise pools
     const WEIGHTS = {
         non_writable_pool: 10,
         on_premise_pool: 1,
@@ -40,34 +40,151 @@ function select_prefered_pools(tier, tiering_pools_status) {
 
     // This sort is mainly relevant to mirror allocations on uploads
     // The purpose of it is to pick a valid pool in order for upload to succeed
-    let sorted_pools = _.sortBy(tier.pools, pool => {
+    let sorted_spread_tiers = _.sortBy(tier.mirrors, mirror => {
         let pool_weight = 0;
+        _.forEach(mirror.spread_pools, spread_pool => {
+            // Checking if the pool is writable
+            if (!_.get(tiering_pools_status[spread_pool.name], 'valid_for_allocation', false)) {
+                pool_weight += WEIGHTS.non_writable_pool;
+            }
 
-        // Checking if the pool is writable
-        if (!_.get(tiering_pools_status[pool.name], 'valid_for_allocation', false)) {
-            pool_weight += WEIGHTS.non_writable_pool;
-        }
+            // On premise pools are in higher priority than cloud pools
+            if (spread_pool.cloud_pool_info) {
+                pool_weight += WEIGHTS.cloud_pool;
+            } else {
+                pool_weight += WEIGHTS.on_premise_pool;
+            }
+        });
 
-        // On premise pools are in higher priority than cloud pools
-        if (pool.cloud_pool_info) {
-            pool_weight += WEIGHTS.cloud_pool;
-        } else {
-            pool_weight += WEIGHTS.on_premise_pool;
-        }
-
-        return pool_weight;
+        // Normalize the weight according to number of pools in spread
+        return pool_weight ? (pool_weight / _.get(mirror.spread_pools, 'length', 1)) : pool_weight;
     });
 
+    let best_spread = _.first(sorted_spread_tiers);
+    return best_spread ? [best_spread] : [];
+}
 
-    // We should select the best pool for now we just take the first pool in the list.
-    if (tier.data_placement === 'MIRROR') {
-        if (!sorted_pools[0]) {
-            throw new Error('could not find a pool for async mirroring');
-        }
-        return [sorted_pools[0]];
-    } else {
-        return sorted_pools;
+
+// This is mainly used in order to pick a type of allocation
+// For each chunk we randomize where we prefer to allocate (cloud or on premise)
+// This decision may be changed when we actually check the status of the blocks
+function select_pool_type(spread_pools, tiering_pools_status) {
+    if (!_.get(spread_pools, 'length', 0)) {
+        console.warn('select_pool_type:: There are no pools in current mirror');
     }
+
+    let mirror_status = {
+        regular_pools: [],
+        cloud_pools: [],
+        regular_pools_valid: false,
+        cloud_pools_valid: false,
+        picked_pools: []
+    };
+
+    // Currently we just randomly get 1 pool for the spread and decide to allocate using his type
+    let selected_pool_type = spread_pools[Math.max(_.random(_.get(spread_pools, 'length', 0) - 1), 0)];
+
+    let pools_partitions = _.partition(spread_pools,
+        pool => !pool.cloud_pool_info);
+    mirror_status.regular_pools = pools_partitions[0];
+    mirror_status.cloud_pools = pools_partitions[1];
+
+    // Checking if there are any valid on premise pools
+    mirror_status.regular_pools_valid = _.some(mirror_status.regular_pools,
+        pool => _.get(tiering_pools_status, pool.name, false));
+    // Checking if there are any valid cloud pools
+    mirror_status.cloud_pools_valid = _.some(mirror_status.cloud_pools,
+        pool => _.get(tiering_pools_status, pool.name, false));
+
+    // Checking what type of a pool we've selected above
+    if (_.get(selected_pool_type, 'cloud_pool_info', false)) {
+        // In case that we don't have any valid pools from that type we return the other type
+        mirror_status.picked_pools = mirror_status.regular_pools_valid ?
+            mirror_status.regular_pools : mirror_status.cloud_pools;
+    } else {
+        mirror_status.picked_pools = mirror_status.cloud_pools_valid ?
+            mirror_status.cloud_pools : mirror_status.regular_pools;
+    }
+
+    return mirror_status;
+}
+
+
+function _handle_under_policy_threshold(decision_params) {
+    let spill_status = {
+        deletions: [],
+        allocations: []
+    };
+
+    // Checking if have any blocks related assigned to cloud pools
+    let only_on_premise_blocks = _.every(decision_params.blocks_partitions.good_blocks,
+            block => !block.node.is_cloud_node) &&
+        _.every(decision_params.blocks_partitions.bad_blocks,
+            block => !block.node.is_cloud_node);
+
+    let num_of_allocated_blocks =
+        _.get(decision_params, 'blocks_partitions.good_blocks.length', 0) +
+        _.get(decision_params, 'blocks_partitions.bad_blocks.length', 0);
+
+    // We will always prefer to allocate on premise pools
+    // In case that we did not have any blocks on cloud pools
+    if (num_of_allocated_blocks > 0 && only_on_premise_blocks) {
+        if (_.get(decision_params.mirror_status, 'regular_pools_valid', false)) {
+            spill_status.allocations = _.concat(spill_status.allocations,
+                decision_params.mirror_status.regular_pools);
+        } else if (_.get(decision_params.mirror_status, 'cloud_pools_valid', false)) {
+            if (_.get(decision_params.blocks_partitions, 'good_on_premise_blocks.length', 0)) {
+                spill_status.deletions = _.concat(spill_status.deletions,
+                    decision_params.blocks_partitions.good_on_premise_blocks);
+            }
+            spill_status.allocations = _.concat(spill_status.allocations,
+                decision_params.mirror_status.cloud_pools);
+        } else {
+            throw new Error('_handle_under_policy_threshold:: Cannot allocate without valid pools');
+        }
+    } else if (_.get(decision_params.mirror_status, 'picked_pools.length', 0)) {
+        spill_status.allocations = _.concat(spill_status.allocations,
+            decision_params.mirror_status.picked_pools);
+    } else {
+        throw new Error('_handle_under_policy_threshold:: Cannot allocate without valid pools');
+    }
+
+    return spill_status;
+}
+
+
+// The logic here is to delete oldest blocks until we reach the needed policy threshold
+function _handle_over_policy_threshold(decision_params) {
+    let spill_status = {
+        deletions: [],
+        allocations: []
+    };
+
+    let current_weight = decision_params.current_weight;
+
+    // Sorting blocks by their creation timestamp in mongodb
+    let sorted_blocks = _.sortBy(_.get(decision_params, 'blocks_partitions.good_blocks', []), block => {
+        return block._id.getTimestamp().getTime();
+    });
+
+    _.forEach(sorted_blocks, block => {
+        // Checking if we've deleted enough blocks
+        if (current_weight === decision_params.max_replicas) {
+            return spill_status;
+        }
+
+        // Decide the weight of the block being inspected by the allocation pool
+        let block_weight = block.node.is_cloud_node ? decision_params.placement_weights.cloud_pool :
+            decision_params.placement_weights.on_premise_pool;
+
+        // Checking if the deletion of the block will place us below policy threshold
+        if (current_weight - block_weight >= decision_params.max_replicas) {
+            current_weight -= block_weight;
+            spill_status.deletions.push(block);
+        }
+    });
+
+    return spill_status;
 }
 
 
@@ -79,13 +196,49 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
             tiering.tiers.length);
     }
     const tier = tiering.tiers[0].tier;
-    // when allocating blocks for upload we want to ignore cloud_pools
-    // so the client is not blocked until all blocks are uploded to the cloud.
-    // on build_chunks flow we will not ignore cloud pools.
-    const participating_pools = async_mirror ?
-        select_prefered_pools(tier, tiering_pools_status) :
-        tier.pools;
-    const tier_pools_by_name = _.keyBy(participating_pools, 'name');
+
+    let chunk_status = {
+        allocations: [],
+        deletions: [],
+        accessible: false,
+    };
+
+    // When allocating we will pick the best mirror using weights algorithm
+    const participating_mirrors = async_mirror ?
+        select_prefered_mirrors(tier, tiering_pools_status) :
+        tier.mirrors || [];
+
+    let used_blocks = [];
+    let unused_blocks = [];
+
+    // Each mirror of the tier is treated like a spread between all pools inside
+    _.each(participating_mirrors, mirror => {
+        // Selecting the allocating pool for the current mirror
+        // Notice that this is only relevant to the current chunk
+        let mirror_status = select_pool_type(mirror.spread_pools, tiering_pools_status);
+        let status_result = _get_mirror_chunk_status(chunk, tier, mirror_status, mirror.spread_pools);
+        chunk_status.allocations = _.concat(chunk_status.allocations, status_result.allocations);
+        chunk_status.deletions = _.concat(chunk_status.deletions, status_result.deletions);
+        // These two are used in order to delete all unused blocks by the policy
+        // Which actually means blocks that are not relevant to the tier policy anymore
+        // Like blocks that were placed on pools that got migrated to other bucket etc...
+        unused_blocks = _.concat(unused_blocks, status_result.unused_blocks);
+        used_blocks = _.concat(used_blocks, status_result.used_blocks);
+        // Notice that there is an OR operator between the responses
+        // This is because it is enough for one mirror to be accessible
+        chunk_status.accessible = chunk_status.accessible || status_result.accessible;
+    });
+
+    // Deleted all of the blocks that are not relevant anymore
+    unused_blocks = _.uniq(unused_blocks);
+    used_blocks = _.uniq(used_blocks);
+    chunk_status.deletions = _.concat(chunk_status.deletions, _.difference(unused_blocks, used_blocks));
+    return chunk_status;
+}
+
+
+function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
+    const tier_pools_by_name = _.keyBy(mirror_pools, 'name');
 
     let allocations = [];
     let deletions = [];
@@ -100,49 +253,110 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
         chunk_accessible = false;
     }
 
-    function check_blocks_group(blocks, alloc) {
+    function check_blocks_group(blocks, fragment) {
         // This is the optimal maximum number of replicas that are required
         // Currently this is mainly used to special replica chunks which are allocated opportunistically
         let max_replicas;
 
         // Currently we pick the highest replicas in our alloocation pools, which are on premise pools
-        if (_.get(alloc, 'pools.length', 0) &&
-            _.every(alloc.pools, 'cloud_pool_info')) {
-            // for cloud_pools we only need one replica
-            max_replicas = 1;
-        } else if (chunk.is_special) {
+        if (chunk.is_special) {
             max_replicas = tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER;
         } else {
             max_replicas = tier.replicas;
         }
 
+        const PLACEMENT_WEIGHTS = {
+            on_premise_pool: 1,
+            // We consider one replica in cloud valid for any policy
+            cloud_pool: max_replicas
+        };
+
         let num_good = 0;
         let num_accessible = 0;
-        _.each(blocks, block => {
-            if (is_block_accessible(block)) {
-                num_accessible += 1;
-            }
-            if (num_good < max_replicas &&
-                is_block_good(block, tier_pools_by_name)) {
-                num_good += 1;
-            } else {
-                deletions.push(block);
-            }
-        });
-        if (_.get(alloc, 'pools.length', 0)) {
+        let block_partitions = {};
+
+        // Build partitions of good and accessible blocks and bad unaccesible blocks
+        // Also we calculate the weight of the current block allocations
+        // Notice that we do not calculate bad blocks into the weight
+        let partition = _.partition(blocks,
+            block => {
+                let partition_result = false;
+                if (is_block_accessible(block)) {
+                    num_accessible += 1;
+                }
+                if (is_block_good(block, tier_pools_by_name)) {
+                    if (block.node.is_cloud_node) {
+                        num_good += PLACEMENT_WEIGHTS.cloud_pool;
+                    } else {
+                        num_good += PLACEMENT_WEIGHTS.on_premise_pool;
+                    }
+                    partition_result = true;
+                }
+                return partition_result;
+            });
+        block_partitions.good_blocks = partition[0];
+        block_partitions.bad_blocks = partition[1];
+
+        let spill_status = {
+            deletions: [],
+            allocations: []
+        };
+        let decision_params = {
+            blocks_partitions: block_partitions,
+            mirror_status: mirror_status,
+            placement_weights: PLACEMENT_WEIGHTS,
+            max_replicas: max_replicas,
+            current_weight: num_good
+        };
+
+        // Checking if we are under and over the policy threshold
+        if (num_good > max_replicas) {
+            spill_status = _handle_over_policy_threshold(decision_params);
+        } else if (num_good < max_replicas) {
+            spill_status = _handle_under_policy_threshold(decision_params);
+        }
+
+        // We automatically delete all of the bad blocks, in order to rebuild them
+        _.each(block_partitions.bad_blocks, block => deletions.push(block));
+
+        if (_.get(spill_status, 'deletions.length', 0)) {
+            deletions = _.concat(deletions, spill_status.deletions);
+        }
+
+        if (_.get(spill_status, 'allocations.length', 0)) {
+            let alloc = {
+                pools: spill_status.allocations,
+                fragment: fragment
+            };
+
+            // We look at the allocations array as a single type array
+            let is_cloud_allocation = _.every(spill_status.allocations, pool => pool.cloud_pool_info);
+
+            // These are the total missing blocks including the special blocks which are opportunistic
             let num_missing = Math.max(0, max_replicas - num_good);
+
             // These are the minimum required replicas, which are a must to have for the chunk
-            let min_replicas = Math.max(0, Math.min(max_replicas, tier.replicas) - num_good);
+            // In case of cloud pool allocation we consider one block as a fulfilment of all policy
+            let min_replicas = is_cloud_allocation ? (max_replicas / PLACEMENT_WEIGHTS.cloud_pool) :
+                Math.max(0, tier.replicas - num_good);
+
             // Notice that we push the minimum required replicas in higher priority
             // This is done in order to insure that we will allocate them before the additional replicas
             _.times(min_replicas, () => allocations.push(_.clone(alloc)));
-            _.times(num_missing - min_replicas, () => allocations.push(_.defaults(_.clone(alloc), {
-                special_replica: true
-            })));
+
+            // There is no point in special replicas when save in cloud
+            if (!is_cloud_allocation) {
+                _.times(num_missing - min_replicas, () => allocations.push(_.defaults(_.clone(alloc), {
+                    special_replica: true
+                })));
+            }
         }
+
         return num_accessible;
     }
 
+    let unused_blocks = [];
+    let used_blocks = [];
 
     _.each(chunk.frags, f => {
 
@@ -151,48 +365,12 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
         let blocks = f.blocks || EMPTY_CONST_ARRAY;
         let num_accessible = 0;
 
+        // We devide the blocks to allocated on pools of the current mirror pools policy and not
+        let blocks_partition = _.partition(blocks, block => tier_pools_by_name[block.node.pool]);
+        unused_blocks = _.concat(unused_blocks, blocks_partition[1]);
+        used_blocks = _.concat(used_blocks, blocks_partition[0]);
 
-        // mirror blocks between the given pools.
-        // if necessary remove blocks from already mirrored blocks
-        function mirror_pools(mirrored_pools, mirrored_blocks) {
-            let blocks_by_pool_name = _.groupBy(mirrored_blocks,
-                block => block.node.pool);
-            _.each(mirrored_pools, pool => {
-                num_accessible += check_blocks_group(blocks_by_pool_name[pool.name], {
-                    pools: [pool],
-                    fragment: f
-                });
-                delete blocks_by_pool_name[pool.name];
-            });
-            _.each(blocks_by_pool_name,
-                blocks => check_blocks_group(blocks, null));
-        }
-
-        if (tier.data_placement === 'MIRROR') {
-            mirror_pools(participating_pools, blocks);
-        } else { // SPREAD
-            let pools_partitions = _.partition(participating_pools,
-                pool => !pool.cloud_pool_info);
-            let blocks_partitions = _.partition(blocks,
-                block => !block.node.is_cloud_node);
-            let regular_pools = pools_partitions[0];
-            let regular_blocks = blocks_partitions[0];
-
-            if (regular_pools.length || regular_blocks.length) {
-                num_accessible += check_blocks_group(regular_blocks, {
-                    pools: regular_pools, // only spread data on regular pools, and not cloud_pools
-                    fragment: f
-                });
-            }
-
-            // cloud pools are always used for mirroring.
-            // if there are any cloud pools or blocks written to cloud pools, handle them
-            let cloud_pools = pools_partitions[1];
-            let cloud_blocks = blocks_partitions[1];
-            if (cloud_pools.length || cloud_blocks.length) {
-                mirror_pools(cloud_pools, cloud_blocks);
-            }
-        }
+        num_accessible += check_blocks_group(blocks_partition[0], f);
 
         if (!num_accessible) {
             chunk_accessible = false;
@@ -203,6 +381,8 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
         allocations: allocations,
         deletions: deletions,
         accessible: chunk_accessible,
+        unused_blocks: unused_blocks,
+        used_blocks: used_blocks
     };
 }
 

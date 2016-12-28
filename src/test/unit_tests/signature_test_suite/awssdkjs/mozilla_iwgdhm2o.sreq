@@ -1,0 +1,13 @@
+GET /files/Azure%20Overview.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123%2F20161208%2Feu-central-1%2Fs3%2Faws4_request&X-Amz-Date=20161208T130141Z&X-Amz-Expires=604800&X-Amz-Signature=0770c0c8c5952710da80530241e5e8203d344f5526fd168b5a9b4c05abc90ac4&X-Amz-SignedHeaders=host HTTP/1.1
+Host: 127.0.0.1
+Connection: keep-alive
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36
+Accept: */*
+Referer: http://127.0.0.1/files/Azure%20Overview.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=123%2F20161208%2Feu-central-1%2Fs3%2Faws4_request&X-Amz-Date=20161208T130141Z&X-Amz-Expires=604800&X-Amz-Signature=0770c0c8c5952710da80530241e5e8203d344f5526fd168b5a9b4c05abc90ac4&X-Amz-SignedHeaders=host
+Accept-Encoding: gzip, deflate, sdch, br
+Accept-Language: en-US,en;q=0.8,he;q=0.6
+Cookie: default-theme=ngax; CSRF-Token-4YGLJ=raPVMQoM4TJyTnzcAHyUvzKHPcjha9AD; firstVisit=1480953685297
+Range: bytes=2974014-3039549
+If-None-Match: "c30e0d47300defc7ff8579f338a00792"
+If-Modified-Since: 2016-12-08T13:01:38.000Z
+

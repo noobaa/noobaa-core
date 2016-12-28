@@ -1,20 +1,22 @@
+/* eslint-disable max-lines */
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
+const url = require('url');
+const util = require('util');
 const chance = require('chance')();
+const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../../util/promise');
 const api = require('../../api');
-const util = require('util');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
-const dclassify = require('dclassify');
 const Semaphore = require('../../util/semaphore');
 const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
@@ -28,9 +30,8 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const mongoose_utils = require('../../util/mongoose_utils');
 const cluster_server = require('../system_services/cluster_server');
-const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
-const url = require('url');
+const system_server_utils = require('../utils/system_server_utils');
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
@@ -273,86 +274,128 @@ class NodesMonitor extends EventEmitter {
         return this._get_node_info(item);
     }
 
-    migrate_nodes_to_pool(nodes_identities, pool_id) {
+    migrate_nodes_to_pool(req) {
         this._throw_if_not_started_and_loaded();
-        const items = _.map(nodes_identities, node_identity => {
-            let item = this._get_node(node_identity, 'allow_offline');
-            // validate that the node doesn't belong to a cloud pool
-            if (item.node.is_cloud_node) {
-                throw new RpcError('migrating a cloud node is not allowed');
-            }
-            return item;
-        });
-        _.each(items, item => {
-            dbg.log0('migrate_nodes_to_pool:', item.node.name,
-                'pool_id', pool_id, 'from pool', item.node.pool);
-            if (String(item.node.pool) !== String(pool_id)) {
-                item.node.migrating_to_pool = Date.now();
-                item.node.pool = pool_id;
-                item.suggested_pool = ''; // reset previous suggestion
-            }
-            this._set_need_update.add(item);
-            this._update_status(item);
-        });
-        this._schedule_next_run(1);
-        // let desc_string = [];
-        // desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
-        // _.forEach(nodes_before_change, node => {
-        //     desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
-        // });
-        // Dispatcher.instance().activity({
-        //     event: 'pool.assign_nodes',
-        //     level: 'info',
-        //     system: req.system._id,
-        //     actor: req.account && req.account._id,
-        //     pool: pool._id,
-        //     desc: desc_string.join('\n'),
-        // });
+        const nodes_identities = req.rpc_params.nodes;
+        const pool_id = req.rpc_params.pool_id;
+        const description = [];
+
+        return P.resolve()
+            .then(() => {
+
+                const to_pool = system_store.data.get_by_id(pool_id);
+                if (!to_pool) {
+                    throw new RpcError('BAD_REQUEST', 'No such pool ' + pool_id);
+                }
+                if (to_pool.cloud_pool_info) {
+                    throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
+                }
+
+                // first we validate that all the nodes can be migrated
+                const items = _.map(nodes_identities, node_identity => {
+                    const item = this._get_node(node_identity, 'allow_offline');
+                    if (item.node.is_cloud_node) {
+                        throw new RpcError('BAD_REQUEST', 'migrating cloud node is not allowed');
+                    }
+                    return item;
+                });
+
+                description.push(`${items.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email}`);
+
+                // now we update all nodes to the new pool
+                _.each(items, item => {
+                    const from_pool = system_store.data.get_by_id(item.node.pool);
+                    dbg.log0('migrate_nodes_to_pool:', item.node.name,
+                        'from', from_pool.name, 'to', to_pool.name);
+                    if (String(item.node.pool) !== String(to_pool._id)) {
+                        item.node.migrating_to_pool = Date.now();
+                        item.node.pool = to_pool._id;
+                        item.suggested_pool = ''; // reset previous suggestion
+                        description.push(`${item.node.name} was assigned from ${from_pool.name} to ${to_pool.name}`);
+                    }
+                    this._set_need_update.add(item);
+                    this._update_status(item);
+                });
+            })
+            // save the changes to store immediately
+            .then(() => this._update_nodes_store('force'))
+            // we hurry the next run schedule in case it's not close, and prefer to do full update sooner
+            .then(() => this._schedule_next_run(3000))
+            .then(() => {
+                Dispatcher.instance().activity({
+                    event: 'resource.assign_nodes',
+                    level: 'info',
+                    system: req.system._id,
+                    actor: req.account && req.account._id,
+                    pool: pool_id,
+                    desc: description.join('\n'),
+                });
+            });
     }
 
     decommission_node(req) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(req.rpc_params, 'allow_offline');
-        if (!item.node.decommissioning) {
-            item.node.decommissioning = Date.now();
-        }
-        this._set_need_update.add(item);
-        this._update_status(item);
-        Dispatcher.instance().activity({
-            level: 'info',
-            event: 'node.decommission',
-            system: item.node.system,
-            node: item.node._id,
-            actor: req.account && req.account._id,
-            desc: `${item.node.name} was deactivated by ${req.account && req.account.email}`,
-        });
+
+        return P.resolve()
+            .then(() => {
+                if (!item.node.decommissioning) {
+                    item.node.decommissioning = Date.now();
+                }
+                this._set_need_update.add(item);
+                this._update_status(item);
+            })
+            .then(() => this._update_nodes_store('force'))
+            .then(() => {
+                Dispatcher.instance().activity({
+                    level: 'info',
+                    event: 'node.decommission',
+                    system: item.node.system,
+                    node: item.node._id,
+                    actor: req.account && req.account._id,
+                    desc: `${item.node.name} was deactivated by ${req.account && req.account.email}`,
+                });
+            });
     }
 
     recommission_node(req) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(req.rpc_params, 'allow_offline');
-        delete item.node.decommissioning;
-        delete item.node.decommissioned;
-        this._set_need_update.add(item);
-        this._update_status(item);
-        Dispatcher.instance().activity({
-            level: 'info',
-            event: 'node.recommission',
-            system: item.node.system,
-            node: item.node._id,
-            actor: req.account && req.account._id,
-            desc: `${item.node.name} was reactivated by ${req.account && req.account.email}`,
-        });
+
+        return P.resolve()
+            .then(() => {
+                delete item.node.decommissioning;
+                delete item.node.decommissioned;
+                this._set_need_update.add(item);
+                this._update_status(item);
+            })
+            .then(() => this._update_nodes_store('force'))
+            .then(() => {
+                Dispatcher.instance().activity({
+                    level: 'info',
+                    event: 'node.recommission',
+                    system: item.node.system,
+                    node: item.node._id,
+                    actor: req.account && req.account._id,
+                    desc: `${item.node.name} was reactivated by ${req.account && req.account.email}`,
+                });
+            });
     }
 
     delete_node(node_identity) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
-        if (!item.node.deleting) {
-            item.node.deleting = Date.now();
-        }
-        this._set_need_update.add(item);
-        this._update_status(item);
+
+        return P.resolve()
+            .then(() => {
+                if (!item.node.deleting) {
+                    item.node.deleting = Date.now();
+                }
+                this._set_need_update.add(item);
+                this._update_status(item);
+            })
+            .then(() => this._update_nodes_store('force'))
+            .return();
     }
 
 
@@ -439,12 +482,10 @@ class NodesMonitor extends EventEmitter {
             item.node.is_internal_node = true;
         }
         dbg.log0('_add_new_node', item.node);
+        this._set_need_update.add(item);
         this._add_node_to_maps(item);
         this._set_node_defaults(item);
         this._set_connection(item, conn);
-        this._set_need_update.add(item);
-        // we hurry the next run to save the new node
-        this._schedule_next_run(3000);
     }
 
     _add_node_to_maps(item) {
@@ -509,6 +550,8 @@ class NodesMonitor extends EventEmitter {
         dbg.warn('_close_node_connection', item.node.name, item.connection.connid);
         item.connection.close();
         item.connection = null;
+        item.agent_info = null;
+        item.node.rpc_address = '';
     }
 
     _disconnect_node(item) {
@@ -527,6 +570,7 @@ class NodesMonitor extends EventEmitter {
         item.node.heartbeat = Date.now();
         this._set_need_update.add(item);
         this._update_status(item);
+        this._run_node_delayed(item);
     }
 
     _on_connection_close(item, conn) {
@@ -596,6 +640,7 @@ class NodesMonitor extends EventEmitter {
     _run_node(item) {
         if (!this._started) return;
         item._run_node_serial = item._run_node_serial || new Semaphore(1);
+        if (item.node.deleting || item.node.deleted) return;
         return item._run_node_serial.surround(() =>
             P.resolve()
             .then(() => dbg.log0('_run_node:', item.node.name))
@@ -610,7 +655,20 @@ class NodesMonitor extends EventEmitter {
             }));
     }
 
+    /**
+     * In flows triggered from the agent heartbeat in which we wish to call _run_node
+     * to update the state of the item, we should delay the run because it has to be sent
+     * after the response of the heartbeat, to allow the agent to identify
+     * the server connection properly.
+     * The delay time itself does not matter much, just the order needs to be enforced.
+     */
+    _run_node_delayed(item) {
+        return P.delay(100)
+            .then(() => this._run_node(item));
+    }
+
     _get_agent_info(item) {
+        if (item.node.deleting || item.node.deleted) return;
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
         let potential_masters = clustering_utils.get_potential_masters().map(addr => ({
@@ -629,6 +687,7 @@ class NodesMonitor extends EventEmitter {
             })
             .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(info => {
+                if (!info) return;
                 item.agent_info = info;
                 const updates = _.pick(info, AGENT_INFO_FIELDS);
                 updates.heartbeat = Date.now();
@@ -660,6 +719,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _update_create_node_token(item) {
+        if (item.node.deleting || item.node.deleted) return;
         if (!item.connection) return;
         if (!item.node_from_store) return;
         if (item.create_node_token) {
@@ -686,6 +746,7 @@ class NodesMonitor extends EventEmitter {
 
 
     _update_rpc_config(item) {
+        if (item.node.deleting || item.node.deleted) return;
         if (!item.connection) return;
         if (!item.node_from_store) return;
         const system = system_store.data.get_by_id(item.node.system);
@@ -710,6 +771,11 @@ class NodesMonitor extends EventEmitter {
         const n2n_config = _.extend(null,
             item.agent_info.n2n_config,
             _.cloneDeep(system.n2n_config));
+        if (item.node.is_cloud_node) {
+            n2n_config.tcp_permanent_passive = {
+                port: config.CLOUD_AGENTS_N2N_PORT
+            };
+        }
         if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
             rpc_config.n2n_config = n2n_config;
         }
@@ -748,6 +814,7 @@ class NodesMonitor extends EventEmitter {
 
     _test_network_to_server(item) {
         if (!item.connection) return;
+        if (!item.node.rpc_address) return;
 
         const start = Date.now();
 
@@ -777,6 +844,7 @@ class NodesMonitor extends EventEmitter {
     // Test with few other nodes and detect if we have a NAT preventing TCP to this node
     _test_network_perf(item) {
         if (!item.connection) return;
+        if (!item.node.rpc_address) return;
 
         const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
         return P.each(items_without_issues, item_without_issues => {
@@ -797,6 +865,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _test_nodes_validity(item) {
+        if (item.node.deleting || item.node.deleted) return;
         if (!item.node_from_store) return;
         dbg.log0('_test_nodes_validity::', item.node.name);
         return P.resolve()
@@ -1117,6 +1186,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            item.node.rpc_address &&
             !item.io_detention &&
             !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
@@ -1128,6 +1198,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            item.node.rpc_address &&
             !item.io_detention &&
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
@@ -1137,6 +1208,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             item.node_from_store &&
+            item.node.rpc_address &&
             !item.io_detention &&
             !item.storage_full &&
             !item.node.migrating_to_pool &&

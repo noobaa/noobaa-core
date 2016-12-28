@@ -1,24 +1,24 @@
 <div class="row">
-    <section class="c3 column borders pad highlight">
+    <section class="c3 column borders pad">
         <div class="greedy row content-middle">
             <svg-icon class="push-next" params="name: state().icon"
                 data-bind="css: state().css">
             </svg-icon>
-            <span data-bind="text: state().text"></span>
+            <span class="highlight" data-bind="text: state().text"></span>
         </div>
         <hr />
         <div class="greedy row content-middle">
             <svg-icon class="push-next" params="name: trust().icon"
                 data-bind="css: trust().css">
             </svg-icon>
-            <span data-bind="text: trust().text"></span>
+            <span class="highlight" data-bind="text: trust().text"></span>
         </div>
         <hr />
         <div class="greedy row content-middle">
             <svg-icon class="push-next" params="name: accessibility().icon"
                 data-bind="css: accessibility().css">
             </svg-icon>
-            <span data-bind="text: accessibility().text"></span>
+            <span class="highlight" data-bind="text: accessibility().text"></span>
         </div>
     </section>
 
@@ -26,7 +26,8 @@
         <div class="row align-middle">
             <chart-legend class="pad push-next" params="
                 caption: 'Node Capacity',
-                items: pieValues
+                items: pieValues,
+                format: 'size'
             "></chart-legend>
 
             <pie-chart params="

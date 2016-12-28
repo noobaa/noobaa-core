@@ -71,7 +71,7 @@ export function equalNoCase(str1, str2) {
     return str1.toLowerCase() === str2.toLowerCase();
 }
 
-export function lastSegment(str, delimiter) {
+export function lastSegment(str = '', delimiter) {
     return str.substr(str.lastIndexOf(delimiter) + 1);
 }
 
@@ -115,6 +115,10 @@ export function pluralize(word, amount) {
     return `${word}${amount === 1 ? '' : 's'}`;
 }
 
-export function stringifyAmount(subject, amount) {
-    return `${amount} ${pluralize(subject, amount)}`;
+export function stringifyAmount(subject, amount, zeroMoniker = '0') {
+    return `${
+        amount > 0 ? amount : zeroMoniker
+    } ${
+        pluralize(subject, amount)
+    }`;
 }

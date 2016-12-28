@@ -5,8 +5,8 @@ import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
 import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, deepFreeze, flatMap, httpRequest,
-    httpWaitForResponse, stringifyAmount, toFormData } from 'utils/all';
+    downloadFile, deepFreeze, flatMap, httpRequest, httpWaitForResponse,
+    stringifyAmount, toFormData, assignWith } from 'utils/all';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -15,6 +15,8 @@ const AWS = window.AWS;
 
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;
+
+
 
 // -----------------------------------------------------
 // Utility function to log actions.
@@ -146,8 +148,7 @@ export function showOverview() {
             { route: 'system', label: 'Overview' }
         ],
         selectedNavItem: 'overview',
-        panel: 'overview',
-        useBackground: true
+        panel: 'overview'
     });
 }
 
@@ -161,7 +162,8 @@ export function showBuckets() {
             { route: 'buckets', label: 'Buckets' }
         ],
         selectedNavItem: 'buckets',
-        panel: 'buckets'
+        panel: 'buckets',
+        tab: 'buckets'
     });
 }
 
@@ -216,6 +218,7 @@ export function showResources() {
 
     let ctx = model.routeContext();
     let { tab = 'pools' } = ctx.params;
+
     model.uiState({
         layout: 'main-layout',
         title: 'Resources',
@@ -315,6 +318,9 @@ export function showAccount() {
 export function showCluster() {
     logAction('showCluster');
 
+    let ctx = model.routeContext();
+    let { tab = 'servers' } = ctx.params;
+
     model.uiState({
         layout: 'main-layout',
         title: 'Cluster',
@@ -322,7 +328,28 @@ export function showCluster() {
             { route: 'cluster', label: 'Cluster' }
         ],
         selectedNavItem: 'cluster',
-        panel: 'cluster'
+        panel: 'cluster',
+        tab: tab
+    });
+}
+
+export function showServer() {
+    logAction('showServer');
+
+    const ctx = model.routeContext();
+    const { server, tab = 'details' } = ctx.params;
+
+
+    model.uiState({
+        layout: 'main-layout',
+        title: server,
+        breadcrumbs: [
+            { route: 'cluster', label: 'Cluster' },
+            { route: 'server', label: server }
+        ],
+        selectedNavItem: 'cluster',
+        panel: 'server',
+        tab: tab
     });
 }
 
@@ -530,7 +557,7 @@ export function signIn(email, password, keepSessionAlive = false) {
                         const account = info.account;
                         model.sessionInfo({
                             user: account.email,
-                            system: account.system,
+                            system: info.system.name,
                             mustChangePassword: account.must_change_password
                         });
                         //api.redirector.register_for_alerts(); ////For now comment this out until add it properly
@@ -827,7 +854,7 @@ export function loadCloudBucketList(connection) {
         connection: connection
     })
         .then(
-            model.CloudBucketList,
+            model.cloudBucketList,
             () => model.CloudBucketList(null)
         )
         .done();
@@ -969,7 +996,7 @@ export function createBucket(name, dataPlacement, pools) {
     api.tier.create_tier({
         name: bucket_with_suffix,
         data_placement: dataPlacement,
-        node_pools: pools
+        attached_pools: pools
     })
         .then(
             tier => {
@@ -1010,8 +1037,8 @@ export function deleteBucket(name) {
         .done();
 }
 
-export function updateBucketPlacementPolicy(tierName, placementType, node_pools) {
-    logAction('updateBucketPlacementPolicy', { tierName, placementType, node_pools });
+export function updateBucketPlacementPolicy(tierName, placementType, attachedPools) {
+    logAction('updateBucketPlacementPolicy', { tierName, placementType, attachedPools });
 
     let bucket = model.systemInfo().buckets.find(
         bucket => bucket.tiering.tiers.find(
@@ -1022,32 +1049,11 @@ export function updateBucketPlacementPolicy(tierName, placementType, node_pools)
     api.tier.update_tier({
         name: tierName,
         data_placement: placementType,
-        node_pools: node_pools
+        attached_pools: attachedPools
     })
         .then(
             () => notify(`${bucket.name} placement policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
-export function updateBucketBackupPolicy(tierName, cloudResources) {
-    logAction('updateBucketBackupPolicy', { tierName, cloudResources });
-
-    let bucket = model.systemInfo().buckets.find(
-        bucket => bucket.tiering.tiers.find(
-            entry => entry.tier === tierName
-        )
-    );
-
-    api.tier.update_tier({
-        name: tierName,
-        cloud_pools: cloudResources
-    })
-        .then(
-            () => notify(`${bucket.name} cloud storage policy updated successfully`, 'success'),
-            () => notify(`Updating ${bucket.name} cloud storage policy failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -1369,16 +1375,20 @@ export function abortNodeTest() {
     }
 }
 
-export function updateP2PSettings(minPort, maxPort) {
+export function updateP2PTcpPorts(minPort, maxPort) {
     logAction('updateP2PSettings', { minPort, maxPort });
 
-    let tcpPermanentPassive = minPort !== maxPort ?
+    const tcp_permanent_passive = minPort !== maxPort ?
         { min: minPort, max: maxPort } :
         { port: minPort };
 
-    api.system.update_n2n_config({
-        tcp_permanent_passive: tcpPermanentPassive
-    })
+    const config = Object.assign(
+        {},
+        model.systemInfo().n2n_config,
+        { tcp_permanent_passive }
+    );
+
+    api.system.update_n2n_config(config)
         .then(
             () => notify('Peer to peer settings updated successfully', 'success'),
             () => notify('Peer to peer settings update failed', 'error')
@@ -1439,7 +1449,7 @@ export function upgradeSystem(upgradePackage) {
             }
         )
         .then(
-            () => sleep(20000)
+            () => sleep(config.serverRestartWaitInterval)
         )
         .then(
             () => httpWaitForResponse('/version', 200)
@@ -1531,36 +1541,30 @@ export function downloadNodeDiagnosticPack(nodeName) {
         .done();
 }
 
-export function downloadServerDiagnosticPack(targetSecret, targetHostname) {
-    logAction('downloadServerDiagnosticPack', { targetSecret, targetHostname });
+export function downloadServerDiagnosticPack(secret, hostname) {
+    logAction('downloadServerDiagnosticPack', { secret, hostname });
 
-    let currentServerKey = `server:${targetSecret}`;
-    if(model.collectDiagnosticsState[currentServerKey] === true) {
+    const name = `${hostname}-${secret}`;
+    const key = `server:${secret}`;
+    if(model.collectDiagnosticsState[key]) {
         return;
     }
 
-    model.collectDiagnosticsState.assign({
-        [currentServerKey]: true
-    });
-
+    model.collectDiagnosticsState.assign({ [key]: true });
     api.cluster_server.diagnose_system({
-        target_secret: targetSecret
+        target_secret: secret
     })
         .catch(
             err => {
-                notify(`Packing server diagnostic file for ${targetHostname} failed`, 'error');
-                model.collectDiagnosticsState.assign({
-                    [currentServerKey]: false
-                });
+                notify(`Packing server diagnostic file for ${name} failed`, 'error');
+                model.collectDiagnosticsState.assign({ [key]: false });
                 throw err;
             }
         )
         .then(
             url => {
                 downloadFile(url);
-                model.collectDiagnosticsState.assign({
-                    [currentServerKey]: false
-                });
+                model.collectDiagnosticsState.assign({ [key]: false });
             }
         )
         .done();
@@ -1606,11 +1610,11 @@ export function setNodeDebugLevel(node, level) {
         )
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for node ${node}`,
+                `Debug mode was turned ${level === 0 ? 'off' : 'on'} for node ${node}`,
                 'success'
             ),
             () => notify(
-                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for node ${node}`,
+                `Could not turn ${level === 0 ? 'off' : 'on'} debug mode for node ${node}`,
                 'error'
             )
         )
@@ -1620,20 +1624,21 @@ export function setNodeDebugLevel(node, level) {
         .done();
 }
 
-export function setServerDebugLevel(targetSecret, targetHostname, level){
-    logAction('setServerDebugLevel', { targetSecret, targetHostname, level });
+export function setServerDebugLevel(secret, hostname, level){
+    logAction('setServerDebugLevel', { secret, name, level });
 
+    const name = `${hostname}-${secret}`;
     api.cluster_server.set_debug_level({
-        target_secret: targetSecret,
+        target_secret: secret,
         level: level
     })
         .then(
             () => notify(
-                `Debug level has been ${level === 0 ? 'lowered' : 'raised'} for server ${targetHostname}`,
+                `Debug mode was turned ${level === 0 ? 'off' : 'on'} for server ${name}`,
                 'success'
             ),
             () => notify(
-                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for server ${targetHostname}`,
+                `Could not turn ${level === 0 ? 'off' : 'on'} debug mode for server ${name}`,
                 'error'
             )
         )
@@ -1743,7 +1748,7 @@ export function addCloudConnection(name, endpointType, endpoint, identity, secre
         secret: secret
     };
 
-    api.account.add_external_conenction(connection)
+    api.account.add_external_connection(connection)
         .then(loadSystemInfo)
         .done();
 }
@@ -1846,36 +1851,71 @@ export function disableRemoteSyslog() {
         .done();
 }
 
-export function attachServerToCluster(serverAddress, serverSecret) {
-    logAction('attachServerToCluster', { serverAddress, serverSecret });
+export function attachServerToCluster(serverAddress, serverSecret, hostname, location) {
+    logAction('attachServerToCluster', { serverAddress, serverSecret, hostname, location });
 
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.add_member_to_cluster({
         address: serverAddress,
         secret: serverSecret,
         role: 'REPLICA',
-        shard: 'shard1'
+        shard: 'shard1',
+        location: location || undefined,
+        new_hostname: hostname || undefined
     })
         .then(
-            () => notify(`Server ${serverAddress} attached to cluster successfully`, 'success'),
-            () => notify(`Adding ${serverAddress} to cluster failed`, 'error')
+            () => notify(`${name} attached to cluster successfully`, 'success'),
+            () => notify(`Adding ${name} to cluster failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
 }
 
-export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
-    logAction('updateServerDNSSettings', { primaryDNS, secondaryDNS });
+export function updateServerDetails(serverSecret, hostname, location) {
+    logAction('updateServerDetails', { serverSecret, hostname, location });
 
-    let dnsServers = [primaryDNS, secondaryDNS].filter(
-        server => server
-    );
+    const name = `${hostname}-${serverSecret}`;
+    api.cluster_server.update_server_conf({
+        target_secret: serverSecret,
+        hostname: hostname,
+        location: location
+    })
+        .then(
+            notify(`${name} details updated successfully`, 'success'),
+            err => {
+                notify(`Updating ${name} details failed`, 'error');
+                throw err;
+            }
+        )
+        .then(loadSystemInfo)
+        .then(
+            () => {
+                const { servers } = model.systemInfo().cluster.shards[0];
+                const server = servers.find(
+                    ({ secret }) => secret === serverSecret
+                );
+
+                if (server.hostname !== hostname) {
+                    redirectTo(routes.server, { server: name });
+                }
+            }
+        )
+        .done();
+}
+
+export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
+    logAction('updateServerDNSSettings', { serverSecret, primaryDNS, secondaryDNS });
 
     api.cluster_server.update_dns_servers({
         target_secret: serverSecret,
-        dns_servers: dnsServers
+        dns_servers: [primaryDNS, secondaryDNS].filter(isDefined)
     })
-        .then( () => sleep(5000) )
-        .then( () => httpWaitForResponse('/version') )
+        .then(
+            () => sleep(config.serverRestartWaitInterval)
+        )
+        .then(
+            () => httpWaitForResponse('/version', 200)
+        )
         .then(reload)
         .done();
 }
@@ -1894,40 +1934,34 @@ export function loadServerTime(serverSecret) {
         .done();
 }
 
-export function updateServerClock(serverSecret, timezone, epoch) {
-    logAction('updateServerClock', { serverSecret, timezone, epoch });
+export function updateServerClock(serverSecret, hostname, timezone, epoch) {
+    logAction('updateServerClock', { serverSecret, hostname, timezone, epoch });
 
-    let { address } = model.systemInfo().cluster.shards[0].servers.find(
-        server => server.secret === serverSecret
-    );
-
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.update_time_config({
         target_secret: serverSecret,
         timezone: timezone,
         epoch: epoch
     })
         .then(
-            () => notify(`${address} time settings updated successfully`, 'success'),
-            () => notify(`Updating ${address} time settings failed`, 'error')
+            () => notify(`${name} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${name} time settings failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
 }
-export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress) {
-    logAction('updateServerNTP', { serverSecret, timezone, ntpServerAddress });
+export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpServerAddress) {
+    logAction('updateServerNTP', { serverSecret, hostname, timezone, ntpServerAddress });
 
-    let { address } = model.systemInfo().cluster.shards[0].servers.find(
-        server => server.secret === serverSecret
-    );
-
+    const name = `${hostname}-${serverSecret}`;
     api.cluster_server.update_time_config({
         target_secret: serverSecret,
         timezone: timezone,
         ntp_server: ntpServerAddress
     })
         .then(
-            () => notify(`${address} time settings updated successfully`, 'success'),
-            () => notify(`Updating ${address} time settings failed`, 'error')
+            () => notify(`${name} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${name} time settings failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -2028,6 +2062,28 @@ export function regenerateAccountCredentials(email, verificationPassword) {
         .then(loadSystemInfo)
         .done();
 }
+
+export  function loadSystemUsageHistory() {
+    logAction('loadSystemUsageHistory');
+    api.pool.get_pool_history({})
+        .then(
+            history => history.map(
+                ({ time_stamp, pool_list }) => {
+                    const timestamp = time_stamp;
+                    const storage = assignWith(
+                        {},
+                        ...pool_list.map( pool => pool.storage ),
+                        (a, b) => (a || 0) + (b || 0)
+                    );
+
+                    return { timestamp, storage };
+                }
+            )
+        )
+        .then(model.systemUsageHistory)
+        .done();
+}
+
 // ------------------------------------------
 // Helper functions:
 // ------------------------------------------

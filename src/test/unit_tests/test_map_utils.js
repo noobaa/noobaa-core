@@ -25,7 +25,15 @@ mocha.describe('map_utils', function() {
                 data_placement === 'MIRROR' ? replicas * num_pools : replicas;
             let bucket = mock_bucket(num_pools, replicas, data_placement);
             let tiering = bucket.tiering;
-            let pools = bucket.tiering.tiers[0].tier.pools;
+            let pools = [];
+            _.forEach(bucket.tiering.tiers[0].tier.mirrors, mirror_object => {
+                pools = _.concat(pools, _.get(mirror_object, 'spread_pools', []));
+            });
+            pools = _.concat(pools);
+            let tiering_pools_status = {};
+            _.forEach(pools, pool => {
+                tiering_pools_status[pool.name] = true;
+            });
 
             mocha.describe(test_name, function() {
 
@@ -33,7 +41,7 @@ mocha.describe('map_utils', function() {
                     let chunk = {};
                     chunk.frags = map_utils.get_missing_frags_in_chunk(
                         chunk, tiering.tiers[0].tier);
-                    let status = map_utils.get_chunk_status(chunk, tiering);
+                    let status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
                     assert.strictEqual(status.allocations.length, total_num_blocks);
                     assert.strictEqual(status.deletions.length, 0);
                     assert(!status.accessible, '!accessible');
@@ -53,7 +61,7 @@ mocha.describe('map_utils', function() {
                             frag: 0,
                             node: mock_node(pools[i % num_pools]._id)
                         })));
-                    let status = map_utils.get_chunk_status(chunk, tiering);
+                    let status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
                     assert.strictEqual(status.allocations.length, 0);
                     assert.strictEqual(status.deletions.length, 0);
                     assert(status.accessible, 'accessible');
@@ -76,7 +84,7 @@ mocha.describe('map_utils', function() {
                         });
                     });
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);
-                    let status = map_utils.get_chunk_status(chunk, tiering);
+                    let status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
                     assert.strictEqual(status.allocations.length, 0);
                     assert.strictEqual(status.deletions.length, num_extra);
                     assert(status.accessible, 'accessible');
@@ -90,7 +98,7 @@ mocha.describe('map_utils', function() {
                         frag: 0,
                         node: mock_node(pools[0]._id)
                     }]);
-                    let status = map_utils.get_chunk_status(chunk, tiering);
+                    let status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
                     assert.strictEqual(status.allocations.length, total_num_blocks - 1);
                     assert.strictEqual(status.deletions.length, 0);
                     assert(status.accessible, 'accessible');
@@ -117,7 +125,7 @@ mocha.describe('map_utils', function() {
                         node: mock_node(pools[0]._id)
                     }];
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);
-                    let status = map_utils.get_chunk_status(chunk, tiering);
+                    let status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
                     assert.strictEqual(status.allocations.length, total_num_blocks - 1);
                     assert.strictEqual(status.deletions.length, 1);
                     assert(status.accessible, 'accessible');
@@ -129,7 +137,7 @@ mocha.describe('map_utils', function() {
                         });
                     });
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);
-                    status = map_utils.get_chunk_status(chunk, tiering);
+                    status = map_utils.get_chunk_status(chunk, tiering, false, tiering_pools_status);
                     assert.strictEqual(status.allocations.length, 0);
                     assert.strictEqual(status.deletions.length, 1);
                     assert(status.accessible, 'accessible');
@@ -143,9 +151,17 @@ mocha.describe('map_utils', function() {
                 _id: 'pool' + i,
                 name: 'pool' + i,
             }));
+
+            let mirrors = [];
+            if (data_placement === 'MIRROR') {
+                _.forEach(pools, pool => mirrors.push({spread_pools: [pool]}));
+            } else {
+                mirrors.push({spread_pools: pools});
+            }
+
             let tier = {
                 name: 'tier',
-                pools: pools,
+                mirrors: mirrors,
                 data_placement: data_placement,
                 replicas: replicas,
                 data_fragments: 1,

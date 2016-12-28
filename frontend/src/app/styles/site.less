@@ -192,9 +192,23 @@ body:not(.preview) .preview-only {
     }
 }
 
+.hint {
+    .remark();
+    color: @color7;
+    line-height: 1.7;
+    position: relative;
+    margin-top: -1.7em;
+    top : 1.7em;
+}
+
 .highlight {
     color: @color6;
+    fill: @color6;
     font-weight: @font-thin;
+
+    svg-icon {
+        fill: @color6;
+    }
 }
 
 .success {
@@ -214,6 +228,12 @@ body:not(.preview) .preview-only {
 
 .disabled {
     color: @color15;
+    fill: @color15;
+
+    svg-icon {
+        fill: @color15;
+    }
+
 }
 
 .bullet-list {
@@ -221,10 +241,6 @@ body:not(.preview) .preview-only {
     padding: 0;
     padding-left: @gutter;
     line-height: 1.8;
-
-    ol& > li {
-        text-indent: .5em;
-    }
 }
 
 .text-tech {

@@ -278,9 +278,8 @@ mocha.describe('RPC', function() {
         let ws_client;
         return rpc.start_http_server({
                 port: 0,
-                ws: true,
-                secure: false,
-                logging: true
+                protocol: 'ws:',
+                logging: true,
             })
             .then(http_server_arg => {
                 http_server = http_server_arg;
@@ -307,9 +306,8 @@ mocha.describe('RPC', function() {
         let wss_client;
         return rpc.start_http_server({
                 port: 0,
-                ws: true,
-                secure: true,
-                logging: true
+                protocol: 'wss:',
+                logging: true,
             })
             .then(https_server_arg => {
                 https_server = https_server_arg;

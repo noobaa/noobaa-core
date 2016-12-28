@@ -1,8 +1,9 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { deepFreeze, capitalize, stringifyAmount } from 'utils/all';
 import { deleteBucket } from'actions';
+import { deepFreeze, keyByProperty } from 'utils/core-utils';
+import { capitalize, stringifyAmount } from 'utils/string-utils';
 
 const stateIconMapping = deepFreeze({
     true: {
@@ -14,7 +15,7 @@ const stateIconMapping = deepFreeze({
     false: {
         name: 'problem',
         css: 'error',
-        tooltip: 'Problem'
+        tooltip: 'Not enough healthy storage resources'
     }
 });
 
@@ -51,10 +52,9 @@ const placementPolicyTypeMapping = deepFreeze({
 });
 
 function cloudStorageIcon(list, baseIconName, tooltipTitle) {
-    let count = list.length;
-    let name =  `${baseIconName}${count ? '-colored' : ''}`;
-
-    let tooltipText = count === 0 ?
+    const count = list.length;
+    const name =  `${baseIconName}${count ? '-colored' : ''}`;
+    const tooltipText = count === 0 ?
         `No ${tooltipTitle}` :
         { title: capitalize(tooltipTitle), list: list };
 
@@ -69,7 +69,9 @@ export default class BucketRowViewModel extends Disposable {
         super();
 
         this.state = ko.pureComputed(
-            () => bucket() ? stateIconMapping[bucket().state || true] : {}
+            () => stateIconMapping[
+                Boolean(bucket() && bucket().writable)
+            ]
         );
 
         this.name = ko.pureComputed(
@@ -78,7 +80,7 @@ export default class BucketRowViewModel extends Disposable {
                     return {};
                 }
 
-                let { name } = bucket();
+                const { name } = bucket();
                 return {
                     text: name,
                     href: { route: 'bucket', params: { bucket: name } }
@@ -99,11 +101,11 @@ export default class BucketRowViewModel extends Disposable {
             formatNumber: true
         });
 
-        let tierName = ko.pureComputed(
+        const tierName = ko.pureComputed(
             () => bucket() && bucket().tiering.tiers[0].tier
         );
 
-        let tier = ko.pureComputed(
+        const tier = ko.pureComputed(
             () => systemInfo() && systemInfo().tiers.find(
                 tier => tier.name === tierName()
             )
@@ -115,10 +117,9 @@ export default class BucketRowViewModel extends Disposable {
                     return {};
                 }
 
-                let { data_placement, node_pools } = tier();
-                let count = node_pools.length;
-
-                let text = `${
+                const { data_placement, attached_pools } = tier();
+                const count = attached_pools.length;
+                const text = `${
                         placementPolicyTypeMapping[data_placement]
                     } on ${
                         stringifyAmount('pool', count)
@@ -126,23 +127,25 @@ export default class BucketRowViewModel extends Disposable {
 
                 return {
                     text: text,
-                    tooltip: node_pools
+                    tooltip: attached_pools
                 };
             }
         );
 
-        let cloudPolicy = ko.pureComputed(
+        const cloudPolicy = ko.pureComputed(
             () => {
-                let policy = { AWS: [], AZURE: [], S3_COMPATIBLE: [] };
+                const policy = { AWS: [], AZURE: [], S3_COMPATIBLE: [] };
                 if (!tier()) {
                     return policy;
                 }
 
-                return tier().cloud_pools
+                const poolsByName = keyByProperty(systemInfo().pools, 'name');
+                return tier().attached_pools
                     .map(
-                        name => systemInfo().pools.find(
-                            pool => pool.name === name
-                        )
+                        poolName => poolsByName[poolName]
+                    )
+                    .filter(
+                        pool => Boolean(pool.cloud_info)
                     )
                     .reduce(
                         (mapping, pool) => {
@@ -173,12 +176,12 @@ export default class BucketRowViewModel extends Disposable {
                 () => cloudStorageIcon(
                     cloudPolicy().S3_COMPATIBLE,
                     'cloud-resource',
-                    'generic cloud resorurces'
+                    'S3 compatible cloud resorurces'
                 )
             )
         };
 
-        let storage = ko.pureComputed(
+        const storage = ko.pureComputed(
             () => bucket() ? bucket().storage : {}
         );
 
@@ -194,16 +197,16 @@ export default class BucketRowViewModel extends Disposable {
 
         this.cloudSync = ko.pureComputed(
             () => {
-                let state = (bucket() && bucket().cloud_sync) ? bucket().cloud_sync.status : 'NOTSET';
+                const state = (bucket() && bucket().cloud_sync) ? bucket().cloud_sync.status : 'NOTSET';
                 return cloudSyncStatusMapping[state];
             }
         );
 
-        let hasObjects = ko.pureComputed(
+        const hasObjects = ko.pureComputed(
             () => Boolean(bucket() && bucket().num_objects > 0)
         );
 
-        let isDemoBucket = ko.pureComputed(
+        const isDemoBucket = ko.pureComputed(
             () => Boolean(bucket() && bucket().demo_bucket)
         );
 
@@ -220,7 +223,7 @@ export default class BucketRowViewModel extends Disposable {
                     }
 
                     if (hasObjects()) {
-                        return 'Bucket not empty';
+                        return 'Cannot delete a bucket that contain files';
                     }
 
                     if (isLastBucket()) {

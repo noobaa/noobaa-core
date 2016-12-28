@@ -37,18 +37,18 @@ class ObjectSummaryViewModel extends Disposable {
 
         this.barsValues = [
             {
-                label: 'Physical size',
-                value: ko.pureComputed(
-                    () => obj().capacity_size
-                ),
-                color: style['color13']
-            },
-            {
-                label: 'Size',
+                label: 'Original size',
                 value: ko.pureComputed(
                     () => obj().size
                 ),
                 color: style['color7']
+            },
+            {
+                label: 'Size on Disk (with replicas)',
+                value: ko.pureComputed(
+                    () => obj().capacity_size
+                ),
+                color: style['color13']
             }
         ];
     }

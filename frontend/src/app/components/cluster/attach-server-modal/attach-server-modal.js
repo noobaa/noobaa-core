@@ -2,6 +2,8 @@ import template from './attach-server-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { attachServerToCluster } from 'actions';
+import { support } from 'config';
+import { formatEmailUri } from 'utils/browser-utils';
 
 class AttachServerModalViewModel extends Disposable {
     constructor({ onClose }) {
@@ -17,10 +19,34 @@ class AttachServerModalViewModel extends Disposable {
 
         this.secret = ko.observable()
             .extend({
-                required: { message: 'Please enter the server secret' }
+                required: { message: 'Please enter the server secret' },
+                minLength: {
+                    params: 8,
+                    message: 'Secret length must be exactly 8 characters'
+                },
+                maxLength: {
+                    params: 8,
+                    message: 'Secret length must be exactly 8 characters'
+                }
             });
 
+        this.hostname = ko.observable()
+            .extend({
+                isHostname: true
+            });
+
+        this.nameSuffix = ko.pureComputed(
+            () => `${this.secret() || '<secret>'}`
+        );
+
+        this.location = ko.observable();
+
         this.errors = ko.validation.group(this);
+
+        this.contactSupportUri = formatEmailUri(
+            support.email,
+            support.missingOVAMailSubject
+        );
     }
 
     attach() {
@@ -28,7 +54,12 @@ class AttachServerModalViewModel extends Disposable {
             this.errors.showAllMessages();
 
         } else {
-            attachServerToCluster(this.address(), this.secret());
+            attachServerToCluster(
+                this.address(),
+                this.secret(),
+                this.hostname(),
+                this.location()
+            );
             this.onClose();
         }
     }

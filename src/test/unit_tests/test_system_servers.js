@@ -3,7 +3,7 @@
 const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
-const dotenv = require('dotenv');
+const dotenv = require('../../util/dotenv');
 const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
@@ -198,7 +198,7 @@ mocha.describe('system_servers', function() {
             ////////////
             .then(() => client.tier.create_tier({
                 name: TIER,
-                node_pools: [POOL],
+                attached_pools: [POOL],
                 data_placement: 'SPREAD',
                 replicas: 17,
                 data_fragments: 919,
@@ -264,9 +264,20 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
-            .then(() => client.account.add_external_conenction({
+            .then(() => client.account.add_external_connection({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
+                endpoint_type: 'AWS',
+                identity: process.env.AWS_ACCESS_KEY_ID,
+                secret: process.env.AWS_SECRET_ACCESS_KEY
+            }))
+            .then(() => client.account.delete_external_connection({
+                connection_name: CLOUD_SYNC_CONNECTION,
+            }))
+            .then(() => client.account.add_external_connection({
+                name: CLOUD_SYNC_CONNECTION,
+                endpoint: 'https://s3.amazonaws.com',
+                endpoint_type: 'AWS',
                 identity: process.env.AWS_ACCESS_KEY_ID,
                 secret: process.env.AWS_SECRET_ACCESS_KEY
             }))

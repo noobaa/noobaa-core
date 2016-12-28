@@ -5,7 +5,7 @@ var P = require('../../util/promise');
 var api = require('../../api');
 var argv = require('minimist')(process.argv);
 var _ = require('lodash');
-var dotenv = require('dotenv');
+var dotenv = require('../../util/dotenv');
 dotenv.load();
 
 argv.ip = argv.ip || '127.0.0.1';
@@ -64,7 +64,7 @@ function run_test() {
         }))
         .then(() => client.tier.create_tier({
             name: 'tier1',
-            node_pools: ['pool1', 'pool2'],
+            attached_pools: ['pool1', 'pool2'],
             data_placement: 'SPREAD'
         }))
         .then(() =>

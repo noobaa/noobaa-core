@@ -3,7 +3,7 @@
 var msRestAzure = require('ms-rest-azure');
 var ComputeManagementClient = require('azure-arm-compute');
 var NetworkManagementClient = require('azure-arm-network');
-var storage = require('azure-storage');
+var azureStorage = require('azure-storage');
 var util = require('util');
 var P = require('../util/promise');
 var promise_utils = require('../util/promise_utils');
@@ -11,7 +11,8 @@ var promise_utils = require('../util/promise_utils');
 var adminUsername = 'notadmin';
 var adminPassword = 'Passw0rd123!';
 
-var blobSvc = storage.createBlobService();
+require('../util/dotenv').load();
+var blobSvc = azureStorage.createBlobService();
 
 class AzureFunctions {
 

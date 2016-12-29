@@ -59,24 +59,6 @@ fs_utils.file_delete(SETUP_FILENAME)
                 .on('finish', resolve);
         });
     })
-    .then(() => {
-        const output = fs.createWriteStream(SETUP_FILENAME);
-        return new P((resolve, reject) => {
-            dbg.log0('Downloading Noobaa agent upgrade package');
-            request.get({
-                    url: `https://${address}/public/noobaa-setup`,
-                    strictSSL: false,
-                    timeout: 20000
-                })
-                .on('error', err => {
-                    dbg.warn('Error downloading NooBaa agent upgrade from', address);
-                    return reject(err);
-                })
-                .pipe(output)
-                .on('error', err => reject(err))
-                .on('finish', resolve);
-        });
-    })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => P.delay(2000)) // Not sure why this is necessary, but it is.
     .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null'))

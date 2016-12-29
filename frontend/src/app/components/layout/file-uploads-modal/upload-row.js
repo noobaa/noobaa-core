@@ -1,7 +1,7 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { formatSize } from 'utils/all';
+import { formatSize } from 'utils/size-utils';
 
 export default class UploadRowViewModel extends BaseViewModel {
     constructor(upload) {

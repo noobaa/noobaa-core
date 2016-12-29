@@ -1,7 +1,7 @@
 import template from './func-summary.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { stringifyAmount } from 'utils/all';
+import { stringifyAmount } from 'utils/string-utils';
 
 class FuncSummaryViewModel extends BaseViewModel {
     constructor({ func }) {

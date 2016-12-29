@@ -2,7 +2,7 @@ import template from './funcs-table.html';
 import FuncRowViewModel from './func-row';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 import { funcList } from 'model';
 
 const columns = deepFreeze([

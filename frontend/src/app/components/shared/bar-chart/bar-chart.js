@@ -3,7 +3,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import { deepFreeze, echo, isFunction, clamp, isString } from 'utils/core-utils';
-import { formatSize } from 'utils/string-utils';
+import { formatSize } from 'utils/size-utils';
 import numeral from 'numeral';
 
 const height = 168;

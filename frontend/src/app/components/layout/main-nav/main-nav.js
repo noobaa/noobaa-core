@@ -1,7 +1,8 @@
 import template from './main-nav.html';
 import BaseViewModel from 'base-view-model';
 import { uiState, uploads } from 'model';
-import { deepFreeze, sleep } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
+import { sleep } from 'utils/promise-utils';
 import ko from 'knockout';
 import style from 'style';
 

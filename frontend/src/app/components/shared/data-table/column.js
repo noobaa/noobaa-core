@@ -1,6 +1,7 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { isObject, isString, noop, toDashedCase } from 'utils/all';
+import { isObject, isString, noop } from 'utils/core-utils';
+import { toDashedCase } from 'utils/string-utils';
 
 function addSpaces(str) {
     return str.replace(/[A-Z1-9]+/g, match => ` ${match}`);

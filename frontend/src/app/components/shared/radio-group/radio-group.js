@@ -1,7 +1,7 @@
 import template from './radio-group.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { randomString } from 'utils/all';
+import { randomString } from 'utils/string-utils';
 
 class RadioGroupViewModel extends BaseViewModel {
     constructor({

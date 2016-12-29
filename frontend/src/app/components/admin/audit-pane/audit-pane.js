@@ -5,7 +5,7 @@ import ko from 'knockout';
 import { auditLog } from 'model';
 import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';
 import categories from './categories';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 import { infinitScrollPageSize as pageSize } from 'config';
 
 const columns = deepFreeze([

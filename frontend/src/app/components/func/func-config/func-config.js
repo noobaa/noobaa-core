@@ -1,7 +1,7 @@
 import template from './func-config.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 import { updateFunc } from 'actions';
 
 const runtimeOptions = deepFreeze([

@@ -116,10 +116,6 @@ export function clamp(num, min, max) {
     return Math.max(min, Math.min(num, max));
 }
 
-export function avgOp(avg, value, i) {
-    return avg + (value - avg) / (i + 1);
-}
-
 export function bitsToNumber(...bits) {
     return bits.reduce(
         (number, bit) => number << 1 | (!!bit | 0),

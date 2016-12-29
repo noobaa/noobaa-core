@@ -4,7 +4,7 @@ import ko from 'knockout';
 import moment from 'moment';
 import { systemInfo } from 'model';
 import { exitMaintenanceMode } from 'actions';
-import { pad } from 'utils/all';
+import { pad } from 'utils/string-utils';
 
 class MaintenanceModeStickyViewModel extends BaseViewModel {
     constructor() {

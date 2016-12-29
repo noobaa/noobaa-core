@@ -1,6 +1,6 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { stringifyAmount } from 'utils/all';
+import { stringifyAmount } from 'utils/string-utils';
 import { deleteFunc } from 'actions';
 
 

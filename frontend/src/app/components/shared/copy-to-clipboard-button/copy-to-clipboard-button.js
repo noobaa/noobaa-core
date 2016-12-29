@@ -1,7 +1,7 @@
 import template from './copy-to-clipboard-button.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { copyTextToClipboard } from 'utils/all';
+import { copyTextToClipboard } from 'utils/browser-utils';
 
 const copyMessage = 'Copy to Clipboard';
 const copiedMessage = 'Copied';

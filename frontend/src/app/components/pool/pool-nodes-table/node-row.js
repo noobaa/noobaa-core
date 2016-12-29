@@ -1,7 +1,7 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const nodeStateMapping = deepFreeze({
     offline: {

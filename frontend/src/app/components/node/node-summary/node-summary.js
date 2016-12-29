@@ -2,7 +2,8 @@ import template from './node-summary.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
-import { deepFreeze, formatSize, bitsToNumber } from 'utils/all';
+import { deepFreeze, bitsToNumber } from 'utils/core-utils';
+import { formatSize } from 'utils/size-utils';
 import style from 'style';
 
 const stateMapping = deepFreeze({

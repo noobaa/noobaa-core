@@ -1,6 +1,7 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { shortString, formatSize } from 'utils/all';
+import { shortString } from 'utils/string-utils';
+import { formatSize } from 'utils/size-utils';
 
 const partStateIcons = Object.freeze({
     available: {

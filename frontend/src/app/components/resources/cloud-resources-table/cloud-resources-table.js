@@ -3,7 +3,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
 import { systemInfo, uiState, routeContext } from 'model';
-import { deepFreeze, createCompareFunc } from 'utils/all';
+import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { keyByProperty } from 'utils/core-utils';
 

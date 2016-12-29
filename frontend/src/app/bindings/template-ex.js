@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { domFromHtml } from 'utils/all';
+import { domFromHtml } from 'utils/browser-utils';
 
 const original = ko.bindingHandlers.template;
 

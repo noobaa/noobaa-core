@@ -2,7 +2,7 @@ import template from './notification-box.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { lastNotification } from 'model';
-import { sleep } from 'utils/all';
+import { sleep } from 'utils/promise-utils';
 import { notificaitons as config } from 'config';
 
 class NotificationBarViewModel extends BaseViewModel {

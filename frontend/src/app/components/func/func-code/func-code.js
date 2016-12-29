@@ -1,7 +1,7 @@
 import template from './func-code.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { formatSize } from 'utils/all';
+import { formatSize } from 'utils/size-utils';
 
 class FuncCodeViewModel extends BaseViewModel {
     constructor({ func }) {

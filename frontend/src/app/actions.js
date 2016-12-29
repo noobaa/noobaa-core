@@ -4,9 +4,12 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
-import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, deepFreeze, flatMap, httpRequest, httpWaitForResponse,
-    stringifyAmount, toFormData, assignWith } from 'utils/all';
+import { isDefined, last, makeArray, deepFreeze, flatMap, assignWith } from 'utils/core-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { sleep, execInOrder } from 'utils/promise-utils';
+import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
+    toFormData } from 'utils/browser-utils';
+
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.

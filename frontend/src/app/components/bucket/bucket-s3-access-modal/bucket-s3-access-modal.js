@@ -1,7 +1,7 @@
 import template from './bucket-s3-access-modal.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { noop } from 'utils/all';
+import { noop } from 'utils/core-utils';
 import { updateBucketS3Access } from 'actions';
 import { systemInfo } from 'model';
 

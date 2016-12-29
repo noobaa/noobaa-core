@@ -3,7 +3,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { enableRemoteSyslog, disableRemoteSyslog } from 'actions';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const protocols = deepFreeze({
     UDP: { defaultPort: 5014 },

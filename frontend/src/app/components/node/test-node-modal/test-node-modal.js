@@ -4,7 +4,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { nodeTestInfo } from 'model';
 import { testNode, abortNodeTest } from 'actions';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 import moment from 'moment';
 
 const testTypes = Object.freeze([

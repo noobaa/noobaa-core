@@ -1,7 +1,7 @@
 import template from './welcome-modal.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { sleep } from 'utils/all';
+import { sleep } from 'utils/promise-utils';
 
 const loadingDelay = 2000;
 

@@ -4,7 +4,7 @@ import assignNodesStepTemplate from './assign-nodes-step.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
-import { deepFreeze, throttle } from 'utils/all';
+import { deepFreeze, throttle } from 'utils/core-utils';
 import { inputThrottle } from 'config';
 import { systemInfo, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';

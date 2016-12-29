@@ -1,7 +1,7 @@
 import template from './node-parts-table.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 import PartRowViewModel from './part-row';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';

@@ -2,7 +2,6 @@ import template from './node-details-form.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
-import { avgOp } from 'utils/all';
 import { systemInfo } from 'model';
 import { decommissionNode, recommissionNode } from 'actions';
 
@@ -11,6 +10,10 @@ const conactivityTypeMapping = Object.freeze({
     TCP: 'TCP',
     UDP: 'UDP <span class="warning">(Not optimized for performance)</span>'
 });
+
+function addToAverage(avg, value, i) {
+    return avg + (value - avg) / (i + 1);
+}
 
 class NodeInfoViewModel extends BaseViewModel {
     constructor({ node  }) {
@@ -70,7 +73,7 @@ class NodeInfoViewModel extends BaseViewModel {
 
         const RTT = ko.pureComputed(
             () => node() && `${
-                node().latency_to_server.reduce(avgOp, 0).toFixed(1)
+                node().latency_to_server.reduce(addToAverage, 0).toFixed(1)
             } ms`
         );
 
@@ -161,7 +164,7 @@ class NodeInfoViewModel extends BaseViewModel {
         const diskRead = ko.pureComputed(
             () => {
                 const avg = node() && node().latency_of_disk_read
-                    .reduce(avgOp, 0)
+                    .reduce(addToAverage, 0)
                     .toFixed(1);
 
                 return avg === 0 ? 'N/A' : `${avg} ms`;
@@ -171,7 +174,7 @@ class NodeInfoViewModel extends BaseViewModel {
         const diskWrite = ko.pureComputed(
             () => {
                 const avg = node() && node().latency_of_disk_write
-                    .reduce(avgOp, 0)
+                    .reduce(addToAverage, 0)
                     .toFixed(1);
 
                 return avg === 0 ? 'N/A' : `${avg} ms`;

@@ -2,7 +2,8 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { systemInfo } from 'model';
-import { deepFreeze, formatSize } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
+import { formatSize } from 'utils/size-utils';
 import { getServerIssues } from 'utils/cluster-utils';
 
 const diskUsageErrorBound = .95;

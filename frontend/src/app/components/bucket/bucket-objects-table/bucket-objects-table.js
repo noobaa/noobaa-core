@@ -2,7 +2,7 @@ import template from './bucket-objects-table.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle } from 'utils/all';
+import { deepFreeze, throttle } from 'utils/core-utils';
 import ObjectRowViewModel from './object-row';
 import { navigateTo, uploadFiles } from 'actions';
 import { routeContext } from 'model';

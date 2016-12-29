@@ -1,7 +1,7 @@
 import template from './file-selector.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { noop } from 'utils/all';
+import { noop } from 'utils/core-utils';
 
 class FileSelectorViewModel extends BaseViewModel {
     constructor({

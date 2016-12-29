@@ -4,7 +4,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { resetAccountPassword } from 'actions';
 import { resetPasswordState } from 'model';
-import { deepFreeze, randomString } from 'utils/all';
+import { deepFreeze, randomString } from 'utils/core-utils';
 
 const screenTitleMapping = deepFreeze({
     0: {

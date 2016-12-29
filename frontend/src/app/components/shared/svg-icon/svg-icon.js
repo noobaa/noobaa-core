@@ -1,7 +1,7 @@
 import template from './svg-icon.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { realizeUri } from 'utils/all';
+import { realizeUri } from 'utils/browser-utils';
 import { asset as assetsRoute } from 'routes';
 import { defaultIconFile } from 'config.json';
 

@@ -1,7 +1,7 @@
 import template from './capacity-bar.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { formatSize } from 'utils/all';
+import { formatSize } from 'utils/size-utils';
 import style from 'style';
 
 const minUsedRatio = .03;

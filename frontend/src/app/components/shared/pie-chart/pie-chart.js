@@ -1,7 +1,7 @@
 import template from './pie-chart.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import {  makeArray, deepFreeze } from 'utils/all';
+import {  makeArray, deepFreeze } from 'utils/core-utils';
 import style from 'style';
 
 const radius = 84;

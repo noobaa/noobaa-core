@@ -4,7 +4,7 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import moment from 'moment';
 import style from 'style';
-import { deepFreeze, isNumber } from 'utils/all';
+import { deepFreeze, isNumber } from 'utils/core-utils';
 
 const stateMapping = deepFreeze({
     true: {

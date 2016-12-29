@@ -2,7 +2,7 @@ import template from './server-dns-form.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo, nameResolutionState } from 'model';
-import { makeRange } from 'utils/all';
+import { makeRange } from 'utils/core-utils';
 import { attemptResolveSystemName } from 'actions';
 import { inputThrottle } from 'config';
 

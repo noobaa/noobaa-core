@@ -1,7 +1,7 @@
 import template from './wizard.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { isObject, noop } from 'utils/all';
+import { isObject, noop } from 'utils/core-utils';
 
 class WizardViewModel extends BaseViewModel {
     constructor({

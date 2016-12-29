@@ -3,7 +3,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateCloudSyncPolicy } from 'actions';
-import { deepFreeze, bitsToNumber } from 'utils/all';
+import { deepFreeze, bitsToNumber } from 'utils/core-utils';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 const frequencyUnitOptions = deepFreeze([

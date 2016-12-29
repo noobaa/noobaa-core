@@ -4,7 +4,7 @@ import BaseViewModel from 'base-view-model';
 import PlacementRowViewModel from './placement-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const placementTableColumns = deepFreeze([
     {

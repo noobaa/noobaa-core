@@ -1,7 +1,7 @@
 import template from './delete-button.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { isFunction, noop } from 'utils/all';
+import { isFunction, noop } from 'utils/core-utils';
 
 class DeleteButtonViewModel extends BaseViewModel {
     constructor({

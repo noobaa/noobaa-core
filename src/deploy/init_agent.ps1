@@ -6,7 +6,8 @@ if(!(Test-Path -Path $TARGETDIR )){
     $args
     $MaxSize = (Get-PartitionSupportedSize -DriveLetter c).sizeMax
     Resize-Partition -DriveLetter c -Size $MaxSize
-    Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+    # Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+    netsh advfirewall set allprofiles state off
     $env_name = $args[0]
     $setup_link = "https://"+$env_name+":8443/public/noobaa-setup.exe"
     $setup_link

@@ -23,7 +23,9 @@ const TIME_BETWEEN_WARNINGS = 10000;
 
 var address = "";
 
-fs.readFileAsync('./agent_conf.json')
+fs_utils.file_delete(SETUP_FILENAME)
+    .catch(console.error)
+    .then(() => fs.readFileAsync('./agent_conf.json'))
     .then(agent_conf_file => {
         address = url.parse(JSON.parse(agent_conf_file).address).host;
         dbg.log0('Starting agent_cli');
@@ -35,9 +37,6 @@ fs.readFileAsync('./agent_conf.json')
             return promise_utils.fork('./src/agent/agent_cli', ['--duplicate']);
         }
         throw err;
-    })
-    .then(() => {
-        return fs_utils.file_delete(SETUP_FILENAME).catch(console.error);
     })
     // Currently, to signal an upgrade is required agent_cli exits with 0.
     // It should also upgrade when agent_cli throws,

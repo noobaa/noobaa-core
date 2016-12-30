@@ -6,6 +6,7 @@ import * as routes from 'routes';
 import JSZip from 'jszip';
 import { isDefined, last, makeArray, deepFreeze, flatMap, assignWith } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { sumSize } from 'utils/size-utils';
 import { sleep, execInOrder } from 'utils/promise-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
     toFormData } from 'utils/browser-utils';
@@ -2076,7 +2077,7 @@ export  function loadSystemUsageHistory() {
                     const storage = assignWith(
                         {},
                         ...pool_list.map( pool => pool.storage ),
-                        (a, b) => (a || 0) + (b || 0)
+                        (a, b) => sumSize(a || 0, b || 0)
                     );
 
                     return { timestamp, storage };

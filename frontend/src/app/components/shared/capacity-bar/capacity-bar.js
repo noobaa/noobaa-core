@@ -2,7 +2,7 @@ import template from './capacity-bar.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { isArray } from 'utils/core-utils';
-import { formatSize, sizeToBytes } from 'utils/size-utils';
+import { sumSize, formatSize, toBytes } from 'utils/size-utils';
 import style from 'style';
 
 const minUsedRatio = .03;
@@ -13,20 +13,14 @@ class CapacityBarViewModel extends BaseViewModel {
     constructor({ total, used, color = style['color8'] }) {
         super();
 
-        const noramlized = ko.pureComputed(
-            () => ko.deepUnwrap(used)
-        );
-
         const sum = ko.pureComputed(
             () => {
-                const used = noramlized();
-                if (isArray(used)) {
-                    return used.reduce(
-                        (sum, { value }) => sum + sizeToBytes(value),
-                        0
-                    );
+                const usedNaked = ko.deepUnwrap(used);
+                if (isArray(usedNaked)) {
+                    const sizeList = usedNaked.map( ({ value }) => value );
+                    return sumSize(...sizeList);
                 } else {
-                    return sizeToBytes(used);
+                    return usedNaked;
                 }
             }
         );
@@ -43,11 +37,11 @@ class CapacityBarViewModel extends BaseViewModel {
 
         const usedRatio = ko.pureComputed(
             () => {
-                const totalNaked = sizeToBytes(ko.unwrap(total) || 0);
-                const sumNaked = sum();
+                const totalInBytes = toBytes(ko.unwrap(total) || 0);
+                const sumInBytes = toBytes(sum());
 
-                return (sumNaked > 0 && totalNaked > 0) ?
-                    Math.max(minUsedRatio, sumNaked / totalNaked) :
+                return (sumInBytes > 0 && totalInBytes > 0) ?
+                    Math.max(minUsedRatio, sumInBytes / totalInBytes) :
                     0;
             }
         );
@@ -68,11 +62,16 @@ class CapacityBarViewModel extends BaseViewModel {
         this.emptyColor = emptyColor;
 
         this.tooltip = ko.pureComputed(
-            () => !isArray(noramlized()) ?
-                '' :
-                noramlized().map(
+            () => {
+                const usedNaked = ko.deepUnwrap(used);
+                if (!isArray(usedNaked)) {
+                    return;
+                }
+
+                return usedNaked.map(
                     ({ label, value }) => `${label}: ${formatSize(value)}`
-                )
+                );
+            }
         );
     }
 }

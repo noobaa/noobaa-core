@@ -5,7 +5,7 @@ import numeral from 'numeral';
 import moment from 'moment';
 import style from 'style';
 import { deepFreeze, isNumber } from 'utils/core-utils';
-import { sizeToBytes } from 'utils/size-utils';
+import { toBytes } from 'utils/size-utils';
 
 const stateMapping = deepFreeze({
     true: {
@@ -82,28 +82,28 @@ class PoolSummaryViewModel extends BaseViewModel {
                 label: 'Currently Avaliable',
                 color: style['color5'],
                 value: ko.pureComputed(
-                    () => sizeToBytes(storage().free)
+                    () => toBytes(storage().free)
                 )
             },
             {
                 label: 'Unavailable',
                 color: style['color17'],
                 value: ko.pureComputed(
-                    () => sizeToBytes(storage().unavailable_free)
+                    () => toBytes(storage().unavailable_free)
                 )
             },
             {
                 label: 'Used (NooBaa)',
                 color: style['color13'],
                 value: ko.pureComputed(
-                    () => sizeToBytes(storage().used)
+                    () => toBytes(storage().used)
                 )
             },
             {
                 label: 'Used (Other)',
                 color: style['color14'],
                 value: ko.pureComputed(
-                    () => sizeToBytes(storage().used_other)
+                    () => toBytes(storage().used_other)
                 )
 
             },
@@ -111,7 +111,7 @@ class PoolSummaryViewModel extends BaseViewModel {
                 label: 'Reserved',
                 color: style['color7'],
                 value: ko.pureComputed(
-                    () => sizeToBytes(storage().reserved)
+                    () => toBytes(storage().reserved)
                 )
             }
         ];

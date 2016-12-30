@@ -2,7 +2,7 @@ import template from './object-summary.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
-import { sizeToBytes } from 'utils/size-utils';
+import { toBytes } from 'utils/size-utils';
 
 class ObjectSummaryViewModel extends BaseViewModel {
     constructor({ obj }) {
@@ -40,14 +40,14 @@ class ObjectSummaryViewModel extends BaseViewModel {
             {
                 label: 'Original size',
                 value: ko.pureComputed(
-                    () => sizeToBytes(obj().size)
+                    () => toBytes(obj().size)
                 ),
                 color: style['color7']
             },
             {
                 label: 'Size on Disk (with replicas)',
                 value: ko.pureComputed(
-                    () => sizeToBytes(obj().capacity_size)
+                    () => toBytes(obj().capacity_size)
                 ),
                 color: style['color13']
             }

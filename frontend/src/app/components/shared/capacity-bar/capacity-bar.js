@@ -1,7 +1,8 @@
 import template from './capacity-bar.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { formatSize } from 'utils/size-utils';
+import { isArray } from 'utils/core-utils';
+import { formatSize, sizeToBytes } from 'utils/size-utils';
 import style from 'style';
 
 const minUsedRatio = .03;
@@ -12,21 +13,25 @@ class CapacityBarViewModel extends BaseViewModel {
     constructor({ total, used, color = style['color8'] }) {
         super();
 
-        const summedUsed = ko.pureComputed(
+        const noramlized = ko.pureComputed(
+            () => ko.deepUnwrap(used)
+        );
+
+        const sum = ko.pureComputed(
             () => {
-                const naked = ko.unwrap(used);
-                if (naked instanceof Array) {
-                    return naked.reduce(
-                        (sum, entry) => sum + ko.unwrap(entry.value),
+                const used = noramlized();
+                if (isArray(used)) {
+                    return used.reduce(
+                        (sum, { value }) => sum + sizeToBytes(value),
                         0
                     );
                 } else {
-                    return naked;
+                    return sizeToBytes(used);
                 }
             }
         );
 
-        this.usedText = summedUsed.extend({
+        this.usedText = sum.extend({
             formatSize: true
         });
 
@@ -38,13 +43,12 @@ class CapacityBarViewModel extends BaseViewModel {
 
         const usedRatio = ko.pureComputed(
             () => {
-                const totalNaked = ko.unwrap(total());
-                const usedNaked = summedUsed();
-                if (totalNaked === 0 || usedNaked === 0) {
-                    return 0;
-                }
+                const totalNaked = sizeToBytes(ko.unwrap(total) || 0);
+                const sumNaked = sum();
 
-                return Math.max(minUsedRatio, usedNaked / totalNaked);
+                return (sumNaked > 0 && totalNaked > 0) ?
+                    Math.max(minUsedRatio, sumNaked / totalNaked) :
+                    0;
             }
         );
 
@@ -54,7 +58,9 @@ class CapacityBarViewModel extends BaseViewModel {
                 color: color
             },
             {
-                value: ko.pureComputed( () => 1 - usedRatio() ),
+                value: ko.pureComputed(
+                    () => 1 - usedRatio()
+                ),
                 color: bgColor
             }
         ];
@@ -62,20 +68,11 @@ class CapacityBarViewModel extends BaseViewModel {
         this.emptyColor = emptyColor;
 
         this.tooltip = ko.pureComputed(
-            () => {
-                let naked = ko.unwrap(used);
-                if (naked instanceof Array) {
-                    return naked.map(
-                        ({label, value}) => `${
-                            label
-                        }: ${
-                            ko.unwrap(value) ? formatSize(ko.unwrap(value)) : 'N/A'
-                        }`
-                    );
-                } else {
-                    return '';
-                }
-            }
+            () => !isArray(noramlized()) ?
+                '' :
+                noramlized().map(
+                    ({ label, value }) => `${label}: ${formatSize(value)}`
+                )
         );
     }
 }

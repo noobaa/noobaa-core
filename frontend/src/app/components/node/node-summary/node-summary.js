@@ -3,7 +3,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import { deepFreeze, bitsToNumber } from 'utils/core-utils';
-import { formatSize } from 'utils/size-utils';
+import { formatSize, sizeToBytes } from 'utils/size-utils';
 import style from 'style';
 
 const stateMapping = deepFreeze({
@@ -101,7 +101,24 @@ class NodeSummaryViewModel extends BaseViewModel {
         );
 
         let storage = ko.pureComputed(
-            () => node().storage
+            //() => node().storage
+            () => {
+                const pow = Math.floor(Math.random() * 5);
+                const genSize = () => Math.round(Math.random()) ?
+                    Math.floor(Math.random() * Math.pow(1024, pow)) :
+                    { peta: Math.floor(Math.random() * 1024), n: Math.floor(Math.random() * Math.pow(1024, pow)) };
+
+                const storage = {
+                    total: genSize(),
+                    free: genSize(),
+                    used: genSize(),
+                    unavailable_free: genSize(),
+                    used_other: genSize(),
+                    reserved: genSize()
+                };
+                console.warn(storage);
+                return storage;
+            }
         );
 
         this.formattedText = ko.pureComputed(
@@ -115,21 +132,21 @@ class NodeSummaryViewModel extends BaseViewModel {
                 label: 'Potential free',
                 color: style['color5'],
                 value: ko.pureComputed(
-                    () => storage().free
+                    () => sizeToBytes(storage().free)
                 )
             },
             {
                 label: 'Used (NooBaa)',
                 color: style['color13'],
                 value: ko.pureComputed(
-                    () => storage().used
+                    () => sizeToBytes(storage().used)
                 )
             },
             {
                 label: 'Used (Other)',
                 color: style['color14'],
                 value: ko.pureComputed(
-                    () => storage().used_other
+                    () => sizeToBytes(storage().used_other)
                 )
 
             },
@@ -137,7 +154,7 @@ class NodeSummaryViewModel extends BaseViewModel {
                 label: 'Reserved',
                 color: style['color7'],
                 value: ko.pureComputed(
-                    () => storage().reserved
+                    () => sizeToBytes(storage().reserved)
                 )
             }
         ];

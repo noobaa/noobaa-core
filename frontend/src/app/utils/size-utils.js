@@ -6,7 +6,7 @@ export const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'Y
 // integer representation of the size object. A difference may happen for sizes above
 // Number.MAX_SAFE_INTEGER because of the inability of floating point numbers to
 // represent very big numbers.
-export function sizeInBytes(size){
+export function sizeToBytes(size){
     const { n = size, peta = 0 } = size;
     return peta * petaInBytes + n;
 }

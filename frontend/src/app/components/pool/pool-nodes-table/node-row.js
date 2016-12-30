@@ -62,7 +62,7 @@ export default class NodeRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                let { name } = node();
+                const { name } = node();
                 return {
                     text: name,
                     href: { route: 'node', params: { node: name, tab: null } }
@@ -74,7 +74,7 @@ export default class NodeRowViewModel extends BaseViewModel {
             () => node() ? node().ip : ''
         );
 
-        let storage = ko.pureComputed(
+        const storage = ko.pureComputed(
             () => node() ? node().storage : {}
         );
 
@@ -110,7 +110,7 @@ export default class NodeRowViewModel extends BaseViewModel {
                     return 'No activity';
                 }
 
-                let { reason, stage, progress } = node().data_activity;
+                const { reason, stage, progress } = node().data_activity;
                 return `${
                     activityNameMapping[reason]
                 } ${

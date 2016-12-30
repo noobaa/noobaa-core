@@ -4,7 +4,7 @@ import ko from 'knockout';
 import style from 'style';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
-import { sizeInBytes } from 'utils/size-utils';
+import { sizeToBytes } from 'utils/size-utils';
 
 const stateMapping = deepFreeze({
     true: {
@@ -103,21 +103,21 @@ class BucketSummrayViewModel extends BaseViewModel {
                 label: 'Available',
                 color: style['color5'],
                 value: ko.pureComputed(
-                    () => sizeInBytes(storage().free)
+                    () => sizeToBytes(storage().free)
                 )
             },
             {
                 label: 'Used (this bucket)',
                 color: style['color13'],
                 value: ko.pureComputed(
-                    () => sizeInBytes(storage().used)
+                    () => sizeToBytes(storage().used)
                 )
             },
             {
                 label: 'Used (other buckets)',
                 color: style['color14'],
                 value: ko.pureComputed(
-                    () => sizeInBytes(storage().used_other)
+                    () => sizeToBytes(storage().used_other)
                 )
             }
         ];
@@ -126,14 +126,14 @@ class BucketSummrayViewModel extends BaseViewModel {
             {
                 label: 'Total Original Size',
                 value: ko.pureComputed(
-                    () => sizeInBytes(data().size)
+                    () => sizeToBytes(data().size)
                 ),
                 color: style['color7']
             },
             {
                 label: 'Compressed & Deduped',
                 value: ko.pureComputed(
-                    () => sizeInBytes(data().size_reduced)
+                    () => sizeToBytes(data().size_reduced)
                 ),
                 color: style['color13']
             }

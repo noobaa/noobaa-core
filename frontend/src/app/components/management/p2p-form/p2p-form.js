@@ -1,5 +1,5 @@
 import template from './p2p-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateP2PTcpPorts } from 'actions';
@@ -9,7 +9,7 @@ const portOptions = [
     { label: 'Port Range', value: 'range' }
 ];
 
-class P2PFormViewModel extends Disposable {
+class P2PFormViewModel extends BaseViewModel {
     constructor({ isCollapsed }) {
         super();
 

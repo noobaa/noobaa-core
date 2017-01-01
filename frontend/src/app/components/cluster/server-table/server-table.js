@@ -1,5 +1,5 @@
 import template from './server-table.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
 import { createCompareFunc, deepFreeze, throttle } from 'utils/core-utils';
@@ -66,7 +66,7 @@ function matchFilter(server, filter = '') {
     );
 }
 
-class ServerTableViewModel extends Disposable {
+class ServerTableViewModel extends BaseViewModel {
     constructor() {
         super();
 

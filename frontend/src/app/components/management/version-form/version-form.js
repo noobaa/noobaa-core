@@ -1,11 +1,11 @@
 import template from './version-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { upgradeSystem } from 'actions';
 import { upgradePackageSuffix } from 'config';
 
-class AboutFormViewModel extends Disposable {
+class AboutFormViewModel extends BaseViewModel {
     constructor() {
         super();
 

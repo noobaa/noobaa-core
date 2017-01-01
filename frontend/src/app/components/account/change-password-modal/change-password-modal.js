@@ -1,11 +1,11 @@
 import template from './change-password-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { calcPasswordStrength  } from 'utils/password-utils';
 import { resetAccountPassword } from 'actions';
 import { resetPasswordState } from 'model';
 
-class ChangePasswordModalViewModel extends Disposable {
+class ChangePasswordModalViewModel extends BaseViewModel {
     constructor({ email, onClose }) {
         super();
 

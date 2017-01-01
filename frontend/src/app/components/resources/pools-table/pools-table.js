@@ -1,8 +1,8 @@
 import template from './pools-table.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
-import { deepFreeze, createCompareFunc } from 'utils/all';
+import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { uiState, routeContext, systemInfo } from 'model';
 
@@ -86,7 +86,7 @@ const compareAccessors = deepFreeze({
     capacity: pool => pool.storage.used
 });
 
-class PoolsTableViewModel extends Disposable {
+class PoolsTableViewModel extends BaseViewModel {
     constructor() {
         super();
 

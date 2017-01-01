@@ -1,9 +1,9 @@
 import template from './func-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { stringifyAmount } from 'utils/all';
+import { stringifyAmount } from 'utils/string-utils';
 
-class FuncSummaryViewModel extends Disposable {
+class FuncSummaryViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 

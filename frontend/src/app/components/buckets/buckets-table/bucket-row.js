@@ -1,4 +1,4 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deleteBucket } from'actions';
@@ -64,7 +64,7 @@ function cloudStorageIcon(list, baseIconName, tooltipTitle) {
     };
 }
 
-export default class BucketRowViewModel extends Disposable {
+export default class BucketRowViewModel extends BaseViewModel {
     constructor(bucket, deleteGroup, isLastBucket) {
         super();
 

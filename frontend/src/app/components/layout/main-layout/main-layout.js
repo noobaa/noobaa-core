@@ -1,11 +1,11 @@
 import template from './main-layout.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { redirectTo } from 'actions';
 import { system as systemRoute } from 'routes';
 import { uiState, systemInfo, routeContext } from 'model';
 
-class MainLayoutViewModel extends Disposable {
+class MainLayoutViewModel extends BaseViewModel {
     constructor() {
         super();
 

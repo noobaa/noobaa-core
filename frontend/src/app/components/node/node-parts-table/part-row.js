@@ -1,4 +1,4 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 
@@ -20,7 +20,7 @@ const partHealthMapping = Object.freeze({
     }
 });
 
-export default class ObjectRowViewModel extends Disposable {
+export default class ObjectRowViewModel extends BaseViewModel {
     constructor(part) {
 
         super();

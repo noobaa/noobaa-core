@@ -1,5 +1,5 @@
 import template from './server-dns-settings-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateServerDNSSettings } from 'actions';
@@ -16,7 +16,7 @@ const warnings = deepFreeze({
              logged out from the management console`
 });
 
-class ServerDNSSettingsModalViewModel extends Disposable {
+class ServerDNSSettingsModalViewModel extends BaseViewModel {
     constructor({ serverSecret, onClose }) {
         super();
 

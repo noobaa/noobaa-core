@@ -1,12 +1,12 @@
 import template from './bar.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
 
 const defaultEmptyColor = style['color15'];
 const minRatio = .03;
 
-class BarViewModel extends Disposable {
+class BarViewModel extends BaseViewModel {
     constructor({ values = [], emptyColor = defaultEmptyColor }) {
         super();
 

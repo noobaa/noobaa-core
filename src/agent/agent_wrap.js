@@ -8,6 +8,7 @@ process.chdir('/usr/local/noobaa');
 
 const fs = require('fs');
 const P = require('../util/promise');
+const fs_utils = require('../util/fs_utils');
 const promise_utils = require('../util/promise_utils');
 const request = require('request');
 const url = require('url');
@@ -22,7 +23,9 @@ const TIME_BETWEEN_WARNINGS = 10000;
 
 var address = "";
 
-fs.readFileAsync('./agent_conf.json')
+fs_utils.file_delete(SETUP_FILENAME)
+    .catch(console.error)
+    .then(() => fs.readFileAsync('./agent_conf.json'))
     .then(agent_conf_file => {
         address = url.parse(JSON.parse(agent_conf_file).address).host;
         dbg.log0('Starting agent_cli');

@@ -9,6 +9,11 @@ const nodeStateMapping = deepFreeze({
         name: 'problem',
         tooltip: 'Offline'
     },
+    untrusted: {
+        css: 'error',
+        name: 'problem',
+        tooltip: 'Untrusted'
+    },
     migrating: {
         css: 'warning',
         name: 'working',
@@ -53,10 +58,12 @@ export default class NodeRowViewModel extends BaseViewModel {
                 const naked = node();
                 if (!naked) {
                     return '';
-                }
 
-                if (!naked.online) {
+                } else if (!naked.online) {
                     return nodeStateMapping.offline;
+
+                } else if (!naked.trusted) {
+                    return nodeStateMapping.untrusted;
 
                 } else if (naked.migrating_to_pool) {
                     return nodeStateMapping.migrating;

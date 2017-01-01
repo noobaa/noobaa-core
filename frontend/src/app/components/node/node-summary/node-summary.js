@@ -128,7 +128,6 @@ class NodeSummaryViewModel extends BaseViewModel {
         this.accessibility = ko.pureComputed(
             () => {
                 const naked = node();
-                console.warn(naked);
                 if (!naked.online) {
                     return accessibilityMapping.offline;
 

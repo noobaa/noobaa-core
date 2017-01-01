@@ -1,4 +1,4 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
@@ -23,7 +23,7 @@ const stateIconMapping = deepFreeze({
     }
 });
 
-export default class ServerRowViewModel extends Disposable {
+export default class ServerRowViewModel extends BaseViewModel {
     constructor(server, showDNSSettingsModal ) {
         super();
 

@@ -1,9 +1,9 @@
 import template from './func-panel.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { funcInfo, uiState, routeContext } from 'model';
 
-class FuncPanelViewModel extends Disposable {
+class FuncPanelViewModel extends BaseViewModel {
     constructor() {
         super();
 

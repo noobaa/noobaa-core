@@ -1,7 +1,7 @@
 import template from './breadcrumbs.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 
-class BreadcrumbsViewModel extends Disposable {
+class BreadcrumbsViewModel extends BaseViewModel {
     constructor({ crumbs }) {
         super();
         this.crumbs = crumbs;

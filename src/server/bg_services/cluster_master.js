@@ -1,17 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
+// var _ = require('lodash');
 
-const P = require('../../util/promise');
+// const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const bg_workers = require('../bg_workers');
-const server_rpc = require('../server_rpc');
-const auth_server = require('../common_services/auth_server');
+// const server_rpc = require('../server_rpc');
+// const auth_server = require('../common_services/auth_server');
+const cutil = require('../utils/clustering_utils');
 
 var is_cluster_master = false;
 let cluster_master_retries = 0;
@@ -54,7 +55,7 @@ function background_worker() {
                 is_cluster_master = is_master.ismaster;
                 dbg.log1(`sending master update - is_master = ${is_cluster_master}`);
                 cluster_master_retries = 0;
-                return send_master_update(is_cluster_master, is_master.master_address);
+                return cutil.send_master_update(is_cluster_master, is_master.master_address);
             })
             .catch((err) => {
                 if (cluster_master_retries > MAX_RETRIES) {
@@ -62,7 +63,7 @@ function background_worker() {
                     // step down after MAX_RETRIES
                     is_cluster_master = false;
                     bg_workers.remove_master_workers();
-                    return send_master_update(is_cluster_master);
+                    return cutil.send_master_update(is_cluster_master);
                 }
                 cluster_master_retries += 1;
                 dbg.error(`got error: ${err}. retry in 5 seconds`);
@@ -70,7 +71,7 @@ function background_worker() {
             });
     } else {
         dbg.log0('no local cluster info or server is not part of a cluster. therefore will be cluster master');
-        return send_master_update(true)
+        return cutil.send_master_update(true)
             .then(() => {
                 if (!is_cluster_master) {
                     bg_workers.run_master_workers();
@@ -82,33 +83,4 @@ function background_worker() {
                 return;
             });
     }
-}
-
-function send_master_update(is_master, master_address) {
-    let system = system_store.data.systems[0];
-    if (!system) return P.resolve();
-    let hosted_agents_promise = is_master ? server_rpc.client.hosted_agents.start() : server_rpc.client.hosted_agents.stop();
-    let update_master_promise = _.isUndefined(master_address) ? P.resolve() : server_rpc.client.redirector.publish_to_cluster({
-        method_api: 'server_inter_process_api',
-        method_name: 'update_master_change',
-        target: '', // required but irrelevant
-        request_params: {
-            master_address: master_address
-        }
-    });
-    return P.join(
-            server_rpc.client.system.set_webserver_master_state({
-                is_master: is_master
-            }, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: system._id,
-                    role: 'admin'
-                })
-            }).catch(err => dbg.error('got error on set_webserver_master_state.', err)),
-
-            hosted_agents_promise.catch(err => dbg.error('got error on hosted_agents_promise.', err)),
-
-            update_master_promise.catch(err => dbg.error('got error on update_master_promise.', err))
-        )
-        .return();
 }

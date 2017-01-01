@@ -1,5 +1,5 @@
 import template from './server-dns-settings-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ServerRow from './server-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
@@ -30,7 +30,7 @@ const columns = deepFreeze([
     }
 ]);
 
-class ServerDnsSettingsFormViewModel extends Disposable{
+class ServerDnsSettingsFormViewModel extends BaseViewModel {
     constructor({ isCollapsed }) {
         super();
 

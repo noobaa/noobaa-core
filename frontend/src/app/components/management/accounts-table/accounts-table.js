@@ -1,5 +1,5 @@
 import template from './accounts-table.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
 import { sessionInfo, systemInfo, routeContext } from 'model';
@@ -49,7 +49,7 @@ const compareAccessors = deepFreeze({
     's3-access': account => account.has_s3_access
 });
 
-class AccountsTableViewModel extends Disposable {
+class AccountsTableViewModel extends BaseViewModel {
     constructor() {
         super();
 

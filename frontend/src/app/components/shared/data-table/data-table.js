@@ -2,9 +2,9 @@ import './data-table-binding';
 import template from './data-table.html';
 import ColumnViewModel from './column';
 import * as cellTemplates from './cell-templates';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { noop, isFunction } from 'utils/all';
+import { noop, isFunction } from 'utils/core-utils';
 
 const scrollThrottle = 750;
 
@@ -14,7 +14,7 @@ const expandColumnDescriptor = {
     label: ''
 };
 
-class DataTableViewModel extends Disposable {
+class DataTableViewModel extends BaseViewModel {
     constructor(params, inlineTemplates) {
         super();
 

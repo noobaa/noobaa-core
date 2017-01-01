@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { noop } from 'utils/all';
+import { noop } from 'utils/core-utils';
 
 function normalize(handler, name) {
     if (!handler) {

@@ -1,9 +1,10 @@
 import template from './bucket-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
+import { toBytes } from 'utils/size-utils';
 
 const stateMapping = deepFreeze({
     true: {
@@ -31,7 +32,7 @@ const availableForWriteTooltip = `This number is calculated according to the
     bucket\'s available storage and the number of replicas defined in its placement
     policy`;
 
-class BucketSummrayViewModel extends Disposable {
+class BucketSummrayViewModel extends BaseViewModel {
     constructor({ bucket }) {
         super();
 
@@ -102,21 +103,21 @@ class BucketSummrayViewModel extends Disposable {
                 label: 'Available',
                 color: style['color5'],
                 value: ko.pureComputed(
-                    () => storage().free
+                    () => toBytes(storage().free)
                 )
             },
             {
                 label: 'Used (this bucket)',
                 color: style['color13'],
                 value: ko.pureComputed(
-                    () => storage().used
+                    () => toBytes(storage().used)
                 )
             },
             {
                 label: 'Used (other buckets)',
                 color: style['color14'],
                 value: ko.pureComputed(
-                    () => storage().used_other
+                    () => toBytes(storage().used_other)
                 )
             }
         ];
@@ -125,14 +126,14 @@ class BucketSummrayViewModel extends Disposable {
             {
                 label: 'Total Original Size',
                 value: ko.pureComputed(
-                    () => data().size
+                    () => toBytes(data().size)
                 ),
                 color: style['color7']
             },
             {
                 label: 'Compressed & Deduped',
                 value: ko.pureComputed(
-                    () => data().size_reduced
+                    () => toBytes(data().size_reduced)
                 ),
                 color: style['color13']
             }

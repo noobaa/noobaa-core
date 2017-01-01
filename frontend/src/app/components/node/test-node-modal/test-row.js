@@ -1,8 +1,8 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-export default class TestRowViewModel extends Disposable {
+export default class TestRowViewModel extends BaseViewModel {
     constructor(result) {
         super();
 

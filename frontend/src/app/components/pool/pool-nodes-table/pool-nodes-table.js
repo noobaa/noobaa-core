@@ -1,9 +1,9 @@
 import template from './pool-nodes-table.html';
 import NodeRowViewModel from './node-row';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle} from 'utils/all';
+import { deepFreeze, throttle} from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { routeContext } from 'model';
 
@@ -40,7 +40,7 @@ let columns = deepFreeze([
     }
 ]);
 
-class PoolNodesTableViewModel extends Disposable {
+class PoolNodesTableViewModel extends BaseViewModel {
     constructor({ pool, nodeList }) {
         super();
 

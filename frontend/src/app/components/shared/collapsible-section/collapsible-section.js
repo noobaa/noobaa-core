@@ -1,10 +1,10 @@
 import template from './collapsible-section.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 //import { uiState } from 'model';
 //import { navigateTo } from 'actions';
 
-class CollapsibleSectionViewModel extends Disposable{
+class CollapsibleSectionViewModel extends BaseViewModel {
     constructor(params, collapsedTemplate, expandedTemplate) {
         super();
 

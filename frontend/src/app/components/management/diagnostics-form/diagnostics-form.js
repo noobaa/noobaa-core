@@ -1,11 +1,11 @@
 import template from './diagnostics-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo, collectDiagnosticsState } from 'model';
 import { downloadSystemDiagnosticPack, setSystemDebugLevel } from 'actions';
 import { support } from 'config';
 
-class DiagnosticsFormViewModel extends Disposable {
+class DiagnosticsFormViewModel extends BaseViewModel {
     constructor() {
         super();
 

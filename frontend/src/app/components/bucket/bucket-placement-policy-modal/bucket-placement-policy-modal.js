@@ -1,7 +1,7 @@
 import template from './bucket-placement-policy-modal.html';
 import editScreenTemplate from './edit-screen.html';
 import warningScreenTemplate from './warn-screen.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { noop, deepFreeze, keyByProperty } from 'utils/core-utils';
 import { systemInfo } from 'model';
@@ -19,7 +19,7 @@ const screenMapping = deepFreeze({
     }
 });
 
-class BacketPlacementPolicyModalViewModel extends Disposable {
+class BacketPlacementPolicyModalViewModel extends BaseViewModel {
     constructor({ bucketName, onClose = noop }) {
         super();
 

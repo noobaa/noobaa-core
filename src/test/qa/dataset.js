@@ -49,41 +49,33 @@ promise_utils.pwhile(() => current_size < size_of_ds, () => {
                 var action_type = Math.floor(Math.random() * 8);
                 switch (action_type) {
                     case 0: // put new - 12.5%
-                        if (current_size < size_of_ds) {
-                            return s3ops.put_file_with_md5(server, bucket, dataset_name + 'file' + (i++), rand_size)
-                                .then(function(res) {
-                                    console.log("file uploaded was " + dataset_name + 'file' + (i));
-                                    current_size += rand_size;
-                                });
-                        }
-                        break;
+                        return s3ops.put_file_with_md5(server, bucket, dataset_name + 'file' + (i++), rand_size)
+                            .then(function(res) {
+                                console.log("file uploaded was " + dataset_name + 'file' + (i));
+                                current_size += rand_size;
+                            });
                     case 1: // upload new - multi-part - 12.5%
-                        if (current_size < size_of_ds) {
-                            return s3ops.upload_file_with_md5(server, bucket, dataset_name + 'file' + (i++), rand_size, rand_parts)
-                                .then(function(res) {
-                                    console.log("file multi-part uploaded was " + dataset_name + 'file' + (i) + " with " + rand_parts + " parts");
-                                    current_size += rand_size;
-                                });
-                        }
-                        break;
+                        return s3ops.upload_file_with_md5(server, bucket, dataset_name + 'file' + (i++), rand_size, rand_parts)
+                            .then(function(res) {
+                                console.log("file multi-part uploaded was " + dataset_name + 'file' + (i) + " with " + rand_parts + " parts");
+                                current_size += rand_size;
+                            });
                     case 2: // copy object - 12.5%
-                        if (current_size < size_of_ds) {
-                            return s3ops.get_a_random_file(server, bucket, dataset_name)
-                                .then(function(res) {
-                                    console.log("file copying from: " + res.Key);
-                                    return s3ops.copy_file_with_md5(server, bucket, res.Key, dataset_name + 'file' + (i++));
-                                }).then(function(res) {
-                                    console.log("file copied to: " + dataset_name + 'file' + (i));
-                                    current_size += rand_size;
-                                });
-                        }
-                        break;
+                        return s3ops.get_a_random_file(server, bucket, dataset_name)
+                            .then(function(res) {
+                                console.log("file copying from: " + res.Key);
+                                return s3ops.copy_file_with_md5(server, bucket, res.Key, dataset_name + 'file' + (i++));
+                            }).then(function(res) {
+                                console.log("file copied to: " + dataset_name + 'file' + (i));
+                                current_size += rand_size;
+                            });
                     case 3: // upload overwrite - regular - 12.5%
                         return s3ops.get_a_random_file(server, bucket, dataset_name)
                             .then(function(res) {
                                 current_size -= Math.floor(res.Size / 1024 / 1024);
                                 return s3ops.put_file_with_md5(server, bucket, res.Key, rand_size);
-                            }).then(function(res) {
+                            })
+                            .then(function(res) {
                                 console.log("file upload overwritten was " + dataset_name + 'file' + (i) + " with " + rand_parts + " parts");
                                 current_size += rand_size;
                             });
@@ -92,16 +84,20 @@ promise_utils.pwhile(() => current_size < size_of_ds, () => {
                             .then(function(res) {
                                 current_size -= Math.floor(res.Size / 1024 / 1024);
                                 return s3ops.upload_file_with_md5(server, bucket, res.Key, rand_size, rand_parts);
-                            }).then(function(res) {
+                            })
+                            .then(function(res) {
                                 console.log("file upload overwritten was " + dataset_name + 'file' + (i) + " with " + rand_parts + " parts");
                                 current_size += rand_size;
                             });
                     default: // delete - 37.5%
-                        return s3ops.get_a_random_file(server, bucket, dataset_name)
-                            .then(function(res) {
-                                if (current_size > Math.floor(res.Size / 1024 / 1024)) {
-                                    current_size -= Math.floor(res.Size / 1024 / 1024);
-                                    return s3ops.delete_file(server, bucket, res.Key);
+                        return s3ops.get_file_number(server, bucket, dataset_name)
+                            .then(object_number => {
+                                if (object_number > 0) {
+                                    return s3ops.get_a_random_file(server, bucket, dataset_name)
+                                        .then(function(res) {
+                                            current_size -= Math.floor(res.Size / 1024 / 1024);
+                                            return s3ops.delete_file(server, bucket, res.Key);
+                                        });
                                 }
                             });
                 }

@@ -1,9 +1,9 @@
 import template from './func-invoke.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { invokeFunc } from 'actions';
 
-class FuncInvokeViewModel extends Disposable {
+class FuncInvokeViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 

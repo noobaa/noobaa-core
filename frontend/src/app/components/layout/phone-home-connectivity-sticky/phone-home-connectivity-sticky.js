@@ -1,9 +1,9 @@
 import template from './phone-home-connectivity-sticky.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { systemInfo } from 'model';
 import ko from 'knockout';
 
-class PhoneHomeConnectivityStickyViewModel extends Disposable{
+class PhoneHomeConnectivityStickyViewModel extends BaseViewModel {
     constructor() {
         super();
 

@@ -1,6 +1,6 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const iconMapping = deepFreeze({
     AWS: {
@@ -24,7 +24,7 @@ const iconMapping = deepFreeze({
     }
 });
 
-export default class PoolRowViewModel extends Disposable {
+export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool, selectedPools) {
         super();
 

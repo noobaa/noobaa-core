@@ -1,9 +1,9 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { sessionInfo, systemInfo } from 'model';
 import { stringifyAmount } from 'utils/string-utils';
 
-export default class AccountRowViewModel extends Disposable {
+export default class AccountRowViewModel extends BaseViewModel {
     constructor(account, table) {
         super();
 

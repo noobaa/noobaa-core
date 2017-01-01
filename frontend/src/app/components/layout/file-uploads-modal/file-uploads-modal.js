@@ -1,9 +1,11 @@
 import template from './file-uploads-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { uploads } from 'model';
-import { deepFreeze, stringifyAmount, formatSize } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { formatSize } from 'utils/size-utils';
 import { clearCompletedUploads } from 'actions';
 import style from 'style';
 import numeral from 'numeral';
@@ -15,7 +17,7 @@ const columns = deepFreeze([
     'progress'
 ]);
 
-class FileUploadsModalViewModel extends Disposable {
+class FileUploadsModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

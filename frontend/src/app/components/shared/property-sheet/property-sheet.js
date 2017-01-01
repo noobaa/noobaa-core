@@ -1,11 +1,11 @@
 import template from './property-sheet.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { copyTextToClipboard } from 'utils/all';
+import { copyTextToClipboard } from 'utils/browser-utils';
 
 // const idelTooltip
 
-class PropertySheetViewModel extends Disposable {
+class PropertySheetViewModel extends BaseViewModel {
     constructor({ properties = [] }) {
         super();
 

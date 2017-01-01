@@ -1,10 +1,10 @@
 import template from './server-panel.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { routeContext, uiState } from 'model';
 import { lastSegment } from 'utils/string-utils';
 import ko from 'knockout';
 
-class ServerPanelViewModel extends Disposable{
+class ServerPanelViewModel extends BaseViewModel {
     constructor() {
         super();
 

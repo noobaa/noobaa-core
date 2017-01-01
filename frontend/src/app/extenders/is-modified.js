@@ -1,7 +1,7 @@
 import ko from 'knockout';
-import { isFunction, noop } from 'utils/all';
+import { isFunction, noop } from 'utils/core-utils';
 
-export default function formatSize(target, expr) {
+export default function isModified(target, expr) {
     if (!ko.isComputed(target) && !ko.isWriteableObservable(target)) {
         throw new TypeError('Invalid target, must be a non writeable computed observable');
     }

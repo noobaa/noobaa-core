@@ -1,5 +1,5 @@
 import template from './cluster-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import style from 'style';
@@ -53,7 +53,7 @@ const statusMapping = deepFreeze({
     }
 });
 
-class ClusterSummaryViewModel extends Disposable{
+class ClusterSummaryViewModel extends BaseViewModel {
     constructor() {
         super();
 

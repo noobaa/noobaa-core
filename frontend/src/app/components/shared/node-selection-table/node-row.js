@@ -1,6 +1,6 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const stateIconMapping = deepFreeze({
     online: {
@@ -20,7 +20,7 @@ const stateIconMapping = deepFreeze({
     }
 });
 
-export default class NodeRowViewModel extends Disposable {
+export default class NodeRowViewModel extends BaseViewModel {
     constructor(node, selectedNodes , poolName) {
         super();
 

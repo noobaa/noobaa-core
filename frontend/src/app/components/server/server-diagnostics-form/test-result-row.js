@@ -1,4 +1,4 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
@@ -14,7 +14,7 @@ const icons = deepFreeze({
     }
 });
 
-export default class TestResultRowViewModel extends Disposable {
+export default class TestResultRowViewModel extends BaseViewModel {
     constructor(server, testResults) {
         super();
 

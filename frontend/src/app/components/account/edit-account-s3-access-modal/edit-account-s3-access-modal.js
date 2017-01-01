@@ -1,10 +1,10 @@
 import template from './edit-account-s3-access-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateAccountS3Access } from 'actions';
 
-class EditAccountS3AccessModalViewModel extends Disposable {
+class EditAccountS3AccessModalViewModel extends BaseViewModel {
     constructor({ email, onClose }) {
         super();
 

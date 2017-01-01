@@ -1,7 +1,7 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-export default class ObjectRowViewModel extends Disposable {
+export default class ObjectRowViewModel extends BaseViewModel {
     constructor(obj) {
         super();
 

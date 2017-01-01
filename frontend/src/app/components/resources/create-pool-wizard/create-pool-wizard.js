@@ -1,10 +1,10 @@
 import template from './create-pool-wizard.html';
 import chooseNameStepTemplate from './choose-name-step.html';
 import assignNodesStepTemplate from './assign-nodes-step.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
-import { deepFreeze, throttle } from 'utils/all';
+import { deepFreeze, throttle } from 'utils/core-utils';
 import { inputThrottle } from 'config';
 import { systemInfo, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';
@@ -14,7 +14,7 @@ const steps = deepFreeze([
     { label: 'assign nodes', size: 'auto-height' }
 ]);
 
-class CreatePoolWizardViewModel extends Disposable {
+class CreatePoolWizardViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

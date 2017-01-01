@@ -1,6 +1,5 @@
-import { isNumber, makeArray } from './core-utils';
+import { makeArray } from './core-utils';
 
-export const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
 export const digits = '123456789';
 export const letters = 'abcdefghijklmnopqrstuvwxyz';
 export const symbols = ')!@#$%^&*(';
@@ -11,31 +10,6 @@ export function toCammelCase(str) {
 
 export function toDashedCase(str) {
     return str.replace(/[A-Z]+/g, match => `-${match.toLowerCase()}`);
-}
-
-export function formatSize(num) {
-    const peta = Math.pow(1024, 5);
-
-    let i = 0;
-    if (!isNumber(num)) {
-        if (num.peta > 0) {
-            i = 5;
-            num = num.peta + num.n / peta;
-        } else {
-            num = num.n;
-        }
-    }
-
-    while (num / 1024 >= 1) {
-        num /= 1024;
-        ++i;
-    }
-
-    if (i > 0) {
-        num = num.toFixed(num < 10 ? 1 : 0);
-    }
-
-    return `${num}${sizeUnits[i]}`;
 }
 
 export function formatDuration(minutes) {

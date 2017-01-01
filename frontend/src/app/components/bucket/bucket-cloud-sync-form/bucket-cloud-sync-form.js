@@ -1,5 +1,5 @@
 import template from './bucket-cloud-sync-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import { removeCloudSyncPolicy, toogleCloudSync } from 'actions';
@@ -21,7 +21,7 @@ const directionMapping = Object.freeze({
     3: 'Bi directional'
 });
 
-class BucketCloudSyncFormViewModel extends Disposable {
+class BucketCloudSyncFormViewModel extends BaseViewModel {
     constructor({ bucket }) {
         super();
 

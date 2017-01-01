@@ -46,6 +46,7 @@ function fix_server_secret() {
 
 function sync_cluster_upgrade() {
     // find if this server should perform mongo upgrade
+    print('WOOP owner_secret = ', param_secret);
     var is_mongo_upgrade = db.clusters.find({
         owner_secret: param_secret
     }).toArray()[0].upgrade ? db.clusters.find({

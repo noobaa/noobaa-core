@@ -255,12 +255,6 @@ function verify_supported_upgrade {
     fi
 }
 
-if [ "$1" == "work" ]; then
-  shift
-else
-  exit 1
-fi
-
 #Node.js Cluster chnages the .spawn behavour. On a normal spawn FDs are not inherited,
 #on a node cluster they are, which meand the listening ports of the webserver are inherited by this upgrade.
 #murder them

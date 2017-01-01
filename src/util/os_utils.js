@@ -61,6 +61,55 @@ function get_main_drive_name() {
     }
 }
 
+
+function get_disk_mount_points() {
+    return read_drives()
+        .then(drives => remove_linux_readonly_drives(drives))
+        .then(function(drives) {
+            dbg.log0('drives:', drives, ' current location ', process.cwd());
+            var hds = _.filter(drives, function(hd_info) {
+                if ((hd_info.drive_id.indexOf('by-uuid') < 0 &&
+                        hd_info.mount.indexOf('/etc/hosts') < 0 &&
+                        (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') &&
+                        hd_info.mount.indexOf('/boot') < 0 &&
+                        hd_info.mount.indexOf('/Volumes/') < 0) ||
+                    (hd_info.drive_id.length === 2 &&
+                        hd_info.drive_id.indexOf(':') === 1)) {
+                    dbg.log0('Found relevant volume', hd_info.drive_id);
+                    return true;
+                }
+            });
+
+            var mount_points = [];
+
+            if (os.type() === 'Windows_NT') {
+                _.each(hds, function(hd_info) {
+                    if (process.cwd().toLowerCase().indexOf(hd_info.drive_id.toLowerCase()) === 0) {
+                        hd_info.mount = '.\\agent_storage\\';
+                        mount_points.push(hd_info);
+                    } else {
+                        hd_info.mount += '\\agent_storage\\';
+                        mount_points.push(hd_info);
+                    }
+                });
+            } else {
+                _.each(hds, function(hd_info) {
+                    if (hd_info.mount === "/") {
+                        hd_info.mount = './agent_storage/';
+                        mount_points.push(hd_info);
+                    } else {
+                        hd_info.mount = '/' + hd_info.mount + '/agent_storage/';
+                        mount_points.push(hd_info);
+                    }
+                });
+            }
+
+            dbg.log0('mount_points:', mount_points);
+            return mount_points;
+        });
+}
+
+
 function get_mount_of_path(path) {
     console.log('get_mount_of_path');
 
@@ -555,3 +604,4 @@ exports.get_dns_servers = get_dns_servers;
 exports.restart_services = restart_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
+exports.get_disk_mount_points = get_disk_mount_points;

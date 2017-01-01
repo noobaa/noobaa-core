@@ -1,10 +1,11 @@
 import template from './pool-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import moment from 'moment';
 import style from 'style';
-import { deepFreeze, isNumber } from 'utils/all';
+import { deepFreeze, isNumber } from 'utils/core-utils';
+import { toBytes } from 'utils/size-utils';
 
 const stateMapping = deepFreeze({
     true: {
@@ -27,7 +28,7 @@ const activityNameMapping = deepFreeze({
 });
 
 function activityLabel(reason, count) {
-    let activityName = activityNameMapping[reason];
+    const activityName = activityNameMapping[reason];
     return  `${activityName} ${count} Node${count !== 1 ? 's' : ''}`;
 }
 
@@ -39,7 +40,7 @@ function activityETA(time) {
     return moment(time.end).fromNow();
 }
 
-class PoolSummaryViewModel extends Disposable {
+class PoolSummaryViewModel extends BaseViewModel {
     constructor({ pool }) {
         super();
 
@@ -49,7 +50,7 @@ class PoolSummaryViewModel extends Disposable {
 
         this.state = ko.pureComputed(
             () => {
-                let { count, has_issues } = pool().nodes;
+                const { count, has_issues } = pool().nodes;
                 return stateMapping[count - has_issues >= 3];
             }
         );
@@ -66,8 +67,7 @@ class PoolSummaryViewModel extends Disposable {
             () => numeral(pool().nodes.count - pool().nodes.online).format('0,0')
         );
 
-
-        let storage = ko.pureComputed(
+        const storage = ko.pureComputed(
             () => pool().storage
         );
 
@@ -82,28 +82,28 @@ class PoolSummaryViewModel extends Disposable {
                 label: 'Currently Avaliable',
                 color: style['color5'],
                 value: ko.pureComputed(
-                    () => storage().free
+                    () => toBytes(storage().free)
                 )
             },
             {
                 label: 'Unavailable',
                 color: style['color17'],
                 value: ko.pureComputed(
-                    () => storage().unavailable_free
+                    () => toBytes(storage().unavailable_free)
                 )
             },
             {
                 label: 'Used (NooBaa)',
                 color: style['color13'],
                 value: ko.pureComputed(
-                    () => storage().used
+                    () => toBytes(storage().used)
                 )
             },
             {
                 label: 'Used (Other)',
                 color: style['color14'],
                 value: ko.pureComputed(
-                    () => storage().used_other
+                    () => toBytes(storage().used_other)
                 )
 
             },
@@ -111,20 +111,20 @@ class PoolSummaryViewModel extends Disposable {
                 label: 'Reserved',
                 color: style['color7'],
                 value: ko.pureComputed(
-                    () => storage().reserved
+                    () => toBytes(storage().reserved)
                 )
             }
         ];
 
-        let dataActivities = ko.pureComputed(
+        const dataActivities = ko.pureComputed(
             () => pool().data_activities || []
         );
 
-        let firstActivity = ko.pureComputed(
+        const firstActivity = ko.pureComputed(
             () => dataActivities()[0]
         );
 
-        let additionalActivities = ko.pureComputed(
+        const additionalActivities = ko.pureComputed(
             () => dataActivities().filter(
                 (_, i) => i >= 1
             )
@@ -140,7 +140,7 @@ class PoolSummaryViewModel extends Disposable {
                     return 'No Activities';
                 }
 
-                let { reason, count } = firstActivity();
+                const { reason, count } = firstActivity();
                 return activityLabel(reason, count);
             }
         );
@@ -170,7 +170,7 @@ class PoolSummaryViewModel extends Disposable {
 
         this.additionalActivitiesMessage = ko.pureComputed(
             () => {
-                let count = additionalActivities().length;
+                const count = additionalActivities().length;
                 if (count > 0) {
                     return `${count} more ${count === 1 ? 'activity' : 'activities'} running`;
                 }
@@ -180,7 +180,7 @@ class PoolSummaryViewModel extends Disposable {
         this.additionalActivitiesTooltip = ko.pureComputed(
             () => additionalActivities().map(
                 activity => {
-                    let { reason, count, progress, time } = activity;
+                    const { reason, count, progress, time } = activity;
                     return `${
                         activityLabel(reason, count)
                     } (${

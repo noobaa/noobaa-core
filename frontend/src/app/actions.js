@@ -4,9 +4,13 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
-import { isDefined, last, makeArray, execInOrder, realizeUri, sleep,
-    downloadFile, deepFreeze, flatMap, httpRequest, httpWaitForResponse,
-    stringifyAmount, toFormData, assignWith } from 'utils/all';
+import { isDefined, last, makeArray, deepFreeze, flatMap, assignWith } from 'utils/core-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { sumSize } from 'utils/size-utils';
+import { sleep, execInOrder } from 'utils/promise-utils';
+import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
+    toFormData } from 'utils/browser-utils';
+
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -1988,7 +1992,7 @@ export function validateActivation(code, email) {
 }
 
 export function attemptResolveSystemName(name) {
-    logAction('attemptResolveServerName', { name });
+    logAction('attemptResolveSystemName', { name });
 
     api.system.attempt_dns_resolve({
         dns_name: name
@@ -2073,7 +2077,7 @@ export  function loadSystemUsageHistory() {
                     const storage = assignWith(
                         {},
                         ...pool_list.map( pool => pool.storage ),
-                        (a, b) => (a || 0) + (b || 0)
+                        (a, b) => sumSize(a || 0, b || 0)
                     );
 
                     return { timestamp, storage };

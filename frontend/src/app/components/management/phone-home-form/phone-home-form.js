@@ -1,10 +1,10 @@
 import template from './phone-home-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updatePhoneHomeConfig } from 'actions';
 
-class PhoneHomeFormViewModel extends Disposable {
+class PhoneHomeFormViewModel extends BaseViewModel {
     constructor({ isCollapsed }) {
         super();
 

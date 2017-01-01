@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { noop } from 'utils/all';
+import { noop } from 'utils/core-utils';
 
 export default {
     init: function(element, valueAccessor, allBindings, viewModel, bindingContext) {

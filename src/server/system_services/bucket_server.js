@@ -314,7 +314,7 @@ function delete_bucket(req) {
             });
         })
         .then(() => server_rpc.client.cloud_sync.refresh_policy({
-            bucketid: bucket._id.toString(),
+            bucket_id: bucket._id.toString(),
             system_id: req.system._id.toString()
         }, {
             auth_token: req.auth_token
@@ -409,7 +409,7 @@ function get_cloud_sync(req, bucket) {
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
                 status: bucket.cloud_sync.status,
-                last_sync: bucket.cloud_sync.last_sync.getTime(),
+                last_sync: bucket.cloud_sync.last_sync.getTime() || undefined,
                 target_bucket: bucket.cloud_sync.target_bucket,
                 policy: {
                     schedule_min: bucket.cloud_sync.schedule_min,
@@ -454,7 +454,7 @@ function delete_cloud_sync(req) {
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                bucketid: bucket._id.toString(),
+                bucket_id: bucket._id.toString(),
             }, {
                 auth_token: req.auth_token
             });
@@ -520,7 +520,7 @@ function set_cloud_sync(req) {
             return object_server.set_all_files_for_sync(req.system._id, bucket._id);
         })
         .then(() => server_rpc.client.cloud_sync.refresh_policy({
-            bucketid: bucket._id.toString()
+            bucket_id: bucket._id.toString()
         }, {
             auth_token: req.auth_token
         }))
@@ -619,7 +619,7 @@ function update_cloud_sync(req) {
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                bucketid: bucket._id.toString(),
+                bucket_id: bucket._id.toString(),
             }, {
                 auth_token: req.auth_token
             });
@@ -678,13 +678,13 @@ function toggle_cloud_sync(req) {
             update: {
                 buckets: [{
                     _id: bucket._id,
-                    'cloud_sync.paused': cloud_sync
+                    'cloud_sync.paused': cloud_sync.paused
                 }]
             }
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({
-                bucketid: bucket._id.toString()
+                bucket_id: bucket._id.toString()
             }, {
                 auth_token: req.auth_token
             });

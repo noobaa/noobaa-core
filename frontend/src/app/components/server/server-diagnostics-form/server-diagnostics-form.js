@@ -1,5 +1,5 @@
 import template from './server-diagnostics-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import TestResultRowViewModel from './test-result-row';
 import ko from 'knockout';
 import { systemInfo, collectDiagnosticsState } from 'model';
@@ -21,7 +21,7 @@ const columns = deepFreeze([
     }
 ]);
 
-class ServerDiagnosticsFormViewModel extends Disposable{
+class ServerDiagnosticsFormViewModel extends BaseViewModel {
     constructor({ serverSecret }) {
         super();
 

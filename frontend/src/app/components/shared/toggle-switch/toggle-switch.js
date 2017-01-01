@@ -1,8 +1,8 @@
 import template from './toggle-switch.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-class ToggleSwitchViewModel extends Disposable {
+class ToggleSwitchViewModel extends BaseViewModel {
     constructor({ value = ko.observable(true), onLabel = 'on', offLabel = 'off' }) {
         super();
 

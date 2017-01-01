@@ -1,11 +1,11 @@
 import template from './management-panel.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import * as routes from 'routes';
 import { uiState, routeContext } from 'model';
 import { navigateTo } from 'actions';
 
-class ManagementPanelViewModel extends Disposable {
+class ManagementPanelViewModel extends BaseViewModel {
     constructor() {
         super();
 

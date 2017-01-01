@@ -1,7 +1,7 @@
 import template from './func-config.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 import { updateFunc } from 'actions';
 
 const runtimeOptions = deepFreeze([
@@ -25,7 +25,7 @@ const memorySizeOptions = deepFreeze([
     }
 ]);
 
-class FuncConfigViewModel extends Disposable {
+class FuncConfigViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 

@@ -46,9 +46,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['bucketid'],
+                required: ['bucket_id'],
                 properties: {
-                    bucketid: {
+                    bucket_id: {
                         type: 'string',
                     },
                     system_id: {

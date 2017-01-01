@@ -1,8 +1,8 @@
 import template from './cluster-panel.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { uiState } from 'model';
 
-class ClusterPanelViewModel extends Disposable {
+class ClusterPanelViewModel extends BaseViewModel {
     tabHref(tab) {
         return {
             route: 'cluster',

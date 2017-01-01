@@ -1,9 +1,9 @@
 import template from './radio-group.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { randomString } from 'utils/all';
+import { randomString } from 'utils/string-utils';
 
-class RadioGroupViewModel extends Disposable {
+class RadioGroupViewModel extends BaseViewModel {
     constructor({
             selected = ko.observable(),
             name = randomString(5),
@@ -21,7 +21,7 @@ class RadioGroupViewModel extends Disposable {
         this.layoutClass = multiline ? 'column' : 'row';
 
         this.options = ko.pureComputed(
-            () => ko.deepUnwrap(options).map(
+            () => ko.unwrap(options).map(
                 opt => {
                     const { value = opt, label = value } = opt;
                     return { value, label };

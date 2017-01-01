@@ -6,10 +6,14 @@
 const _ = require('lodash');
 const util = require('util');
 const url = require('url');
-const system_store = require('../system_services/system_store').get_instance();
-const dbg = require('../../util/debug_module')(__filename);
 const os = require('os');
 const moment = require('moment');
+
+const system_store = require('../system_services/system_store').get_instance();
+const dbg = require('../../util/debug_module')(__filename);
+const P = require('../../util/promise');
+const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 
 function get_topology() {
     return system_store.get_local_cluster_info();
@@ -247,6 +251,37 @@ function get_member_upgrade_status(ip) {
 }
 
 
+function send_master_update(is_master, master_address) {
+    let system = system_store.data.systems[0];
+    if (!system) return P.resolve();
+    let hosted_agents_promise = is_master ? server_rpc.client.hosted_agents.start() : server_rpc.client.hosted_agents.stop();
+    let update_master_promise = _.isUndefined(master_address) ? P.resolve() : server_rpc.client.redirector.publish_to_cluster({
+        method_api: 'server_inter_process_api',
+        method_name: 'update_master_change',
+        target: '', // required but irrelevant
+        request_params: {
+            master_address: master_address
+        }
+    });
+    return P.join(
+            server_rpc.client.system.set_webserver_master_state({
+                is_master: is_master
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin'
+                })
+            }).catch(err => dbg.error('got error on set_webserver_master_state.', err)),
+
+            hosted_agents_promise.catch(err => dbg.error('got error on hosted_agents_promise.', err)),
+
+            update_master_promise.catch(err => dbg.error('got error on update_master_promise.', err))
+        )
+        .return();
+}
+
+
+
 //Exports
 exports.get_topology = get_topology;
 exports.update_host_address = update_host_address;
@@ -260,3 +295,4 @@ exports.find_shard_index = find_shard_index;
 exports.get_cluster_info = get_cluster_info;
 exports.get_member_upgrade_status = get_member_upgrade_status;
 exports.get_potential_masters = get_potential_masters;
+exports.send_master_update = send_master_update;

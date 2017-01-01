@@ -1,8 +1,8 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deletePool } from 'actions';
 
-export default class PoolRowViewModel extends Disposable {
+export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool, deleteGroup, poolsToBuckets) {
         super();
 

@@ -38,6 +38,12 @@ const CLOUD_SYNC = {
  */
 function background_worker() {
     dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
+
+    if (!system_store.is_finished_initial_load) {
+        dbg.log0('System did not finish initial load');
+        return P.resolve();
+    }
+
     let now = new Date();
     return load_policies()
         .then(() => P.all(_.map(_.filter(CLOUD_SYNC.configured_policies.to_array(), policy =>
@@ -102,8 +108,7 @@ function refresh_policy(req) {
     dbg.log2('refresh policy', req.rpc_params);
     return load_policies()
         .then(() => P.fcall(() =>
-            load_single_policy(_.find(system_store.data.buckets, bucket =>
-                (req.rpc_params.bucketid === bucket._id.toString())), req.rpc_params.system_id)))
+            load_single_policy(req.rpc_params.bucket_id, req.rpc_params.system_id)))
         .return();
 }
 
@@ -131,7 +136,7 @@ function load_policies() {
         .then(() => P.all(
             _.map(system_store.data.buckets, bucket => {
                 if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
-                    return P.fcall(() => load_single_policy(bucket));
+                    return P.fcall(() => load_single_policy(bucket._id));
                 }
                 return P.resolve();
             })))
@@ -325,17 +330,22 @@ function diff_worklists(wl1, wl2, sync_time) {
     };
 }
 
-function load_single_policy(bucket, system_id) {
-    dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id,
-        'bucket', bucket, 'to configured policies');
+function load_single_policy(bucket_id, system_id) {
     //Cache Configuration, S3 Objects and empty work lists
+    const bucket = _.find(system_store.data.buckets, candidate_bucket =>
+        (bucket_id.toString() === candidate_bucket._id.toString()));
+    if (!system_id && (!bucket || !bucket.system)) {
+        throw new Error('Attempt to load a policy without system');
+    }
     const policy_id = {
-        sysid: system_id || bucket.system._id.toString(),
-        bucketid: bucket._id.toString()
+        sysid: system_id || (bucket && bucket.system._id.toString()),
+        bucketid: bucket_id.toString()
     };
-    if (!bucket.cloud_sync) {
+    if (!bucket || !bucket.cloud_sync) {
         return CLOUD_SYNC.configured_policies.delete_policy(policy_id);
     }
+    dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id,
+        'bucket', bucket, 'to configured policies');
     let stored_policy = CLOUD_SYNC.configured_policies.get_policy(policy_id);
 
     var policy = {

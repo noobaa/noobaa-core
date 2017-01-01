@@ -1,9 +1,10 @@
 import template from './func-monitoring.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
-import { deepFreeze, hexToRgb } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
+import { hexToRgb } from 'utils/color-utils';
 
 const responseTimeOptions = deepFreeze({
     maintainAspectRatio: false,
@@ -81,7 +82,7 @@ const errorsOptions = deepFreeze({
     }
 });
 
-class FuncMonitoringViewModel extends Disposable {
+class FuncMonitoringViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 

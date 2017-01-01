@@ -71,8 +71,8 @@ function set_cloud_sync(params) {
                 connection: TEST_CTX.connection_name,
                 target_bucket: params.target_bucket_name,
                 policy: {
-                    c2n_enabled: params.c2n,
-                    n2c_enabled: params.n2c,
+                    c2n_enabled: params.c2n_enabled,
+                    n2c_enabled: params.n2c_enabled,
                     schedule_min: 1,
                     additions_only: !params.deletions
                 }
@@ -222,7 +222,7 @@ function verify_object_lists_after_delete(params) {
 
 function main() {
     return authenticate()
-        //.then(() => run_basic_test())
+        .then(() => run_basic_test())
         .then(() => run_policy_edit_test())
         .then(() => {
             console.log('test_cloud_sync PASSED');
@@ -265,8 +265,8 @@ function run_basic_test() {
         .then(() => {
             // start cloud sync from source to target and check file list on the target.
             let cloud_sync_params = {
-                n2c: true,
-                c2n: true,
+                n2c_enabled: true,
+                c2n_enabled: true,
                 deletions: true,
                 source_bucket_name: source_params.bucket,
                 target_bucket_name: target_params.bucket
@@ -352,8 +352,8 @@ function run_basic_test() {
         .then(() => {
             // start cloud sync from source to target and check file list on the target.
             let cloud_sync_params = {
-                n2c: true,
-                c2n: false,
+                n2c_enabled: true,
+                c2n_enabled: false,
                 deletions: false,
                 source_bucket_name: source_params.bucket,
                 target_bucket_name: target_params.bucket
@@ -427,8 +427,8 @@ function run_basic_test() {
         .then(() => {
             // start cloud sync from source to target and check file list on the target.
             let cloud_sync_params = {
-                n2c: false,
-                c2n: true,
+                n2c_enabled: false,
+                c2n_enabled: true,
                 deletions: false,
                 source_bucket_name: source_params.bucket,
                 target_bucket_name: target_params.bucket

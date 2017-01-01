@@ -409,7 +409,7 @@ function get_cloud_sync(req, bucket) {
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
                 status: bucket.cloud_sync.status,
-                last_sync: bucket.cloud_sync.last_sync.getTime(),
+                last_sync: bucket.cloud_sync.last_sync.getTime() || undefined,
                 target_bucket: bucket.cloud_sync.target_bucket,
                 policy: {
                     schedule_min: bucket.cloud_sync.schedule_min,

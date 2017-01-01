@@ -1,6 +1,6 @@
 'use strict';
 
-require('../../util/dotenv').load();
+require('../util/dotenv').load();
 
 var AzureFunctions = require('./azureFunctions');
 const argv = require('minimist')(process.argv);
@@ -18,8 +18,8 @@ var clone = argv.clone;
 
 
 var timestamp = (Math.floor(Date.now() / 1000));
-var networkInterfaceName = 'testnic' + timestamp;
-var ipConfigName = 'testcrpip' + timestamp;
+var networkInterfaceName = clone + '_nic' + timestamp;
+var ipConfigName = clone + '_pip' + timestamp;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 azf.authenticate().then(() => azf.cloneVM(source, clone, networkInterfaceName, ipConfigName, vnet));

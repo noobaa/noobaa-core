@@ -36,11 +36,11 @@ class HostedAgents {
         // start agent for all cloud pools that doesn't already have a running agent
         const pools_to_start = _.filter(cloud_pools, pool => _.isUndefined(this._started_agents[pool.name]));
         // stop all running agents that doesn't have a cloud pool in the DB
-        const agents_to_stop = _.filter(this._started_agents, (agent, name) => _.isUndefined(system.pools_by_name[name]));
+        const agents_to_stop = _.pickBy(this._started_agents, (agent, name) => _.isUndefined(system.pools_by_name[name]));
 
         if (!pools_to_start.length && !agents_to_stop.length) return;
 
-        dbg.log0(`stopping the following agents: ${agents_to_stop}`);
+        dbg.log0(`stopping the following agents: ${util.inspect(agents_to_stop)}`);
         _.each(agents_to_stop, (agent, name) => this.stop_agent(name));
 
         this._started = true;

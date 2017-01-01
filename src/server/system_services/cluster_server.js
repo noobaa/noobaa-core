@@ -76,6 +76,7 @@ function add_member_to_cluster(req) {
     const topology = cutil.get_topology();
     const id = topology.cluster_id;
     const is_clusterized = topology.is_clusterized;
+    let my_address;
 
     return _validate_add_member_request(req)
         .catch(err => {
@@ -89,6 +90,7 @@ function add_member_to_cluster(req) {
             timeout: 60000 //60s
         }))
         .then(response => {
+            my_address = response.caller_address || os_utils.get_local_ipv4_ips()[0];
             if (!is_clusterized && response && response.caller_address) {
                 dbg.log1('updating adding server ip in db');
                 let shard_idx = cutil.find_shard_index(req.rpc_params.shard);
@@ -136,6 +138,7 @@ function add_member_to_cluster(req) {
             //Send a join_to_cluster command to the new joining server
             return server_rpc.client.cluster_internal.join_to_cluster({
                 ip: req.rpc_params.address,
+                master_ip: my_address,
                 topology: cutil.get_topology(),
                 cluster_id: id,
                 secret: req.rpc_params.secret,
@@ -267,6 +270,8 @@ function join_to_cluster(req) {
         })
         // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
         .then(() => cluster_hb.do_heartbeat())
+        // send update to all services with the master address
+        .then(() => cutil.send_master_update(false, req.rpc_params.master_ip))
         // restart bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
         .then(() => _restart_services())
         .return();
@@ -588,6 +593,7 @@ function apply_set_debug_level(req) {
 }
 
 function _restart_services() {
+    dbg.log0(`restarting services: s3rver bg_workers hosted_agents`);
     // set timeout to restart services in 1 second
     setTimeout(() => {
         promise_utils.exec('supervisorctl restart s3rver bg_workers hosted_agents');

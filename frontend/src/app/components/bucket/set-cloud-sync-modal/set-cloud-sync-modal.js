@@ -132,7 +132,12 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
         this.direction = ko.observable(3);
         this.directionOptions = directionOptions;
 
-        this.frequency = ko.observable(1);
+        this.frequency = ko.observable(1)
+            .extend({
+                required: { message: 'Please enter a value greater than or equal to 1' },
+                min: 1
+            });
+
         this.frequencyUnit = ko.observable(HOUR);
         this.frequencyUnitOptions = frequencyUnitOptions;
 
@@ -144,10 +149,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
 
         this.isAddCloudConnectionModalVisible = ko.observable(false);
 
-        this.errors = ko.validation.group([
-            this.connection,
-            this.targetBucket
-        ]);
+        this.errors = ko.validation.group(this);
     }
 
     loadBucketsList() {

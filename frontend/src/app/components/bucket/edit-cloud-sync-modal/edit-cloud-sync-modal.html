@@ -23,6 +23,7 @@
                     options: frequencyUnitOptions
                 "></dropdown>
             </div>
+            <sapn class="val-msg" data-bind="validationMessage: frequency"></sapn>
         </editor>
 
         <editor params="label: 'Sync Type', insertValMessages: false">
@@ -40,7 +41,14 @@
     </section>
 
     <div class="row content-middle align-end push-prev">
-        <button class="link alt-colors push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn" data-bind="click: save">Save</button>
+        <button class="link alt-colors push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="
+            click: save,
+            shakeOnClick: errors().length
+        ">
+            Save
+        </button>
     </div>
 </modal>

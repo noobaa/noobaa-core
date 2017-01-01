@@ -51,7 +51,7 @@ class EditCloudSyncModalViewModel extends BaseViewModel {
 
         this.sourceBucket = bucketName;
 
-        let cloudSyncInfo = ko.pureComputed(
+        const cloudSyncInfo = ko.pureComputed(
             () => systemInfo().buckets
                 .find(
                     bucket => bucket.name === ko.unwrap(bucketName)
@@ -59,7 +59,7 @@ class EditCloudSyncModalViewModel extends BaseViewModel {
                 .cloud_sync
         );
 
-        let policy = ko.pureComputed(
+        const policy = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().policy
         );
 
@@ -79,7 +79,11 @@ class EditCloudSyncModalViewModel extends BaseViewModel {
             () => policy() && (
                 policy().schedule_min / minutesToUnit(policy().schedule_min)
             )
-        );
+        )
+            .extend({
+                required: { message: 'Please enter a value greater than or equal to 1' },
+                min: 1
+            });
 
         this.frequencyUnitOptions = frequencyUnitOptions;
 
@@ -97,7 +101,7 @@ class EditCloudSyncModalViewModel extends BaseViewModel {
 
         this.directionOptions = directions;
 
-        let _syncDeletions = ko.observableWithDefault(
+        const _syncDeletions = ko.observableWithDefault(
             () => policy() && !policy().additions_only
         );
 
@@ -105,6 +109,8 @@ class EditCloudSyncModalViewModel extends BaseViewModel {
             read: () => this.direction() === 3 ? true : _syncDeletions(),
             write: _syncDeletions
         });
+
+        this.errors = ko.validation.group(this);
     }
 
     cancel() {
@@ -112,13 +118,18 @@ class EditCloudSyncModalViewModel extends BaseViewModel {
     }
 
     save() {
-        updateCloudSyncPolicy(
-            ko.unwrap(this.sourceBucket),
-            this.direction(),
-            this.frequency() * this.frequencyUnit(),
-            this.syncDeletions()
-        );
-        this.onClose();
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
+
+        } else {
+            updateCloudSyncPolicy(
+                ko.unwrap(this.sourceBucket),
+                this.direction(),
+                this.frequency() * this.frequencyUnit(),
+                this.syncDeletions()
+            );
+            this.onClose();
+        }
     }
 }
 

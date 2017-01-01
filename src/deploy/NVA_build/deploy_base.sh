@@ -181,6 +181,15 @@ function install_mongo {
     deploy_log "----> install_mongo done"
 }
 
+
+function update_rsyslog {
+    deploy_log "update_rsyslog - copy src/deploy/NVA_build/rsyslog.repo to /etc/yum.repos.d/rsyslog.repo"
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo
+
+    deploy_log "yum update rsyslog..."
+    yum update rsyslog -y
+}
+
 function general_settings {
 	deploy_log "----> general_settings start"
 
@@ -346,6 +355,7 @@ function runinstall {
     install_nodejs
     install_noobaa_repos
     install_mongo
+    update_rsyslog
     general_settings
     setup_supervisors
     setup_syslog

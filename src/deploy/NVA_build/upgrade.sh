@@ -79,13 +79,18 @@ function mongo_upgrade {
   wait_for_mongo
 
   #MongoDB nbcore upgrade
-  deploy_log "starting mongo data upgrade"
   local sec=$(cat /etc/noobaa_sec)
   local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
   local id=$(uuidgen | cut -f 1 -d'-')
   local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
+  deploy_log "starting mongo data upgrade ${bcrypt_sec} ${id} ${ip}"
   ${MONGO_SHELL} --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
-  deploy_log "finished mongo data upgrade"
+  local rc=$?
+  if [ $rc -ne 0 ]; then
+      deploy_log "FAILED mongo data upgrade!"
+  else
+      deploy_log "finished mongo data upgrade"
+  fi
 
 
 

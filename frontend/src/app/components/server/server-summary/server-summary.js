@@ -1,5 +1,5 @@
 import template from './server-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { systemInfo } from 'model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
@@ -56,7 +56,7 @@ const barOptions = deepFreeze({
     scale: 1
 });
 
-class ServerSummaryViewModel extends Disposable{
+class ServerSummaryViewModel extends BaseViewModel {
     constructor({ serverSecret }) {
         super();
 

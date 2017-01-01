@@ -1,9 +1,9 @@
 import template from './bucket-s3-access-list.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 
-class BucketS3AccessListViewModel extends Disposable {
+class BucketS3AccessListViewModel extends BaseViewModel {
     constructor({ bucketName }) {
         super();
 

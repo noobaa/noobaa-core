@@ -1,11 +1,11 @@
 import template from './object-parts-list.html';
 import ObjectPartRowViewModel from './object-part-row';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 
-class ObjectPartsListViewModel extends Disposable {
+class ObjectPartsListViewModel extends BaseViewModel {
     constructor({ obj, parts }) {
         super();
 

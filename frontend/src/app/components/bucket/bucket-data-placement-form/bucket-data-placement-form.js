@@ -1,10 +1,10 @@
 import template from './bucket-data-placement-form.html';
 import placementSectionTemplate from './placement-policy-section.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import PlacementRowViewModel from './placement-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const placementTableColumns = deepFreeze([
     {
@@ -34,7 +34,7 @@ const placementTypeMapping = deepFreeze({
     MIRROR: 'Mirror'
 });
 
-class BucketDataPlacementFormViewModel extends Disposable {
+class BucketDataPlacementFormViewModel extends BaseViewModel {
     constructor({ bucket }) {
         super();
 

@@ -1,9 +1,9 @@
 import template from './add-cloud-connection-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo, sessionInfo, isCloudConnectionValid } from 'model';
 import { checkCloudConnection, addCloudConnection } from 'actions';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const serviceMapping = deepFreeze({
     AWS: {
@@ -52,7 +52,7 @@ const serviceMapping = deepFreeze({
     }
 });
 
-class AddCloudConnectionModalViewModel extends Disposable {
+class AddCloudConnectionModalViewModel extends BaseViewModel {
     constructor({
         onClose,
         allowedServices =  Object.keys(serviceMapping)

@@ -1,10 +1,10 @@
 import template from './commands-bar.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { refresh, openDrawer } from 'actions';
-import { sleep } from 'utils/all';
+import { sleep } from 'utils/promise-utils';
 
-class CommandBarViewModel extends Disposable {
+class CommandBarViewModel extends BaseViewModel {
     constructor() {
         super();
 

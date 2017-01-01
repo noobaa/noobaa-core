@@ -1,11 +1,11 @@
 import template from './attach-server-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { attachServerToCluster } from 'actions';
 import { support } from 'config';
 import { formatEmailUri } from 'utils/browser-utils';
 
-class AttachServerModalViewModel extends Disposable {
+class AttachServerModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

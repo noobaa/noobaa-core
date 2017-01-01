@@ -1,9 +1,9 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import categories from './categories';
 
-export default class AuditRowViewModel extends Disposable {
+export default class AuditRowViewModel extends BaseViewModel {
     constructor(entry, selectedRow) {
         super();
 

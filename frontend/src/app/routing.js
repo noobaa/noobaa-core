@@ -1,4 +1,4 @@
-import { parseQueryString } from 'utils/all';
+import { parseQueryString } from 'utils/browser-utils';
 import { sessionInfo, routeContext } from 'model';
 import * as routes from 'routes';
 import * as actions from 'actions';

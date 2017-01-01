@@ -1,10 +1,10 @@
 import template from './edit-server-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateServerDetails } from 'actions';
 
-class EditServerModalViewModel extends Disposable {
+class EditServerModalViewModel extends BaseViewModel {
     constructor({ serverSecret, onClose }) {
         super();
 

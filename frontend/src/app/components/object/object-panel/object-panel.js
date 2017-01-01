@@ -1,9 +1,9 @@
 import template from './object-panel.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { uiState, objectInfo, objectPartList } from 'model';
 
-class ObjectPanelViewModel extends Disposable {
+class ObjectPanelViewModel extends BaseViewModel {
     constructor() {
         super();
 

@@ -1,8 +1,9 @@
 import template from './node-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
-import { deepFreeze, formatSize, bitsToNumber } from 'utils/all';
+import { deepFreeze, bitsToNumber } from 'utils/core-utils';
+import { formatSize, toBytes } from 'utils/size-utils';
 import style from 'style';
 
 const stateMapping = deepFreeze({
@@ -61,7 +62,7 @@ const activityNameMapping = deepFreeze({
     DELETING: 'Deleting Node'
 });
 
-class NodeSummaryViewModel extends Disposable {
+class NodeSummaryViewModel extends BaseViewModel {
     constructor({ node }) {
 
         super();
@@ -114,21 +115,21 @@ class NodeSummaryViewModel extends Disposable {
                 label: 'Potential free',
                 color: style['color5'],
                 value: ko.pureComputed(
-                    () => storage().free
+                    () => toBytes(storage().free)
                 )
             },
             {
                 label: 'Used (NooBaa)',
                 color: style['color13'],
                 value: ko.pureComputed(
-                    () => storage().used
+                    () => toBytes(storage().used)
                 )
             },
             {
                 label: 'Used (Other)',
                 color: style['color14'],
                 value: ko.pureComputed(
-                    () => storage().used_other
+                    () => toBytes(storage().used_other)
                 )
 
             },
@@ -136,7 +137,7 @@ class NodeSummaryViewModel extends Disposable {
                 label: 'Reserved',
                 color: style['color7'],
                 value: ko.pureComputed(
-                    () => storage().reserved
+                    () => toBytes(storage().reserved)
                 )
             }
         ];

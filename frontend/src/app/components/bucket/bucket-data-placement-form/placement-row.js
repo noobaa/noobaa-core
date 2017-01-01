@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const iconMapping = deepFreeze({
     AWS: {

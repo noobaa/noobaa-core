@@ -1,12 +1,12 @@
 import template from './server-ssl-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { sslCertificateSuffix } from 'config';
 import { uploadSSLCertificate } from 'actions';
 import { systemInfo, sslCertificateUploadStatus as uploadStatus } from 'model';
 
-class SSLFormViewModel extends Disposable {
+class SSLFormViewModel extends BaseViewModel {
     constructor({ isCollapsed }) {
         super();
 

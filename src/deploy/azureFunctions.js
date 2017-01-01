@@ -3,12 +3,16 @@
 var msRestAzure = require('ms-rest-azure');
 var ComputeManagementClient = require('azure-arm-compute');
 var NetworkManagementClient = require('azure-arm-network');
+var azureStorage = require('azure-storage');
 var util = require('util');
 var P = require('../util/promise');
 var promise_utils = require('../util/promise_utils');
 
 var adminUsername = 'notadmin';
 var adminPassword = 'Passw0rd123!';
+
+require('../util/dotenv').load();
+var blobSvc = azureStorage.createBlobService();
 
 class AzureFunctions {
 
@@ -48,7 +52,7 @@ class AzureFunctions {
             })
             // .then(ipInfo => createNICPromise(subnetInfo, ipInfo, networkInterfaceName, ipConfigName))
             .then(nic => {
-                console.log('Created Network Interface:\n');
+                console.log('Created Network Interface!');
                 var image = {
                     publisher: os.publisher,
                     offer: os.offer,
@@ -58,7 +62,7 @@ class AzureFunctions {
                 return this.createVirtualMachine(vmName, nic.id, image, storage);
             })
             .then(() => {
-                console.log('Started the Virtual Machine\n');
+                console.log('Started the Virtual Machine!');
                 var extension = {
                     publisher: 'Microsoft.OSTCExtensions',
                     virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
@@ -85,9 +89,6 @@ class AzureFunctions {
                     };
                 }
                 return this.createVirtualMachineExtension(vmName, extension);
-            })
-            .then(result => {
-                console.log(result);
             });
     }
 
@@ -96,8 +97,9 @@ class AzureFunctions {
         return this.getSubnetInfo(vnet)
             .then(result => {
                 subnetInfo = result;
-                return this.createNIC(subnetInfo, null, networkInterfaceName, ipConfigName);
+                return this.createPublicIp(newVmName + '_pip');
             })
+            .then(ipinfo => this.createNIC(subnetInfo, ipinfo, networkInterfaceName, ipConfigName))
             .then(nicInfo => this.cloneVirtualMachine(originalVM, newVmName, nicInfo.id))
             .then(result => {
                 console.log(result);
@@ -114,18 +116,21 @@ class AzureFunctions {
                 // publicIPAddress: publicIPInfo
             }]
         };
+        if (publicIPInfo) {
+            nicParameters.ipConfigurations.publicIPAddress = publicIPInfo;
+        }
         console.log('Creating Network Interface: ' + networkInterfaceName);
         return P.fromCallback(callback => this.networkClient.networkInterfaces.createOrUpdate(this.resourceGroupName, networkInterfaceName,
             nicParameters, callback));
     }
 
-    createPublicIp(domainNameLabel, publicIPName) {
+    createPublicIp(publicIPName) {
         var publicIPParameters = {
             location: this.location,
             publicIPAllocationMethod: 'Dynamic',
-            dnsSettings: {
-                domainNameLabel: domainNameLabel
-            }
+            // dnsSettings: {
+            //     domainNameLabel: domainNameLabel
+            // }
         };
         console.log('Creating public IP: ' + publicIPName);
         return P.fromCallback(callback => this.networkClient.publicIPAddresses.createOrUpdate(this.resourceGroupName, publicIPName,
@@ -172,6 +177,12 @@ class AzureFunctions {
                     id: nicId,
                     primary: true
                 }]
+            },
+            diagnosticsProfile: {
+                bootDiagnostics: {
+                    enabled: true,
+                    storageUri: 'https://' + storageAccountName + '.blob.core.windows.net/'
+                }
             }
         };
         console.log('Creating Virtual Machine: ' + vmName);
@@ -213,7 +224,8 @@ class AzureFunctions {
                             id: nicId,
                             primary: true
                         }]
-                    }
+                    },
+                    diagnosticsProfile: machine_info.diagnosticsProfile
                 };
                 return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
                     newMachine, vmParameters, callback));
@@ -223,6 +235,78 @@ class AzureFunctions {
     startVirtualMachine(vmName) {
         console.log('Starting Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.start(this.resourceGroupName, vmName, callback));
+    }
+
+    captureVirtualMachine(vmName, vhdname, container, overwrite) { // some kind of taking snapshot
+        var snapshotParameters = {
+            vhdPrefix: vhdname,
+            destinationContainerName: container,
+            overwriteVhds: overwrite
+        };
+        console.log('Capturing Virtual Machine: ' + vmName);
+        console.log('Stopping Virtual Machine: ' + vmName);
+        return P.fromCallback(callback => this.computeClient.virtualMachines.powerOff(this.resourceGroupName, vmName, callback))
+            .then(() => {
+                console.log('Virtual Machine stopped');
+                console.log('Generalizing Virtual Machine: ' + vmName);
+                return P.fromCallback(callback => this.computeClient.virtualMachines.generalize(this.resourceGroupName, vmName, callback));
+            })
+            .then(res => {
+                console.log('Virtual Machine generalized', res);
+                console.log('capturing Virtual Machine: ' + vmName);
+                return P.fromCallback(callback => this.computeClient.virtualMachines.capture(this.resourceGroupName, vmName, snapshotParameters, callback));
+            })
+            .then(res => res.output.resources[0].properties.storageProfile.osDisk.image.uri);
+    }
+
+    startVirtualMachineFromVHD(vmName, vhdname) { // some kind of revert to snapshot
+        console.log('Reverting Virtual Machine: ' + vmName);
+        var machine_info;
+        return P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, vmName, callback))
+            .then(machine => {
+                machine_info = machine;
+                console.log('deleting machine', vmName);
+                return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(this.resourceGroupName, vmName, callback));
+            })
+            .then(() => {
+                var parts = machine_info.storageProfile.osDisk.vhd.uri.split('/');
+                var container = parts[parts.length - 2];
+                var vhd = parts[parts.length - 1];
+                console.log('JAJA', container, vhd);
+                return P.fromCallback(callback => blobSvc.deleteBlob(container, vhd, callback));
+            })
+            .then(() => {
+                var vmParameters = {
+                    location: machine_info.location,
+                    plan: machine_info.plan,
+                    osProfile: {
+                        computerName: vmName,
+                        adminUsername: adminUsername,
+                        adminPassword: adminPassword
+                    },
+                    hardwareProfile: machine_info.hardwareProfile,
+                    storageProfile: {
+                        osDisk: {
+                            name: machine_info.storageProfile.osDisk.name,
+                            // diskSizeGB: 1023,
+                            caching: machine_info.storageProfile.osDisk.caching,
+                            createOption: 'fromImage',
+                            osType: machine_info.storageProfile.osDisk.osType,
+                            vhd: {
+                                uri: machine_info.storageProfile.osDisk.vhd.uri
+                            },
+                            image: {
+                                uri: vhdname
+                            }
+                        },
+                    },
+                    networkProfile: machine_info.networkProfile,
+                    diagnosticsProfile: machine_info.diagnosticsProfile
+                };
+                console.log('JAJA', vmParameters);
+                return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
+                    vmName, vmParameters, callback));
+            });
     }
 
     restartVirtualMachine(vmName) {
@@ -238,7 +322,8 @@ class AzureFunctions {
     deleteVirtualMachine(vmName) {
         console.log('Deleting Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(this.resourceGroupName, vmName, callback))
-            .then(() => P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(this.resourceGroupName, vmName + '_nic', callback)));
+            .then(() => P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(this.resourceGroupName, vmName + '_nic', callback)))
+            .then(() => P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback)));
     }
 
     listVirtualMachines(prefix, status) {
@@ -313,9 +398,15 @@ class AzureFunctions {
     }
 
     createVirtualMachineExtension(vmName, extensionParameters) {
-        console.log('\nRunning Virtual Machine Desired extension');
+        console.log('Running Virtual Machine Desired extension');
         return P.fromCallback(callback => this.computeClient.virtualMachineExtensions.createOrUpdate(this.resourceGroupName, vmName,
             vmName + '_ext', extensionParameters, callback));
+    }
+
+    deleteVirtualMachineExtension(vmName) {
+        console.log('Deleting Virtual Machine Desired extension');
+        return P.fromCallback(callback => this.computeClient.virtualMachineExtensions.deleteMethod(this.resourceGroupName, vmName,
+            vmName + '_ext', callback));
     }
 }
 

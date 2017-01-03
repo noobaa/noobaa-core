@@ -1,6 +1,7 @@
 editor {
     .row();
     padding: @gutter 0;
+    line-height: 35px;
 
     .val-msg {
         position: relative;
@@ -12,9 +13,9 @@ editor {
     > .editor-label {
         font-size: @font-size3;
         font-weight: @font-light;
-        line-height: 42px;
         color: @color7;
         width: 152px;
+        line-height: inherit;
 
         &.disabled {
             color: @color7;
@@ -25,5 +26,7 @@ editor {
     > .editor-content {
         position: relative;
         justify-content: center;
+        line-height: inherit;
+        height: 35px;
     }
 }

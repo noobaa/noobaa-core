@@ -19,9 +19,8 @@
 <p>Open an elevated Powershell (run as administrator) to a target machine and run the following command</p>
 <!-- /ko -->
 
-<div class="pad alt-bg config-box row push-both greedy">
-    <output class="text-tech greedy" data-bind="text: installationCommand">
-    </output>
+<div class="pad alt-bg config-box row push-prev greedy">
+    <p class="text-tech greedy" data-bind="text: installationCommand"></p>
 
     <copy-to-clipboard-button params="value: installationCommand">
     </copy-to-clipboard-button>

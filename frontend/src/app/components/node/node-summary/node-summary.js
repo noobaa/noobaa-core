@@ -2,7 +2,7 @@ import template from './node-summary.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
-import { deepFreeze, bitsToNumber } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
 import { formatSize, toBytes } from 'utils/size-utils';
 import style from 'style';
 
@@ -11,6 +11,16 @@ const stateMapping = deepFreeze({
         text: 'Online',
         css: 'success',
         icon: 'healthy'
+    },
+    migrating: {
+        text: 'Migrating',
+        css: 'warning',
+        icon: 'working'
+    },
+    deactivating: {
+        text: 'Deactivating',
+        css: 'warning',
+        icon: 'working'
     },
     deactivated: {
         text: 'Deactivated',
@@ -25,12 +35,12 @@ const stateMapping = deepFreeze({
 });
 
 const trustMapping = deepFreeze({
-    true: {
+    trusted: {
         text: 'Trusted',
         css: 'success',
         icon: 'healthy'
     },
-    false: {
+    untrested: {
         text: 'Untrusted',
         css: 'error',
         icon: 'problem'
@@ -38,20 +48,35 @@ const trustMapping = deepFreeze({
 });
 
 const accessibilityMapping = deepFreeze({
-    0: {
+    online: {
+        text: 'Readable & Writable',
+        css: 'success',
+        icon: 'healthy'
+    },
+    migrating: {
+        text: 'Read Only - Migrating data',
+        css: 'warning',
+        icon: 'problem'
+    },
+    deactivating: {
+        text: 'Read Only',
+        css: 'error',
+        icon: 'problem'
+    },
+    deactivated: {
         text: 'No Access',
         css: 'error',
         icon: 'problem'
     },
-    2: {
-        text: 'Read Only',
-        css: 'warning',
+    untrested: {
+        text: 'No Access',
+        css: 'error',
         icon: 'problem'
     },
-    3: {
-        text: 'Readable & Writable',
-        css: 'success',
-        icon: 'healthy'
+    offline: {
+        text: 'No Access',
+        css: 'error',
+        icon: 'problem'
     }
 });
 
@@ -68,7 +93,7 @@ class NodeSummaryViewModel extends BaseViewModel {
         super();
 
         this.dataReady = ko.pureComputed(
-            () => !!node()
+            () => Boolean(node())
         );
 
         this.name = ko.pureComputed(
@@ -77,10 +102,17 @@ class NodeSummaryViewModel extends BaseViewModel {
 
         this.state = ko.pureComputed(
             () => {
-                if (!node().online) {
+                const naked = node();
+                if (!naked.online) {
                     return stateMapping.offline;
 
-                } else if (node().decommissioning || node().decommissioned) {
+                } else if (naked.migrating_to_pool) {
+                    return stateMapping.migrating;
+
+                } else if (naked.decommissioning) {
+                    return stateMapping.deactivating;
+
+                } else if (naked.decommissioned) {
                     return stateMapping.deactivated;
 
                 } else {
@@ -90,17 +122,34 @@ class NodeSummaryViewModel extends BaseViewModel {
         );
 
         this.trust = ko.pureComputed(
-            () => trustMapping[node().trusted]
+            () => node().trusted ? trustMapping.trusted : trustMapping.untrested
         );
 
         this.accessibility = ko.pureComputed(
             () => {
-                let index = bitsToNumber(node().readable, node().writable);
-                return accessibilityMapping[index];
+                const naked = node();
+                if (!naked.online) {
+                    return accessibilityMapping.offline;
+
+                } else if (!naked.trusted) {
+                    return accessibilityMapping.untrested;
+
+                } else if(naked.migrating_to_pool) {
+                    return accessibilityMapping.migrating;
+
+                } else if (naked.decommissioning) {
+                    return accessibilityMapping.deactivating;
+
+                } else if (naked.decommissioned) {
+                    return accessibilityMapping.deactivated;
+
+                } else {
+                    return accessibilityMapping.online;
+                }
             }
         );
 
-        let storage = ko.pureComputed(
+        const storage = ko.pureComputed(
             () => node().storage
         );
 
@@ -142,7 +191,7 @@ class NodeSummaryViewModel extends BaseViewModel {
             }
         ];
 
-        let dataActivity = ko.pureComputed(
+        const dataActivity = ko.pureComputed(
             () => node().data_activity
         );
 
@@ -166,7 +215,7 @@ class NodeSummaryViewModel extends BaseViewModel {
                     return 'Node is in optimal condition';
                 }
 
-                let { stage } = dataActivity();
+                const { stage } = dataActivity();
                 switch (stage.name) {
                     case 'OFFLINE_GRACE':
                         return `Waiting for heartbeat, start restoring ${

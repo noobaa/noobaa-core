@@ -54,7 +54,7 @@ const accessibilityMapping = deepFreeze({
         icon: 'healthy'
     },
     migrating: {
-        text: 'Read Only - Migrating data',
+        text: 'Read Only - Moving data',
         css: 'warning',
         icon: 'problem'
     },
@@ -212,7 +212,19 @@ class NodeSummaryViewModel extends BaseViewModel {
         this.activityStageMessage = ko.pureComputed(
             () => {
                 if (!dataActivity()) {
-                    return 'Node is in optimal condition';
+                    const { online, decommissioned, trusted } = node();
+                    if (!online) {
+                        return 'Node offline';
+
+                    } else if (decommissioned) {
+                        return 'Node deactivated';
+
+                } else if(!trusted) {
+                        return 'Untrusted node';
+
+                    } else {
+                        return 'Node is in optimal condition';
+                    }
                 }
 
                 const { stage } = dataActivity();

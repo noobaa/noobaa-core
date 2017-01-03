@@ -47,6 +47,7 @@ function disable_supervisord {
 }
 
 function packages_upgrade {
+
     #fix SCL issue (preventing yum install/update)
     yum -y remove centos-release-SCL
     yum -y install centos-release-scl
@@ -64,6 +65,9 @@ function packages_upgrade {
         deploy_log "installing vim"
         yum install -y vim
     fi
+
+    #update rsyslog to version 8
+    update_rsyslog
 
     deploy_log "installing utils"
     yum install -y bind-utils

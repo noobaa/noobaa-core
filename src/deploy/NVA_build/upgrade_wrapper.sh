@@ -274,8 +274,6 @@ function post_upgrade {
   # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
   cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
-  #update rsyslog to version 8
-  update_rsyslog
 
   # setup crontab to run logrotate every 15 minutes.
   echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root

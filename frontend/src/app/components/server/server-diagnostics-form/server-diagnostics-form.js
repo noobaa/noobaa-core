@@ -3,7 +3,7 @@ import BaseViewModel from 'base-view-model';
 import TestResultRowViewModel from './test-result-row';
 import ko from 'knockout';
 import { systemInfo, collectDiagnosticsState } from 'model';
-import { deepFreeze, KeyByProperty } from 'utils/core-utils';
+import { deepFreeze, keyByProperty } from 'utils/core-utils';
 import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
 
 const columns = deepFreeze([
@@ -44,7 +44,7 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
                 }
 
                 const { results = [] } = this.server().services_status.cluster_communication;
-                return KeyByProperty(results,'secret');
+                return keyByProperty(results,'secret');
             }
         );
 

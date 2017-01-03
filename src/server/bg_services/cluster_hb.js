@@ -62,5 +62,6 @@ function do_heartbeat() {
             .return();
     } else {
         dbg.log0('no local cluster info. HB is not written');
+        return P.resolve();
     }
 }

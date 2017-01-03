@@ -43,13 +43,13 @@ class ServerDNSFormViewModel extends BaseViewModel {
             })
             .extend({
                 required: {
-                    onlyIf: this.usingDNS,
+                    onlyIf: () => this.usingDNS(),
                     message: 'Please enter a DNS Name'
                 },
                 isDNSName: true,
                 validation: {
                     async: true,
-                    onlyIf: () => this.dnsName(),
+                    onlyIf: () => this.usingDNS(),
                     validator: (name, _, callback) => {
                         attemptResolveSystemName(name);
 

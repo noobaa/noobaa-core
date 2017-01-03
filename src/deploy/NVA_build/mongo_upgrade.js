@@ -13,17 +13,11 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
-    print('fix_server_secret');
     fix_server_secret();
-    print('sync_cluster_upgrade');
     sync_cluster_upgrade();
-    print('upgrade_systems');
     upgrade_systems();
-    print('upgrade_cluster');
     upgrade_cluster();
-    print('upgrade_system_access_keys');
     upgrade_system_access_keys();
-    print('upgrade_object_mds');
     upgrade_object_mds();
     remove_unnamed_nodes();
     fix_nodes_pool_to_object_id();
@@ -39,8 +33,6 @@ function upgrade() {
 
 
 function fix_server_secret() {
-    print('Fixing server secret');
-    print('WOOP1 owner_secret = ', param_secret);
     var truncated_secret = param_secret.substring(0, param_secret.length - 1);
     // try to look for a truncated secret and set to the complete one.
     db.clusters.update({
@@ -50,12 +42,10 @@ function fix_server_secret() {
             "owner_secret": param_secret
         }
     });
-    print('Done Fixing server secret');
 }
 
 function sync_cluster_upgrade() {
     // find if this server should perform mongo upgrade
-    print('WOOP owner_secret = ', param_secret);
     var is_mongo_upgrade = db.clusters.find({
         owner_secret: param_secret
     }).toArray()[0].upgrade ? db.clusters.find({

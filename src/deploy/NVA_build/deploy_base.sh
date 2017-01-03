@@ -181,6 +181,8 @@ function install_mongo {
     deploy_log "----> install_mongo done"
 }
 
+
+
 function general_settings {
 	deploy_log "----> general_settings start"
 
@@ -317,10 +319,16 @@ function setup_supervisors {
 function setup_syslog {
 	deploy_log "----> setup_syslog start"
 
+    deploy_log "setup_syslog - copy src/deploy/NVA_build/rsyslog.repo to /etc/yum.repos.d/rsyslog.repo"
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo
+    deploy_log "yum update rsyslog..."
+    yum update rsyslog -y
+
     # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
     cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
-    service rsyslog restart
+
+
     # setup crontab to run logrotate every 15 minutes.
     echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
 

@@ -9,6 +9,21 @@ const nodeStateMapping = deepFreeze({
         name: 'problem',
         tooltip: 'Offline'
     },
+    untrusted: {
+        css: 'error',
+        name: 'problem',
+        tooltip: 'Untrusted'
+    },
+    migrating: {
+        css: 'warning',
+        name: 'working',
+        tooltip: 'Migrating'
+    },
+    deactivating: {
+        css: 'warning',
+        name: 'working',
+        tooltip: 'Deactivating'
+    },
     deactivated: {
         css: 'warning',
         name: 'problem',
@@ -40,14 +55,23 @@ export default class NodeRowViewModel extends BaseViewModel {
 
         this.state = ko.pureComputed(
             () => {
-                if (!node()) {
+                const naked = node();
+                if (!naked) {
                     return '';
-                }
 
-                if (!node().online) {
+                } else if (!naked.online) {
                     return nodeStateMapping.offline;
 
-                } else if (node().decommissioning || node().decommissioned) {
+                } else if (!naked.trusted) {
+                    return nodeStateMapping.untrusted;
+
+                } else if (naked.migrating_to_pool) {
+                    return nodeStateMapping.migrating;
+
+                } else if (naked.decommissioning) {
+                    return nodeStateMapping.deactivating;
+
+                } else if (naked.decommissioned) {
                     return nodeStateMapping.deactivated;
 
                 } else {

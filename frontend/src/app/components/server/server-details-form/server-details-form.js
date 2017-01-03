@@ -226,7 +226,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
 
     getDNSName() {
         const dnsName = ko.pureComputed(
-            () => systemInfo() && !systemInfo().dns_name
+            () => systemInfo() && systemInfo().dns_name
         );
 
         const icon = ko.pureComputed(

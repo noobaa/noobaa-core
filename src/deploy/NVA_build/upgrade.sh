@@ -67,7 +67,10 @@ function packages_upgrade {
     fi
 
     #update rsyslog to version 8
-    update_rsyslog
+    deploy_log "update rsyslog - copy src/deploy/NVA_build/rsyslog.repo to /etc/yum.repos.d/rsyslog.repo"
+    cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo
+    deploy_log "yum update rsyslog..."
+    yum update rsyslog -y
 
     deploy_log "installing utils"
     yum install -y bind-utils

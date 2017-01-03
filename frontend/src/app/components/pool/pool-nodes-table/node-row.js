@@ -1,7 +1,7 @@
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const nodeStateMapping = deepFreeze({
     offline: {
@@ -34,7 +34,7 @@ const activityStageMapping = deepFreeze({
     WIPING: 'Wiping Data'
 });
 
-export default class NodeRowViewModel extends Disposable {
+export default class NodeRowViewModel extends BaseViewModel {
     constructor(node) {
         super();
 
@@ -62,7 +62,7 @@ export default class NodeRowViewModel extends Disposable {
                     return '';
                 }
 
-                let { name } = node();
+                const { name } = node();
                 return {
                     text: name,
                     href: { route: 'node', params: { node: name, tab: null } }
@@ -74,7 +74,7 @@ export default class NodeRowViewModel extends Disposable {
             () => node() ? node().ip : ''
         );
 
-        let storage = ko.pureComputed(
+        const storage = ko.pureComputed(
             () => node() ? node().storage : {}
         );
 
@@ -110,7 +110,7 @@ export default class NodeRowViewModel extends Disposable {
                     return 'No activity';
                 }
 
-                let { reason, stage, progress } = node().data_activity;
+                const { reason, stage, progress } = node().data_activity;
                 return `${
                     activityNameMapping[reason]
                 } ${

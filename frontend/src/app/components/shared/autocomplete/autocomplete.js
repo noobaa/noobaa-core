@@ -1,8 +1,8 @@
 import template from './autocomplete.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-class AutoCompleteViewModel extends Disposable {
+class AutoCompleteViewModel extends BaseViewModel {
     constructor({
         value,
         suggestions = [],

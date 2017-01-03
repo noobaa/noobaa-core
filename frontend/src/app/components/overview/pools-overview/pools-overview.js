@@ -1,11 +1,11 @@
 import template from './pools-overview.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import style from 'style';
 import { systemInfo } from 'model';
 import ko from 'knockout';
 import { stringifyAmount} from 'utils/string-utils';
 
-class PoolsOverviewViewModel extends Disposable{
+class PoolsOverviewViewModel extends BaseViewModel {
     constructor() {
         super();
 

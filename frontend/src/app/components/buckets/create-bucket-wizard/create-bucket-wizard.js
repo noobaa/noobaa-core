@@ -1,20 +1,20 @@
 import template from './create-bucket-wizard.html';
 import chooseNameStepTemplate from './choose-name-step.html';
 import setPolicyStepTemplate from './set-policy-step.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import { systemInfo } from 'model';
 import { createBucket } from 'actions';
 import { defaultPoolName } from 'config';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const steps = deepFreeze([
     { label: 'choose name', size: 'medium' },
     { label: 'set policy', size: 'large' }
 ]);
 
-class CreateBucketWizardViewModel extends Disposable {
+class CreateBucketWizardViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

@@ -368,10 +368,13 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
-    if (server_rpc.is_service_registered('system_api.read_system') && !shutting_down) {
+    const registered = server_rpc.is_service_registered('system_api.read_system');
+    if (registered && !shutting_down) {
+        dbg.log0(`/version returning ${pkg.version}, service registered and not shutting down`);
         res.send(pkg.version);
         res.end();
     } else {
+        dbg.log0(`/version returning 404, service_registered ${registered}, shutting_down ${shutting_down}`);
         res.status(404).end();
     }
 });

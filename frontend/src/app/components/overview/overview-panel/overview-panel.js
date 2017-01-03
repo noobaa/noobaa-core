@@ -1,7 +1,7 @@
 import template from './overview-panel.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 
-class OverviewPanelViewModel extends Disposable {
+class OverviewPanelViewModel extends BaseViewModel {
     constructor() {
         super();
     }

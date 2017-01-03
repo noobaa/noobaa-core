@@ -28,12 +28,11 @@ class BlockStoreAzure extends BlockStoreBase {
     }
 
     get_storage_info() {
-        //const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
-        const TB450 = 1024 * 1024 * 1024 * 1024 * 450;
+        const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
         return P.resolve(this._get_usage())
             .then(usage => ({
-                total: TB450 + usage.size,
-                free: TB450,
+                total: PETABYTE + usage.size,
+                free: PETABYTE,
                 used: usage.size
             }));
     }

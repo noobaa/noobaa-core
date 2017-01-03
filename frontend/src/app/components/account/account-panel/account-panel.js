@@ -1,9 +1,9 @@
 import template from './account-panel.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { uiState } from 'model';
 import ko from 'knockout';
 
-class AccountPanelViewModel extends Disposable{
+class AccountPanelViewModel extends BaseViewModel {
     constructor() {
         super();
 

@@ -19,10 +19,8 @@ if [ ! -d "/usr/local/noobaa" ]; then
         cat /usr/local/noobaa/agent_conf.json
     fi
 else
-    if [ ! -f /usr/local/noobaa/agent_conf.json ]; then
-        #if we don't have the config, cleanup
-        rm -rf /usr/local/noobaa
-        echo "usage: noobaa-setup /S /Config <configuration string>"
+    if [ ! -f /usr/local/noobaa/noobaa-setup ]; then
+        echo "Agent already installed"
         exit 1
     fi
 fi

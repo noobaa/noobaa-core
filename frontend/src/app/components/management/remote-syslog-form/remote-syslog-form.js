@@ -1,9 +1,9 @@
 import template from './remote-syslog-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { enableRemoteSyslog, disableRemoteSyslog } from 'actions';
-import { deepFreeze } from 'utils/all';
+import { deepFreeze } from 'utils/core-utils';
 
 const protocols = deepFreeze({
     UDP: { defaultPort: 5014 },
@@ -13,7 +13,7 @@ const protocols = deepFreeze({
 const defaultProtocol = 'UDP';
 const portValMessage = 'Please enter a port number between 1 and 65535';
 
-class RemoteSyslogFormViewModel extends Disposable {
+class RemoteSyslogFormViewModel extends BaseViewModel {
     constructor({ isCollapsed }) {
         super();
 

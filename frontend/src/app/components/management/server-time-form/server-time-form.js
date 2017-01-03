@@ -1,5 +1,5 @@
 import template from './server-time-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ServerRow from './server-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
@@ -32,7 +32,7 @@ const columns = deepFreeze([
     }
 ]);
 
-class ServerTimeFormViewModel extends Disposable{
+class ServerTimeFormViewModel extends BaseViewModel {
     constructor({ isCollapsed }) {
         super();
 

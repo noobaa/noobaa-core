@@ -1,9 +1,10 @@
 import template from './object-summary.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
+import { toBytes } from 'utils/size-utils';
 
-class ObjectSummaryViewModel extends Disposable {
+class ObjectSummaryViewModel extends BaseViewModel {
     constructor({ obj }) {
         super();
 
@@ -39,14 +40,14 @@ class ObjectSummaryViewModel extends Disposable {
             {
                 label: 'Original size',
                 value: ko.pureComputed(
-                    () => obj().size
+                    () => toBytes(obj().size)
                 ),
                 color: style['color7']
             },
             {
                 label: 'Size on Disk (with replicas)',
                 value: ko.pureComputed(
-                    () => obj().capacity_size
+                    () => toBytes(obj().capacity_size)
                 ),
                 color: style['color13']
             }

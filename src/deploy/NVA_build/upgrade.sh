@@ -79,13 +79,20 @@ function mongo_upgrade {
   wait_for_mongo
 
   #MongoDB nbcore upgrade
-  deploy_log "starting mongo data upgrade"
   local sec=$(cat /etc/noobaa_sec)
   local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
   local id=$(uuidgen | cut -f 1 -d'-')
   local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
+  deploy_log "starting mongo data upgrade ${bcrypt_sec} ${id} ${ip}"
   ${MONGO_SHELL} --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
-  deploy_log "finished mongo data upgrade"
+  local rc=$?
+  if [ $rc -ne 0 ]; then
+      deploy_log "FAILED mongo data upgrade!"
+  else
+      deploy_log "finished mongo data upgrade"
+  fi
+
+
 
   enable_autostart
 
@@ -94,39 +101,11 @@ function mongo_upgrade {
   sleep 3
 }
 
-
-function restart_webserver {
-    ${SUPERCTL} stop webserver
-    mongodown=true
-    while ${mongodown}; do
-    if netstat -na|grep LISTEN|grep :27017; then
-            deploy_log mongo_${mongodown}
-            mongodown=false
-            deploy_log ${mongodown}
-    else
-            echo sleep
-            sleep 1
-    fi
-    done
-
-    #MongoDB nbcore upgrade
-    deploy_log "starting mongo data upgrade"
-    local sec=$(cat /etc/noobaa_sec)
-    local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
-    local id=$(uuidgen | cut -f 1 -d'-')
-    local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
-    ${MONGO_SHELL} --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
-    deploy_log "finished mongo data upgrade"
-
-    ${SUPERCTL} start webserver
-}
-
 function setup_users {
 	deploy_log "setting up mongo users for admin and nbcore databases"
 	/usr/bin/mongo admin ${CORE_DIR}/src/deploy/NVA_build/mongo_setup_users.js
 	deploy_log "setup_users done"
 }
-
 
 function restart_s3rver {
     ${SUPERCTL} restart s3rver

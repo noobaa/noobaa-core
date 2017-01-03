@@ -1,5 +1,5 @@
 import template from './add-cloud-resource-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, createCloudResource } from 'actions';
@@ -17,7 +17,7 @@ const targetSubject = deepFreeze({
     S3_COMPATIBLE: 'Bucket'
 });
 
-class AddCloudResourceModalViewModel extends Disposable {
+class AddCloudResourceModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
 

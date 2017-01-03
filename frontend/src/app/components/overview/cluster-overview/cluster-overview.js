@@ -1,5 +1,5 @@
 import template from './cluster-overview.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
@@ -48,7 +48,7 @@ const highAvailabiltyMapping = deepFreeze({
     }
 });
 
-class ClusterOverviewViewModel extends Disposable{
+class ClusterOverviewViewModel extends BaseViewModel {
     constructor() {
         super();
 

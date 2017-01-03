@@ -1,5 +1,5 @@
 import template from './server-details-form.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import { systemInfo, serverTime } from 'model';
 import { deepFreeze, isDefined} from 'utils/core-utils';
 import { getServerIssues } from 'utils/cluster-utils';
@@ -21,7 +21,7 @@ const icons = deepFreeze({
     }
 });
 
-class ServerDetailsFormViewModel extends Disposable{
+class ServerDetailsFormViewModel extends BaseViewModel {
     constructor({ serverSecret }) {
         super();
 

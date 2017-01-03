@@ -3,7 +3,7 @@ import moment from 'moment';
 
 const defaultFormat = 'DD MMM YYYY hh:mm:ss';
 
-export default function formatSize(target, format) {
+export default function formatTime(target, format) {
     return ko.pureComputed(
         () => {
             if (format === true) {

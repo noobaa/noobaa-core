@@ -1,16 +1,14 @@
 import template from './buckets-overview.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo, systemUsageHistory } from 'model';
 import { deepFreeze, assignWith, keyBy, interpolateLinear } from 'utils/core-utils';
 import { hexToRgb } from 'utils/color-utils';
-import { formatSize, stringifyAmount } from 'utils/string-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { sumSize, toBytes, formatSize } from 'utils/size-utils';
 import style from 'style';
 import moment from 'moment';
 import { loadSystemUsageHistory } from 'actions';
-
-const now = Date.now();
-const endOfDay = moment(now).add(1, 'day').startOf('day').valueOf();
 
 const durationOptions = deepFreeze([
     {
@@ -105,9 +103,14 @@ function filterSamples(samples, start, end) {
     return filtered;
 }
 
-class BucketsOverviewViewModel extends Disposable{
+class BucketsOverviewViewModel extends BaseViewModel {
     constructor() {
         super();
+
+        // These cannot be declered as constants because they need to update
+        // every time the component is instantize so they will not be too stale.
+        this.now = Date.now();
+        this.endOfDay = moment(this.now).add(1, 'day').startOf('day').valueOf();
 
         this.bucketCount = ko.pureComputed(
             () => {
@@ -125,7 +128,7 @@ class BucketsOverviewViewModel extends Disposable{
                 return assignWith(
                     {},
                     ...pools.map( pool => pool.storage ),
-                    (a, b) => (a || 0) + (b || 0)
+                    (a, b) => sumSize(a || 0, b || 0)
                 );
             }
         );
@@ -157,8 +160,8 @@ class BucketsOverviewViewModel extends Disposable{
 
     getChartOptions() {
         const { stepSize, duration } = this.selectedDuration();
-        const start = endOfDay - moment.duration(duration, 'days').asMilliseconds();
-        const end = endOfDay;
+        const start = this.endOfDay - moment.duration(duration, 'days').asMilliseconds();
+        const end = this.endOfDay;
         const gutter = parseInt(style['gutter']);
 
         return {
@@ -246,11 +249,11 @@ class BucketsOverviewViewModel extends Disposable{
         }
 
         const { duration } = this.selectedDuration();
-        const start = endOfDay - moment.duration(duration, 'days').asMilliseconds();
-        const end = endOfDay;
+        const start = this.endOfDay - moment.duration(duration, 'days').asMilliseconds();
+        const end = this.endOfDay;
 
         const samples = (systemUsageHistory() || []).concat({
-            timestamp: now,
+            timestamp: this.now,
             storage: this.currentUsage()
         });
 
@@ -266,7 +269,7 @@ class BucketsOverviewViewModel extends Disposable{
                 data: filtered.map(
                     ({ timestamp, storage }) => ({
                         x: timestamp,
-                        y: storage[key]
+                        y: toBytes(storage[key])
                     })
                 )
             })

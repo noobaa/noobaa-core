@@ -1,10 +1,10 @@
 import template from './regenerate-account-credentials-modal.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { regenerateAccountCredentials } from 'actions';
 import { regenerateCredentialState } from 'model';
 
-class RegenerateAccountCredentialsModalViewModel extends Disposable {
+class RegenerateAccountCredentialsModalViewModel extends BaseViewModel {
     constructor({ onClose, email }) {
         super();
 

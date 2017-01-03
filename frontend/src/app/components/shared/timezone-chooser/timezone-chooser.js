@@ -1,5 +1,5 @@
 import template from './timezone-chooser.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 import moment from 'moment-timezone';
 
 const options = moment.tz.names()
@@ -24,7 +24,7 @@ const options = moment.tz.names()
         }
     );
 
-class TimezoneChooserViewModel extends Disposable{
+class TimezoneChooserViewModel extends BaseViewModel {
     constructor({ timezone }) {
         super();
 

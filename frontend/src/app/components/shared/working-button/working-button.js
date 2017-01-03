@@ -1,10 +1,10 @@
 import template from './working-button.html';
-import Disposable from 'disposable';
+import BaseViewModel from 'base-view-model';
 // import ko from 'knockout';
 // import numeral from 'numeral';
 // import moment from 'moment';
 
-class WorkingBtnViewModel extends Disposable{
+class WorkingBtnViewModel extends BaseViewModel {
     constructor({ working, workingLabel, click, disabled }) {
         super();
 

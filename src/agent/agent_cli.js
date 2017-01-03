@@ -104,51 +104,10 @@ AgentCLI.prototype.init = function() {
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
-            return os_utils.read_drives()
-                .then(drives => os_utils.remove_linux_readonly_drives(drives));
+
+            return os_utils.get_disk_mount_points();
         })
-        .then(function(drives) {
-            dbg.log0('drives:', drives, ' current location ', process.cwd());
-            var hds = _.filter(drives, function(hd_info) {
-                if ((hd_info.drive_id.indexOf('by-uuid') < 0 &&
-                        hd_info.mount.indexOf('/etc/hosts') < 0 &&
-                        (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') &&
-                        hd_info.mount.indexOf('/boot') < 0 &&
-                        hd_info.mount.indexOf('/Volumes/') < 0) ||
-                    (hd_info.drive_id.length === 2 &&
-                        hd_info.drive_id.indexOf(':') === 1)) {
-                    dbg.log0('Found relevant volume', hd_info.drive_id);
-                    return true;
-                }
-            });
-            var server_uuid = self.params.host_id;
-            console.log('Server:' + server_uuid + ' with HD:' + JSON.stringify(hds));
-
-            var mount_points = [];
-
-            if (os.type() === 'Windows_NT') {
-                _.each(hds, function(hd_info) {
-                    if (process.cwd().toLowerCase().indexOf(hd_info.drive_id.toLowerCase()) === 0) {
-                        hd_info.mount = './agent_storage/';
-                        mount_points.push(hd_info);
-                    } else {
-                        hd_info.mount += '\\agent_storage\\';
-                        mount_points.push(hd_info);
-                    }
-                });
-            } else {
-                _.each(hds, function(hd_info) {
-                    if (hd_info.mount === "/") {
-                        hd_info.mount = './agent_storage/';
-                        mount_points.push(hd_info);
-                    } else {
-                        hd_info.mount = '/' + hd_info.mount + '/agent_storage/';
-                        mount_points.push(hd_info);
-                    }
-                });
-            }
-
-            dbg.log0('mount_points:', mount_points);
+        .then(function(mount_points) {
             self.params.root_path = mount_points[0].mount;
 
             dbg.log0('root path:', self.params.root_path);
@@ -323,7 +282,6 @@ AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
                 //TODO: remove other users
                 return child_process.execAsync(
                     'icacls ' + current_path +
-                    ' /t' +
                     ' /grant:r administrators:(oi)(ci)F' +
                     ' /grant:r system:F' +
                     ' /remove:g BUILTIN\\Users' +
@@ -408,16 +366,6 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
             .then(function() {
                 dbg.log0('writing token', token_path);
                 return fs_utils.replace_file(token_path, self.params.create_node_token);
-            })
-            .then(function() {
-                if (!fs.existsSync('./uninstall_noobaa_agent.sh')) return;
-                dbg.log0('Add uninstall command', node_path);
-                return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./uninstall_noobaa_agent.sh ');
-            })
-            .then(function() {
-                if (!fs.existsSync('./service_uninstaller.bat')) return;
-                dbg.log0('Add uninstall command', node_path);
-                return promise_utils.exec('echo rd /s /q ' + current_node_path + ' >> ./service_uninstaller.bat ');
             })
             .then(function() {
                 dbg.log0('about to start node', node_path, 'with node name:', node_name);

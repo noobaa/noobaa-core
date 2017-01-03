@@ -68,6 +68,10 @@ function new_cluster_info() {
         .then(cluster => _attach_server_configuration(cluster));
 }
 
+function init_cluster() {
+    return cluster_hb.do_heartbeat();
+}
+
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
@@ -1451,6 +1455,7 @@ function ping() {
 // EXPORTS
 exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
+exports.init_cluster = init_cluster;
 exports.redirect_to_cluster_master = redirect_to_cluster_master;
 exports.add_member_to_cluster = add_member_to_cluster;
 exports.join_to_cluster = join_to_cluster;

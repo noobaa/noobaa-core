@@ -18,7 +18,7 @@ function verify_command_run {
 PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
 chmod 777 /usr/local/noobaa/remove_service.sh
-/usr/local/noobaa/remove_service.sh ignore_rc > /dev/null 2>&
+/usr/local/noobaa/remove_service.sh ignore_rc > /dev/null 2>&1
 echo "Old services were removed if exited."
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"

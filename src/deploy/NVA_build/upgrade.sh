@@ -69,6 +69,7 @@ function packages_upgrade {
     #update rsyslog to version 8
     deploy_log "update rsyslog - copy src/deploy/NVA_build/rsyslog.repo to /etc/yum.repos.d/rsyslog.repo"
     cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo
+    cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/RPM-GPG-KEY-Adiscon  ${CORE_DIR}/src/deploy/NVA_build/RPM-GPG-KEY-Adiscon
     deploy_log "yum update rsyslog..."
     yum update rsyslog -y
 

@@ -2,7 +2,7 @@
 
 EXTRACTION_PATH="/tmp/test/"
 
-. /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
+. ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 . ${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/common_funcs.sh
 
 PACKAGE_FILE_NAME="new_version.tar.gz"

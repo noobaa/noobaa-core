@@ -64,12 +64,19 @@ main-nav {
 
     .uploads {
         position: relative;
-        margin: 0 @gutter/2;
+        margin-left: 0;
+        width: 42px;
+        margin: 0 auto;
+
+        > svg-icon {
+            margin: 0 auto;
+        }
 
         > bar {
             margin: @gutter/2 0;
             height: 1px;
             width: 42px;
+            border-radius: 0;
         }
 
         > .anim {

@@ -1,4 +1,4 @@
-import ko from 'knockout';
+// import ko from 'knockout';
 
 // Used to dispose an handle that contain a dispose method.
 function dispose(handle) {

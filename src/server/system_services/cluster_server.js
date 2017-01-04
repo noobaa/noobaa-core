@@ -68,6 +68,10 @@ function new_cluster_info() {
         .then(cluster => _attach_server_configuration(cluster));
 }
 
+function init_cluster() {
+    return cluster_hb.do_heartbeat();
+}
+
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
@@ -240,10 +244,15 @@ function join_to_cluster(req) {
                         address: req.rpc_params.ip
                     }]
                 });
-                return P.resolve(_update_cluster_info({
-                        owner_address: req.rpc_params.ip,
-                        shards: shards
-                    }))
+                let cluster_info = {
+                    owner_address: req.rpc_params.ip,
+                    shards: shards
+                };
+                if (req.rpc_params.location) {
+                    dbg.log0('setting location tag to ', req.rpc_params.new_hostname);
+                    cluster_info.location = req.rpc_params.location;
+                }
+                return P.resolve(_update_cluster_info(cluster_info))
                     .then(() =>
                         //Add the new shard server
                         _add_new_shard_on_server(req.rpc_params.shard, req.rpc_params.ip, {
@@ -254,8 +263,11 @@ function join_to_cluster(req) {
             } else if (req.rpc_params.role === 'REPLICA') {
                 //Server is joining as a replica set member to an existing shard, update shard chain topology
                 //And add an appropriate server
-                return _add_new_server_to_replica_set(req.rpc_params.shard,
-                    req.rpc_params.ip);
+                return _add_new_server_to_replica_set({
+                    shardname: req.rpc_params.shard,
+                    ip: req.rpc_params.ip,
+                    location: req.rpc_params.location
+                });
             }
             dbg.error('Unknown role', req.rpc_params.role, 'recieved, ignoring');
             throw new Error('Unknown server role ' + req.rpc_params.role);
@@ -1259,7 +1271,9 @@ function _update_cluster_info(params) {
 
 
 // add a new server to an existing replica set
-function _add_new_server_to_replica_set(shardname, ip) {
+function _add_new_server_to_replica_set(params) {
+    const shardname = params.shardname;
+    const ip = params.ip;
     dbg.log0('Adding RS server to', shardname);
     var new_topology = cutil.get_topology();
     var shard_idx = cutil.find_shard_index(shardname);
@@ -1276,6 +1290,10 @@ function _add_new_server_to_replica_set(shardname, ip) {
     new_topology.shards[shard_idx].servers.push({
         address: ip
     });
+
+    if (params.location) {
+        new_topology.location = params.location;
+    }
 
     return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
         .then(() => system_store.load())
@@ -1451,6 +1469,7 @@ function ping() {
 // EXPORTS
 exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
+exports.init_cluster = init_cluster;
 exports.redirect_to_cluster_master = redirect_to_cluster_master;
 exports.add_member_to_cluster = add_member_to_cluster;
 exports.join_to_cluster = join_to_cluster;

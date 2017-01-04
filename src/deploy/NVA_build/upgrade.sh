@@ -2,7 +2,7 @@
 
 EXTRACTION_PATH="/tmp/test/"
 
-. /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
+. ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 . ${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/common_funcs.sh
 
 PACKAGE_FILE_NAME="new_version.tar.gz"
@@ -47,6 +47,7 @@ function disable_supervisord {
 }
 
 function packages_upgrade {
+
     #fix SCL issue (preventing yum install/update)
     yum -y remove centos-release-SCL
     yum -y install centos-release-scl
@@ -64,6 +65,13 @@ function packages_upgrade {
         deploy_log "installing vim"
         yum install -y vim
     fi
+
+    #update rsyslog to version 8
+    deploy_log "update rsyslog - copy src/deploy/NVA_build/rsyslog.repo to /etc/yum.repos.d/rsyslog.repo"
+    cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo
+    cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/RPM-GPG-KEY-Adiscon  ${CORE_DIR}/src/deploy/NVA_build/RPM-GPG-KEY-Adiscon
+    deploy_log "yum update rsyslog..."
+    yum update rsyslog -y
 
     deploy_log "installing utils"
     yum install -y bind-utils

@@ -159,7 +159,7 @@ function _check_ntp() {
             monitoring_status.ntp_status = "OPERATIONAL";
         })
         .catch(err => {
-            monitoring_status.ntp_status = "FAULTY";
+            monitoring_status.ntp_status = monitoring_status.ntp_status || "FAULTY";
             dbg.warn('error while checking ntp', err);
         });
 }

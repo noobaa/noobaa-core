@@ -191,7 +191,7 @@ function pre_upgrade {
     if [ $t -ne 0 ]; then
       deploy_log "adding noobaaroot to sudoers"
       echo "noobaaroot ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
-      tt=$(eval 'grep –q noobaaroot /etc/sudoers; echo $? ')
+      tt=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
       if [ $tt -ne 0 ]; then
         deploy_log "failed to add noobaaroot to sudoers"
       fi
@@ -274,7 +274,6 @@ function post_upgrade {
   # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
   cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
-  service rsyslog restart
 
   # setup crontab to run logrotate every 15 minutes.
   echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
@@ -354,11 +353,11 @@ function post_upgrade {
   deploy_log "list core dir"
   deploy_log "$(ls -R ${CORE_DIR}/build/)"
 
-  sudo grep noobaa /etc/sudoers
+  grep noobaa /etc/sudoers
   if [ $? -ne 0 ]; then
       deploy_log "adding noobaa to sudoers"
-	  sudo echo "noobaa ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
-	  sudo grep noobaa /etc/sudoers
+	    echo "noobaa ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+	    grep noobaa /etc/sudoers
 	  if [ $? -ne 0 ]; then
 	      deploy_log "failed to add noobaa to sudoers"
    	fi
@@ -376,8 +375,8 @@ function post_upgrade {
 	else
 		deploy_log "installing ntp"
 		yum install -y ntp
-		sudo /sbin/chkconfig ntpd on 2345
-		sudo /etc/init.d/ntpd start
+		/sbin/chkconfig ntpd on 2345
+		/etc/init.d/ntpd start
 		sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 		ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 

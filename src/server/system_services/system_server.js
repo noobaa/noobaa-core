@@ -326,6 +326,7 @@ function create_system(req) {
                         auth_token: reply_token
                     });
                 })
+                .then(() => _init_system())
                 .then(() => ({
                     token: reply_token
                 }));
@@ -1005,6 +1006,10 @@ function log_client_console(req) {
         client_syslog.log(5, req.rpc_params.data, 'LOG_LOCAL1');
     });
     return;
+}
+
+function _init_system() {
+    return cluster_server.init_cluster();
 }
 
 

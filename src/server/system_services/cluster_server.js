@@ -823,7 +823,8 @@ function upgrade_cluster(req) {
     // upgrade can only be called from master. throw error otherwise
     return P.fcall(() => {
             if (cinfo.is_clusterized) {
-                return MongoCtrl.is_master();
+                return MongoCtrl.is_master()
+                    .then(res => res.ismaster);
             }
             return true;
 

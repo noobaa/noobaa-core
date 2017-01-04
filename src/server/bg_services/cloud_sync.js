@@ -331,19 +331,31 @@ function diff_worklists(wl1, wl2, sync_time) {
 }
 
 function load_single_policy(bucket_id, system_id) {
-    //Cache Configuration, S3 Objects and empty work lists
-    const bucket = _.find(system_store.data.buckets, candidate_bucket =>
-        (bucket_id.toString() === candidate_bucket._id.toString()));
-    if (!system_id && (!bucket || !bucket.system)) {
-        throw new Error('Attempt to load a policy without system');
+    if (!bucket_id) {
+        dbg.error(`No bucket id received for load_single_policy`);
+        throw new Error('Attempted to load Invalid policy');
+    }
+
+    const bucket = system_store.data.get_by_id(bucket_id);
+    // We expect to get system_id here in the case that the bucket was deleted.
+    if (!bucket && !system_id) {
+        dbg.error(`Attempt to load a policy failed. The bucket does not exist and no system_id was passed`);
+        throw new Error('Attempted to load Invalid policy');
     }
     const policy_id = {
         sysid: system_id || (bucket && bucket.system._id.toString()),
         bucketid: bucket_id.toString()
     };
+
+    if (!policy_id.sysid) {
+        dbg.error(`No system id received for load_single_policy`);
+        throw new Error('Attempted to load Invalid policy');
+    }
+
     if (!bucket || !bucket.cloud_sync) {
         return CLOUD_SYNC.configured_policies.delete_policy(policy_id);
     }
+
     dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id,
         'bucket', bucket, 'to configured policies');
     let stored_policy = CLOUD_SYNC.configured_policies.get_policy(policy_id);

@@ -17,7 +17,7 @@ const cutil = require('../utils/clustering_utils');
 var is_cluster_master = false;
 let cluster_master_retries = 0;
 const RETRY_DELAY = 5000;
-const MAX_RETRIES = 10;
+const MAX_RETRIES = 4;
 
 exports.background_worker = background_worker;
 

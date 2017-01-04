@@ -17,7 +17,7 @@ const cutil = require('../utils/clustering_utils');
 var is_cluster_master = false;
 let cluster_master_retries = 0;
 const RETRY_DELAY = 5000;
-const MAX_RETRIES = 4;
+const MAX_RETRIES = 10;
 
 exports.background_worker = background_worker;
 
@@ -58,16 +58,17 @@ function background_worker() {
                 return cutil.send_master_update(is_cluster_master, is_master.master_address);
             })
             .catch((err) => {
-                if (cluster_master_retries > MAX_RETRIES) {
-                    dbg.error(`number of retries eceeded ${MAX_RETRIES}. step down as master if was master before`);
+                if (cluster_master_retries > MAX_RETRIES && is_cluster_master) {
+                    dbg.error(`number of retries exceeded ${MAX_RETRIES}. step down as master if was master before`);
                     // step down after MAX_RETRIES
                     is_cluster_master = false;
                     bg_workers.remove_master_workers();
-                    return cutil.send_master_update(is_cluster_master);
+                    cutil.send_master_update(is_cluster_master);
                 }
                 cluster_master_retries += 1;
                 dbg.error(`got error: ${err}. retry in 5 seconds`);
                 return RETRY_DELAY;
+
             });
     } else {
         dbg.log0('no local cluster info or server is not part of a cluster. therefore will be cluster master');

@@ -1564,8 +1564,13 @@ class NodesMonitor extends EventEmitter {
             // the filters of online and has_issues filters
             // this is used for the frontend to show the total count even
             // when actually showing the filtered list of nodes with issues
-            if (item.has_issues) filter_counts.has_issues += 1;
-            if (item.online) filter_counts.online += 1;
+            if (item.online) {
+                if (item.has_issues) {
+                    filter_counts.has_issues += 1;
+                } else {
+                    filter_counts.online += 1;
+                }
+            }
             filter_counts.count += 1;
 
             // after counting, we can finally filter by
@@ -1754,9 +1759,12 @@ class NodesMonitor extends EventEmitter {
         const data_activities = {};
         _.each(list, item => {
             count += 1;
-            if (item.online) online += 1;
-            if (item.has_issues) {
-                has_issues += 1;
+            if (item.online) {
+                if (item.has_issues) {
+                    has_issues += 1;
+                } else {
+                    online += 1;
+                }
             }
             if (item.data_activity) {
                 const act = item.data_activity;

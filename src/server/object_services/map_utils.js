@@ -139,12 +139,18 @@ function _handle_under_policy_threshold(decision_params) {
             }
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.cloud_pools);
+        } else if (_.get(decision_params, 'additional_params.status_check', false)) {
+            // This is used when we only check the status without any actions
+            spill_status.allocations = _.concat(spill_status.allocations, ['dummy']);
         } else {
             throw new Error('_handle_under_policy_threshold:: Cannot allocate without valid pools');
         }
     } else if (_.get(decision_params.mirror_status, 'picked_pools.length', 0)) {
         spill_status.allocations = _.concat(spill_status.allocations,
             decision_params.mirror_status.picked_pools);
+    } else if (_.get(decision_params, 'additional_params.status_check', false)) {
+        // This is used when we only check the status without any actions
+        spill_status.allocations = _.concat(spill_status.allocations, ['dummy']);
     } else {
         throw new Error('_handle_under_policy_threshold:: Cannot allocate without valid pools');
     }
@@ -188,7 +194,7 @@ function _handle_over_policy_threshold(decision_params) {
 }
 
 
-function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
+function get_chunk_status(chunk, tiering, additional_params) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -204,8 +210,8 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
     };
 
     // When allocating we will pick the best mirror using weights algorithm
-    const participating_mirrors = async_mirror ?
-        select_prefered_mirrors(tier, tiering_pools_status) :
+    const participating_mirrors = _.get(additional_params, 'async_mirror', false) ?
+        select_prefered_mirrors(tier, _.get(additional_params, 'tiering_pools_status', undefined)) :
         tier.mirrors || [];
 
     let used_blocks = [];
@@ -215,8 +221,10 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
     _.each(participating_mirrors, mirror => {
         // Selecting the allocating pool for the current mirror
         // Notice that this is only relevant to the current chunk
-        let mirror_status = select_pool_type(mirror.spread_pools, tiering_pools_status);
-        let status_result = _get_mirror_chunk_status(chunk, tier, mirror_status, mirror.spread_pools);
+        let mirror_status = select_pool_type(mirror.spread_pools,
+            _.get(additional_params, 'tiering_pools_status', undefined));
+        let status_result = _get_mirror_chunk_status(chunk, tier, mirror_status,
+            mirror.spread_pools, additional_params);
         chunk_status.allocations = _.concat(chunk_status.allocations, status_result.allocations);
         chunk_status.deletions = _.concat(chunk_status.deletions, status_result.deletions);
         // These two are used in order to delete all unused blocks by the policy
@@ -237,7 +245,7 @@ function get_chunk_status(chunk, tiering, async_mirror, tiering_pools_status) {
 }
 
 
-function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
+function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools, additional_params) {
     const tier_pools_by_name = _.keyBy(mirror_pools, 'name');
 
     let allocations = [];
@@ -306,7 +314,8 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools) {
             mirror_status: mirror_status,
             placement_weights: PLACEMENT_WEIGHTS,
             max_replicas: max_replicas,
-            current_weight: num_good
+            current_weight: num_good,
+            additional_params: additional_params
         };
 
         // Checking if we are under and over the policy threshold
@@ -446,12 +455,16 @@ function is_block_accessible(block) {
 }
 
 function is_chunk_good(chunk, tiering) {
-    let status = get_chunk_status(chunk, tiering, /*async_mirror=*/ false);
+    let status = get_chunk_status(chunk, tiering, {
+        status_check: true
+    });
     return status.accessible && !status.allocations.length;
 }
 
 function is_chunk_accessible(chunk, tiering) {
-    let status = get_chunk_status(chunk, tiering, /*async_mirror=*/ false);
+    let status = get_chunk_status(chunk, tiering, {
+        status_check: true
+    });
     return status.accessible;
 }
 
@@ -484,7 +497,9 @@ function get_chunk_info(chunk, adminfo) {
     if (adminfo) {
         c.adminfo = {};
         let bucket = system_store.data.get_by_id(chunk.bucket);
-        let status = get_chunk_status(chunk, bucket.tiering, /*async_mirror=*/ false);
+        let status = get_chunk_status(chunk, bucket.tiering, {
+            status_check: true
+        });
         if (!status.accessible) {
             c.adminfo.health = 'unavailable';
         } else if (status.allocations.length) {

@@ -117,7 +117,8 @@ class AzureFunctions {
             }]
         };
         if (publicIPInfo) {
-            nicParameters.ipConfigurations.publicIPAddress = publicIPInfo;
+            nicParameters.ipConfigurations[0].publicIPAddress = publicIPInfo;
+            console.log('Using public IP', nicParameters);
         }
         console.log('Creating Network Interface: ' + networkInterfaceName);
         return P.fromCallback(callback => this.networkClient.networkInterfaces.createOrUpdate(this.resourceGroupName, networkInterfaceName,
@@ -272,7 +273,6 @@ class AzureFunctions {
                 var parts = machine_info.storageProfile.osDisk.vhd.uri.split('/');
                 var container = parts[parts.length - 2];
                 var vhd = parts[parts.length - 1];
-                console.log('JAJA', container, vhd);
                 return P.fromCallback(callback => blobSvc.deleteBlob(container, vhd, callback));
             })
             .then(() => {
@@ -303,7 +303,6 @@ class AzureFunctions {
                     networkProfile: machine_info.networkProfile,
                     diagnosticsProfile: machine_info.diagnosticsProfile
                 };
-                console.log('JAJA', vmParameters);
                 return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
                     vmName, vmParameters, callback));
             });
@@ -360,7 +359,10 @@ class AzureFunctions {
                 expand: 'instanceView',
             }, callback))
             .then(function(machine_info) {
-                return machine_info.instanceView.statuses[1].displayStatus;
+                if (machine_info.instanceView.statuses[1]) {
+                    return machine_info.instanceView.statuses[1].displayStatus;
+                }
+                return 'VM Failure';
             });
     }
 

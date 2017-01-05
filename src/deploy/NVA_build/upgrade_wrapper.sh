@@ -315,7 +315,7 @@ function post_upgrade {
   #if noobaa supervisor.conf is pre hosted_agents
   local FOUND=$(grep "bg_workers_starter" /etc/noobaa_supervisor.conf | wc -l)
   if [ ${FOUND} -eq 1 ]; then
-      cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
 
   #fix and upgrade security

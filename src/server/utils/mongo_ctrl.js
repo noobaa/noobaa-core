@@ -200,7 +200,7 @@ MongoCtrl.prototype.add_mongo_monitor_program = function() {
     program_obj.stopasgroup = 'true';
     program_obj.autostart = 'true';
     program_obj.directory = '/root/node_modules/noobaa-core';
-    program_obj.command = '/usr/local/bin/node src/util/mongo_monitor.js';
+    program_obj.command = '/usr/local/bin/node src/server/mongo_services/mongo_monitor.js';
     dbg.log0('adding mongo_monitor program:', program_obj);
     return SupervisorCtl.add_program(program_obj)
         .then(() => SupervisorCtl.apply_changes());

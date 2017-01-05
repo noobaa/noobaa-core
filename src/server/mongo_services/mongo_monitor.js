@@ -1,8 +1,9 @@
 'use strict';
 
 const util = require('util');
-const dbg = require('./debug_module')(__filename);
-const promise_utils = require('./promise_utils');
+const dbg = require('../../util/debug_module')(__filename);
+const promise_utils = require('../../util/promise_utils');
+const P = require('../../util/promise');
 
 dbg.set_process_name('MongoMonitor');
 
@@ -11,7 +12,7 @@ const TEST_STATUS_DELAY = 10000;
 let previous_master;
 
 
-function get_mongo_rs_status_bash() {
+function get_mongo_rs_status_from_shell() {
     return promise_utils.exec('mongo nbcore --quiet --port 27000 --eval "JSON.stringify(rs.status())"', true, true)
         .then(rs_status_str => {
             let rs_status = JSON.parse(rs_status_str);
@@ -21,7 +22,10 @@ function get_mongo_rs_status_bash() {
 }
 
 function test_mongo_status() {
-    return get_mongo_rs_status_bash()
+    return get_mongo_rs_status_from_shell()
+        .catch(err => {
+            dbg.error('got error on get_mongo_rs_status_bash:', err);
+        })
         .then(rs_status => {
             if (!rs_status) {
                 dbg.error('get_mongo_rs_status_bash did not return rs_status');
@@ -31,6 +35,7 @@ function test_mongo_status() {
             let master = rs_status.members.find(member => member.stateStr === 'PRIMARY');
             if (!master) {
                 dbg.warn('PRIMARY member not found. rs_status =', util.inspect(rs_status));
+                previous_master = 'no_primary';
                 return;
             }
             dbg.log1('PRIMARY member found:', master);
@@ -55,5 +60,6 @@ promise_utils.pwhile(
     .delay(TEST_STATUS_DELAY)
     .catch(err => {
         dbg.error('error on test_mongo_status:', err);
+        return P.delay(TEST_STATUS_DELAY);
     })
 );

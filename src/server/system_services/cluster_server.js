@@ -77,6 +77,7 @@ function add_member_to_cluster(req) {
     const id = topology.cluster_id;
     const is_clusterized = topology.is_clusterized;
     let my_address;
+    let first_server = !is_clusterized;
 
     return _validate_add_member_request(req)
         .catch(err => {
@@ -183,6 +184,11 @@ function add_member_to_cluster(req) {
         })
         // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
         .then(() => cluster_hb.do_heartbeat())
+        .then(() => {
+            if (first_server) {
+                return MongoCtrl.add_mongo_monitor_program();
+            }
+        })
         .return();
 }
 
@@ -274,6 +280,7 @@ function join_to_cluster(req) {
         .then(() => cutil.send_master_update(false, req.rpc_params.master_ip))
         // restart bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
         .then(() => _restart_services())
+        .then(() => MongoCtrl.add_mongo_monitor_program())
         .return();
 }
 

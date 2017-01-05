@@ -84,7 +84,9 @@ class MapBuilder {
             let bucket = system_store.data.get_by_id(chunk.bucket);
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
             let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
-            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, /*async_mirror=*/ false, tiering_pools_status);
+            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, {
+                tiering_pools_status: tiering_pools_status
+            });
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (chunk.status.accessible &&

@@ -4,6 +4,8 @@ const util = require('util');
 const dbg = require('./debug_module')(__filename);
 const promise_utils = require('./promise_utils');
 
+dbg.set_process_name('MongoMonitor');
+
 const TEST_STATUS_DELAY = 10000;
 
 let previous_master;
@@ -31,7 +33,7 @@ function test_mongo_status() {
                 dbg.warn('PRIMARY member not found. rs_status =', util.inspect(rs_status));
                 return;
             }
-            dbg.log0('PRIMARY member found:', master);
+            dbg.log1('PRIMARY member found:', master);
             if (!previous_master) {
                 dbg.log0('initing previous master to', master.name);
                 previous_master = master.name;
@@ -40,16 +42,18 @@ function test_mongo_status() {
                 // check if master is chaged:
                 if (master.name !== previous_master) {
                     previous_master = master.name;
-                    dbg.log0('MASTER CHANGED!!!! restarting the following services: bg_workers, hosted_agents, s3rver, webserver');
+                    dbg.log0(`MASTER CHANGED to ${master.name} restarting the following services: bg_workers, hosted_agents, s3rver, webserver`);
                     return promise_utils.exec('supervisorctl restart bg_workers hosted_agents s3rver webserver');
                 }
             }
-        })
-        .catch(err => {
-            dbg.error('error on test_mongo_status:', err);
-        })
-        .delay(TEST_STATUS_DELAY)
-        .then(test_mongo_status);
+        });
 }
 
-test_mongo_status();
+promise_utils.pwhile(
+    () => true,
+    () => test_mongo_status()
+    .delay(TEST_STATUS_DELAY)
+    .catch(err => {
+        dbg.error('error on test_mongo_status:', err);
+    })
+);

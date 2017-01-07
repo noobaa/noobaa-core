@@ -39,6 +39,8 @@ const json_utils = require('../util/json_utils');
 const fs_utils = require('../util/fs_utils');
 
 
+
+const TEST_CONNECTION_TIMEOUT_DELAY = 2 * 60 * 1000; // test connection 2 ninutes after nodes_monitor stopped communicating
 const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
 const MASTER_MAX_CONNECT_ATTEMPTS = 20;
 
@@ -560,6 +562,24 @@ class Agent {
         if (extended_hb) {
             reply.os_info = os_utils.os_info();
         }
+
+        // clear previous timeout to test connection
+        if (this._test_connection_timeout) {
+            clearTimeout(this._test_connection_timeout);
+        }
+        // if get_agent_info_and_update_masters is not called in the next 2 minutes, test the connection.
+        this._test_connection_timeout = setTimeout(() => {
+            this.client.node.ping()
+                .timeout(MASTER_RESPONSE_TIMEOUT)
+                .then(() => {
+                    this._test_connection_timeout = null;
+                })
+                .catch(P.TimeoutError, err => {
+                    dbg.error('node_server did not respond to ping. closing connection');
+                    this._server_connection.close();
+                    this._test_connection_timeout = null;
+                });
+        }, TEST_CONNECTION_TIMEOUT_DELAY).unref();
 
         return P.resolve()
             .then(() => this._update_servers_list(req.rpc_params.addresses))

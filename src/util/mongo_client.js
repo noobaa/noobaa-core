@@ -42,6 +42,13 @@ class MongoClient extends EventEmitter {
                     autoReconnect: true
                 }
             },
+            replset: {
+                socketOptions: {
+                    keepAlive: 1,
+                    connectTimeoutMS: 30000,
+                    socketTimeoutMS: 0
+                }
+            },
             db: {
                 // bufferMaxEntries=0 is required for autoReconnect
                 // see: http://mongodb.github.io/node-mongodb-native/2.0/tutorials/connection_failures/
@@ -85,11 +92,15 @@ class MongoClient extends EventEmitter {
         this._set_connect_timeout();
         return mongodb.MongoClient.connect(url, options)
             .then(db => {
-                dbg.log0('MongoClient: connected', url);
+                dbg.log0('_connect: MongoClient: connected', url);
                 clearTimeout(this.connect_timeout);
                 this.connect_timeout = null;
                 this[access_db] = db;
                 if (access_db === 'db') { // GGG WORKAROUND
+                    // for now just print the topologyDescriptionChanged. we'll see if it's worth using later
+                    db.topology.on('topologyDescriptionChanged', function(event) {
+                        console.log('received topologyDescriptionChanged', util.inspect(event));
+                    });
                     db.on('reconnect', () => {
                         this.emit('reconnect');
                         clearTimeout(this.connect_timeout);
@@ -102,8 +113,11 @@ class MongoClient extends EventEmitter {
                         dbg.warn('MongoClient: got close', url);
                         this._set_connect_timeout();
                     });
+                    dbg.log0(`calling _init_collection`);
                     this._init_collections();
+
                 }
+                dbg.log0(`returning DB`);
                 return db;
             }, err => {
                 // autoReconnect only works once initial connection is created,
@@ -130,6 +144,7 @@ class MongoClient extends EventEmitter {
     }
 
     reconnect() {
+        dbg.log0(`reconnecting mongo_db`);
         this.disconnect();
         return this.connect();
     }
@@ -235,7 +250,9 @@ class MongoClient extends EventEmitter {
     }
 
     get_mongo_rs_status(params) {
-
+        if (!this.db) {
+            throw new Error('db is not initialized');
+        }
         let options = params || {};
 
         const is_config_set = options.is_config_set;

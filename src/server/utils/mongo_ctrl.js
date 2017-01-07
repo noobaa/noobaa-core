@@ -192,6 +192,20 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
     }
 };
 
+MongoCtrl.prototype.add_mongo_monitor_program = function() {
+    let program_obj = {};
+    program_obj.name = 'mongo_monitor';
+    program_obj.stopsignal = 'KILL';
+    program_obj.killasgroup = 'true';
+    program_obj.stopasgroup = 'true';
+    program_obj.autostart = 'true';
+    program_obj.directory = '/root/node_modules/noobaa-core';
+    program_obj.command = '/usr/local/bin/node src/server/mongo_services/mongo_monitor.js';
+    dbg.log0('adding mongo_monitor program:', program_obj);
+    return SupervisorCtl.add_program(program_obj)
+        .then(() => SupervisorCtl.apply_changes());
+};
+
 MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');

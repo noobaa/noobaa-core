@@ -179,6 +179,7 @@ class NodesMonitor extends EventEmitter {
     stop() {
         dbg.log0('stoping nodes_monitor');
         this._started = false;
+        this._clear();
     }
 
     /**
@@ -1560,19 +1561,24 @@ class NodesMonitor extends EventEmitter {
             this._update_status(item);
             if (!filter_item_func(item)) continue;
 
-            // the filter_counts count nodes that passed all filters besides
-            // the filters of online and has_issues filters
-            // this is used for the frontend to show the total count even
-            // when actually showing the filtered list of nodes with issues
-            if (item.has_issues) filter_counts.has_issues += 1;
-            if (item.online) filter_counts.online += 1;
-            filter_counts.count += 1;
-
             // after counting, we can finally filter by
             if (!_.isUndefined(query.has_issues) &&
                 query.has_issues !== Boolean(item.has_issues)) continue;
             if (!_.isUndefined(query.online) &&
                 query.online !== Boolean(item.online)) continue;
+
+            // the filter_counts count nodes that passed all filters besides
+            // the filters of online and has_issues filters
+            // this is used for the frontend to show the total count even
+            // when actually showing the filtered list of nodes with issues
+            if (item.online) {
+                if (item.has_issues) {
+                    filter_counts.has_issues += 1;
+                } else {
+                    filter_counts.online += 1;
+                }
+            }
+            filter_counts.count += 1;
 
             console.log('list_nodes: adding node', item.node.name);
             list.push(item);
@@ -1754,9 +1760,12 @@ class NodesMonitor extends EventEmitter {
         const data_activities = {};
         _.each(list, item => {
             count += 1;
-            if (item.online) online += 1;
-            if (item.has_issues) {
-                has_issues += 1;
+            if (item.online) {
+                if (item.has_issues) {
+                    has_issues += 1;
+                } else {
+                    online += 1;
+                }
             }
             if (item.data_activity) {
                 const act = item.data_activity;

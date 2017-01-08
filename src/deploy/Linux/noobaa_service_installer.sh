@@ -50,7 +50,7 @@ elif [[ -d /etc/init.d ]]; then
   echo "Starting Service"
   verify_command_run service noobaalocalservice start
 else
-  echo "ERROR: Cannot detect init mechanism, NooBaa installation failed"
+  echo "ERROR: Cannot detect a supported init mechanism, this platform configuration is not supported. NooBaa Agent Installation failed."
   exit 1
 fi
 

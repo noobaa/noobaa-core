@@ -1,6 +1,5 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
 import { getPoolStateIcon, getResourceTypeIcon } from 'utils/ui-utils';
 
 export default class PoolRowViewModel extends BaseViewModel {

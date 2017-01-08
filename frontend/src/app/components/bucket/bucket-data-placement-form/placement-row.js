@@ -1,5 +1,4 @@
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
 import { getPoolStateIcon, getResourceTypeIcon } from 'utils/ui-utils';
 
 export default class PlacementRowViewModel {

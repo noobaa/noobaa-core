@@ -508,7 +508,6 @@ function set_cloud_sync(req) {
 
     const already_used_by = cloud_utils.get_used_cloud_targets(cloud_sync.endpoint_type, system_store.data.buckets, system_store.data.pools)
         .find(candidate_target => (candidate_target.endpoint === cloud_sync.endpoint));
-    dbg.warn('WOOP already_used_by', already_used_by);
     if (already_used_by) {
         dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
         throw new Error('Target already in use');

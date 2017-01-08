@@ -24,7 +24,8 @@ var resourceGroupName = argv.resource;
 var storageAccountName = argv.storage;
 var vnetName = argv.vnet;
 
-var serverName = argv.server;
+var azureName = argv.azure_name;
+var serverName = argv.server_dns;
 var agentConf = argv.agent_conf;
 
 //noobaa rpc
@@ -98,15 +99,18 @@ var oses = [{
 let nodes = [];
 let errors = [];
 var initial_node_number = 0;
+var snapshot_name;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
 return azf.authenticate()
-    .then(() => P.fcall(function() {
+    .then(() => azf.captureVirtualMachine(azureName, 'snapshot', 'images', true))
+    .then(res => P.fcall(function() {
         var auth_params = {
             email: 'demo@noobaa.com',
             password: 'DeMo1',
             system: 'demo'
         };
+        snapshot_name = res; // saving the snapshot name taken
         return client.create_auth_token(auth_params);
     }))
     .then(() => P.resolve(client.node.list_nodes({
@@ -128,7 +132,7 @@ return azf.authenticate()
         }
     })))
     .then(res => {
-        if (res.total_count === initial_node_number + oses.length) {
+        if (res.total_count === (initial_node_number + oses.length)) {
             console.warn('Num nodes after the test are ', res.total_count, '- as should - added', oses.length);
         } else {
             console.warn('Num nodes after the test are ', res.total_count, '- something went wrong... suppost to add', oses.length);
@@ -193,6 +197,7 @@ return azf.authenticate()
     .catch(err => errors.push(err.message))
     .then(() => P.map(oses, os => azf.deleteVirtualMachine(os.offer.substring(0, 4) + os.sku.substring(0, 4) +
         postfix)))
+    .then(() => azf.startVirtualMachineFromVHD(azureName, snapshot_name))
     .then(() => rpc.disconnect_all())
     .then(() => {
         if (errors.length === 0) {

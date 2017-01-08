@@ -179,6 +179,7 @@ class NodesMonitor extends EventEmitter {
     stop() {
         dbg.log0('stoping nodes_monitor');
         this._started = false;
+        this._clear();
     }
 
     /**

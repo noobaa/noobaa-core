@@ -145,8 +145,7 @@ class CreatePoolWizardViewModel extends BaseViewModel {
         loadNodeList(
             this.nameOrIpFilter(),
             this.poolFilter(),
-            this.onlineFilter() || undefined,
-            (this.onlineFilter() ? false : undefined)
+            this.onlineFilter() || undefined
         );
     }
 

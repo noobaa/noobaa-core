@@ -6,24 +6,31 @@ paginator {
 
     .paginator-wrapper {
         display: inline-block;
-        line-height: 1;
+        line-height: 14px;
         font-size: @font-size1;
-        vertical-align: middle;
         margin: 0 auto;
         margin-right: -4px;
     }
 
+    .paginator-text {
+        vertical-align: middle;
+    }
+
     .btn-flat {
         padding: 0 4px;
-        disabled: inline;
+        display: inline;
 
         svg-icon {
             width: @font-size1;
             height: @font-size1;
         }
 
-        &:disabled > svg-icon {
+        &:disabled {
             cursor: default;
+
+            > svg-icon {
+                fill: @color15;
+            }
         }
     }
 }

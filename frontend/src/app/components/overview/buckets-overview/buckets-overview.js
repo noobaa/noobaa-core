@@ -163,6 +163,7 @@ class BucketsOverviewViewModel extends BaseViewModel {
         const start = this.endOfDay - moment.duration(duration, 'days').asMilliseconds();
         const end = this.endOfDay;
         const gutter = parseInt(style['gutter']);
+        const showYScale = (systemUsageHistory() || []).length > 1 || this.currentUsage().total > 0;
 
         return {
             responsive: true,
@@ -195,12 +196,13 @@ class BucketsOverviewViewModel extends BaseViewModel {
                 ],
                 yAxes: [
                     {
+                        display: showYScale,
                         stacked: true,
                         gridLines: {
                             color: style['color15']
                         },
                         ticks: {
-                            callback: size => size > 0 ? formatSize(size) : '0',
+                            callback: size => size > 0 ? formatSize(Math.floor(size)) : '0',
                             fontColor: style['color7'],
                             fontFamily: style['font-family1'],
                             fontSize: 8,
@@ -264,7 +266,7 @@ class BucketsOverviewViewModel extends BaseViewModel {
                 borderWidth: 1,
                 borderColor: color,
                 backgroundColor: fill,
-                pointRadius: filtered.length > 1 ? 0 : 1,
+                pointRadius: 0,
                 pointHitRadius: 10,
                 data: filtered.map(
                     ({ timestamp, storage }) => ({

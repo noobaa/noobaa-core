@@ -270,6 +270,9 @@ module.exports = {
                             type: 'string'
                         }
                     }
+                },
+                mode: {
+                    $ref: '#/definitions/pool_mode'
                 }
             },
         },
@@ -295,5 +298,19 @@ module.exports = {
                 }
             }
         },
+
+        pool_mode: {
+            type: 'string',
+            enum: [
+                'HAS_NO_NODES',
+                'ALL_NODES_OFFLINE',
+                'NOT_ENOUGH_HEALTHY_NODES',
+                'MANY_NODES_OFFLINE',
+                'NO_CAPACITY',
+                'LOW_CAPACITY',
+                'HIGH_DATA_ACTIVITY',
+                'OPTIMAL'
+            ]
+        }
     }
 };

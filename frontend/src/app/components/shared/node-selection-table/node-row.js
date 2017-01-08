@@ -1,24 +1,6 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
-
-const stateIconMapping = deepFreeze({
-    online: {
-        tooltip: 'Online',
-        css: 'success',
-        name: 'healthy'
-    },
-    deactivated: {
-        tooltip: 'Deactivated',
-        css: 'warning',
-        name: 'problem'
-    },
-    offline: {
-        tooltip: 'Offline',
-        css: 'error',
-        name: 'problem'
-    }
-});
+import { getNodeStateIcon } from 'utils/ui-utils';
 
 export default class NodeRowViewModel extends BaseViewModel {
     constructor(node, selectedNodes , poolName) {
@@ -32,21 +14,7 @@ export default class NodeRowViewModel extends BaseViewModel {
         });
 
         this.state = ko.pureComputed(
-            () => {
-                if (node()) {
-                    if (!node().online) {
-                        return stateIconMapping.offline;
-
-                    } else if (node().decommissioning || node().decommissioned) {
-                        return stateIconMapping.deactivated;
-
-                    } else {
-                        return stateIconMapping.online;
-                    }
-                } else {
-                    return '';
-                }
-            }
+            () => node() ? getNodeStateIcon(node()) : ''
         );
 
         this.name = ko.pureComputed(

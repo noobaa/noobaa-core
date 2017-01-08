@@ -47,17 +47,17 @@ class AssignNodeModalViewModel extends BaseViewModel {
             write: val => _poolFilter(val) && this.loadNodes()
         });
 
-        let _onlineFilter = ko.observable(true);
-        this.onlineFilter = ko.pureComputed({
-            read: _onlineFilter,
-            write: val => _onlineFilter(val) && this.loadNodes()
+        let _healthyFilter = ko.observable(true);
+        this.healthyFilter = ko.pureComputed({
+            read: _healthyFilter,
+            write: val => _healthyFilter(val) && this.loadNodes()
         });
 
         this.selectedNodes = ko.observableArray();
 
         let isFiltered = ko.pureComputed(
             () => this.nameOrIpFilter() ||
-                this.onlineFilter() ||
+                this.healthyFilter() ||
                 this.poolFilter() !== relevantPoolNames()
         );
 
@@ -93,8 +93,7 @@ class AssignNodeModalViewModel extends BaseViewModel {
         loadNodeList(
             this.nameOrIpFilter(),
             this.poolFilter(),
-            this.onlineFilter() || undefined,
-            (this.onlineFilter() ? false : undefined)
+            this.healthyFilter() || undefined
         );
     }
 

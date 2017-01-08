@@ -702,7 +702,8 @@ export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, pag
         query: {
             pools: [ poolName ],
             filter: filter,
-            has_issues: hasIssues
+            has_issues: hasIssues,
+            online: hasIssues ? true : undefined
         },
         sort: sortBy,
         order: order,
@@ -718,16 +719,15 @@ export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, pag
         .done();
 }
 
-export function loadNodeList(filter, pools, online, decommissioned) {
-    logAction('loadNodeList', { filter, pools, online, decommissioned});
+export function loadNodeList(filter, pools, onlyHealthy) {
+    logAction('loadNodeList', { filter, pools, onlyHealthy });
 
     api.node.list_nodes({
         query: {
             filter: filter,
             pools: pools,
-            online: online,
-            decommissioned: decommissioned,
-            decommissioning: decommissioned
+            online: onlyHealthy,
+            has_issues: onlyHealthy ? false : undefined
         }
     })
         .then(

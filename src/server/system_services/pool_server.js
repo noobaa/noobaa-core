@@ -85,6 +85,16 @@ function create_cloud_pool(req) {
         endpoint_type: connection.endpoint_type || 'AWS'
     };
 
+
+    const already_used_by = cloud_utils.get_used_cloud_targets(cloud_info.endpoint_type,
+            system_store.data.buckets, system_store.data.pools)
+        .find(candidate_target => (candidate_target.endpoint === cloud_info.endpoint &&
+            candidate_target.target_name === cloud_info.target_bucket));
+    if (already_used_by) {
+        dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
+        throw new Error('Target already in use');
+    }
+
     var pool = new_pool_defaults(name, req.system._id);
     dbg.log0('Creating new cloud_pool', pool);
     pool.cloud_pool_info = cloud_info;

@@ -87,7 +87,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
 
         this.targetBucketsOptions = ko.pureComputed(
             () => this.connection() && cloudBucketList() && cloudBucketList().map(
-                bucketName => ({ value: bucketName })
+                ({ name }) => ({ value: name })
             )
 
         );
@@ -171,3 +171,4 @@ export default {
     viewModel: AddCloudResourceModalViewModel,
     template: template
 };
+

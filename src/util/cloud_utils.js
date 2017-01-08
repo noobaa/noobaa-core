@@ -55,6 +55,29 @@ function get_azure_connection_string(params) {
 }
 
 
+function get_used_cloud_targets(endpoint_type, bucket_list, pool_list) {
+    const cloud_sync_targets = bucket_list ? bucket_list.filter(bucket =>
+            (bucket.cloud_sync && bucket.cloud_sync.endpoint_type === endpoint_type))
+        .map(bucket_with_cloud_sync => ({
+            endpoint: bucket_with_cloud_sync.cloud_sync.endpoint,
+            endpoint_type: bucket_with_cloud_sync.cloud_sync.endpoint_type,
+            source_name: bucket_with_cloud_sync.name,
+            target_name: bucket_with_cloud_sync.cloud_sync.target_bucket,
+            usage_type: 'CLOUD_SYNC'
+        })) : [];
+    const cloud_resource_targets = pool_list ? pool_list.filter(pool =>
+            (pool.cloud_pool_info && pool.cloud_pool_info.endpoint_type === endpoint_type))
+        .map(pool_with_cloud_resource => ({
+            endpoint: pool_with_cloud_resource.cloud_pool_info.endpoint,
+            endpoint_type: pool_with_cloud_resource.cloud_pool_info.endpoint_type,
+            source_name: pool_with_cloud_resource.name,
+            target_name: pool_with_cloud_resource.cloud_pool_info.target_bucket,
+            usage_type: 'CLOUD_RESOURCE'
+        })) : [];
+    return cloud_sync_targets.concat(cloud_resource_targets);
+}
+
 exports.find_cloud_connection = find_cloud_connection;
 exports.get_azure_connection_string = get_azure_connection_string;
 exports.get_signed_url = get_signed_url;
+exports.get_used_cloud_targets = get_used_cloud_targets;

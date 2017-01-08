@@ -5,7 +5,7 @@ function dispose(handle) {
     handle.dispose();
 }
 
-function isValidaitonGroup(group) {
+function isValidationGroup(group) {
     return group &&
         isFunction(group.showAllMessages) &&
         isFunction (group.isAnyMessageShown);
@@ -33,7 +33,7 @@ export default class BaseViewModel {
         // the view model. This mean that any validatable observale not used in this
         // manner will not be missed in the scan.
         for (const value of Object.values(this)) {
-            if (isValidaitonGroup(value)) {
+            if (isValidationGroup(value)) {
                 value.forEach(
                     obs =>  obs.extend({ validatable: false })
                 );

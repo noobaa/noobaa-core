@@ -480,7 +480,6 @@ function delete_cloud_sync(req) {
  */
 function set_cloud_sync(req) {
     dbg.log0('set_cloud_sync:', req.rpc_params);
-
     var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     var bucket = find_bucket(req);
     //Verify parameters, bi-directional sync can't be set with additions_only
@@ -506,6 +505,14 @@ function set_cloud_sync(req) {
         n2c_enabled: js_utils.default_value(req.rpc_params.policy.n2c_enabled, true),
         additions_only: js_utils.default_value(req.rpc_params.policy.additions_only, false)
     };
+
+    const already_used_by = cloud_utils.get_used_cloud_targets(cloud_sync.endpoint_type, system_store.data.buckets, system_store.data.pools)
+        .find(candidate_target => (candidate_target.endpoint === cloud_sync.endpoint));
+    if (already_used_by) {
+        dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
+        throw new Error('Target already in use');
+    }
+
     return system_store.make_changes({
 
             update: {
@@ -749,9 +756,7 @@ function get_bucket_lifecycle_configuration_rules(req) {
  *
  */
 function get_cloud_buckets(req) {
-    var buckets = [];
     dbg.log0('get cloud buckets', req.rpc_params);
-
     return P.fcall(function() {
         var connection = cloud_utils.find_cloud_connection(
             req.account,
@@ -759,34 +764,46 @@ function get_cloud_buckets(req) {
         );
         if (connection.endpoint_type === 'AZURE') {
             let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
+            let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE', system_store.data.buckets, system_store.data.pools);
             return P.ninvoke(blob_svc, 'listContainersSegmented', null, {})
-                .then(function(data) {
-                    return data.entries.map(entry => entry.name);
-                });
-        } else {
-            var s3 = new AWS.S3({
-                endpoint: connection.endpoint,
-                accessKeyId: connection.access_key,
-                secretAccessKey: connection.secret_key,
-                httpOptions: {
-                    agent: new https.Agent({
-                        rejectUnauthorized: false,
-                    })
-                }
-            });
-            return P.ninvoke(s3, "listBuckets")
-                .then(function(data) {
-                    _.each(data.Buckets, function(bucket) {
-                        buckets.push(bucket.Name);
-                    });
-                    return buckets;
-                });
-        }
+                .then(data => data.entries.map(entry =>
+                    _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
+        } //else if AWS
+        let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AWS', system_store.data.buckets, system_store.data.pools);
+        var s3 = new AWS.S3({
+            endpoint: connection.endpoint,
+            accessKeyId: connection.access_key,
+            secretAccessKey: connection.secret_key,
+            httpOptions: {
+                agent: new https.Agent({
+                    rejectUnauthorized: false,
+                })
+            }
+        });
+        return P.ninvoke(s3, "listBuckets")
+            .then(data => data.Buckets.map(bucket =>
+                _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)));
     }).catch(function(err) {
         dbg.error("get_cloud_buckets ERROR", err.stack || err);
         throw err;
     });
 
+}
+
+function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
+    let res = {
+        name: target_name
+    };
+    let using_target = usage_list.find(candidate_target =>
+        (target_name === candidate_target.target_name &&
+            endpoint === candidate_target.endpoint));
+    if (using_target) {
+        res.used_by = {
+            name: using_target.source_name,
+            usage_type: using_target.usage_type
+        };
+    }
+    return res;
 }
 
 

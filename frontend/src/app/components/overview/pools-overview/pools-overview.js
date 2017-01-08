@@ -31,8 +31,8 @@ class PoolsOverviewViewModel extends BaseViewModel {
                     return 0;
                 }
 
-                const { count, online } = systemInfo().nodes;
-                return count - online;
+                const { count, online, has_issues } = systemInfo().nodes;
+                return count - (online + has_issues);
             }
         );
 
@@ -47,14 +47,14 @@ class PoolsOverviewViewModel extends BaseViewModel {
                 color: style['color12']
             },
             {
+                label: 'Has issues',
+                value: withIssuesCount,
+                color: style['color11']
+            },
+            {
                 label: 'Offline',
                 value: offlineCount,
                 color: style['color10']
-            },
-            {
-                label: 'Has Issues',
-                value: withIssuesCount,
-                color: style['color11']
             }
         ];
 

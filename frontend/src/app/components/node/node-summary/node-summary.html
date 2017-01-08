@@ -14,11 +14,15 @@
             <span class="highlight" data-bind="text: trust().text"></span>
         </div>
         <hr />
-        <div class="greedy row content-middle">
-            <svg-icon class="push-next" params="name: accessibility().icon"
-                data-bind="css: accessibility().css">
-            </svg-icon>
-            <span class="highlight" data-bind="text: accessibility().text"></span>
+        <div class="row greedy content-middle">
+            <svg-icon class="push-next success" params="name: accessibility().icon"
+                data-bind="css: accessibility().css"></svg-icon>
+            <p class="greedy">
+                <span class="highlight push-next" data-bind="
+                    text: accessibility().access
+                "></span>
+                <span data-bind="text: accessibility().reason"></span>
+            </p>
         </div>
     </section>
 

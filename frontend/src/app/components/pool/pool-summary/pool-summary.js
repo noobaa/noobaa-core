@@ -4,51 +4,11 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import moment from 'moment';
 import style from 'style';
-import { deepFreeze, isNumber, assignWith } from 'utils/core-utils';
+import { deepFreeze, isNumber } from 'utils/core-utils';
+import { getPoolStateIcon } from 'utils/ui-utils';
 import { toBytes } from 'utils/size-utils';
 
-const stateMapping = deepFreeze({
-    healthy: {
-        text: 'Healthy',
-        css: 'success',
-        icon: 'healthy'
-    },
-    empty: {
-        text: 'Pool is empty',
-        css: 'error',
-        icon: 'problem'
-    },
-    allNodesOffline: {
-        text: 'All nodes are offline',
-        css: 'error',
-        icon: 'problem'
-    },
-    notEnoughOnlineNodes: {
-        text: 'Not enough online nodes',
-        css: 'error',
-        icon: 'problem'
-    },
-    manyNodesOffline: percentage => ({
-        text: `${percentage} nodes are offline`,
-        css: 'warning',
-        icon: 'problem'
-    }),
-    noCapacity: {
-        text: 'No available pool capacity',
-        css: 'error',
-        icon: 'problem'
-    },
-    lowCapacity: {
-        text : 'Available capacity is low',
-        css: 'warning',
-        icon: 'problem'
-    },
-    highDataActivity: {
-        text: 'High data activity in pool',
-        css: 'warning',
-        icon: 'working'
-    }
-});
+
 
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
@@ -70,9 +30,6 @@ function activityETA(time) {
     return moment(time.end).fromNow();
 }
 
-const noCapaityLimit =  Math.pow(1024, 2); // 1MB
-const lowCapacityHardLimit = 50 * Math.pow(1024, 3); // 50GB;
-
 class PoolSummaryViewModel extends BaseViewModel {
     constructor({ pool }) {
         super();
@@ -87,53 +44,12 @@ class PoolSummaryViewModel extends BaseViewModel {
 
         this.state = ko.pureComputed(
             () => {
-                const { count, online, has_issues } = pool().nodes;
-                const offlineRatio = 1 - ((online + has_issues) / count);
-
-                const { free, total, reserved, used_other } = assignWith(
-                    {},
-                    pool().storage,
-                    (_, value) => toBytes(value)
-                );
-                const freeRatio = free / (total - reserved - used_other);
-
-                const activityCount = dataActivities().reduce(
-                    (sum, { count }) => sum + count,
-                    0
-                );
-                const activityRatio = activityCount / count;
-
-                if (count === 0) {
-                    return stateMapping.empty;
-
-                } else if (online === 0) {
-                    return stateMapping.allNodesOffline;
-
-                } else if(online < 3) {
-                    return stateMapping.notEnoughOnlineNodes;
-
-                } else if (offlineRatio >= .3) {
-                    return stateMapping.manyNodesOffline(
-                        numeral(offlineRatio).format('%')
-                    );
-
-                } else if (free < noCapaityLimit) {
-                    return stateMapping.noCapacity;
-
-                // Low capacity hard limit.
-                } else if (free < lowCapacityHardLimit) {
-                    return stateMapping.lowCapacity;
-
-                // Low capacity soft limit.
-                } else if (freeRatio <= .2) {
-                    return stateMapping.lowCapacity;
-
-                } else if (activityRatio >= .5) {
-                    return stateMapping.highDataActivity;
-
-                } else {
-                    return stateMapping.healthy;
-                }
+                const { name, css, tooltip } = getPoolStateIcon(pool());
+                return {
+                    icon: name,
+                    css: css,
+                    text: tooltip
+                };
             }
         );
 
@@ -141,13 +57,38 @@ class PoolSummaryViewModel extends BaseViewModel {
             () => numeral(pool().nodes.count).format('0,0')
         );
 
-        this.onlineCount = ko.pureComputed(
+        const onlineCount = ko.pureComputed(
             () => numeral(pool().nodes.online).format('0,0')
         );
 
-        this.offlineCount = ko.pureComputed(
-            () => numeral(pool().nodes.count - pool().nodes.online).format('0,0')
+        const offlineCount = ko.pureComputed(
+            () => {
+                const { count, online, has_issues } = pool().nodes;
+                return numeral(count - (online + has_issues)).format('0,0');
+            }
         );
+
+        const issueCount = ko.pureComputed(
+            () => numeral(pool().nodes.has_issues).format('0,0')
+        );
+
+        this.nodeCounters = [
+            {
+                label: 'Online',
+                color: style['color12'],
+                value: onlineCount
+            },
+            {
+                label: 'Has issues',
+                color: style['color11'],
+                value: issueCount
+            },
+            {
+                label: 'Offline',
+                color: style['color10'],
+                value: offlineCount
+            }
+        ];
 
         const storage = ko.pureComputed(
             () => pool().storage

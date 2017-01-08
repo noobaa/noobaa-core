@@ -122,7 +122,8 @@ module.exports = {
                             'trusted',
                             'accessibility',
                             'connectivity',
-                            'data_activity'
+                            'data_activity',
+                            'mode'
                         ]
                     },
                     order: {
@@ -498,8 +499,30 @@ module.exports = {
                 suggested_pool: {
                     type: 'string'
                 },
+                mode: {
+                    $ref: '#/definitions/node_mode'
+                }
             }
         },
+
+        node_mode: {
+            type: 'string',
+            enum: [
+                'OFFLINE',
+                'UNTRUSTED',
+                'INITALIZING',
+                'DELETING',
+                'DELETED',
+                'DECOMMISSIONED',
+                'DECOMMISSIONING',
+                'MIGRATING',
+                'N2N_ERRORS',
+                'GATEWAY_ERRORS',
+                'IO_ERRORS',
+                'OPTIMAL',
+            ]
+        },
+
 
         node_identity: {
             type: 'object',

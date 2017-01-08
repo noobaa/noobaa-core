@@ -7,40 +7,75 @@ import { formatSize, toBytes } from 'utils/size-utils';
 import style from 'style';
 
 const stateMapping = deepFreeze({
-    online: {
-        text: 'Online',
-        css: 'success',
-        icon: 'healthy'
-    },
-    migrating: {
-        text: 'Migrating',
-        css: 'warning',
-        icon: 'working'
-    },
-    deactivating: {
-        text: 'Deactivating',
-        css: 'warning',
-        icon: 'working'
-    },
-    deactivated: {
-        text: 'Deactivated',
-        css: 'warning',
-        icon: 'problem'
-    },
-    offline: {
-        text: 'Offline',
+    OFFLINE: {
+        icon: 'problem',
         css: 'error',
-        icon: 'problem'
+        text: 'Offline'
+    },
+    UNTRUSTED: {
+        icon: 'healthy',
+        css: 'success',
+        text: 'Online'
+    },
+    INITALIZING: {
+        icon: 'working',
+        css: 'warning',
+        text: 'Initalizing'
+    },
+    DELETING: {
+        icon: 'working',
+        css: 'warning',
+        text: 'Deleting'
+    },
+    DELETED: {
+        icon: 'problem',
+        css: 'error',
+        text: 'Deleted'
+    },
+    DECOMMISSIONING: {
+        icon: 'working',
+        css: 'warning',
+        text: 'Deactivating'
+    },
+    DECOMMISSIONED: {
+        icon: 'problem',
+        css: 'warning',
+        text: 'Deactivated'
+    },
+    MIGRATING: {
+        icon: 'working',
+        css: 'warning',
+        text: 'Migrating'
+    },
+    N2N_ERRORS: {
+        icon: 'healthy',
+        css: 'success',
+        text: 'Online'
+    },
+    GATEWAY_ERRORS: {
+        icon: 'healthy',
+        css: 'success',
+        text: 'Online'
+    },
+    IO_ERRORS: {
+        icon: 'healthy',
+        css: 'success',
+        text: 'Online'
+    },
+    OPTIMAL: {
+        icon: 'healthy',
+        css: 'success',
+        text: 'Online'
     }
 });
 
 const trustMapping = deepFreeze({
-    trusted: {
+    TRUSTED: {
         text: 'Trusted',
         css: 'success',
         icon: 'healthy'
     },
-    untrested: {
+    UNTRUSTED: {
         text: 'Untrusted',
         css: 'error',
         icon: 'problem'
@@ -48,35 +83,77 @@ const trustMapping = deepFreeze({
 });
 
 const accessibilityMapping = deepFreeze({
-    online: {
-        text: 'Readable & Writable',
-        css: 'success',
-        icon: 'healthy'
+    OFFLINE: {
+        icon: 'problem',
+        css: 'error',
+        access: 'No access',
+        reason: ''
     },
-    migrating: {
-        text: 'Read Only - Moving data',
+    UNTRUSTED: {
+        icon: 'problem',
+        css: 'error',
+        access: 'No access',
+        reason: ''
+    },
+    INITALIZING: {
+        icon: 'problem',
+        css: 'error',
+        access: 'No access',
+        reason: ''
+    },
+    DELETING: {
+        icon: 'problem',
         css: 'warning',
-        icon: 'problem'
+        access: 'Read Only:',
+        reason: 'Moving data'
     },
-    deactivating: {
-        text: 'Read Only',
+    DELETED: {
+        icon: 'problem',
         css: 'error',
-        icon: 'problem'
+        access: 'No access',
+        reason: ''
     },
-    deactivated: {
-        text: 'No Access',
-        css: 'error',
-        icon: 'problem'
+    DECOMMISSIONING: {
+        icon: 'problem',
+        css: 'warning',
+        access: 'Read only:',
+        reason: 'Moving data'
     },
-    untrested: {
-        text: 'No Access',
+    DECOMMISSIONED: {
+        icon: 'problem',
         css: 'error',
-        icon: 'problem'
+        access: 'No access',
+        reason: ''
     },
-    offline: {
-        text: 'No Access',
+    MIGRATING: {
+        icon: 'problem',
+        css: 'warning',
+        access: 'Read only:',
+        reason: 'Moving data'
+    },
+    N2N_ERRORS: {
+        icon: 'problem',
         css: 'error',
-        icon: 'problem'
+        access: 'No access:',
+        reason: 'Inter-Node connectivity problems'
+    },
+    GATEWAY_ERRORS: {
+        icon: 'problem',
+        css: 'error',
+        access: 'No access:',
+        reason: 'Server connectivity problems'
+    },
+    IO_ERRORS: {
+        icon: 'problem',
+        css: 'error',
+        access: 'No Access:',
+        reason: 'Read/Write problems'
+    },
+    OPTIMAL: {
+        icon: 'healthy',
+        css: 'success',
+        access: 'Readable & Writable',
+        reason: ''
     }
 });
 
@@ -89,7 +166,6 @@ const activityNameMapping = deepFreeze({
 
 class NodeSummaryViewModel extends BaseViewModel {
     constructor({ node }) {
-
         super();
 
         this.dataReady = ko.pureComputed(
@@ -101,52 +177,15 @@ class NodeSummaryViewModel extends BaseViewModel {
         );
 
         this.state = ko.pureComputed(
-            () => {
-                const naked = node();
-                if (!naked.online) {
-                    return stateMapping.offline;
-
-                } else if (naked.migrating_to_pool) {
-                    return stateMapping.migrating;
-
-                } else if (naked.decommissioning) {
-                    return stateMapping.deactivating;
-
-                } else if (naked.decommissioned) {
-                    return stateMapping.deactivated;
-
-                } else {
-                    return stateMapping.online;
-                }
-            }
+            () => stateMapping[node().mode]
         );
 
         this.trust = ko.pureComputed(
-            () => node().trusted ? trustMapping.trusted : trustMapping.untrested
+            () => trustMapping[node().trusted ? 'TRUSTED' : 'UNTRESTED']
         );
 
         this.accessibility = ko.pureComputed(
-            () => {
-                const naked = node();
-                if (!naked.online) {
-                    return accessibilityMapping.offline;
-
-                } else if (!naked.trusted) {
-                    return accessibilityMapping.untrested;
-
-                } else if(naked.migrating_to_pool) {
-                    return accessibilityMapping.migrating;
-
-                } else if (naked.decommissioning) {
-                    return accessibilityMapping.deactivating;
-
-                } else if (naked.decommissioned) {
-                    return accessibilityMapping.deactivated;
-
-                } else {
-                    return accessibilityMapping.online;
-                }
-            }
+            () => accessibilityMapping[node().mode]
         );
 
         const storage = ko.pureComputed(
@@ -219,7 +258,7 @@ class NodeSummaryViewModel extends BaseViewModel {
                     } else if (decommissioned) {
                         return 'Node deactivated';
 
-                } else if(!trusted) {
+                    } else if(!trusted) {
                         return 'Untrusted node';
 
                     } else {

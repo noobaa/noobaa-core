@@ -2,39 +2,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils/core-utils';
-
-const nodeStateMapping = deepFreeze({
-    offline: {
-        css: 'error',
-        name: 'problem',
-        tooltip: 'Offline'
-    },
-    untrusted: {
-        css: 'error',
-        name: 'problem',
-        tooltip: 'Untrusted'
-    },
-    migrating: {
-        css: 'warning',
-        name: 'working',
-        tooltip: 'Migrating'
-    },
-    deactivating: {
-        css: 'warning',
-        name: 'working',
-        tooltip: 'Deactivating'
-    },
-    deactivated: {
-        css: 'warning',
-        name: 'problem',
-        tooltip: 'Deactivated'
-    },
-    online: {
-        css: 'success',
-        name: 'healthy',
-        tooltip: 'Online'
-    }
-});
+import { getNodeStateIcon } from 'utils/ui-utils';
 
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
@@ -54,30 +22,7 @@ export default class NodeRowViewModel extends BaseViewModel {
         super();
 
         this.state = ko.pureComputed(
-            () => {
-                const naked = node();
-                if (!naked) {
-                    return '';
-
-                } else if (!naked.online) {
-                    return nodeStateMapping.offline;
-
-                } else if (!naked.trusted) {
-                    return nodeStateMapping.untrusted;
-
-                } else if (naked.migrating_to_pool) {
-                    return nodeStateMapping.migrating;
-
-                } else if (naked.decommissioning) {
-                    return nodeStateMapping.deactivating;
-
-                } else if (naked.decommissioned) {
-                    return nodeStateMapping.deactivated;
-
-                } else {
-                    return nodeStateMapping.online;
-                }
-            }
+            () => node() ? getNodeStateIcon(node()) : ''
         );
 
         this.name = ko.pureComputed(
@@ -104,19 +49,19 @@ export default class NodeRowViewModel extends BaseViewModel {
 
         this.capacity = {
             total: ko.pureComputed(
-                () => storage().total
+                () => storage().total || 0
             ),
             used: [
                 {
                     label: 'Used (Noobaa)',
                     value: ko.pureComputed(
-                        () => storage().used
+                        () => storage().used || 0
                     )
                 },
                 {
                     label: 'Used (other)',
                     value: ko.pureComputed(
-                        () => storage().used_other
+                        () => storage().used_other || 0
                     )
                 }
             ]

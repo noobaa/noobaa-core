@@ -185,17 +185,18 @@ function vmOperations(operationCallback) {
             var todelete = count - machineCount;
             var deleted = 0;
             return promise_utils.pwhile(
-                function() {
-                    return (deleted < todelete);
-                },
-                function() {
-                    return azf.getRandomMachine(prefix, 'VM running')
-                        .then(machine => {
-                            console.log('deleting machine', machine);
-                            return azf.deleteVirtualMachine(machine);
-                        })
-                        .then(() => deleted++);
-                });
+                    function() {
+                        return (deleted < todelete);
+                    },
+                    function() {
+                        return azf.getRandomMachine(prefix, 'VM running')
+                            .then(machine => {
+                                console.log('deleting machine', machine);
+                                machines.push(machine);
+                                deleted++;
+                            });
+                    })
+                .then(() => P.map(machines, machine => azf.deleteVirtualMachine(machine)));
         })
         .catch(err => {
             console.log('got error', err);

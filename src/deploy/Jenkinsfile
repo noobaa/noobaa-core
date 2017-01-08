@@ -2,7 +2,7 @@
 def branch = 'master'
 def package_location = 'http://146.148.16.59:8080'+'/job/mdserver/lastSuccessfulBuild/'
 //dataset
-def noobaa_ip = '40.121.83.180'
+def noobaa_ip = '40.112.60.60'
 def values = noobaa_ip.tokenize('.')
 def prefix = values[2]+'-'+values[3]
 def dataset_size = '1024' // 10GB of dataset
@@ -14,6 +14,10 @@ def resource = 'ds_during_nf_rg'
 def zone = 'eastus'
 def min_machines = '5' // minimum 3 machine
 def max_machines = '15' // maximum 10 machines
+//agentMatrix
+def azureName = 'noobaa-server4'
+def serverName = '40.76.49.73'
+def agentConf = 'eyJhZGRyZXNzIjoid3NzOi8vMTAuMS4wLjY6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJhY2Nlc3Nfa2V5IjoiMTIzIiwic2VjcmV0X2tleSI6ImFiYyIsInRpZXIiOiJub2RlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8ifQ=='
 
 node('node2') {
     stage('Get code from GIT') {
@@ -34,7 +38,7 @@ node('node2') {
         // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
     }
     stage('Upgrading noobaa server') {
-      echo 'Upgrading machine to latest version!'
+      echo 'Upgrading machines to latest version!'
       sh script: """
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
@@ -43,9 +47,10 @@ node('node2') {
               # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
               fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
+              node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $serverName
       """
     }
-    stage('Test1 - Running dataSet while killing machines') {
+    stage('Tests') {
       // Run the maven build
       parallel (
           "dataset": {
@@ -65,7 +70,15 @@ node('node2') {
                 sleep '${start_killing_time}'m
                 node $WORKSPACE/src/test/qa/machine_killer.js --service '${service}' --project '${resource}' --zone '${zone}' --prefix '${prefix}' --timeout \$((${aging_time}-${start_killing_time})) --min_machines '${min_machines}' --max_machines '${max_machines}'
             """
-          }
+          },
+          "agents-matrix": {
+            echo 'Adding some agents!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_dns '${serverName}' --agent_conf '${agentConf}'
+            """
+          },
       )
    }
 }

@@ -40,6 +40,7 @@ const dns = require('dns');
 const node_allocator = require('../node_services/node_allocator');
 const config_file_store = require('./config_file_store').instance();
 const fs_utils = require('../../util/fs_utils');
+const stats_collector = require('../bg_services/stats_collector');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -1009,7 +1010,8 @@ function log_client_console(req) {
 }
 
 function _init_system() {
-    return cluster_server.init_cluster();
+    return cluster_server.init_cluster()
+        .then(() => stats_collector.collect_system_stats());
 }
 
 

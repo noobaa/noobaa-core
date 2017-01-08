@@ -28,3 +28,4 @@ function collect_system_stats() {
 }
 
 exports.collect_all_stats = collect_all_stats;
+exports.collect_system_stats = collect_system_stats;

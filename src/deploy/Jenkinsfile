@@ -38,7 +38,7 @@ node('node2') {
         // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
     }
     stage('Upgrading noobaa server') {
-      echo 'Upgrading machine to latest version!'
+      echo 'Upgrading machines to latest version!'
       sh script: """
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
@@ -76,7 +76,7 @@ node('node2') {
             sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/agent_matrix.js --azure_name '${azureName}' --server_dns '${serverName}' --agent_conf '${agentConf}'
+                node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_dns '${serverName}' --agent_conf '${agentConf}'
             """
           },
       )

@@ -886,33 +886,33 @@ class NodesMonitor extends EventEmitter {
 
         const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
         return P.each(items_without_issues, item_without_issues => {
-            dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
-                item.node.rpc_address, item_without_issues.node.rpc_address);
-            return this.client.agent.test_network_perf_to_peer({
-                    source: item_without_issues.node.rpc_address,
-                    target: item.node.rpc_address,
-                    request_length: 1,
-                    response_length: 1,
-                    count: 1,
-                    concur: 1
-                }, {
-                    connection: item_without_issues.connection
-                })
-                .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
-        })
-        .then(() => {
-            dbg.log0('_test_network_perf:: success in test', item.node.name);
-            if (item.n2n_errors &&
-                Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
-                item.n2n_errors = 0;
-            }
-        })
-        .catch(() => {
-            if (!item.n2n_errors) {
-                dbg.log0('_test_network_perf:: node has n2n_errors', item.node.name);
-                item.n2n_errors = Date.now();
-            }
-        });
+                dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
+                    item.node.rpc_address, item_without_issues.node.rpc_address);
+                return this.client.agent.test_network_perf_to_peer({
+                        source: item_without_issues.node.rpc_address,
+                        target: item.node.rpc_address,
+                        request_length: 1,
+                        response_length: 1,
+                        count: 1,
+                        concur: 1
+                    }, {
+                        connection: item_without_issues.connection
+                    })
+                    .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
+            })
+            .then(() => {
+                dbg.log0('_test_network_perf:: success in test', item.node.name);
+                if (item.n2n_errors &&
+                    Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                    item.n2n_errors = 0;
+                }
+            })
+            .catch(() => {
+                if (!item.n2n_errors) {
+                    dbg.log0('_test_network_perf:: node has n2n_errors', item.node.name);
+                    item.n2n_errors = Date.now();
+                }
+            });
     }
 
     _test_nodes_validity(item) {
@@ -1213,27 +1213,40 @@ class NodesMonitor extends EventEmitter {
             item.io_reported_errors = now;
         }
 
+        item.io_detention = this._get_item_io_detention_time(item);
+        item.connectivity = 'TCP';
+        item.avg_ping = _.mean(item.node.latency_to_server);
+        item.avg_disk_read = _.mean(item.node.latency_of_disk_read);
+        item.avg_disk_write = _.mean(item.node.latency_of_disk_write);
+        item.storage_full = this._get_item_storage_full(item);
+        item.has_issues = this._get_item_has_issues(item);
+        item.readable = this._get_item_readable(item);
+        item.writable = this._get_item_writable(item);
+        item.accessibility = this._get_item_accessibility(item);
+        item.mode = this._get_item_mode(item);
+
+        this._update_data_activity(item);
+    }
+
+    _get_item_storage_full(item) {
+        return item.node.storage.limit ?
+            (item.node.storage.used >= item.node.storage.limit) :
+            (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
+    }
+
+    _get_item_io_detention_time(item) {
         const io_detention_time = Math.min(
             item.n2n_errors || Number.POSITIVE_INFINITY,
             item.gateway_errors || Number.POSITIVE_INFINITY,
             item.io_test_errors || Number.POSITIVE_INFINITY,
             item.io_reported_errors || Number.POSITIVE_INFINITY
         );
-        item.io_detention = io_detention_time === Number.POSITIVE_INFINITY ?
+        return io_detention_time === Number.POSITIVE_INFINITY ?
             0 : io_detention_time;
+    }
 
-        item.connectivity = 'TCP';
-
-        item.avg_ping = _.mean(item.node.latency_to_server);
-        item.avg_disk_read = _.mean(item.node.latency_of_disk_read);
-        item.avg_disk_write = _.mean(item.node.latency_of_disk_write);
-
-        item.storage_full =
-            item.node.storage.limit ?
-            (item.node.storage.used >= item.node.storage.limit) :
-            (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
-
-        item.has_issues = !(
+    _get_item_has_issues(item) {
+        return !(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1244,8 +1257,10 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.readable = Boolean(
+    _get_item_readable(item) {
+        return Boolean(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1254,8 +1269,10 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.writable = Boolean(
+    _get_item_writable(item) {
+        return Boolean(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1267,14 +1284,17 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.accessibility =
-            (item.readable && item.writable && 'FULL_ACCESS') ||
+    _get_item_accessibility(item) {
+        return (item.readable && item.writable && 'FULL_ACCESS') ||
             (item.readable && 'READ_ONLY') ||
             'NO_ACCESS';
+    }
 
-        item.mode =
-            (!item.online && 'OFFLINE') ||
+
+    _get_item_mode(item) {
+        return (!item.online && 'OFFLINE') ||
             (!item.trusted && 'UNTRUSTED') ||
             (!item.node.rpc_address && 'INITALIZING') ||
             (item.node.deleting && 'DELETING') ||
@@ -1287,9 +1307,9 @@ class NodesMonitor extends EventEmitter {
             (item.io_test_errors && 'IO_ERRORS') ||
             (item.io_reported_errors && 'IO_ERRORS') ||
             'OPTIMAL';
-
-        this._update_data_activity(item);
     }
+
+
 
     _update_data_activity(item) {
         const reason = this._get_data_activity_reason(item);

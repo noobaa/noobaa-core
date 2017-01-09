@@ -169,14 +169,14 @@ export default class BucketRowViewModel extends BaseViewModel {
                 () => cloudStorageIcon(
                     cloudPolicy().AZURE,
                     'azure-resource',
-                    'Azure resources'
+                    'Azure blob resources'
                 )
             ),
             cloudIcon: ko.pureComputed(
                 () => cloudStorageIcon(
                     cloudPolicy().S3_COMPATIBLE,
                     'cloud-resource',
-                    'S3 compatible cloud resorurces'
+                    'generic S3 compatible resorurces'
                 )
             )
         };

@@ -2,26 +2,10 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { deleteCloudResource } from 'actions';
+import { getResourceTypeIcon } from 'utils/ui-utils';
 
-const undeletableReasons = Object.freeze({
+const undeletableReasons = deepFreeze({
     IN_USE: 'Cannot delete a resource which is used in a bucket cloud storage policy'
-});
-
-const serviceIconMapping = deepFreeze({
-    AWS: {
-        name: 'aws-s3-resource',
-        tooltip: 'AWS S3 Bucket'
-    },
-
-    AZURE: {
-        name: 'azure-resource',
-        tooltip: 'Azure Container'
-    },
-
-    S3_COMPATIBLE: {
-        name: 'cloud-resource',
-        tooltip: 'S3 Compatible Cloud Bukcet'
-    }
 });
 
 export default class CloudResourceRowViewModel extends BaseViewModel {
@@ -35,7 +19,7 @@ export default class CloudResourceRowViewModel extends BaseViewModel {
         };
 
         this.type = ko.pureComputed(
-            () => resource() ? serviceIconMapping[resource().cloud_info.endpoint_type] : ''
+            () => resource() ? getResourceTypeIcon(resource()) : ''
         );
 
         this.name = ko.pureComputed(

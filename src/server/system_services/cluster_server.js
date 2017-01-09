@@ -1446,9 +1446,10 @@ function check_cluster_status() {
     return P.map(_.filter(servers,
             server => server.owner_secret !== system_store.get_server_secret()),
         server => server_rpc.client.cluster_server.ping({}, {
-            address: server_rpc.get_base_address(server.owner_address),
-            timeout: 60000 //60s
-        }).then(res => {
+            address: server_rpc.get_base_address(server.owner_address)
+        })
+        .timeout(30000)
+        .then(res => {
             if (res === "PONG") {
                 return {
                     secret: server.owner_secret,

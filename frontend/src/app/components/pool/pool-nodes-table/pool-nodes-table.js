@@ -10,7 +10,7 @@ import { routeContext } from 'model';
 let columns = deepFreeze([
     {
         name: 'state',
-        sortable: 'online',
+        sortable: 'mode',
         type: 'icon'
     },
     {

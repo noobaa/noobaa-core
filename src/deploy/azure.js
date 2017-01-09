@@ -8,7 +8,6 @@
 var util = require('util');
 var P = require('../util/promise');
 var AzureFunctions = require('./azureFunctions');
-var promise_utils = require('../util/promise_utils');
 var crypto = require('crypto');
 var argv = require('minimist')(process.argv);
 var net = require('net');

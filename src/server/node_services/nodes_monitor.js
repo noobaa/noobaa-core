@@ -1213,7 +1213,7 @@ class NodesMonitor extends EventEmitter {
             item.io_reported_errors = now;
         }
 
-        item.io_detention = this._get_item_io_detention_time(item);
+        item.io_detention = this._get_item_io_detention(item);
         item.connectivity = 'TCP';
         item.avg_ping = _.mean(item.node.latency_to_server);
         item.avg_disk_read = _.mean(item.node.latency_of_disk_read);
@@ -1234,7 +1234,7 @@ class NodesMonitor extends EventEmitter {
             (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
     }
 
-    _get_item_io_detention_time(item) {
+    _get_item_io_detention(item) {
         const io_detention_time = Math.min(
             item.n2n_errors || Number.POSITIVE_INFINITY,
             item.gateway_errors || Number.POSITIVE_INFINITY,

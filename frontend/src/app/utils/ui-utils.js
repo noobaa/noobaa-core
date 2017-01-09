@@ -1,5 +1,5 @@
 import { deepFreeze, isFunction } from './core-utils';
-import { numeral } from 'numeral';
+import numeral from 'numeral';
 
 const nodeStateIconMapping = deepFreeze({
     OFFLINE: {

@@ -318,17 +318,15 @@ function get_pool_info(pool, nodes_aggregate_pool) {
 }
 
 function calc_pool_mode(pool_info) {
-    const {nodes, storage, data_activities} = pool_info;
-    const {count, online, has_issues} = nodes;
+    const { nodes, storage, data_activities = [] } = pool_info;
+    const { count, online, has_issues } = nodes;
     const offline = count - (online + has_issues);
     const offline_ratio = (offline / count) * 100;
-    const {free, total, reserved, used_other} = _.assignWith(
-        {}, storage, (__, size) => size_utils.json_to_bigint(size)
-    );
+    const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
-    const free_ratio = free.multiply(100).divide(potential_for_noobaa);
+    const free_ratio = potential_for_noobaa.greater(0) ? free.multiply(100).divide(potential_for_noobaa) : size_utils.BigInteger.zero;
     const activity_count = data_activities
-        .reduce((sum, {count}) => sum + count, 0);
+        .reduce((sum, { count }) => sum + count, 0);
     const activity_ratio = (activity_count / count) * 100;
 
     return (count === 0 && 'HAS_NO_NODES') ||

@@ -8,6 +8,7 @@ const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
 const coretest = require('./coretest');
+const account_server = require('../../server/system_services/account_server');
 
 dotenv.load();
 const s3_auth = new S3Auth();
@@ -40,6 +41,7 @@ mocha.describe('system_servers', function() {
             ///////////////
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
+            .then(() => account_server.ensure_support_account())
             .then(() => client.system.create_system({
                 activation_code: '1111',
                 name: SYS,

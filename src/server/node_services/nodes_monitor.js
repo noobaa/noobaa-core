@@ -62,7 +62,7 @@ const MONITOR_INFO_FIELDS = [
     'readable',
     'writable',
     'trusted',
-    'n2n_connectivity',
+    'mode',
     'connectivity',
     'storage_full',
     'suggested_pool',
@@ -135,6 +135,20 @@ const QUERY_FIELDS = [{
     item: 'item.data_activity.reason',
     type: 'String',
 }];
+
+const MODE_COMPARE_ORDER = [
+    'OPTIMAL',
+    'DECOMMISSIONING',
+    'MIGRATING',
+    'DELETING',
+    'DECOMMISSIONED',
+    'DELETED',
+    'N2N_ERRORS',
+    'GATEWAY_ERRORS',
+    'IO_ERRORS',
+    'UNTRUSTED',
+    'OFFLINE'
+];
 
 const ACT_DELETING = 'DELETING';
 const ACT_DECOMMISSIONING = 'DECOMMISSIONING';
@@ -809,6 +823,18 @@ class NodesMonitor extends EventEmitter {
                     item.node.latency_of_disk_read, res.read, MAX_NUM_LATENCIES);
                 item.node.latency_of_disk_write = js_utils.array_push_keep_latest(
                     item.node.latency_of_disk_write, res.write, MAX_NUM_LATENCIES);
+
+                dbg.log0('_test_store_perf:: success in test', item.node.name);
+                if (item.io_test_errors &&
+                    Date.now() - item.io_test_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                    item.io_test_errors = 0;
+                }
+            })
+            .catch(() => {
+                if (!item.io_test_errors) {
+                    dbg.log0('_test_store_perf:: node has io_test_errors', item.node.name);
+                    item.io_test_errors = Date.now();
+                }
             });
     }
 
@@ -838,6 +864,17 @@ class NodesMonitor extends EventEmitter {
                 dbg.log0('_test_network_to_server:: Succeeded in sending n2n rpc to ',
                     item.node.name, 'took', took);
                 req.connection.close();
+
+                if (item.gateway_errors &&
+                    Date.now() - item.gateway_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                    item.gateway_errors = 0;
+                }
+            })
+            .catch(() => {
+                if (!item.gateway_errors) {
+                    dbg.log0('_test_network_to_server:: node has gateway_errors', item.node.name);
+                    item.gateway_errors = Date.now();
+                }
             });
     }
 
@@ -862,6 +899,19 @@ class NodesMonitor extends EventEmitter {
                     connection: item_without_issues.connection
                 })
                 .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
+        })
+        .then(() => {
+            dbg.log0('_test_network_perf:: success in test', item.node.name);
+            if (item.n2n_errors &&
+                Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                item.n2n_errors = 0;
+            }
+        })
+        .catch(() => {
+            if (!item.n2n_errors) {
+                dbg.log0('_test_network_perf:: node has n2n_errors', item.node.name);
+                item.n2n_errors = Date.now();
+            }
         });
     }
 
@@ -876,17 +926,10 @@ class NodesMonitor extends EventEmitter {
                 this._test_network_to_server(item)
             ))
             .then(() => {
-                dbg.log0('_test_nodes_validity:: success in test', item.node.name);
-                if (item.io_detention &&
-                    Date.now() - item.io_detention > config.NODE_IO_DETENTION_THRESHOLD) {
-                    dbg.log0('_test_nodes_validity:: turning off detention in node', item.node.name);
-                    item.io_detention = 0;
-                }
-            })
-            .catch(() => {
-                if (!item.io_detention) {
-                    dbg.log0('_test_nodes_validity:: node in io_detention', item.node.name);
-                    item.io_detention = Date.now();
+                if (item.io_reported_errors &&
+                    Date.now() - item.io_reported_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                    dbg.log0('_test_nodes_validity:: io_reported_errors removed', item.node.name);
+                    item.io_reported_errors = 0;
                 }
             });
     }
@@ -1164,26 +1207,46 @@ class NodesMonitor extends EventEmitter {
             }
         }
 
-        if (!item.io_detention &&
+        if (!item.io_reported_errors &&
             io_detention_recent_issues >= config.NODE_IO_DETENTION_RECENT_ISSUES) {
-            dbg.log0('_update_status:: Node in io_detention', item.node.name);
-            item.io_detention = now;
+            dbg.log0('_update_status:: Node has io_reported_errors', item.node.name);
+            item.io_reported_errors = now;
         }
 
-        // TODO GUYM implement node n2n_connectivity & connectivity status
-        item.n2n_connectivity = true;
+        item.io_detention = this._get_item_io_detention(item);
         item.connectivity = 'TCP';
-
         item.avg_ping = _.mean(item.node.latency_to_server);
         item.avg_disk_read = _.mean(item.node.latency_of_disk_read);
         item.avg_disk_write = _.mean(item.node.latency_of_disk_write);
+        item.storage_full = this._get_item_storage_full(item);
+        item.has_issues = this._get_item_has_issues(item);
+        item.readable = this._get_item_readable(item);
+        item.writable = this._get_item_writable(item);
+        item.accessibility = this._get_item_accessibility(item);
+        item.mode = this._get_item_mode(item);
 
-        item.storage_full =
-            item.node.storage.limit ?
+        this._update_data_activity(item);
+    }
+
+    _get_item_storage_full(item) {
+        return item.node.storage.limit ?
             (item.node.storage.used >= item.node.storage.limit) :
             (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
+    }
 
-        item.has_issues = !(
+    _get_item_io_detention(item) {
+        const io_detention_time = Math.min(
+            item.n2n_errors || Number.POSITIVE_INFINITY,
+            item.gateway_errors || Number.POSITIVE_INFINITY,
+            item.io_test_errors || Number.POSITIVE_INFINITY,
+            item.io_reported_errors || Number.POSITIVE_INFINITY
+        );
+        return io_detention_time === Number.POSITIVE_INFINITY ?
+            0 : io_detention_time;
+    }
+
+    _get_item_has_issues(item) {
+        return !(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1194,8 +1257,10 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.readable = Boolean(
+    _get_item_readable(item) {
+        return Boolean(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1204,8 +1269,10 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.writable = Boolean(
+    _get_item_writable(item) {
+        return Boolean(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1217,14 +1284,32 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.accessibility =
-            (item.readable && item.writable && 'FULL_ACCESS') ||
+    _get_item_accessibility(item) {
+        return (item.readable && item.writable && 'FULL_ACCESS') ||
             (item.readable && 'READ_ONLY') ||
             'NO_ACCESS';
-
-        this._update_data_activity(item);
     }
+
+
+    _get_item_mode(item) {
+        return (!item.online && 'OFFLINE') ||
+            (!item.trusted && 'UNTRUSTED') ||
+            (!item.node.rpc_address && 'INITALIZING') ||
+            (item.node.deleting && 'DELETING') ||
+            (item.node.deleted && 'DELETED') ||
+            (item.node.decommissioned && 'DECOMMISSIONED') ||
+            (item.node.decommissioning && 'DECOMMISSIONING') ||
+            (item.node.migrating_to_pool && 'MIGRATING') ||
+            (item.n2n_errors && 'N2N_ERRORS') ||
+            (item.gateway_errors && 'GATEWAY_ERRORS') ||
+            (item.io_test_errors && 'IO_ERRORS') ||
+            (item.io_reported_errors && 'IO_ERRORS') ||
+            'OPTIMAL';
+    }
+
+
 
     _update_data_activity(item) {
         const reason = this._get_data_activity_reason(item);
@@ -1609,6 +1694,8 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => item.connectivity, options.order));
         } else if (options.sort === 'data_activity') {
             list.sort(js_utils.sort_compare_by(item => _.get(item, 'data_activity.reason', ''), options.order));
+        } else if (options.sort === 'mode') {
+            list.sort(js_utils.sort_compare_by(item => MODE_COMPARE_ORDER.indexOf(item.mode), options.order));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }

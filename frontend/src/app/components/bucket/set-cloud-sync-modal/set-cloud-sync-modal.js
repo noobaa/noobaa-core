@@ -116,7 +116,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
                 }
 
                 return cloudBucketList().map(
-                    bucketName => ({ value: bucketName })
+                    ({ name }) => ({ value: name })
                 );
             }
         );
@@ -191,3 +191,4 @@ export default {
     viewModel: SetCloudSyncModalViewModel,
     template: template
 };
+

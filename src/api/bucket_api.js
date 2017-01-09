@@ -315,7 +315,26 @@ module.exports = {
             reply: {
                 type: 'array',
                 items: {
-                    type: 'string'
+                    type: 'object',
+                    required: ['name'],
+                    properties: {
+                        name: {
+                            type: 'string'
+                        },
+                        used_by: {
+                            type: 'object',
+                            required: ['name', 'usage_type'],
+                            properties: {
+                                name: {
+                                    type: 'string'
+                                },
+                                usage_type: {
+                                    type: 'string',
+                                    enum: ['CLOUD_SYNC', 'CLOUD_RESOURCE']
+                                },
+                            }
+                        }
+                    }
                 }
             },
             auth: {

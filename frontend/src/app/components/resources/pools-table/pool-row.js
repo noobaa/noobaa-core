@@ -1,25 +1,14 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deletePool } from 'actions';
+import { getPoolStateIcon } from 'utils/ui-utils';
 
 export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool, deleteGroup, poolsToBuckets) {
         super();
 
         this.state = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return {};
-                }
-
-                let { count, has_issues } = pool().nodes;
-                let healthy = count - has_issues >= 3;
-                return {
-                    css: healthy ? 'success' : 'error',
-                    name: healthy ? 'healthy' : 'problem',
-                    tooltip: healthy ? 'Healthy' : 'not enough healthy nodes'
-                };
-            }
+            () => pool() ? getPoolStateIcon(pool()) : {}
         );
 
         this.name = ko.pureComputed(

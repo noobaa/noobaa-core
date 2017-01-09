@@ -189,6 +189,14 @@ export function assignWith(target, ...sources) {
     return target;
 }
 
+export function mapProperties(obj, mapOp) {
+    const res = {};
+    for (const [ key, value ] of entries(obj)) {
+        res[key] = mapOp(value, key);
+    }
+    return res;
+}
+
 export function interpolateLinear(a, b, t) {
     return a + (b - a) * t;
 }

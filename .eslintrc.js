@@ -249,6 +249,8 @@ module.exports = {
         // the rule object-property-newline is better than object-curly-newline
         'object-curly-newline': 'off',
 
+        'object-curly-spacing': 'off',
+
         // prefer using x={a,b} over x={a:a, b:b} but too much to fix
         'object-shorthand': 'off',
 

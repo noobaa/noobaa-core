@@ -32,6 +32,9 @@ const POOL_NODES_INFO_DEFAULTS = Object.freeze({
     has_issues: 0,
 });
 
+const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
+const LOW_CAPACITY_HARD_LIMIT = 50 * Math.pow(1024, 3); // 50GB
+
 function new_pool_defaults(name, system_id) {
     return {
         _id: system_store.generate_id(),
@@ -84,6 +87,16 @@ function create_cloud_pool(req) {
         },
         endpoint_type: connection.endpoint_type || 'AWS'
     };
+
+
+    const already_used_by = cloud_utils.get_used_cloud_targets(cloud_info.endpoint_type,
+            system_store.data.buckets, system_store.data.pools)
+        .find(candidate_target => (candidate_target.endpoint === cloud_info.endpoint &&
+            candidate_target.target_name === cloud_info.target_bucket));
+    if (already_used_by) {
+        dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
+        throw new Error('Target already in use');
+    }
 
     var pool = new_pool_defaults(name, req.system._id);
     dbg.log0('Creating new cloud_pool', pool);
@@ -294,12 +307,37 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             target_bucket: pool.cloud_pool_info.target_bucket
         };
         info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);
+        info.mode = 'OPTIMAL';
     } else {
         info.nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
         info.demo_pool = Boolean(pool.demo_pool);
+        info.mode = calc_pool_mode(info);
     }
     return info;
+}
+
+function calc_pool_mode(pool_info) {
+    const { nodes, storage, data_activities = [] } = pool_info;
+    const { count, online, has_issues } = nodes;
+    const offline = count - (online + has_issues);
+    const offline_ratio = (offline / count) * 100;
+    const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
+    const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
+    const free_ratio = potential_for_noobaa.greater(0) ? free.multiply(100).divide(potential_for_noobaa) : size_utils.BigInteger.zero;
+    const activity_count = data_activities
+        .reduce((sum, { count }) => sum + count, 0);
+    const activity_ratio = (activity_count / count) * 100;
+
+    return (count === 0 && 'HAS_NO_NODES') ||
+        (offline === count && 'ALL_NODES_OFFLINE') ||
+        (online < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
+        (offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
+        (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
+        (free < LOW_CAPACITY_HARD_LIMIT && 'LOW_CAPACITY') ||
+        (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
+        (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
+        'OPTIMAL';
 }
 
 function check_pool_deletion(pool, nodes_aggregate_pool) {

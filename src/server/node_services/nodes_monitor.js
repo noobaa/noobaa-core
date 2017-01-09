@@ -886,33 +886,33 @@ class NodesMonitor extends EventEmitter {
 
         const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
         return P.each(items_without_issues, item_without_issues => {
-                dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
-                    item.node.rpc_address, item_without_issues.node.rpc_address);
-                return this.client.agent.test_network_perf_to_peer({
-                        source: item_without_issues.node.rpc_address,
-                        target: item.node.rpc_address,
-                        request_length: 1,
-                        response_length: 1,
-                        count: 1,
-                        concur: 1
-                    }, {
-                        connection: item_without_issues.connection
-                    })
-                    .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
-            })
-            .then(() => {
-                dbg.log0('_test_network_perf:: success in test', item.node.name);
-                if (item.n2n_errors &&
-                    Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
-                    item.n2n_errors = 0;
-                }
-            })
-            .catch(() => {
-                if (!item.n2n_errors) {
-                    dbg.log0('_test_network_perf:: node has n2n_errors', item.node.name);
-                    item.n2n_errors = Date.now();
-                }
-            });
+            dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
+                item.node.rpc_address, item_without_issues.node.rpc_address);
+            return this.client.agent.test_network_perf_to_peer({
+                    source: item_without_issues.node.rpc_address,
+                    target: item.node.rpc_address,
+                    request_length: 1,
+                    response_length: 1,
+                    count: 1,
+                    concur: 1
+                }, {
+                    connection: item_without_issues.connection
+                })
+                .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
+        })
+        .then(() => {
+            dbg.log0('_test_network_perf:: success in test', item.node.name);
+            if (item.n2n_errors &&
+                Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                item.n2n_errors = 0;
+            }
+        })
+        .catch(() => {
+            if (!item.n2n_errors) {
+                dbg.log0('_test_network_perf:: node has n2n_errors', item.node.name);
+                item.n2n_errors = Date.now();
+            }
+        });
     }
 
     _test_nodes_validity(item) {

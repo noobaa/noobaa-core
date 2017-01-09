@@ -1213,27 +1213,40 @@ class NodesMonitor extends EventEmitter {
             item.io_reported_errors = now;
         }
 
+        item.io_detention = this._get_item_io_detention(item);
+        item.connectivity = 'TCP';
+        item.avg_ping = _.mean(item.node.latency_to_server);
+        item.avg_disk_read = _.mean(item.node.latency_of_disk_read);
+        item.avg_disk_write = _.mean(item.node.latency_of_disk_write);
+        item.storage_full = this._get_item_storage_full(item);
+        item.has_issues = this._get_item_has_issues(item);
+        item.readable = this._get_item_readable(item);
+        item.writable = this._get_item_writable(item);
+        item.accessibility = this._get_item_accessibility(item);
+        item.mode = this._get_item_mode(item);
+
+        this._update_data_activity(item);
+    }
+
+    _get_item_storage_full(item) {
+        return item.node.storage.limit ?
+            (item.node.storage.used >= item.node.storage.limit) :
+            (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
+    }
+
+    _get_item_io_detention(item) {
         const io_detention_time = Math.min(
             item.n2n_errors || Number.POSITIVE_INFINITY,
             item.gateway_errors || Number.POSITIVE_INFINITY,
             item.io_test_errors || Number.POSITIVE_INFINITY,
             item.io_reported_errors || Number.POSITIVE_INFINITY
         );
-        item.io_detention = io_detention_time === Number.POSITIVE_INFINITY ?
+        return io_detention_time === Number.POSITIVE_INFINITY ?
             0 : io_detention_time;
+    }
 
-        item.connectivity = 'TCP';
-
-        item.avg_ping = _.mean(item.node.latency_to_server);
-        item.avg_disk_read = _.mean(item.node.latency_of_disk_read);
-        item.avg_disk_write = _.mean(item.node.latency_of_disk_write);
-
-        item.storage_full =
-            item.node.storage.limit ?
-            (item.node.storage.used >= item.node.storage.limit) :
-            (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
-
-        item.has_issues = !(
+    _get_item_has_issues(item) {
+        return !(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1244,8 +1257,10 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.readable = Boolean(
+    _get_item_readable(item) {
+        return Boolean(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1254,8 +1269,10 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.writable = Boolean(
+    _get_item_writable(item) {
+        return Boolean(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1267,14 +1284,17 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
+    }
 
-        item.accessibility =
-            (item.readable && item.writable && 'FULL_ACCESS') ||
+    _get_item_accessibility(item) {
+        return (item.readable && item.writable && 'FULL_ACCESS') ||
             (item.readable && 'READ_ONLY') ||
             'NO_ACCESS';
+    }
 
-        item.mode =
-            (!item.online && 'OFFLINE') ||
+
+    _get_item_mode(item) {
+        return (!item.online && 'OFFLINE') ||
             (!item.trusted && 'UNTRUSTED') ||
             (!item.node.rpc_address && 'INITALIZING') ||
             (item.node.deleting && 'DELETING') ||
@@ -1287,9 +1307,9 @@ class NodesMonitor extends EventEmitter {
             (item.io_test_errors && 'IO_ERRORS') ||
             (item.io_reported_errors && 'IO_ERRORS') ||
             'OPTIMAL';
-
-        this._update_data_activity(item);
     }
+
+
 
     _update_data_activity(item) {
         const reason = this._get_data_activity_reason(item);

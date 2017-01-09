@@ -261,12 +261,12 @@ class AzureFunctions {
     }
 
     startVirtualMachineFromVHD(vmName, vhdname) { // some kind of revert to snapshot
-        console.log('Reverting Virtual Machine: ' + vmName);
+        console.log('Reverting Virtual Machine:', vmName);
         var machine_info;
         return P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, vmName, callback))
             .then(machine => {
                 machine_info = machine;
-                console.log('deleting machine', vmName);
+                console.log('deleting machine:', vmName);
                 return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(this.resourceGroupName, vmName, callback));
             })
             .then(() => {
@@ -303,6 +303,7 @@ class AzureFunctions {
                     networkProfile: machine_info.networkProfile,
                     diagnosticsProfile: machine_info.diagnosticsProfile
                 };
+                console.log('starting machine from vhd for:', vmName);
                 return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
                     vmName, vmParameters, callback));
             });

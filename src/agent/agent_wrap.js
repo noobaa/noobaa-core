@@ -4,7 +4,14 @@
  * This script wraps agent_cli
  * it keeps it alive and should also handle ugprades, repairs etc.
  */
-process.chdir('/usr/local/noobaa');
+const os = require('os');
+
+const WIN_AGENT = os.type() === 'Windows_NT';
+if (WIN_AGENT) {
+    process.chdir('C:\\noobaa');
+} else {
+    process.chdir('/usr/local/noobaa');
+}
 
 const fs = require('fs');
 const P = require('../util/promise');
@@ -14,7 +21,8 @@ const request = require('request');
 const url = require('url');
 const dbg = require('../util/debug_module')(__filename);
 
-const SETUP_FILENAME = './noobaa-setup';
+const SETUP_FILENAME = './noobaa-setup' + WIN_AGENT ? '.exe' : '';
+
 const EXECUTABLE_MOD_VAL = 511;
 const DUPLICATE_RET_CODE = 68;
 
@@ -46,7 +54,7 @@ fs_utils.file_delete(SETUP_FILENAME)
         return new P((resolve, reject) => {
             dbg.log0('Downloading Noobaa agent upgrade package');
             request.get({
-                    url: `https://${address}/public/noobaa-setup`,
+                    url: `https://${address}/public/noobaa-setup` + WIN_AGENT ? '.exe' : '',
                     strictSSL: false,
                     timeout: 20000
                 })
@@ -61,7 +69,13 @@ fs_utils.file_delete(SETUP_FILENAME)
     })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => P.delay(2000)) // Not sure why this is necessary, but it is.
-    .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null'))
+    .then(() => {
+        let command = `setsid ${SETUP_FILENAME} >> /dev/null`;
+        if (WIN_AGENT) {
+            command = `${SETUP_FILENAME} + /S`;
+        }
+        return promise_utils.exec(command);
+    })
     .then(() => promise_utils.retry(NUM_UPGRADE_WARNINGS, TIME_BETWEEN_WARNINGS, attempts => {
         let msg = `Still upgrading. ${(NUM_UPGRADE_WARNINGS - attempts) * (TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
         if (attempts !== NUM_UPGRADE_WARNINGS) dbg.warn(msg);

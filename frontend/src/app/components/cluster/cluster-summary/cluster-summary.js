@@ -9,16 +9,13 @@ import { drawLine, fillCircle } from 'utils/canvas-utils';
 import { getClusterStatus } from 'utils/cluster-utils';
 
 const faultToleranceTooltip = `
-    The number of servers the can disconnect before the clsuter will stop R/W
-    service
+    The number of servers that can fail (disconnect from the cluster) before the system
+    will stop servicing reads and writes
 `;
 
 const HATooltip = `
-    High availability increases the likehood that your app stays up in the
-    event of failure
-    <br><br>
-    To reach an highly available cluster make sure you have an odd number of
-    servers connected with at least one fault tolerance server
+    High availability ensures that the system will keep servicing in the event of one
+    or more server failures (dependent on the cluster fault tolerance).
 `;
 
 const minReadWritePointText = 'Minimum for\nR/W service';
@@ -135,7 +132,7 @@ class ClusterSummaryViewModel extends BaseViewModel {
         );
 
         this.HAText = ko.pureComputed(
-            () => isHighlyAvailable() ? 'On' : 'Off'
+            () => isHighlyAvailable() ? 'Yes' : 'No'
         );
 
         this.HATooltip = HATooltip;

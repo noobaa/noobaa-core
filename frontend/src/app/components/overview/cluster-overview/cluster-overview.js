@@ -31,16 +31,24 @@ const statusMapping = deepFreeze({
 });
 
 const highAvailabiltyMapping = deepFreeze({
-    true: {
-        text: 'High Availability: On',
+    NO_ENOUGH_SERVERS: {
+        text: 'High Availability: Not enough servers',
+        icon:  {
+            name: 'problem',
+            css: 'disabled'
+        }
+    },
+
+    ENABLED: {
+        text: 'High Availability: Yes',
         icon: {
             name: 'healthy',
             css: 'success'
         }
     },
 
-    false: {
-        text: 'High Availability: Off',
+    DISABLED: {
+        text: 'High Availability: Not enough servers',
         icon:  {
             name: 'problem',
             css: 'error'
@@ -63,15 +71,12 @@ class ClusterOverviewViewModel extends BaseViewModel {
             }
         );
 
-        this.serverCountText = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return 0;
-                }
+        const serverCount = ko.pureComputed(
+            () => systemInfo() ? systemInfo().cluster.shards[0].servers.length : 0
+        );
 
-                const count = systemInfo().cluster.shards[0].servers.length;
-                return stringifyAmount('Server', count);
-            }
+        this.serverCountText = ko.pureComputed(
+            () => stringifyAmount('Server', serverCount())
         );
 
         this.statusText = ko.pureComputed(
@@ -88,12 +93,18 @@ class ClusterOverviewViewModel extends BaseViewModel {
                 false
         );
 
+        const ha = ko.pureComputed(
+            () => serverCount() >= 3 ?
+                (isHighlyAvailable() ? 'ENABLED' : 'DISABLED') :
+                'NO_ENOUGH_SERVERS'
+        );
+
         this.highAvailabilityText = ko.pureComputed(
-            () => highAvailabiltyMapping[isHighlyAvailable()].text
+            () => highAvailabiltyMapping[ha()].text
         );
 
         this.highAvailabilityIcon = ko.pureComputed(
-            () => highAvailabiltyMapping[isHighlyAvailable()].icon
+            () => highAvailabiltyMapping[ha()].icon
         );
     }
 }

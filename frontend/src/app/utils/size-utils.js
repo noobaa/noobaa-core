@@ -49,7 +49,7 @@ export function formatSize(size) {
     }
 
     if (i > 0) {
-        n = n.toFixed(size < 10 ? 1 : 0);
+        n = n.toFixed(n < 10 ? 1 : 0);
     }
 
     return `${n}${sizeUnits[i]}`;

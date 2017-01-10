@@ -655,7 +655,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _run_node(item) {
-        if (!this._started) return P.reject(new Error('node is not running'));
+        if (!this._started) return P.reject(new Error('monitor has not started'));
         item._run_node_serial = item._run_node_serial || new Semaphore(1);
         if (item.node.deleting || item.node.deleted) return P.reject(new Error(`node ${item.node.name} is either deleting or deleted`));
         return item._run_node_serial.surround(() =>

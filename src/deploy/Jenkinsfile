@@ -52,6 +52,7 @@ node('node2') {
               fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
               node $WORKSPACE/src/deploy/azureSnapshots.js --resource $agentsResource --source $azureName --image $serverImage
+              sleep 1m
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $serverName
       """
     }

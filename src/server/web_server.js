@@ -370,9 +370,18 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
-    const WEBSERVER_START_TIME = 20 * 1000;
     const registered = server_rpc.is_service_registered('system_api.read_system');
-    let started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
+    let current_clustering = system_store.get_local_cluster_info();
+    let started;
+    if (current_clustering && !current_clustering.is_clusterized) {
+        // if not clusterized then no need to wait.
+        started = true;
+    } else {
+        // if in a cluster then after upgrade the user should be redirected to the new master
+        // give the new master 10 seconds to start completely before ending the upgrade
+        const WEBSERVER_START_TIME = 10 * 1000;
+        started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
+    }
     if (started && registered && !shutting_down) {
         dbg.log0(`/version returning ${pkg.version}, service registered and not shutting down`);
         res.send(pkg.version);

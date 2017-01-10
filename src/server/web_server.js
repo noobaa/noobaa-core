@@ -370,8 +370,10 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
+    const WEBSERVER_START_TIME = 20 * 1000;
     const registered = server_rpc.is_service_registered('system_api.read_system');
-    if (webserver_started && registered && !shutting_down) {
+    let started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
+    if (started && registered && !shutting_down) {
         dbg.log0(`/version returning ${pkg.version}, service registered and not shutting down`);
         res.send(pkg.version);
         res.end();

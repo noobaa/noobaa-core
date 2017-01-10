@@ -206,7 +206,6 @@ function _aws_request(req, region, service) {
         .replace(/=$/, '')
         .replace(/=&/g, '&') :
         '';
-    console.log('GGG', u.search, query, search_string);
     const headers_for_sdk = {};
     for (let i = 0; i < req.rawHeaders.length; i += 2) {
         const key = req.rawHeaders[i].toLowerCase();

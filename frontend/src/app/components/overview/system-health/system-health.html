@@ -1,8 +1,40 @@
-<div class="pad borders greedy">
-    <h2 class="heading3 row content-middle">
-        <span class=" greedy">System Health</span>
-
-        <svg-icon class="icon-small" params="name: 'question'"></svg-icon>
-    </h2>
+<div class="column pad borders greedy">
+    <h2 class="heading3 row content-middle">System Health</h2>
     <hr>
+    <section class="column push-next">
+        <h3 class="push-both highlight">
+            Cluster | <a class="link" data-bind="
+                text: serverCountText, href: { route: 'cluster' }
+            "></a>
+        </h3>
+
+        <div class="row content-middle push-next">
+            <svg-icon class="push-next"
+                params="name: clusterStatusIcon().name"
+                data-bind="css: clusterStatusIcon().css"
+            ></svg-icon>
+            <span class="highlight" data-bind="text: clusterStatusText"></span>
+        </div>
+
+        <div class="row content-middle">
+            <svg-icon class="push-next"
+                params="name: clusterHAIcon().name"
+                data-bind="css: clusterHAIcon().css"
+            ></svg-icon>
+            <span class="highlight" data-bind="text: clusterHAText"></span>
+        </div>
+    </section>
+    <section class="column push-prev">
+        <h3 class="push-both row">
+            <span class="highlight">System raw storage</span>
+        </h3>
+        <div class="row content-middle push-next">
+            <svg-icon class="push-next"
+                params="name: storageStatus().name"
+                data-bind="css: storageStatus().css"
+            ></svg-icon>
+            <span class="highlight" data-bind="text: storageStatus().tooltip"></span>
+        </div>
+    </section>
+
 </div>

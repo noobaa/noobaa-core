@@ -1,0 +1,77 @@
+<section class="column greedy pad borders">
+    <h2 class="row heading3 content-end">
+        <span class="greedy">Storage Resources</span>
+        <a class="link" data-bind="
+            text: resourcesLinkText,
+            href: { route: 'pools', params: { tab: 'pools' } }
+        "></a>
+    </h2>
+    <hr>
+    <div class="row push-both">
+        <a class="column content-middle greedy" data-bind="
+                href: { route: 'pools', params: { tab: 'pools' } }
+            ">
+            <svg-icon class="resource-icon nodes-pool-icon"
+                params="name: 'nodes-pool'"
+                data-bind="tooltip: 'Nodes pool resources'"
+            ></svg-icon>
+            <span class="remark highlight" data-bind="text: nodePoolsCount"></span>
+        </a>
+
+        <a class="column content-middle greedy" data-bind="
+                href: { route: 'pools', params: { tab: 'cloud' } }
+            ">
+            <svg-icon class="resource-icon"
+                params="name: awsResourceIcon"
+                data-bind="tooltip: 'AWS S3 resources'"
+            ></svg-icon>
+            <span class="remark highlight" data-bind="text: awsResourceCount"></span>
+        </a>
+
+        <a class="column content-middle greedy" data-bind="
+                href: { route: 'pools', params: { tab: 'cloud' } }
+            ">
+            <svg-icon class="resource-icon"
+                params="name: azureResourceIcon"
+                data-bind="tooltip: 'Azure resources'"
+            ></svg-icon>
+            <span class="remark highlight" data-bind="text: azureResourceCount"></span>
+        </a>
+
+        <a class="column content-middle greedy" data-bind="
+                href: { route: 'pools', params: { tab: 'cloud' } }
+            ">
+            <svg-icon class="resource-icon"
+                params="name: genericResourceIcon"
+                data-bind="tooltip: 'S3 compatible resources'"
+            ></svg-icon>
+            <span class="remark highlight" data-bind="text: genericResourceCount"></span>
+        </a>
+    </div>
+    <chart-legend class="nodes-legend" params="
+        items: chartValues,
+        caption: 'Nodes in Node Pools'
+    "></chart-legend>
+    <div class="nodes-chart column content-middle">
+        <pie-chart class="push-next" params="
+            values: chartValues,
+            primaryText: nodeCountText,
+            secondaryText: 'Total'
+        "></pie-chart>
+
+        <p class="remark highlight">
+            Total Nodes Capacity:
+            <span data-bind="text: systemCapacity"></span>
+        </p>
+    </div>
+    <button class="btn overview-btn" data-bind="
+        click: () => showInstallNodeModal()
+    ">
+        Install Nodes
+    </button>
+</section>
+
+ <!-- ko if: isInstallNodeModalVisible -->
+<install-node-modal params="onClose: () => hideInstallNodeModal()">
+</install-node-modal>
+<!-- /ko -->

@@ -1,4 +1,5 @@
 import { deepFreeze, isFunction } from './core-utils';
+import { toBytes, formatSize } from './size-utils';
 import numeral from 'numeral';
 
 const nodeStateIconMapping = deepFreeze({
@@ -13,7 +14,7 @@ const nodeStateIconMapping = deepFreeze({
         tooltip: 'Untrusted'
     },
     INITALIZING: {
-        icon: 'working',
+        name: 'working',
         css: 'warning',
         text: 'Initalizing'
     },
@@ -146,4 +147,40 @@ export function getResourceTypeIcon(resource) {
     return resourceTypeStateMapping[
         resource.nodes ? 'NODES_POOL' : resource.cloud_info.endpoint_type
     ];
+}
+
+export function getSystemStorageIcon(storage) {
+    const total = toBytes(storage.total);
+    const free = toBytes(storage.free);
+
+    if (total === 0) {
+        return {
+            name: 'problem',
+            css: 'disabled',
+            tooltip: 'No system storage - add nodes or colud resources'
+        };
+
+    } else if (free < Math.pow(1024, 2)) { // 1MB
+        return {
+            name: 'problem',
+            css: 'error',
+            tooltip: 'No free storage left'
+        };
+
+    } else {
+        const ratio = free / total;
+        const tooltip = `${
+                numeral(free / total).format('%')
+            } free storage left (${
+                formatSize(free)
+            } of ${
+                formatSize(total)
+            })`;
+
+        return {
+            name: ratio <= .2 ? 'problem' : 'healthy',
+            css: ratio <= .2 ? 'warning' : 'success',
+            tooltip: tooltip
+        };
+    }
 }

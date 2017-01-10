@@ -45,10 +45,8 @@ export default function register(ko) {
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard').default);
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal').default);
     ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview').default);
-    ko.components.register('pools-overview',        require('./overview/pools-overview/pools-overview').default);
-    ko.components.register('cloud-overview',        require('./overview/cloud-overview/cloud-overview').default);
-    ko.components.register('cluster-overview',      require('./overview/cluster-overview/cluster-overview').default);
-    ko.components.register('system-health', require('./overview/system-health/system-health').default);
+    ko.components.register('resource-overview',     require('./overview/resource-overview/resource-overview').default);
+    ko.components.register('system-health',         require('./overview/system-health/system-health').default);
     /** INJECT:overview **/
 
     // -------------------------------

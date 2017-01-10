@@ -52,6 +52,7 @@ node('node2') {
               fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
               node $WORKSPACE/src/deploy/azureSnapshots.js --resource $agentsResource --source $azureName --image $serverImage
+              sleep 1m
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $serverName
       """
     }
@@ -81,7 +82,7 @@ node('node2') {
             sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverName}' --agent_conf '${agentConf}' --resource '${agentsResource} --vnet '${agentsVnet} --storage '${agentsStorage}'
+                node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverName}' --agent_conf '${agentConf}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}'
             """
           },
       )

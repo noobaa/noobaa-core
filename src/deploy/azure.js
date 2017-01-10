@@ -8,7 +8,6 @@
 var util = require('util');
 var P = require('../util/promise');
 var AzureFunctions = require('./azureFunctions');
-var promise_utils = require('../util/promise_utils');
 var crypto = require('crypto');
 var argv = require('minimist')(process.argv);
 var net = require('net');
@@ -172,31 +171,25 @@ function vmOperations(operationCallback) {
     }
     azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
     return azf.authenticate()
-        .then(() => azf.countOnMachines(prefix))
-        .then(count => {
+        .then(() => azf.listVirtualMachines(prefix, 'VM running'))
+        .then(old_machines => {
+            console.log('Machines with this prefix which are online', old_machines.length);
             var machines = [];
-            console.log('Machines with this prefix which are online', count);
-            if (count < machineCount) {
-                machines = args_builder(machineCount - count);
-                console.log('adding ', (machineCount - count), 'machines');
+            if (old_machines.length < machineCount) {
+                machines = args_builder(machineCount - old_machines.length);
+                console.log('adding ', (machineCount - old_machines.length), 'machines');
                 return P.map(machines, machine => azf.createAgent(machine, storageAccountName, vnetName, os, serverName, agentConf));
             }
-            console.log('removing ', (count - machineCount), 'machines');
-            var todelete = count - machineCount;
-            var deleted = 0;
-            return promise_utils.pwhile(
-                    function() {
-                        return (deleted < todelete);
-                    },
-                    function() {
-                        return azf.getRandomMachine(prefix, 'VM running')
-                            .then(machine => {
-                                console.log('deleting machine', machine);
-                                machines.push(machine);
-                                deleted++;
-                            });
-                    })
-                .then(() => P.map(machines, machine => azf.deleteVirtualMachine(machine)));
+            console.log('removing ', (old_machines.length - machineCount), 'machines');
+            var todelete = old_machines.length - machineCount;
+            if (todelete > 0) {
+                var machines_to_del = [];
+                for (let i = 0; i < todelete; i++) {
+                    console.log(old_machines[i]);
+                    machines_to_del.push(old_machines[i]);
+                }
+                return P.map(machines_to_del, machine => azf.deleteVirtualMachine(machine));
+            }
         })
         .catch(err => {
             console.log('got error', err);

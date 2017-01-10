@@ -91,15 +91,6 @@ function filterSamples(samples, start, end) {
         };
     }
 
-    // This is a check and a fix for the problem if that one sample
-    // that is all zeros creates a wired graph (issue #2433)
-    if (filtered.length === 1) {
-        const { free, unavailable_free, used } = filtered[0].storage;
-        if (free === 0 && unavailable_free === 0 && used === 0) {
-            return [];
-        }
-    }
-
     return filtered;
 }
 
@@ -145,6 +136,13 @@ class BucketsOverviewViewModel extends BaseViewModel {
             }
         );
 
+        this.samples = ko.pureComputed(
+            () => (systemUsageHistory() || []).concat({
+                timestamp: this.now,
+                storage: this.currentUsage()
+            })
+        );
+
         this.chartOptions = ko.pureComputed(
             () => this.getChartOptions()
         );
@@ -163,7 +161,12 @@ class BucketsOverviewViewModel extends BaseViewModel {
         const start = this.endOfDay - moment.duration(duration, 'days').asMilliseconds();
         const end = this.endOfDay;
         const gutter = parseInt(style['gutter']);
-        const showYScale = (systemUsageHistory() || []).length > 1 || this.currentUsage().total > 0;
+
+        const useFixedMax = this.samples().every(
+            ({ storage }) => storage.free === 0  &&
+                storage.unavailable_free === 0 &&
+                storage.used === 0
+        );
 
         return {
             responsive: true,
@@ -185,7 +188,6 @@ class BucketsOverviewViewModel extends BaseViewModel {
                             maxTicksLimit: 10000,
                             min: start,
                             max: end,
-                            // fixedStepSize: true,
                             stepSize: moment.duration(stepSize, 'days').asMilliseconds(),
                             fontColor: style['color7'],
                             fontFamily: style['font-family1'],
@@ -196,7 +198,6 @@ class BucketsOverviewViewModel extends BaseViewModel {
                 ],
                 yAxes: [
                     {
-                        display: showYScale,
                         stacked: true,
                         gridLines: {
                             color: style['color15']
@@ -206,7 +207,10 @@ class BucketsOverviewViewModel extends BaseViewModel {
                             fontColor: style['color7'],
                             fontFamily: style['font-family1'],
                             fontSize: 8,
-                            maxRotation: 0
+                            maxRotation: 0,
+                            min: 0,
+                            max: useFixedMax ? Math.pow(1024, 2) : undefined,
+                            stepSize: useFixedMax ? Math.pow(1024, 2) / 10 : undefined
                         }
                     }
                 ]
@@ -253,13 +257,7 @@ class BucketsOverviewViewModel extends BaseViewModel {
         const { duration } = this.selectedDuration();
         const start = this.endOfDay - moment.duration(duration, 'days').asMilliseconds();
         const end = this.endOfDay;
-
-        const samples = (systemUsageHistory() || []).concat({
-            timestamp: this.now,
-            storage: this.currentUsage()
-        });
-
-        const filtered = filterSamples(samples, start, end);
+        const filtered = filterSamples(this.samples(), start, end);
         const datasets = chartDatasets.map(
             ({ key, color, fill }) => ({
                 lineTension: 0,

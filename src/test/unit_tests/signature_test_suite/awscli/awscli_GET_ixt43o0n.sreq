@@ -1,0 +1,8 @@
+GET /files?delimiter=%2F&prefix=&encoding-type=url HTTP/1.1
+Host: 10.25.106.0
+Accept-Encoding: identity
+X-Amz-Content-SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Authorization: AWS4-HMAC-SHA256 Credential=123/20170111/eu-central-1/s3/aws4_request, SignedHeaders=host;user-agent;x-amz-content-sha256;x-amz-date, Signature=e991d3d72018a2cdb2f6f9e318c3c93e2cb859c7235f407214666a9ff663ae7a
+X-Amz-Date: 20170111T153939Z
+User-Agent: aws-cli/1.10.13 Python/2.7.10 Darwin/15.4.0 botocore/1.4.4
+

@@ -181,7 +181,7 @@ class NodeSummaryViewModel extends BaseViewModel {
         );
 
         this.trust = ko.pureComputed(
-            () => trustMapping[node().trusted ? 'TRUSTED' : 'UNTRESTED']
+            () => trustMapping[node().trusted ? 'TRUSTED' : 'UNTRUSTED']
         );
 
         this.accessibility = ko.pureComputed(

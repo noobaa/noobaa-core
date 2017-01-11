@@ -14,11 +14,12 @@ const columns = deepFreeze([
         type: 'link',
         sortable: true
     },
-    {
-        name: 'connections',
-        label: 'external connections',
-        sortable: true
-    },
+    // Hide until we have a conenction tab inside account page
+    // {
+    //     name: 'connections',
+    //     label: 'external connections',
+    //     sortable: true
+    // },
     {
         name: 'role',
         sortable: true

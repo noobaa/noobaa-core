@@ -196,11 +196,15 @@ function _aws_request(req, region, service) {
     const pathname = service === 's3' ?
         u.pathname :
         path.normalize(decodeURI(u.pathname));
+    const query = u.search ?
+        _.omit(
+            AWS.util.queryStringParse(decodeURI(u.search.slice(1))),
+            'X-Amz-Signature', 'Signature', 'Expires', 'AWSAccessKeyId'
+        ) : {};
     const search_string = u.search ?
-        AWS.util.queryParamsToString(
-            _.omit(AWS.util.queryStringParse(
-                    decodeURI(u.search.slice(1))),
-                'X-Amz-Signature', 'Signature', 'Expires', 'AWSAccessKeyId')) :
+        AWS.util.queryParamsToString(query)
+        .replace(/=$/, '')
+        .replace(/=&/g, '&') :
         '';
     const headers_for_sdk = {};
     for (let i = 0; i < req.rawHeaders.length; i += 2) {
@@ -222,7 +226,7 @@ function _aws_request(req, region, service) {
     const aws_request = {
         region: region,
         method: req.method,
-        path: req.originalUrl,
+        path: u.pathname + (search_string ? '?' + search_string : ''),
         headers: headers_for_sdk,
         search: () => search_string,
         pathname: () => pathname,

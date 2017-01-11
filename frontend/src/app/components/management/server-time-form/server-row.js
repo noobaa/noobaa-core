@@ -55,9 +55,20 @@ export default class ServerRowViewModel extends BaseViewModel {
             )
         );
 
+        const timezone = ko.pureComputed(
+            () => server() && server().timezone
+        );
+
         const time = ko.observableWithDefault(
             () => server() && server().time_epoch * 1000
         );
+
+        this.time = time.extend({
+            formatTime: {
+                format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)',
+                timezone: timezone
+            }
+        });
 
         this.addToDisposeList(
             setInterval(
@@ -66,10 +77,6 @@ export default class ServerRowViewModel extends BaseViewModel {
             ),
             clearInterval
         );
-
-        this.time = time.extend({
-            formatTime: 'DD MMM YYYY HH:mm:ss ([GMT]Z)'
-        });
 
         this.actions = {
             text: 'Edit',

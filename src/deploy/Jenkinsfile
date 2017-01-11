@@ -2,7 +2,7 @@
 def branch = 'master'
 def package_location = 'http://146.148.16.59:8080'+'/job/mdserver/lastSuccessfulBuild/'
 //dataset
-def noobaa_ip = '40.112.60.60'
+def noobaa_ip = '40.121.83.180'
 def values = noobaa_ip.tokenize('.')
 def prefix = values[2]+'-'+values[3]
 def dataset_size = '1024' // 10GB of dataset
@@ -15,9 +15,13 @@ def zone = 'eastus'
 def min_machines = '5' // minimum 3 machine
 def max_machines = '15' // maximum 10 machines
 //agentMatrix
-def azureName = 'noobaa-server4'
-def serverName = '40.76.49.73'
-def agentConf = 'eyJhZGRyZXNzIjoid3NzOi8vMTAuMS4wLjY6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJhY2Nlc3Nfa2V5IjoiMTIzIiwic2VjcmV0X2tleSI6ImFiYyIsInRpZXIiOiJub2RlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8ifQ=='
+def azureName = 'agentsServer'
+def serverName = '137.116.115.76'
+def agentConf = 'eyJhZGRyZXNzIjoid3NzOi8vMTcyLjE3LjIuNDo4NDQzIiwic3lzdGVtIjoiZGVtbyIsImFjY2Vzc19rZXkiOiIxMjMiLCJzZWNyZXRfa2V5IjoiYWJjIiwidGllciI6Im5vZGVzIiwicm9vdF9wYXRoIjoiLi9hZ2VudF9zdG9yYWdlLyJ9'
+def agentsResource = 'agents_matrix_rg'
+def agentsVnet = 'agents_matrix_rg-vnet'
+def agentsStorage = 'jackystorage'
+def serverImage = 'https://jackystorage.blob.core.windows.net/system/Microsoft.Compute/Images/images/snapshot-osDisk.24726a50-bd7f-4e5a-ab08-d4a21754788a.vhd'
 
 node('node2') {
     stage('Get code from GIT') {
@@ -47,6 +51,8 @@ node('node2') {
               # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
               fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
+              node $WORKSPACE/src/deploy/azureSnapshots.js --resource $agentsResource --source $azureName --image $serverImage
+              sleep 1m
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $serverName
       """
     }
@@ -76,7 +82,7 @@ node('node2') {
             sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_dns '${serverName}' --agent_conf '${agentConf}'
+                node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverName}' --agent_conf '${agentConf}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}'
             """
           },
       )

@@ -356,12 +356,15 @@ function set_ntp(server, timez) {
 }
 
 function get_dns_servers() {
-    let res = {};
+    let res = [];
     if (os.type() === 'Linux') {
         return promise_utils.exec("cat /etc/resolv.conf | grep NooBaa", true, true)
             .then(cmd_res => {
                 let regex_res = (/nameserver (.*) #NooBaa/).exec(cmd_res);
-                if (regex_res) return regex_res.shift();
+                for (var i = 1; i < regex_res.length; i++) {
+                    res.push(regex_res[i]);
+                }
+                return res;
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return P.resolve(res);

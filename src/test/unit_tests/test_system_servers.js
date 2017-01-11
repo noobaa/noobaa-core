@@ -112,7 +112,14 @@ mocha.describe('system_servers', function() {
                         access_key: res.owner.access_keys[0].access_key,
                         string_to_sign: '',
                         signature: s3_auth.sign(res.owner.access_keys[0].secret_key, '')
-                    }));
+                    }).then(() => res))
+                    .then(res => client.auth.create_access_key_auth({
+                        access_key: res.owner.access_keys[0].access_key,
+                        string_to_sign: 'blabla',
+                        signature: 'blibli'
+                    }))
+                    .catch(err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED'));
+
             })
             //////////////
             //  SYSTEM  //

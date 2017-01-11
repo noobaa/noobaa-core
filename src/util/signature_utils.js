@@ -203,10 +203,9 @@ function _aws_request(req, region, service) {
             'X-Amz-Signature', 'Signature', 'Expires', 'AWSAccessKeyId'
         ) : {};
     const query_to_string = AWS.util.queryParamsToString(query);
-    const search_string = u.search ?
-        v2_signature ?
-            query_to_string.replace(/=$/, '').replace(/=&/g, '&') : query_to_string :
-        '';
+    const equals_handling = v2_signature ? query_to_string.replace(/=$/, '').replace(/=&/g, '&') :
+        query_to_string;
+    const search_string = u.search ? equals_handling : '';
     const headers_for_sdk = {};
     for (let i = 0; i < req.rawHeaders.length; i += 2) {
         const key = req.rawHeaders[i].toLowerCase();

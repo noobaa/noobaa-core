@@ -281,8 +281,6 @@ Section "Noobaa Local Service"
 		${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\node.exe$\" $\"$INSTDIR\src\agent\agent_wrap.js$\" "
 		${WriteFile} "$INSTDIR\service_installer.bat" "cd $\"$INSTDIR$\""
 		${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd install $\"Noobaa Local Service$\" $\"$INSTDIR\service.bat$\""
-		${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa Local Service$\" AppStderr $\"$INSTDIR\Noobaa_Local_Service.log$\""
-	  ${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa Local Service$\" AppStdout $\"$INSTDIR\Noobaa_Local_Service.log$\""
 		${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd start $\"Noobaa Local Service$\""
 		${WriteFile} "$INSTDIR\service_installer.bat" "echo Agent Installation completed successfully."
 

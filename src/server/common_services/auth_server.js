@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -193,9 +192,8 @@ function create_access_key_auth(req) {
         throw new RpcError('UNAUTHORIZED', 'account not found');
     }
 
-    let s3 = new S3Auth();
     let secret = account.access_keys[0].secret_key.toString();
-    let signature_test = s3.sign(secret, string_to_sign);
+    let signature_test = signature_utils.signature({ string_to_sign: string_to_sign }, secret);
     if (signature_test !== signature) {
         throw new RpcError('UNAUTHORIZED', 'signature error');
     }

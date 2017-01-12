@@ -42,12 +42,12 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILENAME)
     .then(agent_conf_file => {
         address = url.parse(JSON.parse(agent_conf_file).address).host;
         dbg.log0('Starting agent_cli');
-        return promise_utils.fork(CONFIGURATION.AGENT_CLI);
+        return promise_utils.fork(CONFIGURATION.AGENT_CLI, undefined, { stdio: 'ignore' });
     })
     .catch(err => {
         if (err.code && err.code === DUPLICATE_RET_CODE) {
             dbg.log0('Duplicate token');
-            return promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--duplicate']);
+            return promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--duplicate'], { stdio: 'ignore' });
         }
         throw err;
     })

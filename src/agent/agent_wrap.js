@@ -22,21 +22,22 @@ const DUPLICATE_RET_CODE = 68;
 const EXECUTABLE_MOD_VAL = 511;
 
 const CONFIGURATION = {
-    SETUP_FILENAME: WIN_AGENT ? './noobaa-setup.exe' : './noobaa-setup',
+    SETUP_FILENAME: WIN_AGENT ? '/noobaa-setup.exe' : '/noobaa-setup',
     PROCESS_DIR: WIN_AGENT ? 'C:\\noobaa' : '/usr/local/noobaa',
     AGENT_CLI: './src/agent/agent_cli',
     NUM_UPGRADE_WARNINGS: 18,
     TIME_BETWEEN_WARNINGS: 10000,
 };
 
-CONFIGURATION.INSTALLATION_COMMAND = WIN_AGENT ? `${CONFIGURATION.SETUP_FILENAME} + /S` :
-    `setsid ${CONFIGURATION.SETUP_FILENAME} >> /dev/null`;
+CONFIGURATION.INSTALLATION_COMMAND = WIN_AGENT ? `${CONFIGURATION.SETUP_FILE} + /S` :
+    `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
+CONFIGURATION.SETUP_FILE = '.' + CONFIGURATION.SETUP_FILENAME;
 
 process.chdir(path.join(__dirname, '..', '..'));
 
 var address = "";
 
-fs_utils.file_delete(CONFIGURATION.SETUP_FILENAME)
+fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
     .catch(console.error)
     .then(() => fs.readFileAsync('./agent_conf.json'))
     .then(agent_conf_file => {
@@ -55,11 +56,11 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILENAME)
     // It should also upgrade when agent_cli throws,
     // but upgrade needs to be handled better by this script first
     .then(() => {
-        const output = fs.createWriteStream(CONFIGURATION.SETUP_FILENAME);
+        const output = fs.createWriteStream(CONFIGURATION.SETUP_FILE);
         return new P((resolve, reject) => {
-            dbg.log0('Downloading Noobaa agent upgrade package');
+            dbg.log0(`Downloading Noobaa agent upgrade package: https://${address}/public${SETUP_FILENAME}`);
             request.get({
-                    url: `https://${address}/public/noobaa-setup` + WIN_AGENT ? '.exe' : '',
+                    url: `https://${address}/public${SETUP_FILENAME}`,
                     strictSSL: false,
                     timeout: 20000
                 })
@@ -72,12 +73,17 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILENAME)
                 .on('finish', resolve);
         });
     })
-    .then(() => fs.chmodAsync(CONFIGURATION.SETUP_FILENAME, EXECUTABLE_MOD_VAL))
+    .then(() => fs.chmodAsync(CONFIGURATION.SETUP_FILE, EXECUTABLE_MOD_VAL))
     .then(() => P.delay(2000)) // Not sure why this is necessary, but it is.
     .then(() => promise_utils.exec(CONFIGURATION.INSTALLATION_COMMAND))
     .then(() => promise_utils.retry(CONFIGURATION.NUM_UPGRADE_WARNINGS,
         CONFIGURATION.TIME_BETWEEN_WARNINGS, attempts => {
             let msg = `Still upgrading. ${(CONFIGURATION.NUM_UPGRADE_WARNINGS - attempts) * (CONFIGURATION.TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
+            if (attempts !== CONFIGURATION.NUM_UPGRADE_WARNINGS) dbg.warn(msg);
+            throw Error(msg);
+        }))
+    .catch(err => dbg.error(err));
+`;
             if (attempts !== CONFIGURATION.NUM_UPGRADE_WARNINGS) dbg.warn(msg);
             throw Error(msg);
         }))

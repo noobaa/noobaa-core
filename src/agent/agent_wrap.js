@@ -58,9 +58,9 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
     .then(() => {
         const output = fs.createWriteStream(CONFIGURATION.SETUP_FILE);
         return new P((resolve, reject) => {
-            dbg.log0(`Downloading Noobaa agent upgrade package: https://${address}/public${SETUP_FILENAME}`);
+            dbg.log0(`Downloading Noobaa agent upgrade package: https://${address}/public${CONFIGURATION.SETUP_FILENAME}`);
             request.get({
-                    url: `https://${address}/public${SETUP_FILENAME}`,
+                    url: `https://${address}/public${CONFIGURATION.SETUP_FILENAME}`,
                     strictSSL: false,
                     timeout: 20000
                 })
@@ -79,11 +79,6 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
     .then(() => promise_utils.retry(CONFIGURATION.NUM_UPGRADE_WARNINGS,
         CONFIGURATION.TIME_BETWEEN_WARNINGS, attempts => {
             let msg = `Still upgrading. ${(CONFIGURATION.NUM_UPGRADE_WARNINGS - attempts) * (CONFIGURATION.TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
-            if (attempts !== CONFIGURATION.NUM_UPGRADE_WARNINGS) dbg.warn(msg);
-            throw Error(msg);
-        }))
-    .catch(err => dbg.error(err));
-`;
             if (attempts !== CONFIGURATION.NUM_UPGRADE_WARNINGS) dbg.warn(msg);
             throw Error(msg);
         }))

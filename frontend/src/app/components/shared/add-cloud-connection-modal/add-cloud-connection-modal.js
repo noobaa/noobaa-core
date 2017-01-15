@@ -7,7 +7,11 @@ import { deepFreeze } from 'utils/core-utils';
 
 const serviceMapping = deepFreeze({
     AWS: {
-        optionLabel: 'AWS S3',
+        option: {
+            label: 'AWS S3',
+            icon: 'aws-s3-resource-dark',
+            selectedIcon: 'aws-s3-resource-colored'
+        },
         identity: {
             label: 'Access Key',
             placeholder: 'Enter Key',
@@ -22,7 +26,11 @@ const serviceMapping = deepFreeze({
         defaultEndpoint: 'https://s3.amazonaws.com'
     },
     AZURE: {
-        optionLabel: 'Microsoft Azure',
+        option: {
+            label: 'Microsoft Azure',
+            icon: 'azure-resource-dark',
+            selectedIcon: 'azure-resource-colored'
+        },
         identity: {
             label: 'Account Name',
             placeholder: 'Enter Name',
@@ -37,7 +45,11 @@ const serviceMapping = deepFreeze({
         defaultEndpoint: 'https://blob.core.windows.net'
     },
     S3_COMPATIBLE: {
-        optionLabel: 'Generic S3 Compatible Service',
+        option: {
+            label: 'Generic S3 Compatible Service',
+            icon: 'cloud-resource-dark',
+            selectedIcon: 'cloud-resource-colored'
+        },
         identity: {
             label: 'Access Key',
             placeholder: 'Enter Key',
@@ -72,7 +84,7 @@ class AddCloudConnectionModalViewModel extends BaseViewModel {
             }
         );
 
-        let existingNames = ko.pureComputed(
+        const existingNames = ko.pureComputed(
             () => cloudConnections().map(
                 ({ name }) => name
             )
@@ -80,10 +92,10 @@ class AddCloudConnectionModalViewModel extends BaseViewModel {
 
         this.name = ko.observableWithDefault(
             () => {
-                let highest = existingNames()
+                const highest = existingNames()
                     .map(
                         name => {
-                            let match = name.match(/^Connection (\d+)$/);
+                            const match = name.match(/^Connection (\d+)$/);
                             return match ? parseInt(match[1]) : 0;
                         }
                     )
@@ -104,15 +116,17 @@ class AddCloudConnectionModalViewModel extends BaseViewModel {
         });
 
         this.serviceOptions = allowedServices.map(
-            type => ({
-                label: serviceMapping[type].optionLabel,
-                value: type
-            })
+            type => {
+                const { option, defaultEndpoint = 'No default endpoint' } = serviceMapping[type];
+                return Object.assign(
+                    {}, option, { value: type, remark: defaultEndpoint }
+                );
+            }
         );
 
         this.service = ko.observable('AWS');
 
-        let serviceInfo = ko.pureComputed(
+        const serviceInfo = ko.pureComputed(
             () => serviceMapping[this.service()]
         );
 
@@ -132,7 +146,7 @@ class AddCloudConnectionModalViewModel extends BaseViewModel {
             () => serviceInfo().identity.placeholder
         );
 
-        let identityBlackList = ko.pureComputed(
+        const identityBlackList = ko.pureComputed(
             () => cloudConnections().map(
                 ({ endpoint_type, access_key }) => `${endpoint_type}:${access_key}`
             )

@@ -11,25 +11,28 @@ module.exports = {
     id: 'frontend_notifications_api',
 
     methods: {
-        alert: {
+        emit_event: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['severity', 'id'],
+                required: ['event'],
                 properties: {
-                    severity: {
-                        $ref: 'events_api#/definitions/alert_severity_enum'
+                    event: {
+                        enum: ['ALERT', 'CONNECT', 'DISCONNECT', 'CHANGE'],
+                        type: 'string',
                     },
-                    id: {
-                        type: 'integer',
-                    }
+                    args: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    },
                 }
             },
             auth: {
                 system: false
             }
         },
+
     },
-    definitions: {
-    }
+    definitions: {}
 };

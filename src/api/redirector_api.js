@@ -31,14 +31,21 @@ module.exports = {
             }
         },
 
-        register_for_alerts: {
+        register_for_system_events: {
             method: 'POST',
             auth: {
                 system: 'admin'
             }
         },
 
-        unregister_from_alerts: {
+        unregister_from_system_events: {
+            method: 'POST',
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        publish_current_state: {
             method: 'POST',
             auth: {
                 system: 'admin'
@@ -54,6 +61,23 @@ module.exports = {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+
+
+        publish_system_store_change: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    event: {
+                        type: 'string'
                     },
                 }
             },

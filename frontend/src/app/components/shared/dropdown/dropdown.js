@@ -6,8 +6,8 @@ import { isDefined, clamp } from 'utils/core-utils';
 
 const INPUT_THROTTLE = 1000;
 
-function matchByPrefix({ label, value }, input) {
-    return (label || value) .toString().toLowerCase().startsWith(input);
+function matchByPrefix({ label }, input) {
+    return label.toLowerCase().startsWith(input);
 }
 
 class DropdownViewModel extends BaseViewModel {
@@ -22,24 +22,48 @@ class DropdownViewModel extends BaseViewModel {
         super();
 
         this.name = randomString(5);
-        this.options = options;
+        this.options = ko.pureComputed(
+            () => (ko.unwrap(options) || []).map(
+                option => {
+                    // Handle seperators
+                    if (!option) {
+                        return null;
+                    }
+
+                    // Normalize option.
+                    const { value, label = value, remark,
+                        css, icon, selectedIcon, tooltip,
+                        disabled = false } = option;
+
+                    let _icon = icon;
+                    if (selectedIcon) {
+                        _icon = ko.pureComputed(
+                            () => ko.unwrap(
+                                selected() === value ? selectedIcon : icon
+                            )
+                        );
+                    }
+
+                    return { value ,label, remark, css, tooltip,
+                        disabled, icon: _icon };
+                }
+            )
+        );
 
         this.selected = selected;
         this.selectedIndex = ko.pureComputed(
-            () => (ko.unwrap(options) || []).findIndex(
+            () => this.options().findIndex(
                 opt => opt && opt.value === ko.unwrap(selected)
             )
         );
         this.selectedLabel = ko.pureComputed(
             () => {
-                const options = ko.unwrap(this.options);
                 const selected = this.selected();
-
-                const selectedOpt = options && isDefined(selected) ? options.find(
+                const selectedOpt = isDefined(selected) ? this.options().find(
                     opt => !!opt && opt.value === selected
                 ) : null;
 
-                return selectedOpt ? (selectedOpt.label || selectedOpt.value) : ko.unwrap(placeholder);
+                return selectedOpt ? selectedOpt.label : ko.unwrap(placeholder);
             }
         );
 
@@ -65,7 +89,7 @@ class DropdownViewModel extends BaseViewModel {
     }
 
     handleKeyPress({ which }) {
-        const optionsCount = ko.unwrap(this.options).length;
+        const optionsCount = this.options().length;
 
         switch(which) {
             case 9: /* tab */
@@ -115,12 +139,12 @@ class DropdownViewModel extends BaseViewModel {
     }
 
     moveSelectionBy(step) {
-        const options = ko.unwrap(this.options);
+        const options = this.options();
 
         let i = clamp(this.selectedIndex() + step, 0, options.length - 1);
         const dir = clamp(step, -1, 1);
 
-        while (options[i] === null) {
+        while (options[i] === null || options[i].disabled) {
             i += dir;
         }
 
@@ -136,8 +160,9 @@ class DropdownViewModel extends BaseViewModel {
             this.searchInput + char :
             char;
 
-        const option = ko.unwrap(this.options).find(
-            option => option && this.matchOperator(option, this.searchInput)
+        const option = this.options().find(
+            option => option && !option.disabled &&
+                this.matchOperator(option, this.searchInput)
         );
 
         if (option) {

@@ -118,7 +118,10 @@ mocha.describe('system_servers', function() {
                         string_to_sign: 'blabla',
                         signature: 'blibli'
                     }))
-                    .catch(err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED'));
+                    .then(
+                        () => assert.ifError('should fail with UNAUTHORIZED'),
+                        err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED')
+                    );
 
             })
             //////////////

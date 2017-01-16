@@ -73,7 +73,7 @@ function blow_parts(params) {
             parts: _.times(argv.chunks, i => ({
                 start: i * argv.chunk_size,
                 end: (i + 1) * argv.chunk_size,
-                part_sequence_number: i,
+                seq: i,
                 chunk: {
                     size: argv.chunk_size,
                     compress_size: argv.chunk_size,

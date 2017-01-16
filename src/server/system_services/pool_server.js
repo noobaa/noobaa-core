@@ -16,7 +16,7 @@ const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../../util/cloud_utils');
-const history_data_store = require('../analytic_services/history_data_store');
+const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
 
 const POOL_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -259,7 +259,7 @@ function get_associated_buckets(req) {
 
 function get_pool_history(req) {
     let pool_list = req.rpc_params.pool_list;
-    return history_data_store.StatsStore.instance().get_pool_history(pool_list);
+    return HistoryDataStore.instance().get_pool_history(pool_list);
 }
 
 // UTILS //////////////////////////////////////////////////////////

@@ -39,7 +39,7 @@ module.exports = {
         },
         // n2n_config
         // keeps the n2n configuration for agents and other endpoints (see rpc_n2n.js)
-        // we use free mongoose schema, because it's field types are non trivial
+        // we use free schema, because it's field types are non trivial
         // (see n2n_config json schema in common_api.js) and there's no benefit
         // redefining it.
         n2n_config: {

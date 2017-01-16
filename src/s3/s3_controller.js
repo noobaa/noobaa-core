@@ -174,36 +174,34 @@ class S3Controller {
             params.limit = parseInt(req.query['max-keys'], 10) || 1000;
         }
         return req.rpc_client.object.list_objects_s3(params)
-            .then(reply => {
-                return {
-                    ListBucketResult: [{
-                            'Name': req.params.bucket,
-                            'Prefix': req.query.prefix,
-                            'Delimiter': req.query.delimiter,
-                            'MaxKeys': req.query['max-keys'],
-                            'Marker': req.query.marker,
-                            'IsTruncated': reply.is_truncated,
-                            'NextMarker': reply.next_marker,
-                            'Encoding-Type': req.query['encoding-type'],
-                        },
-                        _.map(reply.objects, obj => ({
-                            Contents: {
-                                Key: obj.key,
-                                LastModified: to_s3_date(obj.info.create_time),
-                                ETag: obj.info.etag,
-                                Size: obj.info.size,
-                                Owner: DEFAULT_S3_USER,
-                                StorageClass: STORAGE_CLASS_STANDARD,
-                            }
-                        })),
-                        _.map(reply.common_prefixes, prefix => ({
-                            CommonPrefixes: {
-                                Prefix: prefix || ''
-                            }
-                        }))
-                    ]
-                };
-            });
+            .then(reply => ({
+                ListBucketResult: [{
+                        'Name': req.params.bucket,
+                        'Prefix': req.query.prefix,
+                        'Delimiter': req.query.delimiter,
+                        'MaxKeys': req.query['max-keys'],
+                        'Marker': req.query.marker,
+                        'IsTruncated': reply.is_truncated,
+                        'NextMarker': reply.next_marker,
+                        'Encoding-Type': req.query['encoding-type'],
+                    },
+                    _.map(reply.objects, obj => ({
+                        Contents: {
+                            Key: obj.key,
+                            LastModified: to_s3_date(obj.info.create_time),
+                            ETag: obj.info.etag,
+                            Size: obj.info.size,
+                            Owner: DEFAULT_S3_USER,
+                            StorageClass: STORAGE_CLASS_STANDARD,
+                        }
+                    })),
+                    _.map(reply.common_prefixes, prefix => ({
+                        CommonPrefixes: {
+                            Prefix: prefix || ''
+                        }
+                    }))
+                ]
+            }));
     }
 
 
@@ -231,40 +229,38 @@ class S3Controller {
             params.limit = parseInt(req.query['max-keys'], 10) || 1000;
         }
         return req.rpc_client.object.list_objects_s3(params)
-            .then(reply => {
-                return {
-                    ListVersionsResult: [{
-                            'Name': req.params.bucket,
-                            'Prefix': req.query.prefix,
-                            'Delimiter': req.query.delimiter,
-                            'MaxKeys': req.query['max-keys'],
-                            'KeyMarker': req.query['key-marker'],
-                            'VersionIdMarker': req.query['version-id-marker'],
-                            'IsTruncated': reply.is_truncated,
-                            'NextKeyMarker': reply.next_marker,
-                            // 'NextVersionIdMarker': ...
-                            'Encoding-Type': req.query['encoding-type'],
-                        },
-                        _.map(reply.objects, obj => ({
-                            Version: {
-                                Key: obj.key,
-                                VersionId: '',
-                                IsLatest: true,
-                                LastModified: to_s3_date(obj.info.create_time),
-                                ETag: obj.info.etag,
-                                Size: obj.info.size,
-                                Owner: DEFAULT_S3_USER,
-                                StorageClass: STORAGE_CLASS_STANDARD,
-                            }
-                        })),
-                        _.map(reply.common_prefixes, prefix => ({
-                            CommonPrefixes: {
-                                Prefix: prefix || ''
-                            }
-                        }))
-                    ]
-                };
-            });
+            .then(reply => ({
+                ListVersionsResult: [{
+                        'Name': req.params.bucket,
+                        'Prefix': req.query.prefix,
+                        'Delimiter': req.query.delimiter,
+                        'MaxKeys': req.query['max-keys'],
+                        'KeyMarker': req.query['key-marker'],
+                        'VersionIdMarker': req.query['version-id-marker'],
+                        'IsTruncated': reply.is_truncated,
+                        'NextKeyMarker': reply.next_marker,
+                        // 'NextVersionIdMarker': ...
+                        'Encoding-Type': req.query['encoding-type'],
+                    },
+                    _.map(reply.objects, obj => ({
+                        Version: {
+                            Key: obj.key,
+                            VersionId: '',
+                            IsLatest: true,
+                            LastModified: to_s3_date(obj.info.create_time),
+                            ETag: obj.info.etag,
+                            Size: obj.info.size,
+                            Owner: DEFAULT_S3_USER,
+                            StorageClass: STORAGE_CLASS_STANDARD,
+                        }
+                    })),
+                    _.map(reply.common_prefixes, prefix => ({
+                        CommonPrefixes: {
+                            Prefix: prefix || ''
+                        }
+                    }))
+                ]
+            }));
     }
 
 
@@ -291,37 +287,35 @@ class S3Controller {
             params.limit = parseInt(req.query['max-uploads'], 10) || 1000;
         }
         return req.rpc_client.object.list_objects_s3(params)
-            .then(reply => {
-                return {
-                    ListMultipartUploadsResult: [{
-                            'Bucket': req.params.bucket,
-                            'Prefix': req.query.prefix,
-                            'Delimiter': req.query.delimiter,
-                            'MaxUploads': req.query['max-uploads'],
-                            'KeyMarker': req.query['key-marker'],
-                            'UploadIdMarker': req.query['upload-id-marker'],
-                            'IsTruncated': reply.is_truncated,
-                            'NextKeyMarker': reply.next_marker,
-                            'Encoding-Type': req.query['encoding-type'],
-                        },
-                        _.map(reply.objects, obj => ({
-                            Upload: {
-                                Key: obj.key,
-                                UploadId: obj.info.version_id,
-                                Initiated: to_s3_date(obj.info.upload_started),
-                                Initiator: DEFAULT_S3_USER,
-                                Owner: DEFAULT_S3_USER,
-                                StorageClass: STORAGE_CLASS_STANDARD,
-                            }
-                        })),
-                        _.map(reply.common_prefixes, prefix => ({
-                            CommonPrefixes: {
-                                Prefix: prefix || ''
-                            }
-                        }))
-                    ]
-                };
-            });
+            .then(reply => ({
+                ListMultipartUploadsResult: [{
+                        'Bucket': req.params.bucket,
+                        'Prefix': req.query.prefix,
+                        'Delimiter': req.query.delimiter,
+                        'MaxUploads': req.query['max-uploads'],
+                        'KeyMarker': req.query['key-marker'],
+                        'UploadIdMarker': req.query['upload-id-marker'],
+                        'IsTruncated': reply.is_truncated,
+                        'NextKeyMarker': reply.next_marker,
+                        'Encoding-Type': req.query['encoding-type'],
+                    },
+                    _.map(reply.objects, obj => ({
+                        Upload: {
+                            Key: obj.key,
+                            UploadId: obj.info.version_id,
+                            Initiated: to_s3_date(obj.info.upload_started),
+                            Initiator: DEFAULT_S3_USER,
+                            Owner: DEFAULT_S3_USER,
+                            StorageClass: STORAGE_CLASS_STANDARD,
+                        }
+                    })),
+                    _.map(reply.common_prefixes, prefix => ({
+                        CommonPrefixes: {
+                            Prefix: prefix || ''
+                        }
+                    }))
+                ]
+            }));
     }
 
 
@@ -366,28 +360,25 @@ class S3Controller {
      */
     post_bucket_delete(req) {
         this.usage_report.s3_usage_info.post_bucket_delete += 1;
-        return P.ninvoke(xml2js, 'parseString', req.body)
-            .then(function(data) {
-                var objects_to_delete = data.Delete.Object;
-                dbg.log3('Delete objects "%s" in bucket "%s"', JSON.stringify(objects_to_delete), req.params.bucket);
-                let keys = _.map(objects_to_delete, object_to_delete => object_to_delete.Key[0]);
-                dbg.log3('calling delete_multiple_objects: keys=', keys);
-                return req.rpc_client.object.delete_multiple_objects({
-                    bucket: req.params.bucket,
-                    keys: keys
-                }).then(reply => {
-                    var response = {
-                        DeleteResult: [{},
-                            _.map(keys, obj => ({
-                                Deleted: {
-                                    Key: obj,
-                                }
-                            }), {})
-                        ]
-                    };
-                    return response;
-                });
-            });
+        let keys;
+        return P.fromCallback(callback => xml2js.parseString(req.body, callback))
+            .then(data => {
+                keys = _.map(data.Delete.Object, obj => obj.Key[0]);
+                dbg.log3('post_bucket_delete: keys', keys);
+            })
+            .then(() => req.rpc_client.object.delete_multiple_objects({
+                bucket: req.params.bucket,
+                keys: keys
+            }))
+            .then(reply => ({
+                DeleteResult: [
+                    _.map(keys, key => ({
+                        Deleted: {
+                            Key: key,
+                        }
+                    }))
+                ]
+            }));
     }
 
 
@@ -400,19 +391,17 @@ class S3Controller {
         return req.rpc_client.bucket.read_bucket({
                 name: req.params.bucket
             })
-            .then(bucket_info => {
-                return {
-                    AccessControlPolicy: {
-                        Owner: DEFAULT_S3_USER,
-                        AccessControlList: [{
-                            Grant: {
-                                Grantee: DEFAULT_S3_USER,
-                                Permission: 'FULL_CONTROL'
-                            }
-                        }]
-                    }
-                };
-            });
+            .then(bucket_info => ({
+                AccessControlPolicy: {
+                    Owner: DEFAULT_S3_USER,
+                    AccessControlList: [{
+                        Grant: {
+                            Grantee: DEFAULT_S3_USER,
+                            Permission: 'FULL_CONTROL'
+                        }
+                    }]
+                }
+            }));
     }
 
 
@@ -434,11 +423,9 @@ class S3Controller {
         return req.rpc_client.bucket.read_bucket({
                 name: req.params.bucket
             })
-            .then(bucket_info => {
-                return {
-                    LocationConstraint: ''
-                };
-            });
+            .then(bucket_info => ({
+                LocationConstraint: ''
+            }));
     }
 
 
@@ -485,8 +472,7 @@ class S3Controller {
                 let object_md = req.object_md;
                 let params = this._object_path(req);
                 params.client = req.rpc_client;
-                let code = this.object_io.serve_http_stream(
-                    req, res, params, object_md);
+                let code = this.object_io.serve_http_stream(req, res, params, object_md);
                 switch (code) {
                     case 400:
                         throw s3_errors.InvalidArgument;
@@ -518,36 +504,17 @@ class S3Controller {
             client: req.rpc_client,
             bucket: req.params.bucket,
             key: req.params.key,
-            size: req.content_length,
             content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
             source_stream: req,
-            calculate_md5: true,
-            calculate_sha256: !_.isUndefined(req.content_sha256)
         };
+        if (req.content_length >= 0) params.size = req.content_length;
+        if (req.content_md5) params.md5_b64 = req.content_md5.toString('base64');
+        if (req.content_sha256) params.sha256_b64 = req.content_sha256.toString('base64');
         this._set_md_conditions(req, params, 'overwrite_if');
-        return this.object_io.upload_stream(params)
-            .then(md5_digest => {
-                let etag = md5_digest.md5.toString('hex');
-                res.setHeader('ETag', '"' + etag + '"');
-                if (req.content_md5) {
-                    if (Buffer.compare(md5_digest.md5, req.content_md5)) {
-                        // TODO GGG how to handle? delete the object?
-                        dbg.error('S3Controller.put_object: BadDigest',
-                            'content-md5', req.content_md5.toString('hex'),
-                            'etag', etag);
-                        throw s3_errors.BadDigest;
-                    }
-                }
-                if (req.content_sha256) {
-                    if (Buffer.compare(md5_digest.sha256, req.content_sha256)) {
-                        // TODO GGG how to handle? delete the object?
-                        dbg.error('S3Controller.put_object: BadDigest',
-                            'content-sha256', req.content_sha256.toString('hex'),
-                            'etag', md5_digest.sha256.toString('hex'));
-                        throw s3_errors.BadDigest;
-                    }
-                }
+        return this.object_io.upload_object(params)
+            .then(reply => {
+                res.setHeader('ETag', '"' + reply.etag + '"');
             });
     }
 
@@ -580,14 +547,12 @@ class S3Controller {
         this._set_md_conditions(req, params, 'overwrite_if');
         this._set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
         return req.rpc_client.object.copy_object(params)
-            .then(reply => {
-                return {
-                    CopyObjectResult: {
-                        LastModified: to_s3_date(reply.source_md.create_time),
-                        ETag: '"' + reply.source_md.etag + '"'
-                    }
-                };
-            });
+            .then(reply => ({
+                CopyObjectResult: {
+                    LastModified: to_s3_date(reply.source_md.create_time),
+                    ETag: '"' + reply.source_md.etag + '"'
+                }
+            }));
     }
 
 
@@ -613,19 +578,17 @@ class S3Controller {
     get_object_acl(req) {
         this.usage_report.s3_usage_info.get_object_acl += 1;
         return req.rpc_client.object.read_object_md(this._object_path(req))
-            .then(object_md => {
-                return {
-                    AccessControlPolicy: {
-                        Owner: DEFAULT_S3_USER,
-                        AccessControlList: [{
-                            Grant: {
-                                Grantee: DEFAULT_S3_USER,
-                                Permission: 'FULL_CONTROL'
-                            }
-                        }]
-                    }
-                };
-            });
+            .then(object_md => ({
+                AccessControlPolicy: {
+                    Owner: DEFAULT_S3_USER,
+                    AccessControlList: [{
+                        Grant: {
+                            Grantee: DEFAULT_S3_USER,
+                            Permission: 'FULL_CONTROL'
+                        }
+                    }]
+                }
+            }));
     }
 
 
@@ -650,24 +613,21 @@ class S3Controller {
      */
     post_object_uploads(req) {
         this.usage_report.s3_usage_info.post_object_uploads += 1;
-        let params = {
+        const params = {
             bucket: req.params.bucket,
             key: req.params.key,
-            size: req.content_length || 0,
             content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
         };
         this._set_md_conditions(req, params, 'overwrite_if');
         return req.rpc_client.object.create_object_upload(params)
-            .then(reply => {
-                return {
-                    InitiateMultipartUploadResult: {
-                        Bucket: req.params.bucket,
-                        Key: req.params.key,
-                        UploadId: reply.upload_id
-                    }
-                };
-            });
+            .then(reply => ({
+                InitiateMultipartUploadResult: {
+                    Bucket: req.params.bucket,
+                    Key: req.params.key,
+                    UploadId: reply.upload_id
+                }
+            }));
     }
 
 
@@ -677,23 +637,24 @@ class S3Controller {
      */
     post_object_uploadId(req) {
         this.usage_report.s3_usage_info.post_object_uploadId += 1;
-        return req.rpc_client.object.complete_object_upload({
+        return P.fromCallback(callback => xml2js.parseString(req.body, callback))
+            .then(data => req.rpc_client.object.complete_object_upload({
                 bucket: req.params.bucket,
                 key: req.params.key,
                 upload_id: req.query.uploadId,
-                fix_parts_size: true,
-                etag: '',
-            })
-            .then(reply => {
-                return {
-                    CompleteMultipartUploadResult: {
-                        Bucket: req.params.bucket,
-                        Key: req.params.key,
-                        ETag: reply.etag,
-                        Location: req.originalUrl,
-                    }
-                };
-            });
+                multiparts: _.map(_.get(data, 'CompleteMultipartUpload.Part'), multipart => ({
+                    num: multipart.PartNumber[0],
+                    etag: multipart.ETag[0],
+                }))
+            }))
+            .then(reply => ({
+                CompleteMultipartUploadResult: {
+                    Bucket: req.params.bucket,
+                    Key: req.params.key,
+                    ETag: reply.etag,
+                    Location: req.originalUrl,
+                }
+            }));
 
     }
 
@@ -713,120 +674,98 @@ class S3Controller {
 
 
     /**
-     * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListParts.html
-     * (aka list multipart upload parts)
-     */
-    get_object_uploadId(req) {
-        this.usage_report.s3_usage_info.get_object_uploadId += 1;
-        let part_number_marker = parseInt(req.query['part-number-marker'], 10) || 1;
-        let max_parts = parseInt(req.query['max-parts'], 10) || 1000;
-        return req.rpc_client.object.list_multipart_parts({
-                bucket: req.params.bucket,
-                key: req.params.key,
-                upload_id: req.query.uploadId,
-                part_number_marker: part_number_marker,
-                max_parts: max_parts,
-            })
-            .then(reply => {
-                return {
-                    ListPartsResult: [{
-                            Bucket: req.params.bucket,
-                            Key: req.params.key,
-                            UploadId: reply.uploadId,
-                            Initiator: DEFAULT_S3_USER,
-                            Owner: DEFAULT_S3_USER,
-                            StorageClass: STORAGE_CLASS_STANDARD,
-                            PartNumberMarker: part_number_marker,
-                            MaxParts: max_parts,
-                            NextPartNumberMarker: reply.next_part_number_marker,
-                            IsTruncated: reply.is_truncated,
-                        },
-                        _.map(reply.upload_parts, part => ({
-                            Part: {
-                                PartNumber: part.part_number,
-                                Size: part.size,
-                                ETag: part.etag,
-                                LastModified: to_s3_date(part.last_modified),
-                            }
-                        }))
-                    ]
-                };
-            });
-    }
-
-
-    /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
      * (aka upload part)
      */
     put_object_uploadId(req, res) {
         this.usage_report.s3_usage_info.put_object_uploadId += 1;
-        let upload_part_number = parseInt(req.query.partNumber, 10);
+        const num = Number(req.query.partNumber);
+        if (!_.isInteger(num) || num < 1 || num > 10000) throw s3_errors.InvalidArgument;
 
         // TODO GGG IMPLEMENT COPY PART
-        let copy_source = req.headers['x-amz-copy-source'];
+        const copy_source = req.headers['x-amz-copy-source'];
         if (copy_source) {
             // return req.rpc_client.object.copy_part({});
             throw s3_errors.NotImplemented;
         }
 
-        return this.object_io.upload_stream_parts({
-                client: req.rpc_client,
-                bucket: req.params.bucket,
-                key: req.params.key,
-                upload_id: req.query.uploadId,
-                upload_part_number: upload_part_number,
-                size: req.content_length,
-                source_stream: req,
-                calculate_md5: true,
-                calculate_sha256: !_.isUndefined(req.content_sha256)
-            })
-            .then(md5_digest => {
-                let etag = md5_digest.md5.toString('hex');
-                //let etag_sha256 = md5_digest.sha256.toString('hex');
-
-                res.setHeader('ETag', '"' + etag + '"');
-                if (req.content_md5) {
-                    if (Buffer.compare(md5_digest.md5, req.content_md5)) {
-                        // TODO GGG how to handle? delete the object?
-                        dbg.error('S3Controller.put_object_uploadId: BadDigest',
-                            'content-md5', req.content_md5.toString('hex'),
-                            'etag', etag);
-                        throw s3_errors.BadDigest;
-                    }
-                }
-                if (req.content_sha256) {
-                    if (Buffer.compare(md5_digest.sha256, req.content_sha256)) {
-                        // TODO GGG how to handle? delete the object?
-                        dbg.error('S3Controller.put_object: BadDigest',
-                            'content-sha256', req.content_sha256.toString('hex'),
-                            'etag', md5_digest.sha256.toString('hex'));
-                        throw s3_errors.BadDigest;
-                    }
-                }
-                return req.rpc_client.object.complete_part_upload({
-                    bucket: req.params.bucket,
-                    key: req.params.key,
-                    upload_id: req.query.uploadId,
-                    upload_part_number: upload_part_number,
-                    etag: etag
-                });
+        const params = {
+            client: req.rpc_client,
+            bucket: req.params.bucket,
+            key: req.params.key,
+            upload_id: req.query.uploadId,
+            num: num,
+            source_stream: req,
+        };
+        if (req.content_length >= 0) params.size = req.content_length;
+        if (req.content_md5) params.md5_b64 = req.content_md5.toString('base64');
+        if (req.content_sha256) params.sha256_b64 = req.content_sha256.toString('base64');
+        return this.object_io.upload_multipart(params)
+            .then(reply => {
+                res.setHeader('ETag', '"' + reply.etag + '"');
             });
     }
 
 
-    put_bucket_lifecycle(req) {
-        // <Rule>
-        //     <ID>id2</ID>
-        //     <Prefix>logs/</Prefix>
-        //     <Status>Enabled</Status>
-        //    <Expiration>
-        //      <Days>365</Days>
-        //    </Expiration>
-        //  </Rule>
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListParts.html
+     * (aka list multipart upload parts)
+     */
+    get_object_uploadId(req) {
+        this.usage_report.s3_usage_info.get_object_uploadId += 1;
+        const max = Number(req.query['max-parts']);
+        const num_marker = Number(req.query['part-number-marker']);
+        if (!_.isInteger(max) || max < 0) throw s3_errors.InvalidArgument;
+        if (!_.isInteger(num_marker) || num_marker < 1 || num_marker > 10000) throw s3_errors.InvalidArgument;
 
-        return P.ninvoke(xml2js, 'parseString', req.body)
-            .then(function(data) {
+        return req.rpc_client.object.list_multiparts({
+                bucket: req.params.bucket,
+                key: req.params.key,
+                upload_id: req.query.uploadId,
+                max: Math.min(max, 1000),
+                num_marker,
+            })
+            .then(reply => ({
+                ListPartsResult: [{
+                        Bucket: req.params.bucket,
+                        Key: req.params.key,
+                        UploadId: req.query.uploadId,
+                        Initiator: DEFAULT_S3_USER,
+                        Owner: DEFAULT_S3_USER,
+                        StorageClass: STORAGE_CLASS_STANDARD,
+                        MaxParts: max,
+                        PartNumberMarker: num_marker,
+                        IsTruncated: reply.is_truncated,
+                        NextPartNumberMarker: reply.next_num_marker,
+                    },
+                    _.map(reply.multiparts, part => ({
+                        Part: {
+                            PartNumber: part.num,
+                            Size: part.size,
+                            ETag: part.etag,
+                            LastModified: to_s3_date(part.last_modified),
+                        }
+                    }))
+                ]
+            }));
+    }
+
+
+    ///////////////
+    // LIFECYCLE //
+    ///////////////
+
+    put_bucket_lifecycle(req) {
+        return P.fromCallback(callback => xml2js.parseString(req.body, callback))
+            .then(data => {
+                // <Rule>
+                //     <ID>id2</ID>
+                //     <Prefix>logs/</Prefix>
+                //     <Status>Enabled</Status>
+                //    <Expiration>
+                //      <Days>365</Days>
+                //    </Expiration>
+                //  </Rule>
                 //var lifecycle_rules = data.LifecycleConfiguration.Rule;
                 var lifecycle_rules = [];
                 _.each(data.LifecycleConfiguration.Rule, rule => {
@@ -896,48 +835,43 @@ class S3Controller {
                     });
             });
     }
+
     get_bucket_lifecycle(req) {
         let params = {
             name: req.params.bucket
         };
         return req.rpc_client.bucket.get_bucket_lifecycle_configuration_rules(params)
-            .then((reply) => {
-                    let res = {
-                        LifecycleConfiguration: [
-                            _.map(reply, rule => ({
-                                Rule: {
-                                    ID: rule.id,
-                                    Prefix: rule.prefix,
-                                    Status: rule.status,
-                                    Transition: rule.transition ? {
-                                        Days: rule.transition.days,
-                                        StorageClass: rule.transition.storage_class,
-                                    } : null,
-                                    Expiration: rule.expiration ? (rule.expiration.days ? {
-                                        Days: rule.expiration.days,
-                                        ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ?
-                                            rule.expiration.expired_object_delete_marker : null
-                                    } : {
-                                        Date: rule.expiration.date,
-                                        ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ?
-                                            rule.expiration.expired_object_delete_marker : null
-                                    }) : null,
-                                    NoncurrentVersionTransition: rule.noncurrent_version_transition ? {
-                                        NoncurrentDays: rule.noncurrent_version_transition.noncurrent_days,
-                                        StorageClass: rule.noncurrent_version_transition.storage_class,
-                                    } : null,
-                                    NoncurrentVersionExpiration: rule.noncurrent_version_expiration ? {
-                                        NoncurrentDays: rule.noncurrent_version_expiration.noncurrent_days,
-                                    } : null,
-                                }
-                            }))
-                        ]
-                    };
-                    return res;
-                }
-
-            );
-
+            .then(reply => ({
+                LifecycleConfiguration: [
+                    _.map(reply, rule => ({
+                        Rule: {
+                            ID: rule.id,
+                            Prefix: rule.prefix,
+                            Status: rule.status,
+                            Transition: rule.transition ? {
+                                Days: rule.transition.days,
+                                StorageClass: rule.transition.storage_class,
+                            } : null,
+                            Expiration: rule.expiration ? (rule.expiration.days ? {
+                                Days: rule.expiration.days,
+                                ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ?
+                                    rule.expiration.expired_object_delete_marker : null
+                            } : {
+                                Date: rule.expiration.date,
+                                ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ?
+                                    rule.expiration.expired_object_delete_marker : null
+                            }) : null,
+                            NoncurrentVersionTransition: rule.noncurrent_version_transition ? {
+                                NoncurrentDays: rule.noncurrent_version_transition.noncurrent_days,
+                                StorageClass: rule.noncurrent_version_transition.storage_class,
+                            } : null,
+                            NoncurrentVersionExpiration: rule.noncurrent_version_expiration ? {
+                                NoncurrentDays: rule.noncurrent_version_expiration.noncurrent_days,
+                            } : null,
+                        }
+                    }))
+                ]
+            }));
     }
 
 
@@ -1025,7 +959,7 @@ class S3Controller {
                         last_updated: new Date(),
                     };
                 })
-                .catch((err) => {
+                .catch(err => {
                     console.error('Error Updating S3 Usage Report', err);
                 });
         }

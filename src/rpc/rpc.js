@@ -620,7 +620,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
                 // then this path will be called again from there,
                 // so no need to loop and retry from here.
                 dbg.warn('RPC RECONNECT FAILED', addr_url.href,
-                    'reconn_backoff', reconn_backoff.toFixed(0), err);
+                    'reconn_backoff', reconn_backoff.toFixed(0), err.message);
             });
     }, reconn_backoff);
 };

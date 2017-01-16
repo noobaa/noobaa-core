@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // we populate the exports object but prefer to keep name referencing
@@ -38,12 +39,14 @@ config.CLOUD_AGENTS_N2N_PORT = 60100;
 ///////////////
 
 config.S3_FORKS_ENABLED = true;
+config.TIME_SKEW_MAX_SECONDS = 15 * 60;
 
 ///////////////
 // MD CONFIG //
 ///////////////
 
-config.DEDUP_ENABLED = true;
+// TODO DEDUP is temporarily disabled for capacity. Will enable once resolving the issues.
+config.DEDUP_ENABLED = false;
 
 ///////////////
 // IO CONFIG //
@@ -63,7 +66,7 @@ config.IO_REPLICATE_CONCURRENCY = 256;
 config.IO_READ_CONCURRENCY = 256;
 config.IO_READ_RANGE_CONCURRENCY = 32;
 
-config.IO_STREAM_CHUNK_SIZE = 128 * 1024 * 1024;
+config.IO_STREAM_SPLIT_SIZE = 32 * 1024 * 1024;
 config.IO_OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
 config.IO_HTTP_PART_ALIGN = 32 * 1024 * 1024;
 config.IO_HTTP_TRUNCATE_PART_SIZE = false;
@@ -72,13 +75,11 @@ config.IO_HTTP_TRUNCATE_PART_SIZE = false;
 // REBUILD CONFIG //
 ////////////////////
 
-config.REBUILD_BATCH_SIZE = 100;
-config.REBUILD_BATCH_DELAY = 50;
+config.REBUILD_BATCH_SIZE = 20;
+config.REBUILD_BATCH_DELAY = 75;
 config.REBUILD_BATCH_ERROR_DELAY = 3000;
-config.REBUILD_LAST_BUILD_BACKOFF = 1 * 60000; // TODO increase?
-config.REBUILD_BUILDING_MODE_BACKOFF = 5 * 60000; // TODO increase?
 
-config.REBUILD_NODE_CONCURRENCY = 5;
+config.REBUILD_NODE_CONCURRENCY = 3;
 config.REBUILD_NODE_OFFLINE_GRACE = 5 * 60000;
 
 config.SCRUBBER_ENABLED = true;

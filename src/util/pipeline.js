@@ -1,12 +1,9 @@
-// module targets: nodejs & browserify
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var P = require('../util/promise');
-
-
-module.exports = Pipeline;
-
+const _ = require('lodash');
+const P = require('../util/promise');
+const stream = require('stream');
 
 /**
  *
@@ -15,39 +12,41 @@ module.exports = Pipeline;
  * Create a pipeline of transforming streams
  *
  */
-function Pipeline(source_stream) {
-    this._last = source_stream;
-    this._queue = [source_stream];
-    this._defer = P.defer();
+class Pipeline {
+
+    constructor() {
+        this._line = [];
+        this._promise = new P((resolve, reject) => {
+            this._resolve = resolve;
+            this._reject = reject;
+        });
+    }
+
+    pipe(next) {
+        next.once('close', () => this.close());
+        next.on('error', err => this.close(err));
+        const last = _.last(this._line);
+        if (last) last.pipe(next);
+        this._line.push(next);
+        return this;
+    }
+
+    promise() {
+        const last = _.last(this._line);
+        if (last instanceof stream.Writable) {
+            last.on('finish', () => this._resolve());
+        } else if (last instanceof stream.Readable) {
+            last.on('end', () => this._resolve());
+        }
+        return this._promise;
+    }
+
+    close(err) {
+        err = err || new Error('pipeline closed');
+        this._reject(err);
+        _.each(this._line, strm => strm.emit('close'));
+    }
+
 }
 
-Pipeline.prototype.pipe = function(next) {
-    next.on('error', this.on_error.bind(this));
-    next.on('close', this.on_close.bind(this));
-    this._last = this._last.pipe(next);
-    this._queue.push(next);
-    return this;
-};
-
-Pipeline.prototype.run = function() {
-    var self = this;
-    self._last.on('finish', function() {
-        self._defer.resolve();
-    });
-    self._last = null;
-    return self._defer.promise;
-};
-
-Pipeline.prototype.on_error = function(err) {
-    this._defer.reject(err);
-    _.each(this._queue, function(strm) {
-        strm.emit('close');
-    });
-};
-
-Pipeline.prototype.on_close = function() {
-    this._defer.reject(new Error('pipeline closed'));
-    _.each(this._queue, function(strm) {
-        strm.emit('close');
-    });
-};
+module.exports = Pipeline;

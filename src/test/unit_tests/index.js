@@ -1,21 +1,24 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
-/**
- * CORE
- */
+// setup coretest first to prepare the env
+const coretest = require('./coretest');
+coretest.setup({
+    incomplete_rpc_coverage: 'show'
+});
 
-require('./coretest').set_incomplete_rpc_coverage('show');
+// CORE
 require('./test_system_servers');
 require('./test_node_server');
 require('./test_agent');
 require('./test_object_io');
 require('./test_map_utils');
 require('./test_s3_list_objects');
+require('./test_md_store');
+require('./test_nodes_store');
+require('./test_system_store');
 
-/**
- * UTILS
- */
-
+// UTILS
 // require('./test_debug_module');
 require('./test_job_queue');
 require('./test_linked_list');

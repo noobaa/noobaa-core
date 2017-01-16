@@ -36,8 +36,6 @@ const express_favicon = require('serve-favicon');
 const express_compress = require('compression');
 const express_body_parser = require('body-parser');
 const express_morgan_logger = require('morgan');
-const express_cookie_parser = require('cookie-parser');
-const express_cookie_session = require('cookie-session');
 const express_method_override = require('method-override');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -175,61 +173,18 @@ app.use(function(req, res, next) {
     }
 });
 app.use(express_method_override());
-app.use(express_cookie_parser(process.env.COOKIE_SECRET));
-app.use(use_exclude('/s3', express_body_parser.json()));
-app.use(use_exclude('/s3', express_body_parser.raw()));
-app.use(use_exclude('/s3', express_body_parser.text()));
-app.use(use_exclude('/s3', express_body_parser.urlencoded({
+app.use(express_body_parser.json());
+app.use(express_body_parser.raw());
+app.use(express_body_parser.text());
+app.use(express_body_parser.urlencoded({
     extended: false
-})));
-app.use(express_cookie_session({
-    keys: ['noobaa_session'],
-    secret: process.env.COOKIE_SECRET,
-    // TODO: setting max-age for all sessions although we prefer only for /auth.html
-    // but express/connect seems broken to accept individual session maxAge,
-    // although documented to work. people also report it fails.
-    maxage: 356 * 24 * 60 * 60 * 1000 // 1 year
 }));
 app.use(express_compress());
 
-function use_exclude(route_path, middleware) {
-    return function(req, res, next) {
-        if (_.startsWith(req.path, route_path)) {
-            return next();
-        } else {
-            return middleware(req, res, next);
-        }
-    };
-}
-
-
-////////////
-// S3 APP //
-////////////
-
-//app.use('/s3', s3app({}));
 
 ////////////
 // ROUTES //
 ////////////
-
-// agent package json
-app.get('/agent/package.json', function(req, res) {
-    res.status(200).send({
-        name: 'agent',
-        engines: {
-            node: '6.9.1'
-        },
-        scripts: {
-            start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
-                ' --prod --address wss://' + req.get('host')
-        },
-        dependencies: {
-            'noobaa-agent': req.protocol + '://' + req.get('host') + '/public/noobaa-agent.tar.gz'
-        }
-    });
-});
-
 
 // setup pages
 

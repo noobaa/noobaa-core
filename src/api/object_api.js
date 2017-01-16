@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 /**
@@ -28,9 +29,6 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
-                    size: {
-                        type: 'integer',
-                    },
                     content_type: {
                         type: 'string',
                     },
@@ -40,7 +38,16 @@ module.exports = {
                     overwrite_if: {
                         // conditions on target key if exists
                         $ref: '#/definitions/md_conditions',
-                    }
+                    },
+                    size: {
+                        type: 'integer',
+                    },
+                    md5_b64: {
+                        type: 'string'
+                    },
+                    sha256_b64: {
+                        type: 'string'
+                    },
                 }
             },
             reply: {
@@ -76,11 +83,35 @@ module.exports = {
                     upload_id: {
                         type: 'string',
                     },
-                    fix_parts_size: {
-                        type: 'boolean',
+                    size: {
+                        type: 'integer',
+                    },
+                    md5_b64: {
+                        type: 'string'
+                    },
+                    sha256_b64: {
+                        type: 'string'
+                    },
+                    num_parts: {
+                        type: 'integer',
                     },
                     etag: {
                         type: 'string',
+                    },
+                    multiparts: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['num', 'etag'],
+                            properties: {
+                                num: {
+                                    type: 'integer'
+                                },
+                                etag: {
+                                    type: 'string'
+                                },
+                            }
+                        }
                     }
                 }
             },
@@ -124,7 +155,113 @@ module.exports = {
             }
         },
 
-        list_multipart_parts: {
+        create_multipart: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'key',
+                    'upload_id',
+                    'num'
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    upload_id: {
+                        type: 'string',
+                    },
+                    num: {
+                        type: 'integer',
+                    },
+                    size: {
+                        type: 'integer',
+                    },
+                    md5_b64: {
+                        type: 'string'
+                    },
+                    sha256_b64: {
+                        type: 'string'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['multipart_id'],
+                properties: {
+                    multipart_id: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        complete_multipart: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'key',
+                    'upload_id',
+                    'num',
+                    'multipart_id',
+                    'size',
+                    'md5_b64',
+                    'num_parts',
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    upload_id: {
+                        type: 'string',
+                    },
+                    num: {
+                        type: 'integer',
+                    },
+                    multipart_id: {
+                        type: 'string',
+                    },
+                    size: {
+                        type: 'integer',
+                    },
+                    md5_b64: {
+                        type: 'string'
+                    },
+                    sha256_b64: {
+                        type: 'string'
+                    },
+                    num_parts: {
+                        type: 'integer'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['etag'],
+                properties: {
+                    etag: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        list_multiparts: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -143,10 +280,10 @@ module.exports = {
                     upload_id: {
                         type: 'string',
                     },
-                    part_number_marker: {
+                    max: {
                         type: 'integer',
                     },
-                    max_parts: {
+                    num_marker: {
                         type: 'integer',
                     },
                 }
@@ -154,32 +291,28 @@ module.exports = {
             reply: {
                 type: 'object',
                 required: [
-                    'part_number_marker',
-                    'max_parts',
                     'is_truncated',
-                    'next_part_number_marker',
-                    'upload_parts'
+                    'multiparts',
                 ],
                 properties: {
-                    part_number_marker: {
-                        type: 'integer',
-                    },
-                    max_parts: {
-                        type: 'integer',
-                    },
                     is_truncated: {
                         type: 'boolean',
                     },
-                    next_part_number_marker: {
+                    next_num_marker: {
                         type: 'integer',
                     },
-                    upload_parts: {
+                    multiparts: {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['part_number', 'size', 'etag', 'last_modified'],
+                            required: [
+                                'num',
+                                'size',
+                                'etag',
+                                'last_modified',
+                            ],
                             properties: {
-                                part_number: {
+                                num: {
                                     type: 'integer'
                                 },
                                 size: {
@@ -190,43 +323,9 @@ module.exports = {
                                 },
                                 last_modified: {
                                     format: 'idate'
-                                }
+                                },
                             }
                         }
-                    }
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
-        complete_part_upload: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: [
-                    'bucket',
-                    'key',
-                    'upload_id',
-                    'upload_part_number',
-                    'etag'
-                ],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    upload_id: {
-                        type: 'string',
-                    },
-                    upload_part_number: {
-                        type: 'integer',
-                    },
-                    etag: {
-                        type: 'string',
                     }
                 }
             },
@@ -969,11 +1068,11 @@ module.exports = {
                 end: {
                     type: 'integer',
                 },
-                upload_part_number: {
+                seq: {
                     type: 'integer',
                 },
-                part_sequence_number: {
-                    type: 'integer',
+                multipart_id: {
+                    type: 'string',
                 },
                 chunk_offset: {
                     type: 'integer',

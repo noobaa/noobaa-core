@@ -21,7 +21,7 @@ const icons = deepFreeze({
         css: 'warning'
     },
     warning: {
-        name: 'notif-warning',
+        name: 'problem',
         css: 'warning'
     },
     unavailable: {

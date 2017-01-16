@@ -62,6 +62,16 @@ const stateMapping = deepFreeze({
         css: 'success',
         text: 'Online'
     },
+    LOW_CAPACITY: {
+        icon: 'problem',
+        css: 'warning',
+        text: 'Available capacity is low'
+    },
+    NO_CAPACITY: {
+        icon: 'problem',
+        css: 'warning',
+        text: 'No available capacity'
+    },
     OPTIMAL: {
         icon: 'healthy',
         css: 'success',
@@ -148,6 +158,18 @@ const accessibilityMapping = deepFreeze({
         css: 'error',
         access: 'No Access:',
         reason: 'Read/Write problems'
+    },
+    LOW_CAPACITY: {
+        icon: 'healthy',
+        css: 'success',
+        access: 'Readable & Writable',
+        reason: ''
+    },
+    NO_CAPACITY: {
+        icon: 'healthy',
+        css: 'success',
+        access: 'Readable & Writable',
+        reason: ''
     },
     OPTIMAL: {
         icon: 'healthy',

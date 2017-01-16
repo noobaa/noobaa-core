@@ -1,7 +1,7 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deletePool } from 'actions';
-import { getPoolStateIcon } from 'utils/ui-utils';
+import { getPoolStateIcon, getPoolCapacityBarValues } from 'utils/ui-utils';
 
 export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool, deleteGroup, poolsToBuckets) {
@@ -30,8 +30,8 @@ export default class PoolRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                let buckets = poolsToBuckets()[pool().name] || [];
-                let count = buckets.length;
+                const buckets = poolsToBuckets()[pool().name] || [];
+                const count = buckets.length;
 
                 return {
                     text: `${count} bucket${count != 1 ? 's' : ''}`,
@@ -58,42 +58,22 @@ export default class PoolRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                let { count, online } = pool().nodes;
+                const { count, online } = pool().nodes;
                 return count - online;
             }
         ).extend({
             formatNumber: true
         });
 
-        let storage = ko.pureComputed(
-            () => pool() ? pool().storage : {}
+        this.capacity = ko.pureComputed(
+            () => getPoolCapacityBarValues(pool() || {})
         );
 
-        this.capacity = {
-            total: ko.pureComputed(
-                () => storage().total
-            ),
-            used: [
-                {
-                    label: 'Used (Noobaa)',
-                    value: ko.pureComputed(
-                        () => storage().used
-                    )
-                },
-                {
-                    label: 'Used (other)',
-                    value: ko.pureComputed(
-                        () => storage().used_other
-                    )
-                }
-            ]
-        };
-
-        let isDemoPool = ko.pureComputed(
+        const isDemoPool = ko.pureComputed(
             () => Boolean(pool() && pool().demo_pool)
         );
 
-        let isUndeletable = ko.pureComputed(
+        const isUndeletable = ko.pureComputed(
             () => Boolean(pool() && pool().undeletable)
         );
 
@@ -111,7 +91,7 @@ export default class PoolRowViewModel extends BaseViewModel {
                         return 'Demo pools cannot be deleted';
                     }
 
-                    let { undeletable } = pool();
+                    const { undeletable } = pool();
                     if (undeletable === 'SYSTEM_ENTITY') {
                         return 'Cannot delete system defined default pool';
                     }

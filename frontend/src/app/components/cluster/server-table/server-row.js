@@ -28,7 +28,7 @@ const stateIconMapping = deepFreeze({
     },
 
     WARNING: {
-        name: 'notif-warning',
+        name: 'problem',
         css: 'warning'
     }
 });

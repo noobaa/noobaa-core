@@ -519,6 +519,8 @@ module.exports = {
                 'N2N_ERRORS',
                 'GATEWAY_ERRORS',
                 'IO_ERRORS',
+                'LOW_CAPACITY',
+                'NO_CAPACITY',
                 'OPTIMAL',
             ]
         },

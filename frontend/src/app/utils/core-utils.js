@@ -189,7 +189,7 @@ export function assignWith(target, ...sources) {
     return target;
 }
 
-export function mapProperties(obj, mapOp) {
+export function mapValues(obj, mapOp) {
     const res = {};
     for (const [ key, value ] of entries(obj)) {
         res[key] = mapOp(value, key);

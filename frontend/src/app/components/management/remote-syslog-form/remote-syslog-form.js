@@ -71,7 +71,7 @@ class RemoteSyslogFormViewModel extends BaseViewModel {
         this.summaryText = ko.pureComputed(
             () => this.enabled() ?
                 `${this.protocol().toLowerCase()}://${this.address()}:${this.port()}` :
-                'No set'
+                'Not set'
         );
 
         this.errors = ko.validation.group([

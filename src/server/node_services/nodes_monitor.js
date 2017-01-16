@@ -138,6 +138,8 @@ const QUERY_FIELDS = [{
 
 const MODE_COMPARE_ORDER = [
     'OPTIMAL',
+    'NODE_LOW_CAPACITY',
+    'NODE_NO_CAPACITY',
     'DECOMMISSIONING',
     'MIGRATING',
     'DELETING',
@@ -1296,6 +1298,14 @@ class NodesMonitor extends EventEmitter {
 
 
     _get_item_mode(item) {
+        const MB = Math.pow(1024, 2);
+        const storage = get_storage_info(item.node.storage, item.node.is_internal_node);
+        const free = size_utils.json_to_bigint(storage.free);
+        const used = size_utils.json_to_bigint(storage.used);
+        const free_ratio = free.add(used).isZero() ?
+            BigInteger.zero :
+            free.multiply(100).divide(free.add(used));
+
         return (!item.online && 'OFFLINE') ||
             (!item.trusted && 'UNTRUSTED') ||
             (!item.node.rpc_address && 'INITALIZING') ||
@@ -1308,6 +1318,8 @@ class NodesMonitor extends EventEmitter {
             (item.gateway_errors && 'GATEWAY_ERRORS') ||
             (item.io_test_errors && 'IO_ERRORS') ||
             (item.io_reported_errors && 'IO_ERRORS') ||
+            (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
+            (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
             'OPTIMAL';
     }
 
@@ -2171,7 +2183,6 @@ class NodesMonitor extends EventEmitter {
             this._disconnect_node(item);
         }
     }
-
 }
 
 

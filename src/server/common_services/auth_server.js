@@ -174,6 +174,12 @@ function create_access_key_auth(req) {
     var string_to_sign = req.rpc_params.string_to_sign;
     var signature = req.rpc_params.signature;
 
+    if (_.isUndefined(string_to_sign) || _.isUndefined(signature)) {
+        throw new RpcError('UNAUTHORIZED', 'signature error');
+    }
+
+
+
     var account = _.find(system_store.data.accounts, function(acc) {
         if (acc.access_keys) {
             return acc.access_keys[0].access_key.toString() === access_key.toString();
@@ -185,6 +191,14 @@ function create_access_key_auth(req) {
     if (!account || account.deleted) {
         throw new RpcError('UNAUTHORIZED', 'account not found');
     }
+
+    let secret = account.access_keys[0].secret_key.toString();
+    let signature_test = signature_utils.signature({ string_to_sign: string_to_sign }, secret);
+    if (signature_test !== signature) {
+        throw new RpcError('UNAUTHORIZED', 'signature error');
+    }
+
+
     dbg.log0('create_access_key_auth:',
         'account.name', account.email,
         'access_key', access_key,

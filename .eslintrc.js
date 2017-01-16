@@ -36,6 +36,10 @@ module.exports = {
         // camelcase is a religion. we were born differently.
         'camelcase': 'off',
 
+        // Example: /=$/ is not like /\=$/ which the eslint expects
+        // This is not a relevant rule, we added it after the signature_utils query parsing errors
+        'no-div-regex': 'off',
+
         // prefer to always return when calling callbacks to avoid double calls
         'callback-return': 'warn',
 

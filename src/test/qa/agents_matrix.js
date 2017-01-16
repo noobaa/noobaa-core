@@ -14,8 +14,6 @@ var secret = process.env.APPLICATION_SECRET;
 var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 var shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
-var dateSha = shasum.digest('hex');
-var postfix = dateSha.substring(dateSha.length - 7);
 
 // Sample Config
 var argv = require('minimist')(process.argv);
@@ -24,13 +22,12 @@ var resourceGroupName = argv.resource;
 var storageAccountName = argv.storage;
 var vnetName = argv.vnet;
 
-var azureName = argv.azure_name;
-var serverName = argv.server_dns;
+var serverName = argv.server_ip;
 var agentConf = argv.agent_conf;
 
 //noobaa rpc
 var api = require('../../api');
-var rpc = api.new_rpc('ws://' + serverName + ':8080');
+var rpc = api.new_rpc('wss://' + serverName + ':8443');
 var client = rpc.new_client({});
 
 
@@ -74,7 +71,7 @@ var oses = [{
     // RHEL 7.2
     publisher: 'RedHat',
     offer: 'RHEL',
-    sku: '7.2',
+    sku: '7.3',
     version: 'latest'
 }, {
     // Windows 2012R2 config
@@ -99,18 +96,15 @@ var oses = [{
 let nodes = [];
 let errors = [];
 var initial_node_number = 0;
-var snapshot_name;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
 return azf.authenticate()
-    .then(() => azf.captureVirtualMachine(azureName, 'snapshot', 'images', true))
-    .then(res => P.fcall(function() {
+    .then(() => P.fcall(function() {
         var auth_params = {
             email: 'demo@noobaa.com',
             password: 'DeMo1',
             system: 'demo'
         };
-        snapshot_name = res; // saving the snapshot name taken
         return client.create_auth_token(auth_params);
     }))
     .then(() => P.resolve(client.node.list_nodes({
@@ -120,10 +114,11 @@ return azf.authenticate()
     })))
     .then(res => {
         console.warn('Num nodes before the test are ', res.total_count);
-        initial_node_number = res;
+        initial_node_number = res.total_count;
     })
-    .then(() => P.map(oses, os => azf.createAgent(os.offer.substring(0, 4) + os.sku.substring(0, 4) +
-        postfix, storageAccountName, vnetName, os, serverName, agentConf)))
+    .then(() => P.map(oses, os => azf.createAgent(os.offer.substring(0, 7) + os.sku.substring(0, 4),
+        storageAccountName, vnetName, os, serverName, agentConf).catch(err => errors.push(err.message))))
+    .catch(err => errors.push(err.message))
     .then(() => console.warn('Will now wait for a minute for agents to come up...'))
     .delay(60000)
     .then(() => P.resolve(client.node.list_nodes({
@@ -135,8 +130,8 @@ return azf.authenticate()
         if (res.total_count === (initial_node_number + oses.length)) {
             console.warn('Num nodes after the test are ', res.total_count, '- as should - added', oses.length);
         } else {
-            console.warn('Num nodes after the test are ', res.total_count, '- something went wrong... suppost to add', oses.length);
-            errors.push('Num nodes after the test are ', res.total_count, '- something went wrong... suppost to add', oses.length);
+            console.warn('Num nodes after the test are', res.total_count, '- something went wrong... suppose to add', oses.length);
+            errors.push('Num nodes after the test are ' + res.total_count + ' - something went wrong... suppose to add ' + oses.length);
         }
         _.each(res.nodes, function(n) {
             nodes.push(n.name);
@@ -151,9 +146,8 @@ return azf.authenticate()
         console.warn('Will take diagnostics from all the agents');
         return P.map(nodes, node_name => client.node.collect_agent_diagnostics({
             name: node_name
-        }));
+        }).catch(err => errors.push(err.message)));
     })
-    .catch(err => errors.push(err.message))
     .then(() => {
         console.warn('Will put all agents in debug mode');
         return P.map(nodes, node_name => client.node.set_debug_node({
@@ -161,12 +155,10 @@ return azf.authenticate()
                 name: node_name
             },
             level: 5,
-        }));
+        }).catch(err => errors.push(err.message)));
     })
-    .catch(err => errors.push(err.message))
-    .then(() => P.map(oses, os => azf.deleteVirtualMachineExtension(os.offer.substring(0, 4) + os.sku.substring(0, 4) +
-        postfix)))
-    .catch(err => errors.push(err.message))
+    .then(() => P.map(oses, os => azf.deleteVirtualMachineExtension(os.offer.substring(0, 7) + os.sku.substring(0, 4))
+        .catch(err => errors.push(err.message))))
     .then(() => P.map(oses, os => {
         var extension = {
             publisher: 'Microsoft.OSTCExtensions',
@@ -192,12 +184,11 @@ return azf.authenticate()
                 commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File remove_agent.ps1 '
             };
         }
-        return azf.createVirtualMachineExtension(os.offer.substring(0, 4) + os.sku.substring(0, 4) + postfix, extension).then(console.log);
+        return azf.createVirtualMachineExtension(os.offer.substring(0, 7) + os.sku.substring(0, 4), extension)
+            .catch(err => errors.push(err.message));
     }))
-    .catch(err => errors.push(err.message))
-    .then(() => P.map(oses, os => azf.deleteVirtualMachine(os.offer.substring(0, 4) + os.sku.substring(0, 4) +
-        postfix)))
-    .then(() => azf.startVirtualMachineFromVHD(azureName, snapshot_name))
+    .then(() => P.map(oses, os => azf.deleteVirtualMachine(os.offer.substring(0, 7) + os.sku.substring(0, 4))
+        .catch(err => errors.push(err.message))))
     .then(() => rpc.disconnect_all())
     .then(() => {
         if (errors.length === 0) {

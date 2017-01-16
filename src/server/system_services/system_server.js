@@ -305,7 +305,7 @@ function create_system(req) {
                 })
                 .then(() => {
                     //DNS servers, if supplied
-                    if (!req.rpc_params.dns_servers) {
+                    if (_.isEmpty(req.rpc_params.dns_servers)) {
                         return;
                     }
 

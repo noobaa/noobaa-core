@@ -84,6 +84,7 @@ var https_server;
 // this is not cleared if upgrade fails, and will block UI until browser refresh.
 // maybe we need to change it to use upgrade status in DB.
 let shutting_down = false;
+let webserver_started = 0;
 
 P.fcall(function() {
         // we register the rpc before listening on the port
@@ -119,6 +120,7 @@ P.fcall(function() {
     })
     .then(function() {
         dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
+        webserver_started = Date.now();
     })
     .catch(function(err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);
@@ -159,7 +161,7 @@ app.use(function(req, res, next) {
 app.use(function(req, res, next) {
     let current_clustering = system_store.get_local_cluster_info();
     if ((current_clustering && current_clustering.is_clusterized) &&
-        !system_store.is_cluster_master && req.originalUrl !== '/upload_package') {
+        !system_store.is_cluster_master && req.originalUrl !== '/upload_package' && req.originalUrl !== '/version') {
         P.fcall(() => server_rpc.client.cluster_internal.redirect_to_cluster_master())
             .then(host => {
                 res.status(307);
@@ -369,7 +371,18 @@ app.get('/get_log_level', function(req, res) {
 // Get the current version
 app.get('/version', function(req, res) {
     const registered = server_rpc.is_service_registered('system_api.read_system');
-    if (registered && !shutting_down) {
+    let current_clustering = system_store.get_local_cluster_info();
+    let started;
+    if (current_clustering && !current_clustering.is_clusterized) {
+        // if not clusterized then no need to wait.
+        started = true;
+    } else {
+        // if in a cluster then after upgrade the user should be redirected to the new master
+        // give the new master 10 seconds to start completely before ending the upgrade
+        const WEBSERVER_START_TIME = 10 * 1000;
+        started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
+    }
+    if (started && registered && !shutting_down) {
         dbg.log0(`/version returning ${pkg.version}, service registered and not shutting down`);
         res.send(pkg.version);
         res.end();

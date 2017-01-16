@@ -54,12 +54,19 @@ class ServerTimeFormViewModel extends BaseViewModel {
             )
         );
 
+        const masterTimezone = ko.pureComputed(
+            () => master() && master().timezone
+        );
+
         this.masterTime = ko.observableWithDefault(
             () => master() && master().time_epoch * 1000
         );
 
         this.formattedMasterTime = this.masterTime.extend({
-            formatTime: 'DD MMM YYYY HH:mm:ss ([GMT]Z)'
+            formatTime: {
+                format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)',
+                timezone: masterTimezone
+            }
         });
 
         this.editContext = ko.observable();

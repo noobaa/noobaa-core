@@ -641,7 +641,9 @@ class NodesMonitor extends EventEmitter {
                 if (next >= queue.length) return;
                 const item = queue[next];
                 next += 1;
-                return this._run_node(item).then(worker);
+                return this._run_node(item)
+                    .catch(err => dbg.error('_run_node worker: ERROR', err.stack || err, 'node', item.node && item.node.name))
+                    .then(worker);
             };
             return P.all(_.times(concur, worker))
                 .then(() => this._suggest_pool_assign())
@@ -653,9 +655,9 @@ class NodesMonitor extends EventEmitter {
     }
 
     _run_node(item) {
-        if (!this._started) return;
+        if (!this._started) return P.reject(new Error('monitor has not started'));
         item._run_node_serial = item._run_node_serial || new Semaphore(1);
-        if (item.node.deleting || item.node.deleted) return;
+        if (item.node.deleting || item.node.deleted) return P.reject(new Error(`node ${item.node.name} is either deleting or deleted`));
         return item._run_node_serial.surround(() =>
             P.resolve()
             .then(() => dbg.log0('_run_node:', item.node.name))
@@ -886,33 +888,33 @@ class NodesMonitor extends EventEmitter {
 
         const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
         return P.each(items_without_issues, item_without_issues => {
-            dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
-                item.node.rpc_address, item_without_issues.node.rpc_address);
-            return this.client.agent.test_network_perf_to_peer({
-                    source: item_without_issues.node.rpc_address,
-                    target: item.node.rpc_address,
-                    request_length: 1,
-                    response_length: 1,
-                    count: 1,
-                    concur: 1
-                }, {
-                    connection: item_without_issues.connection
-                })
-                .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
-        })
-        .then(() => {
-            dbg.log0('_test_network_perf:: success in test', item.node.name);
-            if (item.n2n_errors &&
-                Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
-                item.n2n_errors = 0;
-            }
-        })
-        .catch(() => {
-            if (!item.n2n_errors) {
-                dbg.log0('_test_network_perf:: node has n2n_errors', item.node.name);
-                item.n2n_errors = Date.now();
-            }
-        });
+                dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
+                    item.node.rpc_address, item_without_issues.node.rpc_address);
+                return this.client.agent.test_network_perf_to_peer({
+                        source: item_without_issues.node.rpc_address,
+                        target: item.node.rpc_address,
+                        request_length: 1,
+                        response_length: 1,
+                        count: 1,
+                        concur: 1
+                    }, {
+                        connection: item_without_issues.connection
+                    })
+                    .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
+            })
+            .then(() => {
+                dbg.log0('_test_network_perf:: success in test', item.node.name);
+                if (item.n2n_errors &&
+                    Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                    item.n2n_errors = 0;
+                }
+            })
+            .catch(() => {
+                if (!item.n2n_errors) {
+                    dbg.log0('_test_network_perf:: node has n2n_errors', item.node.name);
+                    item.n2n_errors = Date.now();
+                }
+            });
     }
 
     _test_nodes_validity(item) {

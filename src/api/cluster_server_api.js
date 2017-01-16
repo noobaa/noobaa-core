@@ -41,7 +41,7 @@ module.exports = {
             },
             auth: {
                 system: 'admin'
-            }
+            },
         },
 
         update_time_config: {
@@ -196,6 +196,39 @@ module.exports = {
                         status: {
                             $ref: 'system_api#/definitions/service_status_enum'
                         }
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        verify_candidate_join_conditions: {
+            doc: 'check join conditions to the cluster for specified server and return its hostname',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['address', 'secret'],
+                properties: {
+                    address: {
+                        type: 'string',
+                    },
+                    secret: {
+                        type: 'string'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['result'],
+                properties: {
+                    result: {
+                        type: 'string',
+                        enum: ['OKAY'],
+                    },
+                    hostname: {
+                        type: 'string'
                     }
                 }
             },

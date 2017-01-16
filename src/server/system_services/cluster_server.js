@@ -198,7 +198,9 @@ function add_member_to_cluster(req) {
 
 function verify_join_conditions(req) {
     dbg.log0('Got verify_join_conditions request');
-    let response = {};
+    let response = {
+        hostname: os_utils.os_info().hostname
+    };
     if (req.connection && req.connection.url) {
         response.caller_address = req.connection.url.hostname.includes('ffff') ?
             req.connection.url.hostname.replace(/^.*:/, '') :
@@ -208,6 +210,21 @@ function verify_join_conditions(req) {
     return P.resolve()
         .then(() => _verify_join_preconditons(req))
         .then(() => response);
+}
+
+function verify_candidate_join_conditions(req) {
+    dbg.log0('Got verify_candidate_join_conditions for server secret:', req.rpc_params.secret,
+        'address:', req.rpc_params.address);
+    return server_rpc.client.cluster_internal.verify_join_conditions({
+            secret: req.rpc_params.secret,
+            version: pkg.version
+        }, {
+            address: server_rpc.get_base_address(req.rpc_params.address),
+            timeout: 60000 //60s
+        })
+        .then(res => ({
+            hostname: res.hostname
+        }));
 }
 
 
@@ -694,7 +711,7 @@ function diagnose_system(req) {
                         auth_token: req.auth_token
                     })
                     .then(res_data => {
-                        var server_hostname = 'unknown' || (server.heartbeat && server.heartbeat.health.os_info.hostname);
+                        var server_hostname = (server.heartbeat && server.heartbeat.health.os_info.hostname) || 'unknown';
                         // Should never exist since above we delete the root folder
                         return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
                             .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`,
@@ -742,7 +759,7 @@ function collect_server_diagnostics(req) {
             return res;
         })
         .catch(err => {
-            dbg.error('DIAGNOSTICS FAILED', err.stack || err);
+            dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
             return {
                 data: new Buffer(),
             };
@@ -1501,6 +1518,7 @@ exports.do_upgrade = do_upgrade;
 exports.upgrade_cluster = upgrade_cluster;
 exports.check_cluster_status = check_cluster_status;
 exports.ping = ping;
+exports.verify_candidate_join_conditions = verify_candidate_join_conditions;
 exports.verify_join_conditions = verify_join_conditions;
 exports.update_server_conf = update_server_conf;
 exports.set_hostname_internal = set_hostname_internal;

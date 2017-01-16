@@ -1,10 +1,14 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
+
+// setup coretest first to prepare the env
+const coretest = require('./coretest');
+coretest.setup();
 
 // var _ = require('lodash');
 var P = require('../../util/promise');
 var mocha = require('mocha');
 // var assert = require('assert');
-var coretest = require('./coretest');
 
 mocha.describe('agent', function() {
 

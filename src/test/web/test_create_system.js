@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // const _ = require('lodash');
@@ -26,26 +27,30 @@ mocha.describe('create_system', function() {
             .then(() => console.log('Wait for input element ...'))
             .then(() => d.wait(wd.until.elementLocated(wd.By.tagName('input')), 1000))
             .then(() => d.findElements(wd.By.tagName('input')))
-            .then(inputs => P.join(
-                    inputs[0].sendKeys('123'),
-                    inputs[1].sendKeys('demo@noobaa.com'),
-                    inputs[2].sendKeys('DeMo1'),
-                    inputs[3].sendKeys('DeMo1')
-                )
-                .then(() => d.findElements(wd.By.tagName('button')))
-                .then(buttons => P.delay(500)
-                    .then(() => console.log('Wait for button to click next ...'))
-                    .then(() => d.wait(wd.until.elementIsVisible(buttons[1]), 1000))
-                    .then(() => buttons[1].click())
-                    .then(() => console.log('Wait for input element in second step ...'))
-                    .then(() => d.wait(wd.until.elementIsVisible(inputs[4]), 1000))
-                    .then(() => console.log('Wait for button to create system ...'))
-                    .then(() => d.wait(wd.until.elementIsVisible(buttons[2]), 1000))
-                    .then(() => inputs[4].sendKeys('demo'))
-                    .then(() => P.delay(500))
-                    .then(() => buttons[2].click())
-                )
-            )
+            .then(inputs => {
+                self.inputs = inputs;
+            })
+            .then(() => P.join(
+                self.inputs[0].sendKeys('123'),
+                self.inputs[1].sendKeys('demo@noobaa.com'),
+                self.inputs[2].sendKeys('DeMo1'),
+                self.inputs[3].sendKeys('DeMo1')
+            ))
+            .then(() => d.findElements(wd.By.tagName('button')))
+            .then(buttons => {
+                self.buttons = buttons;
+            })
+            .delay(500)
+            .then(() => console.log('Wait for button to click next ...'))
+            .then(() => d.wait(wd.until.elementIsVisible(self.buttons[1]), 1000))
+            .then(() => self.buttons[1].click())
+            .then(() => console.log('Wait for input element in second step ...'))
+            .then(() => d.wait(wd.until.elementIsVisible(self.inputs[4]), 1000))
+            .then(() => console.log('Wait for button to create system ...'))
+            .then(() => d.wait(wd.until.elementIsVisible(self.buttons[2]), 1000))
+            .then(() => self.inputs[4].sendKeys('demo'))
+            .delay(500)
+            .then(() => self.buttons[2].click())
             .then(() => console.log('Wait for url to open the created system ...'))
             .then(() => d.wait(wd.until.urlIs(URL + '/fe/systems/demo'), 3000))
             .then(() => console.log('Done! system created.'));

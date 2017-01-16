@@ -1,16 +1,18 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
+
+// setup coretest first to prepare the env
+const coretest = require('./coretest');
+coretest.setup();
 
 const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
-const dotenv = require('../../util/dotenv');
 const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
-const coretest = require('./coretest');
 const account_server = require('../../server/system_services/account_server');
 
-dotenv.load();
 const s3_auth = new S3Auth();
 
 mocha.describe('system_servers', function() {

@@ -16,19 +16,18 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
-const md_store = require('../object_services/md_store');
+const MDStore = require('../object_services/md_store').MDStore;
 const Semaphore = require('../../util/semaphore');
+const NodesStore = require('./nodes_store').NodesStore;
 const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
 const Dispatcher = require('../notifications/dispatcher');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const nodes_store = require('./nodes_store');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
-const mongoose_utils = require('../../util/mongoose_utils');
 const cluster_server = require('../system_services/cluster_server');
 const clustering_utils = require('../utils/clustering_utils');
 const system_server_utils = require('../utils/system_server_utils');
@@ -202,7 +201,9 @@ class NodesMonitor extends EventEmitter {
      * sync_to_store is used for testing to get the info from all nodes
      */
     sync_to_store() {
-        return P.resolve().then(() => this._run()).return();
+        return P.resolve()
+            .then(() => this._run())
+            .return();
     }
 
 
@@ -439,10 +440,13 @@ class NodesMonitor extends EventEmitter {
 
     _load_from_store() {
         if (!this._started) return;
+        if (!NodesStore.instance().is_connected()) {
+            dbg.log0('_load_from_store not yet connected');
+            return P.delay(1000).then(() => this._load_from_store());
+        }
         dbg.log0('_load_from_store ...');
-        return mongoose_utils.mongoose_wait_connected()
-            .then(() => nodes_store.instance().connect())
-            .then(() => nodes_store.instance().find_nodes({
+        return P.resolve()
+            .then(() => NodesStore.instance().find_nodes({
                 deleted: null
             }))
             .then(nodes => {
@@ -456,7 +460,7 @@ class NodesMonitor extends EventEmitter {
                 this._schedule_next_run(3000);
             })
             .catch(err => {
-                dbg.log0('_load_from_store ERROR', err.stack);
+                dbg.log0('_load_from_store ERROR', err.stack || err);
                 return P.delay(1000).then(() => this._load_from_store());
             });
     }
@@ -485,8 +489,8 @@ class NodesMonitor extends EventEmitter {
             connection: null,
             node_from_store: null,
             node: {
-                _id: nodes_store.instance().make_node_id(),
-                peer_id: nodes_store.instance().make_node_id(),
+                _id: NodesStore.instance().make_node_id(),
+                peer_id: NodesStore.instance().make_node_id(),
                 system: system._id,
                 pool: pool._id,
                 heartbeat: Date.now(),
@@ -1000,7 +1004,7 @@ class NodesMonitor extends EventEmitter {
     _update_existing_nodes(existing_nodes) {
         if (!existing_nodes.length) return;
         return P.resolve()
-            .then(() => nodes_store.instance().bulk_update(existing_nodes))
+            .then(() => NodesStore.instance().bulk_update(existing_nodes))
             .then(res => {
                 // mark failed updates to retry
                 if (res.failed) {
@@ -1056,7 +1060,7 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => dbg.log0('_update_new_nodes: nodes to create',
                 _.map(items_to_create, 'node.name')))
-            .then(() => nodes_store.instance().bulk_update(items_to_create))
+            .then(() => NodesStore.instance().bulk_update(items_to_create))
             .then(res => {
                 // mark failed updates to retry
                 if (res.failed) {
@@ -1139,7 +1143,7 @@ class NodesMonitor extends EventEmitter {
             }, {
                 concurrency: 10
             })
-            .then(() => nodes_store.instance().bulk_update(items_to_update))
+            .then(() => NodesStore.instance().bulk_update(items_to_update))
             .then(res => {
                 // mark failed updates to retry
                 if (res.failed) {
@@ -1547,11 +1551,11 @@ class NodesMonitor extends EventEmitter {
         const start_marker = act.stage.marker;
         let blocks_size;
         return P.resolve()
-            .then(() => md_store.iterate_node_chunks(
-                item.node.system,
-                item.node._id,
-                start_marker,
-                config.REBUILD_BATCH_SIZE))
+            .then(() => MDStore.instance().iterate_node_chunks({
+                node_id: item.node._id,
+                marker: start_marker,
+                limit: config.REBUILD_BATCH_SIZE,
+            }))
             .then(res => {
                 // we update the stage marker even if failed to advance the scan
                 act.stage.marker = res.marker;
@@ -1677,7 +1681,7 @@ class NodesMonitor extends EventEmitter {
             if (!_.isUndefined(query.mode) &&
                 !query.mode.includes(item.mode)) continue;
 
-            console.log('list_nodes: adding node', item.node.name);
+            dbg.log1('list_nodes: adding node', item.node.name);
             list.push(item);
         }
         return {

@@ -105,7 +105,7 @@ function get_systems_stats(req) {
             //         deleted: null
             //     };
             //
-            //     return md_store.DataChunk.collection.count(query)
+            //     return DataChunk.collection.count(query)
             //         .then(count => {
             //             res.chunks_rebuilt_since_last = count;
             //             return res;
@@ -214,9 +214,11 @@ function get_ops_stats(req) {
 function get_bucket_sizes_stats(req) {
     return P.all(_.map(system_store.data.buckets,
             bucket => {
-                let new_req = req;
-                new_req.rpc_params.bucket = bucket.name;
-                return object_server.list_objects(new_req);
+                // TODO disabled the object listing here which crashes the process out of memory
+                return [];
+                // let new_req = req;
+                // new_req.rpc_params.bucket = bucket.name;
+                // return object_server.list_objects(new_req);
             }
         ))
         .then(bucket_arr => {

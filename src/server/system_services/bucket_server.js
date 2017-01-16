@@ -1,31 +1,25 @@
-/**
- *
- * BUCKET_SERVER
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const net = require('net');
 const https = require('https');
-// const crypto = require('crypto');
+const azure = require('azure-storage');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const md_store = require('../object_services/md_store');
+const MDStore = require('../object_services/md_store').MDStore;
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
+const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
-const Dispatcher = require('../notifications/dispatcher');
-const nodes_client = require('../node_services/nodes_client');
-const node_allocator = require('../node_services/node_allocator');
-const system_store = require('../system_services/system_store').get_instance();
-const object_server = require('../object_services/object_server');
 const cloud_utils = require('../../util/cloud_utils');
-const azure = require('azure-storage');
+const nodes_client = require('../node_services/nodes_client');
+const system_store = require('../system_services/system_store').get_instance();
+const node_allocator = require('../node_services/node_allocator');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
@@ -155,11 +149,7 @@ function read_bucket(req) {
     let pool_names = pools.map(pool => pool.name);
     return P.join(
         nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
-        md_store.ObjectMD.collection.count({
-            system: req.system._id,
-            bucket: bucket._id,
-            deleted: null
-        }),
+        MDStore.instance().count_objects_of_bucket(bucket._id),
         get_cloud_sync(req, bucket),
         node_allocator.refresh_tiering_alloc(bucket.tiering)
     ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
@@ -288,13 +278,9 @@ function delete_bucket(req) {
         throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
     }
 
-    return P.resolve(md_store.ObjectMD.collection.findOne({
-            system: req.system._id,
-            bucket: bucket._id,
-            deleted: null,
-        }))
-        .then(any_object => {
-            if (any_object) {
+    return MDStore.instance().has_any_objects_in_bucket(bucket._id)
+        .then(has_objects => {
+            if (has_objects) {
                 throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
             Dispatcher.instance().activity({
@@ -523,10 +509,7 @@ function set_cloud_sync(req) {
                 }]
             }
         })
-        .then(function() {
-            //TODO:: scale, fine for 1000 objects, not for 1M
-            return object_server.set_all_files_for_sync(req.system._id, bucket._id);
-        })
+        .then(() => _set_all_files_for_sync(req.system, bucket))
         .then(() => server_rpc.client.cloud_sync.refresh_policy({
             bucket_id: bucket._id.toString()
         }, {
@@ -588,23 +571,23 @@ function update_cloud_sync(req) {
     };
 
     var sync_directions_changed = Object.keys(req.rpc_params.policy)
-        .filter(
-            key => key !== 'schedule_min' && key !== 'additions_only'
-        ).some(
-            key => updated_policy.cloud_sync[key] !== bucket.cloud_sync[key]
-        );
+        .filter(key => key !== 'schedule_min' && key !== 'additions_only')
+        .some(key => updated_policy.cloud_sync[key] !== bucket.cloud_sync[key]);
 
     var should_resync = false;
     var should_resync_deleted_files = false;
 
     // Please see the explanation and decision table below (at the end of the file).
     if (updated_policy.cloud_sync.additions_only === bucket.cloud_sync.additions_only) {
-        should_resync = should_resync_deleted_files = sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
-    } else
-    if (updated_policy.cloud_sync.additions_only) {
-        should_resync = sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
+        should_resync =
+            should_resync_deleted_files =
+            sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
+    } else if (updated_policy.cloud_sync.additions_only) {
+        should_resync =
+            sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
     } else {
-        should_resync = should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
+        should_resync =
+            should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
     }
 
     const db_updates = {
@@ -619,19 +602,12 @@ function update_cloud_sync(req) {
                 buckets: [db_updates]
             }
         })
-        .then(function() {
-            //TODO:: scale, fine for 1000 objects, not for 1M
-            if (should_resync) {
-                return object_server.set_all_files_for_sync(req.system._id, bucket._id, should_resync_deleted_files);
-            }
-        })
-        .then(function() {
-            return server_rpc.client.cloud_sync.refresh_policy({
-                bucket_id: bucket._id.toString(),
-            }, {
-                auth_token: req.auth_token
-            });
-        })
+        .then(() => should_resync && _set_all_files_for_sync(req.system, bucket, should_resync_deleted_files))
+        .then(() => server_rpc.client.cloud_sync.refresh_policy({
+            bucket_id: bucket._id.toString(),
+        }, {
+            auth_token: req.auth_token
+        }))
         .then(res => {
             let desc_string = [];
             let sync_direction;
@@ -697,6 +673,29 @@ function toggle_cloud_sync(req) {
                 auth_token: req.auth_token
             });
         });
+}
+
+/**
+ * _set_all_files_for_sync - mark all objects on specific bucket for sync
+ */
+function _set_all_files_for_sync(system, bucket, should_resync_deleted_files) {
+    dbg.log0('_set_all_files_for_sync: START',
+        'system', system.name,
+        'bucket', bucket.name,
+        'should_resync_deleted_files', should_resync_deleted_files);
+
+    // TODO:: scale, fine for 1000 objects, not for 1M
+    return P.join(
+            // Mark all "live" objects to be cloud synced
+            MDStore.instance().update_all_objects_of_bucket_set_cloud_sync(bucket._id),
+            // Mark all "previous" deleted objects as not needed for cloud sync
+            should_resync_deleted_files &&
+            MDStore.instance().update_all_objects_of_bucket_unset_deleted_cloud_sync(bucket._id)
+        )
+        .then(() => dbg.log0('_set_all_files_for_sync: DONE',
+            'system', system.name,
+            'bucket', bucket.name,
+            'should_resync_deleted_files', should_resync_deleted_files));
 }
 
 

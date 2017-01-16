@@ -1,92 +1,42 @@
-/**
- *
- * NODES STORE
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
-const Ajv = require('ajv');
 const mongodb = require('mongodb');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const js_utils = require('../../util/js_utils');
+const node_schema = require('./node_schema');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
-const schema_utils = require('../../util/schema_utils');
-
-const NODES_COLLECTION = js_utils.deep_freeze({
-    name: 'nodes',
-    schema: schema_utils.strictify(require('./node_schema')),
-    db_indexes: [{
-        fields: {
-            system: 1,
-            pool: 1,
-            name: 1,
-            deleted: 1, // allow to filter deleted
-        },
-        options: {
-            unique: true,
-        }
-    }, {
-        fields: {
-            peer_id: 1,
-            deleted: 1, // allow to filter deleted
-        },
-        options: {
-            unique: true,
-            sparse: true,
-        }
-    }]
-});
 
 class NodesStore {
 
-    static instance() {
-        if (!NodesStore._instance) {
-            NodesStore._instance = new NodesStore();
-        }
-        return NodesStore._instance;
-    }
-
-    constructor() {
-        mongo_client.instance().define_collection(NODES_COLLECTION);
-        this._json_validator = new Ajv({
-            formats: {
-                date: schema_utils.date_format,
-                idate: schema_utils.idate_format,
-                objectid: val => mongo_utils.is_object_id(val)
-            }
+    constructor(test_suffix = '') {
+        this._nodes = mongo_client.instance().define_collection({
+            name: 'nodes' + test_suffix,
+            schema: node_schema,
         });
-        this._node_validator = this._json_validator.compile(NODES_COLLECTION.schema);
     }
 
-    connect() {
-        return mongo_client.instance().connect();
-    }
-
-    collection() {
-        return mongo_client.instance().db.collection(NODES_COLLECTION.name);
-    }
-
-    validate(node, fail) {
-        if (!this._node_validator(node)) {
-            dbg.warn('BAD NODE SCHEMA', node, 'ERRORS', this._node_validator.errors);
-            if (fail) {
-                throw new Error('BAD NODE SCHEMA');
-            }
-        }
-        return node;
-    }
-
-    validate_list(nodes, fail) {
-        _.each(nodes, node => this.validate(node, fail));
-        return nodes;
+    static instance() {
+        if (!NodesStore._instance) NodesStore._instance = new NodesStore();
+        return NodesStore._instance;
     }
 
     make_node_id(id_str) {
         return new mongodb.ObjectId(id_str);
+    }
+
+    is_connected() {
+        return mongo_client.instance().is_connected();
+    }
+
+    _validate_all(nodes, warn) {
+        for (const node of nodes) {
+            this._nodes.validate(node, warn);
+        }
+        return nodes;
     }
 
 
@@ -98,27 +48,29 @@ class NodesStore {
         if (!node._id) {
             node._id = this.make_node_id();
         }
-        this.validate(node, 'fail');
-        return P.resolve(this.collection().insertOne(node))
+        return P.resolve()
+            .then(() => this._nodes.validate(node))
+            .then(() => this._nodes.col().insertOne(node))
             .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'node'))
             .return(node);
     }
 
     update_node_by_id(node_id, updates, options) {
-        return P.resolve(this.collection().updateOne({
-            _id: this.make_node_id(node_id)
-        }, updates, options));
+        return P.resolve(this._nodes.col().updateOne({
+                _id: this.make_node_id(node_id)
+            }, updates, options))
+            .then(res => mongo_utils.check_update_one(res, 'node'));
     }
 
     bulk_update(items) {
-        const bulk = this.collection().initializeUnorderedBulkOp();
+        const bulk = this._nodes.col().initializeUnorderedBulkOp();
         let num_update = 0;
         let num_insert = 0;
         const nodes_to_store = new Map();
         for (const item of items) {
             nodes_to_store.set(item, _.cloneDeep(item.node));
             if (item.node_from_store) {
-                this.validate(item.node);
+                this._nodes.validate(item.node, 'warn');
                 const diff = mongo_utils.make_object_diff(
                     item.node, item.node_from_store);
                 if (_.isEmpty(diff)) continue;
@@ -198,8 +150,9 @@ class NodesStore {
     /////////////
 
     find_nodes(query, options) {
-        return P.resolve(this.collection().find(query, options).toArray())
-            .then(nodes => this.validate_list(nodes));
+        return this._nodes.col().find(query, options)
+            .toArray()
+            .then(nodes => this._validate_all(nodes, 'warn'));
     }
 
 
@@ -209,7 +162,8 @@ class NodesStore {
 
     // for unit tests
     test_code_delete_all_nodes() {
-        return P.resolve(this.collection().deleteMany({}));
+        return P.resolve()
+            .then(() => this._nodes.col().deleteMany({}));
     }
 
 }
@@ -217,4 +171,3 @@ class NodesStore {
 
 // EXPORTS
 exports.NodesStore = NodesStore;
-exports.instance = NodesStore.instance;

@@ -1,10 +1,9 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const md_store = require('./md_store');
 const system_store = require('../system_services/system_store').get_instance();
 
 const EMPTY_CONST_ARRAY = Object.freeze([]);
@@ -169,9 +168,10 @@ function _handle_over_policy_threshold(decision_params) {
     let current_weight = decision_params.current_weight;
 
     // Sorting blocks by their creation timestamp in mongodb
-    let sorted_blocks = _.sortBy(_.get(decision_params, 'blocks_partitions.good_blocks', []), block => {
-        return block._id.getTimestamp().getTime();
-    });
+    let sorted_blocks = _.sortBy(
+        _.get(decision_params, 'blocks_partitions.good_blocks', []),
+        block => block._id.getTimestamp().getTime()
+    );
 
     _.forEach(sorted_blocks, block => {
         // Checking if we've deleted enough blocks
@@ -397,8 +397,8 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools, addi
 
 function set_chunk_frags_from_blocks(chunk, blocks) {
     let blocks_by_frag_key = _.groupBy(blocks, get_frag_key);
-    chunk.frags = _.map(blocks_by_frag_key, blocks => {
-        let f = _.pick(blocks[0],
+    chunk.frags = _.map(blocks_by_frag_key, frag_blocks => {
+        let f = _.pick(frag_blocks[0],
             'layer',
             'layer_n',
             'frag',
@@ -408,8 +408,8 @@ function set_chunk_frags_from_blocks(chunk, blocks) {
         // sorting the blocks to have most available node on front
         // TODO add load balancing (maybe random the order of good blocks)
         // TODO need stable sorting here for parallel decision making...
-        blocks.sort(block_access_sort);
-        f.blocks = blocks;
+        frag_blocks.sort(block_access_sort);
+        f.blocks = frag_blocks;
         return f;
     });
 }
@@ -473,8 +473,6 @@ function get_part_info(part, adminfo) {
     let p = _.pick(part,
         'start',
         'end',
-        'part_sequence_number',
-        'upload_part_number',
         'chunk_offset');
     p.chunk = get_chunk_info(part.chunk, adminfo);
     return p;
@@ -582,42 +580,6 @@ function sanitize_object_range(obj, start, end) {
     };
 }
 
-function find_consecutive_parts(obj, parts) {
-    var start = parts[0].start;
-    var end = parts[parts.length - 1].end;
-    var upload_part_number = parts[0].upload_part_number;
-    var pos = start;
-    _.each(parts, function(part) {
-        if (pos !== part.start) {
-            throw new Error('expected parts to be consecutive');
-        }
-        if (upload_part_number !== part.upload_part_number) {
-            throw new Error('expected parts to have same upload_part_number');
-        }
-        pos = part.end;
-    });
-    return P.resolve(md_store.ObjectPart.collection.find({
-        system: obj.system,
-        obj: obj._id,
-        upload_part_number: upload_part_number,
-        start: {
-            // since end is not indexed we query start with both
-            // low and high constraint, which allows the index to reduce scan
-            $gte: start,
-            $lte: end
-        },
-        end: {
-            $lte: end
-        },
-        deleted: null
-    }, {
-        sort: 'start'
-    }).toArray()).then(function(res) {
-        console.log('find_consecutive_parts:', res, 'start', start, 'end', end);
-        return res;
-    });
-}
-
 
 /**
  * sorting function for sorting blocks with most recent heartbeat first
@@ -648,5 +610,4 @@ exports.get_block_info = get_block_info;
 exports.get_block_md = get_block_md;
 exports.get_frag_key = get_frag_key;
 exports.sanitize_object_range = sanitize_object_range;
-exports.find_consecutive_parts = find_consecutive_parts;
 exports.analyze_special_chunks = analyze_special_chunks;

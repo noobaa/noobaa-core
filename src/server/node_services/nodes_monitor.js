@@ -1876,7 +1876,11 @@ class NodesMonitor extends EventEmitter {
 
             item.node.storage.free = Math.max(item.node.storage.free, 0);
             // for internal agents set reserve to 0
-            let reserve = item.node.is_internal_node ? 0 : config.NODES_FREE_SPACE_RESERVE;
+            let reserve = 0;
+            if (!item.node.is_internal_node &&
+                !item.node.is_cloud_node) {
+                reserve = config.NODES_FREE_SPACE_RESERVE;
+            }
 
             const free_considering_reserve =
                 new BigInteger(item.node.storage.free || 0)

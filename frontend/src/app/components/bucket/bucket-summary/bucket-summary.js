@@ -20,7 +20,7 @@ const stateMapping = deepFreeze({
 });
 
 const cloudSyncStatusMapping = deepFreeze({
-    PENDING: 'Pending',
+    PENDING: 'Waiting for sync',
     SYNCING: 'Syncing',
     PAUSED: 'Paused',
     UNABLE: 'Unable to Sync',

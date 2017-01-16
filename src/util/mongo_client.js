@@ -1,28 +1,27 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
+const Ajv = require('ajv');
 const util = require('util');
 const mongodb = require('mongodb');
 const EventEmitter = require('events').EventEmitter;
+
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
+const js_utils = require('./js_utils');
+const mongo_utils = require('./mongo_utils');
+const schema_utils = require('./schema_utils');
 
 class MongoClient extends EventEmitter {
-
-    static instance() {
-        if (!MongoClient._instance) {
-            MongoClient._instance = new MongoClient();
-        }
-        return MongoClient._instance;
-    }
 
     constructor() {
         super();
         this.db = null; // will be set once connected
         this.cfg_db = null; // will be set once a part of a cluster & connected
         this.admin_db = null;
-        this.collections = {};
+        this.collections = [];
         this.connect_timeout = null; //will be set if connected and conn closed
         this.url =
             process.env.MONGO_RS_URL ||
@@ -61,11 +60,20 @@ class MongoClient extends EventEmitter {
                 //authSource: 'admin',
             }
         };
+        this._json_validator = new Ajv({
+            verbose: true,
+            formats: mongo_utils.mongo_ajv_formats,
+        });
+    }
+
+    static instance() {
+        if (!MongoClient._instance) MongoClient._instance = new MongoClient();
+        return MongoClient._instance;
     }
 
     set_url(url) {
         if (this.db || this.promise) {
-            throw new Error('MongoClient: trying to set url after already connected...' +
+            throw new Error('trying to set url after already connected...' +
                 ' late for the party? ' + url +
                 ' existing url ' + this.url);
         }
@@ -81,50 +89,81 @@ class MongoClient extends EventEmitter {
         dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
-        this.promise = this._connect('db', this.url, this.config);
+        this.promise = P.resolve().then(() => this._connect());
         return this.promise;
     }
 
-    _connect(access_db, url, options) {
+    _connect() {
         if (this._disconnected_state) return;
-        if (this[access_db]) return P.resolve(this[access_db]);
-        dbg.log0('_connect called with', url);
+        if (this.db) return this.db;
+        let db;
+        dbg.log0('_connect: called with', this.url);
         this._set_connect_timeout();
-        return mongodb.MongoClient.connect(url, options)
-            .then(db => {
-                dbg.log0('_connect: MongoClient: connected', url);
-                clearTimeout(this.connect_timeout);
-                this.connect_timeout = null;
-                this[access_db] = db;
-                if (access_db === 'db') { // GGG WORKAROUND
-                    // for now just print the topologyDescriptionChanged. we'll see if it's worth using later
-                    db.topology.on('topologyDescriptionChanged', function(event) {
-                        console.log('received topologyDescriptionChanged', util.inspect(event));
-                    });
-                    db.on('reconnect', () => {
-                        this.emit('reconnect');
-                        clearTimeout(this.connect_timeout);
-                        this.connect_timeout = null;
-                        this._init_collections();
-                        dbg.log('MongoClient: got reconnect', url);
-                    });
-                    db.on('close', () => {
-                        this.emit('close');
-                        dbg.warn('MongoClient: got close', url);
-                        this._set_connect_timeout();
-                    });
-                    dbg.log0(`calling _init_collection`);
-                    this._init_collections();
-
-                }
-                dbg.log0(`returning DB`);
+        return mongodb.MongoClient.connect(this.url, this.config)
+            .then(db_arg => {
+                db = db_arg;
+            })
+            .then(() => this._init_collections(db))
+            .then(() => {
+                dbg.log0('_connect: connected', this.url);
+                this._reset_connect_timeout();
+                this.db = db;
+                // for now just print the topologyDescriptionChanged. we'll see if it's worth using later
+                db.topology.on('topologyDescriptionChanged', function(event) {
+                    console.log('received topologyDescriptionChanged', util.inspect(event));
+                });
+                db.on('reconnect', () => {
+                    dbg.log('got reconnect', this.url);
+                    this.emit('reconnect');
+                    this._reset_connect_timeout();
+                });
+                db.on('close', () => {
+                    dbg.warn('got close', this.url);
+                    this.emit('close');
+                    this._set_connect_timeout();
+                });
+                this.emit('reconnect');
+                dbg.log0(`connected`);
                 return db;
             }, err => {
                 // autoReconnect only works once initial connection is created,
                 // so we need to handle retry in initial connect.
-                dbg.error('MongoClient: initial connect failed, will retry', err.message);
+                dbg.error('_connect: initial connect failed, will retry', err.message);
+                if (db) {
+                    db.close();
+                    db = null;
+                }
                 return P.delay(config.MONGO_DEFAULTS.CONNECT_RETRY_INTERVAL)
-                    .then(() => this._connect(access_db, url, options));
+                    .then(() => this._connect());
+            });
+    }
+
+    _init_collections(db) {
+        return P.map(this.collections, col => this._init_collection(db, col))
+            .then(() => P.map(this.collections, col => db.collection(col.name).indexes()
+                .then(res => dbg.log0('_init_collections: indexes of', col.name, _.map(res, 'name')))
+            ))
+            .then(() => dbg.log0('_init_collections: done'))
+            .catch(err => {
+                dbg.warn('_init_collections: FAILED', err);
+                throw err;
+            });
+    }
+
+    _init_collection(db, col) {
+        return P.resolve()
+            .then(() => db.createCollection(col.name))
+            .catch(err => {
+                if (!mongo_utils.is_err_namespace_exists(err)) throw err;
+            })
+            .then(() => dbg.log0('_init_collection: created collection', col.name))
+            .then(() => col.db_indexes && P.map(col.db_indexes,
+                index => db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options))
+                .then(res => dbg.log0('_init_collection: created index', col.name, res))
+            ))
+            .catch(err => {
+                dbg.error('_init_collection: FAILED', col.name, err);
+                throw err;
             });
     }
 
@@ -144,42 +183,50 @@ class MongoClient extends EventEmitter {
     }
 
     reconnect() {
-        dbg.log0(`reconnecting mongo_db`);
+        dbg.log0(`reconnect called`);
         this.disconnect();
         return this.connect();
     }
 
+    is_connected() {
+        return Boolean(this.db);
+    }
+
     define_collection(col) {
-        if (col.name in this.collections) {
-            throw new Error('Collection already defined ' + col.name);
+        if (_.find(this.collections, c => c.name === col.name)) {
+            throw new Error('define_collection: collection already defined ' + col.name);
         }
-        this.collections[col.name] = col;
-        return this._init_collection(col);
+        if (col.schema) {
+            schema_utils.strictify(col.schema);
+            this._json_validator.addSchema(col.schema, col.name);
+            col.validate = (doc, warn) => this.validate(col.name, doc, warn);
+        }
+        col.col = () => this.collection(col.name);
+        js_utils.deep_freeze(col);
+        this.collections.push(col);
+        if (this.db) {
+            this._init_collection(this.db, col).catch(_.noop); // TODO what is best to do when init_collection fails here?
+        }
+        return col;
     }
 
-    _init_collection(col) {
-        if (!this.db) return; // will be called when connected
-        return P.resolve()
-            .then(() => this.db.createCollection(col.name))
-            .then(() => P.map(col.db_indexes, index =>
-                this.db.collection(col.name).createIndex(index.fields, _.extend({
-                    background: true
-                }, index.options))
-                .then(res => dbg.log0('MongoClient index created', col.name, res))
-                .catch(err => dbg.error('MongoClient index FAILED', col.name, index, err))
-            ));
+    collection(col_name) {
+        if (!this.db) throw new Error(`mongo_client not connected (collection ${col_name})`);
+        return this.db.collection(col_name);
     }
 
-    _init_collections() {
-        return P.all(_.map(this.collections, col => this._init_collection(col)))
-            .then(() => {
-                // now print the indexes just for fun
-                return P.all(_.map(this.collections, col => P.resolve()
-                    .then(() => this.db.collection(col.name).indexes())
-                    .then(res => dbg.log0('MongoClient indexes of', col.name, _.map(res, 'name')))
-                ));
-            })
-            .catch(err => dbg.warn('ignoring error in _init_collections:', err));
+    validate(col_name, doc, warn) {
+        const validator = this._json_validator.getSchema(col_name);
+        if (!validator(doc)) {
+            const msg = `BAD COLLECTION SCHEMA ${col_name}`;
+            if (warn === 'warn') {
+                dbg.warn(msg, doc, 'ERRORS', validator.errors);
+            } else {
+                dbg.error(msg, doc, 'ERRORS', validator.errors);
+                throw new Error(msg);
+            }
+        }
+        return doc;
     }
 
     initiate_replica_set(set, members, is_config_set) {
@@ -207,7 +254,8 @@ class MongoClient extends EventEmitter {
         };
         return P.resolve(this.get_rs_version(is_config_set))
             .then((ver) => {
-                rep_config.version = ++ver;
+                ver += 1;
+                rep_config.version = ver;
                 dbg.log0('Calling replica_update_members', util.inspect(command, false, null));
                 if (!is_config_set) { //connect the mongod server
                     return P.resolve(this.db.admin().command(command))
@@ -316,38 +364,52 @@ class MongoClient extends EventEmitter {
                 _id: id,
                 host: m + ':' + port,
             });
-            ++id;
+            id += 1;
         });
-
-
         return rep_config;
     }
 
     _send_command_config_rs(command) {
-        return P.resolve(this._connect('cfg_db', this.cfg_url, this.config))
-            .catch((err) => {
-                dbg.error('MongoClient: connecting to config rs failed', err.message);
+        let cfg_db;
+        return P.resolve()
+            .then(() => mongodb.MongoClient.connect(this.cfg_url, this.config))
+            .catch(err => {
+                dbg.error('connecting to config rs failed', err.message);
                 throw err;
             })
-            .then(confdb => P.resolve(confdb.admin().command(command)))
-            .then((res) => {
+            .then(cfg_db_arg => {
+                cfg_db = cfg_db_arg;
+            })
+            .then(() => cfg_db.admin().command(command))
+            .then(res => {
                 dbg.log0('successfully sent command to config rs', util.inspect(command));
                 return res;
             })
-            .catch((err) => {
-                dbg.error('MongoClient: sending command config rs failed', util.inspect(command), err.message);
+            .catch(err => {
+                dbg.error('sending command config rs failed', util.inspect(command), err);
                 throw err;
+            })
+            .finally(() => {
+                if (cfg_db) {
+                    cfg_db.close();
+                    cfg_db = null;
+                }
             });
     }
 
     _set_connect_timeout() {
         if (!this.connect_timeout) {
             this.connect_timeout = setTimeout(() => {
-                dbg.error('MongoClient: Connection closed for more ', config.MONGO_DEFAULTS.CONNECT_MAX_WAIT,
+                dbg.error('Connection closed for more ', config.MONGO_DEFAULTS.CONNECT_MAX_WAIT,
                     ', quitting');
                 process.exit(1);
             }, config.MONGO_DEFAULTS.CONNECT_MAX_WAIT);
         }
+    }
+
+    _reset_connect_timeout() {
+        clearTimeout(this.connect_timeout);
+        this.connect_timeout = null;
     }
 }
 

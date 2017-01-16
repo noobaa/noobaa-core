@@ -1,22 +1,27 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const md_store = require('../object_services/md_store');
-const mongo_utils = require('../../util/mongo_utils');
+const config = require('../../../config');
+const MDStore = require('../object_services/md_store').MDStore;
+const AlertsLog = require('./alerts_log.js');
+const server_rpc = require('../server_rpc');
 const native_core = require('../../util/native_core')();
 const ActivityLog = require('../analytic_services/activity_log');
-const AlertsLog = require('./alerts_log.js');
-const system_store = require('../system_services/system_store').get_instance();
 const nodes_client = require('../node_services/nodes_client');
-const server_rpc = require('../server_rpc');
-const config = require('../../../config');
+const system_store = require('../system_services/system_store').get_instance();
 
 var NotificationTypes = Object.freeze({
     ALERT: 1,
     NOTIFICATION: 2,
     ACTIVITYLOG: 3,
+});
+
+const NODE_POPULATE_FIELDS = Object.freeze(['name']);
+const OBJECT_POPULATE_FIELDS = Object.freeze({
+    key: 1
 });
 
 class Dispatcher {
@@ -131,7 +136,7 @@ class Dispatcher {
                 severity: sev,
                 alert: alert
             })
-            .then((res) => {
+            .then(res => {
                 this.send_syslog({
                     description: alert
                 });
@@ -203,22 +208,16 @@ class Dispatcher {
                 };
                 return l;
             }))
-            .then(alerts => {
-                return {
-                    alerts: alerts
-                };
-            });
+            .then(alerts => ({
+                alerts: alerts
+            }));
     }
 
     //Internals
     _resolve_activity_item(log_item, l) {
         return P.resolve()
-            .then(() => nodes_client.instance().populate_nodes(
-                log_item.system, log_item, 'node', ['name']))
-            .then(() => mongo_utils.populate(
-                log_item, 'obj', md_store.ObjectMD.collection, {
-                    key: 1
-                }))
+            .then(() => nodes_client.instance().populate_nodes(log_item.system, log_item, 'node', NODE_POPULATE_FIELDS))
+            .then(() => MDStore.instance().populate_objects(log_item, 'obj', OBJECT_POPULATE_FIELDS))
             .then(() => {
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');

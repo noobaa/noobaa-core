@@ -1,21 +1,24 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
+// setup coretest first to prepare the env
+const coretest = require('./coretest');
+coretest.setup();
+
 let _ = require('lodash');
-let P = require('../../util/promise');
 let mocha = require('mocha');
 let assert = require('assert');
 let argv = require('minimist')(process.argv);
-let promise_utils = require('../../util/promise_utils');
-let coretest = require('./coretest');
+
+let P = require('../../util/promise');
+// let dbg = require('../../util/debug_module')(__filename);
 let ObjectIO = require('../../api/object_io');
 let SliceReader = require('../../util/slice_reader');
-// let dbg = require('../../util/debug_module')(__filename);
+let promise_utils = require('../../util/promise_utils');
 
 let chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
 let chance = require('chance')(chance_seed);
-
-// dbg.set_level(5, 'core');
 
 mocha.describe('object_io', function() {
 
@@ -35,14 +38,12 @@ mocha.describe('object_io', function() {
         self.timeout(30000);
 
         return P.resolve()
-            .then(() => {
-                return client.system.create_system({
-                    activation_code: '1111',
-                    name: SYS,
-                    email: EMAIL,
-                    password: PASSWORD
-                });
-            })
+            .then(() => client.system.create_system({
+                activation_code: '1111',
+                name: SYS,
+                email: EMAIL,
+                password: PASSWORD
+            }))
             .then(res => {
                 client.options.auth_token = res.token;
             })
@@ -68,41 +69,34 @@ mocha.describe('object_io', function() {
         self.timeout(30000);
 
         let key = KEY + Date.now();
-        return P.fcall(function() {
-            return client.object.create_object_upload({
+        return P.resolve()
+            .then(() => client.object.create_object_upload({
                 bucket: BKT,
                 key: key,
-                size: 0,
                 content_type: 'application/octet-stream',
-            });
-        }).then(function(create_reply) {
-            return client.object.complete_object_upload({
+            }))
+            .then(create_reply => client.object.complete_object_upload({
                 bucket: BKT,
                 key: key,
                 upload_id: create_reply.upload_id,
-                fix_parts_size: true
-            });
-        }).then(function() {
-            return client.object.read_object_md({
+            }))
+            .then(() => client.object.read_object_md({
                 bucket: BKT,
                 key: key,
-            });
-        }).then(function() {
-            return client.object.update_object_md({
+            }))
+            .then(() => client.object.update_object_md({
                 bucket: BKT,
                 key: key,
-            });
-        }).then(function() {
-            return client.object.list_objects({
+                content_type: 'text/plain',
+            }))
+            .then(() => client.object.list_objects({
                 bucket: BKT,
                 prefix: key,
-            });
-        }).then(function() {
-            return client.object.delete_object({
+            }))
+            .then(() => client.object.delete_object({
                 bucket: BKT,
                 key: key,
-            });
-        });
+            }));
     });
 
     let CHANCE_BYTE = {
@@ -132,38 +126,36 @@ mocha.describe('object_io', function() {
             let key = KEY + Date.now();
             let size;
             let data;
-            return P.fcall(function() {
-                    return client.node.list_nodes({});
-                })
-                .then(function(list) {
-                    console.log("list_nodes in use", list);
+            return P.resolve()
+                .then(() => client.node.list_nodes({}))
+                .then(nodes => console.log("list_nodes in use", nodes))
+                .then(() => {
                     // randomize size with equal chance on KB sizes
-                    size = OBJ_PART_SIZE * chance.integer(CHANCE_PART_NUM) +
+                    size = (OBJ_PART_SIZE * chance.integer(CHANCE_PART_NUM)) +
                         chance.integer(CHANCE_PART_OFFSET);
                     // randomize a buffer
-                    // console.log('random object size', size);
+                    console.log('random object size', size);
                     data = new Buffer(size);
                     for (let i = 0; i < size; i++) {
                         data[i] = chance.integer(CHANCE_BYTE);
                     }
-                    return object_io.upload_stream({
+                    return object_io.upload_object({
                         client: client,
                         bucket: BKT,
                         key: key,
                         size: size,
                         content_type: 'application/octet-stream',
                         source_stream: new SliceReader(data),
-                        calculate_md5: true,
                     });
-                }).then(function() {
-                    return object_io.read_entire_object({
-                        client: client,
-                        bucket: BKT,
-                        key: key,
-                        start: 0,
-                        end: size,
-                    });
-                }).then(function(read_buf) {
+                })
+                .then(() => object_io.read_entire_object({
+                    client: client,
+                    bucket: BKT,
+                    key: key,
+                    start: 0,
+                    end: size,
+                }))
+                .then(read_buf => {
 
                     // verify the read buffer equals the written buffer
                     assert.strictEqual(data.length, read_buf.length);
@@ -172,27 +164,24 @@ mocha.describe('object_io', function() {
                     }
                     console.log('READ SUCCESS');
 
-                }).then(function() {
-
+                })
+                .then(() => client.object.read_object_mappings({
+                    bucket: BKT,
+                    key: key,
+                    adminfo: true
+                }))
+                .then(res => {
                     // testing mappings that nodes don't repeat in the same fragment
-
-                    return client.object.read_object_mappings({
-                        bucket: BKT,
-                        key: key,
-                        adminfo: true
-                    }).then(function(res) {
-                        _.each(res.parts, function(part) {
-                            let blocks = _.flatten(_.map(part.fragments, 'blocks'));
-                            let blocks_per_node = _.groupBy(blocks, function(block) {
-                                return block.adminfo.node_name;
-                            });
-                            console.log('VERIFY MAPPING UNIQUE ON NODE', blocks_per_node);
-                            _.each(blocks_per_node, function(blocks, node_name) {
-                                assert.strictEqual(blocks.length, 1);
-                            });
+                    _.each(res.parts, function(part) {
+                        let blocks = _.flatten(_.map(part.fragments, 'blocks'));
+                        let blocks_per_node = _.groupBy(blocks, function(block) {
+                            return block.adminfo.node_name;
+                        });
+                        console.log('VERIFY MAPPING UNIQUE ON NODE', blocks_per_node);
+                        _.each(blocks_per_node, function(b, node_name) {
+                            assert.strictEqual(b.length, 1);
                         });
                     });
-
                 });
         });
     });
@@ -200,7 +189,7 @@ mocha.describe('object_io', function() {
 
     mocha.describe('multipart upload', function() {
 
-        mocha.it('should list_multipart_parts', function() {
+        mocha.it('should list_multiparts', function() {
             const self = this; // eslint-disable-line no-invalid-this
             self.timeout(30000);
 
@@ -212,79 +201,54 @@ mocha.describe('object_io', function() {
             for (let i = 0; i < data.length; i++) {
                 data[i] = chance.integer(CHANCE_BYTE);
             }
-            return P.fcall(function() {
-                    return client.object.create_object_upload({
-                        bucket: BKT,
-                        key: key,
-                        size: num_parts * part_size,
-                        content_type: 'test/test'
-                    });
-                })
-                .then(function(create_reply) {
+            return P.resolve()
+                .then(() => client.object.create_object_upload({
+                    bucket: BKT,
+                    key: key,
+                    content_type: 'test/test'
+                }))
+                .then(create_reply => {
                     upload_id = create_reply.upload_id;
-                    return client.object.list_multipart_parts({
-                            bucket: BKT,
-                            key: key,
-                            upload_id: upload_id,
-                        })
-                        .then(function(res) {
-                            console.log('list_multipart_parts reply', res);
-                        });
                 })
-                .then(function() {
-                    let i = -1;
-                    return promise_utils.loop(10, function() {
-                        i++;
-                        return object_io.upload_stream_parts({
-                                client: client,
-                                bucket: BKT,
-                                key: key,
-                                upload_id: upload_id,
-                                upload_part_number: i,
-                                size: part_size,
-                                source_stream: new SliceReader(data, {
-                                    start: i * part_size,
-                                    end: (i + 1) * part_size
-                                }),
-                                calculate_md5: true,
-                            })
-                            .then((md5_digest) => client.object.complete_part_upload({
-                                bucket: BKT,
-                                key: key,
-                                upload_id: upload_id,
-                                upload_part_number: i,
-                                etag: md5_digest.md5.toString('hex')
-                            }));
-                    });
-                })
-                .then(function() {
-                    return client.object.list_multipart_parts({
-                            bucket: BKT,
-                            key: key,
-                            upload_id: upload_id,
-                            part_number_marker: 1,
-                            max_parts: 1
-                        })
-                        .then(function(res) {
-                            console.log('list_multipart_parts reply', res);
-                        });
-                })
-                .then(function() {
-                    return client.object.complete_object_upload({
-                        bucket: BKT,
-                        key: key,
-                        upload_id: upload_id,
-                        fix_parts_size: true
-                    });
-                })
-                .then(function() {
-                    return object_io.read_entire_object({
-                        client: client,
-                        bucket: BKT,
-                        key: key,
-                    });
-                })
-                .then(function(read_buf) {
+                .then(() => client.object.list_multiparts({
+                    bucket: BKT,
+                    key: key,
+                    upload_id: upload_id,
+                }))
+                .tap(list => console.log('list_multiparts reply', list))
+                .then(list => promise_utils.loop(num_parts, i => object_io.upload_multipart({
+                    client: client,
+                    bucket: BKT,
+                    key: key,
+                    upload_id: upload_id,
+                    num: i + 1,
+                    size: part_size,
+                    source_stream: new SliceReader(data, {
+                        start: i * part_size,
+                        end: (i + 1) * part_size
+                    }),
+                })))
+                .then(() => client.object.list_multiparts({
+                    bucket: BKT,
+                    key: key,
+                    upload_id: upload_id,
+                }))
+                .tap(list => console.log('list_multiparts reply', list))
+                .then(list => client.object.complete_object_upload({
+                    bucket: BKT,
+                    key: key,
+                    upload_id: upload_id,
+                    multiparts: _.map(list.multiparts, p => ({
+                        num: p.num,
+                        etag: p.etag,
+                    }))
+                }))
+                .then(() => object_io.read_entire_object({
+                    client: client,
+                    bucket: BKT,
+                    key: key,
+                }))
+                .then(read_buf => {
                     assert.strictEqual(data.length, read_buf.length, "mismatch data length");
                     for (let i = 0; i < data.length; i++) {
                         assert.strictEqual(data[i], read_buf[i], "mismatch data at offset " + i);

@@ -1,14 +1,16 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 const AWS = require('aws-sdk');
-const https = require('https');
-const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
-const dbg = require('../../util/debug_module')(__filename);
-const md_store = require('../object_services/md_store');
-const system_store = require('../system_services/system_store').get_instance();
 const util = require('util');
+const https = require('https');
+
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const MDStore = require('../object_services/md_store').MDStore;
+const system_store = require('../system_services/system_store').get_instance();
+const promise_utils = require('../../util/promise_utils');
 
 class PolicyMap extends Map {
     static create() {
@@ -183,43 +185,25 @@ function pretty_policy(policy) {
 //TODO:: add limit and skip
 //Preferably move part of list_objects to a mutual function called by both
 function list_all_objects(sysid, bucket) {
-    return P.resolve(md_store.ObjectMD.find({
-                system: sysid,
-                bucket: bucket,
-                deleted: null,
-                create_time: {
-                    $exists: true
-                }
-            })
-            .sort('key')
-            .exec())
-        .then(function(list) {
-            return list;
-        });
+    return MDStore.instance().list_all_objects_of_bucket_ordered_by_key(bucket);
 }
 
 //return all objects which need sync (new and deleted) for sysid, bucketid
-function list_need_sync(sysid, bucket) {
+function list_need_sync(bucket) {
     var res = {
         deleted: [],
         added: [],
     };
 
-    return P.resolve(md_store.ObjectMD.find({
-                system: sysid,
-                bucket: bucket,
-                cloud_synced: false,
-                create_time: {
-                    $exists: true
-                }
-            })
-            .exec())
-        .then(function(need_to_sync) {
-            _.each(need_to_sync, function(obj) {
+    return MDStore.instance().list_all_objects_of_bucket_need_sync(bucket)
+        .then(need_to_sync => {
+            _.each(need_to_sync, obj => {
                 if (obj.deleted) {
-                    if (!(res.deleted.find(deleted_obj => (deleted_obj.system._id === obj.system._id &&
+                    if (!(res.deleted.find(deleted_obj => (
+                            deleted_obj.system._id === obj.system._id &&
                             deleted_obj.bucket._id === obj.bucket._id &&
-                            deleted_obj.key === obj.key)))) {
+                            deleted_obj.key === obj.key
+                        )))) {
                         res.deleted.push(obj);
                     }
                 } else {
@@ -228,27 +212,23 @@ function list_need_sync(sysid, bucket) {
             });
             return res;
         })
-        .then(null, function(err) {
+        .catch(err => {
             console.warn('list_need_sync got error', err, err.stack);
         });
 }
 
-//set cloud_sync to true on given object
-function mark_cloud_synced(object, update_deleted) {
+// set cloud_sync to true on given object
+function mark_cloud_synced(object) {
+    return MDStore.instance().update_object_by_key(object.bucket, object.key, {
+        cloud_synced: true
+    });
+}
 
-    return P.resolve()
-        .then(() => md_store.ObjectMD.update({
-            system: object.system,
-            bucket: object.bucket,
-            key: object.key,
-            deleted: {
-                $exists: Boolean(update_deleted)
-            }
-        }, {
-            cloud_synced: true
-        }, {
-            multi: Boolean(update_deleted)
-        }));
+// set cloud_sync to true on given object
+function mark_cloud_synced_deleted(object) {
+    return MDStore.instance().update_objects_by_key_deleted(object.bucket, object.key, {
+        cloud_synced: true
+    });
 }
 
 
@@ -456,7 +436,7 @@ function update_n2c_worklist(policy) {
     }
     dbg.log2('update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket._id);
     return P.fcall(function() {
-            return list_need_sync(policy.system._id, policy.bucket._id);
+            return list_need_sync(policy.bucket._id);
         })
         .then(function(res) {
             policy.work_lists.n2c_added = res.added;
@@ -550,7 +530,7 @@ function update_c2n_worklist(policy) {
                 };
             });
             dbg.log2('update_c2n_worklist cloud_object_list length', cloud_object_list.length);
-            return list_all_objects(policy.system._id, policy.bucket._id);
+            return list_all_objects(policy.bucket._id);
         })
         .then(function(bucket_obj) {
             bucket_object_list = _.map(bucket_obj, function(obj) {
@@ -778,7 +758,7 @@ function sync_to_cloud_single_bucket(policy) {
         .then(function() {
             //marked deleted objects as cloud synced
             return P.all(_.map(bucket_work_lists.n2c_deleted, function(object) {
-                return mark_cloud_synced(object, true);
+                return mark_cloud_synced_deleted(object);
             }));
         })
         .then(function() {
@@ -848,7 +828,7 @@ function sync_from_cloud_single_bucket(policy) {
                 return;
             }
         })
-        .then(() => P.map(bucket_work_lists.c2n_deleted, obj => mark_cloud_synced(obj, true)))
+        .then(() => P.map(bucket_work_lists.c2n_deleted, obj => mark_cloud_synced_deleted(obj)))
         .catch(function(err) {
             dbg.error('sync_from_cloud_single_bucket failed on syncing deletions', err, err.stack);
             policy.health = false;

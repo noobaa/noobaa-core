@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -5,7 +6,7 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-const md_store = require('../object_services/md_store');
+const MDStore = require('../object_services/md_store').MDStore;
 const map_utils = require('./map_utils');
 const time_utils = require('../../util/time_utils');
 const range_utils = require('../../util/range_utils');
@@ -64,7 +65,7 @@ class MapAllocator {
         if (!config.DEDUP_ENABLED) return;
         let digest_list = _.uniq(_.map(this.parts, part => part.chunk.digest_b64));
         dbg.log3('MapAllocator.find_dups', digest_list.length);
-        return md_store.load_chunks_by_digest(this.bucket, digest_list)
+        return MDStore.instance().find_chunks_by_digest(this.bucket, digest_list)
             .then(chunks_by_digest => {
                 _.each(this.parts, part => {
                     let dup_chunks = chunks_by_digest[part.chunk.digest_b64];
@@ -101,7 +102,7 @@ class MapAllocator {
                 let block = _.pick(f,
                     'digest_type',
                     'digest_b64');
-                block._id = md_store.make_md_id();
+                block._id = MDStore.instance().make_md_id();
                 let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts);
                 if (!node) {
                     throw new Error('MapAllocator: no nodes for allocation');

@@ -143,10 +143,9 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
         'alloc_group', alloc_group);
     if (!pools[0].cloud_pool_info &&
         num_nodes < config.NODES_MIN_COUNT) { //Not cloud requires NODES_MIN_COUNT
-        dbg.warn('allocate_node: not enough online nodes in pool set',
+        dbg.error('allocate_node: not enough online nodes in pool set',
             pools, avoid_nodes, allocated_hosts, content_tiering_params);
-        throw new Error('allocate_node: not enough online nodes in pool set ' +
-            pool_set + ' num_nodes ' + num_nodes);
+        return;
     }
 
     // allocate first tries from nodes with no error,

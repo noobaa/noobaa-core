@@ -106,7 +106,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
                         };
 
                     } else {
-                        return { value: targetBucket };
+                        return { value: targetName };
                     }
                 }
             )

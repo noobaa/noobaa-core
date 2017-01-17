@@ -234,14 +234,13 @@ function verify_candidate_join_conditions(req) {
             result: res.result,
             version: res.version
         }))
-        .catch(err => {
-            if (err.message && err.message.startsWith('RPC CONN CLOSED')) {
-                dbg.warn('received RPC CONN CLOSED on verify_candidate_join_conditions');
+        .catch(RpcError, err => {
+            if (err.rpc_code === 'RPC_CONNECT_TIMEOUT') {
+                dbg.warn('received', err, ' on verify_candidate_join_conditions');
                 return {
                     result: 'UNREACHABLE'
                 };
             }
-            dbg.error('received error on verify_candidate_join_conditions', err);
             throw err;
         });
 }

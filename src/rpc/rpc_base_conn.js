@@ -7,6 +7,7 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const time_utils = require('../util/time_utils');
+const RpcError = require('./rpc_error');
 
 const STATE_INIT = 'init';
 const STATE_CONNECTING = 'connecting';
@@ -55,7 +56,7 @@ class RpcBaseConnection extends EventEmitter {
         // connections are closed on error, and once closed will not be reopened again.
         this.on('error', err => {
             dbg.warn('RPC CONN CLOSE ON ERROR', this.connid, err.stack || err);
-            this.close();
+            this.close(err);
         });
 
         // on send failures we handle by closing and rethrowing to the caller
@@ -77,7 +78,7 @@ class RpcBaseConnection extends EventEmitter {
                 this._state = STATE_CONNECTING;
                 // set a timer to limit how long we are waiting for connect
                 this._connect_timeout = setTimeout(
-                    () => this.emit_error(new P.TimeoutError('RPC CONNECT TIMEOUT')),
+                    () => this.emit_error(new RpcError('RPC_CONNECT_TIMEOUT', 'RPC CONNECT TIMEOUT')),
                     config.RPC_CONNECT_TIMEOUT);
                 this._connect();
                 return this.connecting_defer.promise;
@@ -103,17 +104,18 @@ class RpcBaseConnection extends EventEmitter {
         }
         return P.resolve()
             .then(() => this._send(msg, op, req))
-            .timeout(config.RPC_SEND_TIMEOUT, 'RPC SEND TIMEOUT')
+            .timeout(config.RPC_SEND_TIMEOUT)
+            .catch(P.TimeoutError, () => this.emit_error(new RpcError('RPC_SEND_TIMEOUT', 'RPC SEND TIMEOUT')))
             .catch(this.emit_error);
     }
 
-    close() {
+    close(err) {
         if (this._state === STATE_CLOSED) return;
         this._state = STATE_CLOSED;
         this.emit('close');
         clearTimeout(this._connect_timeout);
         if (this.connecting_defer) {
-            this.connecting_defer.reject(new Error('RPC CONN CLOSED ' + this.connid));
+            this.connecting_defer.reject(err || new RpcError('RPC_CONN_CLOSED', 'RPC CONN CLOSED ' + this.connid));
             this.connecting_defer = null;
         }
         this._close();

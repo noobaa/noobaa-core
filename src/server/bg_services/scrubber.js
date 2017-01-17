@@ -25,7 +25,7 @@ function background_worker() {
     }
 
     const system = system_store.data.systems[0];
-    if (system_server_utils.system_in_maintenance(system._id)) return;
+    if (!system || system_server_utils.system_in_maintenance(system._id)) return;
 
     var self = this;
     return P.fcall(function() {

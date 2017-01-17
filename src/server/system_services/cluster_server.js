@@ -212,7 +212,8 @@ function verify_join_conditions(req) {
     return P.resolve()
         .then(() => _verify_join_preconditons(req))
         .then(result => ({
-            result,
+            result: result.result,
+            version: result.version,
             caller_address,
             hostname,
         }));
@@ -230,8 +231,19 @@ function verify_candidate_join_conditions(req) {
         })
         .then(res => ({
             hostname: res.hostname,
-            result: res.result
-        }));
+            result: res.result,
+            version: res.version
+        }))
+        .catch(err => {
+            if (err.message && err.message.startsWith('RPC CONN CLOSED')) {
+                dbg.warn('received RPC CONN CLOSED on verify_candidate_join_conditions');
+                return {
+                    result: 'UNREACHABLE'
+                };
+            }
+            dbg.error('received error on verify_candidate_join_conditions', err);
+            throw err;
+        });
 }
 
 
@@ -242,7 +254,7 @@ function join_to_cluster(req) {
     return P.resolve()
         .then(() => _verify_join_preconditons(req))
         .then(verify_res => {
-            if (verify_res !== 'OKAY') {
+            if (verify_res.result !== 'OKAY') {
                 throw new Error('Verify joing preconditions failed with result', verify_res);
             }
             req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
@@ -1135,12 +1147,17 @@ function _verify_join_preconditons(req) {
     //Verify secrets match
     if (req.rpc_params.secret !== system_store.get_server_secret()) {
         dbg.error('Secrets do not match!');
-        return 'SECRET_MISMATCH';
+        return {
+            result: 'SECRET_MISMATCH'
+        };
     }
 
     if (req.rpc_params.version && req.rpc_params.version !== pkg.version) {
         dbg.error(`versions does not match - master version = ${req.rpc_params.version}  joined version = ${pkg.version}`);
-        return 'VERSION_MISMATCH';
+        return {
+            result: 'VERSION_MISMATCH',
+            version: pkg.version
+        };
     }
 
 
@@ -1151,7 +1168,9 @@ function _verify_join_preconditons(req) {
         if (cutil.get_topology().shards.length !== 1 ||
             cutil.get_topology().shards[0].servers.length !== 1) {
             dbg.error('Server already joined to a cluster');
-            return 'EXISTING_MEMBER';
+            return {
+                result: 'ALREADY_A_MEMBER'
+            };
         }
 
         // verify there are no objects on the system
@@ -1161,7 +1180,9 @@ function _verify_join_preconditons(req) {
             }))
             .then(obj_count => {
                 if (obj_count[''] > 0) {
-                    return 'HAS_OBJECTS';
+                    return {
+                        result: 'HAS_OBJECTS'
+                    };
                 }
             });
     }

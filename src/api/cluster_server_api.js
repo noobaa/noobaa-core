@@ -221,12 +221,15 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['result', 'hostname'],
+                required: ['result'],
                 properties: {
                     result: {
                         $ref: '#/definitions/verify_new_member_result'
                     },
                     hostname: {
+                        type: 'string'
+                    },
+                    version: {
                         type: 'string'
                     }
                 }
@@ -255,7 +258,7 @@ module.exports = {
         },
 
         verify_new_member_result: {
-            enum: ['OKAY', 'SECRET_MISMATCH', 'VERSION_MISMATCH', 'EXISTING_MEMBER', 'HAS_OBJECTS'],
+            enum: ['OKAY', 'SECRET_MISMATCH', 'VERSION_MISMATCH', 'ALREADY_A_MEMBER', 'HAS_OBJECTS', 'UNREACHABLE'],
             type: 'string'
         }
     },

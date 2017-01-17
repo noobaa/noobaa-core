@@ -1,6 +1,4 @@
 import template from './install-node-modal.html';
-import networkInstallationTemplate from './network-installation.html';
-import manualInstallationTemplate from './manual-installation.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
@@ -20,10 +18,6 @@ function getInstallationCommand(os, { pkg, conf, server }) {
 class InstallNodeWizardViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
-
-        this.networkInstallationTemplate = networkInstallationTemplate;
-        this.manualInstallationTemplate = manualInstallationTemplate;
-
         this.onClose = onClose;
         this.osTypeOptions = [ 'linux', 'windows' ];
         this.selectedOsType = ko.observable(this.osTypeOptions[0]);

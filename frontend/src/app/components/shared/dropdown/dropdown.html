@@ -20,12 +20,12 @@
         text: selectedLabel
     "></div>
 
-    <svg-icon class="icon-small" params="name: 'chevron'" data-bind="
+    <svg-icon class="icon-small chevron" params="name: 'chevron'" data-bind="
         event: { mousedown: () => $wrapper.focus() }
     "></svg-icon>
 
     <div class="options" data-bind="
-        visible: active(),
+        visible: active,
         event: {
             click: () => active(false) && true,
             mousedown: () => $wrapper.focus()
@@ -34,16 +34,25 @@
     ">
         <ul class="list-no-style" data-bind="foreach: options, scrollTo: selectedIndex">
             <li data-bind="css: { seperator: !$data }, if: $data">
-                <label class="option">
+                <label class="option row content-middle" data-bind="
+                    css: { disabled: disabled },
+                    tooltip: tooltip,
+                    click: () => true,
+                    clickBubble: !ko.unwrap(disabled)
+                ">
                     <input type="radio" data-bind="
                         attr: { name: $component.name },
+                        disable: disabled,
                         checked: $component.selected,
                         checkedValue: value
                     "/>
-                    <span class="option-label no-wrap" data-bind="
-                        css: $data.css,
-                        text: $data.label || value
-                    "></span>
+                    <!-- ko if: icon -->
+                    <svg-icon params="name: icon"></svg-icon>
+                    <!-- /ko -->
+                    <div class="option-label no-wrap greedy" >
+                        <div data-bind="css: css, text: label"></div>
+                        <div class="remark" data-bind="text: remark"></div>
+                    </div>
                 </label>
             </li>
         </ul>

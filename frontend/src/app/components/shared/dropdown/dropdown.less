@@ -12,7 +12,7 @@ dropdown {
         padding-right: 32px;
     }
 
-    svg-icon {
+    .chevron {
         position: absolute;
         top: 12px;
         right: 12px;
@@ -41,8 +41,10 @@ dropdown {
     }
 
     .option {
-        display: block;
         margin-right: 2px;
+        padding: 0 @gutter/2;
+        color: @color1;
+        border: 1px solid transparent;
 
         > input {
             display: none;
@@ -51,17 +53,36 @@ dropdown {
         .option-label {
             display: block;
             margin: 0;
-            color: @color1;
             font-weight: @font-regular;
             padding: @gutter/2;
+            line-height: 1.2;
+        }
 
-            &:hover {
+        .remark {
+            color: inherit;
+        }
+
+        &.disabled {
+            cursor: default;
+            opacity: .4;
+        }
+
+        &:hover {
+            border-color: @color7;
+
+            &:not(.disabled) {
                 background-color: @color7;
             }
         }
 
-        :checked + .option-label {
-            color: @color8;
+        :checked {
+            ~ .option-label {
+                color: @color8;
+            }
+
+             ~ svg-icon {
+                fill: @color8;
+             }
         }
     }
 

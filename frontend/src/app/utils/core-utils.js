@@ -200,3 +200,8 @@ export function mapValues(obj, mapOp) {
 export function interpolateLinear(a, b, t) {
     return a + (b - a) * t;
 }
+
+export function decimalRound(number, fractionalLength = 2) {
+    const factor = Math.pow(10, fractionalLength);
+    return Math.round(number * factor) / factor;
+}

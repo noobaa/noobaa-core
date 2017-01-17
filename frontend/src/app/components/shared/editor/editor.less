@@ -11,10 +11,13 @@ editor {
     }
 
     > .editor-label {
+        @width: 152px;
+
         font-size: @font-size3;
         font-weight: @font-light;
         color: @color7;
-        width: 152px;
+        width: @width;
+        min-width: @width;
         line-height: inherit;
 
         &.disabled {

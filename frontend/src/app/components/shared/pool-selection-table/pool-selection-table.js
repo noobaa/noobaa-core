@@ -25,8 +25,9 @@ const columns = deepFreeze([
         name: 'onlineNodes'
     },
     {
-        name: 'freeSpace',
-        label: 'Available Capacity'
+        name: 'capacity',
+        label: 'Resource Capacity',
+        type: 'capacity'
     }
 ]);
 

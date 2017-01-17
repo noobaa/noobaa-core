@@ -1,5 +1,6 @@
 import ko from 'knockout';
-import { getPoolStateIcon, getResourceTypeIcon } from 'utils/ui-utils';
+import { getPoolStateIcon, getResourceTypeIcon,
+    getPoolCapacityBarValues } from 'utils/ui-utils';
 
 export default class PlacementRowViewModel {
     constructor(pool) {
@@ -44,10 +45,8 @@ export default class PlacementRowViewModel {
             }
         );
 
-        this.freeSpace = ko.pureComputed(
-            () => pool() && pool().storage.free
-        ).extend({
-            formatSize: true
-        });
+        this.capacity = ko.pureComputed(
+            () => getPoolCapacityBarValues(pool() || {})
+        );
     }
 }

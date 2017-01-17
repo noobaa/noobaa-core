@@ -206,7 +206,7 @@ function verify_join_conditions(req) {
             req.connection.url.hostname;
     } else {
         dbg.error('No connection on request for verify_join_conditions. Got:', req);
-        throw new Error('No connection on request for verify_join_conditions');
+        return P.reject(new Error('No connection on request for verify_join_conditions'));
     }
 
     return P.resolve()

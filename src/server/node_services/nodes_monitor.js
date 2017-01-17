@@ -1556,7 +1556,7 @@ class NodesMonitor extends EventEmitter {
                 // we update the stage marker even if failed to advance the scan
                 act.stage.marker = res.marker;
                 blocks_size = res.blocks_size;
-                const builder = new MapBuilder(res.chunks);
+                const builder = new MapBuilder(res.chunk_ids);
                 return builder.run();
             })
             .then(() => {

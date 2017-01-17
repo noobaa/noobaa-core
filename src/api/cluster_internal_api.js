@@ -84,13 +84,16 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['caller_address', 'hostname'],
+                required: ['caller_address', 'hostname', 'result'],
                 properties: {
                     caller_address: {
                         type: 'string'
                     },
                     hostname: {
                         type: 'string'
+                    },
+                    result: {
+                        $ref: 'cluster_server_api#/definitions/verify_new_member_result'
                     }
                 }
             },

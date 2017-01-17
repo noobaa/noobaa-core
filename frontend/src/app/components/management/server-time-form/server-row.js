@@ -55,6 +55,10 @@ export default class ServerRowViewModel extends BaseViewModel {
             )
         );
 
+        this.ntpServer = ko.pureComputed(
+            () => (server() && server().ntp_server) || 'Not Configured'
+        );
+
         const timezone = ko.pureComputed(
             () => server() && server().timezone
         );

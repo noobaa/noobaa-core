@@ -19,7 +19,8 @@ const columns = deepFreeze([
         label: 'IP Address'
     },
     {
-        name: 'timeSettings'
+        name: 'ntpServer',
+        label: 'NTP Server'
     },
     {
         name: 'time',

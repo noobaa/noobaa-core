@@ -81,8 +81,8 @@ function _verify_dns_cluster_config() {
         .then(platform_dns_servers => {
             if (!_are_platform_and_cluster_conf_equal(platform_dns_servers, cluster_conf)) {
                 dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_servers, 'cluster_conf:', cluster_conf);
-                return os_utils.set_dns_server(cluster_conf)
-                    .then(() => os_utils.restart_services());
+                /*return os_utils.set_dns_server(cluster_conf)
+                    .then(() => os_utils.restart_services());*/
             }
         })
         .catch(err => dbg.error('failed to reconfigure dns cluster config on the server. reason:', err));

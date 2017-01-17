@@ -41,7 +41,7 @@ module.exports = {
             },
             auth: {
                 system: 'admin'
-            }
+            },
         },
 
         update_time_config: {
@@ -204,6 +204,38 @@ module.exports = {
             }
         },
 
+        verify_candidate_join_conditions: {
+            doc: 'check join conditions to the cluster for specified server and return its hostname',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['address', 'secret'],
+                properties: {
+                    address: {
+                        type: 'string',
+                    },
+                    secret: {
+                        type: 'string'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['result', 'hostname'],
+                properties: {
+                    result: {
+                        $ref: '#/definitions/verify_new_member_result'
+                    },
+                    hostname: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
         ping: {
             method: 'GET',
             reply: {
@@ -221,5 +253,10 @@ module.exports = {
             enum: ['SHARD', 'REPLICA'],
             type: 'string',
         },
+
+        verify_new_member_result: {
+            enum: ['OKAY', 'SECRET_MISMATCH', 'VERSION_MISMATCH', 'EXISTING_MEMBER', 'HAS_OBJECTS'],
+            type: 'string'
+        }
     },
 };

@@ -55,7 +55,16 @@ module.exports = {
             },
             auth: {
                 system: false
-            }
+            },
+            reply: {
+                type: 'object',
+                required: ['new_hostname'],
+                properties: {
+                    new_hostname: {
+                        type: 'string'
+                    }
+                }
+            },
         },
 
         verify_join_conditions: {
@@ -75,10 +84,16 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['caller_address'],
+                required: ['caller_address', 'hostname', 'result'],
                 properties: {
                     caller_address: {
                         type: 'string'
+                    },
+                    hostname: {
+                        type: 'string'
+                    },
+                    result: {
+                        $ref: 'cluster_server_api#/definitions/verify_new_member_result'
                     }
                 }
             },

@@ -198,16 +198,40 @@ function add_member_to_cluster(req) {
 
 function verify_join_conditions(req) {
     dbg.log0('Got verify_join_conditions request');
-    let response = {};
+    let hostname = os_utils.os_info().hostname;
+    let caller_address;
     if (req.connection && req.connection.url) {
-        response.caller_address = req.connection.url.hostname.includes('ffff') ?
+        caller_address = req.connection.url.hostname.includes('ffff') ?
             req.connection.url.hostname.replace(/^.*:/, '') :
             req.connection.url.hostname;
+    } else {
+        dbg.error('No connection on request for verify_join_conditions. Got:', req);
+        throw new Error('No connection on request for verify_join_conditions');
     }
 
     return P.resolve()
         .then(() => _verify_join_preconditons(req))
-        .then(() => response);
+        .then(result => ({
+            result,
+            caller_address,
+            hostname,
+        }));
+}
+
+function verify_candidate_join_conditions(req) {
+    dbg.log0('Got verify_candidate_join_conditions for server secret:', req.rpc_params.secret,
+        'address:', req.rpc_params.address);
+    return server_rpc.client.cluster_internal.verify_join_conditions({
+            secret: req.rpc_params.secret,
+            version: pkg.version
+        }, {
+            address: server_rpc.get_base_address(req.rpc_params.address),
+            timeout: 60000 //60s
+        })
+        .then(res => ({
+            hostname: res.hostname,
+            result: res.result
+        }));
 }
 
 
@@ -217,7 +241,10 @@ function join_to_cluster(req) {
 
     return P.resolve()
         .then(() => _verify_join_preconditons(req))
-        .then(() => {
+        .then(verify_res => {
+            if (verify_res !== 'OKAY') {
+                throw new Error('Verify joing preconditions failed with result', verify_res);
+            }
             req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
             req.rpc_params.topology.owner_address = req.rpc_params.ip;
             // update jwt secret in dotenv
@@ -699,7 +726,7 @@ function diagnose_system(req) {
                         auth_token: req.auth_token
                     })
                     .then(res_data => {
-                        var server_hostname = 'unknown' || (server.heartbeat && server.heartbeat.health.os_info.hostname);
+                        var server_hostname = (server.heartbeat && server.heartbeat.health.os_info.hostname) || 'unknown';
                         // Should never exist since above we delete the root folder
                         return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
                             .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`,
@@ -747,7 +774,7 @@ function collect_server_diagnostics(req) {
             return res;
         })
         .catch(err => {
-            dbg.error('DIAGNOSTICS FAILED', err.stack || err);
+            dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
             return {
                 data: new Buffer(),
             };
@@ -1113,12 +1140,12 @@ function _verify_join_preconditons(req) {
     //Verify secrets match
     if (req.rpc_params.secret !== system_store.get_server_secret()) {
         dbg.error('Secrets do not match!');
-        throw new Error('Secrets do not match!');
+        return 'SECRET_MISMATCH';
     }
 
     if (req.rpc_params.version && req.rpc_params.version !== pkg.version) {
         dbg.error(`versions does not match - master version = ${req.rpc_params.version}  joined version = ${pkg.version}`);
-        throw new Error('versions do not match');
+        return 'VERSION_MISMATCH';
     }
 
 
@@ -1129,7 +1156,7 @@ function _verify_join_preconditons(req) {
         if (cutil.get_topology().shards.length !== 1 ||
             cutil.get_topology().shards[0].servers.length !== 1) {
             dbg.error('Server already joined to a cluster');
-            throw new Error('Server joined to a cluster');
+            return 'EXISTING_MEMBER';
         }
 
         // verify there are no objects on the system
@@ -1139,7 +1166,7 @@ function _verify_join_preconditons(req) {
             }))
             .then(obj_count => {
                 if (obj_count[''] > 0) {
-                    throw new Error('Server contains objects');
+                    return 'HAS_OBJECTS';
                 }
             });
     }
@@ -1506,6 +1533,7 @@ exports.do_upgrade = do_upgrade;
 exports.upgrade_cluster = upgrade_cluster;
 exports.check_cluster_status = check_cluster_status;
 exports.ping = ping;
+exports.verify_candidate_join_conditions = verify_candidate_join_conditions;
 exports.verify_join_conditions = verify_join_conditions;
 exports.update_server_conf = update_server_conf;
 exports.set_hostname_internal = set_hostname_internal;

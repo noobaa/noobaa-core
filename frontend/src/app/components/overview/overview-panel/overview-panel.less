@@ -4,6 +4,19 @@
         height: 100%;
         max-width: 1150px;
         max-height: 550px;
+
+        > .column {
+            min-width: 33%;
+            padding: 0 @gutter/2;
+
+            &:first-child {
+                padding-left: 0;
+            }
+
+            &:last-child {
+                padding-right: 0;
+            }
+        }
     }
 
     .overview-btn {
@@ -15,4 +28,6 @@
     hr {
         border-width: 2px;
     }
+
+
 }

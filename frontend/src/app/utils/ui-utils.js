@@ -167,7 +167,7 @@ export function getSystemStorageIcon(storage) {
         return {
             name: 'problem',
             css: 'disabled',
-            tooltip: 'No system storage - add nodes or colud resources'
+            tooltip: 'No system storage - add nodes or cloud resources'
         };
 
     } else if (free < Math.pow(1024, 2)) { // 1MB

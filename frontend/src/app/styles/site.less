@@ -6,9 +6,8 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-}
-
-html, body {
+    min-width: 1024px;
+    min-height: 680px;
     background-color: @color2;
     font-family: @font-family1;
     font-weight: @font-light;
@@ -322,6 +321,15 @@ body:not(.preview) .preview-only {
     cursor: @cursor-pointer;
 }
 
+.bg-stars {
+    /*
+    https://unsplash.com/license
+    https://unsplash.com/collections/136301/space?photo=NORa8-4ohA0
+    */
+    background: url('@{assets}/stars.jpg');
+    background-size: cover;
+}
+
 .no-select {
     -webkit-touch-callout: none; /* iOS Safari */
     -webkit-user-select: none; /* Chrome/Safari/Opera */
@@ -331,3 +339,4 @@ body:not(.preview) .preview-only {
     user-select: none; /* Non-prefixed version, currently
     not supported by any browser */
 }
+

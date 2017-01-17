@@ -96,16 +96,17 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
         this.targetBucketsOptions = ko.pureComputed(
             () => this.connection() && cloudBucketList() && cloudBucketList().map(
                 ({ name, used_by }) => {
+                    const targetName = name;
                     if (used_by) {
                         const { usage_type, name } = used_by;
                         return {
-                            value: name,
+                            value: targetName,
                             disabled: true,
                             tooltip: usedTargetTooltip[usage_type](name)
                         };
 
                     } else {
-                        return { value: name };
+                        return { value: targetBucket };
                     }
                 }
             )

@@ -39,7 +39,7 @@ class MapBuilder {
         dbg.log1('MapBuilder.run:', 'batch start', this.chunk_ids.length, 'chunks');
         if (!this.chunk_ids.length) return;
 
-        return builder_lock.surround_keys(_.map(this.chunk_ids, chunk_id => String(chunk_id)), () => {
+        return builder_lock.surround_keys(_.map(this.chunk_ids, String), () => {
             return P.resolve(this.reload_chunks(this.chunk_ids))
                 .then(() => P.join(
                     system_store.refresh(),

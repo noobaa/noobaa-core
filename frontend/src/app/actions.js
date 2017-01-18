@@ -1114,7 +1114,7 @@ export function createCloudResource(name, connection, cloudBucket) {
     })
         .then(
             () => notify(`Cloud resource ${name} created successfully`, 'success'),
-            () => notify(`Pool ${name} creation failed`, 'error')
+            () => notify(`Cloud ${name} creation failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

@@ -4,6 +4,7 @@ import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
+import { getCloudServiceMeta } from 'utils/ui-utils';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 
@@ -47,6 +48,11 @@ const allowedServices = deepFreeze([
     'S3_COMPATIBLE'
 ]);
 
+const usedTargetTooltip = deepFreeze({
+    CLOUD_RESOURCE: name => `Already used by ${name} cloud resource`,
+    CLOUD_SYNC: name => `Already used by bucket's ${name} cloud sync policy`
+});
+
 class SetCloudSyncModalViewModel extends BaseViewModel {
     constructor({ bucketName, onClose }) {
         super();
@@ -76,10 +82,17 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
                         )
                     )
                     .map(
-                        connection => ({
-                            label: connection.name || connection.identity,
-                            value: connection
-                        })
+                        connection => {
+                            const { identity, name = identity, endpoint_type } = connection;
+                            const { icon, selectedIcon } = getCloudServiceMeta(endpoint_type);
+                            return {
+                                label: name,
+                                value: connection,
+                                remark: identity,
+                                icon: icon,
+                                selectedIcon: selectedIcon
+                            };
+                        }
                     )
             ]
         );
@@ -110,15 +123,22 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
         );
 
         this.targetBucketsOptions = ko.pureComputed(
-            () => {
-                if (!this.connection() || !cloudBucketList()) {
-                    return;
-                }
+            () => this.connection() && cloudBucketList() && cloudBucketList().map(
+                ({ name, used_by }) => {
+                    const targetName = name;
+                    if (used_by) {
+                        const { usage_type, name } = used_by;
+                        return {
+                            value: targetName,
+                            disabled: true,
+                            tooltip: usedTargetTooltip[usage_type](name)
+                        };
 
-                return cloudBucketList().map(
-                    ({ name }) => ({ value: name })
-                );
-            }
+                    } else {
+                        return { value: targetName };
+                    }
+                }
+            )
         );
 
         this.targetBucket = ko.observable()

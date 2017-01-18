@@ -581,7 +581,7 @@ function apply_updated_dns_servers(req) {
 
 
 function set_debug_level(req) {
-    dbg.log0('Recieved set_debug_level req', req);
+    dbg.log0('Recieved set_debug_level req', req.rpc_params);
     var debug_params = req.rpc_params;
     var target_servers = [];
     let audit_activity = {};
@@ -660,9 +660,14 @@ function _restart_services() {
 
 function _set_debug_level_internal(req, level) {
     dbg.log0('Recieved _set_debug_level_internal req', req.rpc_params, 'With Level', level);
-    return server_rpc.client.debug.set_debug_level({
-            level: level,
-            module: 'core'
+    return server_rpc.client.redirector.publish_to_cluster({
+            method_api: 'debug_api',
+            method_name: 'set_debug_level',
+            target: '', // required but irrelevant
+            request_params: {
+                level: level,
+                module: 'core'
+            }
         }, {
             auth_token: req.auth_token
         })

@@ -1,6 +1,6 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { getPoolStateIcon, getResourceTypeIcon } from 'utils/ui-utils';
+import { getPoolStateIcon, getResourceTypeIcon, getPoolCapacityBarValues } from 'utils/ui-utils';
 
 export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool, selectedPools) {
@@ -37,10 +37,10 @@ export default class PoolRowViewModel extends BaseViewModel {
             }
         );
 
-        this.freeSpace = ko.pureComputed(
-            () => pool() && pool().storage.free
-        ).extend({
-            formatSize: true
-        });
+        this.capacity = ko.pureComputed(
+            () => getPoolCapacityBarValues(pool() || {})
+        );
+
+
     }
 }

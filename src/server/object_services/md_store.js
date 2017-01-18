@@ -186,9 +186,13 @@ function iterate_node_chunks(system_id, node_id, marker, limit) {
             _id: {
                 $in: mongo_utils.uniq_ids(blocks, 'chunk')
             }
+        }, {
+            fields: {
+                _id: 1,
+            },
         }).toArray())
-        .then(chunks => ({
-            chunks: chunks,
+        .then(chunk_ids => ({
+            chunk_ids: chunk_ids,
             marker: blocks.length ? blocks[blocks.length - 1]._id : null,
             blocks_size: _.sumBy(blocks, 'size'),
         }));

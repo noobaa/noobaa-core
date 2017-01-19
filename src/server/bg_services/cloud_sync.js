@@ -226,7 +226,6 @@ function list_need_sync(sysid, bucket) {
                     res.added.push(obj);
                 }
             });
-            dbg.warn('WOOP length:', res.deleted.length, 'WOOP res:', res.deleted);
             return res;
         })
         .then(null, function(err) {

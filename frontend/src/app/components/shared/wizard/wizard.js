@@ -19,6 +19,7 @@ class WizardViewModel extends BaseViewModel {
 
         this.heading = heading;
         this.step = ko.observable(skip);
+        this.isStepValid = ko.observable(false);
         this.validateStep = validateStep;
         this.onCancel = onCancel;
         this.onComplete = onComplete;
@@ -50,10 +51,6 @@ class WizardViewModel extends BaseViewModel {
         this.nextLabel = ko.pureComputed(
             () => this.isLastStep() ? ko.unwrap(actionLabel) : 'Next'
         );
-
-        this.isStepValid = ko.pureComputed(
-            () => this.validateStep(this.step() + 1)
-        );
     }
 
     isInStep(stepNum) {
@@ -70,6 +67,7 @@ class WizardViewModel extends BaseViewModel {
     }
 
     next() {
+        this.isStepValid(this.validateStep(this.step() + 1));
         if (!this.isStepValid()) {
             return;
         }

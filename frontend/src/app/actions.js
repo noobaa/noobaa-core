@@ -20,8 +20,6 @@ const AWS = window.AWS;
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;
 
-
-
 // -----------------------------------------------------
 // Utility function to log actions.
 // -----------------------------------------------------
@@ -2067,7 +2065,7 @@ export function regenerateAccountCredentials(email, verificationPassword) {
         .done();
 }
 
-export  function loadSystemUsageHistory() {
+export function loadSystemUsageHistory() {
     logAction('loadSystemUsageHistory');
     api.pool.get_pool_history({})
         .then(
@@ -2085,6 +2083,18 @@ export  function loadSystemUsageHistory() {
             )
         )
         .then(model.systemUsageHistory)
+        .done();
+}
+
+export function verifyServer(address, secret) {
+    logAction('verifyServer', { address, secret });
+
+    api.cluster_server.verify_candidate_join_conditions({ address, secret})
+        .then(
+            reply => model.serverVerificationState(
+                Object.assign({ address, secret }, reply)
+            )
+        )
         .done();
 }
 

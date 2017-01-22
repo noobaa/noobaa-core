@@ -113,12 +113,17 @@ class BucketsOverviewViewModel extends BaseViewModel {
         this.durationOptions = durationOptions;
         this.selectedDuration = ko.observable(durationOptions[0].value);
 
+        this.includeCloudStorage = ko.observable(true);
+
         this.currentUsage = ko.pureComputed(
             () => {
-                const pools = systemInfo() ? systemInfo().pools : [];
+                const poolStorage = (systemInfo() ? systemInfo().pools : [])
+                    .filter(pool => this.includeCloudStorage() || !pool.cloud_info)
+                    .map(pool => pool.storage);
+
                 return assignWith(
                     { used: 0, free: 0, unavailable_free: 0 },
-                    ...pools.map( pool => pool.storage ),
+                    ...poolStorage,
                     (a, b) => sumSize(a || 0, b || 0)
                 );
             }

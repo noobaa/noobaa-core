@@ -2065,20 +2065,23 @@ export function regenerateAccountCredentials(email, verificationPassword) {
         .done();
 }
 
-export function loadSystemUsageHistory() {
-    logAction('loadSystemUsageHistory');
+export function loadSystemUsageHistory(includeCloudStorage = true) {
+    logAction('loadSystemUsageHistory', { includeCloudStorage });
     api.pool.get_pool_history({})
         .then(
             history => history.map(
                 ({ time_stamp, pool_list }) => {
-                    const timestamp = time_stamp;
+                    const poolStorage = pool_list
+                        .filter(pool => includeCloudStorage || !pool.cloud_info)
+                        .map(pool => pool.storage);
+
                     const storage = assignWith(
-                        {},
-                        ...pool_list.map( pool => pool.storage ),
+                        { used: 0, free: 0, unavailable_free: 0 },
+                        ...poolStorage,
                         (a, b) => sumSize(a || 0, b || 0)
                     );
 
-                    return { timestamp, storage };
+                    return { storage, timestamp: time_stamp };
                 }
             )
         )

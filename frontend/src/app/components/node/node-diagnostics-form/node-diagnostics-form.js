@@ -55,7 +55,8 @@ class NodeDiagnosticsFormViewModel extends BaseViewModel {
                 label: 'Time Left For Debugging',
                 value: ko.pureComputed(
                     () => 'None'
-                )
+                ),
+                disabled: true
             }
         ];
 

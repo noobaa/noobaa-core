@@ -1,63 +1,28 @@
-<modal class="modal-medium" params="
-    title: 'Attach New Server',
-    onClose: () => cancel()
+<wizard params="
+    size: 'medium',
+    heading: 'Attach New Server',
+    steps: steps,
+    actionLabel: 'Attach Server',
+    validateStep: step => validateStep(step),
+    onComplete: () => attachServer(),
+    onClose: onClose
 ">
-    <section class="push-next greedy column">
-        <h3 class="heading3">
-            To attach a new server to the cluster complete the following steps:
-        </h3>
+    <section class="column greedy" data-bind="
+        template: { html: configureServerStepTemplate }
+    "></section>
+    <section class="column greedy" data-bind="
+        template: { html: editDetailsStepTemplate }
+    "></section>
+</wizard>
 
-        <ol class="bullet-list">
-            <li>Provision a new server with the original OVA</li>
-            <li>Login and setup networking</li>
-            <li>Copy the server IP and secret shown on the terminal and fill the following form</li>
-        </ol>
-
-        <editor params="label: 'Server IP'">
-            <input type="text" data-bind="value: address"/>
-        </editor>
-
-        <editor params="label: 'Server Secret'">
-            <input type="text" data-bind="value: secret"/>
-        </editor>
-
-        <editor params="label: 'Server Name', insertValMessages: false">
-            <div class="server-name row content-middle">
-                <input type="text" data-bind="value: hostname"
-                    placeholder="Hostname by default"/>
-                <span class="seperator">-</span>
-                <span data-bind="text: nameSuffix"></span>
-            </div>
-            <span class="val-msg" data-bind="validationMessage: hostname"></span>
-            <p class="hint" data-bind="visible: hostname.isValid">optional</p>
-        </editor>
-
-        <editor params="label: 'Location Tag'">
-            <input type="text" data-bind="value: location"/>
-            <p class="hint">optional</p>
-        </editor>
-    </section>
-
-
-    <div class="row content-middle">
-        <div class="greedy column remark">
-            <span>Can't find the original OVA file?</span>
-            <span>
-                <a class="link" data-bind="attr: { href: contactSupportUri }" tabindex="-1">
-                    Contact support
-                </a>
-                and we will send it to you ASAP
-            </span>
-        </div>
-        <button class="link push-next" data-bind="click: cancel">
-            Cancel
-        </button>
-
-        <button class="btn" data-bind="
-            click: attach,
-            shakeOnClick: errors().length
-        ">
-            Attach
-        </button>
-    </div>
-</modal>
+<!--
+<div class="greedy column remark">
+    <span>Can't find the original OVA file?</span>
+    <span>
+        <a class="link" data-bind="attr: { href: contactSupportUri }" tabindex="-1">
+            Contact support
+        </a>
+        and we will send it to you ASAP
+    </span>
+</div>
+ -->

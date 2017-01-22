@@ -186,6 +186,9 @@ const activityNameMapping = deepFreeze({
     DELETING: 'Deleting Node'
 });
 
+const trustTooltip = `A reliability check that verifies that this node has no disk
+    corruption or malicious activity`;
+
 class NodeSummaryViewModel extends BaseViewModel {
     constructor({ node }) {
         super();
@@ -205,6 +208,8 @@ class NodeSummaryViewModel extends BaseViewModel {
         this.trust = ko.pureComputed(
             () => trustMapping[node().trusted ? 'TRUSTED' : 'UNTRUSTED']
         );
+
+        this.trustTooltip = trustTooltip;
 
         this.accessibility = ko.pureComputed(
             () => accessibilityMapping[node().mode]

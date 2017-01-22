@@ -212,8 +212,8 @@ function verify_join_conditions(req) {
     return P.resolve()
         .then(() => _verify_join_preconditons(req))
         .then(result => ({
-            result: result.result,
-            version: result.version,
+            result,
+            version: pkg.version,
             caller_address,
             hostname,
         }));
@@ -222,6 +222,12 @@ function verify_join_conditions(req) {
 function verify_candidate_join_conditions(req) {
     dbg.log0('Got verify_candidate_join_conditions for server secret:', req.rpc_params.secret,
         'address:', req.rpc_params.address);
+    if (req.rpc_params.secret === system_store.get_server_secret()) {
+        dbg.error('lol trying to add self to cluster - self secret received:', req.rpc_params.secret);
+        return {
+            result: 'ADDING_SELF'
+        };
+    }
     return server_rpc.client.cluster_internal.verify_join_conditions({
             secret: req.rpc_params.secret,
             version: pkg.version
@@ -1151,17 +1157,12 @@ function _verify_join_preconditons(req) {
     //Verify secrets match
     if (req.rpc_params.secret !== system_store.get_server_secret()) {
         dbg.error('Secrets do not match!');
-        return {
-            result: 'SECRET_MISMATCH'
-        };
+        return 'SECRET_MISMATCH';
     }
 
     if (req.rpc_params.version && req.rpc_params.version !== pkg.version) {
         dbg.error(`versions does not match - master version = ${req.rpc_params.version}  joined version = ${pkg.version}`);
-        return {
-            result: 'VERSION_MISMATCH',
-            version: pkg.version
-        };
+        return 'VERSION_MISMATCH';
     }
 
 
@@ -1172,9 +1173,7 @@ function _verify_join_preconditons(req) {
         if (cutil.get_topology().shards.length !== 1 ||
             cutil.get_topology().shards[0].servers.length !== 1) {
             dbg.error('Server already joined to a cluster');
-            return {
-                result: 'ALREADY_A_MEMBER'
-            };
+            return 'ALREADY_A_MEMBER';
         }
 
         // verify there are no objects on the system
@@ -1182,16 +1181,10 @@ function _verify_join_preconditons(req) {
                 system: system._id,
                 deleted: null
             }))
-            .then(obj_count => {
-                if (obj_count[''] > 0) {
-                    return {
-                        result: 'HAS_OBJECTS'
-                    };
-                }
-            });
+            .then(obj_count => (obj_count[''] > 0 ? 'HAS_OBJECTS' : 'OKAY'));
     }
-
-
+    // If we do not need system in order to add a server to a cluster
+    return 'OKAY';
 }
 
 

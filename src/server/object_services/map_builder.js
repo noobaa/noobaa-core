@@ -362,8 +362,10 @@ class MapBuilder {
                                     }
                                 });
                             }
-                            // TODO: this is bad. We need to inform user, or set object as unhealthy
-                            dbg.error('An object is holding an invalid bucket id. Unrecoverable chunk', chunk_to_fix._id);
+                            // TODO: this is bad. If there are object parts pointing to this chunk
+                            // and no bucket could be obtained, it might mean there is an object
+                            // with no bucket assigned to it
+                            dbg.error('No bucket could be obtained Unrecoverable chunk', chunk_to_fix._id);
                             _.pull(this.chunks, chunk_to_fix);
                         })));
                 }

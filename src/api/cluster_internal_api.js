@@ -92,6 +92,9 @@ module.exports = {
                     hostname: {
                         type: 'string'
                     },
+                    version: {
+                        type: 'string'
+                    },
                     result: {
                         $ref: 'cluster_server_api#/definitions/verify_new_member_result'
                     }

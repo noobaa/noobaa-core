@@ -1,6 +1,6 @@
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import { getNodeStateIcon } from 'utils/ui-utils';
+import { getNodeStateIcon, getNodeCapacityBarValues } from 'utils/ui-utils';
 
 export default class NodeRowViewModel extends BaseViewModel {
     constructor(node, selectedNodes , poolName) {
@@ -26,10 +26,8 @@ export default class NodeRowViewModel extends BaseViewModel {
         );
 
         this.capacity = ko.pureComputed(
-            () => node() && node().storage && node().storage.total
-        ).extend({
-            formatSize: true
-        });
+            () => getNodeCapacityBarValues(node() || {})
+        );
 
         this.pool = ko.pureComputed(
             () => node() ? { text:  node().pool, tooltip : node().pool } : ''

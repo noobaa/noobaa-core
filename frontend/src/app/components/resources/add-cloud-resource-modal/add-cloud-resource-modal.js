@@ -5,16 +5,16 @@ import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, createCloudResource } from 'actions';
 import nameValidationRules from 'name-validation-rules';
 import { deepFreeze } from 'utils/core-utils';
+import { getCloudServiceMeta } from 'utils/ui-utils';
 
 const addConnectionOption = deepFreeze({
     label: 'Add new connection',
     value: {}
 });
 
-const targetSubject = deepFreeze({
-    AWS: 'Bucket',
-    AZURE: 'Container',
-    S3_COMPATIBLE: 'Bucket'
+const usedTargetTooltip = deepFreeze({
+    CLOUD_RESOURCE: name => `Already used by ${name} cloud resource`,
+    CLOUD_SYNC: name => `Already used by bucket's ${name} cloud sync policy`
 });
 
 class AddCloudResourceModalViewModel extends BaseViewModel {
@@ -38,10 +38,17 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
                 addConnectionOption,
                 null,
                 ...cloudConnections().map(
-                    connection => ({
-                        label: connection.name || connection.access_key,
-                        value: connection
-                    })
+                    connection => {
+                        const { identity, name = identity, endpoint_type } = connection;
+                        const { icon, selectedIcon } = getCloudServiceMeta(endpoint_type);
+                        return {
+                            label: name,
+                            value: connection,
+                            remark: identity,
+                            icon: icon,
+                            selectedIcon: selectedIcon
+                        };
+                    }
                 )
             ]
         );
@@ -71,23 +78,37 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
             )
         );
 
-        this.targeBucketLabel = ko.pureComputed(
+        const targetSubject = ko.pureComputed(
             () => {
                 const { endpoint_type = 'AWS' } = this.connection() || {};
-                return `Target ${targetSubject[endpoint_type]}`;
+                return getCloudServiceMeta(endpoint_type).subject;
             }
         );
 
+        this.targeBucketLabel = ko.pureComputed(
+            () => `Target ${targetSubject()}`
+        );
+
         this.targetBucketPlaceholder = ko.pureComputed(
-            () => {
-                const { endpoint_type = 'AWS' } = this.connection() || {};
-                return `Choose ${targetSubject[endpoint_type]}...`;
-            }
+            () => `Choose ${targetSubject()}...`
         );
 
         this.targetBucketsOptions = ko.pureComputed(
             () => this.connection() && cloudBucketList() && cloudBucketList().map(
-                ({ name }) => ({ value: name })
+                ({ name, used_by }) => {
+                    const targetName = name;
+                    if (used_by) {
+                        const { usage_type, name } = used_by;
+                        return {
+                            value: targetName,
+                            disabled: true,
+                            tooltip: usedTargetTooltip[usage_type](name)
+                        };
+
+                    } else {
+                        return { value: targetName };
+                    }
+                }
             )
 
         );
@@ -99,7 +120,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
                     message: () => {
                         const { endpoint_type = 'AWS' } = this.connection() || {};
                         return `Please select a ${
-                            targetSubject[endpoint_type].toLowerCase()
+                            getCloudServiceMeta(endpoint_type).subject.toLowerCase()
                         } from the list`;
                     }
                 }

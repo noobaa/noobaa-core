@@ -117,7 +117,7 @@ class BucketsOverviewViewModel extends BaseViewModel {
             () => {
                 const pools = systemInfo() ? systemInfo().pools : [];
                 return assignWith(
-                    {},
+                    { used: 0, free: 0, unavailable_free: 0 },
                     ...pools.map( pool => pool.storage ),
                     (a, b) => sumSize(a || 0, b || 0)
                 );
@@ -163,9 +163,9 @@ class BucketsOverviewViewModel extends BaseViewModel {
         const gutter = parseInt(style['gutter']);
 
         const useFixedMax = this.samples().every(
-            ({ storage }) => storage.free === 0  &&
-                storage.unavailable_free === 0 &&
-                storage.used === 0
+            ({ storage }) => toBytes(storage.free) === 0  &&
+                toBytes(storage.unavailable_free) === 0 &&
+                toBytes(storage.used) === 0
         );
 
         return {

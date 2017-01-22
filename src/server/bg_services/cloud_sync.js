@@ -217,7 +217,11 @@ function list_need_sync(sysid, bucket) {
         .then(function(need_to_sync) {
             _.each(need_to_sync, function(obj) {
                 if (obj.deleted) {
-                    res.deleted.push(obj);
+                    if (!(res.deleted.find(deleted_obj => (deleted_obj.system._id === obj.system._id &&
+                            deleted_obj.bucket._id === obj.bucket._id &&
+                            deleted_obj.key === obj.key)))) {
+                        res.deleted.push(obj);
+                    }
                 } else {
                     res.added.push(obj);
                 }
@@ -230,19 +234,21 @@ function list_need_sync(sysid, bucket) {
 }
 
 //set cloud_sync to true on given object
-function mark_cloud_synced(object) {
-    return P.resolve(md_store.ObjectMD.findOne({
-                system: object.system,
-                bucket: object.bucket,
-                key: object.key,
-                //Don't set deleted, since we update both deleted and not
-            })
-            .exec())
-        .then(function(dbobj) {
-            return dbobj.update({
-                cloud_synced: true
-            }).exec();
-        });
+function mark_cloud_synced(object, update_deleted) {
+
+    return P.resolve()
+        .then(() => md_store.ObjectMD.update({
+            system: object.system,
+            bucket: object.bucket,
+            key: object.key,
+            deleted: {
+                $exists: Boolean(update_deleted)
+            }
+        }, {
+            cloud_synced: true
+        }, {
+            multi: Boolean(update_deleted)
+        }));
 }
 
 
@@ -562,7 +568,7 @@ function update_c2n_worklist(policy) {
             let sorted_cloud_object_list = _.sortBy(cloud_object_list, function(o) {
                 return o.key;
             });
-            var diff = diff_worklists(sorted_cloud_object_list, bucket_object_list);
+            var diff = diff_worklists(sorted_cloud_object_list, bucket_object_list, policy.last_sync);
             dbg.log2('update_c2n_worklist found',
                 diff.uniq_a.length + diff.uniq_b.length, 'diffs to resolve');
 
@@ -632,7 +638,7 @@ function sync_single_file_to_cloud(policy, object, target) {
     return P.join(promise_utils.wait_for_event(body, 'end'),
             managed_upload.promise())
         .catch(function(err) {
-            dbg.error('ERROR statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
+            dbg.error('ERROR ', err, ' statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
             if (err.statusCode === 400 ||
                 err.statusCode === 301) {
                 //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
@@ -692,6 +698,7 @@ function sync_single_file_to_noobaa(policy, object) {
             dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
                 err, err.stack);
         })
+        .then(() => mark_cloud_synced(object))
         .return();
 }
 
@@ -706,27 +713,45 @@ function sync_to_cloud_single_bucket(policy) {
     var target = policy.target_bucket;
     //First delete all the deleted objects
     return P.fcall(function() {
-            if (bucket_work_lists.n2c_deleted.length) {
-                var params = {
-                    Bucket: target,
-                    Delete: {
-                        Objects: [],
-                    },
-                };
+            if (!bucket_work_lists.n2c_deleted.length) {
+                dbg.log2('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
+                return;
+            }
 
-                _.each(bucket_work_lists.n2c_deleted, function(obj) {
-                    params.Delete.Objects.push({
-                        Key: obj.key
-                    });
+            let params_array = [{
+                Bucket: target,
+                Delete: {
+                    Objects: [],
+                },
+            }];
+
+            const MAX_SIZE_OF_DEL_REQUEST = 500;
+            let request_idx = 0;
+            _.each(bucket_work_lists.n2c_deleted, function(obj) {
+                if (params_array[request_idx].Delete.Objects.length >= MAX_SIZE_OF_DEL_REQUEST) {
+                    request_idx += 1;
+                    dbg.log0(`sync_to_cloud_single_bucket over ${MAX_SIZE_OF_DEL_REQUEST * request_idx} objects to delete`);
+                    params_array[request_idx] = {
+                        Bucket: target,
+                        Delete: {
+                            Objects: [],
+                        },
+                    };
+                }
+                params_array[request_idx].Delete.Objects.push({
+                    Key: obj.key
                 });
-                dbg.log2('sync_to_cloud_single_bucket syncing',
-                    bucket_work_lists.n2c_deleted.length,
-                    'deletions n2c with params',
-                    util.inspect(params, {
-                        depth: null
-                    })
-                );
-                return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
+            });
+            dbg.log2('sync_to_cloud_single_bucket syncing',
+                bucket_work_lists.n2c_deleted.length,
+                'deletions n2c with params',
+                util.inspect(params_array, {
+                    depth: null
+                })
+            );
+            return P.resolve()
+                .then(() => P.all(_.each(params_array, params =>
+                    P.ninvoke(policy.s3cloud, 'deleteObjects', params)
                     .catch(function(err) {
                         // change default region from US to EU due to restricted signature of v4 and end point
                         if (err.statusCode === 400 ||
@@ -748,16 +773,12 @@ function sync_to_cloud_single_bucket(policy) {
                             dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err, err.stack);
                             throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err);
                         }
-                    });
-            } else {
-                dbg.log2('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
-                return;
-            }
+                    }))));
         })
         .then(function() {
             //marked deleted objects as cloud synced
             return P.all(_.map(bucket_work_lists.n2c_deleted, function(object) {
-                return mark_cloud_synced(object);
+                return mark_cloud_synced(object, true);
             }));
         })
         .then(function() {
@@ -827,6 +848,7 @@ function sync_from_cloud_single_bucket(policy) {
                 return;
             }
         })
+        .then(() => P.map(bucket_work_lists.c2n_deleted, obj => mark_cloud_synced(obj, true)))
         .catch(function(err) {
             dbg.error('sync_from_cloud_single_bucket failed on syncing deletions', err, err.stack);
             policy.health = false;

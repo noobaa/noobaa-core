@@ -85,6 +85,7 @@ function pack(dest, name) {
         'bower.json',
         'config.js',
         'gulpfile.js',
+        'EULA.pdf',
         '.jshintrc',
         '.eslintrc'
     ], {});

@@ -144,11 +144,11 @@ class BucketsOverviewViewModel extends BaseViewModel {
         );
 
         this.chartOptions = ko.pureComputed(
-            () => this.getChartOptions()
+            () => systemInfo() ? this.getChartOptions() : {}
         );
 
         this.chartData = ko.pureComputed(
-            () => this.getChartData()
+            () => systemInfo() ? this.getChartData() : {}
         );
 
         this.isConnectApplicationWizardVisible = ko.observable(false);
@@ -168,6 +168,12 @@ class BucketsOverviewViewModel extends BaseViewModel {
                 toBytes(storage.used) === 0
         );
 
+        const cluster = systemInfo().cluster;
+        const { timezone } = cluster.shards[0].servers.find(
+            ({ secret }) => secret === cluster.master_secret
+        );
+
+
         return {
             responsive: true,
             padding: 0,
@@ -184,7 +190,7 @@ class BucketsOverviewViewModel extends BaseViewModel {
                             color: style['color15']
                         },
                         ticks: {
-                            callback: t => moment(t).format('D MMM'),
+                            callback: t => moment.tz(t, timezone).format('D MMM'),
                             maxTicksLimit: 10000,
                             min: start,
                             max: end,

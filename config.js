@@ -143,7 +143,10 @@ config.MONGO_DEFAULTS = {
     SHARD_SRV_PORT: '27000',
     COMMON_PATH: '/var/lib/mongo/cluster',
     CONNECT_RETRY_INTERVAL: 3 * 1000,
-    CONNECT_MAX_WAIT: 5 * 60 * 1000
+    CONNECT_MAX_WAIT: 5 * 60 * 1000,
+    ROOT_CA_PATH: '/etc/mongo_ssl/root-ca.pem',
+    SERVER_CERT_PATH: '/etc/mongo_ssl/server.pem',
+    CLIENT_CERT_PATH: '/etc/mongo_ssl/client.pem',
 };
 
 config.CLUSTERING_PATHS = {

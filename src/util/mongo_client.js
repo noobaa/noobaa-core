@@ -5,8 +5,9 @@ const _ = require('lodash');
 const Ajv = require('ajv');
 const util = require('util');
 const mongodb = require('mongodb');
-const EventEmitter = require('events').EventEmitter;
+const fs = require('fs');
 
+const EventEmitter = require('events').EventEmitter;
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
@@ -64,6 +65,11 @@ class MongoClient extends EventEmitter {
             verbose: true,
             formats: mongo_utils.mongo_ajv_formats,
         });
+
+        if (process.env.MONGO_RS_URL) {
+            this._update_ssl_options();
+        }
+
     }
 
     static instance() {
@@ -295,6 +301,7 @@ class MongoClient extends EventEmitter {
         // this.replica_set = rs;
         dbg.log0('got update_connection_string. updating url from', this.url, 'to', process.env.MONGO_RS_URL);
         this.url = process.env.MONGO_RS_URL;
+        this._update_ssl_options();
     }
 
     get_mongo_rs_status(params) {
@@ -349,6 +356,26 @@ class MongoClient extends EventEmitter {
                 dbg.log0('Recieved replSetConfig', res, 'Returning RS version', res.config.version);
                 return res.config.version;
             });
+
+    }
+
+    _update_ssl_options() {
+        let ca;
+        let cert;
+        try {
+            // for now we read sync since _update_ssl_options is called synchronously. need to be fixed
+            ca = [fs.readFileSync(config.MONGO_DEFAULTS.ROOT_CA_PATH)];
+            cert = [fs.readFileSync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH)];
+        } catch (err) {
+            dbg.error('got error when reading mongo certificates:', err);
+        }
+
+        this.config.ssl = true;
+        this.config.sslValidate = false;
+        this.config.checkServerIdentity = false;
+        this.config.sslCA = ca;
+        this.config.sslCert = cert;
+        this.config.sslKey = cert;
 
     }
 

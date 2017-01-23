@@ -30,7 +30,6 @@ var cloud_sync = require('./bg_services/cloud_sync');
 var cluster_hb = require('./bg_services/cluster_hb');
 var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
-var mongoose_utils = require('../util/mongoose_utils');
 var cluster_master = require('./bg_services/cluster_master');
 var stats_aggregator = require('./system_services/stats_aggregator');
 var bucket_storage_fetch = require('./bg_services/bucket_storage_fetch');
@@ -45,7 +44,6 @@ const MASTER_BG_WORKERS = [
 ];
 
 dbg.set_process_name('BGWorkers');
-mongoose_utils.mongoose_connect();
 mongo_client.instance().connect();
 register_rpc();
 

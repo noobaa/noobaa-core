@@ -6,10 +6,10 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
-const AlertsLog = require('./alerts_log.js');
+const AlertsLogStore = require('./alerts_log_store').AlertsLogStore;
 const server_rpc = require('../server_rpc');
 const native_core = require('../../util/native_core')();
-const ActivityLog = require('../analytic_services/activity_log');
+const ActivityLogStore = require('../analytic_services/activity_log_store').ActivityLogStore;
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_client = require('../node_services/nodes_client');
 
@@ -42,8 +42,9 @@ class Dispatcher {
     //Activity Log
     activity(item) {
         var self = this;
-        dbg.log2('Adding ActivityLog entry', item);
-        return ActivityLog.create(item)
+        dbg.log0('Adding ActivityLog entry', item);
+        item.time = item.time || new Date();
+        return ActivityLogStore.instance().create(item)
             .then(() => {
                 if (!config.SEND_EVENTS_REMOTESYS) {
                     return P.resolve();
@@ -60,44 +61,14 @@ class Dispatcher {
 
     read_activity_log(req) {
         var self = this;
-        var q = ActivityLog.find({
-            system: req.system._id,
-        });
 
-        var reverse = true;
-        if (req.rpc_params.till) {
-            // query backwards from given time
-            req.rpc_params.till = new Date(req.rpc_params.till);
-            q.where('time').lt(req.rpc_params.till)
-                .sort('-time');
-
-        } else if (req.rpc_params.since) {
-            // query forward from given time
-            req.rpc_params.since = new Date(req.rpc_params.since);
-            q.where('time').gte(req.rpc_params.since)
-                .sort('time');
-            reverse = false;
-        } else {
-            // query backward from last time
-            q.sort('-time');
-        }
+        let query = _.pick(req.rpc_params, ['till', 'since', 'skip', 'limit']);
         if (req.rpc_params.event) {
-            q.where({
-                event: new RegExp(req.rpc_params.event)
-            });
+            query.event = new RegExp(req.rpc_params.event);
         }
-        if (req.rpc_params.events) {
-            q.where('event').in(req.rpc_params.events);
-        }
-        if (req.rpc_params.csv) {
-            //limit to million lines just in case (probably ~100MB of text)
-            q.limit(1000000);
-        } else {
-            if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
-            q.limit(req.rpc_params.limit || 10);
-        }
+        query.system = req.system._id;
 
-        return P.resolve(q.lean().exec())
+        return ActivityLogStore.instance().read_activity_log(query)
             .then(logs => P.map(logs, function(log_item) {
                 var l = {
                     id: String(log_item._id),
@@ -113,7 +84,7 @@ class Dispatcher {
                     .return(l);
             }))
             .then(logs => {
-                if (reverse) {
+                if (query.since) {
                     logs.reverse();
                 }
                 return {
@@ -132,7 +103,7 @@ class Dispatcher {
     //Alerts
     alert(sev, sysid, alert) {
         dbg.log3('Sending alert', alert);
-        return AlertsLog.create({
+        return AlertsLogStore.instance().create({
                 system: sysid,
                 severity: sev,
                 alert: alert
@@ -149,36 +120,21 @@ class Dispatcher {
     }
 
     get_unread_alerts_count(sysid) {
-        var q = AlertsLog.count({
-            system: sysid,
-            read: false
-        });
-
-        return P.resolve(q.lean().exec())
-            .then(num => num);
+        return AlertsLogStore.instance().get_unread_alerts_count(sysid);
     }
 
     update_alerts_state(req) {
         const { query, state } = req.rpc_params;
-        const selector = this._create_alerts_selector(req.system, query);
-        const update = AlertsLog.update(selector, { read: state }, { multi: true });
-
-        return P.resolve(update.exec())
+        return AlertsLogStore.instance().update_alerts_state(req.system._id, query, state)
             .then(() => server_rpc.client.redirector.publish_alerts({
                 request_params: req.rpc_params.query
             }));
+
     }
 
     read_alerts(req) {
         const { query, skip = 0, limit = 100 } = req.rpc_params;
-        const selector = this._create_alerts_selector(req.system, query);
-        const q = AlertsLog
-            .find(selector)
-            .skip(skip)
-            .limit(limit)
-            .sort({ _id: -1 });
-
-        return P.resolve(q.lean().exec())
+        return AlertsLogStore.instance().read_alerts(req.system._id, query, skip, limit)
             .then(alerts => P.map(alerts, function(alert_item) {
                 return {
                     id: String(alert_item._id),
@@ -188,27 +144,6 @@ class Dispatcher {
                     read: alert_item.read
                 };
             }));
-    }
-
-    //Internals
-    _create_alerts_selector(system, query) {
-        const { ids, till, since, severity, read } = query;
-
-        let _id;
-        if (ids) {
-            _id = { $in: ids };
-        } else if (till) {
-            _id = { $lt: till };
-        } else if (since) {
-            _id = { $gt: since };
-        }
-
-        return _.omitBy({
-            system: system._id,
-            _id,
-            severity,
-            read
-        }, _.isUndefined);
     }
 
     _resolve_activity_item(log_item, l) {
@@ -233,6 +168,9 @@ class Dispatcher {
                 }
 
                 if (log_item.server) {
+                    if (!log_item.server.hostname) {
+                        log_item.server.hostname = '';
+                    }
                     l.server = log_item.server;
                 }
 

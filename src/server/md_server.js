@@ -4,10 +4,8 @@
 const url = require('url');
 
 const server_rpc = require('./server_rpc');
-const mongoose_utils = require('../util/mongoose_utils');
 const mongo_client = require('../util/mongo_client');
 
-mongoose_utils.mongoose_connect();
 mongo_client.instance().connect();
 
 server_rpc.register_object_services();

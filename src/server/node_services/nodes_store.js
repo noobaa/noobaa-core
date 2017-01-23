@@ -99,26 +99,28 @@ class NodesStore {
                 // returning which items were updated and which failed
                 // but in any case we always resolve the promise and not rejecting
                 bulk.execute((err, result) => {
-                    if (result.getWriteConcernError()) {
-                        dbg.warn('bulk_update: WriteConcernError', result.getWriteConcernError());
-                        return resolve({
-                            updated: null,
-                            failed: items
-                        });
-                    }
-                    if (result.hasWriteErrors()) {
-                        const failed = _.map(result.getWriteErrors(), e => items[e.index]);
-                        dbg.warn('bulk_update:', result.getWriteErrorCount(), 'WriteErrors',
-                            _.map(result.getWriteErrors(), e => ({
-                                code: e.code,
-                                index: e.index,
-                                errmsg: e.errmsg,
-                                item: items[e.index]
-                            })));
-                        return resolve({
-                            updated: _.difference(items, failed),
-                            failed: failed
-                        });
+                    if (result) {
+                        if (result.getWriteConcernError()) {
+                            dbg.warn('bulk_update: WriteConcernError', result.getWriteConcernError());
+                            return resolve({
+                                updated: null,
+                                failed: items
+                            });
+                        }
+                        if (result.hasWriteErrors()) {
+                            const failed = _.map(result.getWriteErrors(), e => items[e.index]);
+                            dbg.warn('bulk_update:', result.getWriteErrorCount(), 'WriteErrors',
+                                _.map(result.getWriteErrors(), e => ({
+                                    code: e.code,
+                                    index: e.index,
+                                    errmsg: e.errmsg,
+                                    item: items[e.index]
+                                })));
+                            return resolve({
+                                updated: _.difference(items, failed),
+                                failed: failed
+                            });
+                        }
                     }
                     if (err) {
                         dbg.warn('bulk_update: ERROR', err);

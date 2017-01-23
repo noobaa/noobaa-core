@@ -22,14 +22,12 @@ const _ = require('lodash');
 const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
-const mongoose = require('mongoose');
 
 const api = require('../../api');
 const server_rpc = require('../../server/server_rpc');
 const NodesStore = require('../../server/node_services/nodes_store').NodesStore;
 const node_server = require('../../server/node_services/node_server');
 const mongo_client = require('../../util/mongo_client');
-const mongoose_utils = require('../../util/mongoose_utils');
 const core_agent_control = require('./core_agent_control');
 
 let base_address;
@@ -77,16 +75,10 @@ function setup({ incomplete_rpc_coverage } = {}) {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(10000);
         return P.resolve()
-            .then(() => console.log('running mongoose_utils.mongoose_connect()'))
-            .then(() => mongoose_utils.mongoose_connect())
-            .then(() => console.log('running mongoose_utils.mongoose_wait_connected()'))
-            .then(() => mongoose_utils.mongoose_wait_connected())
-            .then(() => console.log('running mongoose.connection.db.dropDatabase()'))
-            .then(() => mongoose.connection.db.dropDatabase()) // returns promise
-            .then(() => console.log('running mongoose_utils.mongoose_ensure_indexes()'))
-            .then(() => mongoose_utils.mongoose_ensure_indexes())
             .then(() => console.log('running mongo_client.instance().connect()'))
             .then(() => mongo_client.instance().connect())
+            .then(() => console.log('running mongo_client.db.dropDatabase()'))
+            .then(() => mongo_client.instance().db.dropDatabase())
             .then(() => console.log('running server_rpc.rpc.start_http_server'))
             .then(() => server_rpc.rpc.start_http_server({
                 port: 0,
@@ -130,11 +122,6 @@ function setup({ incomplete_rpc_coverage } = {}) {
             .delay(1000)
             .then(() => server_rpc.rpc.set_disconnected_state(true))
             .then(() => mongo_client.instance().disconnect())
-            .then(() => {
-                mongoose.connection.removeAllListeners('disconnected');
-                mongoose.connection.removeAllListeners('error');
-                mongoose.connection.close();
-            })
             .then(() => http_server && http_server.close());
     });
 

@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const util = require('util');
 const mongodb = require('mongodb');
-const mongoose = require('mongoose');
 
 const P = require('./promise');
 const RpcError = require('../rpc/rpc_error');
@@ -147,13 +146,8 @@ function fix_id_type(doc) {
     return doc;
 }
 
-// apparently mongoose defined it's own class of ObjectID
-// instead of using the class from mongodb driver,
-// so we have to check both for now,
-// until we can get rid of mongoose completely.
 function is_object_id(id) {
-    return (id instanceof mongodb.ObjectId) ||
-        (id instanceof mongoose.Types.ObjectId);
+    return (id instanceof mongodb.ObjectId);
 }
 
 function is_err_duplicate_key(err) {

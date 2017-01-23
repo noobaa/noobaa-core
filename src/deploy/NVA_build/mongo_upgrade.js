@@ -9,11 +9,14 @@
 var param_ip;
 var param_secret;
 var param_bcrypt_secret;
+var param_client_subject;
+
 setVerboseShell(true);
 upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    add_ssl_user();
     fix_server_secret();
     sync_cluster_upgrade();
     upgrade_systems();
@@ -31,6 +34,22 @@ function upgrade() {
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
+}
+
+function add_ssl_user() {
+    var user = db.getSiblingDB("$external").getUser(param_client_subject);
+    if (user) {
+        print('\nDB already contains a user for subject', param_client_subject);
+    } else {
+        print('\nAdding a DB user for subject', param_client_subject);
+        db.getSiblingDB("$external").runCommand({
+            createUser: param_client_subject,
+            roles: [{
+                role: "root",
+                db: 'admin'
+            }]
+        });
+    }
 }
 
 

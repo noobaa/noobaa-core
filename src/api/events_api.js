@@ -20,12 +20,6 @@ module.exports = {
                     event: {
                         type: 'string',
                     },
-                    events: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    },
                     till: {
                         format: 'idate'
                     },

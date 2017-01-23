@@ -14,7 +14,7 @@ let previous_master;
 
 
 function get_mongo_rs_status_from_shell() {
-    return promise_utils.exec('mongo nbcore --quiet --port 27000 --eval "JSON.stringify(rs.status())"', true, true)
+    return promise_utils.exec('mongors nbcore --quiet --port 27000 --eval "JSON.stringify(rs.status())" | grep -v " W NETWORK"', true, true)
         .then(rs_status_str => {
             let rs_status = JSON.parse(rs_status_str);
             dbg.log3(`got rs_status = ${util.inspect(rs_status)}`);

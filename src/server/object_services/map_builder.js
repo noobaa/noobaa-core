@@ -100,14 +100,17 @@ class MapBuilder {
     }
 
     prepare_and_fix_chunks({ parts, objects }) {
-        objects.forEach(object => system_store.data.get_by_id(object.bucket) || dbg.error(`Object ${object._id} is holding invalid bucket ${object.bucket}`));
-        objects = objects.filter(object => system_store.data.get_by_id(object.bucket));
+        objects = _.filter(objects, object => {
+            const bucket = system_store.data.get_by_id(object.bucket);
+            if (!bucket) dbg.error(`Object ${object._id} is holding an invalid bucket ${object.bucket}`);
+            return Boolean(bucket);
+        });
+        const parts_by_chunk = _.groupBy(parts, 'chunk');
+        const objects_by_id = _.keyBy(objects, '_id');
         return P.map(this.chunks, chunk => {
             // if other actions should be done to prepare a chunk for build, those actions should be added here
-            const chunk_parts = parts.filter(part =>
-                (String(part.chunk) === String(chunk._id)));
-            const chunk_objects = objects.filter(object => chunk_parts.find(part =>
-                String(part.obj) === String(object._id)));
+            const chunk_parts = parts_by_chunk[chunk._id];
+            const chunk_objects = _.uniq(_.map(chunk_parts, part => objects_by_id[part.obj]));
             return P.resolve()
                 .then(() => {
                     if (!chunk_parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
@@ -133,12 +136,12 @@ class MapBuilder {
         if (object_bucket_ids.length > 1) {
             dbg.error(`Chunk ${chunk._id} is held by objects from ${object_bucket_ids.length} different buckets`);
         }
-        if (!bucket) {
+        if (!bucket || !object_bucket_ids.find(id => String(id) === String(bucket._id))) {
             dbg.error('chunk', chunk._id, 'is holding an invalid bucket', chunk.bucket, 'fixing to', object_bucket_ids[0]);
             const bucket_id = object_bucket_ids[0]; // This is arbitrary, but there shouldn't be more than one in a healthy system
             bucket = system_store.data.get_by_id(bucket_id);
-            chunk.bucket = bucket;
             if (bucket) {
+                chunk.bucket = bucket;
                 return md_store.DataChunk.collection.updateOne({
                     _id: chunk._id
                 }, {
@@ -153,9 +156,10 @@ class MapBuilder {
     }
 
     refresh_alloc() {
-        return P.map(this.chunks, chunk =>
-            !chunk.had_errors &&
-            node_allocator.refresh_tiering_alloc(chunk.bucket.tiering));
+        const populated_chunks = _.filter(this.chunks, chunk => !chunk.had_errors);
+        // uniq works here since the bucket objects are the same from the system store
+        const buckets = _.map(_.uniqBy(populated_chunks, 'bucket._id'), chunk => chunk.bucket);
+        return P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
     }
 
     analyze_chunks() {

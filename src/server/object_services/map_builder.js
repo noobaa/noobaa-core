@@ -47,6 +47,7 @@ class MapBuilder {
                     md_store.load_parts_objects_for_chunks(this.chunks),
                     this.mark_building()
                 ))
+                .then(() => this.prepare_and_fix_chunks())
                 .then(() => this.refresh_alloc())
                 .then(() => this.analyze_chunks())
                 .then(() => this.allocate_blocks())
@@ -99,44 +100,33 @@ class MapBuilder {
     }
 
     analyze_chunks() {
-        return P.all(_.map(this.chunks, chunk => P.resolve()
-            .then(() => {
-                let bucket = system_store.data.get_by_id(chunk.bucket);
-                return bucket || _attempt_to_find_chunk_bucket(chunk)
-                    // This should not happen as chunk bucket was fixed in refresh_alloc
-                    // but it's a safeguard
-                    .then(found_bucket => {
-                        if (found_bucket) {
-                            return found_bucket;
-                        }
-                        return P.reject(new Error('could not find chunk ', chunk._id, 'bucket'));
-                    });
-            })
-            .then(bucket => {
-                map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
-                let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
-                chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, {
-                    tiering_pools_status: tiering_pools_status
-                });
-                // only delete blocks if the chunk is in good shape,
-                // that is no allocations needed, and is accessible.
-                if (chunk.status.accessible &&
-                    !chunk.status.allocations.length &&
-                    chunk.status.deletions.length) {
-                    this.delete_blocks = this.delete_blocks || [];
-                    js_utils.array_push_all(this.delete_blocks, chunk.status.deletions);
-                }
-            })
-            .catch(err => dbg.error('analyze_chunks failed for single chunk', err))));
+        _.each(this.chunks, chunk => {
+            if (chunk.had_errors) return;
+            map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
+            let tiering_pools_status = node_allocator.get_tiering_pools_status(chunk.bucket.tiering);
+            chunk.status = map_utils.get_chunk_status(chunk, chunk.bucket.tiering, {
+                tiering_pools_status: tiering_pools_status
+            });
+            // only delete blocks if the chunk is in good shape,
+            // that is no allocations needed, and is accessible.
+            if (chunk.status.accessible &&
+                !chunk.status.allocations.length &&
+                chunk.status.deletions.length) {
+                this.delete_blocks = this.delete_blocks || [];
+                js_utils.array_push_all(this.delete_blocks, chunk.status.deletions);
+            }
+        });
     }
 
     refresh_alloc() {
-        return P.map(this.get_chunk_buckets(this.chunks),
-            bucket => bucket && node_allocator.refresh_tiering_alloc(bucket.tiering));
+        return P.map(this.chunks, chunk =>
+            !(chunk.had_errors) &&
+            node_allocator.refresh_tiering_alloc(chunk.bucket.tiering));
     }
 
     allocate_blocks() {
         _.each(this.chunks, chunk => {
+            if (chunk.had_errors) return;
             let avoid_nodes = chunk.blocks.map(block => String(block.node._id));
             let allocated_hosts = chunk.blocks.map(block => block.node.host_id);
             _.each(chunk.status.allocations, alloc => {
@@ -180,6 +170,7 @@ class MapBuilder {
 
     replicate_blocks() {
         return P.all(_.map(this.chunks, chunk => {
+            if (chunk.had_errors) return;
             return P.all(_.map(chunk.status.allocations, alloc => {
                 let block = alloc.block;
                 if (!block) {
@@ -324,67 +315,57 @@ class MapBuilder {
         );
     }
 
-    get_chunk_buckets(chunks) {
-        let bucket_map = {};
-        let bucket_ids_from_obj = mongo_utils.uniq_ids(chunks, 'bucket');
-        return P.resolve()
-            .then(() => {
-                let invalid_bucket_ids = [];
-                bucket_ids_from_obj.forEach(bucket_id => {
-                    let bucket = system_store.data.get_by_id(bucket_id);
-                    // If we can get all buckets continue as usual
-                    if (bucket) {
-                        bucket_map[bucket_id] = bucket;
-                    } else {
-                        // TODO: Consider somehow somehow informing user
-                        dbg.error('A chunk is holding an invalid bucket id!');
-                        invalid_bucket_ids.push(bucket_id);
+    prepare_and_fix_chunks() {
+        return P.map(this.chunks, chunk =>
+            // if other actions should be done to prepare a chunk for build, those actions should be added here
+            this.populate_chunk_bucket(chunk)
+            .catch(err => {
+                dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
+                chunk.had_errors = true;
+                this.had_errors = true;
+            }));
+    }
+
+    populate_chunk_bucket(chunk) {
+        let bucket = system_store.data.get_by_id(chunk.bucket);
+        if (bucket) {
+            chunk.bucket = bucket;
+            return P.resolve();
+        }
+        dbg.error('chunk', chunk._id, 'is holding an invalid bucket', chunk.bucket);
+        return this.fix_chunk_bucket(chunk);
+    }
+
+    fix_chunk_bucket(chunk) {
+        // attempting to find a bucket for this chunk through the objects pointing to it
+        return md_store.ObjectPart.collection.find({
+                chunk: chunk._id
+            })
+            .toArray()
+            .then(parts =>
+                P.any(parts.map(part => md_store.ObjectMD.collection.findOne({
+                        _id: part.obj
+                    })
+                    .then(object_md => system_store.data.get_by_id(object_md.bucket) ||
+                        P.reject(new Error('object', object_md._id, 'is holding an invalid bucket', object_md.bucket))
+                        .finally(() =>
+                            dbg.error('object', object_md._id, 'is holding an invalid bucket', object_md.bucket))))))
+            .then(bucket => {
+                dbg.log0('chunk', chunk._id, 'will be fixed to hold', bucket._id);
+                chunk.bucket = bucket;
+                return md_store.DataChunk.collection.updateOne({
+                    _id: chunk._id
+                }, {
+                    $set: {
+                        bucket: bucket._id
                     }
                 });
-                // Avoiding this heavier code when nothing is wrong
-                if (invalid_bucket_ids.length) {
-                    // These chunks will get another bucket with a guesstimation
-                    // regarding the object parts pointing to them being in the same bucket
-                    // This is valid while we aren't supporting deduplication accross buckets
-                    let chunks_to_fix = chunks.filter(candidate_chunk =>
-                        invalid_bucket_ids.includes(candidate_chunk.bucket));
-                    return P.all(chunks_to_fix.map(chunk_to_fix => _attempt_to_find_chunk_bucket(chunk_to_fix)
-                        .then(bucket => {
-                            // Found a suitable bucket
-                            if (bucket) {
-                                dbg.log0('Fixing chunk ', chunk_to_fix._id, 'from bucket', chunk_to_fix.bucket, 'to bucket', bucket._id);
-                                bucket_map[chunk_to_fix.bucket] = bucket;
-                                return md_store.DataChunk.collection.updateOne({
-                                    _id: chunk_to_fix._id
-                                }, {
-                                    $set: {
-                                        bucket: bucket._id
-                                    }
-                                });
-                            }
-                            // TODO: this is bad. If there are object parts pointing to this chunk
-                            // and no bucket could be obtained, it might mean there is an object
-                            // with no bucket assigned to it
-                            dbg.error('No bucket could be obtained Unrecoverable chunk', chunk_to_fix._id);
-                            _.pull(this.chunks, chunk_to_fix);
-                        })));
-                }
             })
-            .then(() => _.values(bucket_map));
+            .catch(Promise.AggregateError, () => {
+                dbg.error(`could not find a suitable bucket for chunk ${chunk._id}`);
+                throw new Error('could not find a suitable bucket');
+            });
     }
-}
-
-
-function _attempt_to_find_chunk_bucket(chunk) {
-    return md_store.ObjectPart.collection.find({
-            chunk: chunk._id
-        })
-        .toArray()
-        .then(parts =>
-            P.any(parts.map(part => md_store.ObjectMD.collection.findOne({
-                    _id: part.obj
-                })
-                .then(object_md => system_store.data.get_by_id(object_md.bucket)))));
 }
 
 exports.MapBuilder = MapBuilder;

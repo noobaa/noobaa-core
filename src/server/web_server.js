@@ -43,7 +43,6 @@ const pem = require('../util/pem');
 const pkg = require('../../package.json');
 const config = require('../../config.js');
 const mongo_client = require('../util/mongo_client');
-const mongoose_utils = require('../util/mongoose_utils');
 const system_store = require('./system_services/system_store').get_instance();
 const SupervisorCtl = require('./utils/supervisor_ctrl');
 const account_server = require('./system_services/account_server');
@@ -56,7 +55,6 @@ const app = express();
 system_store.once('load', account_server.ensure_support_account);
 
 dbg.set_process_name('WebServer');
-mongoose_utils.mongoose_connect();
 mongo_client.instance().connect();
 
 

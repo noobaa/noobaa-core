@@ -8,7 +8,6 @@ const fs_utils = require('../../util/fs_utils');
 const config = require('../../../config.js');
 const SupervisorCtl = require('./supervisor_ctrl');
 const mongo_client = require('../../util/mongo_client');
-const mongoose_client = require('../../util/mongoose_utils');
 const dotenv = require('../../util/dotenv');
 const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('./clustering_utils');
@@ -127,18 +126,10 @@ MongoCtrl.prototype.redirect_to_cluster_master = function() {
 };
 
 MongoCtrl.prototype.update_connection_string = function() {
-    //MongoDB seems to use a shared connection/state on our mongo_client & mongoose_utils
-    //Disconnect both, replace url, connect both
-    //Order is important!
-
-    return P.resolve(mongoose_client.mongoose_disconnect())
-        .then(() => {
-            mongo_client.instance().disconnect();
-            mongo_client.instance().update_connection_string();
-            mongoose_client.mongoose_update_connection_string();
-            return mongoose_client.mongoose_connect();
-        })
-        .then(() => mongo_client.instance().connect());
+    //Disconnect mongo_client, replace url, connect again
+    mongo_client.instance().disconnect();
+    mongo_client.instance().update_connection_string();
+    return mongo_client.instance().connect();
 };
 
 MongoCtrl.prototype.get_hb_rs_status = function() {
@@ -190,7 +181,11 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
     program_obj.command = 'mongod ' +
         '--replSet ' + name +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
-        ' --dbpath ' + dbpath;
+        ' --dbpath ' + dbpath +
+        ' --sslMode requireSSL --clusterAuthMode x509 --sslAllowInvalidHostnames' +
+        ' --sslCAFile ' + config.MONGO_DEFAULTS.ROOT_CA_PATH +
+        ' --sslPEMKeyFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH +
+        ' --sslClusterFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH;
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.autostart = 'true';
@@ -274,6 +269,17 @@ MongoCtrl.prototype._add_new_mongos_program = function(cfg_array) {
         .then(() => SupervisorCtl.add_program(program_obj));
 };
 
+MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
+    let host = ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+    let mongo_shell_command = `mongo nbcore --port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} --ssl` +
+        ` --sslPEMKeyFile ${config.MONGO_DEFAULTS.CLIENT_CERT_PATH}` +
+        ` --sslCAFile ${config.MONGO_DEFAULTS.ROOT_CA_PATH} --sslAllowInvalidHostnames` +
+        ` --eval "var host='${host}', user='${process.env.MONGO_SSL_USER}'"` +
+        ' /root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_init_rs.js';
+    dbg.log0(`running command ${mongo_shell_command}`);
+    return promise_utils.exec(mongo_shell_command, false, false);
+};
+
 MongoCtrl.prototype._add_new_config_program = function() {
     let program_obj = {};
     let dbpath = config.MONGO_DEFAULTS.CFG_DB_PATH;
@@ -304,9 +310,14 @@ MongoCtrl.prototype._refresh_services_list = function() {
 };
 
 MongoCtrl.prototype.update_dotenv = function(name, IPs) {
+    if (!process.env.MONGO_SSL_USER) {
+        throw new Error('MONGO_SSL_USER is missing in .env');
+    }
+    let user_name = encodeURIComponent(process.env.MONGO_SSL_USER) + '@';
     dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
     let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
-    let url = 'mongodb://' + servers_str + '/nbcore?replicaSet=' + name + '&readPreference=primaryPreferred';
+    let url = 'mongodb://' + user_name + servers_str + '/nbcore?replicaSet=' + name +
+        '&readPreference=primaryPreferred&authMechanism=MONGODB-X509';
     let old_url = process.env.MONGO_RS_URL || '';
     dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);
     dotenv.set({
@@ -318,6 +329,7 @@ MongoCtrl.prototype.update_dotenv = function(name, IPs) {
         rs_name: name,
         skip_load_system_store: true
     });
+
 };
 
 MongoCtrl.prototype._publish_rs_name_current_server = function(params) {

@@ -25,16 +25,18 @@ function read_activity_log(req) {
  *
  */
 function export_activity_log(req) {
-    req.rpc_params.csv = true;
+
+    //limit to 100000 lines just in case (probably ~10MB of text)
 
     // generate csv file name:
     const file_name = 'audit.csv';
     const out_path = `/public/${file_name}`;
     const inner_path = `${process.cwd()}/build${out_path}`;
 
+    req.rpc_params.limit = req.rpc_params.limit || 100000;
     return Dispatcher.instance().read_activity_log(req)
         .then(logs => {
-            let lines = logs.logs.reduce(
+            let out_lines = logs.logs.reduce(
                 (lines, entry) => {
                     let time = (new Date(entry.time)).toISOString();
                     let entity_type = entry.event.split('.')[0];
@@ -51,7 +53,7 @@ function export_activity_log(req) {
                 }, ['time,level,account,event,entity,description']
             );
 
-            return fs.writeFileAsync(inner_path, lines.join('\n'), 'utf8');
+            return fs.writeFileAsync(inner_path, out_lines.join('\n'), 'utf8');
         })
         .then(() => out_path)
         .catch(err => {

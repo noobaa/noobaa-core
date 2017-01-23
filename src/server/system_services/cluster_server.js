@@ -4,11 +4,11 @@
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 
 const _ = require('lodash');
+const dns = require('dns');
 const fs = require('fs');
+const moment = require('moment');
 const url = require('url');
 const net = require('net');
-const dns = require('dns');
-const moment = require('moment');
 const request = require('request');
 
 const P = require('../../util/promise');
@@ -141,7 +141,15 @@ function add_member_to_cluster(req) {
                 //This is the case on the addition of the first shard
             }
         }))
-        .then(function() {
+        .then(() => {
+            dbg.log0(`read mongo certs from /etc/mongo_ssl/`);
+            return P.join(
+                fs.readFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH),
+                fs.readFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH),
+                fs.readFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH)
+            );
+        })
+        .spread((root_ca_buff, server_cert_buff, client_cert_buff) => {
             // after a cluster was initiated, join the new member
             dbg.log0('Sending join_to_cluster to', req.rpc_params.address, cutil.get_topology());
             //Send a join_to_cluster command to the new joining server
@@ -155,7 +163,12 @@ function add_member_to_cluster(req) {
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location,
                 jwt_secret: process.env.JWT_SECRET,
-                new_hostname: req.rpc_params.new_hostname
+                new_hostname: req.rpc_params.new_hostname,
+                ssl_certs: {
+                    root_ca: root_ca_buff,
+                    server_cert: server_cert_buff,
+                    client_cert: client_cert_buff
+                }
             }, {
                 address: server_rpc.get_base_address(req.rpc_params.address),
                 timeout: 60000 //60s
@@ -323,6 +336,14 @@ function join_to_cluster(req) {
             // first thing we update the new topology as the local topoology.
             // later it will be updated to hold this server's info in the cluster's DB
             return _update_cluster_info(req.rpc_params.topology);
+        })
+        .then(() => {
+            dbg.log0(`overwrite mongo certs to /etc/mongo_ssl/`);
+            return P.join(
+                fs.writeFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH, req.rpc_params.ssl_certs.root_ca),
+                fs.writeFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH, req.rpc_params.ssl_certs.server_cert),
+                fs.writeFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, req.rpc_params.ssl_certs.client_cert)
+            );
         })
         .then(() => {
             if (req.rpc_params.new_hostname) {

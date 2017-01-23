@@ -18,7 +18,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['topology', 'master_ip', 'cluster_id', 'secret', 'role', 'shard', 'jwt_secret'],
+                required: ['topology', 'master_ip', 'cluster_id', 'secret', 'role', 'shard', 'jwt_secret', 'ssl_certs'],
                 properties: {
                     ip: {
                         type: 'string',
@@ -51,12 +51,27 @@ module.exports = {
                     },
                     new_hostname: {
                         type: 'string'
+                    },
+                    ssl_certs: {
+                        type: 'object',
+                        required: ['root_ca', 'server_cert', 'client_cert'],
+                        properties: {
+                            root_ca: {
+                                buffer: true
+                            },
+                            server_cert: {
+                                buffer: true
+                            },
+                            client_cert: {
+                                buffer: true
+                            },
+                        }
                     }
                 }
             },
             auth: {
                 system: false
-            },
+            }
         },
 
         verify_join_conditions: {

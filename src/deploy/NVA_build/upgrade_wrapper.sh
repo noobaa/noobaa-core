@@ -176,6 +176,19 @@ function upgrade_mongo_version {
 
 }
 
+function setup_mongo_ssl {
+  if [ ! -d /etc/mongo_ssl/ ]; then
+    mkdir /etc/mongo_ssl/
+    . ${CORE_DIR}/src/deploy/NVA_build/setup_mongo_ssl.sh
+    chmod 400 -R /etc/mongo_ssl
+    local client_subject=`openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}'`
+    echo "MONGO_SSL_USER=${client_subject}" >> ${CORE_DIR}/.env
+    # add bash script to run mongo shell with authentications
+    echo "mongo --ssl --sslPEMKeyFile /etc/mongo_ssl/client.pem --sslCAFile /etc/mongo_ssl/root-ca.pem --sslAllowInvalidHostnames -u \"${client_subject}\" --authenticationMechanism MONGODB-X509 --authenticationDatabase \"\\\$external\" \"\$@\"" > /usr/bin/mongors
+    chmod +x /usr/bin/mongors
+  fi
+}
+
 function pre_upgrade {
 	if getent passwd noobaa > /dev/null 2>&1; then
 		echo "noobaa user exists"
@@ -303,6 +316,11 @@ function post_upgrade {
       echo "${mongo_url}" >> ${CORE_DIR}/.env
   fi
 
+  if grep -q MONGO_SSL_USER /backup/.env; then
+      local mongo_user=$(grep MONGO_SSL_USER /backup/.env)
+      echo "${mongo_user}" >> ${CORE_DIR}/.env
+  fi
+
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)
   if [ "${curmd}" != "${prevmd}" ]; then
     deploy_log "Previous md differs from current, bumping agent version"
@@ -404,6 +422,10 @@ function post_upgrade {
 
   rm -f /tmp/*.tar.gz
   rm -rf /tmp/v*
+
+
+  setup_mongo_ssl
+
 
 }
 

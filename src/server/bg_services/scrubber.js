@@ -32,29 +32,22 @@ function background_worker() {
             var now = Date.now();
             var query = {
                 $and: [{
-                        $or: [{
-                            last_build: null
-                        }, {
-                            last_build: {
-                                $lt: new Date(now - config.REBUILD_LAST_BUILD_BACKOFF)
-                            }
-                        }]
+                    $or: [{
+                        last_build: null
                     }, {
-                        $or: [{
-                            building: null
-                        }, {
-                            building: {
-                                $lt: new Date(now - config.REBUILD_BUILDING_MODE_BACKOFF)
-                            }
-                        }]
-                    },
-                    //ignore old chunks without buckets
-                    {
-                        bucket: {
-                            $exists: true
+                        last_build: {
+                            $lt: new Date(now - config.REBUILD_LAST_BUILD_BACKOFF)
                         }
-                    }
-                ]
+                    }]
+                }, {
+                    $or: [{
+                        building: null
+                    }, {
+                        building: {
+                            $lt: new Date(now - config.REBUILD_BUILDING_MODE_BACKOFF)
+                        }
+                    }]
+                }]
             };
             if (self.last_chunk_id) {
                 query._id = {

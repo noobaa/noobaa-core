@@ -2,7 +2,7 @@
 
 <div class="tabs greedy">
     <nav>
-        <a class="selected" data-bind="
+        <a data-bind="
             href: tabHref('nodes'),
             css: tabCss('nodes')
         ">
@@ -11,8 +11,9 @@
     </nav>
 
     <div class="tabs-row">
-        <pool-nodes-table class="selected greedy" data-bind="css: tabCss('nodes')"
-            params="pool: pool, nodeList: nodes">
-        </pool-nodes-table>
+        <pool-nodes-table class="tab greedy" data-bind="css: tabCss('nodes')" params="
+            pool: pool,
+            nodeList: nodes
+        "></pool-nodes-table>
     </div>
 </div>

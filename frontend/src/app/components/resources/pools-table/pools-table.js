@@ -20,7 +20,7 @@ const columns = deepFreeze([
     },
     {
         name: 'buckets',
-        label: 'bucket using pool',
+        label: 'buckets using pool',
         sortable: true
     },
     {

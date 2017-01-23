@@ -21,8 +21,9 @@ function ping(target, options) {
     let session = net_ping.createSession(options);
     return P.resolve()
         .then(() => {
-            if (_is_valid_ip(target)) {
-                return _ping_ip(session, target);
+            let candidate_ip = url.parse(target).hostname || target;
+            if (_is_valid_ip(candidate_ip)) {
+                return _ping_ip(session, candidate_ip);
             }
             return dns_resolve(target)
                 .then(ip_table =>

@@ -41,13 +41,13 @@ class MapBuilder {
 
         return builder_lock.surround_keys(_.map(this.chunk_ids, String), () => {
             return P.resolve(this.reload_chunks(this.chunk_ids))
+                .then(() => system_store.refresh())
                 .then(() => P.join(
-                    system_store.refresh(),
                     md_store.load_blocks_for_chunks(this.chunks),
-                    md_store.load_parts_objects_for_chunks(this.chunks),
+                    md_store.load_parts_objects_for_chunks(this.chunks)
+                    .then(res => this.prepare_and_fix_chunks(res)),
                     this.mark_building()
                 ))
-                .then(() => this.prepare_and_fix_chunks())
                 .then(() => this.refresh_alloc())
                 .then(() => this.analyze_chunks())
                 .then(() => this.allocate_blocks())
@@ -99,6 +99,65 @@ class MapBuilder {
             }));
     }
 
+    prepare_and_fix_chunks({ parts, objects }) {
+        objects.forEach(object => system_store.data.get_by_id(object.bucket) || dbg.error(`Object ${object._id} is holding invalid bucket ${object.bucket}`));
+        objects = objects.filter(object => system_store.data.get_by_id(object.bucket));
+        return P.map(this.chunks, chunk => {
+            // if other actions should be done to prepare a chunk for build, those actions should be added here
+            const chunk_parts = parts.filter(part =>
+                (String(part.chunk) === String(chunk._id)));
+            const chunk_objects = objects.filter(object => chunk_parts.find(part =>
+                String(part.obj) === String(object._id)));
+            return P.resolve()
+                .then(() => {
+                    if (!chunk_parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
+                    if (!chunk_objects.length) throw new Error('No valid objects are pointing to chunk', chunk._id);
+                })
+                .then(() => this.populate_chunk_bucket(chunk, chunk_objects))
+                .catch(err => {
+                    dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
+                    chunk.had_errors = true;
+                    this.had_errors = true;
+                });
+        });
+    }
+
+    populate_chunk_bucket(chunk, objects) {
+        let bucket = system_store.data.get_by_id(chunk.bucket);
+        const object_bucket_ids = mongo_utils.uniq_ids(objects, 'bucket');
+        //const object_buckets = object_bucket_ids.map(object_id => system_store.data.get_by_id(object_id));
+        if (!object_bucket_ids.length) {
+            dbg.error(`Chunk ${chunk._id} is held by ${objects.length} invalid objects. The following objects have no valid bucket`, objects);
+            throw new Error('Chunk held by invalid objects');
+        }
+        if (object_bucket_ids.length > 1) {
+            dbg.error(`Chunk ${chunk._id} is held by objects from ${object_bucket_ids.length} different buckets`);
+        }
+        if (!bucket) {
+            dbg.error('chunk', chunk._id, 'is holding an invalid bucket', chunk.bucket, 'fixing to', object_bucket_ids[0]);
+            const bucket_id = object_bucket_ids[0]; // This is arbitrary, but there shouldn't be more than one in a healthy system
+            bucket = system_store.data.get_by_id(bucket_id);
+            chunk.bucket = bucket;
+            if (bucket) {
+                return md_store.DataChunk.collection.updateOne({
+                    _id: chunk._id
+                }, {
+                    $set: {
+                        bucket: bucket_id
+                    }
+                });
+            }
+            throw new Error('Could not fix chunk bucket. No suitable bucket found');
+        }
+        chunk.bucket = bucket;
+    }
+
+    refresh_alloc() {
+        return P.map(this.chunks, chunk =>
+            !chunk.had_errors &&
+            node_allocator.refresh_tiering_alloc(chunk.bucket.tiering));
+    }
+
     analyze_chunks() {
         _.each(this.chunks, chunk => {
             if (chunk.had_errors) return;
@@ -118,15 +177,9 @@ class MapBuilder {
         });
     }
 
-    refresh_alloc() {
-        return P.map(this.chunks, chunk =>
-            !(chunk.had_errors) &&
-            node_allocator.refresh_tiering_alloc(chunk.bucket.tiering));
-    }
-
     allocate_blocks() {
         _.each(this.chunks, chunk => {
-            if (chunk.had_errors) return;
+            if (!chunk.status) return;
             let avoid_nodes = chunk.blocks.map(block => String(block.node._id));
             let allocated_hosts = chunk.blocks.map(block => block.node.host_id);
             _.each(chunk.status.allocations, alloc => {
@@ -170,7 +223,7 @@ class MapBuilder {
 
     replicate_blocks() {
         return P.all(_.map(this.chunks, chunk => {
-            if (chunk.had_errors) return;
+            if (!chunk.status) return;
             return P.all(_.map(chunk.status.allocations, alloc => {
                 let block = alloc.block;
                 if (!block) {
@@ -313,58 +366,6 @@ class MapBuilder {
                 }
             })
         );
-    }
-
-    prepare_and_fix_chunks() {
-        return P.map(this.chunks, chunk =>
-            // if other actions should be done to prepare a chunk for build, those actions should be added here
-            this.populate_chunk_bucket(chunk)
-            .catch(err => {
-                dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
-                chunk.had_errors = true;
-                this.had_errors = true;
-            }));
-    }
-
-    populate_chunk_bucket(chunk) {
-        let bucket = system_store.data.get_by_id(chunk.bucket);
-        if (bucket) {
-            chunk.bucket = bucket;
-            return P.resolve();
-        }
-        dbg.error('chunk', chunk._id, 'is holding an invalid bucket', chunk.bucket);
-        return this.fix_chunk_bucket(chunk);
-    }
-
-    fix_chunk_bucket(chunk) {
-        // attempting to find a bucket for this chunk through the objects pointing to it
-        return md_store.ObjectPart.collection.find({
-                chunk: chunk._id
-            })
-            .toArray()
-            .then(parts =>
-                P.any(parts.map(part => md_store.ObjectMD.collection.findOne({
-                        _id: part.obj
-                    })
-                    .then(object_md => system_store.data.get_by_id(object_md.bucket) ||
-                        P.reject(new Error('object', object_md._id, 'is holding an invalid bucket', object_md.bucket))
-                        .finally(() =>
-                            dbg.error('object', object_md._id, 'is holding an invalid bucket', object_md.bucket))))))
-            .then(bucket => {
-                dbg.log0('chunk', chunk._id, 'will be fixed to hold', bucket._id);
-                chunk.bucket = bucket;
-                return md_store.DataChunk.collection.updateOne({
-                    _id: chunk._id
-                }, {
-                    $set: {
-                        bucket: bucket._id
-                    }
-                });
-            })
-            .catch(Promise.AggregateError, () => {
-                dbg.error(`could not find a suitable bucket for chunk ${chunk._id}`);
-                throw new Error('could not find a suitable bucket');
-            });
     }
 }
 

@@ -20,8 +20,6 @@ const AWS = window.AWS;
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;
 
-
-
 // -----------------------------------------------------
 // Utility function to log actions.
 // -----------------------------------------------------
@@ -2067,24 +2065,39 @@ export function regenerateAccountCredentials(email, verificationPassword) {
         .done();
 }
 
-export  function loadSystemUsageHistory() {
-    logAction('loadSystemUsageHistory');
+export function loadSystemUsageHistory(includeCloudStorage = true) {
+    logAction('loadSystemUsageHistory', { includeCloudStorage });
     api.pool.get_pool_history({})
         .then(
             history => history.map(
                 ({ time_stamp, pool_list }) => {
-                    const timestamp = time_stamp;
+                    const poolStorage = pool_list
+                        .filter(pool => includeCloudStorage || !pool.cloud_info)
+                        .map(pool => pool.storage);
+
                     const storage = assignWith(
-                        {},
-                        ...pool_list.map( pool => pool.storage ),
+                        { used: 0, free: 0, unavailable_free: 0 },
+                        ...poolStorage,
                         (a, b) => sumSize(a || 0, b || 0)
                     );
 
-                    return { timestamp, storage };
+                    return { storage, timestamp: time_stamp };
                 }
             )
         )
         .then(model.systemUsageHistory)
+        .done();
+}
+
+export function verifyServer(address, secret) {
+    logAction('verifyServer', { address, secret });
+
+    api.cluster_server.verify_candidate_join_conditions({ address, secret})
+        .then(
+            reply => model.serverVerificationState(
+                Object.assign({ address, secret }, reply)
+            )
+        )
         .done();
 }
 

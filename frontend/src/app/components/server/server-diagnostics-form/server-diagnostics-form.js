@@ -44,7 +44,7 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
                 }
 
                 const { results = [] } = this.server().services_status.cluster_communication;
-                return keyByProperty(results,'secret');
+                return keyByProperty(results, 'secret', ({ status }) => status);
             }
         );
 
@@ -75,7 +75,8 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
                 label: 'Time Left For Debugging',
                 value: ko.pureComputed(
                     () => 'None'
-                )
+                ),
+                disabled: true
             }
         ];
 

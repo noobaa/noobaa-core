@@ -1,13 +1,14 @@
 attach-server-modal {
+    @offset: 80px;
+
     display: block;
 
-    .server-name {
-        > input {
-            width: 200px !important;
-        }
+    .hostname {
+        padding-right: @offset + 5px !important;
+    }
 
-        > .seperator {
-            margin: 0 9px;
-        }
+    .name-suffix {
+        line-height: 40px;
+        margin-left: -@offset;
     }
 }

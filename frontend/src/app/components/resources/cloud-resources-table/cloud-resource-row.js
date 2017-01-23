@@ -5,7 +5,7 @@ import { deleteCloudResource } from 'actions';
 import { getResourceTypeIcon } from 'utils/ui-utils';
 
 const undeletableReasons = deepFreeze({
-    IN_USE: 'Cannot delete a resource which is used in a bucket cloud storage policy'
+    IN_USE: 'Cannot delete a resource which is used in a bucket data placement policy'
 });
 
 export default class CloudResourceRowViewModel extends BaseViewModel {

@@ -11,7 +11,10 @@
             <svg-icon class="push-next" params="name: trust().icon"
                 data-bind="css: trust().css">
             </svg-icon>
-            <span class="highlight" data-bind="text: trust().text"></span>
+            <span class="highlight greedy push-next" data-bind="text: trust().text"></span>
+            <svg-icon class="icon-small" params="name: 'question'" data-bind="
+                tooltip: trustTooltip
+            "></svg-icon>
         </div>
         <hr />
         <div class="row greedy content-middle">

@@ -245,7 +245,7 @@ class BucketsOverviewViewModel extends BaseViewModel {
                 bodyFontSize: parseInt(style['font-size1']),
                 bodySpacing: gutter / 2,
                 callbacks: {
-                    title: items => moment(items[0].xLabel).format('D MMM HH:mm:ss'),
+                    title: items => moment.tz(items[0].xLabel, timezone).format('D MMM HH:mm:ss'),
                     label: item => {
                         const { label } = chartDatasets[item.datasetIndex];
                         const value = formatSize(item.yLabel);

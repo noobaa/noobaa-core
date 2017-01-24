@@ -1,19 +1,24 @@
-<div class="column alt-bg pad">
-    <div class="align-end" data-bind="tooltip: createPoolTooltip">
-        <button class="btn" data-bind="
-            click: () => showCreatePoolWizard(),
-            disable: isCreatePoolDisabled,
-        ">
-            Create Pool
-        </button>
+<div class="row alt-bg pad">
+    <div class="greedy push-next">
+        <input type="search" placeholder="Filter by pool name" data-bind="
+            textInput: filter
+        "/>
     </div>
+
+    <button class="btn align-end" data-bind="
+        click: () => showCreatePoolWizard(),
+        disable: isCreatePoolDisabled,
+    ">
+        Create Pool
+    </button>
 </div>
 
 <data-table class="greedy" params="
     columns: columns,
     data: pools,
     rowFactory: pool => newPoolRow(pool),
-    sorting: sorting
+    sorting: sorting,
+    emptyMessage: 'The current filter does not match any nodes pool'
 "></data-table>
 
 <!-- ko if: isCreatePoolWizardVisible -->

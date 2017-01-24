@@ -1,8 +1,20 @@
-<div class="column pad alt-bg">
+<div class="row alt-bg pad content-middle">
+    <div class="push-next">
+        <input type="search" placeholder="Filter by resource name" data-bind="
+            textInput: filter
+        "/>
+    </div>
+
+    <p class="push-next">By type:</p>
+    <dropdown class="greedy" params="
+        options: resourceTypeOptions,
+        selected: selectedResourceType
+    "></dropdown>
+
     <button class="btn align-end" data-bind="
-        click: () => showAddCloudResourceModal()
+        click: () => showAddCloudResourceModal(),
     ">
-        Add Cloud Resource
+         Add Cloud Resource
     </button>
 </div>
 
@@ -11,7 +23,7 @@
     rowFactory: resource => newResourceRow(resource),
     sorting: sorting,
     data: resources,
-    emptyMessage: 'System does not contain any cloud resources'
+    emptyMessage: emptyMessage
 "></data-table>
 
 <!-- ko if: isAddCloudResourceModalVisible -->

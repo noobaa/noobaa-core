@@ -117,7 +117,7 @@ export function reloadTo(route = model.routeContext().pathname, params = {},  qu
 export function refresh() {
     logAction('refresh');
 
-    let { pathname, search } = window.location;
+    const { pathname, search } = window.location;
 
     // Refresh the current path
     page.redirect(pathname + search);
@@ -130,7 +130,7 @@ export function refresh() {
 export function showLogin() {
     logAction('showLogin');
 
-    let ctx = model.routeContext();
+    const ctx = model.routeContext();
 
     model.uiState({
         layout: 'login-layout',
@@ -172,9 +172,9 @@ export function showBuckets() {
 export function showBucket() {
     logAction('showBucket');
 
-    let ctx = model.routeContext();
-    let { bucket, tab = 'data-placement' } = ctx.params;
-    let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
+    const ctx = model.routeContext();
+    const { bucket, tab = 'data-placement' } = ctx.params;
+    const { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
     model.uiState({
         layout: 'main-layout',
@@ -194,9 +194,9 @@ export function showBucket() {
 export function showObject() {
     logAction('showObject');
 
-    let ctx = model.routeContext();
-    let { object, bucket, tab = 'parts' } = ctx.params;
-    let { page = 0 } = ctx.query;
+    const ctx = model.routeContext();
+    const { object, bucket, tab = 'parts' } = ctx.params;
+    const { page = 0 } = ctx.query;
 
     model.uiState({
         layout: 'main-layout',
@@ -218,8 +218,8 @@ export function showObject() {
 export function showResources() {
     logAction('showResources');
 
-    let ctx = model.routeContext();
-    let { tab = 'pools' } = ctx.params;
+    const ctx = model.routeContext();
+    const { tab = 'pools' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
@@ -236,8 +236,8 @@ export function showResources() {
 export function showPool() {
     logAction('showPool');
 
-    let ctx = model.routeContext();
-    let { pool, tab = 'nodes' } = ctx.params;
+    const ctx = model.routeContext();
+    const { pool, tab = 'nodes' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
@@ -251,16 +251,16 @@ export function showPool() {
         tab: tab
     });
 
-    let { filter, hasIssues, sortBy = 'name', order = 1, page = 0 } = ctx.query;
+    const { filter, hasIssues, sortBy = 'name', order = 1, page = 0 } = ctx.query;
     loadPoolNodeList(pool, filter, hasIssues, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showNode() {
     logAction('showNode');
 
-    let ctx = model.routeContext();
-    let { pool, node, tab = 'details' } = ctx.params;
-    let { page = 0 } = ctx.query;
+    const ctx = model.routeContext();
+    const { pool, node, tab = 'details' } = ctx.params;
+    const { page = 0 } = ctx.query;
 
     model.uiState({
         layout: 'main-layout',
@@ -282,7 +282,7 @@ export function showNode() {
 export function showManagement() {
     logAction('showManagement');
 
-    let { tab = 'accounts', section } = model.routeContext().params;
+    const { tab = 'accounts', section } = model.routeContext().params;
 
     model.uiState({
         layout: 'main-layout',
@@ -301,8 +301,8 @@ export function showManagement() {
 export function showAccount() {
     logAction('showAccount');
 
-    let ctx = model.routeContext();
-    let { account, tab = 's3-access' } = ctx.params;
+    const ctx = model.routeContext();
+    const { account, tab = 's3-access' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
@@ -320,8 +320,8 @@ export function showAccount() {
 export function showCluster() {
     logAction('showCluster');
 
-    let ctx = model.routeContext();
-    let { tab = 'servers' } = ctx.params;
+    const ctx = model.routeContext();
+    const { tab = 'servers' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
@@ -374,8 +374,8 @@ export function showFuncs() {
 export function showFunc() {
     logAction('showFunc');
 
-    let ctx = model.routeContext();
-    let { func, tab = 'monitoring' } = ctx.params;
+    const ctx = model.routeContext();
+    const { func, tab = 'monitoring' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
@@ -510,8 +510,8 @@ export function deleteFunc(name, version) {
 export function handleUnknownRoute() {
     logAction('handleUnknownRoute');
 
-    let system = model.sessionInfo().system;
-    let uri = realizeUri(routes.system, { system });
+    const system = model.sessionInfo().system;
+    const uri = realizeUri(routes.system, { system });
     redirectTo(uri);
 }
 
@@ -549,7 +549,7 @@ export function signIn(email, password, keepSessionAlive = false) {
         .then(() => api.system.list_systems())
         .then(
             ({ systems }) => {
-                let system = systems[0].name;
+                const system = systems[0].name;
 
                 return api.create_auth_token({ system, email, password })
                     .then(({ token, info }) => {
@@ -779,8 +779,8 @@ export function loadNodeStoredPartsList(nodeName, page) {
 export function loadAuditEntries(categories, count) {
     logAction('loadAuditEntries', { categories, count });
 
-    let auditLog = model.auditLog;
-    let filter = categories
+    const auditLog = model.auditLog;
+    const filter = categories
         .map(
             category => `(^${category}.)`
         )
@@ -808,9 +808,9 @@ export function loadAuditEntries(categories, count) {
 export function loadMoreAuditEntries(count) {
     logAction('loadMoreAuditEntries', { count });
 
-    let auditLog = model.auditLog;
-    let lastEntryTime = last(auditLog()).time;
-    let filter = model.auditLog.loadedCategories()
+    const auditLog = model.auditLog;
+    const lastEntryTime = last(auditLog()).time;
+    const filter = model.auditLog.loadedCategories()
         .map(
             category => `(^${category}.)`
         )
@@ -832,7 +832,7 @@ export function loadMoreAuditEntries(count) {
 export function exportAuditEnteries(categories) {
     logAction('exportAuditEnteries', { categories });
 
-    let filter = categories
+    const filter = categories
         .map(
             category => `(^${category}.)`
         )
@@ -941,7 +941,7 @@ export function deleteAccount(email) {
     api.account.delete_account({ email })
         .then(
             () => {
-                let user = model.sessionInfo() && model.sessionInfo().user;
+                const user = model.sessionInfo() && model.sessionInfo().user;
                 if (email === user) {
                     signOut();
                 } else {
@@ -993,7 +993,7 @@ export function createBucket(name, dataPlacement, pools) {
 
     // TODO: remove the random string after patching the server
     // with a delete bucket that deletes also the policy
-    let bucket_with_suffix = `${name}#${Date.now().toString(36)}`;
+    const bucket_with_suffix = `${name}#${Date.now().toString(36)}`;
 
     api.tier.create_tier({
         name: bucket_with_suffix,
@@ -1002,7 +1002,7 @@ export function createBucket(name, dataPlacement, pools) {
     })
         .then(
             tier => {
-                let policy = {
+                const policy = {
                     name: bucket_with_suffix,
                     tiers: [ { order: 0, tier: tier.name } ]
                 };
@@ -1042,7 +1042,7 @@ export function deleteBucket(name) {
 export function updateBucketPlacementPolicy(tierName, placementType, attachedPools) {
     logAction('updateBucketPlacementPolicy', { tierName, placementType, attachedPools });
 
-    let bucket = model.systemInfo().buckets.find(
+    const bucket = model.systemInfo().buckets.find(
         bucket => bucket.tiering.tiers.find(
             entry => entry.tier === tierName
         )
@@ -1138,10 +1138,10 @@ export function uploadFiles(bucketName, files) {
         queueSize: 4
     });
 
-    let uploads = model.uploads;
+    const uploads = model.uploads;
 
-    let { access_key , secret_key } = model.systemInfo().owner.access_keys[0];
-    let s3 = new AWS.S3({
+    const { access_key , secret_key } = model.systemInfo().owner.access_keys[0];
+    const s3 = new AWS.S3({
         endpoint: endpoint,
         credentials: {
             accessKeyId: access_key,
@@ -1153,7 +1153,7 @@ export function uploadFiles(bucketName, files) {
 
     for (const file of files) {
         // Create an entry in the recent uploaded list.
-        let upload = {
+        const upload = {
             name: file.name,
             targetBucket: bucketName,
             completed: false,
@@ -1183,11 +1183,11 @@ export function uploadFiles(bucketName, files) {
                     upload.progress = upload.size;
                 }
 
-                let currentBatch = uploads().filter(
+                const currentBatch = uploads().filter(
                     upload => !upload.archived
                 );
 
-                let noMoreUploads = currentBatch.every(
+                const noMoreUploads = currentBatch.every(
                     upload => upload.completed
                 );
 
@@ -1231,7 +1231,7 @@ export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
     const regexp = /=>(\w{3}):\/\/([0-9.]+):(\d+)/;
-    let { nodeTestInfo } = model;
+    const { nodeTestInfo } = model;
 
     nodeTestInfo({
         source: source,
@@ -1241,7 +1241,7 @@ export function testNode(source, testSet) {
         state:'IN_PROGRESS'
     });
 
-    let { targetCount, testSettings } = config.nodeTest;
+    const { targetCount, testSettings } = config.nodeTest;
     api.node.get_test_nodes({
         count: targetCount,
         source: source
@@ -1252,7 +1252,7 @@ export function testNode(source, testSet) {
                 ...testSet.map(
                     testType => targets.map(
                         ({ name, rpc_address }) => {
-                            let result = {
+                            const result = {
                                 testType: testType,
                                 targetName: name,
                                 targetAddress: rpc_address,
@@ -1289,12 +1289,12 @@ export function testNode(source, testSet) {
                         return;
                     }
 
-                    let { stepCount, requestLength, responseLength, count, concur } = testSettings[testType];
-                    let stepSize = count * (requestLength + responseLength);
-                    let totalTestSize = stepSize * stepCount;
+                    const { stepCount, requestLength, responseLength, count, concur } = testSettings[testType];
+                    const stepSize = count * (requestLength + responseLength);
+                    const totalTestSize = stepSize * stepCount;
 
                     // Create a step list for the test.
-                    let steps = makeArray(
+                    const steps = makeArray(
                         stepCount,
                         {
                             source: source,
@@ -1307,7 +1307,7 @@ export function testNode(source, testSet) {
                     );
 
                     // Set start time.
-                    let start = Date.now();
+                    const start = Date.now();
                     result.state = 'RUNNING';
 
                     // Execute the steps in order.
@@ -1321,7 +1321,7 @@ export function testNode(source, testSet) {
                             return api.node.test_node_network(stepRequest)
                                 .then(
                                     ({ session }) => {
-                                        let [,protocol, ip, port] = session.match(regexp);
+                                        const [,protocol, ip, port] = session.match(regexp);
                                         result.protocol = protocol;
                                         result.targetIp = ip;
                                         result.targetPort = port;
@@ -1369,7 +1369,7 @@ export function testNode(source, testSet) {
 export function abortNodeTest() {
     logAction('abortNodeTest');
 
-    let nodeTestInfo = model.nodeTestInfo;
+    const nodeTestInfo = model.nodeTestInfo;
     if (nodeTestInfo().state === 'IN_PROGRESS') {
         nodeTestInfo.assign({
             state: 'ABORTING'
@@ -1406,8 +1406,8 @@ export function updateHostname(hostname) {
         // The system changed it's name, reload the page using the new IP/Name
         .then(
             () => {
-                let { protocol, port } = window.location;
-                let baseAddress = `${protocol}//${hostname}:${port}`;
+                const { protocol, port } = window.location;
+                const baseAddress = `${protocol}//${hostname}:${port}`;
 
                 reloadTo(
                     `${baseAddress}${routes.management}`,
@@ -1470,7 +1470,7 @@ export function upgradeSystem(upgradePackage) {
 export function uploadSSLCertificate(SSLCertificate) {
     logAction('uploadSSLCertificate', { SSLCertificate });
 
-    let uploadStatus = model.sslCertificateUploadStatus;
+    const uploadStatus = model.sslCertificateUploadStatus;
     uploadStatus({
         state: 'IN_PROGRESS',
         progress: 0,
@@ -1513,7 +1513,7 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
-    let currentNodeKey = `node:${nodeName}`;
+    const currentNodeKey = `node:${nodeName}`;
     if(model.collectDiagnosticsState[currentNodeKey] === true) {
         return;
     }
@@ -1742,7 +1742,7 @@ export function checkCloudConnection(endpointType, endpoint, identity, secret) {
 export function addCloudConnection(name, endpointType, endpoint, identity, secret) {
     logAction('addCloudConnection', { name, endpointType, endpoint, identity, secret });
 
-    let connection = {
+    const connection = {
         name: name,
         endpoint_type: endpointType,
         endpoint: endpoint,

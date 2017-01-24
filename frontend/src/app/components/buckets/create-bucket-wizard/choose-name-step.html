@@ -1,18 +1,19 @@
-<h2 class="heading3 push-next">
-    Choose a name for the bucket
-</h2>
-
-<ul class="bullet-list">
-    <li>Bucket names must be between 3-63 chars</li>
-    <li>The name can only contain lowercase letters, numbers, periods and hyphens</li>
-    <li>The name must start and end with a lowercase letter or number</li>
-    <li>The name cannot be changed later</li>
-</ul>
-
-<editor params="label: 'Bucket Name'">
-    <input type="text" placeholder="Type here" data-bind="
-        value: bucketName,
-        hasFocus: $inActiveStep
-    "/>
-</editor>
-
+<div class="push-next greedy">
+    <editor params="label: 'Bucket Name'">
+        <div class="push-next">
+            <input type="text" placeholder="Type here" data-bind="
+                value: bucketName,
+                hasFocus: $inActiveStep
+            "/>
+        </div>
+        <ul class="bullet-list remark push-prev">
+            <li>3-63 characters</li>
+            <li>Only lowercase letters, numbers, periods and hyphens</li>
+            <li>Starts and ends with a lowercase letter or number</li>
+        </ul>
+    </editor>
+</div>
+<p class="remark">
+    <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+    <span>The name cannot be changed later</span>
+</p>

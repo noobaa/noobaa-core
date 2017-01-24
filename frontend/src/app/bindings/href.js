@@ -7,10 +7,11 @@ export default {
     update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
         let value = ko.deepUnwrap(valueAccessor());
         if (value) {
-            let { route, params } = value;
+            let { route, params, query } = value;
             let href = realizeUri(
                 routes[route] || '',
-                Object.assign({}, routeContext().params, params)
+                Object.assign({}, routeContext().params, params),
+                query
             );
 
             return ko.bindingHandlers.attr.update(

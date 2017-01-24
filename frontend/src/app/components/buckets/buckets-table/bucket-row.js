@@ -187,10 +187,10 @@ export default class BucketRowViewModel extends BaseViewModel {
 
         this.capacity = {
             total: ko.pureComputed(
-                () => storage().total
+                () => storage().total || 0
             ),
             used: ko.pureComputed(
-                () => storage().used
+                () => storage().used || 0
             )
         };
 

@@ -133,5 +133,8 @@ export const createAccountState = ko.observable();
 export const funcInfo = ko.observable();
 export const funcList = ko.observableArray();
 
-// Model moke data for pool history
+// Hold system usage history
 export const systemUsageHistory = ko.observable();
+
+// Hold verification state for attach server oprtations.
+export const serverVerificationState = ko.observable();

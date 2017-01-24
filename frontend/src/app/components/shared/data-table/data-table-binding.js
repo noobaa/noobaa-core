@@ -5,7 +5,7 @@ function setHeadPadding(table) {
     const body = table.querySelector('tbody');
 
     if (body.clientWidth > 0) {
-        let diff = head.clientWidth - body.clientWidth;
+        const diff = head.clientWidth - body.clientWidth;
         head.style.paddingRight = `${diff}px`;
     } else {
         head.style.paddingRight = 'auto';
@@ -16,9 +16,7 @@ ko.bindingHandlers.dataTable = {
     init(element, valueAccessor, allBindings, viewModel, bindingContext) {
         ko.bindingHandlers.event.init(
             window,
-            () => ({
-                resize: () => setHeadPadding(element)
-            }),
+            () => ({ resize: () => setHeadPadding(element) }),
             allBindings,
             viewModel,
             bindingContext
@@ -27,8 +25,6 @@ ko.bindingHandlers.dataTable = {
 
     update(element, valueAccessor) {
         ko.unwrap(valueAccessor());
-        ko.tasks.schedule(
-            () => setHeadPadding(element)
-        );
+        ko.tasks.schedule(() => setHeadPadding(element));
     }
 };

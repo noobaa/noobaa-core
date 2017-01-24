@@ -28,7 +28,7 @@ const stateIconMapping = deepFreeze({
     },
 
     WARNING: {
-        name: 'notif-warning',
+        name: 'problem',
         css: 'warning'
     }
 });
@@ -79,7 +79,7 @@ export default class ServerRowViewModel extends BaseViewModel {
                 const text = `${name} ${ secret === masterSecret ? '(Master)' : '' }`;
                 const href = {
                     route: 'server',
-                    params: { server: `${hostname}-${secret}` }
+                    params: { server: `${hostname}-${secret}`, tab: null }
                 };
 
                 return { text, href };

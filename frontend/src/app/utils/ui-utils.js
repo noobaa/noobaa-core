@@ -16,7 +16,7 @@ const nodeStateIconMapping = deepFreeze({
     INITALIZING: {
         name: 'working',
         css: 'warning',
-        text: 'Initalizing'
+        tooltip: 'Initalizing'
     },
     DELETING: {
         name: 'working',
@@ -57,6 +57,16 @@ const nodeStateIconMapping = deepFreeze({
         name: 'problem',
         css: 'warning',
         tooltip: 'Read/Write problems'
+    },
+    LOW_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Available capacity is low'
+    },
+    NO_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'No available capacity'
     },
     OPTIMAL: {
         name: 'healthy',
@@ -157,7 +167,7 @@ export function getSystemStorageIcon(storage) {
         return {
             name: 'problem',
             css: 'disabled',
-            tooltip: 'No system storage - add nodes or colud resources'
+            tooltip: 'No system storage - add nodes or cloud resources'
         };
 
     } else if (free < Math.pow(1024, 2)) { // 1MB
@@ -183,4 +193,50 @@ export function getSystemStorageIcon(storage) {
             tooltip: tooltip
         };
     }
+}
+
+const serviceMapping = deepFreeze({
+    AWS: {
+        subject: 'Bucket',
+        icon: 'aws-s3-resource-dark',
+        selectedIcon: 'aws-s3-resource-colored'
+    },
+    AZURE: {
+        subject: 'Container',
+        icon: 'azure-resource-dark',
+        selectedIcon: 'azure-resource-colored'
+    },
+    S3_COMPATIBLE: {
+        subject: 'Bucket',
+        icon: 'cloud-resource-dark',
+        selectedIcon: 'cloud-resource-colored'
+    }
+});
+
+export function getCloudServiceMeta(service) {
+    return serviceMapping[service];
+}
+
+export function getNodeCapacityBarValues(node) {
+    const { storage = {} } = node;
+    const { total, used, used_other, reserved } = storage;
+    const usage = [
+        { value: used, label: 'Used (Noobaa)' },
+        { value: used_other, label: 'Used (other)' },
+        { value: reserved, label: 'Reserved' }
+    ];
+
+    return { total, used: usage };
+}
+
+export function getPoolCapacityBarValues(pool) {
+    const { storage = {} } = pool;
+    const { total, used, used_other, reserved } = storage;
+    const usage = pool.cloud_info ? used : [
+        { value: used, label: 'Used (Noobaa)' },
+        { value: used_other, label: 'Used (other)' },
+        { value: reserved, label: 'Reserved' }
+    ];
+
+    return { total, used: usage };
 }

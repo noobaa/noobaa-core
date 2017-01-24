@@ -1,4 +1,4 @@
-<section class="column greedy pad borders">
+<section class="column greedy pad borders bg-stars">
     <h2 class="heading3 row content-middle">
         <span class="greedy">Data Buckets</span>
         <a class="link" data-bind="
@@ -16,7 +16,12 @@
         "></toggle-filter>
     </div>
 
-    <chart-legend class="push-next" params="items: legendItems"></chart-legend>
+    <checkbox class="push-next" params="
+        checked: includeCloudStorage,
+        label: 'Include cloud storage'
+    "></checkbox>
+
+    <chart-legend  params="items: legendItems"></chart-legend>
 
     <chartjs class="greedy push-both" params="
         type: 'line',

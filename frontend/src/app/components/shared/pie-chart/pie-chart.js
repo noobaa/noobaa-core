@@ -1,7 +1,7 @@
 import template from './pie-chart.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
-import {  makeArray, deepFreeze } from 'utils/core-utils';
+import {  makeArray, deepFreeze, decimalRound } from 'utils/core-utils';
 import style from 'style';
 
 const radius = 84;
@@ -9,6 +9,7 @@ const lineWidth = 20;
 const seperator = (2 * Math.PI) / 1000;
 const threshold = 2 * seperator;
 const silhouetteColor = style['color1'];
+const changeResilience = 3;
 
 const primaryTextStyle = deepFreeze({
     font: `${style['font-family1']}` ,
@@ -25,43 +26,43 @@ const secondaryTextStyle = deepFreeze({
 });
 
 function normalizeValues(values) {
-    let sum = values.reduce(
+    const sum = values.reduce(
         (sum, value) => sum + value
     );
 
-    let thresholdSize = threshold * sum;
-    let { delta, overhead } = values.reduce(
-        (stats, value) => {
-            if(value === 0){
-                return stats;
+    const thresholdSize = threshold * sum;
+    const { delta, overhead } = values.reduce(
+        ({ delta = 0, overhead = 0 }, value) => {
+            if(value > 0){
+                value < thresholdSize ?
+                    delta += thresholdSize - value :
+                    overhead += value - thresholdSize;
             }
 
-            if(value < thresholdSize) {
-                return {
-                    delta: stats.delta + thresholdSize - value,
-                    overhead: stats.overhead
-                };
-            } else {
-                return {
-                    delta: stats.delta,
-                    overhead: stats.overhead + value - thresholdSize
-                };
-            }
+            return { delta, overhead };
         },
-        { delta: 0, overhead: 0 }
+        {}
     );
 
+    let reminder = 0;
     return values.map(
-        value => {
+        (value, i) => {
             if (value === 0) {
                 return 0;
             }
 
-            if (value <= thresholdSize){
+            if (value <= thresholdSize) {
                 return threshold;
             }
 
-            return (value - delta * (value - thresholdSize) / overhead) / sum;
+            const ratio = (value - (value - thresholdSize) * delta / overhead) / sum;
+            if (i < values.length - 1) {
+                const rounded = decimalRound(ratio, changeResilience);
+                reminder += ratio - rounded;
+                return rounded;
+            } else {
+                return decimalRound(ratio + reminder, changeResilience);
+            }
         }
     );
 }
@@ -91,7 +92,7 @@ class PieChartViewModel extends BaseViewModel {
             )
         );
 
-        let normalized = ko.pureComputed(
+        const normalized = ko.pureComputed(
             () => normalizeValues(
                 values.map(
                     entry => ko.unwrap(entry.value)
@@ -125,10 +126,10 @@ class PieChartViewModel extends BaseViewModel {
         ctx.rotate(Math.PI / 1.3);
         this.drawArc(ctx, 0, 1, silhouetteColor);
 
-        let colors = this.colors();
+        const colors = this.colors();
         this.values.reduce(
             (offset, ratio, i) => {
-                let len = Math.max(ratio() - seperator, 0);
+                const len = Math.max(ratio() - seperator, 0);
                 if (len > 0) {
                     this.drawArc(ctx, offset, offset + len, colors[i]);
                 }
@@ -141,9 +142,9 @@ class PieChartViewModel extends BaseViewModel {
     }
 
     drawArc(ctx, start, end, color) {
-        let r = radius - (lineWidth / 2 | 0);
-        let sAngle = start * 2  * Math.PI;
-        let eAngle = end * 2 * Math.PI;
+        const r = radius - (lineWidth / 2 | 0);
+        const sAngle = start * 2  * Math.PI;
+        const eAngle = end * 2 * Math.PI;
 
         ctx.lineWidth = lineWidth;
         ctx.strokeStyle = color;

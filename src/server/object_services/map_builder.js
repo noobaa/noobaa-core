@@ -13,11 +13,11 @@ const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
-const system_server_utils = require('../utils/system_server_utils');
-// const promise_utils = require('../../util/promise_utils');
+const KeysLock = require('../../util/keys_lock');
 
 
 const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
+const builder_lock = new KeysLock();
 
 
 /**
@@ -31,35 +31,55 @@ const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
  */
 class MapBuilder {
 
-    constructor(chunks) {
-        this.chunks = chunks;
-        this.system_id = chunks[0] && chunks[0].system;
+    constructor(chunk_ids) {
+        this.chunk_ids = chunk_ids;
     }
 
     run() {
-        dbg.log1('MapBuilder.run:', 'batch start', this.chunks.length, 'chunks');
-        if (!this.chunks.length) return;
-        if (system_server_utils.system_in_maintenance(this.system_id)) return;
-        return P.resolve()
-            .then(() => P.join(
-                system_store.refresh(),
-                md_store.load_blocks_for_chunks(this.chunks),
-                md_store.load_parts_objects_for_chunks(this.chunks),
-                this.mark_building()
-            ))
-            .then(() => this.refresh_alloc())
-            .then(() => this.analyze_chunks())
-            // .then(() => this.refresh_alloc())
-            .then(() => this.allocate_blocks())
-            .then(() => this.replicate_blocks())
-            .then(() => this.update_db())
-            .then(() => {
-                // return error from the promise if any replication failed,
-                // so that caller will know the build isn't really complete,
-                // although it might partially succeeded
-                if (this.had_errors) {
-                    throw new Error('MapBuilder had errors');
-                }
+        dbg.log1('MapBuilder.run:', 'batch start', this.chunk_ids.length, 'chunks');
+        if (!this.chunk_ids.length) return;
+
+        return builder_lock.surround_keys(_.map(this.chunk_ids, String), () => {
+            return P.resolve(this.reload_chunks(this.chunk_ids))
+                .then(() => system_store.refresh())
+                .then(() => P.join(
+                    md_store.load_blocks_for_chunks(this.chunks),
+                    md_store.load_parts_objects_for_chunks(this.chunks)
+                    .then(res => this.prepare_and_fix_chunks(res)),
+                    this.mark_building()
+                ))
+                .then(() => this.refresh_alloc())
+                .then(() => this.analyze_chunks())
+                .then(() => this.allocate_blocks())
+                .then(() => this.replicate_blocks())
+                .then(() => this.update_db())
+                .then(() => {
+                    // return error from the promise if any replication failed,
+                    // so that caller will know the build isn't really complete,
+                    // although it might partially succeeded
+                    if (this.had_errors) {
+                        throw new Error('MapBuilder had errors');
+                    }
+                });
+        });
+    }
+
+
+    // In order to get the most relevant data regarding the chunks
+    // Note that there is always a possibility that the chunks will cease to exist
+    reload_chunks(chunk_ids) {
+        var query = {
+            _id: {
+                $in: chunk_ids
+            },
+            deleted: null
+        };
+
+        return P.resolve(md_store.DataChunk.find(query)
+                .lean()
+                .exec())
+            .then(chunks => {
+                this.chunks = chunks;
             });
     }
 
@@ -79,12 +99,75 @@ class MapBuilder {
             }));
     }
 
+    prepare_and_fix_chunks({ parts, objects }) {
+        objects = _.filter(objects, object => {
+            const bucket = system_store.data.get_by_id(object.bucket);
+            if (!bucket) dbg.error(`Object ${object._id} is holding an invalid bucket ${object.bucket}`);
+            return Boolean(bucket);
+        });
+        const parts_by_chunk = _.groupBy(parts, 'chunk');
+        const objects_by_id = _.keyBy(objects, '_id');
+        return P.map(this.chunks, chunk => {
+            // if other actions should be done to prepare a chunk for build, those actions should be added here
+            const chunk_parts = parts_by_chunk[chunk._id];
+            const chunk_objects = _.uniq(_.map(chunk_parts, part => objects_by_id[part.obj]));
+            return P.resolve()
+                .then(() => {
+                    if (!chunk_parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
+                    if (!chunk_objects.length) throw new Error('No valid objects are pointing to chunk', chunk._id);
+                })
+                .then(() => this.populate_chunk_bucket(chunk, chunk_objects))
+                .catch(err => {
+                    dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
+                    chunk.had_errors = true;
+                    this.had_errors = true;
+                });
+        });
+    }
+
+    populate_chunk_bucket(chunk, objects) {
+        let bucket = system_store.data.get_by_id(chunk.bucket);
+        const object_bucket_ids = mongo_utils.uniq_ids(objects, 'bucket');
+        //const object_buckets = object_bucket_ids.map(object_id => system_store.data.get_by_id(object_id));
+        if (!object_bucket_ids.length) {
+            dbg.error(`Chunk ${chunk._id} is held by ${objects.length} invalid objects. The following objects have no valid bucket`, objects);
+            throw new Error('Chunk held by invalid objects');
+        }
+        if (object_bucket_ids.length > 1) {
+            dbg.error(`Chunk ${chunk._id} is held by objects from ${object_bucket_ids.length} different buckets`);
+        }
+        if (!bucket || !object_bucket_ids.find(id => String(id) === String(bucket._id))) {
+            dbg.error('chunk', chunk._id, 'is holding an invalid bucket', chunk.bucket, 'fixing to', object_bucket_ids[0]);
+            const bucket_id = object_bucket_ids[0]; // This is arbitrary, but there shouldn't be more than one in a healthy system
+            bucket = system_store.data.get_by_id(bucket_id);
+            if (bucket) {
+                chunk.bucket = bucket;
+                return md_store.DataChunk.collection.updateOne({
+                    _id: chunk._id
+                }, {
+                    $set: {
+                        bucket: bucket_id
+                    }
+                });
+            }
+            throw new Error('Could not fix chunk bucket. No suitable bucket found');
+        }
+        chunk.bucket = bucket;
+    }
+
+    refresh_alloc() {
+        const populated_chunks = _.filter(this.chunks, chunk => !chunk.had_errors);
+        // uniq works here since the bucket objects are the same from the system store
+        const buckets = _.map(_.uniqBy(populated_chunks, 'bucket._id'), chunk => chunk.bucket);
+        return P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
+    }
+
     analyze_chunks() {
         _.each(this.chunks, chunk => {
-            let bucket = system_store.data.get_by_id(chunk.bucket);
+            if (chunk.had_errors) return;
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
-            let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
-            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, {
+            let tiering_pools_status = node_allocator.get_tiering_pools_status(chunk.bucket.tiering);
+            chunk.status = map_utils.get_chunk_status(chunk, chunk.bucket.tiering, {
                 tiering_pools_status: tiering_pools_status
             });
             // only delete blocks if the chunk is in good shape,
@@ -98,16 +181,9 @@ class MapBuilder {
         });
     }
 
-    refresh_alloc() {
-        let bucket_ids = mongo_utils.uniq_ids(this.chunks, 'bucket');
-        let buckets = _.map(bucket_ids, id => system_store.data.get_by_id(id));
-        return P.map(buckets,
-            bucket => node_allocator.refresh_tiering_alloc(bucket.tiering)
-        );
-    }
-
     allocate_blocks() {
         _.each(this.chunks, chunk => {
+            if (!chunk.status) return;
             let avoid_nodes = chunk.blocks.map(block => String(block.node._id));
             let allocated_hosts = chunk.blocks.map(block => block.node.host_id);
             _.each(chunk.status.allocations, alloc => {
@@ -151,6 +227,7 @@ class MapBuilder {
 
     replicate_blocks() {
         return P.all(_.map(this.chunks, chunk => {
+            if (!chunk.status) return;
             return P.all(_.map(chunk.status.allocations, alloc => {
                 let block = alloc.block;
                 if (!block) {
@@ -295,6 +372,5 @@ class MapBuilder {
         );
     }
 }
-
 
 exports.MapBuilder = MapBuilder;

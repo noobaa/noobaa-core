@@ -2,7 +2,7 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils/core-utils';
-import { getNodeStateIcon } from 'utils/ui-utils';
+import { getNodeStateIcon, getNodeCapacityBarValues } from 'utils/ui-utils';
 
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
@@ -43,29 +43,9 @@ export default class NodeRowViewModel extends BaseViewModel {
             () => node() ? node().ip : ''
         );
 
-        const storage = ko.pureComputed(
-            () => node() ? node().storage : {}
+        this.capacity = ko.pureComputed(
+            () => getNodeCapacityBarValues(node() || {})
         );
-
-        this.capacity = {
-            total: ko.pureComputed(
-                () => storage().total || 0
-            ),
-            used: [
-                {
-                    label: 'Used (Noobaa)',
-                    value: ko.pureComputed(
-                        () => storage().used || 0
-                    )
-                },
-                {
-                    label: 'Used (other)',
-                    value: ko.pureComputed(
-                        () => storage().used_other || 0
-                    )
-                }
-            ]
-        };
 
         this.trustLevel = ko.pureComputed(
             () => node() ?

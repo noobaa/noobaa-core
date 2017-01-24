@@ -1,0 +1,25 @@
+<h3 class="heading3">
+    To attach a new server to the cluster complete the following steps:
+</h3>
+<ol class="bullet-list">
+    <li>
+        Provision a new server with an OVA that matches version
+        <span data-bind="text: version"></span>
+    </li>
+    <li>Login to the new server and setup networking</li>
+    <li>Copy the server IP and secret key shown on the terminal and fill the following fields:</li>
+</ol>
+
+<editor params="label: 'Server IP'">
+    <input data-bind="value: address"/>
+    <svg-icon class="validating-indicator spin"
+        data-bind="visible: asyncValidation.isValidating"
+        params="name: 'in-progress'"></svg-icon>
+</editor>
+
+<editor params="label: 'Server Secret Key'">
+    <input data-bind="value: secret"/>
+    <svg-icon class="validating-indicator spin"
+        data-bind="visible: asyncValidation.isValidating"
+        params="name: 'in-progress'"></svg-icon>
+</editor>

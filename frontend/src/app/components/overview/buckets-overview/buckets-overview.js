@@ -113,12 +113,17 @@ class BucketsOverviewViewModel extends BaseViewModel {
         this.durationOptions = durationOptions;
         this.selectedDuration = ko.observable(durationOptions[0].value);
 
+        this.includeCloudStorage = ko.observable(true);
+
         this.currentUsage = ko.pureComputed(
             () => {
-                const pools = systemInfo() ? systemInfo().pools : [];
+                const poolStorage = (systemInfo() ? systemInfo().pools : [])
+                    .filter(pool => this.includeCloudStorage() || !pool.cloud_info)
+                    .map(pool => pool.storage);
+
                 return assignWith(
-                    {},
-                    ...pools.map( pool => pool.storage ),
+                    { used: 0, free: 0, unavailable_free: 0 },
+                    ...poolStorage,
                     (a, b) => sumSize(a || 0, b || 0)
                 );
             }
@@ -144,11 +149,11 @@ class BucketsOverviewViewModel extends BaseViewModel {
         );
 
         this.chartOptions = ko.pureComputed(
-            () => this.getChartOptions()
+            () => systemInfo() ? this.getChartOptions() : {}
         );
 
         this.chartData = ko.pureComputed(
-            () => this.getChartData()
+            () => systemInfo() ? this.getChartData() : {}
         );
 
         this.isConnectApplicationWizardVisible = ko.observable(false);
@@ -163,10 +168,16 @@ class BucketsOverviewViewModel extends BaseViewModel {
         const gutter = parseInt(style['gutter']);
 
         const useFixedMax = this.samples().every(
-            ({ storage }) => storage.free === 0  &&
-                storage.unavailable_free === 0 &&
-                storage.used === 0
+            ({ storage }) => toBytes(storage.free) === 0  &&
+                toBytes(storage.unavailable_free) === 0 &&
+                toBytes(storage.used) === 0
         );
+
+        const cluster = systemInfo().cluster;
+        const { timezone } = cluster.shards[0].servers.find(
+            ({ secret }) => secret === cluster.master_secret
+        );
+
 
         return {
             responsive: true,
@@ -184,7 +195,7 @@ class BucketsOverviewViewModel extends BaseViewModel {
                             color: style['color15']
                         },
                         ticks: {
-                            callback: t => moment(t).format('D MMM'),
+                            callback: t => moment.tz(t, timezone).format('D MMM'),
                             maxTicksLimit: 10000,
                             min: start,
                             max: end,

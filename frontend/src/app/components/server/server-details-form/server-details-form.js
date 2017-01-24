@@ -64,6 +64,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 serverTime().time * 1000 :
                 0
         );
+
         this.addToDisposeList(
             setInterval(
                 () => this.clock() && this.clock(this.clock() + 1000),
@@ -202,8 +203,12 @@ class ServerDetailsFormViewModel extends BaseViewModel {
 
         const tooltip = ko.pureComputed(
             () => {
-                if (!this.isConnected() || servers().length == 0) {
+                if (!this.isConnected()) {
                     return '';
+                }
+
+                if (servers().length === 0) {
+                    return 'Not configured';
                 }
 
                 return {
@@ -241,8 +246,12 @@ class ServerDetailsFormViewModel extends BaseViewModel {
 
         const tooltip = ko.pureComputed(
             () => {
-                if (!this.isConnected() || !dnsName()) {
+                if (!this.isConnected()) {
                     return '';
+                }
+
+                if (!dnsName()) {
+                    return 'Not configured';
                 }
 
                 return {
@@ -276,8 +285,12 @@ class ServerDetailsFormViewModel extends BaseViewModel {
 
         const tooltip = ko.pureComputed(
             () => {
-                if (!this.isConnected() || !config()) {
+                if (!this.isConnected()) {
                     return '';
+                }
+
+                if (!config()) {
+                    return 'Not configured';
                 }
 
                 return {

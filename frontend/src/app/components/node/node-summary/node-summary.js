@@ -62,6 +62,16 @@ const stateMapping = deepFreeze({
         css: 'success',
         text: 'Online'
     },
+    LOW_CAPACITY: {
+        icon: 'problem',
+        css: 'warning',
+        text: 'Available capacity is low'
+    },
+    NO_CAPACITY: {
+        icon: 'problem',
+        css: 'warning',
+        text: 'No available capacity'
+    },
     OPTIMAL: {
         icon: 'healthy',
         css: 'success',
@@ -149,6 +159,18 @@ const accessibilityMapping = deepFreeze({
         access: 'No Access:',
         reason: 'Read/Write problems'
     },
+    LOW_CAPACITY: {
+        icon: 'healthy',
+        css: 'success',
+        access: 'Readable & Writable',
+        reason: ''
+    },
+    NO_CAPACITY: {
+        icon: 'healthy',
+        css: 'success',
+        access: 'Readable & Writable',
+        reason: ''
+    },
     OPTIMAL: {
         icon: 'healthy',
         css: 'success',
@@ -163,6 +185,9 @@ const activityNameMapping = deepFreeze({
     DECOMMISSIONING: 'Deactivating Node',
     DELETING: 'Deleting Node'
 });
+
+const trustTooltip = `A reliability check that verifies that this node has no disk
+    corruption or malicious activity`;
 
 class NodeSummaryViewModel extends BaseViewModel {
     constructor({ node }) {
@@ -183,6 +208,8 @@ class NodeSummaryViewModel extends BaseViewModel {
         this.trust = ko.pureComputed(
             () => trustMapping[node().trusted ? 'TRUSTED' : 'UNTRUSTED']
         );
+
+        this.trustTooltip = trustTooltip;
 
         this.accessibility = ko.pureComputed(
             () => accessibilityMapping[node().mode]

@@ -105,6 +105,10 @@ function isHostname(value) {
     return patternValidatior(value, hostnameRegExp);
 }
 
+function exactLength(value, len) {
+    return value.length === len;
+}
+
 export default function register(ko) {
     Object.assign(ko.validation.rules, {
         notIn: {
@@ -124,7 +128,7 @@ export default function register(ko) {
 
         isIP: {
             validator: isIP,
-            message: 'Please enter a valid IP'
+            message: 'Please enter a valid IP address'
         },
 
         isIPOrDNSName: {
@@ -159,6 +163,11 @@ export default function register(ko) {
         isJSON: {
             validator: isJSON,
             message: 'Please enter a valid JSON string'
+        },
+
+        exactLength: {
+            validator: exactLength,
+            message: 'Must be exactly {0} characters'
         }
     });
 

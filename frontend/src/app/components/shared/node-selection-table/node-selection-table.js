@@ -19,7 +19,11 @@ const columns = deepFreeze([
         name: 'ip',
         label: 'IP'
     },
-    'capacity',
+    {
+        name: 'capacity',
+        label: 'used capacity',
+        type: 'capacity'
+    },
     'pool',
     'recommended'
 ]);

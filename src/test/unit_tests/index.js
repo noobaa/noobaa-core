@@ -19,6 +19,7 @@ require('./test_s3_list_objects');
 // require('./test_debug_module');
 require('./test_job_queue');
 require('./test_linked_list');
+require('./test_keys_lock');
 require('./test_lru');
 require('./test_mongoose_logger');
 require('./test_prefetch');

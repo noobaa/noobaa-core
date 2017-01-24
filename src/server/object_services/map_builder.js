@@ -13,11 +13,11 @@ const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
-const system_server_utils = require('../utils/system_server_utils');
-// const promise_utils = require('../../util/promise_utils');
+const KeysLock = require('../../util/keys_lock');
 
 
 const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
+const builder_lock = new KeysLock();
 
 
 /**
@@ -31,35 +31,54 @@ const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
  */
 class MapBuilder {
 
-    constructor(chunks) {
-        this.chunks = chunks;
-        this.system_id = chunks[0] && chunks[0].system;
+    constructor(chunk_ids) {
+        this.chunk_ids = chunk_ids;
     }
 
     run() {
-        dbg.log1('MapBuilder.run:', 'batch start', this.chunks.length, 'chunks');
-        if (!this.chunks.length) return;
-        if (system_server_utils.system_in_maintenance(this.system_id)) return;
-        return P.resolve()
-            .then(() => P.join(
-                system_store.refresh(),
-                md_store.load_blocks_for_chunks(this.chunks),
-                md_store.load_parts_objects_for_chunks(this.chunks),
-                this.mark_building()
-            ))
-            .then(() => this.refresh_alloc())
-            .then(() => this.analyze_chunks())
-            // .then(() => this.refresh_alloc())
-            .then(() => this.allocate_blocks())
-            .then(() => this.replicate_blocks())
-            .then(() => this.update_db())
-            .then(() => {
-                // return error from the promise if any replication failed,
-                // so that caller will know the build isn't really complete,
-                // although it might partially succeeded
-                if (this.had_errors) {
-                    throw new Error('MapBuilder had errors');
-                }
+        dbg.log1('MapBuilder.run:', 'batch start', this.chunk_ids.length, 'chunks');
+        if (!this.chunk_ids.length) return;
+
+        return builder_lock.surround_keys(_.map(this.chunk_ids, String), () => {
+            return P.resolve(this.reload_chunks(this.chunk_ids))
+                .then(() => P.join(
+                    system_store.refresh(),
+                    md_store.load_blocks_for_chunks(this.chunks),
+                    md_store.load_parts_objects_for_chunks(this.chunks),
+                    this.mark_building()
+                ))
+                .then(() => this.refresh_alloc())
+                .then(() => this.analyze_chunks())
+                .then(() => this.allocate_blocks())
+                .then(() => this.replicate_blocks())
+                .then(() => this.update_db())
+                .then(() => {
+                    // return error from the promise if any replication failed,
+                    // so that caller will know the build isn't really complete,
+                    // although it might partially succeeded
+                    if (this.had_errors) {
+                        throw new Error('MapBuilder had errors');
+                    }
+                });
+        });
+    }
+
+
+    // In order to get the most relevant data regarding the chunks
+    // Note that there is always a possibility that the chunks will cease to exist
+    reload_chunks(chunk_ids) {
+        var query = {
+            _id: {
+                $in: chunk_ids
+            },
+            deleted: null
+        };
+
+        return P.resolve(md_store.DataChunk.find(query)
+                .lean()
+                .exec())
+            .then(chunks => {
+                this.chunks = chunks;
             });
     }
 

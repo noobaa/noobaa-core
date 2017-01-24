@@ -18,7 +18,7 @@ const statusMapping = deepFreeze({
     WITH_ISSUES: {
         text: 'Cluster has a high number of issues',
         icon: {
-            name: 'notif-warning',
+            name: 'problem',
             css: 'warning'
         }
     },

@@ -24,9 +24,14 @@ const placementTableColumns = deepFreeze([
         label: 'online nodes in pool'
     },
     {
-        name: 'freeSpace',
-        label: 'Available Capacity'
+        name: 'capacity',
+        label: 'Resource Capacity',
+        type: 'capacity'
     }
+    // {
+    //     name: 'freeSpace',
+    //     label: 'Available Capacity'
+    // }
 ]);
 
 const placementTypeMapping = deepFreeze({

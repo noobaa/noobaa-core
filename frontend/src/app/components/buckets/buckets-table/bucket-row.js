@@ -25,7 +25,7 @@ const cloudSyncStatusMapping = deepFreeze({
         css: ''
     },
     PENDING: {
-        text: 'pending',
+        text: 'waiting',
         css: ''
     },
     SYNCING: {

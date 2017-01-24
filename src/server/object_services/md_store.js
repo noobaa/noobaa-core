@@ -150,8 +150,12 @@ function load_parts_objects_for_chunks(chunks) {
         })
         .then(res_objects => {
             objects = res_objects;
-            return P.resolve(map_utils.analyze_special_chunks(chunks, parts, objects));
-        });
+            return map_utils.analyze_special_chunks(chunks, parts, objects);
+        })
+        .then(() => ({
+            parts,
+            objects
+        }));
 }
 
 

@@ -69,15 +69,12 @@ module.exports = {
 
         verify_join_conditions: {
             doc: 'check join conditions to the cluster and return caller ip (stun)',
-            method: 'POST',
+            method: 'GET',
             params: {
                 type: 'object',
-                required: ['secret', 'version'],
+                required: ['secret'],
                 properties: {
                     secret: {
-                        type: 'string'
-                    },
-                    version: {
                         type: 'string'
                     }
                 }
@@ -92,12 +89,26 @@ module.exports = {
                     hostname: {
                         type: 'string'
                     },
-                    version: {
-                        type: 'string'
-                    },
                     result: {
                         $ref: 'cluster_server_api#/definitions/verify_new_member_result'
                     }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        get_version: {
+            doc: 'get server version',
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['version'],
+                properties: {
+                    version: {
+                        type: 'string'
+                    },
                 }
             },
             auth: {

@@ -1,16 +1,14 @@
-<h2 class="heading3 push-next">
-    Choose a name for the pool
-</h2>
-
-<ul class="bullet-list">
-    <li>Pool names must be between 3-63 chars</li>
-    <li>The name can only contain lowercase letters, numbers, periods and hyphens</li>
-    <li>The name must start and end with a lowercase letter or number</li>
-</ul>
-
 <editor params="label: 'Pool Name'">
-    <input type="text" placeholder="Type here" data-bind="
-        value: poolName,
-        hasFocus: $inActiveStep
-    "/>
+    <div class="push-next">
+        <input type="text" placeholder="Type here" data-bind="
+            value: poolName,
+            hasFocus: $inActiveStep
+        "/>
+    </div>
+
+    <ul class="bullet-list remark push-prev">
+        <li>3-63 characters</li>
+        <li>Only lowercase letters, numbers, periods and hyphens</li>
+        <li>Starts and ends with a lowercase letter or number</li>
+    </ul>
 </editor>

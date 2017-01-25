@@ -160,7 +160,7 @@ export function keyBy(array, keySelector, valueGenerator = echo) {
     return array.reduce(
         (map, item) => {
             const key = keySelector(item);
-            map[key] = valueGenerator(item);
+            map[key] = valueGenerator(item, map[key]);
             return map;
         },
         {}
@@ -172,6 +172,14 @@ export function keyByProperty(array, keyName, valueGenerator) {
         array,
         item => item[keyName],
         valueGenerator
+    );
+}
+
+export function groupBy(array, keySelector) {
+    return keyBy(
+        array,
+        keySelector,
+        (item, list = []) => (list.push(item), list)
     );
 }
 

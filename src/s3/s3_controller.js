@@ -183,7 +183,7 @@ class S3Controller {
                             'Name': req.params.bucket,
                             'Prefix': req.query.prefix,
                             'Delimiter': req.query.delimiter,
-                            'MaxKeys': req.query['max-keys'],
+                            'MaxKeys': params.limit,
                             'Marker': req.query.marker,
                             'IsTruncated': reply.is_truncated,
                             'NextMarker': reply.next_marker,
@@ -243,7 +243,7 @@ class S3Controller {
                             'Name': req.params.bucket,
                             'Prefix': req.query.prefix,
                             'Delimiter': req.query.delimiter,
-                            'MaxKeys': req.query['max-keys'],
+                            'MaxKeys': params.limit,
                             'KeyMarker': req.query['key-marker'],
                             'VersionIdMarker': req.query['version-id-marker'],
                             'IsTruncated': reply.is_truncated,
@@ -294,7 +294,7 @@ class S3Controller {
             params.key_marker = req.query['key-marker'];
         }
 
-        params.limit = parseInt(req.query['max-keys'], 10) || 1000;
+        params.limit = parseInt(req.query['max-uploads'], 10) || 1000;
         if (params.limit < 1 || params.limit > 1000) {
             params.limit = 1000;
         }
@@ -306,7 +306,7 @@ class S3Controller {
                             'Bucket': req.params.bucket,
                             'Prefix': req.query.prefix,
                             'Delimiter': req.query.delimiter,
-                            'MaxUploads': req.query['max-uploads'],
+                            'MaxUploads': params.limit,
                             'KeyMarker': req.query['key-marker'],
                             'UploadIdMarker': req.query['upload-id-marker'],
                             'IsTruncated': reply.is_truncated,

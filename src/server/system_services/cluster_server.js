@@ -87,7 +87,7 @@ function add_member_to_cluster(req) {
         .catch(err => {
             throw err;
         })
-        .then(() => check_candidate_version(req))
+        .then(() => _check_candidate_version(req))
         .then(version_check_res => {
             if (version_check_res.result !== 'OKAY') throw new Error('Verify join version check returned', version_check_res);
         })
@@ -221,14 +221,14 @@ function verify_join_conditions(req) {
         }));
 }
 
-function check_candidate_version(req) {
-    dbg.log0('check_candidate_version for address', req.rpc_params.address);
+function _check_candidate_version(req) {
+    dbg.log0('_check_candidate_version for address', req.rpc_params.address);
     return server_rpc.client.cluster_internal.get_version(undefined, {
             address: server_rpc.get_base_address(req.rpc_params.address),
             timeout: 60000 //60s
         })
         .then(({ version }) => {
-            dbg.log0('check_candidate_version got version', version);
+            dbg.log0('_check_candidate_version got version', version);
             if (version !== pkg.version) {
                 return {
                     result: 'VERSION_MISMATCH',
@@ -241,7 +241,7 @@ function check_candidate_version(req) {
         })
         .catch(RpcError, rpc_err => {
             if (rpc_err.rpc_code === 'NO_SUCH_RPC_SERVICE') {
-                dbg.warn('check_candidate_version got NO_SUCH_RPC_SERVICE from a server with an old version');
+                dbg.warn('_check_candidate_version got NO_SUCH_RPC_SERVICE from a server with an old version');
                 // Called server is too old to have this code
                 return {
                     result: 'VERSION_MISMATCH'
@@ -260,7 +260,7 @@ function verify_candidate_join_conditions(req) {
             result: 'ADDING_SELF'
         };
     }
-    return check_candidate_version(req)
+    return _check_candidate_version(req)
         .then(version_check_res => {
             if (version_check_res.result !== 'OKAY') return version_check_res;
             return server_rpc.client.cluster_internal.verify_join_conditions({

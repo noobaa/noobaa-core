@@ -106,7 +106,9 @@ module.exports = {
                 type: 'object',
                 required: ['version'],
                 properties: {
-                    type: 'string'
+                    version: {
+                        type: 'string'
+                    },
                 }
             },
             auth: {

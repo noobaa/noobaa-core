@@ -222,11 +222,13 @@ function verify_join_conditions(req) {
 }
 
 function check_candidate_version(req) {
+    dbg.log0('check_candidate_version for address', req.rpc_params.address);
     return server_rpc.client.cluster_internal.get_version(undefined, {
             address: server_rpc.get_base_address(req.rpc_params.address),
             timeout: 60000 //60s
         })
         .then(({ version }) => {
+            dbg.log0('check_candidate_version got version', version);
             if (version !== pkg.version) {
                 return {
                     result: 'VERSION_MISMATCH',
@@ -238,8 +240,8 @@ function check_candidate_version(req) {
             };
         })
         .catch(RpcError, rpc_err => {
-            dbg.warn('WOOP errcode', rpc_err.rpc_code);
             if (rpc_err.rpc_code === 'NO_SUCH_RPC_SERVICE') {
+                dbg.warn('check_candidate_version got NO_SUCH_RPC_SERVICE from a server with an old version');
                 // Called server is too old to have this code
                 return {
                     result: 'VERSION_MISMATCH'
@@ -285,9 +287,11 @@ function verify_candidate_join_conditions(req) {
 }
 
 function get_version(req) {
-    return P.resolve(() => ({
-        version: pkg.version
-    }));
+    dbg.log0('get_version sending version', pkg.version);
+    return P.resolve()
+        .then(() => ({
+            version: pkg.version
+        }));
 }
 
 function join_to_cluster(req) {
@@ -1192,6 +1196,7 @@ function _validate_add_member_request(req) {
 }
 
 function _verify_join_preconditons(req) {
+    dbg.log0('_verify_join_preconditons');
     //Verify secrets match
     if (req.rpc_params.secret !== system_store.get_server_secret()) {
         dbg.error('Secrets do not match!');
@@ -1216,6 +1221,7 @@ function _verify_join_preconditons(req) {
             .then(obj_count => (obj_count[''] > 0 ? 'HAS_OBJECTS' : 'OKAY'));
     }
     // If we do not need system in order to add a server to a cluster
+    dbg.log0('_verify_join_preconditons okay. server has no system');
     return 'OKAY';
 }
 

@@ -273,9 +273,11 @@ class AzureFunctions {
                 var parts = machine_info.storageProfile.osDisk.vhd.uri.split('/');
                 var container = parts[parts.length - 2];
                 var vhd = parts[parts.length - 1];
+                console.log('deleting blob:', vhd);
                 return P.fromCallback(callback => blobSvc.deleteBlob(container, vhd, callback));
             })
             .then(() => {
+                console.log(machine_info.plan);
                 var vmParameters = {
                     location: machine_info.location,
                     plan: machine_info.plan,

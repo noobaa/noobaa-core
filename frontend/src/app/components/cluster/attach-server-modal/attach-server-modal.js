@@ -94,7 +94,7 @@ class AttachServerModalViewModel extends BaseViewModel {
                     verifyServer(this.address(), this.secret());
 
                     serverVerificationState.once(
-                        ({ result }) => callback(result === 'OKEY')
+                        ({ result }) => callback(result === 'OKAY')
                     );
                 }
             }

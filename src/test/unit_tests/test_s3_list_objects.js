@@ -8,6 +8,8 @@ let coretest = require('./coretest');
 let ObjectIO = require('../../api/object_io');
 var util = require('util');
 let dbg = require('../../util/debug_module')(__filename);
+let account_server = require('../../server/system_services/account_server');
+
 dbg.set_level(5, 'core');
 
 mocha.describe('s3_list_objects', function() {
@@ -26,6 +28,7 @@ mocha.describe('s3_list_objects', function() {
         self.timeout(30000);
 
         return P.resolve()
+            .then(() => account_server.ensure_support_account())
             .then(() => {
                 return client.system.create_system({
                     activation_code: 'rainbow',

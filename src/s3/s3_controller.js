@@ -170,9 +170,12 @@ class S3Controller {
         if ('marker' in req.query) {
             params.key_marker = req.query.marker;
         }
-        if ('max-keys' in req.query) {
-            params.limit = parseInt(req.query['max-keys'], 10) || 1000;
+
+        params.limit = parseInt(req.query['max-keys'], 10) || 1000;
+        if (params.limit < 1 || params.limit > 1000) {
+            params.limit = 1000;
         }
+
         return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
                 return {
@@ -227,9 +230,12 @@ class S3Controller {
         if ('key-marker' in req.query) {
             params.key_marker = req.query['key-marker'];
         }
-        if ('max-keys' in req.query) {
-            params.limit = parseInt(req.query['max-keys'], 10) || 1000;
+
+        params.limit = parseInt(req.query['max-keys'], 10) || 1000;
+        if (params.limit < 1 || params.limit > 1000) {
+            params.limit = 1000;
         }
+
         return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
                 return {
@@ -287,9 +293,12 @@ class S3Controller {
         if ('key-marker' in req.query) {
             params.key_marker = req.query['key-marker'];
         }
-        if ('max-uploads' in req.query) {
-            params.limit = parseInt(req.query['max-uploads'], 10) || 1000;
+
+        params.limit = parseInt(req.query['max-keys'], 10) || 1000;
+        if (params.limit < 1 || params.limit > 1000) {
+            params.limit = 1000;
         }
+
         return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
                 return {

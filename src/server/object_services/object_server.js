@@ -640,7 +640,7 @@ function list_objects_s3(req) {
     var delimiter = req.rpc_params.delimiter || '';
     // Last object's key that was received from list-objects last call (when truncated)
     // This is used in order to continue from a certain key when the response is truncated
-    var marker = prefix + (req.rpc_params.key_marker || '');
+    var marker = req.rpc_params.key_marker ? (prefix + req.rpc_params.key_marker) : '';
     var limit = req.rpc_params.limit || 1000;
     // ********* Important!!! *********
     // Notice that we add 1 to the limit.
@@ -668,7 +668,6 @@ function list_objects_s3(req) {
                         // This is the case when there are no more objects that apply to the query
                         if (_.get(res, 'length', 0) === 0) {
                             // If there were no object/common prefixes to match then no next marker
-                            reply.next_marker = marker;
                             done = true;
                         } else if (results.length >= limit) {
                             // This is the case when the number of objects that apply to the query

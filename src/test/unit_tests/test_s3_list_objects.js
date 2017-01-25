@@ -207,6 +207,24 @@ mocha.describe('s3_list_objects', function() {
                     });
             })
             .then(function() {
+                return client.object.list_objects_s3({
+                        bucket: BKT,
+                        prefix: 'file_without_folder0',
+                    })
+                    .then(function(list_reply) {
+                        // Checking that we return object that complies fully to the prefix and don't skip it
+                        // This test was added after Issue #2600
+                        if (!(list_reply &&
+                                list_reply.common_prefixes.length === 0 &&
+                                _.isEqual([files_without_folders_to_upload[0]],
+                                    _.map(list_reply.objects, obj => obj.key)) &&
+                                !list_reply.is_truncated)) {
+                            throw new Error(`Limit Test Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: ${files_without_folders_to_upload[0]}`);
+                        }
+                    });
+            })
+            .then(function() {
                 // Initialization of IsTruncated in order to perform the first while cycle
                 var listObjectsResponse = {
                     is_truncated: true,

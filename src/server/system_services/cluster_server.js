@@ -87,9 +87,12 @@ function add_member_to_cluster(req) {
         .catch(err => {
             throw err;
         })
+        .then(() => _check_candidate_version(req))
+        .then(version_check_res => {
+            if (version_check_res.result !== 'OKAY') throw new Error('Verify join version check returned', version_check_res);
+        })
         .then(() => server_rpc.client.cluster_internal.verify_join_conditions({
             secret: req.rpc_params.secret,
-            version: pkg.version
         }, {
             address: server_rpc.get_base_address(req.rpc_params.address),
             timeout: 60000 //60s
@@ -213,10 +216,39 @@ function verify_join_conditions(req) {
         .then(() => _verify_join_preconditons(req))
         .then(result => ({
             result,
-            version: pkg.version,
             caller_address,
             hostname,
         }));
+}
+
+function _check_candidate_version(req) {
+    dbg.log0('_check_candidate_version for address', req.rpc_params.address);
+    return server_rpc.client.cluster_internal.get_version(undefined, {
+            address: server_rpc.get_base_address(req.rpc_params.address),
+            timeout: 60000 //60s
+        })
+        .then(({ version }) => {
+            dbg.log0('_check_candidate_version got version', version);
+            if (version !== pkg.version) {
+                return {
+                    result: 'VERSION_MISMATCH',
+                    version
+                };
+            }
+            return {
+                result: 'OKAY'
+            };
+        })
+        .catch(RpcError, rpc_err => {
+            if (rpc_err.rpc_code === 'NO_SUCH_RPC_SERVICE') {
+                dbg.warn('_check_candidate_version got NO_SUCH_RPC_SERVICE from a server with an old version');
+                // Called server is too old to have this code
+                return {
+                    result: 'VERSION_MISMATCH'
+                };
+            }
+            throw rpc_err;
+        });
 }
 
 function verify_candidate_join_conditions(req) {
@@ -228,29 +260,39 @@ function verify_candidate_join_conditions(req) {
             result: 'ADDING_SELF'
         };
     }
-    return server_rpc.client.cluster_internal.verify_join_conditions({
-            secret: req.rpc_params.secret,
-            version: pkg.version
-        }, {
-            address: server_rpc.get_base_address(req.rpc_params.address),
-            timeout: 60000 //60s
-        })
-        .then(res => ({
-            hostname: res.hostname,
-            result: res.result,
-            version: res.version
-        }))
-        .catch(RpcError, err => {
-            if (err.rpc_code === 'RPC_CONNECT_TIMEOUT') {
-                dbg.warn('received', err, ' on verify_candidate_join_conditions');
-                return {
-                    result: 'UNREACHABLE'
-                };
-            }
-            throw err;
+    return _check_candidate_version(req)
+        .then(version_check_res => {
+            if (version_check_res.result !== 'OKAY') return version_check_res;
+            return server_rpc.client.cluster_internal.verify_join_conditions({
+                    secret: req.rpc_params.secret
+                }, {
+                    address: server_rpc.get_base_address(req.rpc_params.address),
+                    timeout: 60000 //60s
+                })
+                .then(res => ({
+                    hostname: res.hostname,
+                    result: res.result,
+                    version: version_check_res.version
+                }))
+                .catch(RpcError, err => {
+                    if (err.rpc_code === 'RPC_CONNECT_TIMEOUT') {
+                        dbg.warn('received', err, ' on verify_candidate_join_conditions');
+                        return {
+                            result: 'UNREACHABLE'
+                        };
+                    }
+                    throw err;
+                });
         });
 }
 
+function get_version(req) {
+    dbg.log0('get_version sending version', pkg.version);
+    return P.resolve()
+        .then(() => ({
+            version: pkg.version
+        }));
+}
 
 function join_to_cluster(req) {
     dbg.log0('Got join_to_cluster request with topology', cutil.pretty_topology(req.rpc_params.topology),
@@ -259,8 +301,8 @@ function join_to_cluster(req) {
     return P.resolve()
         .then(() => _verify_join_preconditons(req))
         .then(verify_res => {
-            if (verify_res.result !== 'OKAY') {
-                throw new Error('Verify joing preconditions failed with result', verify_res);
+            if (verify_res !== 'OKAY') {
+                throw new Error('Verify join preconditions failed with result', verify_res);
             }
             req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
             req.rpc_params.topology.owner_address = req.rpc_params.ip;
@@ -1154,17 +1196,12 @@ function _validate_add_member_request(req) {
 }
 
 function _verify_join_preconditons(req) {
+    dbg.log0('_verify_join_preconditons');
     //Verify secrets match
     if (req.rpc_params.secret !== system_store.get_server_secret()) {
         dbg.error('Secrets do not match!');
         return 'SECRET_MISMATCH';
     }
-
-    if (req.rpc_params.version && req.rpc_params.version !== pkg.version) {
-        dbg.error(`versions does not match - master version = ${req.rpc_params.version}  joined version = ${pkg.version}`);
-        return 'VERSION_MISMATCH';
-    }
-
 
     let system = system_store.data.systems[0];
     if (system) {
@@ -1184,6 +1221,7 @@ function _verify_join_preconditons(req) {
             .then(obj_count => (obj_count[''] > 0 ? 'HAS_OBJECTS' : 'OKAY'));
     }
     // If we do not need system in order to add a server to a cluster
+    dbg.log0('_verify_join_preconditons okay. server has no system');
     return 'OKAY';
 }
 
@@ -1550,3 +1588,4 @@ exports.verify_candidate_join_conditions = verify_candidate_join_conditions;
 exports.verify_join_conditions = verify_join_conditions;
 exports.update_server_conf = update_server_conf;
 exports.set_hostname_internal = set_hostname_internal;
+exports.get_version = get_version;

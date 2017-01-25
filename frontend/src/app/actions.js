@@ -4,9 +4,9 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
-import { isDefined, last, makeArray, deepFreeze, flatMap, assignWith } from 'utils/core-utils';
+import { isDefined, last, makeArray, deepFreeze, flatMap, keyBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { sumSize } from 'utils/size-utils';
+import { aggregateStorage } from 'utils/storage-utils';
 import { sleep, execInOrder } from 'utils/promise-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
     toFormData } from 'utils/browser-utils';
@@ -1236,7 +1236,7 @@ export function testNode(source, testSet) {
     nodeTestInfo({
         source: source,
         tests: testSet,
-        timestemp: Date.now(),
+        timestamp: Date.now(),
         results: [],
         state:'IN_PROGRESS'
     });
@@ -2065,23 +2065,24 @@ export function regenerateAccountCredentials(email, verificationPassword) {
         .done();
 }
 
-export function loadSystemUsageHistory(includeCloudStorage = true) {
-    logAction('loadSystemUsageHistory', { includeCloudStorage });
+export function loadSystemUsageHistory() {
+    logAction('loadSystemUsageHistory');
+
     api.pool.get_pool_history({})
         .then(
             history => history.map(
-                ({ time_stamp, pool_list }) => {
-                    const poolStorage = pool_list
-                        .filter(pool => includeCloudStorage || !pool.cloud_info)
-                        .map(pool => pool.storage);
-
-                    const storage = assignWith(
-                        { used: 0, free: 0, unavailable_free: 0 },
-                        ...poolStorage,
-                        (a, b) => sumSize(a || 0, b || 0)
+                ({ timestamp, pool_list }) => {
+                    const { cloud = [], nodes = [] } = keyBy(
+                        pool_list,
+                        pool => pool.is_cloud_pool ? 'cloud' : 'nodes',
+                        (pool, list = []) => (list.push(pool.storage), list)
                     );
 
-                    return { storage, timestamp: time_stamp };
+                    return {
+                        timestamp: timestamp,
+                        nodes: aggregateStorage(...nodes),
+                        cloud: aggregateStorage(...cloud)
+                    };
                 }
             )
         )

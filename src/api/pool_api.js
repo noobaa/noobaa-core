@@ -186,9 +186,9 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['time_stamp', 'pool_list'],
+                    required: ['timestamp', 'pool_list'],
                     properties: {
-                        time_stamp: {
+                        timestamp: {
                             format: 'idate'
                         },
                         pool_list: {
@@ -202,6 +202,9 @@ module.exports = {
                                     },
                                     storage: {
                                         $ref: 'common_api#/definitions/storage_info'
+                                    },
+                                    is_cloud_pool: {
+                                        type: 'boolean'
                                     }
                                 }
                             }

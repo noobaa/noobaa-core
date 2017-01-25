@@ -13,7 +13,6 @@ function _addSize(size1, size2) {
     };
 }
 
-
 // normalize size number or size object to size object.
 export function normalizeSize(sizeOrBytes) {
     const { peta = 0, n = sizeOrBytes } = sizeOrBytes;

@@ -5,10 +5,8 @@ import { realizeUri } from 'utils/browser-utils';
 import { asset as assetRoute } from 'routes';
 
 class UpgradedCapacityNotificationModalViewModel extends BaseViewModel {
-    constructor({ onClose }) {
+    constructor() {
         super();
-
-        this.onClose = onClose;
 
         this.giftImageUrl =  realizeUri(
             assetRoute,

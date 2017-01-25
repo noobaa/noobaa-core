@@ -37,10 +37,6 @@ class MainLayoutViewModel extends BaseViewModel {
     hideAfterUpgradeModal() {
         redirectTo(systemRoute);
     }
-
-    hideUpgradedCapacityNofiticationModal() {
-        console.warn('CLOSED');
-    }
 }
 
 export default {

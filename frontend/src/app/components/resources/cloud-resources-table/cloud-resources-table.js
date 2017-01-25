@@ -2,10 +2,11 @@ import template from './cloud-resources-table.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
-import { systemInfo, uiState, routeContext } from 'model';
-import { deepFreeze, createCompareFunc } from 'utils/core-utils';
+import { systemInfo, routeContext } from 'model';
+import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { keyByProperty } from 'utils/core-utils';
+import { inputThrottle } from 'config';
 
 const columns = deepFreeze([
     {
@@ -75,7 +76,7 @@ const resourcesToBuckets = ko.pureComputed(
     }
 );
 
-const compareAccessors = Object.freeze({
+const compareAccessors = deepFreeze({
     state: () => true,
     type: resource => resource.cloud_info.endpoint_type,
     name: resource => resource.name,
@@ -84,40 +85,92 @@ const compareAccessors = Object.freeze({
     usage: resource => resource.storage.used
 });
 
+const resourceTypeOptions = [
+    {
+        value: '',
+        label: 'All Resource Types'
+    },
+    {
+        value: 'AWS',
+        label: 'AWS S3',
+        icon: 'aws-s3-resource-dark',
+        selectedIcon: 'aws-s3-resource-colored'
+    },
+    {
+        value: 'AZURE',
+        label: 'Azure Blob',
+        icon: 'azure-resource-dark',
+        selectedIcon: 'azure-resource-colored'
+    },
+    {
+        value: 'S3_COMPATIBLE',
+        label: 'S3 Compatible',
+        icon: 'cloud-resource-dark',
+        selectedIcon: 'cloud-resource-colored'
+    }
+];
+
 class CloudResourcesTableViewModel extends BaseViewModel {
     constructor() {
         super();
 
         this.columns = columns;
 
+        this.columns = columns;
+
+        const query = ko.pureComputed(
+            () => routeContext().query || {}
+        );
+
+        this.filter = ko.pureComputed({
+            read: () => query().filter,
+            write: throttle(phrase => this.filterResources(phrase), inputThrottle)
+        });
+
+        this.resourceTypeOptions = resourceTypeOptions;
+        this.selectedResourceType = ko.pureComputed({
+            read: () => query().resourceType || resourceTypeOptions[0].value,
+            write: value => this.selectResourceType(value)
+        });
+
         this.sorting = ko.pureComputed({
             read: () => {
-                let { query } = routeContext();
-                let isOnScreen = uiState().tab === 'cloud';
-
+                const { sortBy, order } = query();
+                const canSort = Object.keys(compareAccessors).includes(sortBy);
                 return {
-                    sortBy: (isOnScreen && query.sortBy) || 'name',
-                    order: (isOnScreen && Number(routeContext().query.order)) || 1
+                    sortBy: (canSort && sortBy) || 'name',
+                    order: (canSort && Number(order)) || 1
                 };
             },
-            write: value => {
-                this.deleteGroup(null);
-                navigateTo(undefined, undefined, value);
-            }
+            write: value => this.orderBy(value)
         });
+
+        const allResources = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().pools : []).filter(
+                ({ cloud_info }) => Boolean(cloud_info)
+            )
+        );
 
         this.resources = ko.pureComputed(
             () => {
-                let { sortBy, order } = this.sorting();
-                let compareOp = createCompareFunc(compareAccessors[sortBy], order);
+                const { sortBy, order } = this.sorting();
+                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
+                const filter = (this.filter() || '').toLowerCase();
+                const resourceType = this.selectedResourceType();
 
-                return systemInfo() && systemInfo().pools
+                return allResources()
                     .filter(
-                        pool => pool.cloud_info
+                        ({ cloud_info, name }) => name.toLowerCase().includes(filter) &&
+                            (!resourceType || cloud_info.endpoint_type === resourceType)
                     )
-                    .slice(0)
                     .sort(compareOp);
             }
+        );
+
+        this.emptyMessage = ko.pureComputed(
+            () => allResources().length > 0 ?
+                'The current filter does not match any cloud resource' :
+                'System does not contain any cloud resources'
         );
 
         this.deleteGroup = ko.observable();
@@ -130,6 +183,33 @@ class CloudResourcesTableViewModel extends BaseViewModel {
             resourcesToBuckets,
             this.deleteGroup
         );
+    }
+
+    selectResourceType(type) {
+        this.deleteGroup(null);
+
+        const resourceType = type || undefined;
+        const filter = this.filter() || undefined;
+        const { sortBy, order } = this.sorting() || {};
+        navigateTo(undefined, undefined, { filter, resourceType, sortBy, order });
+    }
+
+
+    orderBy({ sortBy, order }) {
+        this.deleteGroup(null);
+
+        const filter = this.filter() || undefined;
+        const resourceType = this.selectedResourceType() || undefined;
+        navigateTo(undefined, undefined, { filter, sortBy, order, resourceType });
+    }
+
+    filterResources(phrase) {
+        this.deleteGroup(null);
+
+        const filter = phrase || undefined;
+        const { sortBy, order } = this.sorting() || {};
+        const resourceType = this.selectedResourceType() || undefined;
+        navigateTo(undefined, undefined, { filter, sortBy, order, resourceType });
     }
 
     showAddCloudResourceModal() {

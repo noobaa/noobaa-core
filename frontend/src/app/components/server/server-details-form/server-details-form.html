@@ -36,9 +36,11 @@
             "></svg-icon>
             <span class="label push-next highlight">Server Date and Time:</span>
             <span class="row" data-bind="visible: $component.isConnected">
-                <span class="highlight push-next">Server Clock:</span>
-                <span data-bind="text: clock" class="push-next"></span>
-                <span class="highlight push-both">NTP:</span>
+                <span class="push-next">Server Clock:</span>
+                <span data-bind="text: clock"></span>
+                <span class="push-both">|</span>
+
+                <span class="push-next">NTP:</span>
                 <span data-bind="text: ntp"></span>
             </span>
             <span data-bind="visible: !$component.isConnected()">Not Available</span>
@@ -50,12 +52,13 @@
                 tooltip: tooltip
             "></svg-icon>
             <span class="label push-next highlight">DNS Servers:</span>
-            <span class="row push-next" data-bind="visible: $component.isConnected">
-                <span class="highlight push-next">Primary:</span>
+            <span class="row" data-bind="visible: $component.isConnected">
+                <span class="push-next">Primary:</span>
                 <span data-bind="text: primary"></span>
             </span>
-            <span class="row push-prev" data-bind="visible: $component.isConnected">
-                <span class="highlight push-next">Secondary:</span>
+            <span class="push-both">|</span>
+            <span class="row" data-bind="visible: $component.isConnected">
+                <span class="push-next">Secondary:</span>
                 <span data-bind="text: secondary"></span>
             </span>
             <span data-bind="visible: !$component.isConnected()">Not Available</span>
@@ -88,7 +91,7 @@
             "></svg-icon>
             <span class="label push-next highlight">Phone Home:</span>
             <span class="row" data-bind="visible: $component.isConnected">
-                <span class="highlight push-next">Proxy:</span>
+                <span class="push-next">Proxy:</span>
                 <span data-bind="text: proxy"></span>
             </span>
             <span data-bind="visible: !$component.isConnected()">Not Available</span>

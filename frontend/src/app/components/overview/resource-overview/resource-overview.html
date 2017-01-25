@@ -19,7 +19,11 @@
         </a>
 
         <a class="column content-middle greedy" data-bind="
-                href: { route: 'pools', params: { tab: 'cloud' } }
+                href: {
+                    route: 'pools',
+                    params: { tab: 'cloud' },
+                    query: { resourceType: 'AWS' }
+                }
             ">
             <svg-icon class="resource-icon"
                 params="name: awsResourceIcon"
@@ -29,7 +33,11 @@
         </a>
 
         <a class="column content-middle greedy" data-bind="
-                href: { route: 'pools', params: { tab: 'cloud' } }
+                href: {
+                    route: 'pools',
+                    params: { tab: 'cloud' },
+                    query: { resourceType: 'AZURE' }
+                }
             ">
             <svg-icon class="resource-icon"
                 params="name: azureResourceIcon"
@@ -39,7 +47,11 @@
         </a>
 
         <a class="column content-middle greedy" data-bind="
-                href: { route: 'pools', params: { tab: 'cloud' } }
+                href: {
+                    route: 'pools',
+                    params: { tab: 'cloud' },
+                    query: { resourceType: 'S3_COMPATIBLE' }
+                }
             ">
             <svg-icon class="resource-icon"
                 params="name: genericResourceIcon"

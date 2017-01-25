@@ -93,7 +93,7 @@ class SystemHealthViewModel extends BaseViewModel {
                     false;
 
                 return serverCount() >= 3 ?
-                    (isHighlyAvailable() ? 'ENABLED' : 'DISABLED') :
+                    (isHighlyAvailable ? 'ENABLED' : 'DISABLED') :
                     'NO_ENOUGH_SERVERS';
             }
         );

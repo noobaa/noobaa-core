@@ -2,9 +2,10 @@ import template from './pools-table.html';
 import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
-import { deepFreeze, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
-import { uiState, routeContext, systemInfo } from 'model';
+import { routeContext, systemInfo } from 'model';
+import { inputThrottle } from 'config';
 
 const columns = deepFreeze([
     {
@@ -20,7 +21,7 @@ const columns = deepFreeze([
     },
     {
         name: 'buckets',
-        label: 'bucket using pool',
+        label: 'buckets using pool',
         sortable: true
     },
     {
@@ -102,32 +103,43 @@ class PoolsTableViewModel extends BaseViewModel {
 
         this.columns = columns;
 
+        const query = ko.pureComputed(
+            () => routeContext().query || {}
+        );
+
+        this.filter = ko.pureComputed({
+            read: () => query().filter,
+            write: throttle(phrase => this.filterPools(phrase), inputThrottle)
+        });
+
         this.sorting = ko.pureComputed({
             read: () => {
-                let { query } = routeContext();
-                let isOnScreen = uiState().tab === 'pools';
-
+                const { sortBy, order } = query();
+                const canSort = Object.keys(compareAccessors).includes(sortBy);
                 return {
-                    sortBy: (isOnScreen && query.sortBy) || 'name',
-                    order: (isOnScreen && Number(routeContext().query.order)) || 1
+                    sortBy: (canSort && sortBy) || 'name',
+                    order: (canSort && Number(order)) || 1
                 };
             },
-            write: value => {
-                this.deleteGroup(null);
-                navigateTo(undefined, undefined, value);
-            }
+            write: value => this.orderBy(value)
         });
+
+        const allNodePools = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().pools : []).filter(
+                ({ nodes }) => Boolean(nodes)
+            )
+        );
 
         this.pools = ko.pureComputed(
             () => {
-                let { sortBy, order } = this.sorting();
-                let compareOp = createCompareFunc(compareAccessors[sortBy], order);
+                const { sortBy, order } = this.sorting();
+                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
+                const filter = (this.filter() || '').toLowerCase();
 
-                return systemInfo() && systemInfo().pools
+                return allNodePools()
                     .filter(
-                        pool => pool.nodes
+                        ({ name }) => name.toLowerCase().includes(filter)
                     )
-                    .slice(0)
                     .sort(compareOp);
             }
         );
@@ -138,6 +150,21 @@ class PoolsTableViewModel extends BaseViewModel {
 
     newPoolRow(pool) {
         return new PoolRowViewModel(pool, this.deleteGroup, poolsToBuckets);
+    }
+
+    orderBy({ sortBy, order }) {
+        this.deleteGroup(null);
+
+        const filter = this.filter() || undefined;
+        navigateTo(undefined, undefined, { filter, sortBy, order });
+    }
+
+    filterPools(phrase) {
+        this.deleteGroup(null);
+
+        const filter = phrase || undefined;
+        const { sortBy, order } = this.sorting() || {};
+        navigateTo(undefined, undefined, { filter, sortBy, order });
     }
 
     showCreatePoolWizard() {

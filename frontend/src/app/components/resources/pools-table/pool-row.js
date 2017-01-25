@@ -19,7 +19,7 @@ export default class PoolRowViewModel extends BaseViewModel {
 
                 return {
                     text: pool().name,
-                    href: { route: 'pool', params: { pool: pool().name } }
+                    href: { route: 'pool', params: { pool: pool().name, tab: null } }
                 };
             }
         );

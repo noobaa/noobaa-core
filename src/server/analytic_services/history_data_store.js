@@ -1,6 +1,5 @@
 'use strict';
 
-const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const Ajv = require('ajv');

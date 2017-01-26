@@ -97,7 +97,7 @@ const poolStateIconMapping = deepFreeze({
     },
     MANY_NODES_OFFLINE: pool => {
         const { count, by_mode } = pool.nodes;
-        const offline = by_mode.OFFLINE;
+        const offline = by_mode.OFFLINE || 0;
         const percentage = numeral(offline / count).format('%');
 
         return {
@@ -260,7 +260,7 @@ const nodeIssueModes = deepFreeze([
 export function countNodesByState(modeCoutners) {
     const healthy = modeCoutners.OPTIMAL || 0;
     const offline = modeCoutners.OFFLINE || 0;
-    const hasIssues = sumBy(nodeIssueModes, mode => modeCoutners[mode]);
+    const hasIssues = sumBy(nodeIssueModes, mode => modeCoutners[mode] || 0);
     const all = healthy + offline + hasIssues;
     return { all, healthy, hasIssues, offline };
 }

@@ -1597,10 +1597,11 @@ class NodesMonitor extends EventEmitter {
 
     _filter_nodes(query) {
         const list = [];
+        const mode_counters = {};
         const filter_counts = {
             count: 0,
             online: 0,
-            by_mode: _.fromPairs(MODE_COMPARE_ORDER.map(mode => [mode, 0]))
+            by_mode: mode_counters
         };
 
         // we are generating a function that will implement most of the query
@@ -1665,7 +1666,7 @@ class NodesMonitor extends EventEmitter {
             // the counts by mode event when actually showing the filtered list
             // of nodes.
             filter_counts.count += 1;
-            filter_counts.by_mode[item.mode] += 1;
+            mode_counters[item.mode] = (mode_counters[item.mode] || 0) + 1;
             if (item.online) filter_counts.online += 1;
 
             // after counting, we can finally filter by
@@ -1846,9 +1847,7 @@ class NodesMonitor extends EventEmitter {
     _aggregate_nodes_list(list) {
         let count = 0;
         let online = 0;
-        const by_mode = _.fromPairs(
-            MODE_COMPARE_ORDER.map(mode => [mode, 0])
-        );
+        const by_mode = {};
         const storage = {
             total: BigInteger.zero,
             free: BigInteger.zero,
@@ -1860,7 +1859,7 @@ class NodesMonitor extends EventEmitter {
         const data_activities = {};
         _.each(list, item => {
             count += 1;
-            by_mode[item.mode] += 1;
+            by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
             if (item.online) online += 1;
 
             if (item.data_activity) {

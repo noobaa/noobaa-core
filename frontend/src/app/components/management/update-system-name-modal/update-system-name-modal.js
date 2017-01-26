@@ -1,5 +1,5 @@
 import template from './update-system-name-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { updateHostname } from 'actions';
 import ko from 'knockout';
 

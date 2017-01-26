@@ -1,5 +1,5 @@
 import template from './pools-table.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';

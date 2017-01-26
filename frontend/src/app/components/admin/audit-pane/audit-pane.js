@@ -1,6 +1,6 @@
 import template from './audit-pane.html';
 import AuditRowViewModel from './audit-row';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { auditLog } from 'model';
 import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';

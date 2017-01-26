@@ -1,5 +1,5 @@
 import template from './paginator.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 
 class PaginatorViewModel extends BaseViewModel {

@@ -1,5 +1,5 @@
 import template from './overview-panel.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 
 class OverviewPanelViewModel extends BaseViewModel {
     constructor() {

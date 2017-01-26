@@ -1,5 +1,5 @@
 import template from './set-cloud-sync-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';

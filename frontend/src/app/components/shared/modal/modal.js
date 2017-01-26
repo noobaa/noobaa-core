@@ -1,5 +1,5 @@
 import template from './modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { deepFreeze, noop } from 'utils/core-utils';
 import ko from 'knockout';
 

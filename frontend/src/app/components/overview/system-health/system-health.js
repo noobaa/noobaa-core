@@ -1,5 +1,5 @@
 import template from './system-health.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';

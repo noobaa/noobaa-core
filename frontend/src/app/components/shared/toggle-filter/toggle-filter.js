@@ -1,5 +1,5 @@
 import template from './toggle-filter.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { randomString } from 'utils/string-utils';
 

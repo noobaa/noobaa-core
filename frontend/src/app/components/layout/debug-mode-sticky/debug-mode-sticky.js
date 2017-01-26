@@ -1,5 +1,5 @@
 import template from './debug-mode-sticky.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { systemInfo } from 'model';
 import { setSystemDebugLevel } from 'actions';
 import ko from 'knockout';

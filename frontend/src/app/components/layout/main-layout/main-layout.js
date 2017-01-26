@@ -1,5 +1,5 @@
 import template from './main-layout.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { redirectTo } from 'actions';
 import { system as systemRoute } from 'routes';

@@ -1,4 +1,4 @@
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deletePool } from 'actions';
 import { getPoolStateIcon, getPoolCapacityBarValues } from 'utils/ui-utils';

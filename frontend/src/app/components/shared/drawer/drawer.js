@@ -1,5 +1,5 @@
 import template from './drawer.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { uiState } from 'model';
 import { closeDrawer } from 'actions';

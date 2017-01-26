@@ -1,6 +1,6 @@
 import template from './reset-password-modal.html';
 import passwordResetMessageTemplate from './password-reset-message.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { resetAccountPassword } from 'actions';
 import { resetPasswordState } from 'model';

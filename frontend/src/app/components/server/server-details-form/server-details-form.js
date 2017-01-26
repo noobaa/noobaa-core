@@ -1,5 +1,5 @@
 import template from './server-details-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { systemInfo, serverTime } from 'model';
 import { deepFreeze, isDefined} from 'utils/core-utils';
 import { getServerIssues } from 'utils/cluster-utils';

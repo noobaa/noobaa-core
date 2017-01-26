@@ -1,5 +1,5 @@
 import template from './phone-home-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updatePhoneHomeConfig } from 'actions';

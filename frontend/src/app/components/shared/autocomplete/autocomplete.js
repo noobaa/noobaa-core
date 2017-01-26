@@ -1,5 +1,5 @@
 import template from './autocomplete.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 
 class AutoCompleteViewModel extends BaseViewModel {

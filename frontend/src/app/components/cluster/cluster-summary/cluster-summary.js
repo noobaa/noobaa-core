@@ -1,5 +1,5 @@
 import template from './cluster-summary.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import style from 'style';

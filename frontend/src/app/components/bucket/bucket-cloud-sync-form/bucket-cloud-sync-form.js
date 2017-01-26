@@ -1,5 +1,5 @@
 import template from './bucket-cloud-sync-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import { removeCloudSyncPolicy, toogleCloudSync } from 'actions';

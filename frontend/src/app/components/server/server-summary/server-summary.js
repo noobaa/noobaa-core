@@ -1,5 +1,5 @@
 import template from './server-summary.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { systemInfo } from 'model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';

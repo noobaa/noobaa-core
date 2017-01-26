@@ -1,6 +1,6 @@
 import './chartjs-binding';
 import template from './chartjs.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 
 class chartJSViewModel extends BaseViewModel {
     constructor({ type = 'line', data = {}, options = {} }) {

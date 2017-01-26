@@ -1,5 +1,5 @@
 import template from './regenerate-account-credentials-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { regenerateAccountCredentials } from 'actions';
 import { regenerateCredentialState } from 'model';

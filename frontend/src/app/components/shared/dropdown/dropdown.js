@@ -1,6 +1,6 @@
 import template from './dropdown.html';
 import { randomString } from 'utils/string-utils';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isDefined, clamp } from 'utils/core-utils';
 

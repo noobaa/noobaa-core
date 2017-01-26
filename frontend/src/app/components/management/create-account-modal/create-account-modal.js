@@ -2,7 +2,7 @@ import template from './create-account-modal.html';
 import createScreenTemplate from './create-screen.html';
 import reviewScreenTemplate from './review-screen.html';
 import newAccountMessageTemplate from './new-account-message.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { sleep } from 'utils/promise-utils';

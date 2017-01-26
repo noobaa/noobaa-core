@@ -1,5 +1,5 @@
 import template from './main-nav.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { uiState, uploads } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { sleep } from 'utils/promise-utils';

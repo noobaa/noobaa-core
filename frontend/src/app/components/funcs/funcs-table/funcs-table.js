@@ -1,6 +1,6 @@
 import template from './funcs-table.html';
 import FuncRowViewModel from './func-row';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { funcList } from 'model';

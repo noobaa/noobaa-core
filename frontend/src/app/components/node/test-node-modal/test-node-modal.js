@@ -1,6 +1,6 @@
 import template from './test-node-modal.html';
 import TestRowViewModel from './test-row';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { nodeTestInfo } from 'model';
 import { testNode, abortNodeTest } from 'actions';

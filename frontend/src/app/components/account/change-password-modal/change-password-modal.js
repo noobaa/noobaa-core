@@ -1,5 +1,5 @@
 import template from './change-password-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { calcPasswordStrength  } from 'utils/password-utils';
 import { resetAccountPassword } from 'actions';

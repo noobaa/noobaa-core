@@ -22,16 +22,16 @@ const DUPLICATE_RET_CODE = 68;
 const EXECUTABLE_MOD_VAL = 511;
 
 const CONFIGURATION = {
-    SETUP_FILENAME: WIN_AGENT ? '/noobaa-setup.exe' : '/noobaa-setup',
-    PROCESS_DIR: WIN_AGENT ? 'C:\\noobaa' : '/usr/local/noobaa',
+    SETUP_FILENAME: WIN_AGENT ? 'noobaa-setup.exe' : 'noobaa-setup',
+    PROCESS_DIR: path.join(__dirname, '..', '..'),
     AGENT_CLI: './src/agent/agent_cli',
     NUM_UPGRADE_WARNINGS: 18,
     TIME_BETWEEN_WARNINGS: 10000,
 };
 
-CONFIGURATION.SETUP_FILE = '.' + CONFIGURATION.SETUP_FILENAME;
-CONFIGURATION.INSTALLATION_COMMAND = WIN_AGENT ? `${CONFIGURATION.SETUP_FILE} + /S` :
-`setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
+CONFIGURATION.SETUP_FILE = CONFIGURATION.PROCESS_DIR + WIN_AGENT ? '\\' : '/' + CONFIGURATION.SETUP_FILENAME;
+CONFIGURATION.INSTALLATION_COMMAND = WIN_AGENT ? `"${CONFIGURATION.SETUP_FILE}" /S` :
+    `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
 
 process.chdir(path.join(__dirname, '..', '..'));
 
@@ -58,9 +58,10 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
     .then(() => {
         const output = fs.createWriteStream(CONFIGURATION.SETUP_FILE);
         return new P((resolve, reject) => {
-            dbg.log0(`Downloading Noobaa agent upgrade package: https://${address}/public${CONFIGURATION.SETUP_FILENAME}`);
+            const request_url = `https://${address}/public/${CONFIGURATION.SETUP_FILENAME}`;
+            dbg.log0(`Downloading Noobaa agent upgrade package: ${request_url}`);
             request.get({
-                    url: `https://${address}/public${CONFIGURATION.SETUP_FILENAME}`,
+                    url: request_url,
                     strictSSL: false,
                     timeout: 20000
                 })

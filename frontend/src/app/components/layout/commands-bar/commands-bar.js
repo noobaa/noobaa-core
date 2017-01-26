@@ -19,7 +19,11 @@ class CommandBarViewModel extends BaseViewModel {
     }
 
     showAuditLog() {
-        openDrawer();
+        openDrawer('audit-pane');
+    }
+
+    showAlerts() {
+        openDrawer('alerts-pane');
     }
 }
 

@@ -1,5 +1,5 @@
 import Rx from 'rx';
-import { deepFreeze } from 'utils/js-utils';
+import { deepFreeze } from 'utils/core-utils';
 
 export const actions = new Rx.Subject();
 

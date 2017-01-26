@@ -1,6 +1,6 @@
 import { combineReducers } from 'utils/reducer-utils';
-import alertReducer from './alert-reducer';
+import alertsReducer from './alerts-reducer';
 
 export default combineReducers({
-    alert: alertReducer
+    alerts: alertsReducer
 });

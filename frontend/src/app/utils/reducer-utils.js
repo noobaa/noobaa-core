@@ -1,4 +1,4 @@
-import { echo } from 'utils/js-utils';
+import { echo } from 'utils/core-utils';
 
 // Join action handlers into a single reducer.
 export function createReducer(handlers) {

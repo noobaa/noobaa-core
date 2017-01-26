@@ -8,29 +8,25 @@ class DrawerViewModel extends BaseViewModel {
     constructor() {
         super();
 
-        this.isOpen = ko.pureComputed(
-            () => uiState().drawer
-        );
-
         // Hold the content of the drawer state until transition (slide) is over.
         this.holdContent = ko.observable();
 
         // Decide if we render the content.
-        this.isContentVisible = ko.pureComputed(
-            () => this.isOpen() || this.holdContent()
+        this.content = ko.pureComputed(
+            () => uiState().drawer || this.holdContent()
         );
 
         // Adding rate limit to create an async behaviour in order to apply
         // css transitions.
         this.isVisible = ko.pureComputed(
-            () => this.isOpen()
+            () => uiState().drawer
         ).extend({
             rateLimit: 1
         });
     }
 
     update() {
-        this.holdContent(this.isOpen());
+        this.holdContent(uiState().drawer);
     }
 
     close() {

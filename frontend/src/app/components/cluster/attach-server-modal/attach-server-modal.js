@@ -8,6 +8,7 @@ import { support } from 'config';
 import { deepFreeze } from 'utils/core-utils';
 import { formatEmailUri } from 'utils/browser-utils';
 import { systemInfo, serverVerificationState } from 'model';
+import { inputThrottle } from 'config';
 
 const steps = deepFreeze([
     'Configure Server',
@@ -28,6 +29,12 @@ class AttachServerModalViewModel extends BaseViewModel {
         );
 
         this.address = ko.observable()
+            .extend({
+                rateLimit: {
+                    timeout: inputThrottle,
+                    method: 'notifyWhenChangesStop'
+                }
+            })
             .extend({
                 required: { message: 'Please enter a valid IP address' },
                 isIP: true,
@@ -71,6 +78,12 @@ class AttachServerModalViewModel extends BaseViewModel {
             });
 
         this.secret = ko.observable()
+            .extend({
+                rateLimit: {
+                    timeout: inputThrottle,
+                    method: 'notifyWhenChangesStop'
+                }
+            })
             .extend({
                 required: { message: 'Please enter the server secret' },
                 exactLength: {

@@ -1,4 +1,4 @@
-import { deepFreeze, isFunction, sumBy, keyBy, entries } from './core-utils';
+import { deepFreeze, isFunction, sumBy } from './core-utils';
 import { toBytes, formatSize } from './size-utils';
 import numeral from 'numeral';
 
@@ -97,7 +97,7 @@ const poolStateIconMapping = deepFreeze({
     },
     MANY_NODES_OFFLINE: pool => {
         const { count, by_mode } = pool.nodes;
-        const offline = modeCounters.OFFLINE;
+        const offline = by_mode.OFFLINE;
         const percentage = numeral(offline / count).format('%');
 
         return {

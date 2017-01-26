@@ -8,6 +8,7 @@ import { isDefined, last, makeArray, deepFreeze, flatMap, keyBy } from 'utils/co
 import { stringifyAmount } from 'utils/string-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { sleep, execInOrder } from 'utils/promise-utils';
+import { getModeFilterFromState } from 'utils/ui-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
     toFormData } from 'utils/browser-utils';
 
@@ -251,8 +252,9 @@ export function showPool() {
         tab: tab
     });
 
-    const { filter, hasIssues, sortBy = 'name', order = 1, page = 0 } = ctx.query;
-    loadPoolNodeList(pool, filter, hasIssues, sortBy, parseInt(order), parseInt(page));
+    const { filter, state, sortBy = 'name', order = 1, page = 0 } = ctx.query;
+    const mode = state && getModeFilterFromState(state);
+    loadPoolNodeList(pool, filter, mode, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showNode() {
@@ -693,15 +695,14 @@ export function loadObjectPartList(bucketName, objectName, page) {
         .done();
 }
 
-export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, page) {
-    logAction('loadPoolNodeList', { poolName, filter, hasIssues, sortBy, order, page });
+export function loadPoolNodeList(poolName, filter, mode, sortBy, order, page) {
+    logAction('loadPoolNodeList', { poolName, filter, mode, sortBy, order, page });
 
     api.node.list_nodes({
         query: {
             pools: [ poolName ],
             filter: filter,
-            has_issues: hasIssues,
-            online: hasIssues ? true : undefined
+            mode: mode
         },
         sort: sortBy,
         order: order,

@@ -5,10 +5,8 @@ import numeral from 'numeral';
 import moment from 'moment';
 import style from 'style';
 import { deepFreeze, isNumber } from 'utils/core-utils';
-import { getPoolStateIcon } from 'utils/ui-utils';
+import { getPoolStateIcon, countNodesByState } from 'utils/ui-utils';
 import { toBytes } from 'utils/size-utils';
-
-
 
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
@@ -53,30 +51,39 @@ class PoolSummaryViewModel extends BaseViewModel {
             }
         );
 
-        this.nodeCount = ko.pureComputed(
-            () => numeral(pool().nodes.count).format('0,0')
+        const nodeCoutners = ko.pureComputed(
+            () => countNodesByState(pool().nodes.by_mode)
         );
 
-        const onlineCount = ko.pureComputed(
-            () => numeral(pool().nodes.online).format('0,0')
-        );
+        this.nodeCount = ko.pureComputed(
+            () => nodeCoutners().all
+        ).extend({
+            formatNumber: true
+        });
+
+        const healthyCount = ko.pureComputed(
+            () => nodeCoutners().healthy
+        ).extend({
+            formatNumber: true
+        });
 
         const offlineCount = ko.pureComputed(
-            () => {
-                const { count, online, has_issues } = pool().nodes;
-                return numeral(count - (online + has_issues)).format('0,0');
-            }
-        );
+            () => nodeCoutners().offline
+        ).extend({
+            formatNumber: true
+        });
 
         const issueCount = ko.pureComputed(
-            () => numeral(pool().nodes.has_issues).format('0,0')
-        );
+            () => nodeCoutners().hasIssues
+        ).extend({
+            formatNumber: true
+        });
 
         this.nodeCounters = [
             {
                 label: 'Online',
                 color: style['color12'],
-                value: onlineCount
+                value: healthyCount
             },
             {
                 label: 'Has issues',

@@ -140,14 +140,14 @@ export function flatMap(arr, predicate) {
     );
 }
 
-export function averageBy(array, predicate) {
-    let sum = array
-        .map(predicate)
-        .reduce(
-            (sum, value) => sum + value
-        );
+export function sumBy(array, selector = echo) {
+    return array.map(selector).reduce(
+        (sum, value) => sum + value
+    );
+}
 
-    return sum / array.length;
+export function averageBy(array, selector = echo) {
+    return sumBy(array, selector) / array.length;
 }
 
 export function entries(obj) {

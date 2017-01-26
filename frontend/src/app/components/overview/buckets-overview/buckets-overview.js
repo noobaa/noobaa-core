@@ -239,7 +239,7 @@ class BucketsOverviewViewModel extends BaseViewModel {
 
         this.durationOptions = durationOptions;
         this.selectedDuration = ko.observable(durationOptions[0].value);
-        this.includeCloudStorage = ko.observable(true);
+        this.includeCloudStorage = ko.observable(false);
 
         const currentUsage = ko.pureComputed(
             () => {

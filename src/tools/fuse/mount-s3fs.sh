@@ -61,6 +61,7 @@ S3FS_CMD="s3fs $S3FS_BUCKET $MOUNT_POINT \
 -o readwrite_timeout=20 \
 -o use_path_request_style \
 -o allow_other \
+-o no_check_certificate \
 -o sigv2 \
 -f \
 $S3FS_FLAGS"

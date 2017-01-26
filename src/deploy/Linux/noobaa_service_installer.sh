@@ -19,7 +19,7 @@ PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
 chmod 777 /usr/local/noobaa/remove_service.sh
 /usr/local/noobaa/remove_service.sh ignore_rc > /dev/null 2>&1
-echo "Old services were removed if exited."
+echo "Old services were removed if existed."
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
   cp /usr/local/noobaa/src/agent/system_d.conf /lib/systemd/system/noobaalocalservice.service

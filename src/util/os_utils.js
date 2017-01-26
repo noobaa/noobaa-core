@@ -71,7 +71,7 @@ function get_distro() {
         if (distro && distro.dist) {
             res = distro.dist;
             if (distro.release) res += ` ${distro.release}`;
-            if (distro.codename) res += ` - ${distro.codename}`;
+            if (distro.codename) res += ` (${distro.codename})`;
         }
         return res ? P.resolve(res) : P.reject(new Error('unknown distro'));
     });

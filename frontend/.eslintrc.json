@@ -9,6 +9,9 @@
     "parserOptions": {
         "sourceType": "module"
     },
+    "globals": {
+        "setImmediate": true
+    },
     "rules": {
         "indent": [
             "error",

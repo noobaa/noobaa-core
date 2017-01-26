@@ -1,4 +1,3 @@
-/*global setImmediate */
 import { isUndefined, entries } from './core-utils';
 import { toCammelCase, toDashedCase } from './string-utils';
 import { sleep } from './promise-utils';

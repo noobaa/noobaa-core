@@ -1,6 +1,5 @@
 'use strict';
 
-const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const Ajv = require('ajv');
@@ -53,14 +52,23 @@ class StatsStore {
     get_pool_history(pool_list) {
         return mongo_client.instance().db.collection(SYSTEM_COLLECTION.name).find()
             .toArray()
-            .then(history_records => history_records.map(history_record => ({
-                time_stamp: history_record.time_stamp,
-                pool_list: _.filter(history_record.system_snapshot.pools
-                    .map(pool =>
-                        _.pick(pool, ['name', 'storage'])),
-                    pool => !pool_list || _.isEmpty(pool_list) ||
-                    _.includes(pool_list, pool.name)) || []
-            })));
+            .then(history_records => history_records.map(history_record => {
+                const pools = history_record.system_snapshot.pools
+                    .filter(pool => !pool_list || pool_list.includes(pool.name))
+                    .map(pool => {
+                        const { name, storage, cloud_info } = pool;
+                        return {
+                            name,
+                            storage,
+                            is_cloud_pool: Boolean(cloud_info)
+                        };
+                    });
+
+                return {
+                    timestamp: history_record.time_stamp,
+                    pool_list: pools
+                };
+            }));
     }
 
     insert(item) {

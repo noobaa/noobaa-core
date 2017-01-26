@@ -92,7 +92,7 @@ promise_utils.pwhile(() => current_size < size_of_ds, () => {
                     default: // delete - 37.5%
                         return s3ops.get_file_number(server, bucket, dataset_name)
                             .then(object_number => {
-                                if (object_number > 0) {
+                                if (object_number > 1) { // won't delete the last file in the bucket
                                     return s3ops.get_a_random_file(server, bucket, dataset_name)
                                         .then(function(res) {
                                             current_size -= Math.floor(res.Size / 1024 / 1024);

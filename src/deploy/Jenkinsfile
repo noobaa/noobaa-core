@@ -22,6 +22,10 @@ def agentsResource = 'agents_matrix_rg'
 def agentsVnet = 'agents_matrix_rg-vnet'
 def agentsStorage = 'jackystorage'
 def serverImage = 'https://jackystorage.blob.core.windows.net/system/Microsoft.Compute/Images/images/snapshot-osDisk.24726a50-bd7f-4e5a-ab08-d4a21754788a.vhd'
+//systemConfig
+def nodeLocalIP = '10.1.0.5'
+def serverLocalIP = '10.1.0.6'
+
 
 node('node2') {
     stage('Get code from GIT') {
@@ -54,6 +58,7 @@ node('node2') {
               node $WORKSPACE/src/deploy/azureSnapshots.js --resource $agentsResource --source $azureName --image $serverImage
               sleep 1m
               node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $serverName
+              node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $serverLocalIP
       """
     }
     stage('Tests') {
@@ -85,6 +90,14 @@ node('node2') {
                 node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverName}' --agent_conf '${agentConf}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}'
             """
           },
+          "system-configurations": {
+            echo 'Adding some system configurations!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/system_config.js --server_ip '${nodeLocalIP}' --my_ip '${serverLocalIP}'
+            """
+          }
       )
    }
 }

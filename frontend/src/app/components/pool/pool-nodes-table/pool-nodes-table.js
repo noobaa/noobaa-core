@@ -6,8 +6,9 @@ import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle} from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { routeContext } from 'model';
+import { countNodesByState } from 'utils/ui-utils';
 
-let columns = deepFreeze([
+const columns = deepFreeze([
     {
         name: 'state',
         sortable: 'mode',
@@ -44,7 +45,7 @@ class PoolNodesTableViewModel extends BaseViewModel {
     constructor({ pool, nodeList }) {
         super();
 
-        let query = ko.pureComputed(
+        const query = ko.pureComputed(
             () => routeContext().query
         );
 
@@ -57,6 +58,27 @@ class PoolNodesTableViewModel extends BaseViewModel {
         this.nodes = ko.pureComputed(
             () => nodeList() && nodeList().nodes
         );
+
+        this.nameOrIpFilter = ko.pureComputed({
+            read: () => query().filter,
+            write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
+        });
+
+
+        this.stateOptions = ko.pureComputed(
+            () => nodeList() ?
+                this.getStateOptions(nodeList().filter_counts.by_mode) :
+                []
+        );
+        this.stateFilter = ko.pureComputed({
+            read: () => query().state || 'ALL',
+            write: value => this.selectState(value)
+        });
+
+        this.page = ko.pureComputed({
+            read: () => Number(query().page) || 0,
+            write:  page => this.pageTo(page)
+        });
 
         this.sorting = ko.pureComputed({
             read: () => ({
@@ -84,46 +106,6 @@ class PoolNodesTableViewModel extends BaseViewModel {
             () => nodeList() && nodeList().total_count
         );
 
-        this.issuesOnly = ko.pureComputed({
-            read: () => Boolean(query().hasIssues),
-            write: value => this.toggleIssues(value)
-        });
-
-        this.issuesFilterOptions = [
-            {
-                label: ko.pureComputed(
-                    () => `All Nodes (${
-                        nodeList() ? nodeList().filter_counts.count : 'N/A'
-                    })`
-                ),
-                value: false
-            },
-            {
-                label: ko.pureComputed(
-                    () => `Issues (${
-                        nodeList() ? nodeList().filter_counts.has_issues : 'N/A'
-                    })`
-                ),
-                value: true
-            }
-        ];
-
-        this.page = ko.pureComputed({
-            read: () => Number(query().page) || 0,
-            write:  page => this.pageTo(page)
-        });
-
-        this.nameOrIpFilter = ko.pureComputed({
-            read: () => query().filter,
-            write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
-        });
-
-        this.dataAccessOptions = [
-            { value: 'FULL_ACCESS', label: 'Read & Write' },
-            { value: 'READ_ONLY', label: 'Read Only' },
-            { value: 'NO_ACCESS', label: 'No Access' }
-        ];
-
         this.isAssignNodesDisabled = ko.pureComputed(
             () => Boolean(pool() && pool().demo_pool)
         );
@@ -136,51 +118,74 @@ class PoolNodesTableViewModel extends BaseViewModel {
         this.isAssignNodeModalVisible = ko.observable(false);
     }
 
+    getStateOptions(modeCounters) {
+        const stateCounters = countNodesByState(modeCounters);
+
+        return [
+            {
+                value: 'ALL',
+                label: `All Nodes (${stateCounters.all})`
+            },
+            {
+                value: 'HEALTHY',
+                label: `Healthy (${stateCounters.healthy})`
+            },
+            {
+                value: 'HAS_ISSUES',
+                label: `Issues (${stateCounters.hasIssues})`
+            },
+            {
+                value: 'OFFLINE',
+                label: `Offline (${stateCounters.offline})`
+            }
+        ];
+    }
+
     createNodeRow(node) {
         return new NodeRowViewModel(node);
     }
 
     pageTo(page) {
-        let params = Object.assign(
-            {
-                filter: this.nameOrIpFilter(),
-                hasIssues: this.issuesOnly() || undefined,
-                page: page
-            },
-            this.sorting()
-        );
+        const filter = this.nameOrIpFilter();
+        const state = this.stateFilter();
+        const { sortBy, order } = this.sorting();
+        const params = { filter, state, sortBy, order, page };
 
         navigateTo(undefined, undefined, params);
     }
 
     filterObjects(phrase) {
-        let params = Object.assign(
-            {
-                filter: phrase || undefined,
-                hasIssues: this.issuesOnly() || undefined,
-                page: 0
-            },
-            this.sorting()
-        );
+        const filter = phrase || undefined;
+        const state = this.stateFilter();
+        const { sortBy, order } = this.sorting();
+        const page = 0;
+        const params = { filter, state, sortBy, order, page };
 
         navigateTo(undefined, undefined, params);
     }
 
     orderBy(sorting) {
-        let params = Object.assign(
-            {
-                filter: this.nameOrIpFilter(),
-                hasIssues: this.issuesOnly() || undefined,
-                page: 0
-            },
-            sorting
-        );
+        const filter = this.nameOrIpFilter();
+        const state = this.stateFilter();
+        const { sortBy, order } = sorting;
+        const page = 0;
+        const params = { filter, state, sortBy, order, page };
+
+        navigateTo(undefined, undefined, params);
+    }
+
+    selectState(value) {
+        const filter = this.nameOrIpFilter();
+        const state = value !== 'ALL' ? value : undefined;
+        const { sortBy, order } = this.sorting();
+        const page = 0;
+        const params = { filter, state, sortBy, order, page };
 
         navigateTo(undefined, undefined, params);
     }
 
     toggleIssues(value) {
-        let params = Object.assign(
+        const params = Object.assign(
             {
                 filter: this.nameOrIpFilter(),
                 hasIssues: value || undefined,

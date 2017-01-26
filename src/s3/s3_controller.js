@@ -11,6 +11,7 @@ const dbg = require('../util/debug_module')(__filename);
 const ObjectIO = require('../api/object_io');
 const s3_errors = require('./s3_errors');
 const http_utils = require('../util/http_utils');
+const time_utils = require('../util/time_utils');
 
 dbg.set_level(5);
 
@@ -457,7 +458,7 @@ class S3Controller {
             .then(object_md => {
                 req.object_md = object_md;
                 res.setHeader('ETag', '"' + object_md.etag + '"');
-                res.setHeader('Last-Modified', to_s3_date(object_md.create_time));
+                res.setHeader('Last-Modified', to_aws_date_for_http_header(object_md.create_time));
                 res.setHeader('Content-Type', object_md.content_type);
                 res.setHeader('Content-Length', object_md.size);
                 res.setHeader('Accept-Ranges', 'bytes');
@@ -1039,6 +1040,10 @@ function to_s3_date(input) {
     return date.toISOString();
 }
 
+function to_aws_date_for_http_header(input)
+{
+    return time_utils.toRFC822(new Date(input));
+}
 function get_request_xattr(req) {
     let xattr = {};
     _.each(req.headers, (val, hdr) => {

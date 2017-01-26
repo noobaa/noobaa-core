@@ -171,10 +171,11 @@ class S3Controller {
             params.key_marker = req.query.marker;
         }
 
-        params.limit = parseInt(req.query['max-keys'], 10) || 1000;
-        if (params.limit < 1 || params.limit > 1000) {
-            params.limit = 1000;
+        let max_keys_received = Number(req.query['max-keys']);
+        if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
+            throw s3_errors.InvalidArgument;
         }
+        params.limit = Math.min(max_keys_received, 1000);
 
         return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
@@ -183,7 +184,7 @@ class S3Controller {
                             'Name': req.params.bucket,
                             'Prefix': req.query.prefix,
                             'Delimiter': req.query.delimiter,
-                            'MaxKeys': params.limit,
+                            'MaxKeys': max_keys_received,
                             'Marker': req.query.marker,
                             'IsTruncated': reply.is_truncated,
                             'NextMarker': reply.next_marker,
@@ -231,10 +232,11 @@ class S3Controller {
             params.key_marker = req.query['key-marker'];
         }
 
-        params.limit = parseInt(req.query['max-keys'], 10) || 1000;
-        if (params.limit < 1 || params.limit > 1000) {
-            params.limit = 1000;
+        let max_keys_received = Number(req.query['max-keys']);
+        if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
+            throw s3_errors.InvalidArgument;
         }
+        params.limit = Math.min(max_keys_received, 1000);
 
         return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
@@ -243,7 +245,7 @@ class S3Controller {
                             'Name': req.params.bucket,
                             'Prefix': req.query.prefix,
                             'Delimiter': req.query.delimiter,
-                            'MaxKeys': params.limit,
+                            'MaxKeys': max_keys_received,
                             'KeyMarker': req.query['key-marker'],
                             'VersionIdMarker': req.query['version-id-marker'],
                             'IsTruncated': reply.is_truncated,
@@ -294,10 +296,11 @@ class S3Controller {
             params.key_marker = req.query['key-marker'];
         }
 
-        params.limit = parseInt(req.query['max-uploads'], 10) || 1000;
-        if (params.limit < 1 || params.limit > 1000) {
-            params.limit = 1000;
+        let max_keys_received = Number(req.query['max-uploads']);
+        if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
+            throw s3_errors.InvalidArgument;
         }
+        params.limit = Math.min(max_keys_received, 1000);
 
         return req.rpc_client.object.list_objects_s3(params)
             .then(reply => {
@@ -306,7 +309,7 @@ class S3Controller {
                             'Bucket': req.params.bucket,
                             'Prefix': req.query.prefix,
                             'Delimiter': req.query.delimiter,
-                            'MaxUploads': params.limit,
+                            'MaxUploads': max_keys_received,
                             'KeyMarker': req.query['key-marker'],
                             'UploadIdMarker': req.query['upload-id-marker'],
                             'IsTruncated': reply.is_truncated,

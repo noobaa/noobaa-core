@@ -59,12 +59,15 @@ mocha.describe('s3_list_objects', function() {
 
     mocha.it('works', function() {
         const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(30000);
+        // TODO: JEN increased the timeout on test since we actually upload files into the bucket
+        // We should change it to md_blow, that way it will be significantly faster without any data usage
+        self.timeout(10 * 60 * 1000);
 
         var files_without_folders_to_upload = [];
         var folders_to_upload = [];
         var files_in_folders_to_upload = [];
         var files_in_utf_diff_delimiter = [];
+        var max_keys_objects = [];
 
         var i = 0;
         for (i = 0; i < 9; i++) {
@@ -78,6 +81,9 @@ mocha.describe('s3_list_objects', function() {
         }
         for (i = 0; i < 9; i++) {
             files_in_utf_diff_delimiter.push(`תיקיה#קובץ${i}`);
+        }
+        for (i = 0; i < 2604; i++) {
+            max_keys_objects.push(`max_keys_test${i}`);
         }
 
         // Uploading zero size objects from the key arrays that were provided
@@ -225,6 +231,21 @@ mocha.describe('s3_list_objects', function() {
                     });
             })
             .then(function() {
+                return client.object.list_objects_s3({
+                        bucket: BKT,
+                        limit: 0
+                    })
+                    .then(function(list_reply) {
+                        if (!(list_reply &&
+                                list_reply.common_prefixes.length === 0 &&
+                                list_reply.objects.length === 0 &&
+                                !list_reply.is_truncated)) {
+                            throw new Error(`Limit Test Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: ${files_without_folders_to_upload[0]}`);
+                        }
+                    });
+            })
+            .then(function() {
                 // Initialization of IsTruncated in order to perform the first while cycle
                 var listObjectsResponse = {
                     is_truncated: true,
@@ -272,6 +293,43 @@ mocha.describe('s3_list_objects', function() {
                                 !listObjectsResponse.is_truncated)) {
                             throw new Error(`Marker Test Failed! Got list: ${util.inspect(listObjectsResponse)}
                                 Wanted list: ${folders_to_upload}, ${files_without_folders_to_upload}`);
+                        }
+                    });
+            })
+            .then(() => {
+                // TODO: JEN should be changed to md_blow
+                return upload_multiple_files(max_keys_objects);
+            })
+            .then(function() {
+                return client.object.list_objects_s3({
+                        bucket: BKT,
+                        limit: 2604
+                    })
+                    .then(function(list_reply) {
+                        if (!(list_reply &&
+                                list_reply.common_prefixes.length === 0 &&
+                                list_reply.objects.length === 1000 &&
+                                list_reply.is_truncated)) {
+                            throw new Error(`Limit Test Failed! Got list: ${util.inspect(list_reply)}
+                                Wanted list: Includes only 1000 objects`);
+                        }
+                    });
+            })
+            .then(function() {
+                // Note that in case of S3Controller we return an appropriate error value to the client
+                return client.object.list_objects_s3({
+                        bucket: BKT,
+                        limit: -2604
+                    })
+                    .then(function(list_reply) {
+                        throw new Error(`Limit Test Failed! Got list: ${util.inspect(list_reply)},
+                            Wanted to receive an error`);
+                    })
+                    .catch(function(err) {
+                        console.error(err);
+                        if (String(err.message) !== 'Limit must be a positive Integer') {
+                            throw new Error(`Limit Test Failed! Got error: ${err},
+                                Wanted to receive an error`);
                         }
                     });
             });

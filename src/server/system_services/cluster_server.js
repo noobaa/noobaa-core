@@ -201,24 +201,26 @@ function add_member_to_cluster(req) {
 
 function verify_join_conditions(req) {
     dbg.log0('Got verify_join_conditions request');
-    let hostname = os_utils.os_info().hostname;
-    let caller_address;
-    if (req.connection && req.connection.url) {
-        caller_address = req.connection.url.hostname.includes('ffff') ?
-            req.connection.url.hostname.replace(/^.*:/, '') :
-            req.connection.url.hostname;
-    } else {
-        dbg.error('No connection on request for verify_join_conditions. Got:', req);
-        return P.reject(new Error('No connection on request for verify_join_conditions'));
-    }
-
     return P.resolve()
-        .then(() => _verify_join_preconditons(req))
-        .then(result => ({
-            result,
-            caller_address,
-            hostname,
-        }));
+        .then(() => os_utils.os_info())
+        .then(os_info => {
+            let hostname = os_info.hostname;
+            let caller_address;
+            if (req.connection && req.connection.url) {
+                caller_address = req.connection.url.hostname.includes('ffff') ?
+                    req.connection.url.hostname.replace(/^.*:/, '') :
+                    req.connection.url.hostname;
+            } else {
+                dbg.error('No connection on request for verify_join_conditions. Got:', req);
+                throw new Error('No connection on request for verify_join_conditions');
+            }
+            return _verify_join_preconditons(req)
+                .then(result => ({
+                    result,
+                    caller_address,
+                    hostname,
+                }));
+        });
 }
 
 function _check_candidate_version(req) {
@@ -802,9 +804,10 @@ function diagnose_system(req) {
 function collect_server_diagnostics(req) {
     const INNER_PATH = `${process.cwd()}/build`;
     return P.resolve()
-        .then(() => {
+        .then(() => os_utils.os_info())
+        .then(os_info => {
             dbg.log0('Recieved diag req');
-            var out_path = '/public/' + os_utils.os_info().hostname + '_srv_diagnostics.tgz';
+            var out_path = '/public/' + os_info.hostname + '_srv_diagnostics.tgz';
             var inner_path = process.cwd() + '/build' + out_path;
             return P.resolve()
                 .then(() => diag.collect_server_diagnostics(req))

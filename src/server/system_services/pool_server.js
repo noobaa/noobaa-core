@@ -29,7 +29,7 @@ const POOL_STORAGE_DEFAULTS = Object.freeze({
 const POOL_NODES_INFO_DEFAULTS = Object.freeze({
     count: 0,
     online: 0,
-    has_issues: 0,
+    by_mode: {},
 });
 
 const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB

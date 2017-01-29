@@ -52,7 +52,7 @@ const SYS_STORAGE_DEFAULTS = Object.freeze({
 const SYS_NODES_INFO_DEFAULTS = Object.freeze({
     count: 0,
     online: 0,
-    has_issues: 0,
+    by_mode: {},
 });
 
 var client_syslog;

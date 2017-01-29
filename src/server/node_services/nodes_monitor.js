@@ -138,8 +138,8 @@ const QUERY_FIELDS = [{
 
 const MODE_COMPARE_ORDER = [
     'OPTIMAL',
-    'NODE_LOW_CAPACITY',
-    'NODE_NO_CAPACITY',
+    'LOW_CAPACITY',
+    'NO_CAPACITY',
     'DECOMMISSIONING',
     'MIGRATING',
     'DELETING',
@@ -1597,10 +1597,11 @@ class NodesMonitor extends EventEmitter {
 
     _filter_nodes(query) {
         const list = [];
+        const mode_counters = {};
         const filter_counts = {
             count: 0,
             online: 0,
-            has_issues: 0,
+            by_mode: mode_counters
         };
 
         // we are generating a function that will implement most of the query
@@ -1660,31 +1661,28 @@ class NodesMonitor extends EventEmitter {
             this._update_status(item);
             if (!filter_item_func(item)) continue;
 
-            // the filter_counts count nodes that passed all filters besides
-            // the filters of online and has_issues filters
-            // this is used for the frontend to show the total count even
-            // when actually showing the filtered list of nodes with issues
-            if (item.online) {
-                if (item.has_issues) {
-                    filter_counts.has_issues += 1;
-                } else {
-                    filter_counts.online += 1;
-                }
-            }
+            // the filter_count count nodes that passed all filters besides
+            // the online and mode filter this is used for the frontend to show
+            // the counts by mode event when actually showing the filtered list
+            // of nodes.
             filter_counts.count += 1;
+            mode_counters[item.mode] = (mode_counters[item.mode] || 0) + 1;
+            if (item.online) filter_counts.online += 1;
 
             // after counting, we can finally filter by
             if (!_.isUndefined(query.has_issues) &&
                 query.has_issues !== Boolean(item.has_issues)) continue;
             if (!_.isUndefined(query.online) &&
                 query.online !== Boolean(item.online)) continue;
+            if (!_.isUndefined(query.mode) &&
+                !query.mode.includes(item.mode)) continue;
 
             console.log('list_nodes: adding node', item.node.name);
             list.push(item);
         }
         return {
-            list: list,
-            filter_counts: filter_counts,
+            list,
+            filter_counts
         };
     }
 
@@ -1849,7 +1847,7 @@ class NodesMonitor extends EventEmitter {
     _aggregate_nodes_list(list) {
         let count = 0;
         let online = 0;
-        let has_issues = 0;
+        const by_mode = {};
         const storage = {
             total: BigInteger.zero,
             free: BigInteger.zero,
@@ -1861,13 +1859,9 @@ class NodesMonitor extends EventEmitter {
         const data_activities = {};
         _.each(list, item => {
             count += 1;
-            if (item.online) {
-                if (item.has_issues) {
-                    has_issues += 1;
-                } else {
-                    online += 1;
-                }
-            }
+            by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
+            if (item.online) online += 1;
+
             if (item.data_activity) {
                 const act = item.data_activity;
                 const a =
@@ -1925,9 +1919,9 @@ class NodesMonitor extends EventEmitter {
         const now = Date.now();
         return {
             nodes: {
-                count: count,
-                online: online,
-                has_issues: has_issues,
+                count,
+                online,
+                by_mode
             },
             storage: size_utils.to_bigint_storage(storage),
             data_activities: _.map(data_activities, a => {

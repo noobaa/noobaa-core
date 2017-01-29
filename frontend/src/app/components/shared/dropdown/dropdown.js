@@ -31,7 +31,7 @@ class DropdownViewModel extends BaseViewModel {
                     }
 
                     // Normalize option.
-                    const { value, label = value, remark,
+                    const { value = option, label = value, remark,
                         css, icon, selectedIcon, tooltip,
                         disabled = false } = option;
 

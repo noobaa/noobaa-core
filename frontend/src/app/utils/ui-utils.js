@@ -1,4 +1,4 @@
-import { deepFreeze, isFunction } from './core-utils';
+import { deepFreeze, isFunction, sumBy } from './core-utils';
 import { toBytes, formatSize } from './size-utils';
 import numeral from 'numeral';
 
@@ -96,8 +96,10 @@ const poolStateIconMapping = deepFreeze({
         name: 'problem'
     },
     MANY_NODES_OFFLINE: pool => {
-        const { count, online, has_issues } = pool.nodes;
-        const percentage = numeral(1 - ((online + has_issues) / count)).format('%');
+        const { count, by_mode } = pool.nodes;
+        const offline = by_mode.OFFLINE || 0;
+        const percentage = numeral(offline / count).format('%');
+
         return {
             tooltip: `${percentage} nodes are offline`,
             css: 'warning',
@@ -239,4 +241,39 @@ export function getPoolCapacityBarValues(pool) {
     ];
 
     return { total, used: usage };
+}
+
+const nodeIssueModes = deepFreeze([
+    'LOW_CAPACITY',
+    'NO_CAPACITY',
+    'DECOMMISSIONING',
+    'MIGRATING',
+    'DELETING',
+    'DECOMMISSIONED',
+    'DELETED',
+    'N2N_ERRORS',
+    'GATEWAY_ERRORS',
+    'IO_ERRORS',
+    'UNTRUSTED'
+]);
+
+export function countNodesByState(modeCoutners) {
+    const healthy = modeCoutners.OPTIMAL || 0;
+    const offline = modeCoutners.OFFLINE || 0;
+    const hasIssues = sumBy(nodeIssueModes, mode => modeCoutners[mode] || 0);
+    const all = healthy + offline + hasIssues;
+    return { all, healthy, hasIssues, offline };
+}
+
+export function getModeFilterFromState(state) {
+    switch(state) {
+        case 'HEALTHY':
+            return ['OPTIMAL'];
+
+        case 'HAS_ISSUES':
+            return nodeIssueModes;
+
+        case 'OFFLINE':
+            return ['OFFLINE'];
+    }
 }

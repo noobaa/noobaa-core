@@ -16,7 +16,7 @@ const dbg = require('./debug_module')(__filename);
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 
-function os_info() {
+function os_info(count_reserved_as_free) {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
     var orig_ifaces = os.networkInterfaces();
@@ -30,7 +30,7 @@ function os_info() {
         }
     });
     return P.resolve()
-        .then(() => _calculate_free_mem())
+        .then(() => (count_reserved_as_free ? _calculate_free_mem() : os.freemem()))
         .then(free_mem => ({
             hostname: os.hostname(),
             ostype: os.type(),

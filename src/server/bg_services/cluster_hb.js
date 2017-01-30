@@ -20,7 +20,7 @@ function do_heartbeat() {
             health: {}
         };
         return P.resolve()
-            .then(() => os_utils.os_info()
+            .then(() => os_utils.os_info(true)
                 .then(os_info => {
                     heartbeat.health.os_info = os_info;
                 }))

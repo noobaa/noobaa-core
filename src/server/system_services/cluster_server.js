@@ -202,7 +202,7 @@ function add_member_to_cluster(req) {
 function verify_join_conditions(req) {
     dbg.log0('Got verify_join_conditions request');
     return P.resolve()
-        .then(() => os_utils.os_info())
+        .then(() => os_utils.os_info(true))
         .then(os_info => {
             let hostname = os_info.hostname;
             let caller_address;
@@ -804,7 +804,7 @@ function diagnose_system(req) {
 function collect_server_diagnostics(req) {
     const INNER_PATH = `${process.cwd()}/build`;
     return P.resolve()
-        .then(() => os_utils.os_info())
+        .then(() => os_utils.os_info(true))
         .then(os_info => {
             dbg.log0('Recieved diag req');
             var out_path = '/public/' + os_info.hostname + '_srv_diagnostics.tgz';

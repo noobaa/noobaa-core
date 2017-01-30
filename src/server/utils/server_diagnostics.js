@@ -61,7 +61,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected chkconfig.out successfully'))
                 .catch(err => diag_log('collecting chkconfig.out failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/messages ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('cp -f /var/log/messages* ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
                 .then(() => diag_log('collected /var/log/messages files successfully'))
                 .catch(err => diag_log('collecting /etc/noobaa files failed with error: ' + err)),
 

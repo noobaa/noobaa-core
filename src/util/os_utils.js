@@ -13,6 +13,7 @@ const config = require('../../config.js');
 const promise_utils = require('./promise_utils');
 const fs_utils = require('./fs_utils');
 const dbg = require('./debug_module')(__filename);
+const os_detailed_info = require('getos');
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 
@@ -61,6 +62,20 @@ function get_main_drive_name() {
     }
 }
 
+function get_distro() {
+    return os_detailed_info((err, distro) => {
+        if (err) {
+            return P.reject(err);
+        }
+        let res;
+        if (distro && distro.dist) {
+            res = distro.dist;
+            if (distro.release) res += ` ${distro.release}`;
+            if (distro.codename) res += ` (${distro.codename})`;
+        }
+        return res ? P.resolve(res) : P.reject(new Error('unknown distro'));
+    });
+}
 
 function get_disk_mount_points() {
     return read_drives()
@@ -608,3 +623,4 @@ exports.restart_services = restart_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
 exports.get_disk_mount_points = get_disk_mount_points;
+exports.get_distro = get_distro;

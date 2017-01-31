@@ -188,6 +188,7 @@ class MapBuilder {
                 block.node = node; // keep the node ref, same when populated
                 block.system = chunk.system;
                 block.chunk = chunk;
+                block.bucket = chunk.bucket._id;
                 alloc.block = block;
                 avoid_nodes.push(String(node._id));
                 allocated_hosts.push(node.host_id);

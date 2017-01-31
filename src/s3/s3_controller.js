@@ -643,8 +643,8 @@ class S3Controller {
                 key: req.params.key,
                 upload_id: req.query.uploadId,
                 multiparts: _.map(_.get(data, 'CompleteMultipartUpload.Part'), multipart => ({
-                    num: multipart.PartNumber[0],
-                    etag: multipart.ETag[0],
+                    num: Number(multipart.PartNumber[0]),
+                    etag: strip_etag_quotes(multipart.ETag[0]),
                 }))
             }))
             .then(reply => ({
@@ -988,6 +988,11 @@ function set_response_xattr(res, xattr) {
     _.each(xattr, (val, key) => {
         res.setHeader('x-amz-meta-' + key, val);
     });
+}
+
+function strip_etag_quotes(etag) {
+    const match = (/\s*"(.*)"\s*/).exec(etag);
+    return match ? match[1] : etag;
 }
 
 module.exports = S3Controller;

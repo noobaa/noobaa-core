@@ -287,6 +287,7 @@ function complete_multipart(req) {
                 }
                 set_updates.sha256_b64 = req.rpc_params.sha256_b64;
             }
+            set_updates.num_parts = req.rpc_params.num_parts;
         })
         .then(() => MDStore.instance().update_multipart_by_id(multipart_id, set_updates))
         .then(() => ({

@@ -1178,7 +1178,7 @@ class NodesMonitor extends EventEmitter {
 
     _update_status(item) {
         if (!item.node_from_store) return;
-        dbg.log0('_update_status:', item.node.name);
+        dbg.log1('_update_status:', item.node.name);
 
         const now = Date.now();
         item.online = Boolean(item.connection) &&

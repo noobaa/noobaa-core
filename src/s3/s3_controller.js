@@ -172,7 +172,7 @@ class S3Controller {
             params.key_marker = req.query.marker;
         }
 
-        let max_keys_received = Number(req.query['max-keys']);
+        let max_keys_received = Number(req.query['max-keys'] || 1000);
         if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
             throw s3_errors.InvalidArgument;
         }
@@ -231,7 +231,7 @@ class S3Controller {
             params.key_marker = req.query['key-marker'];
         }
 
-        let max_keys_received = Number(req.query['max-keys']);
+        let max_keys_received = Number(req.query['max-keys'] || 1000);
         if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
             throw s3_errors.InvalidArgument;
         }
@@ -293,7 +293,7 @@ class S3Controller {
             params.key_marker = req.query['key-marker'];
         }
 
-        let max_keys_received = Number(req.query['max-uploads']);
+        let max_keys_received = Number(req.query['max-uploads'] || 1000);
         if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
             throw s3_errors.InvalidArgument;
         }

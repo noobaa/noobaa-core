@@ -637,19 +637,36 @@ function list_objects_s3(req) {
     var delimiter = req.rpc_params.delimiter || '';
     // Last object's key that was received from list-objects last call (when truncated)
     // This is used in order to continue from a certain key when the response is truncated
-    var marker = prefix + (req.rpc_params.key_marker || '');
-    var limit = req.rpc_params.limit || 1000;
-    // ********* Important!!! *********
-    // Notice that we add 1 to the limit.
-    // This addition will be used in order to know if the response if truncated or not
-    // Which means that we will always query 1 additional object/prefix and then cut it in response
-    limit += 1;
+    var marker = req.rpc_params.key_marker ? (prefix + req.rpc_params.key_marker) : '';
+
+    const received_limit = _.get(req, 'rpc_params.limit', 1000);
+
+    if (received_limit < 0) {
+        const new_err = new Error();
+        new_err.message = 'Limit must be a positive Integer';
+        throw new_err;
+    }
+
+    var limit = Math.min(received_limit, 1000);
+
     var results = [];
     var reply = {
         is_truncated: false,
         objects: [],
         common_prefixes: []
     };
+
+    // In case that we've received max-keys 0, we should return an empty reply without is_truncated
+    // This is used in order to follow aws spec and bevaiour
+    if (!limit) {
+        return P.resolve(reply);
+    }
+
+    // ********* Important!!! *********
+    // Notice that we add 1 to the limit.
+    // This addition will be used in order to know if the response if truncated or not
+    // Which means that we will always query 1 additional object/prefix and then cut it in response
+    limit += 1;
     load_bucket(req);
     var done = false;
     return promise_utils.pwhile(
@@ -674,7 +691,6 @@ function list_objects_s3(req) {
                 // This is the case when there are no more objects that apply to the query
                 if (_.get(res, 'length', 0) === 0) {
                     // If there were no object/common prefixes to match then no next marker
-                    reply.next_marker = marker;
                     done = true;
                 } else if (results.length >= limit) {
                     // This is the case when the number of objects that apply to the query

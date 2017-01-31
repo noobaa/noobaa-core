@@ -312,15 +312,12 @@ function find_policy_by_name(req) {
 
 function get_tier_info(tier, nodes_aggregate_pool) {
     var info = _.pick(tier, 'name', TIER_PLACEMENT_FIELDS);
-
+    let mirrors_storage = [];
     info.attached_pools = [];
+
     _.forEach(tier.mirrors, mirror_object => {
         info.attached_pools = _.concat(info.attached_pools, mirror_object.spread_pools);
-    });
-    info.attached_pools = _.compact(info.attached_pools).map(pool => pool.name);
 
-    let mirrors_storage = [];
-    _.forEach(tier.mirrors, mirror_object => {
         let spread_storage;
         var pools_storage = _.map(mirror_object.spread_pools, pool =>
             _.defaults(_.get(nodes_aggregate_pool, ['groups', String(pool._id), 'storage']), {
@@ -345,6 +342,8 @@ function get_tier_info(tier, nodes_aggregate_pool) {
         spread_storage.real = temp_storage.free;
         mirrors_storage.push(spread_storage);
     });
+
+    info.attached_pools = _.compact(info.attached_pools).map(pool => pool.name);
 
     info.storage = size_utils.reduce_storage(size_utils.reduce_minimum, mirrors_storage, 1, 1);
     _.defaults(info.storage, {

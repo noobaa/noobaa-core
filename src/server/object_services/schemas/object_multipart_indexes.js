@@ -8,5 +8,6 @@ module.exports = [{
     },
     options: {
         unique: false,
+        sparse: true,
     }
 }];

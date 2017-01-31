@@ -117,9 +117,10 @@ function complete_object_parts(obj, multiparts_req) {
     function process_next_parts(parts) {
         parts.sort((a, b) => a.seq - b.seq);
         for (const part of parts) {
-            console.log('complete_object_parts: next part at seq', seq, 'pos', pos, part);
             const len = part.end - part.start;
             if (part.seq !== seq) {
+                console.log('complete_object_parts: update part at seq', seq,
+                    'pos', pos, 'len', len, part._id);
                 parts_updates.push({
                     _id: part._id,
                     set_updates: {
@@ -148,7 +149,7 @@ function complete_object_parts(obj, multiparts_req) {
                 const mp_parts = parts_by_mp[multipart._id];
                 process_next_parts(mp_parts);
             }
-            multipart_etag = md5.digest('hex');
+            multipart_etag = md5.digest('hex') + '-' + multiparts.length;
         })
         .then(() => MDStore.instance().update_parts_in_bulk(parts_updates))
         .then(() => ({

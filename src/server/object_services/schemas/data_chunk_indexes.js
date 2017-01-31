@@ -11,6 +11,7 @@ module.exports = [{
         }
     },
     {
+        // aggregate_chunks_by_delete_dates()
         fields: {
             deleted: 1,
         },

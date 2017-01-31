@@ -1,68 +1,44 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
-const Ajv = require('ajv');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const js_utils = require('../../util/js_utils');
-const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client').instance();
-const schema_utils = require('../../util/schema_utils');
+const mongo_client = require('../../util/mongo_client');
 const mongodb = require('mongodb');
 const config_file_schema = require('./schemas/config_file_schema');
 
-
-const CONFIG_FILE_COLLECTION = js_utils.deep_freeze({
-    name: 'config_files',
-    schema: schema_utils.strictify(config_file_schema),
-    db_indexes: [{
-        fields: {
-            filename: 1,
-        },
-        options: {
-            unique: true,
-        }
-    }]
-});
-
 class ConfigFileStore {
 
+    constructor() {
+        this._config_files = mongo_client.instance().define_collection({
+            name: 'config_files',
+            schema: config_file_schema,
+            db_indexes: [{
+                fields: {
+                    filename: 1,
+                },
+                options: {
+                    unique: true,
+                }
+            }]
+        });
+    }
+
     static instance() {
-        ConfigFileStore._instance = ConfigFileStore._instance || new ConfigFileStore();
+        if (!ConfigFileStore._instance) ConfigFileStore._instance = new ConfigFileStore();
         return ConfigFileStore._instance;
     }
 
-    constructor() {
-        this._json_validator = new Ajv({
-            formats: {
-                objectid: val => mongo_utils.is_object_id(val)
-            }
-        });
-
-        try {
-            mongo_client.define_collection(CONFIG_FILE_COLLECTION);
-        } catch (err) {
-            // this might be a legit exception if system_collection was already defined
-            dbg.warn('Exception while trying to init', CONFIG_FILE_COLLECTION.name, err);
-        }
-        this._json_validator.addSchema(CONFIG_FILE_COLLECTION.schema, CONFIG_FILE_COLLECTION.name);
-    }
-
-    connect() {
-        return mongo_client.connect();
-    }
-
     insert(item) {
-        dbg.log0(`Inserting `, item);
-        let validator = this._json_validator.getSchema(CONFIG_FILE_COLLECTION.name);
+        dbg.log0(`insert`, item);
         _.defaults(item, {
             _id: new mongodb.ObjectId()
         });
-        if (!validator(item)) {
-            dbg.error(`item not valid in config file store`, validator.errors, item);
-            return P.reject(new Error('history_data_store: item not valid in config file store'));
-        }
-        return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).updateMany({ // There shouldn't be more than one record, this is being on the safe side
+        // There shouldn't be more than one record, this is being on the safe side
+        return P.resolve()
+            .then(() => this._config_files.validate(item))
+            .then(() => this._config_files.col().updateMany({
                 filename: {
                     $eq: item.filename
                 }
@@ -70,21 +46,21 @@ class ConfigFileStore {
                 $set: {
                     data: item.data
                 }
-            })
+            }))
             .then(res => {
                 if (!res || !res.result) {
                     return P.reject(new Error('Unkown result from mongo client: ', res));
                 }
                 if (res.result.nModified === 0) {
                     dbg.log0(`item ${item.filename} did not exist in db. Inserted`);
-                    return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).insert(item);
+                    return this._config_files.col().insertOne(item);
                 }
                 dbg.log0(`item ${item.filename} existed in db and was updated`);
             });
     }
 
     get(filename) {
-        return mongo_client.db.collection(CONFIG_FILE_COLLECTION.name).findOne({
+        return this._config_files.col().findOne({
             filename: filename
         });
     }

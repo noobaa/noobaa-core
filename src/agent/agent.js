@@ -559,9 +559,6 @@ class Agent {
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
         }
-        if (extended_hb) {
-            reply.os_info = os_utils.os_info();
-        }
 
         // clear previous timeout to test connection
         if (this._test_connection_timeout) {
@@ -582,6 +579,16 @@ class Agent {
         }, TEST_CONNECTION_TIMEOUT_DELAY).unref();
 
         return P.resolve()
+            .then(() => extended_hb && os_utils.os_info()
+                .then(os_info => {
+                    reply.os_info = os_info;
+                })
+                .then(() => os_utils.get_distro().then(res => {
+                    if (reply.os_info) {
+                        reply.os_info.ostype = res;
+                    }
+                }))
+                .catch(err => dbg.warn('failed to get detailed os info', err)))
             .then(() => this._update_servers_list(req.rpc_params.addresses))
             .then(() => this.create_node_token_wrapper.read())
             .then(create_node_token => {

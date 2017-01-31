@@ -13,10 +13,11 @@ const config = require('../../config.js');
 const promise_utils = require('./promise_utils');
 const fs_utils = require('./fs_utils');
 const dbg = require('./debug_module')(__filename);
+const os_detailed_info = require('getos');
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 
-function os_info() {
+function os_info(count_mongo_reserved_as_free) {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
     var orig_ifaces = os.networkInterfaces();
@@ -29,20 +30,56 @@ function os_info() {
             delete interfaces[name];
         }
     });
+    return P.resolve()
+        .then(() => _calculate_free_mem(count_mongo_reserved_as_free))
+        .then(free_mem => ({
+            hostname: os.hostname(),
+            ostype: os.type(),
+            platform: os.platform(),
+            arch: os.arch(),
+            release: os.release(),
+            uptime: Date.now() - Math.floor(1000 * os.uptime()),
+            loadavg: os.loadavg(),
+            totalmem: os.totalmem(),
+            freemem: free_mem,
+            cpus: os.cpus(),
+            networkInterfaces: interfaces
+        }));
+}
 
-    return {
-        hostname: os.hostname(),
-        ostype: os.type(),
-        platform: os.platform(),
-        arch: os.arch(),
-        release: os.release(),
-        uptime: Date.now() - Math.floor(1000 * os.uptime()),
-        loadavg: os.loadavg(),
-        totalmem: os.totalmem(),
-        freemem: os.freemem(),
-        cpus: os.cpus(),
-        networkInterfaces: interfaces
-    };
+function _calculate_free_mem(count_mongo_reserved_as_free) {
+    let res = os.freemem();
+    const KB_TO_BYTE = 1024;
+    if (os.type() !== 'Windows_NT' && os.type() !== 'Darwin') {
+        return P.resolve()
+            // get OS cached mem
+            .then(() => _exec_and_extract_num('cat /proc/meminfo | grep Buffers', 'Buffers:')
+                .then(buffers_mem_in_kb => {
+                    res += (buffers_mem_in_kb * KB_TO_BYTE);
+                }))
+            .then(() => _exec_and_extract_num('cat /proc/meminfo | grep Cached | grep -v SwapCached', 'Cached:')
+                .then(cached_mem_in_kb => {
+                    res += (cached_mem_in_kb * KB_TO_BYTE);
+                }))
+            // get mongod cached mem
+            .then(() => count_mongo_reserved_as_free &&
+                _exec_and_extract_num('ps -elf | grep mongod | grep -v grep', 'root')
+                .then(pid => pid && _exec_and_extract_num(`cat /proc/${pid}/status | grep VmRSS`, 'VmRSS:')
+                    .then(mongo_cached_mem => {
+                        res += (mongo_cached_mem * KB_TO_BYTE);
+                    })))
+            .return(res);
+    }
+    return res;
+}
+
+function _exec_and_extract_num(command, regex_line) {
+    const regex = new RegExp(regex_line + '[\\s]*([\\d]*)[\\s]');
+    return promise_utils.exec(command, true, true)
+        .then(res => {
+            const regex_res = regex.exec(res);
+            return (regex_res && regex_res[1] && parseInt(regex_res[1], 10)) || 0;
+        });
 }
 
 function read_drives() {
@@ -61,6 +98,20 @@ function get_main_drive_name() {
     }
 }
 
+function get_distro() {
+    return os_detailed_info((err, distro) => {
+        if (err) {
+            return P.reject(err);
+        }
+        let res;
+        if (distro && distro.dist) {
+            res = distro.dist;
+            if (distro.release) res += ` ${distro.release}`;
+            if (distro.codename) res += ` (${distro.codename})`;
+        }
+        return res ? P.resolve(res) : P.reject(new Error('unknown distro'));
+    });
+}
 
 function get_disk_mount_points() {
     return read_drives()
@@ -608,3 +659,4 @@ exports.restart_services = restart_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
 exports.get_disk_mount_points = get_disk_mount_points;
+exports.get_distro = get_distro;

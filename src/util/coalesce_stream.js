@@ -1,4 +1,4 @@
-// module targets: nodejs & browserify
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');

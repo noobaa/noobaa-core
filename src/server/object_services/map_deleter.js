@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -5,11 +6,8 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
-const md_store = require('./md_store');
+const MDStore = require('./md_store').MDStore;
 const server_rpc = require('../server_rpc');
-const mongo_utils = require('../../util/mongo_utils');
-const nodes_client = require('../node_services/nodes_client');
-
 
 /**
  *
@@ -17,124 +15,66 @@ const nodes_client = require('../node_services/nodes_client');
  *
  */
 function delete_object_mappings(obj) {
-    // find parts intersecting the [start,end) range
-    var deleted_parts;
-    var all_chunk_ids;
-    return P.resolve(md_store.ObjectPart.collection.find({
-            system: obj.system,
-            obj: obj._id,
-            deleted: null,
-        }).toArray())
-        .then(parts => mongo_utils.populate(parts, 'chunk', md_store.DataChunk))
-        .then(parts => {
-            deleted_parts = parts;
-            //Mark parts as deleted
-            return md_store.ObjectPart.collection.updateMany({
-                _id: {
-                    $in: mongo_utils.uniq_ids(parts, '_id')
-                }
-            }, {
-                $set: {
-                    deleted: new Date()
-                }
-            });
-        })
-        .then(() => {
-            var chunks = _.map(deleted_parts, 'chunk');
-            all_chunk_ids = mongo_utils.uniq_ids(chunks, '_id');
-            //For every chunk, verify if its no longer referenced
-            return md_store.ObjectPart.collection.find({
-                chunk: {
-                    $in: all_chunk_ids
-                },
-                deleted: null,
-            }, {
-                fields: {
-                    chunk: 1
-                }
-            }).toArray();
-        })
-        .then(referring_parts => {
-            //Seperate non referred chunks
-            var referred_chunks_ids = mongo_utils.uniq_ids(referring_parts, 'chunk');
-            var non_referred_chunks_ids = mongo_utils.obj_ids_difference(
-                all_chunk_ids, referred_chunks_ids);
-            dbg.log0("delete_object_mappings: all chunk ids", all_chunk_ids.length,
-                "non referenced chunk ids", non_referred_chunks_ids.length);
-            //Update non reffered chunks and their blocks as deleted
-            var in_chunk_ids = {
-                $in: non_referred_chunks_ids
-            };
-            var set_deleted_time = {
-                deleted: new Date()
-            };
-            return P.join(
-                md_store.DataChunk.collection.updateMany({
-                    _id: in_chunk_ids
-                }, {
-                    $set: set_deleted_time
-                }),
-                md_store.DataBlock.collection.updateMany({
-                    chunk: in_chunk_ids
-                }, {
-                    $set: set_deleted_time
-                }),
-                delete_objects_from_agents(non_referred_chunks_ids)
-            );
-        });
+    const delete_date = new Date();
+    return P.join(
+            MDStore.instance().find_parts_chunk_ids(obj),
+            MDStore.instance().delete_parts_of_object(obj, delete_date),
+            MDStore.instance().delete_multiparts_of_object(obj, delete_date)
+        )
+        .spread(chunk_ids => delete_chunks_if_unreferenced(chunk_ids, delete_date));
 }
 
+function delete_chunks_if_unreferenced(chunk_ids, delete_date) {
+    return MDStore.instance().find_parts_unreferenced_chunk_ids(chunk_ids)
+        .then(unreferenced_chunk_ids => delete_chunks(unreferenced_chunk_ids, delete_date));
+}
+
+function delete_chunks(chunk_ids, delete_date) {
+    return P.join(
+            MDStore.instance().find_blocks_of_chunks(chunk_ids),
+            MDStore.instance().delete_blocks_of_chunks(chunk_ids, delete_date),
+            MDStore.instance().delete_chunks_by_ids(chunk_ids, delete_date)
+        )
+        .spread(blocks => delete_blocks_from_nodes(blocks));
+}
 
 /*
- * delete_objects_from_agents
+ * delete_blocks_from_agents
  * send delete request for the deleted DataBlocks to the agents
  */
-function delete_objects_from_agents(deleted_chunk_ids) {
-    //Find the deleted data blocks and their nodes
-    P.resolve(md_store.DataBlock.collection.find({
-            chunk: {
-                $in: deleted_chunk_ids
-            },
-            //For now, query deleted as well as this gets executed in
-            //delete_object_mappings with P.all along with the DataBlocks
-            //deletion update
-        }).toArray())
-        .then(blocks => nodes_client.instance().populate_nodes_for_map(
-            blocks[0] && blocks[0].system, blocks, 'node'))
-        .then(deleted_blocks => {
-            //TODO: If the overload of these calls is too big, we should protect
-            //ourselves in a similar manner to the replication
-            var blocks_by_node = _.groupBy(deleted_blocks,
-                block => String(block.node._id));
-            return P.all(_.map(blocks_by_node, agent_delete_call));
-        });
+function delete_blocks_from_nodes(blocks) {
+    // TODO: If the overload of these calls is too big, we should protect
+    // ourselves in a similar manner to the replication
+    const blocks_by_node = _.values(_.groupBy(blocks, block => String(block.node._id)));
+    return P.map(blocks_by_node, delete_blocks_from_node);
 }
 
 
 /*
- * agent_delete_call
+ * delete_blocks_from_node
  * calls the agent with the delete API
  */
-function agent_delete_call(del_blocks, node_id) {
-    var address = del_blocks[0].node.rpc_address;
-    var block_ids = _.map(del_blocks, block => String(block._id));
-    dbg.log0('agent_delete_call: node', node_id, address,
+function delete_blocks_from_node(blocks) {
+    const node = blocks[0].node;
+    const block_ids = _.map(blocks, block => String(block._id));
+    dbg.log0('delete_blocks_from_node: node', node._id, node.rpc_address,
         'block_ids', block_ids.length);
     return server_rpc.client.block_store.delete_blocks({
-        block_ids: block_ids
-    }, {
-        address: address,
-        timeout: config.IO_DELETE_BLOCK_TIMEOUT,
-    }).then(() => {
-        dbg.log0('agent_delete_call: DONE. node', node_id, address,
-            'block_ids', block_ids.length);
-    }, err => {
-        dbg.log0('agent_delete_call: ERROR node', node_id, address,
-            'block_ids', block_ids.length, err);
-    });
+            block_ids: block_ids
+        }, {
+            address: node.rpc_address,
+            timeout: config.IO_DELETE_BLOCK_TIMEOUT,
+        })
+        .then(() => {
+            dbg.log0('delete_blocks_from_node: DONE. node', node._id, node.rpc_address,
+                'block_ids', block_ids.length);
+        }, err => {
+            dbg.log0('delete_blocks_from_node: ERROR node', node._id, node.rpc_address,
+                'block_ids', block_ids.length, err);
+        });
 }
 
 
 // EXPORTS
 exports.delete_object_mappings = delete_object_mappings;
-exports.agent_delete_call = agent_delete_call;
+exports.delete_blocks_from_nodes = delete_blocks_from_nodes;

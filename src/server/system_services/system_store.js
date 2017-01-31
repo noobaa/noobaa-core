@@ -1,12 +1,7 @@
-/**
- *
- * SYSTEM_STORE
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
-const Ajv = require('ajv');
 const util = require('util');
 const mongodb = require('mongodb');
 const EventEmitter = require('events').EventEmitter;
@@ -19,11 +14,10 @@ const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
-const schema_utils = require('../../util/schema_utils');
 
-const COLLECTIONS = js_utils.deep_freeze([{
+const COLLECTIONS = [{
     name: 'clusters',
-    schema: schema_utils.strictify(require('./schemas/cluster_schema')),
+    schema: require('./schemas/cluster_schema'),
     mem_indexes: [{
         name: 'cluster_by_server',
         key: 'owner_secret'
@@ -38,7 +32,7 @@ const COLLECTIONS = js_utils.deep_freeze([{
     }],
 }, {
     name: 'systems',
-    schema: schema_utils.strictify(require('./schemas/system_schema')),
+    schema: require('./schemas/system_schema'),
     mem_indexes: [{
         name: 'systems_by_name',
         key: 'name'
@@ -54,7 +48,7 @@ const COLLECTIONS = js_utils.deep_freeze([{
     }],
 }, {
     name: 'roles',
-    schema: schema_utils.strictify(require('./schemas/role_schema')),
+    schema: require('./schemas/role_schema'),
     mem_indexes: [{
         name: 'roles_by_account',
         context: 'system',
@@ -71,7 +65,7 @@ const COLLECTIONS = js_utils.deep_freeze([{
     db_indexes: [],
 }, {
     name: 'accounts',
-    schema: schema_utils.strictify(require('./schemas/account_schema')),
+    schema: require('./schemas/account_schema'),
     mem_indexes: [{
         name: 'accounts_by_email',
         key: 'email'
@@ -87,7 +81,7 @@ const COLLECTIONS = js_utils.deep_freeze([{
     }],
 }, {
     name: 'buckets',
-    schema: schema_utils.strictify(require('./schemas/bucket_schema')),
+    schema: require('./schemas/bucket_schema'),
     mem_indexes: [{
         name: 'buckets_by_name',
         context: 'system',
@@ -105,7 +99,7 @@ const COLLECTIONS = js_utils.deep_freeze([{
     }],
 }, {
     name: 'tieringpolicies',
-    schema: schema_utils.strictify(require('./schemas/tiering_policy_schema')),
+    schema: require('./schemas/tiering_policy_schema'),
     mem_indexes: [{
         name: 'tiering_policies_by_name',
         context: 'system',
@@ -123,7 +117,7 @@ const COLLECTIONS = js_utils.deep_freeze([{
     }],
 }, {
     name: 'tiers',
-    schema: schema_utils.strictify(require('./schemas/tier_schema')),
+    schema: require('./schemas/tier_schema'),
     mem_indexes: [{
         name: 'tiers_by_name',
         context: 'system',
@@ -141,7 +135,7 @@ const COLLECTIONS = js_utils.deep_freeze([{
     }],
 }, {
     name: 'pools',
-    schema: schema_utils.strictify(require('./schemas/pool_schema')),
+    schema: require('./schemas/pool_schema'),
     mem_indexes: [{
         name: 'pools_by_name',
         context: 'system',
@@ -157,7 +151,7 @@ const COLLECTIONS = js_utils.deep_freeze([{
             unique: true,
         }
     }],
-}]);
+}];
 
 const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
 
@@ -191,7 +185,7 @@ class SystemStoreData {
             };
         }
         //Query deleted !== null
-        const collection = mongo_client.instance().db.collection(name);
+        const collection = mongo_client.instance().collection(name);
         return P.resolve(collection.findOne({
                 _id: id,
                 deleted: {
@@ -238,9 +232,6 @@ class SystemStoreData {
                 } else {
                     this.idmap[idstr] = item;
                 }
-                // keep backward compatible since mongoose exposes 'id'
-                // for the sake of existing code that uses it
-                // item.id = item._id;
             });
         });
     }
@@ -334,20 +325,24 @@ class SystemStore extends EventEmitter {
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
-        this._json_validator = new Ajv({
-            formats: {
-                date: schema_utils.date_format,
-                idate: schema_utils.idate_format,
-                objectid: val => mongo_utils.is_object_id(val)
-            }
-        });
-        _.each(COLLECTIONS, col => {
+        for (const col of COLLECTIONS) {
             mongo_client.instance().define_collection(col);
-            this._json_validator.addSchema(col.schema, col.name);
-        });
-        mongo_client.instance().on('reconnect', () => this.load());
+        }
+        js_utils.deep_freeze(COLLECTIONS);
+        js_utils.deep_freeze(COLLECTIONS_BY_NAME);
         this.refresh_middleware = () => this.refresh();
-        setTimeout(this.refresh_middleware, 1000);
+        this.initial_load();
+    }
+
+    initial_load() {
+        mongo_client.instance().on('reconnect', () => this.load());
+        P.delay(100)
+            .then(() => {
+                if (mongo_client.instance().is_connected()) {
+                    return this.load();
+                }
+            })
+            .catch(_.noop);
     }
 
     refresh() {
@@ -360,7 +355,7 @@ class SystemStore extends EventEmitter {
             if (since_load < this.START_REFRESH_THRESHOLD) {
                 return this.data;
             } else if (since_load < this.FORCE_REFRESH_THRESHOLD) {
-                this.load();
+                this.load().catch(_.noop);
                 return this.data;
             } else {
                 return this.load();
@@ -373,8 +368,8 @@ class SystemStore extends EventEmitter {
         dbg.log0('SystemStore: fetching ...');
         let new_data = new SystemStoreData();
         let millistamp = time_utils.millistamp();
-        this._load_promise =
-            P.fcall(() => this._register_for_changes())
+        this._load_promise = P.resolve()
+            .then(() => this._register_for_changes())
             .then(() => this._read_data_from_db(new_data))
             .then(() => os_utils.read_server_secret())
             .then(secret => {
@@ -414,7 +409,7 @@ class SystemStore extends EventEmitter {
     _on_reconnect(conn) {
         if (conn.url.href === server_rpc.rpc.router.default) {
             dbg.log0('_on_reconnect:', conn.url.href);
-            this.load();
+            this.load().catch(_.noop);
         }
     }
 
@@ -422,28 +417,21 @@ class SystemStore extends EventEmitter {
         let non_deleted_query = {
             deleted: null
         };
-        return mongo_client.instance().connect()
-            .then(() => {
-                return P.map(COLLECTIONS, col =>
-                    mongo_client.instance().db.collection(col.name).find(non_deleted_query).toArray()
-                    .then(res => {
-                        target[col.name] = res;
-                        _.each(res, item => this._check_schema(col, item, 'read'));
-                    })
-                );
-            });
+        return P.map(COLLECTIONS,
+            col => mongo_client.instance().collection(col.name)
+            .find(non_deleted_query)
+            .toArray()
+            .then(res => {
+                for (const item of res) {
+                    this._check_schema(col, item, 'warn');
+                }
+                target[col.name] = res;
+            })
+        );
     }
 
-    _check_schema(col, item, caller) {
-        let validator = this._json_validator.getSchema(col.name);
-        let is_valid = validator(item);
-        if (!is_valid) {
-            dbg.error('SystemStore: item not valid in collection',
-                col.name, validator.errors, item);
-            if (caller === 'insert') {
-                throw new Error('SystemStore: item not valid');
-            }
-        }
+    _check_schema(col, item, warn) {
+        return mongo_client.instance().validate(col.name, item, warn);
     }
 
     generate_id() {
@@ -497,7 +485,8 @@ class SystemStore extends EventEmitter {
             let bulk =
                 bulk_per_collection[name] =
                 bulk_per_collection[name] ||
-                mongo_client.instance().db.collection(name).initializeUnorderedBulkOp();
+                mongo_client.instance().collection(name)
+                .initializeUnorderedBulkOp();
             return bulk;
         };
 
@@ -507,7 +496,7 @@ class SystemStore extends EventEmitter {
                 _.each(changes.insert, (list, name) => {
                     const col = get_collection(name);
                     _.each(list, item => {
-                        this._check_schema(col, item, 'insert');
+                        this._check_schema(col, item);
                         data.check_indexes(col, item);
                         get_bulk(name).insert(item);
                     });
@@ -540,23 +529,25 @@ class SystemStore extends EventEmitter {
 
                         // TODO how to _check_schema on update?
                         // if (updates.$set) {
-                        //     this._check_schema(col, updates.$set, 'update');
+                        //     this._check_schema(col, updates.$set, 'warn');
                         // }
                         get_bulk(name).find({
-                            _id: item._id
-                        }).updateOne(updates);
+                                _id: item._id
+                            })
+                            .updateOne(updates);
                     });
                 });
                 _.each(changes.remove, (list, name) => {
                     get_collection(name);
                     _.each(list, id => {
                         get_bulk(name).find({
-                            _id: id
-                        }).updateOne({
-                            $set: {
-                                deleted: now
-                            }
-                        });
+                                _id: id
+                            })
+                            .updateOne({
+                                $set: {
+                                    deleted: now
+                                }
+                            });
                     });
                 });
 
@@ -616,5 +607,4 @@ class SystemStore extends EventEmitter {
 
 // EXPORTS
 exports.SystemStore = SystemStore;
-exports.SystemStoreData = SystemStoreData;
 exports.get_instance = SystemStore.get_instance;

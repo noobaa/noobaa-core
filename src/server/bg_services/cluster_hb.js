@@ -17,19 +17,23 @@ function do_heartbeat() {
         let heartbeat = {
             version: pkg.version,
             time: Date.now(),
-            health: {
-                os_info: os_utils.os_info(),
-            }
+            health: {}
         };
-        return P.join(
-                P.resolve().then(() => {
+        return P.resolve()
+            .then(() => os_utils.os_info(true)
+                .then(os_info => {
+                    heartbeat.health.os_info = os_info;
+                }))
+            .then(() => P.join(
+                P.resolve()
+                .then(() => {
                     if (current_clustering.is_clusterized) {
                         return MongoCtrl.get_hb_rs_status();
                     } else {
                         dbg.log0('server is not part of a cluster. skipping rs status');
                     }
                 }),
-                os_utils.read_drives())
+                os_utils.read_drives()))
             .spread((mongo_status, drives) => {
                 let root = drives.find(drive => drive.mount === '/');
                 return {

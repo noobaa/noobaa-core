@@ -525,6 +525,54 @@ module.exports = {
             ]
         },
 
+        mode_counters: {
+            type: 'object',
+            properties: {
+                OFFLINE: {
+                    type: 'integer'
+                },
+                UNTRUSTED: {
+                    type: 'integer'
+                },
+                INITALIZING: {
+                    type: 'integer'
+                },
+                DELETING: {
+                    type: 'integer'
+                },
+                DELETED: {
+                    type: 'integer'
+                },
+                DECOMMISSIONED: {
+                    type: 'integer'
+                },
+                DECOMMISSIONING: {
+                    type: 'integer'
+                },
+                MIGRATING: {
+                    type: 'integer'
+                },
+                N2N_ERRORS: {
+                    type: 'integer'
+                },
+                GATEWAY_ERRORS: {
+                    type: 'integer'
+                },
+                IO_ERRORS: {
+                    type: 'integer'
+                },
+                LOW_CAPACITY: {
+                    type: 'integer'
+                },
+                NO_CAPACITY: {
+                    type: 'integer'
+                },
+                OPTIMAL: {
+                    type: 'integer'
+                },
+            }
+        },
+
 
         node_identity: {
             type: 'object',
@@ -612,6 +660,12 @@ module.exports = {
                 data_activity: {
                     $ref: '#/definitions/data_activity_type'
                 },
+                mode: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/node_mode'
+                    }
+                }
             }
         },
 
@@ -620,7 +674,7 @@ module.exports = {
             required: [
                 'count',
                 'online',
-                'has_issues'
+                'by_mode'
             ],
             additionalProperties: true,
             properties: {
@@ -630,8 +684,8 @@ module.exports = {
                 online: {
                     type: 'integer'
                 },
-                has_issues: {
-                    type: 'integer'
+                by_mode: {
+                    $ref: '#/definitions/mode_counters'
                 },
             }
         },

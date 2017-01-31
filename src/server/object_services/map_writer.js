@@ -1,4 +1,4 @@
-/* jshint node:true */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -6,7 +6,7 @@ const crypto = require('crypto');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const md_store = require('./md_store');
+const MDStore = require('./md_store').MDStore;
 const mongo_utils = require('../../util/mongo_utils');
 const time_utils = require('../../util/time_utils');
 
@@ -19,13 +19,11 @@ const time_utils = require('../../util/time_utils');
  *
  */
 function finalize_object_parts(bucket, obj, parts) {
-    // console.log('GGG finalize_object_parts', require('util').inspect(parts, {
-    //     depth: null
-    // }));
-    let millistamp = time_utils.millistamp();
-    let new_parts = [];
-    let new_chunks = [];
-    let new_blocks = [];
+    // console.log('GGG finalize_object_parts', require('util').inspect(parts, { depth: null }));
+    const millistamp = time_utils.millistamp();
+    const new_parts = [];
+    const new_chunks = [];
+    const new_blocks = [];
     let upload_size = obj.upload_size || 0;
     _.each(parts, part => {
         if (upload_size < part.end) {
@@ -33,14 +31,15 @@ function finalize_object_parts(bucket, obj, parts) {
         }
         let chunk_id;
         if (part.chunk_dedup) {
-            chunk_id = md_store.make_md_id(part.chunk_dedup);
+            chunk_id = MDStore.instance().make_md_id(part.chunk_dedup);
         } else {
-            chunk_id = md_store.make_md_id();
+            chunk_id = MDStore.instance().make_md_id();
             _.each(part.chunk.frags, f => {
                 _.each(f.blocks, block => {
                     new_blocks.push(_.extend({
-                        _id: md_store.make_md_id(block.block_md.id),
+                        _id: MDStore.instance().make_md_id(block.block_md.id),
                         system: obj.system,
+                        bucket: bucket._id,
                         chunk: chunk_id,
                         node: mongo_utils.make_object_id(block.block_md.node)
                     }, _.pick(f,
@@ -69,34 +68,33 @@ function finalize_object_parts(bucket, obj, parts) {
                 'data_frags',
                 'lrc_frags')));
         }
-        new_parts.push({
-            _id: md_store.make_md_id(),
+        const new_part = {
+            _id: MDStore.instance().make_md_id(),
             system: obj.system,
+            bucket: bucket._id,
             obj: obj._id,
             start: part.start,
             end: part.end,
-            part_sequence_number: part.part_sequence_number,
-            upload_part_number: part.upload_part_number || 0,
-            chunk: chunk_id
-        });
+            seq: part.seq,
+            chunk: chunk_id,
+        };
+        if (part.multipart_id) {
+            new_part.multipart = MDStore.instance().make_md_id(part.multipart_id);
+        }
+        new_parts.push(new_part);
     });
 
     return P.join(
-            new_blocks.length && P.resolve(md_store.DataBlock.collection.insertMany(new_blocks)),
-            new_chunks.length && P.resolve(md_store.DataChunk.collection.insertMany(new_chunks)),
-            new_parts.length && P.resolve(md_store.ObjectPart.collection.insertMany(new_parts)),
-            upload_size > obj.upload_size && P.resolve(md_store.ObjectMD.collection.updateOne({
-                _id: obj._id
-            }, {
-                $set: {
-                    upload_size: upload_size
-                }
-            }))
+            MDStore.instance().insert_blocks(new_blocks),
+            MDStore.instance().insert_chunks(new_chunks),
+            MDStore.instance().insert_parts(new_parts),
+            (upload_size > obj.upload_size) &&
+            MDStore.instance().update_object_by_id(obj._id, { upload_size: upload_size })
         )
-        .then(function() {
+        .then(() => {
             dbg.log0('finalize_object_parts: DONE. parts', parts.length,
                 'took', time_utils.millitook(millistamp));
-        }, function(err) {
+        }, err => {
             dbg.error('finalize_object_parts: ERROR', err.stack || err);
             throw err;
         });
@@ -105,223 +103,63 @@ function finalize_object_parts(bucket, obj, parts) {
 
 /**
  *
- * list_multipart_parts
+ * complete_object_parts
  *
  */
-function list_multipart_parts(params) {
-    var max_parts = Math.min(params.max_parts || 50, 50);
-    var marker = params.part_number_marker || 0;
-    return P.resolve(md_store.ObjectPart.collection.find({
-            obj: params.obj._id,
-            upload_part_number: {
-                $gte: marker,
-                $lt: marker + max_parts
-            },
-            deleted: null,
-        }, {
-            sort: 'upload_part_number'
-                // TODO set limit max_parts?
-        }).toArray())
-        .then(parts => mongo_utils.populate(parts, 'chunk', md_store.DataChunk))
-        .then(function(parts) {
-            var upload_parts = _.groupBy(parts, 'upload_part_number');
-            dbg.log0('list_multipart_parts: upload_parts', upload_parts);
-            var part_numbers = _.keys(upload_parts).sort();
-            dbg.log0('list_multipart_parts: part_numbers', part_numbers);
-            var last_part = parseInt(_.last(part_numbers), 10) || marker;
-            return {
-                part_number_marker: marker,
-                max_parts: max_parts,
-                // since we don't know here the real end number
-                // then we just reply truncated=true until we get to the last iteration
-                // where we don't find any parts.
-                // TODO this logic fails if there is a gap of numbers. need to correct
-                is_truncated: Boolean(part_numbers.length || !max_parts),
-                next_part_number_marker: last_part + 1,
-                upload_parts: _.map(part_numbers, function(num) {
-                    let updated_item = upload_parts[num][0];
-                    return {
-                        part_number: parseInt(num, 10),
-                        size: _.reduce(upload_parts[num], function(sum, part) {
-                            return sum + part.end - part.start;
-                        }, 0),
-                        etag: updated_item.etag,
-                        last_modified: updated_item._id.getTimestamp().getTime(),
-                    };
-                })
-            };
-        });
-}
+function complete_object_parts(obj, multiparts_req) {
+    // TODO consider multiparts_req
+    let pos = 0;
+    let seq = 0;
+    let num_parts = 0;
+    let multipart_etag = '';
+    const parts_updates = [];
 
-
-/**
- *
- * set_multipart_part_md5
- *
- */
-function set_multipart_part_md5(params) {
-    return P.resolve(md_store.ObjectPart.collection.find({
-            system: params.obj.system,
-            obj: params.obj._id,
-            upload_part_number: params.upload_part_number,
-            part_sequence_number: 0,
-            deleted: null,
-        }, {
-            sort: '-_id' // when same, get newest first
-        }).toArray())
-        .then(function(part_obj) {
-            dbg.log1('set_multipart_part_md5_obj: ', part_obj[0]._id, params.etag);
-            return md_store.ObjectPart.collection.updateOne({
-                _id: part_obj[0]._id
-            }, {
-                $set: {
-                    etag: params.etag,
-                }
-            });
-        })
-        .return();
-}
-
-
-/**
- *
- * calc_multipart_md5
- *
- */
-function calc_multipart_md5(obj) {
-    return P.fcall(function() {
-        // find part that need update of start and end offsets
-        dbg.warn('calc_multipart_md5: SLOW QUERY',
-            'ObjectPart.find(part_sequence_number:0).',
-            'add part_sequence_number to index?');
-        return md_store.ObjectPart.collection.find({
-            system: obj.system,
-            obj: obj._id,
-            part_sequence_number: 0,
-            deleted: null,
-            etag: {
-                $exists: true
+    function process_next_parts(parts) {
+        parts.sort((a, b) => a.seq - b.seq);
+        for (const part of parts) {
+            const len = part.end - part.start;
+            if (part.seq !== seq) {
+                console.log('complete_object_parts: update part at seq', seq,
+                    'pos', pos, 'len', len, part._id);
+                parts_updates.push({
+                    _id: part._id,
+                    set_updates: {
+                        seq: seq,
+                        start: pos,
+                        end: pos + len,
+                    }
+                });
             }
-        }, {
-            sort: {
-                upload_part_number: 1,
-                _id: -1 // when same, get newest first
-            }
-        }).toArray();
-    }).then(function(upload_parts) {
-        var digester = crypto.createHash('md5');
-        _.each(upload_parts, function(part) {
-            var part_md5 = part.etag;
-            digester.update(part_md5, 'hex');
-        });
-        var aggregated_md5 = digester.digest('hex') + '-' + upload_parts.length;
-        dbg.log0('aggregated etag:', aggregated_md5, ' for ', obj.key);
-        return aggregated_md5;
-    });
-}
+            pos += len;
+            seq += 1;
+            num_parts += 1;
+        }
+    }
 
-
-/**
- *
- * fix_multipart_parts
- *
- */
-function fix_multipart_parts(obj) {
     return P.join(
-            // find part that need update of start and end offsets
-            md_store.ObjectPart.collection.find({
-                obj: obj._id,
-                deleted: null
-            }, {
-                sort: {
-                    upload_part_number: 1,
-                    part_sequence_number: 1,
-                    _id: -1 // when same, get newest first
-                }
-            }).toArray(),
-            // query to find the last part without upload_part_number
-            // which has largest end offset.
-            md_store.ObjectPart.collection.find({
-                obj: obj._id,
-                upload_part_number: null,
-                deleted: null
-            }, {
-                sort: {
-                    end: -1
-                },
-                limit: 1
-            }).toArray()
+            MDStore.instance().find_parts_of_object(obj),
+            multiparts_req && MDStore.instance().find_multiparts_of_object(obj._id, 0, 10000)
         )
-        .spread(function(remaining_parts, last_stable_part) {
-            var last_end = 0;
-            var last_upload_part_number = 0;
-            var last_part_sequence_number = -1;
-            if (last_stable_part[0]) {
-                last_end = last_stable_part[0].end;
-                last_upload_part_number = last_stable_part[0].upload_part_number;
-                last_part_sequence_number = last_stable_part[0].part_sequence_number;
+        .spread((parts, multiparts) => {
+            if (!multiparts) return process_next_parts(parts);
+            const parts_by_mp = _.groupBy(parts, 'multipart');
+            const md5 = crypto.createHash('md5');
+            for (const multipart of multiparts) {
+                md5.update(multipart.md5_b64, 'base64');
+                const mp_parts = parts_by_mp[multipart._id];
+                process_next_parts(mp_parts);
             }
-            dbg.log1('fix_multipart_parts: found remaining_parts', remaining_parts);
-            dbg.log1('fix_multipart_parts: found last_stable_part', last_stable_part);
-            var bulk_update = md_store.ObjectPart.collection.initializeUnorderedBulkOp();
-            _.each(remaining_parts, function(part) {
-                var mismatch;
-                var unneeded;
-                if (part.upload_part_number === last_upload_part_number) {
-                    if (part.part_sequence_number === last_part_sequence_number) {
-                        unneeded = true;
-                    } else if (part.part_sequence_number !== last_part_sequence_number + 1) {
-                        mismatch = true;
-                    }
-                } else if (part.upload_part_number === last_upload_part_number + 1) {
-                    if (part.part_sequence_number !== 0) {
-                        mismatch = true;
-                    }
-                } else {
-                    mismatch = true;
-                }
-                if (mismatch) {
-                    dbg.error('fix_multipart_parts: MISMATCH UPLOAD_PART_NUMBER',
-                        'last_upload_part_number', last_upload_part_number,
-                        'last_part_sequence_number', last_part_sequence_number,
-                        'part', part);
-                    throw new Error('fix_multipart_parts: MISMATCH UPLOAD_PART_NUMBER');
-                } else if (unneeded) {
-                    bulk_update.find({
-                        _id: part._id
-                    }).removeOne();
-                } else {
-                    var current_end = last_end + part.end - part.start;
-                    dbg.log1('fix_multipart_parts: update part range',
-                        last_end, '-', current_end, part);
-                    bulk_update.find({
-                        _id: part._id
-                    }).updateOne({
-                        $set: {
-                            start: last_end,
-                            end: current_end,
-                        },
-                        $unset: {
-                            upload_part_number: '',
-                            etag: '',
-                        }
-                    });
-                    last_end = current_end;
-                    last_upload_part_number = part.upload_part_number;
-                    last_part_sequence_number = part.part_sequence_number;
-                }
-            });
-            // calling execute on bulk and handling node callbacks
-            if (bulk_update.length) {
-                return P.resolve(bulk_update.execute()).return(last_end);
-            }
-        });
+            multipart_etag = md5.digest('hex') + '-' + multiparts.length;
+        })
+        .then(() => MDStore.instance().update_parts_in_bulk(parts_updates))
+        .then(() => ({
+            size: pos,
+            num_parts,
+            multipart_etag,
+        }));
 }
 
 
 // EXPORTS
 exports.finalize_object_parts = finalize_object_parts;
-exports.list_multipart_parts = list_multipart_parts;
-exports.fix_multipart_parts = fix_multipart_parts;
-exports.calc_multipart_md5 = calc_multipart_md5;
-exports.set_multipart_part_md5 = set_multipart_part_md5;
+exports.complete_object_parts = complete_object_parts;

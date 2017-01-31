@@ -1,4 +1,7 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
+
+const cluster = require('cluster');
 
 class Speedometer {
 
@@ -29,17 +32,17 @@ class Speedometer {
     }
 
     report(min_delay_ms) {
-        let now = Date.now();
+        const now = Date.now();
         if (min_delay_ms && now - this.last_time < min_delay_ms) {
             return;
         }
         if (this.worker_mode) {
             process.send(this.num_bytes - this.last_bytes);
         } else {
-            let speed = (this.num_bytes - this.last_bytes) / (now - this.last_time);
-            let avg_speed = this.num_bytes / (now - this.start_time);
-            speed *= 1000 / 1024 / 1024;
-            avg_speed *= 1000 / 1024 / 1024;
+            const speed = (this.num_bytes - this.last_bytes) /
+                (now - this.last_time) * 1000 / 1024 / 1024;
+            const avg_speed = this.num_bytes /
+                (now - this.start_time) * 1000 / 1024 / 1024;
             console.log(this.name + ': ' +
                 speed.toFixed(1) + ' MB/sec' +
                 ' (average ' + avg_speed.toFixed(1) + ')');
@@ -49,12 +52,11 @@ class Speedometer {
     }
 
     enable_cluster() {
-        let cluster = require('cluster');
-        let _ = require('lodash');
         if (cluster.isMaster) {
-            cluster.on('message', bytes => this.update(bytes));
+            cluster.on('message', (worker, bytes) => this.update(bytes));
             cluster.on('exit', worker => {
-                if (_.isEmpty(cluster.workers)) {
+                const worker_ids = Object.keys(cluster.workers);
+                if (!worker_ids.length) {
                     this.clear_interval();
                 }
             });

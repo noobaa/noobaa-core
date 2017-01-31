@@ -5,6 +5,7 @@ import { systemInfo } from 'model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount} from 'utils/string-utils';
+import { countNodesByState } from 'utils/ui-utils';
 
 const coutners = deepFreeze({
     ALL: 0,
@@ -79,29 +80,26 @@ class ResourceOverviewViewModel extends BaseViewModel {
             () => resourceCounters().S3_COMPATIBLE
         );
 
-        const onlineNodesCount = ko.pureComputed(
-            () => systemInfo() ? systemInfo().nodes.online : 0
+        const nodeCoutners = ko.pureComputed(
+            () => countNodesByState(systemInfo() ? systemInfo().nodes.by_mode : {})
+        );
+
+        const healthyNodesCount = ko.pureComputed(
+            () => nodeCoutners().healthy
         );
 
         const offlineNodesCount = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return 0;
-                }
-
-                const { count, online, has_issues } = systemInfo().nodes;
-                return count - (online + has_issues);
-            }
+            () => nodeCoutners().offline
         );
 
         const nodesWithIssuesCount = ko.pureComputed(
-            () => systemInfo() ? systemInfo().nodes.has_issues : 0
+            () => nodeCoutners().hasIssues
         );
 
         this.chartValues = [
             {
                 label: 'Online',
-                value: onlineNodesCount,
+                value: healthyNodesCount,
                 color: style['color12']
             },
             {

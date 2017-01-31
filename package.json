@@ -32,12 +32,13 @@
     "agents": "node src/agent/agent_cli --scale 20",
     "start": "node src/server",
     "------": "---------------------------------------------------------------",
-    "clean:storage": "rm -rf ./agent_storage/* ./metadata_storage/*",
+    "clean:storage": "rm -rf ./agent_storage/* ./metadata_storage/* agent_conf.json",
+    "clean:garbage": "find . -name .DS_Store -print -delete",
     "clean:install": "rm -rf ./node_modules",
     "clean:build": "rm -rf ./build",
     "clean:test": "rm -rf ./coverage ./logs",
     "clean:fe": "rm -rf ./frontend/node_modules ./frontend/dist ./frontend/src/lib",
-    "clean": "npm run clean:install && npm run clean:build && npm run clean:test && npm run clean:fe"
+    "clean": "npm run clean:garbage && npm run clean:install && npm run clean:build && npm run clean:test && npm run clean:fe"
   },
   "repository": {
     "type": "git",
@@ -84,6 +85,7 @@
     "forever": "0.15.2",
     "forever-service": "0.5.7",
     "form-data": "0.2.0",
+    "getos": "2.8.4",
     "glob-to-regexp": "0.1.0",
     "googleapis": "12.2.0",
     "gulp": "3.9.1",

@@ -1,46 +1,44 @@
-/**
- *
- * SYSTEM_SERVER
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
+
 require('../../util/dotenv').load();
 const DEV_MODE = (process.env.DEV_MODE === 'true');
+
 const _ = require('lodash');
+const fs = require('fs');
 const url = require('url');
 const net = require('net');
-const request = require('request');
-// const uuid = require('node-uuid');
-const ip_module = require('ip');
-const fs = require('fs');
+const dns = require('dns');
 const path = require('path');
+const request = require('request');
+const ip_module = require('ip');
+
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
-const md_store = require('../object_services/md_store');
+const MDStore = require('../object_services/md_store').MDStore;
+const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const RpcError = require('../../rpc/rpc_error');
+const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
-const account_server = require('./account_server');
-const cluster_server = require('./cluster_server');
-const Dispatcher = require('../notifications/dispatcher');
+const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
-const system_server_utils = require('../utils/system_server_utils');
-const node_server = require('../node_services/node_server');
-const dns = require('dns');
+const account_server = require('./account_server');
+const cluster_server = require('./cluster_server');
 const node_allocator = require('../node_services/node_allocator');
-const config_file_store = require('./config_file_store').instance();
-const fs_utils = require('../../util/fs_utils');
 const stats_collector = require('../bg_services/stats_collector');
+const config_file_store = require('./config_file_store').instance();
+const system_server_utils = require('../utils/system_server_utils');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -52,7 +50,7 @@ const SYS_STORAGE_DEFAULTS = Object.freeze({
 const SYS_NODES_INFO_DEFAULTS = Object.freeze({
     count: 0,
     online: 0,
-    has_issues: 0,
+    by_mode: {},
 });
 
 var client_syslog;
@@ -350,10 +348,8 @@ function read_system(req) {
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
         // TODO: find a better solution than aggregating nodes twice
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false),
-        md_store.aggregate_objects_count({
-            system: system._id,
-            deleted: null
-        }),
+
+        MDStore.instance().count_objects_per_bucket(system._id),
 
         // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
         // which is supported instead of sending the bucket name in an rpc req
@@ -380,7 +376,7 @@ function read_system(req) {
     ).spread(function(
         nodes_aggregate_pool_no_cloud,
         nodes_aggregate_pool_with_cloud,
-        objects_count,
+        obj_count_per_bucket,
         cloud_sync_by_bucket,
         accounts,
         has_ssl_cert
@@ -394,7 +390,7 @@ function read_system(req) {
             objects_sys.size = objects_sys.size
                 .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
         });
-        objects_sys.count = objects_sys.count.plus(objects_count[''] || 0);
+        objects_sys.count = objects_sys.count.plus(obj_count_per_bucket[''] || 0);
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
         const debug_level = system.debug_level;
@@ -446,7 +442,7 @@ function read_system(req) {
                 bucket => bucket_server.get_bucket_info(
                     bucket,
                     nodes_aggregate_pool_with_cloud,
-                    objects_count[bucket._id] || 0,
+                    obj_count_per_bucket[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),

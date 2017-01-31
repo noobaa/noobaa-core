@@ -1,27 +1,23 @@
-/**
- *
- * OBJECT_SERVER
- *
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
 const url = require('url');
 const mime = require('mime');
-const moment = require('moment');
+const crypto = require('crypto');
 const ip_module = require('ip');
 const glob_to_regexp = require('glob-to-regexp');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const MDStore = require('./md_store').MDStore;
 const LRUCache = require('../../util/lru_cache');
-const md_store = require('./md_store');
-const map_copy = require('./map_copy');
 const RpcError = require('../../rpc/rpc_error');
+const Dispatcher = require('../notifications/dispatcher');
+const http_utils = require('../../util/http_utils');
 const map_writer = require('./map_writer');
 const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
-const Dispatcher = require('../notifications/dispatcher');
 const mongo_utils = require('../../util/mongo_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const ObjectStats = require('../analytic_services/object_stats');
@@ -30,8 +26,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
 const promise_utils = require('../../util/promise_utils');
 const map_allocator = require('./map_allocator');
-const mongo_functions = require('../../util/mongo_functions');
-const http_utils = require('../../util/http_utils');
 const system_server_utils = require('../utils/system_server_utils');
 
 /**
@@ -44,79 +38,36 @@ function create_object_upload(req) {
     throw_if_maintenance(req);
     load_bucket(req);
     var info = {
-        _id: md_store.make_md_id(),
+        _id: MDStore.instance().make_md_id(),
         system: req.system._id,
         bucket: req.bucket._id,
         key: req.rpc_params.key,
         content_type: req.rpc_params.content_type ||
             mime.lookup(req.rpc_params.key) ||
             'application/octet-stream',
+        cloud_synced: false,
         upload_started: new Date(),
         upload_size: 0,
-        cloud_synced: false,
     };
-    if (req.rpc_params.size) {
-        info.size = req.rpc_params.size;
-    }
-    if (req.rpc_params.xattr) {
-        info.xattr = req.rpc_params.xattr;
-    }
-    return P.resolve(md_store.ObjectMD.findOne({
-            system: req.system._id,
-            bucket: req.bucket._id,
-            key: req.rpc_params.key,
-            deleted: null
-        }))
+    if (req.rpc_params.xattr) info.xattr = req.rpc_params.xattr;
+    if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
+    if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
+    if (req.rpc_params.sha256_b64 >= 0) info.sha256_b64 = req.rpc_params.sha256_b64;
+    return MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key)
         .then(existing_obj => {
             // check if the conditions for overwrite are met, throws if not
             check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
             // we passed the checks, so we can delete the existing object if exists
-            if (existing_obj) {
-                return delete_object_internal(existing_obj);
-            }
+            return delete_object_internal(existing_obj);
         })
-        .then(() => md_store.ObjectMD.create(info))
+        .then(() => MDStore.instance().insert_object(info))
         .return({
             upload_id: String(info._id)
         });
 }
 
 
-
-/**
- *
- * LIST_MULTIPART_PARTS
- *
- */
-function list_multipart_parts(req) {
-    return find_object_upload(req)
-        .then(obj => {
-            var params = _.pick(req.rpc_params,
-                'part_number_marker',
-                'max_parts');
-            params.obj = obj;
-            return map_writer.list_multipart_parts(params);
-        });
-}
-
-
-/**
- *
- * COMPLETE_PART_UPLOAD
- *
- * Set md5 for part (which is part of multipart upload)
- */
-function complete_part_upload(req) {
-    dbg.log1('complete_part_upload - etag', req.rpc_params.etag, 'req:', req);
-    throw_if_maintenance(req);
-    return find_object_upload(req)
-        .then(obj => {
-            var params = _.pick(req.rpc_params,
-                'upload_part_number', 'etag');
-            params.obj = obj;
-            return map_writer.set_multipart_part_md5(params);
-        });
-}
+const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');
 
 /**
  *
@@ -125,48 +76,77 @@ function complete_part_upload(req) {
  */
 function complete_object_upload(req) {
     var obj;
-    var obj_etag = req.rpc_params.etag || '';
+    const set_updates = {};
+    const unset_updates = {
+        upload_size: 1,
+        upload_started: 1,
+    };
     throw_if_maintenance(req);
     return find_object_upload(req)
         .then(obj_arg => {
             obj = obj_arg;
-            if (req.rpc_params.fix_parts_size) {
-                return map_writer.calc_multipart_md5(obj)
-                    .then(aggregated_md5 => {
-                        obj_etag = aggregated_md5;
-                        dbg.log0('aggregated_md5', obj_etag);
-                        return map_writer.fix_multipart_parts(obj);
-                    });
-            } else {
-                dbg.log0('complete_object_upload no fix for', obj);
-                return obj.size;
+            if (req.rpc_params.size !== obj.size) {
+                if (obj.size >= 0) {
+                    throw new RpcError('BAD_SIZE',
+                        `size on complete object (${
+                            req.rpc_params.size
+                        }) differs from create object (${
+                            obj.size
+                        })`);
+                }
+            }
+            if (req.rpc_params.md5_b64 !== obj.md5_b64) {
+                if (obj.md5_b64) {
+                    throw new RpcError('BAD_DIGEST',
+                        `md5 on complete object (${
+                            req.rpc_params.md5_b64
+                        }) differs from create object (${
+                            obj.md5_b64
+                        })`);
+                }
+                set_updates.md5_b64 = req.rpc_params.md5_b64;
+            }
+            if (req.rpc_params.sha256_b64 !== obj.sha256_b64) {
+                if (obj.sha256_b64) {
+                    throw new RpcError('BAD_DIGEST',
+                        `sha256 on complete object (${
+                            req.rpc_params.sha256_b64
+                        }) differs from create object (${
+                            obj.sha256_b64
+                        })`);
+                }
+                set_updates.sha256_b64 = req.rpc_params.sha256_b64;
             }
         })
-        .then(object_size => {
+        .then(() => map_writer.complete_object_parts(obj, req.rpc_params.multiparts))
+        .then(res => {
+            if (req.rpc_params.size !== res.size) {
+                if (req.rpc_params.size >= 0) {
+                    throw new RpcError('BAD_SIZE',
+                        `size on complete object (${
+                            req.rpc_params.size
+                        }) differs from parts (${
+                            obj.size
+                        })`);
+                }
+            }
+            set_updates.size = res.size;
+            set_updates.num_parts = res.num_parts;
+            set_updates.etag = res.size === 0 ?
+                ZERO_SIZE_ETAG :
+                (res.multipart_etag || Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex'));
+            set_updates.create_time = new Date();
+        })
+        .then(() => MDStore.instance().update_object_by_id(obj._id, set_updates, unset_updates))
+        .then(() => {
             Dispatcher.instance().activity({
                 system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
-                obj: obj,
+                obj: obj._id,
                 actor: req.account && req.account._id,
                 desc: `${obj.key} was uploaded by ${req.account && req.account.email}`,
             });
-
-            return md_store.ObjectMD.collection.updateOne({
-                _id: obj._id
-            }, {
-                $set: {
-                    size: object_size || obj.size,
-                    create_time: new Date(),
-                    etag: obj_etag
-                },
-                $unset: {
-                    upload_size: 1,
-                    upload_started: 1,
-                }
-            });
-        })
-        .then(() => {
             system_store.make_changes_in_background({
                 update: {
                     buckets: [{
@@ -181,7 +161,7 @@ function complete_object_upload(req) {
                 }
             });
             return {
-                etag: obj_etag
+                etag: set_updates.etag
             };
         })
         .catch(err => {
@@ -233,11 +213,119 @@ function allocate_object_parts(req) {
 function finalize_object_parts(req) {
     throw_if_maintenance(req);
     return find_cached_object_upload(req)
+        .then(obj => map_writer.finalize_object_parts(req.bucket, obj, req.rpc_params.parts));
+}
+
+
+/**
+ *
+ * create_multipart
+ *
+ */
+function create_multipart(req) {
+    const multipart = _.pick(req.rpc_params, 'num', 'size', 'md5_b64', 'sha256_b64');
+    multipart._id = MDStore.instance().make_md_id();
+    return find_object_upload(req)
         .then(obj => {
-            return map_writer.finalize_object_parts(
-                req.bucket,
-                obj,
-                req.rpc_params.parts);
+            multipart.system = req.system._id;
+            multipart.bucket = req.bucket._id;
+            multipart.obj = obj._id;
+        })
+        .then(() => MDStore.instance().insert_multipart(multipart))
+        .return({
+            multipart_id: String(multipart._id)
+        });
+}
+
+/**
+ *
+ * complete_multipart
+ *
+ */
+function complete_multipart(req) {
+    const multipart_id = MDStore.instance().make_md_id(req.rpc_params.multipart_id);
+    const set_updates = {};
+    let obj;
+    return find_object_upload(req)
+        .then(obj_arg => {
+            obj = obj_arg;
+        })
+        .then(() => MDStore.instance().find_multipart_by_id(multipart_id))
+        .then(multipart => {
+            if (!_.isEqual(multipart.obj, obj._id)) throw new RpcError('NO_SUCH_MULTIPART', 'Object id mismatch');
+            if (req.rpc_params.num !== multipart.num) throw new RpcError('NO_SUCH_MULTIPART', 'Multipart number mismatch');
+            if (req.rpc_params.size !== multipart.size) {
+                if (multipart.size >= 0) {
+                    throw new RpcError('BAD_SIZE',
+                        `size on complete multipart (${
+                            req.rpc_params.size
+                        }) differs from create multipart (${
+                            multipart.size
+                        })`);
+                }
+                set_updates.size = req.rpc_params.size;
+            }
+            if (req.rpc_params.md5_b64 !== multipart.md5_b64) {
+                if (multipart.md5_b64) {
+                    throw new RpcError('BAD_DIGEST',
+                        `md5 on complete multipart (${
+                            req.rpc_params.md5_b64
+                        }) differs from create multipart (${
+                            multipart.md5_b64
+                        })`);
+                }
+                set_updates.md5_b64 = req.rpc_params.md5_b64;
+            }
+            if (req.rpc_params.sha256_b64 !== multipart.sha256_b64) {
+                if (multipart.sha256_b64) {
+                    throw new RpcError('BAD_DIGEST',
+                        `sha256 on complete multipart (${
+                            req.rpc_params.sha256_b64
+                        }) differs from create multipart (${
+                            multipart.sha256_b64
+                        })`);
+                }
+                set_updates.sha256_b64 = req.rpc_params.sha256_b64;
+            }
+            set_updates.num_parts = req.rpc_params.num_parts;
+        })
+        .then(() => MDStore.instance().update_multipart_by_id(multipart_id, set_updates))
+        .then(() => ({
+            etag: Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex')
+        }));
+}
+
+/**
+ *
+ * list_multiparts
+ *
+ */
+function list_multiparts(req) {
+    const num_gt = req.rpc_params.num_marker || 0;
+    const limit = req.rpc_params.max || 1000;
+    return find_object_upload(req)
+        .then(obj => MDStore.instance().find_multiparts_of_object(obj._id, num_gt, limit))
+        .then(multiparts => {
+            const reply = {
+                is_truncated: false,
+                multiparts: [],
+            };
+            let last_num = 0;
+            for (const multipart of multiparts) {
+                if (last_num === multipart.num) continue;
+                last_num = multipart.num;
+                reply.multiparts.push({
+                    num: multipart.num,
+                    size: multipart.size,
+                    etag: Buffer.from(multipart.md5_b64, 'base64').toString('hex'),
+                    last_modified: multipart._id.getTimestamp().getTime(),
+                });
+            }
+            if (reply.multiparts.length > 0 && reply.multiparts.length >= limit) {
+                reply.is_truncated = true;
+                reply.next_num_marker = last_num;
+            }
+            return reply;
         });
 }
 
@@ -259,41 +347,29 @@ function copy_object(req) {
     var existing_obj;
     var source_obj;
     return P.join(
-            md_store.ObjectMD.findOne({
-                system: req.system._id,
-                bucket: req.bucket._id,
-                key: req.rpc_params.key,
-                deleted: null
-            }),
-            md_store.ObjectMD.findOne({
-                system: req.system._id,
-                bucket: source_bucket._id,
-                key: req.rpc_params.source_key,
-                deleted: null
-            }))
+            MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key),
+            MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.source_key)
+        )
         .spread((existing_obj_arg, source_obj_arg) => {
             existing_obj = existing_obj_arg;
             source_obj = source_obj_arg;
-            if (!source_obj) {
-                throw new RpcError('NO_SUCH_OBJECT',
-                    'No such object: ' + req.rpc_params.source_bucket +
-                    ' ' + req.rpc_params.source_key);
-            }
             create_info = {
-                _id: md_store.make_md_id(),
+                _id: MDStore.instance().make_md_id(),
                 system: req.system._id,
                 bucket: req.bucket._id,
                 key: req.rpc_params.key,
                 size: source_obj.size,
                 etag: source_obj.etag,
-                upload_started: new Date(),
                 content_type: req.rpc_params.content_type ||
                     source_obj.content_type ||
                     mime.lookup(req.rpc_params.key) ||
                     'application/octet-stream',
-                upload_size: 0,
                 cloud_synced: false,
+                upload_size: 0,
+                upload_started: new Date(),
             };
+            if (source_obj.md5_b64) create_info.md5_b64 = source_obj.md5_b64;
+            if (source_obj.sha256_b64) create_info.sha256_b64 = source_obj.sha256_b64;
             if (req.rpc_params.xattr_copy) {
                 create_info.xattr = source_obj.xattr;
             } else if (req.rpc_params.xattr) {
@@ -303,15 +379,10 @@ function copy_object(req) {
             check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
             check_md_conditions(req, req.rpc_params.source_if, source_obj);
             // we passed the checks, so we can delete the existing object if exists
-            if (existing_obj) {
-                return delete_object_internal(existing_obj);
-            }
+            return delete_object_internal(existing_obj);
         })
-        .then(() => md_store.ObjectMD.create(create_info))
-        .then(() => {
-            let copy = new map_copy.MapCopy(source_obj, create_info);
-            return copy.run();
-        })
+        .then(() => MDStore.instance().insert_object(create_info))
+        .then(() => MDStore.instance().copy_object_parts(source_obj, create_info))
         .then(() => {
             Dispatcher.instance().activity({
                 system: req.system._id,
@@ -322,23 +393,16 @@ function copy_object(req) {
                 desc: `${create_info.key} was copied by ${req.account && req.account.email}`,
             });
             // mark the new object not in upload mode
-            return md_store.ObjectMD.collection.updateOne({
-                _id: create_info._id
+            return MDStore.instance().update_object_by_id(create_info._id, {
+                create_time: new Date()
             }, {
-                $set: {
-                    create_time: new Date()
-                },
-                $unset: {
-                    upload_size: 1,
-                    upload_started: 1,
-                }
+                upload_size: 1,
+                upload_started: 1,
             });
         })
-        .then(() => {
-            return {
-                source_md: get_object_info(source_obj)
-            };
-        });
+        .then(() => ({
+            source_md: get_object_info(source_obj)
+        }));
 }
 
 /**
@@ -369,43 +433,30 @@ function read_object_mappings(req) {
         })
         .then(parts => {
             reply.parts = parts;
+            reply.total_parts = obj.num_parts || 0;
+
             // when called from admin console, we do not update the stats
             // so that viewing the mapping in the ui will not increase read count
-            // We do count the number of parts and return them
-            if (req.rpc_params.adminfo) {
-                return P.resolve(md_store.ObjectPart.collection.count({
-                        obj: obj._id,
-                        deleted: null,
-                    }))
-                    .then(c => {
-                        reply.total_parts = c;
-                    });
-            } else {
-                let date = new Date();
-                system_store.make_changes_in_background({
-                    update: {
-                        buckets: [{
-                            _id: obj.bucket,
-                            $inc: {
-                                'stats.reads': 1
-                            },
-                            $set: {
-                                'stats.last_read': date
-                            }
-                        }]
-                    }
-                });
-                return P.resolve(md_store.ObjectMD.collection.updateOne({
-                    _id: obj._id
-                }, {
-                    $inc: {
-                        'stats.reads': 1
-                    },
-                    $set: {
-                        'stats.last_read': new Date()
-                    }
-                }));
-            }
+            if (req.rpc_params.adminfo) return;
+            const date = new Date();
+            system_store.make_changes_in_background({
+                update: {
+                    buckets: [{
+                        _id: obj.bucket,
+                        $inc: {
+                            'stats.reads': 1
+                        },
+                        $set: {
+                            'stats.last_read': date
+                        }
+                    }]
+                }
+            });
+            MDStore.instance().update_object_by_id(obj._id, {
+                'stats.last_read': date
+            }, undefined, {
+                'stats.reads': 1
+            });
         })
         .return(reply);
 }
@@ -417,32 +468,25 @@ function read_object_mappings(req) {
  *
  */
 function read_node_mappings(req) {
-    var node;
     return nodes_client.instance().read_node_by_name(req.system._id, req.params.name)
-        .then(node_arg => {
-            node = node_arg;
-            var params = _.pick(req.rpc_params, 'skip', 'limit');
-            params.node_id = node._id;
+        .then(node => {
+            const node_id = mongo_utils.make_object_id(node._id);
+            const params = _.pick(req.rpc_params, 'skip', 'limit');
+            params.node_id = node_id;
             params.system = req.system;
-            return map_reader.read_node_mappings(params);
+            return P.join(
+                map_reader.read_node_mappings(params),
+                req.rpc_params.adminfo &&
+                MDStore.instance().count_blocks_of_node(node_id));
         })
-        .then(objects => {
-            if (req.rpc_params.adminfo) {
-                return md_store.DataBlock.collection.count({
-                        system: req.system._id,
-                        node: mongo_utils.make_object_id(node._id),
-                        deleted: null
-                    })
-                    .then(count => ({
-                        objects: objects,
-                        total_count: count
-                    }));
-            } else {
-                return {
-                    objects: objects
-                };
+        .spread((objects, blocks_count) => (
+            req.rpc_params.adminfo ? {
+                objects: objects,
+                total_count: blocks_count
+            } : {
+                objects: objects
             }
-        });
+        ));
 }
 
 
@@ -500,12 +544,9 @@ function read_object_md(req) {
 function update_object_md(req) {
     dbg.log0('update object md', req.rpc_params);
     throw_if_maintenance(req);
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr');
     return find_object_md(req)
-        .then(obj => {
-            var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
-            return obj.update(updates).exec();
-        })
-        .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'))
+        .then(obj => MDStore.instance().update_object_by_id(obj._id, set_updates))
         .return();
 }
 
@@ -519,24 +560,21 @@ function update_object_md(req) {
 function delete_object(req) {
     throw_if_maintenance(req);
     load_bucket(req);
-    let obj_to_delete;
-    return P.fcall(() => {
-            var query = _.omit(object_md_query(req), 'deleted');
-            return md_store.ObjectMD.findOne(query).exec();
-        })
-        .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
-        .then(obj => {
-            obj_to_delete = obj;
-            delete_object_internal(obj);
+    let obj;
+    return MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key)
+        .then(obj_arg => {
+            obj = obj_arg;
+            return delete_object_internal(obj);
         })
         .then(() => {
+            if (!obj) return;
             Dispatcher.instance().activity({
                 system: req.system._id,
                 level: 'info',
                 event: 'obj.deleted',
-                obj: obj_to_delete,
+                obj: obj._id,
                 actor: req.account && req.account._id,
-                desc: `${obj_to_delete.key} was deleted by ${req.account && req.account.email}`,
+                desc: `${obj.key} was deleted by ${req.account && req.account.email}`,
             });
         })
         .return();
@@ -546,79 +584,38 @@ function delete_object(req) {
 /**
  *
  * DELETE_MULTIPLE_OBJECTS
- * delete multiple objects
  *
  */
 function delete_multiple_objects(req) {
     dbg.log2('delete_multiple_objects: keys =', req.params.keys);
     throw_if_maintenance(req);
     load_bucket(req);
-    // TODO: change it to perform changes in one transaction
-    return P.all(_.map(req.params.keys, function(key) {
-            return P.fcall(() => {
-                    var query = {
-                        system: req.system._id,
-                        bucket: req.bucket._id,
-                        key: key
-                    };
-                    return md_store.ObjectMD.findOne(query).exec();
-                })
-                .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
-                .then(obj => delete_object_internal(obj));
-        }))
+    // TODO: change it to perform changes in batch
+    // TODO: missing dispatch of activity log
+    return P.map(req.params.keys, key =>
+            MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, key)
+            .then(obj => delete_object_internal(obj))
+        )
         .return();
 }
 
 /**
  *
  * DELETE_MULTIPLE_OBJECTS
- * delete multiple objects
  *
  */
 function delete_multiple_objects_by_prefix(req) {
     dbg.log0('delete_multiple_objects_by_prefix (lifecycle): prefix =', req.params.prefix);
-
     load_bucket(req);
-    // TODO: change it to perform changes in one transaction. Won't scale.
+    // TODO: change it to perform changes in batch. Won't scale.
     return list_objects(req)
-        .then(items => {
-            dbg.log0('objects by prefix', items.objects);
-            if (items.objects.length > 0) {
-                return P.all(_.map(items.objects, function(single_object) {
-                    dbg.log0('single obj deleted:', single_object.key);
-                    return P.fcall(() => {
-                            var query = {
-                                system: req.system._id,
-                                bucket: req.bucket._id,
-                                key: single_object.key
-                            };
-                            return md_store.ObjectMD.findOne(query).exec();
-                        })
-                        .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
-                        .then(obj => delete_object_internal(obj));
-                })).return();
-            }
-        })
+        .then(res => P.map(res.objects, obj => {
+            dbg.log0('delete_multiple_objects_by_prefix:', obj.key);
+            return delete_object_internal(obj);
+        }))
         .return();
 }
 
-
-// /**
-//  * return a regexp pattern to be appended to a prefix
-//  * to make it match "prefix/file" or "prefix/dir/"
-//  * but with a custom delimiter instead of /
-//  * @param delimiter - a single character.
-//  */
-// function one_level_delimiter(delimiter) {
-//     var d = string_utils.escapeRegExp(delimiter[0]);
-//     return '[^' + d + ']*' + d + '?$';
-// }
-//
-// /**
-//  * common case is / as delimiter
-//  */
-// var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
-//
 
 // The method list_objects_s3 is used for s3 access exclusively
 // Read: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
@@ -673,37 +670,46 @@ function list_objects_s3(req) {
     load_bucket(req);
     var done = false;
     return promise_utils.pwhile(
-            function() {
-                return !done;
-            },
-            function() {
-                return P.fcall(() => {
-                        return _list_next_objects(req, delimiter, prefix, marker, limit);
-                    })
-                    .then(res => {
-                        results = _.concat(results, res);
-                        // This is the case when there are no more objects that apply to the query
-                        if (_.get(res, 'length', 0) === 0) {
-                            // If there were no object/common prefixes to match then no next marker
-                            done = true;
-                        } else if (results.length >= limit) {
-                            // This is the case when the number of objects that apply to the query
-                            // Exceeds the number of objects that we've requested (max-keys)
-                            // Thus we must cut the additional object (as mentioned above we request
-                            // one more key in order to know if the response is truncated or not)
-                            // In order to reply with the right amount of objects and prefixes
-                            results = results.slice(0, limit - 1);
-                            reply.is_truncated = true;
-                            // Marking the object/prefix that we've stopped on
-                            // Notice: THIS IS THE LAST OBJECT AFTER THE POP
-                            reply.next_marker = results[results.length - 1].key;
-                            done = true;
-                        } else {
-                            // In this case we did not reach the end yet
-                            marker = res[res.length - 1].key;
-                        }
-                    });
+            () => !done,
+            () => MDStore.instance().find_objects_by_prefix_and_delimiter({
+                bucket_id: req.bucket._id,
+                upload_mode: req.rpc_params.upload_mode,
+                delimiter,
+                prefix,
+                marker,
+                limit
             })
+            .then()
+            .then(res => {
+                res = _.map(res, r => (
+                    r.obj ? {
+                        key: r.key,
+                        info: get_object_info(r.obj)
+                    } : r
+                ));
+                results = _.concat(results, res);
+                // This is the case when there are no more objects that apply to the query
+                if (_.get(res, 'length', 0) === 0) {
+                    // If there were no object/common prefixes to match then no next marker
+                    done = true;
+                } else if (results.length >= limit) {
+                    // This is the case when the number of objects that apply to the query
+                    // Exceeds the number of objects that we've requested (max-keys)
+                    // Thus we must cut the additional object (as mentioned above we request
+                    // one more key in order to know if the response is truncated or not)
+                    // In order to reply with the right amount of objects and prefixes
+                    results = results.slice(0, limit - 1);
+                    reply.is_truncated = true;
+                    // Marking the object/prefix that we've stopped on
+                    // Notice: THIS IS THE LAST OBJECT AFTER THE POP
+                    reply.next_marker = results[results.length - 1].key;
+                    done = true;
+                } else {
+                    // In this case we did not reach the end yet
+                    marker = res[res.length - 1].key;
+                }
+            })
+        )
         .then(() => {
             // Fetching common prefixes and returning them in appropriate property
             reply.common_prefixes = _.compact(_.map(results, result => {
@@ -721,187 +727,38 @@ function list_objects_s3(req) {
         });
 }
 
-function _list_next_objects(req, delimiter, prefix, marker, limit) {
-    // filter keys starting with prefix, *not* followed by marker
-    var regexp_text = '^' + prefix;
-    if (marker) {
-        if (!marker.startsWith(prefix)) {
-            throw new Error('BAD MARKER ' + marker + ' FOR PREFIX ' + prefix);
-        }
-        var marker_suffix = marker.slice(prefix.length);
-        if (marker_suffix) {
-            regexp_text += '(?!' + marker_suffix + ')';
-        }
-    }
-    var regexp = new RegExp(regexp_text);
-
-    return P.fcall(() => {
-        let query = {
-            system: req.system._id,
-            bucket: req.bucket._id,
-            key: {
-                $regex: regexp,
-                $gt: marker
-            },
-            deleted: null,
-            upload_size: {
-                $exists: req.rpc_params.upload_mode || false
-            }
-        };
-
-        if (delimiter) {
-            return md_store.ObjectMD.collection.mapReduce(
-                    mongo_functions.map_common_prefixes_and_objects,
-                    mongo_functions.reduce_common_prefixes_occurrence_and_objects, {
-                        query: query,
-                        sort: {
-                            key: 1
-                        },
-                        limit: limit,
-                        scope: {
-                            prefix: prefix,
-                            delimiter: delimiter,
-                        },
-                        out: {
-                            inline: 1
-                        }
-                    })
-                .then(res => {
-                    return _.map(res, obj => {
-                        if (_.isObject(obj.value)) {
-                            let obj_value = get_object_info(obj.value);
-                            return {
-                                key: obj_value.key,
-                                info: obj_value
-                            };
-                        } else {
-                            return {
-                                key: prefix + obj._id,
-                            };
-                        }
-                    });
-                });
-        } else {
-            var find = md_store.ObjectMD.find(query);
-            if (limit) {
-                find.limit(limit);
-            }
-            find.sort({
-                key: 1
-            });
-            return find.lean().exec()
-                .then(res => {
-                    return _.map(res, obj => ({
-                        key: obj.key,
-                        info: get_object_info(obj)
-                    }));
-                });
-        }
-    });
-}
-
 function list_objects(req) {
     dbg.log0('list_objects', req.rpc_params);
-    var prefix = req.rpc_params.prefix || '';
-    let escaped_prefix = string_utils.escapeRegExp(prefix);
     load_bucket(req);
-    return P.fcall(() => {
-            var info = _.omit(object_md_query(req), 'key');
-            if (prefix) {
-                info.key = new RegExp('^' + escaped_prefix);
-                if (req.rpc_params.create_time) {
-                    let creation_date = moment.unix(req.rpc_params.create_time).toISOString();
-                    info.create_time = {
-                        $lt: new Date(creation_date)
-                    };
-                }
-            } else if (req.rpc_params.key_query) {
-                info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
-            } else if (req.rpc_params.key_regexp) {
-                info.key = new RegExp(req.rpc_params.key_regexp);
-            } else if (req.rpc_params.key_glob) {
-                info.key = glob_to_regexp(req.rpc_params.key_glob);
-            }
-
-            // TODO: Should look at the upload_size or upload_completed?
-            // allow filtering of uploading/non-uploading objects
-            if (typeof(req.rpc_params.upload_mode) === 'boolean') {
-                info.upload_size = {
-                    $exists: req.rpc_params.upload_mode
-                };
-            }
-
-            var skip = req.rpc_params.skip;
-            var limit = req.rpc_params.limit;
-            dbg.log0('list_objects params:', req.rpc_params, 'query:', info);
-            var find = md_store.ObjectMD.find(info);
-            if (skip) {
-                find.skip(skip);
-            }
-            if (limit) {
-                find.limit(limit);
-            }
-            var sort = req.rpc_params.sort;
-            if (sort) {
-                var order = (req.rpc_params.order === -1) ? -1 : 1;
-                var sort_opt = {};
-                sort_opt[sort] = order;
-                find.sort(sort_opt);
-            }
-
-            return P.join(
-                find.exec(),
-                req.rpc_params.pagination && md_store.ObjectMD.count(info)
-            );
+    let key;
+    if (req.rpc_params.prefix) {
+        key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.prefix));
+    } else if (req.rpc_params.key_query) {
+        key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
+    } else if (req.rpc_params.key_regexp) {
+        key = new RegExp(req.rpc_params.key_regexp);
+    } else if (req.rpc_params.key_glob) {
+        key = glob_to_regexp(req.rpc_params.key_glob);
+    }
+    return MDStore.instance().find_objects({
+            bucket_id: req.bucket._id,
+            key: key,
+            upload_mode: req.rpc_params.upload_mode,
+            max_create_time: req.rpc_params.create_time,
+            limit: req.rpc_params.limit,
+            skip: req.rpc_params.skip,
+            sort: req.rpc_params.sort,
+            order: req.rpc_params.order,
+            pagination: req.rpc_params.pagination,
         })
-        .spread(function(objects, total_count) {
-            let res = {};
-            res.objects = _.map(objects, obj => ({
+        .then(res => {
+            res.objects = _.map(res.objects, obj => ({
                 key: obj.key,
                 info: get_object_info(obj),
             }));
-
-            if (req.rpc_params.pagination) {
-                res.total_count = total_count;
-            }
             return res;
         });
 }
-
-//mark all objects on specific bucket for sync
-//TODO:: use mongoDB bulk instead of two mongoose ops
-function set_all_files_for_sync(sysid, bucketid, should_resync_deleted_files) {
-    dbg.log2('marking all objects on sys', sysid, 'bucket', bucketid, 'as sync needed');
-    //Mark all "live" objects to be cloud synced
-    return P.fcall(() => md_store.ObjectMD.update({
-            system: sysid,
-            bucket: bucketid,
-            cloud_synced: true,
-            deleted: null,
-        }, {
-            cloud_synced: false
-        }, {
-            multi: true
-        }).exec())
-        .then(() => {
-            if (should_resync_deleted_files) {
-                return md_store.ObjectMD.update({
-                    //Mark all "previous" deleted objects as not needed for cloud sync
-                    system: sysid,
-                    bucket: bucketid,
-                    cloud_synced: false,
-                    deleted: {
-                        $ne: null
-                    },
-                }, {
-                    cloud_synced: true
-                }, {
-                    multi: true
-                }).exec();
-            }
-        });
-}
-
 
 
 function report_error_on_object(req) {
@@ -991,15 +848,13 @@ function get_object_info(md) {
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
-    if (md.stats) {
-        info.stats = _.pick(md.stats, 'reads');
-        if (md.stats.last_read !== undefined) {
-            info.stats.last_read = md.stats.last_read.getTime();
-        }
-        if (_.isUndefined(md.stats.reads)) {
-            info.stats.reads = 0;
-        }
-    }
+    info.stats = md.stats ? {
+        reads: md.stats.reads || 0,
+        last_read: (md.stats.last_read && md.stats.last_read.getTime()) || 0,
+    } : {
+        reads: 0,
+        last_read: 0,
+    };
     return info;
 }
 
@@ -1012,33 +867,19 @@ function load_bucket(req) {
     req.bucket = bucket;
 }
 
-function object_md_query(req) {
-    return {
-        system: req.system._id,
-        bucket: req.bucket._id,
-        key: req.rpc_params.key,
-        deleted: null
-    };
-}
-
 function find_object_md(req) {
     load_bucket(req);
-    return P.fcall(() => {
-            return md_store.ObjectMD.findOne(object_md_query(req)).exec();
-        })
+    return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key)
         .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'));
 }
 
 function find_object_upload(req) {
     load_bucket(req);
-    return P.fcall(() => {
-            return md_store.ObjectMD.findOne({
-                _id: md_store.make_md_id(req.rpc_params.upload_id),
-                system: req.system._id,
-                bucket: req.bucket._id,
-                deleted: null
-            }).exec();
-        })
+    if (!MDStore.instance().is_valid_md_id(req.rpc_params.upload_id)) {
+        throw new RpcError('NO_SUCH_UPLOAD', `invalid id ${req.rpc_params.upload_id}`);
+    }
+    const obj_id = MDStore.instance().make_md_id(req.rpc_params.upload_id);
+    return MDStore.instance().find_object_by_id(obj_id)
         .then(obj => check_object_upload_mode(req, obj));
 }
 
@@ -1048,20 +889,17 @@ const object_md_cache = new LRUCache({
     name: 'ObjectMDCache',
     max_usage: 1000,
     expiry_ms: 1000, // 1 second of blissfull ignorance
-    load: function(object_id) {
-        console.log('ObjectMDCache: load', object_id);
-        return P.resolve(md_store.ObjectMD.findOne({
-            _id: object_id,
-            deleted: null,
-        }).exec());
+    load: function(id) {
+        const obj_id = MDStore.instance().make_md_id(id);
+        console.log('ObjectMDCache: load', obj_id);
+        return MDStore.instance().find_object_by_id(obj_id);
     }
 });
 
 function find_cached_object_upload(req) {
     load_bucket(req);
-    return P.fcall(() => {
-            return object_md_cache.get_with_cache(req.rpc_params.upload_id);
-        })
+    return P.resolve()
+        .then(() => object_md_cache.get_with_cache(req.rpc_params.upload_id))
         .then(obj => check_object_upload_mode(req, obj));
 }
 
@@ -1069,6 +907,14 @@ function check_object_upload_mode(req, obj) {
     if (!obj || obj.deleted) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'No such upload id: ' + req.rpc_params.upload_id);
+    }
+    if (String(req.system._id) !== String(obj.system)) {
+        throw new RpcError('NO_SUCH_UPLOAD',
+            'No such upload id in system: ' + req.rpc_params.upload_id);
+    }
+    if (String(req.bucket._id) !== String(obj.bucket)) {
+        throw new RpcError('NO_SUCH_UPLOAD',
+            'No such upload id in bucket: ' + req.rpc_params.upload_id);
     }
     // TODO: Should look at the upload_size or create_time?
     if (!_.isNumber(obj.upload_size)) {
@@ -1080,11 +926,10 @@ function check_object_upload_mode(req, obj) {
 }
 
 function delete_object_internal(obj) {
-    return P.fcall(() => {
-            return obj.update({
-                deleted: new Date(),
-                cloud_synced: false
-            }).exec();
+    if (!obj) return;
+    return MDStore.instance().update_object_by_id(obj._id, {
+            deleted: new Date(),
+            cloud_synced: false
         })
         .then(() => map_deleter.delete_object_mappings(obj))
         .return();
@@ -1128,27 +973,33 @@ function throw_if_maintenance(req) {
 // EXPORTS
 // object upload
 exports.create_object_upload = create_object_upload;
-exports.read_s3_usage_report = read_s3_usage_report;
-exports.add_s3_usage_report = add_s3_usage_report;
-exports.remove_s3_usage_reports = remove_s3_usage_reports;
 exports.complete_object_upload = complete_object_upload;
 exports.abort_object_upload = abort_object_upload;
-exports.list_multipart_parts = list_multipart_parts;
+// multipart
+exports.create_multipart = create_multipart;
+exports.complete_multipart = complete_multipart;
+exports.list_multiparts = list_multiparts;
+// allocation of parts chunks and blocks
 exports.allocate_object_parts = allocate_object_parts;
 exports.finalize_object_parts = finalize_object_parts;
-exports.complete_part_upload = complete_part_upload;
+// copy
 exports.copy_object = copy_object;
-exports.report_error_on_object = report_error_on_object;
 // read
 exports.read_object_mappings = read_object_mappings;
 exports.read_node_mappings = read_node_mappings;
 // object meta-data
 exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
+// deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
 exports.delete_multiple_objects_by_prefix = delete_multiple_objects_by_prefix;
+// listing
 exports.list_objects = list_objects;
 exports.list_objects_s3 = list_objects_s3;
-// cloud sync related
-exports.set_all_files_for_sync = set_all_files_for_sync;
+// error handling
+exports.report_error_on_object = report_error_on_object;
+// stats
+exports.read_s3_usage_report = read_s3_usage_report;
+exports.add_s3_usage_report = add_s3_usage_report;
+exports.remove_s3_usage_reports = remove_s3_usage_reports;

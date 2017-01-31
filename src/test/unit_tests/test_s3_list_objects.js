@@ -1,16 +1,20 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
+// setup coretest first to prepare the env
+const coretest = require('./coretest');
+coretest.setup();
+
 let _ = require('lodash');
-let P = require('../../util/promise');
-let mocha = require('mocha');
-let promise_utils = require('../../util/promise_utils');
-let coretest = require('./coretest');
-let ObjectIO = require('../../api/object_io');
 var util = require('util');
-let dbg = require('../../util/debug_module')(__filename);
+let mocha = require('mocha');
+
+let P = require('../../util/promise');
+// let dbg = require('../../util/debug_module')(__filename);
+let promise_utils = require('../../util/promise_utils');
+let ObjectIO = require('../../api/object_io');
 let account_server = require('../../server/system_services/account_server');
 
-dbg.set_level(5, 'core');
 
 mocha.describe('s3_list_objects', function() {
 
@@ -337,24 +341,16 @@ mocha.describe('s3_list_objects', function() {
 
     //TODO Method that will upload an array of strings with size 0
     function upload_multiple_files(array_of_names) {
-        var array_index = -1;
-        return promise_utils.loop(array_of_names.length, function() {
-            array_index++;
-            return P.fcall(function() {
-                return client.object.create_object_upload({
-                    bucket: BKT,
-                    key: array_of_names[array_index],
-                    size: 0,
-                    content_type: 'application/octet-stream',
-                });
-            }).then(function(create_reply) {
-                return client.object.complete_object_upload({
-                    bucket: BKT,
-                    key: array_of_names[array_index],
-                    upload_id: create_reply.upload_id,
-                    fix_parts_size: true
-                });
-            });
-        });
+        return promise_utils.loop(array_of_names.length, i => P.resolve()
+            .then(() => client.object.create_object_upload({
+                bucket: BKT,
+                key: array_of_names[i],
+                content_type: 'application/octet-stream',
+            }))
+            .then(create_reply => client.object.complete_object_upload({
+                bucket: BKT,
+                key: array_of_names[i],
+                upload_id: create_reply.upload_id,
+            })));
     }
 });

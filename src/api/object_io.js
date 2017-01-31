@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -8,16 +9,12 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
-const js_utils = require('../util/js_utils');
 const Pipeline = require('../util/pipeline');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
-const HashStream = require('../util/hash_stream');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
 const range_utils = require('../util/range_utils');
-const transformer = require('../util/transformer');
-const ChunkStream = require('../util/chunk_stream');
 const promise_utils = require('../util/promise_utils');
 const dedup_options = require("./dedup_options");
 
@@ -26,8 +23,8 @@ const dedup_options = require("./dedup_options");
 const PART_ATTRS = [
     'start',
     'end',
-    'upload_part_number',
-    'part_sequence_number'
+    'seq',
+    'multipart_id',
 ];
 const CHUNK_ATTRS = [
     'size',
@@ -108,7 +105,7 @@ class ObjectIO {
             ObjectIO.dedup_chunker_tpool = new nc.ThreadPool(1);
         }
         if (!ObjectIO.object_coding_tpool) {
-            ObjectIO.object_coding_tpool = new nc.ThreadPool(2);
+            ObjectIO.object_coding_tpool = new nc.ThreadPool(1);
         }
         if (!this.dedup_config) {
             this.dedup_config = new nc.DedupConfig(dedup_options);
@@ -131,185 +128,207 @@ class ObjectIO {
 
     /**
      *
-     * upload_stream
+     * upload_object
      *
      * upload the entire source_stream as a new object
      *
      */
-    upload_stream(params) {
-        let create_params = _.pick(params,
+    upload_object(params) {
+        const create_params = _.pick(params,
             'bucket',
             'key',
-            'size',
             'content_type',
             'xattr',
-            'overwrite_ifs'
+            'overwrite_ifs',
+            'size',
+            'md5_b64',
+            'sha256_b64'
+        );
+        const complete_params = _.pick(params,
+            'bucket',
+            'key'
         );
 
-        dbg.log0('upload_stream: start upload', params.key);
-        return params.client.object.create_object_upload(create_params)
+        dbg.log0('upload_object: start upload', complete_params);
+        return P.resolve()
+            .then(() => params.client.object.create_object_upload(create_params))
             .then(create_reply => {
                 params.upload_id = create_reply.upload_id;
-                return this.upload_stream_parts(params);
+                complete_params.upload_id = create_reply.upload_id;
             })
-            .then(md5_digest => {
-                //console.warn('MD5 DIGEST AFTER UPLOAD PARTS IS: ', md5_digest);
-                let complete_params = _.pick(params, 'bucket', 'key', 'upload_id');
-                if (md5_digest.md5) {
-                    complete_params.etag = md5_digest.md5.toString('hex');
-                }
-                dbg.log0('upload_stream: complete upload', complete_params.key, complete_params.etag);
-                return params.client.object.complete_object_upload(complete_params)
-                    .return(md5_digest);
-            }, err => {
-                dbg.log0('upload_stream: error write stream', params.key, err);
-                return params.client.object.delete_object(_.pick(params,
-                        'bucket',
-                        'key'))
+            .then(() => this._upload_stream(params))
+            .then(upload_info => _.assign(complete_params, upload_info))
+            .then(() => dbg.log0('upload_object: complete upload', complete_params))
+            .then(() => params.client.object.complete_object_upload(complete_params))
+            .catch(err => {
+                dbg.warn('upload_object: failed upload', complete_params, err);
+                if (!params.upload_id) throw err;
+                return params.client.object.abort_object_upload(_.pick(params, 'bucket', 'key', 'upload_id'))
                     .then(() => {
-                        dbg.log0('removed partial object', params.key, 'from bucket', params.bucket);
-                        throw err;
+                        dbg.log0('upload_object: aborted object upload', complete_params);
+                        throw err; // still throw to the calling request
                     })
-                    .catch(() => {
-                        throw err;
+                    .catch(err2 => {
+                        dbg.warn('upload_object: Failed to abort object upload', complete_params, err2);
+                        throw err; // throw the original error
                     });
+            });
+    }
 
+    upload_multipart(params) {
+        const create_params = _.pick(params,
+            'bucket',
+            'key',
+            'upload_id',
+            'num',
+            'size',
+            'md5_b64',
+            'sha256_b64'
+        );
+        const complete_params = _.pick(params,
+            'bucket',
+            'key',
+            'upload_id',
+            'num'
+        );
+
+        dbg.log0('upload_multipart: start upload', complete_params);
+        return P.resolve()
+            .then(() => params.client.object.create_multipart(create_params))
+            .then(multipart_reply => {
+                params.multipart_id = multipart_reply.multipart_id;
+                complete_params.multipart_id = multipart_reply.multipart_id;
+            })
+            .then(() => this._upload_stream(params))
+            .then(upload_info => _.assign(complete_params, upload_info))
+            .then(() => dbg.log0('upload_multipart: complete upload', complete_params))
+            .then(() => params.client.object.complete_multipart(complete_params))
+            .catch(err => {
+                dbg.warn('upload_multipart: failed', complete_params, err);
+                // we leave the cleanup of failed multiparts to complete_object_upload or abort_object_upload
+                throw err;
             });
     }
 
     /**
      *
-     * upload_stream_parts
+     * _upload_stream
      *
      * upload the source_stream parts to object in upload mode
-     * by reading large portions from the stream and call upload_data_parts()
+     * by reading large portions from the stream and call _upload_buffers()
      *
      */
-    upload_stream_parts(params) {
-        params.start = params.start || 0;
-        params.upload_part_number = params.upload_part_number || 0;
-        params.part_sequence_number = params.part_sequence_number || 0;
-        params.desc = params.upload_id + '[' + params.upload_part_number + ']';
+    _upload_stream(params) {
+        params.desc = `${params.upload_id}${
+            params.num ? '[' + params.num + ']' : ''
+        }`;
+        dbg.log0('UPLOAD:', params.desc, 'streaming to', params.bucket, params.key);
 
-        let md5_stream;
-        let sha256_stream;
-        let source_stream = params.source_stream;
-        source_stream._readableState.highWaterMark = size_utils.MEGABYTE;
-        if (params.calculate_md5) {
-            md5_stream = new HashStream({
-                highWaterMark: size_utils.MEGABYTE,
-                hash_type: 'md5'
-            });
-            source_stream.pipe(md5_stream);
-            source_stream = md5_stream;
-        }
-        if (params.calculate_sha256) {
-            sha256_stream = new HashStream({
-                highWaterMark: size_utils.MEGABYTE,
-                hash_type: 'sha256'
-            });
-            source_stream.pipe(sha256_stream);
-            source_stream = sha256_stream;
-        }
-
-        dbg.log0('UPLOAD:', params.desc, 'upload stream',
-            'key', params.key,
-            'part number', params.upload_part_number,
-            'sequence number', params.part_sequence_number);
+        // start and seq are set to zero even for multiparts and will be fixed
+        // when multiparts are combined to object in complete_object_upload
+        params.start = 0;
+        params.seq = 0;
 
         this.lazy_init_natives();
+        params.source_stream._readableState.highWaterMark = size_utils.MEGABYTE;
         params.dedup_chunker = new this.native_core.DedupChunker({
             tpool: ObjectIO.dedup_chunker_tpool
         }, this.dedup_config);
 
-        let pipeline = new Pipeline(source_stream);
+        const upload_buffers = buffers => this._upload_buffers(params, buffers);
+        const md5 = crypto.createHash('md5');
+        const sha256 = params.sha256_b64 ? crypto.createHash('sha256') : null;
+        const upload_info = {
+            size: 0,
+            num_parts: 0,
+        };
 
-        pipeline.pipe(new ChunkStream(config.IO_STREAM_CHUNK_SIZE, {
-            highWaterMark: 1,
-            objectMode: true
-        }));
-
-        if (true) {
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 1,
-                    objectMode: true
-                },
-                transform: (t, data) => this.upload_data_parts(params, data)
-            }));
-        } else {
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 1,
-                    objectMode: true
-                },
-                transform: (t, data) => this._chunk_and_encode_data(params, data)
-            }));
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 1,
-                    objectMode: true
-                },
-                transform_parallel: (t, parts) => this._allocate_parts(params, parts)
-            }));
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 1,
-                    objectMode: true,
-                },
-                transform_parallel: (t, parts) => this._write_parts(params, parts)
-            }));
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 1,
-                    objectMode: true
-                },
-                transform_parallel: (t, parts) => this._finalize_parts(params, parts)
-            }));
-        }
-
-        pipeline.pipe(transformer({
-            options: {
+        return new Pipeline()
+            .pipe(params.source_stream)
+            .pipe(new stream.Transform({
+                objectMode: true,
+                allowHalfOpen: false,
                 highWaterMark: 1,
-                flatten: true,
-                objectMode: true
-            },
-            transform: (t, part) => {
-                dbg.log1('UPLOAD:', params.desc,
-                    'part completed', range_utils.human_range(part),
-                    'took', time_utils.millitook(part.millistamp));
-                dbg.log_progress(part.end / params.size);
-                if (params.progress) {
-                    params.progress(part);
+                transform(buf, encoding, callback) {
+                    md5.update(buf);
+                    if (sha256) sha256.update(buf);
+                    upload_info.size += buf.length;
+                    this.bufs = this.bufs || [];
+                    this.bufs.push(buf);
+                    this.bytes = (this.bytes || 0) + buf.length;
+                    if (this.bytes >= config.IO_STREAM_SPLIT_SIZE) {
+                        this.push(this.bufs);
+                        this.bufs = [];
+                        this.bytes = 0;
+                    }
+                    return callback();
+                },
+                flush(callback) {
+                    upload_info.md5_b64 = md5.digest('base64');
+                    if (sha256) upload_info.sha256_b64 = sha256.digest('base64');
+                    if (this.bytes) {
+                        this.push(this.bufs);
+                        this.bufs = null;
+                        this.bytes = 0;
+                    }
+                    return callback();
                 }
-            }
-        }));
-
-        return pipeline.run()
-            .then(() => {
-                const md5_promise = md5_stream && md5_stream.wait_digest();
-                const sha256_promise = params.calculate_sha256 &&
-                    sha256_stream && sha256_stream.wait_digest();
-                return P.join(md5_promise, sha256_promise)
-                    .spread((md5, sha256) => {
-                        return {
-                            md5: md5 || '',
-                            sha256: sha256 || ''
-                        };
+            }))
+            .pipe(new stream.Transform({
+                objectMode: true,
+                allowHalfOpen: false,
+                highWaterMark: 1,
+                transform(input_buffers, encoding, callback) {
+                    params.dedup_chunker.push(input_buffers, (err, buffers) => {
+                        if (err) return this.emit('error', err);
+                        if (buffers && buffers.length) this.push(buffers);
+                        return callback();
                     });
-            });
+                },
+                flush(callback) {
+                    params.dedup_chunker.flush((err, buffers) => {
+                        if (err) return this.emit('error', err);
+                        if (buffers && buffers.length) this.push(buffers);
+                        return callback();
+                    });
+                }
+            }))
+            .pipe(new stream.Transform({
+                objectMode: true,
+                allowHalfOpen: false,
+                highWaterMark: 1,
+                transform(buffers, encoding, callback) {
+                    upload_buffers(buffers)
+                        .then(parts => {
+                            upload_info.num_parts += parts.length;
+                            for (const part of parts) {
+                                dbg.log0('UPLOAD:', params.desc,
+                                    'streaming at', range_utils.human_range(part),
+                                    'took', time_utils.millitook(part.millistamp));
+                                dbg.log_progress(part.end / params.size);
+                                if (params.progress) params.progress(part);
+                            }
+                            return callback();
+                        })
+                        .catch(err => this.emit('error', err));
+                },
+            }))
+            .promise()
+            .return(upload_info);
     }
+
 
     /**
      *
-     * upload_data_parts
+     * _upload_buffers
      *
      * upload parts to object in upload mode
      * where data is buffer or array of buffers in memory.
      *
      */
-    upload_data_parts(params, data) {
-        return P.fcall(() => this._chunk_and_encode_data(params, data))
+    _upload_buffers(params, buffers) {
+        return P.resolve()
+            .then(() => this._encode_data(params, buffers))
             .then(parts => this._allocate_parts(params, parts))
             .then(parts => this._write_parts(params, parts))
             .then(parts => this._finalize_parts(params, parts));
@@ -318,43 +337,39 @@ class ObjectIO {
 
     /**
      *
-     * _chunk_and_encode_data
+     * _encode_data
      *
      */
-    _chunk_and_encode_data(params, data) {
-        return P.fcall(() => P.ninvoke(params.dedup_chunker, 'push', data))
-            .then(buffers => P.ninvoke(params.dedup_chunker, 'flush')
-                .then(last_bufs => js_utils.array_push_all(buffers, last_bufs)))
-            .then(buffers => {
-                let parts = _.map(buffers, buffer => {
-                    let part = {
-                        buffer: buffer,
-                        millistamp: time_utils.millistamp(),
-                        bucket: params.bucket,
-                        key: params.key,
-                        start: params.start,
-                        end: params.start + buffer.length,
-                        upload_part_number: params.upload_part_number,
-                        part_sequence_number: params.part_sequence_number,
-                        desc: params.desc + '-' + size_utils.human_offset(params.start),
-                    };
-                    params.part_sequence_number += 1;
-                    params.start += buffer.length;
+    _encode_data(params, buffers) {
+        const parts = _.map(buffers, buffer => {
+            const part = {
+                buffer: buffer,
+                millistamp: time_utils.millistamp(),
+                bucket: params.bucket,
+                key: params.key,
+                start: params.start,
+                end: params.start + buffer.length,
+                seq: params.seq,
+                desc: params.desc + '-' + size_utils.human_offset(params.start),
+            };
+            if (params.multipart_id) part.multipart_id = params.multipart_id;
+            params.seq += 1;
+            params.start += buffer.length;
+            return part;
+        });
+        return P.map(parts, part => {
+            dbg.log2('UPLOAD:', part.desc, 'encode part');
+            return P.fromCallback(callback => this.object_coding.encode(
+                    ObjectIO.object_coding_tpool, part.buffer, callback
+                ))
+                .then(chunk => {
+                    part.chunk = chunk;
+                    part.buffer = null;
+                    dbg.log0('UPLOAD:', part.desc, 'encode part took',
+                        time_utils.millitook(part.millistamp));
                     return part;
                 });
-                return P.map(parts, part => {
-                    dbg.log2('UPLOAD:', part.desc, 'encode part');
-                    return P.ninvoke(this.object_coding, 'encode',
-                            ObjectIO.object_coding_tpool, part.buffer)
-                        .then(chunk => {
-                            part.chunk = chunk;
-                            part.buffer = null;
-                            dbg.log1('UPLOAD:', part.desc, 'encode part took',
-                                time_utils.millitook(part.millistamp));
-                            return part;
-                        });
-                });
-            });
+        });
     }
 
     /**
@@ -363,8 +378,8 @@ class ObjectIO {
      *
      */
     _allocate_parts(params, parts) {
-        let millistamp = time_utils.millistamp();
-        let range = {
+        const millistamp = time_utils.millistamp();
+        const range = {
             start: parts[0].start,
             end: parts[parts.length - 1].end
         };
@@ -375,11 +390,11 @@ class ObjectIO {
                 key: params.key,
                 upload_id: params.upload_id,
                 parts: _.map(parts, part => {
-                    let p = _.pick(part, PART_ATTRS);
+                    const p = _.pick(part, PART_ATTRS);
                     p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
                     _.defaults(p.chunk, CHUNK_DEFAULTS);
                     p.chunk.frags = _.map(part.chunk.frags, fragment => {
-                        let f = _.pick(fragment, FRAG_ATTRS);
+                        const f = _.pick(fragment, FRAG_ATTRS);
                         _.defaults(f, FRAG_DEFAULTS);
                         f.size = fragment.block.length;
                         return f;
@@ -404,8 +419,8 @@ class ObjectIO {
      *
      */
     _finalize_parts(params, parts) {
-        let millistamp = time_utils.millistamp();
-        let range = {
+        const millistamp = time_utils.millistamp();
+        const range = {
             start: parts[0].start,
             end: parts[parts.length - 1].end
         };
@@ -431,8 +446,8 @@ class ObjectIO {
      *
      */
     _write_parts(params, parts) {
-        let millistamp = time_utils.millistamp();
-        let range = {
+        const millistamp = time_utils.millistamp();
+        const range = {
             start: parts[0].start,
             end: parts[parts.length - 1].end
         };
@@ -464,7 +479,7 @@ class ObjectIO {
             return;
         }
 
-        let data_frags_map = _.keyBy(part.chunk.frags, get_frag_key);
+        const data_frags_map = _.keyBy(part.chunk.frags, get_frag_key);
         return P.map(part.alloc_part.chunk.frags, fragment => {
                 const frag_key = get_frag_key(fragment);
                 const buffer = data_frags_map[frag_key].block;
@@ -638,14 +653,14 @@ class ObjectIO {
      */
     read_entire_object(params) {
         return new P((resolve, reject) => {
-            let buffers = [];
+            const buffers = [];
             this.open_read_stream(params)
                 .on('data', buffer => {
                     dbg.log0('read data', buffer.length);
                     buffers.push(buffer);
                 })
                 .once('end', () => {
-                    let read_buf = Buffer.concat(buffers);
+                    const read_buf = Buffer.concat(buffers);
                     dbg.log0('read end', read_buf.length);
                     resolve(read_buf);
                 })
@@ -664,7 +679,7 @@ class ObjectIO {
      *
      */
     open_read_stream(params, watermark) {
-        let reader = new stream.Readable({
+        const reader = new stream.Readable({
             // highWaterMark Number - The maximum number of bytes to store
             // in the internal buffer before ceasing to read
             // from the underlying resource. Default=16kb
@@ -678,7 +693,7 @@ class ObjectIO {
             objectMode: false,
         });
         let pos = Number(params.start) || 0;
-        let end = _.isUndefined(params.end) ? Infinity : Number(params.end);
+        const end = _.isUndefined(params.end) ? Infinity : Number(params.end);
         // implement the stream's Readable._read() function
         reader._read = requested_size => {
             P.fcall(() => {
@@ -735,7 +750,7 @@ class ObjectIO {
         }
 
         let pos = params.start;
-        let promises = [];
+        const promises = [];
 
         while (pos < params.end && promises.length < config.IO_READ_RANGE_CONCURRENCY) {
             let range = _.clone(params);
@@ -778,11 +793,11 @@ class ObjectIO {
                 dbg.log1('RangesCache: load', range_utils.human_range(range_params), params.key);
                 return this._read_object_range(range_params);
             },
-            validate: (data, params) => {
-                return params.client.object.read_object_md({
+            validate: (data, params) => params.client.object.read_object_md({
                     bucket: params.bucket,
                     key: params.key
-                }).then(object_md => {
+                })
+                .then(object_md => {
                     let validated = object_md.version_id === data.object_md.version_id &&
                         object_md.etag === data.object_md.etag &&
                         object_md.size === data.object_md.size &&
@@ -791,8 +806,7 @@ class ObjectIO {
                         dbg.log0('RangesCache: ValidateFailed:', params.bucket, params.key);
                     }
                     return validated;
-                });
-            },
+                }),
             make_val: (data, params) => {
                 let buffer = data.buffer;
                 if (!buffer) {

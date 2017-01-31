@@ -7,6 +7,7 @@ const express = require('express');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
 const s3_errors = require('./s3_errors');
 const xml_utils = require('../util/xml_utils');
 const signature_utils = require('../util/signature_utils');
@@ -35,6 +36,10 @@ const GET_BUCKET_QUERIES = Object.freeze([
     'versions',
     'uploads'
 ].concat(BUCKET_QUERIES));
+const UNSIGNED_PAYLOADS = Object.freeze([
+    'UNSIGNED-PAYLOAD',
+    'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'
+]);
 const RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: s3_errors.AccessDenied,
     FORBIDDEN: s3_errors.AccessDenied,
@@ -48,6 +53,8 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     IF_UNMODIFIED_SINCE: s3_errors.PreconditionFailed,
     IF_MATCH_ETAG: s3_errors.PreconditionFailed,
     IF_NONE_MATCH_ETAG: s3_errors.PreconditionFailed,
+    BAD_DIGEST: s3_errors.BadDigest,
+    BAD_SIZE: s3_errors.IncompleteBody,
 });
 
 
@@ -166,18 +173,16 @@ function s3_rest(controller) {
                 }
             }
 
-            let content_md5_b64 = req.headers['content-md5'];
-            if (!_.isUndefined(content_md5_b64)) {
+            const content_md5_b64 = req.headers['content-md5'];
+            if (content_md5_b64) {
                 req.content_md5 = new Buffer(content_md5_b64, 'base64');
                 if (req.content_md5.length !== 16) {
                     throw s3_errors.InvalidDigest;
                 }
             }
 
-            var bodyless_requests = ['UNSIGNED-PAYLOAD', 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'];
-            let content_sha256_hex = req.headers['x-amz-content-sha256'];
-            if (!_.isUndefined(content_sha256_hex) &&
-                bodyless_requests.indexOf(content_sha256_hex.toString()) < 0) {
+            const content_sha256_hex = req.headers['x-amz-content-sha256'];
+            if (content_sha256_hex && !UNSIGNED_PAYLOADS.includes(content_sha256_hex)) {
                 req.content_sha256 = new Buffer(content_sha256_hex, 'hex');
                 if (req.content_sha256.length !== 32) {
                     throw s3_errors.InvalidDigest;
@@ -187,8 +192,12 @@ function s3_rest(controller) {
             // using moment to parse x-amz-date from string iso8601 or iso822.
             // When using a signedURL we give an expiry of 7days, which will cover
             // up the skew between the times, so we don't check it
-            let client_date = moment(req.headers.date || req.headers['x-amz-date']);
-            if (!req.query['X-Amz-Credential'] && Math.abs(moment().diff(client_date, 'minutes')) > 2) {
+            const req_date = moment(
+                req.headers.date ||
+                req.headers['x-amz-date'] ||
+                req.query['X-Amz-Date']
+            );
+            if (Math.abs(moment().diff(req_date, 'seconds')) > config.TIME_SKEW_MAX_SECONDS) {
                 throw s3_errors.RequestTimeTooSkewed;
             }
 

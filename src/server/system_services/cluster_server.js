@@ -1,34 +1,35 @@
-/**
- * Cluster Server
- */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
+
 const DEV_MODE = (process.env.DEV_MODE === 'true');
+
 const _ = require('lodash');
-const RpcError = require('../../rpc/rpc_error');
-const system_store = require('./system_store').get_instance();
-const Dispatcher = require('../notifications/dispatcher');
-const server_rpc = require('../server_rpc');
-const MongoCtrl = require('../utils/mongo_ctrl');
-const cutil = require('../utils/clustering_utils');
-const P = require('../../util/promise');
-const fs_utils = require('../../util/fs_utils');
 const fs = require('fs');
-const os_utils = require('../../util/os_utils');
-const dbg = require('../../util/debug_module')(__filename);
-const config = require('../../../config.js');
-const promise_utils = require('../../util/promise_utils');
-const diag = require('../utils/server_diagnostics');
-const moment = require('moment');
 const url = require('url');
 const net = require('net');
-const upgrade_utils = require('../../util/upgrade_utils');
-const request = require('request');
 const dns = require('dns');
-const cluster_hb = require('../bg_services/cluster_hb');
-const dotenv = require('../../util/dotenv');
-const phone_home_utils = require('../../util/phone_home');
+const moment = require('moment');
+const request = require('request');
+
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
 const pkg = require('../../../package.json');
-const md_store = require('../object_services/md_store');
+const diag = require('../utils/server_diagnostics');
+const cutil = require('../utils/clustering_utils');
+const config = require('../../../config.js');
+const dotenv = require('../../util/dotenv');
+const MDStore = require('../object_services/md_store').MDStore;
+const fs_utils = require('../../util/fs_utils');
+const os_utils = require('../../util/os_utils');
+const RpcError = require('../../rpc/rpc_error');
+const MongoCtrl = require('../utils/mongo_ctrl');
+const server_rpc = require('../server_rpc');
+const cluster_hb = require('../bg_services/cluster_hb');
+const Dispatcher = require('../notifications/dispatcher');
+const system_store = require('./system_store').get_instance();
+const promise_utils = require('../../util/promise_utils');
+const upgrade_utils = require('../../util/upgrade_utils');
+const phone_home_utils = require('../../util/phone_home');
 
 
 function _init() {
@@ -201,24 +202,26 @@ function add_member_to_cluster(req) {
 
 function verify_join_conditions(req) {
     dbg.log0('Got verify_join_conditions request');
-    let hostname = os_utils.os_info().hostname;
-    let caller_address;
-    if (req.connection && req.connection.url) {
-        caller_address = req.connection.url.hostname.includes('ffff') ?
-            req.connection.url.hostname.replace(/^.*:/, '') :
-            req.connection.url.hostname;
-    } else {
-        dbg.error('No connection on request for verify_join_conditions. Got:', req);
-        return P.reject(new Error('No connection on request for verify_join_conditions'));
-    }
-
     return P.resolve()
-        .then(() => _verify_join_preconditons(req))
-        .then(result => ({
-            result,
-            caller_address,
-            hostname,
-        }));
+        .then(() => os_utils.os_info(true))
+        .then(os_info => {
+            let hostname = os_info.hostname;
+            let caller_address;
+            if (req.connection && req.connection.url) {
+                caller_address = req.connection.url.hostname.includes('ffff') ?
+                    req.connection.url.hostname.replace(/^.*:/, '') :
+                    req.connection.url.hostname;
+            } else {
+                dbg.error('No connection on request for verify_join_conditions. Got:', req);
+                throw new Error('No connection on request for verify_join_conditions');
+            }
+            return _verify_join_preconditons(req)
+                .then(result => ({
+                    result,
+                    caller_address,
+                    hostname,
+                }));
+        });
 }
 
 function _check_candidate_version(req) {
@@ -802,9 +805,10 @@ function diagnose_system(req) {
 function collect_server_diagnostics(req) {
     const INNER_PATH = `${process.cwd()}/build`;
     return P.resolve()
-        .then(() => {
+        .then(() => os_utils.os_info(true))
+        .then(os_info => {
             dbg.log0('Recieved diag req');
-            var out_path = '/public/' + os_utils.os_info().hostname + '_srv_diagnostics.tgz';
+            var out_path = '/public/' + os_info.hostname + '_srv_diagnostics.tgz';
             var inner_path = process.cwd() + '/build' + out_path;
             return P.resolve()
                 .then(() => diag.collect_server_diagnostics(req))
@@ -1214,11 +1218,8 @@ function _verify_join_preconditons(req) {
         }
 
         // verify there are no objects on the system
-        return (md_store.aggregate_objects_count({
-                system: system._id,
-                deleted: null
-            }))
-            .then(obj_count => (obj_count[''] > 0 ? 'HAS_OBJECTS' : 'OKAY'));
+        return MDStore.instance().has_any_objects_in_system(system._id)
+            .then(has_objects => (has_objects ? 'HAS_OBJECTS' : 'OKAY'));
     }
     // If we do not need system in order to add a server to a cluster
     dbg.log0('_verify_join_preconditons okay. server has no system');

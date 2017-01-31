@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -7,6 +8,7 @@ const mongoose = require('mongoose');
 
 const P = require('./promise');
 const RpcError = require('../rpc/rpc_error');
+const schema_utils = require('./schema_utils');
 
 /* exported constants */
 const mongo_operators = new Set([
@@ -158,6 +160,10 @@ function is_err_duplicate_key(err) {
     return err && err.code === 11000;
 }
 
+function is_err_namespace_exists(err) {
+    return err && err.code === 48;
+}
+
 function check_duplicate_key_conflict(err, entity) {
     if (is_err_duplicate_key(err)) {
         throw new RpcError('CONFLICT', entity + ' already exists');
@@ -180,6 +186,14 @@ function check_entity_not_deleted(doc, entity) {
     throw new RpcError('NO_SUCH_' + entity.toUpperCase());
 }
 
+function check_update_one(res, entity) {
+    // note that res.modifiedCount might be 0 if the update is to same values
+    // so we only verify here that the query actually matched a single document.
+    if (!res || res.matchedCount !== 1) {
+        throw new RpcError('NO_SUCH_' + entity.toUpperCase());
+    }
+}
+
 function make_object_diff(current, prev) {
     const set_map = _.pickBy(current, (value, key) => !_.isEqual(value, prev[key]));
     const unset_map = _.pickBy(prev, (value, key) => !(key in current));
@@ -188,6 +202,12 @@ function make_object_diff(current, prev) {
     if (!_.isEmpty(unset_map)) diff.$unset = _.mapValues(unset_map, () => 1);
     return diff;
 }
+
+const mongo_ajv_formats = Object.freeze({
+    date: schema_utils.date_format,
+    idate: schema_utils.idate_format,
+    objectid: val => is_object_id(val)
+});
 
 
 // EXPORTS
@@ -201,7 +221,10 @@ exports.make_object_id = make_object_id;
 exports.fix_id_type = fix_id_type;
 exports.is_object_id = is_object_id;
 exports.is_err_duplicate_key = is_err_duplicate_key;
+exports.is_err_namespace_exists = is_err_namespace_exists;
 exports.check_duplicate_key_conflict = check_duplicate_key_conflict;
 exports.check_entity_not_found = check_entity_not_found;
 exports.check_entity_not_deleted = check_entity_not_deleted;
+exports.check_update_one = check_update_one;
 exports.make_object_diff = make_object_diff;
+exports.mongo_ajv_formats = mongo_ajv_formats;

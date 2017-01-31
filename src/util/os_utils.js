@@ -16,7 +16,7 @@ const dbg = require('./debug_module')(__filename);
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 
-function os_info(count_reserved_as_free) {
+function os_info(count_mongo_reserved_as_free) {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
     var orig_ifaces = os.networkInterfaces();
@@ -30,7 +30,7 @@ function os_info(count_reserved_as_free) {
         }
     });
     return P.resolve()
-        .then(() => (count_reserved_as_free ? _calculate_free_mem() : os.freemem()))
+        .then(() => _calculate_free_mem(count_mongo_reserved_as_free))
         .then(free_mem => ({
             hostname: os.hostname(),
             ostype: os.type(),
@@ -46,7 +46,7 @@ function os_info(count_reserved_as_free) {
         }));
 }
 
-function _calculate_free_mem() {
+function _calculate_free_mem(count_mongo_reserved_as_free) {
     let res = os.freemem();
     const KB_TO_BYTE = 1024;
     if (os.type() !== 'Windows_NT' && os.type() !== 'Darwin') {
@@ -61,7 +61,8 @@ function _calculate_free_mem() {
                     res += (cached_mem_in_kb * KB_TO_BYTE);
                 }))
             // get mongod cached mem
-            .then(() => _exec_and_extract_num('ps -elf | grep mongod | grep -v grep', 'root')
+            .then(() => count_mongo_reserved_as_free &&
+                _exec_and_extract_num('ps -elf | grep mongod | grep -v grep', 'root')
                 .then(pid => pid && _exec_and_extract_num(`cat /proc/${pid}/status | grep VmRSS`, 'VmRSS:')
                     .then(mongo_cached_mem => {
                         res += (mongo_cached_mem * KB_TO_BYTE);

@@ -4,6 +4,7 @@ import { systemInfo, serverTime } from 'model';
 import { deepFreeze, isDefined} from 'utils/core-utils';
 import { getServerIssues } from 'utils/cluster-utils';
 import { loadServerTime } from 'actions';
+import { timeLongFormat } from 'config';
 import ko from 'knockout';
 
 const icons = deepFreeze({
@@ -179,8 +180,10 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => this.server().ntp_server || 'Not configured'
         );
 
-        const clock = ko.pureComputed(this.clock).extend({
-            formatTime: 'DD MMM YYYY HH:mm:ss ([GMT]Z)'
+        const clock = ko.pureComputed(
+            () => this.clock()
+        ).extend({
+            formatTime: timeLongFormat
         });
 
         return { icon, tooltip, clock, ntp };

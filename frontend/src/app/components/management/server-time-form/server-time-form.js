@@ -4,6 +4,7 @@ import ServerRow from './server-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
+import { timeLongFormat } from 'config';
 
 const columns = deepFreeze([
     {
@@ -65,7 +66,7 @@ class ServerTimeFormViewModel extends BaseViewModel {
 
         this.formattedMasterTime = this.masterTime.extend({
             formatTime: {
-                format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)',
+                format: timeLongFormat,
                 timezone: masterTimezone
             }
         });

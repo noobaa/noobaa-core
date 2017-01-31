@@ -582,7 +582,13 @@ class Agent {
             .then(() => extended_hb && os_utils.os_info()
                 .then(os_info => {
                     reply.os_info = os_info;
+                })
+                .then(() => os_utils.get_distro().then(res => {
+                    if (reply.os_info) {
+                        reply.os_info.ostype = res;
+                    }
                 }))
+                .catch(err => dbg.warn('failed to get detailed os info', err)))
             .then(() => this._update_servers_list(req.rpc_params.addresses))
             .then(() => this.create_node_token_wrapper.read())
             .then(create_node_token => {

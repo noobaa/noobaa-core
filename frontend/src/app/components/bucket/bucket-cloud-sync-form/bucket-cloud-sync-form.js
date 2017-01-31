@@ -141,7 +141,7 @@ class BucketCloudSyncFormViewModel extends BaseViewModel {
             ]
         );
 
-        const syncDeconstions = ko.pureComputed(
+        const syncDeletions = ko.pureComputed(
             () => policy() && policy().additions_only ? 'No' : 'Yes'
         );
 
@@ -155,8 +155,8 @@ class BucketCloudSyncFormViewModel extends BaseViewModel {
                 value: syncDirection
             },
             {
-                label: 'Sync Deconstions',
-                value: syncDeconstions
+                label: 'Sync Deletions',
+                value: syncDeletions
             }
         ];
 

@@ -182,7 +182,7 @@ function s3_rest(controller) {
             }
 
             const content_sha256_hex = req.headers['x-amz-content-sha256'];
-            if (content_sha256_hex && !UNSIGNED_PAYLOADS.contains(content_sha256_hex)) {
+            if (content_sha256_hex && !UNSIGNED_PAYLOADS.includes(content_sha256_hex)) {
                 req.content_sha256 = new Buffer(content_sha256_hex, 'hex');
                 if (req.content_sha256.length !== 32) {
                     throw s3_errors.InvalidDigest;

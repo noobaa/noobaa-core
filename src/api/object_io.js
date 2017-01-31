@@ -162,6 +162,7 @@ class ObjectIO {
             .then(() => params.client.object.complete_object_upload(complete_params))
             .catch(err => {
                 dbg.warn('upload_object: failed upload', complete_params, err);
+                if (!params.upload_id) throw err;
                 return params.client.object.abort_object_upload(_.pick(params, 'bucket', 'key', 'upload_id'))
                     .then(() => {
                         dbg.log0('upload_object: aborted object upload', complete_params);

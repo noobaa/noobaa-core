@@ -224,6 +224,11 @@ function pre_upgrade {
     echo "root soft nofile 102400" >> /etc/security/limits.conf
   fi
 
+  # CVE-2016-5696
+  if ! grep -q 'net.ipv4.tcp_challenge_ack_limit = 999999999' /etc/sysctl.conf; then
+    echo "net.ipv4.tcp_challenge_ack_limit = 999999999" >> etc/sysctl.conf
+  fi
+
   echo "64000" > /proc/sys/kernel/threads-max
   sysctl -w fs.file-max=102400
   sysctl -w net.ipv4.tcp_keepalive_time=120

@@ -7,10 +7,10 @@ module.exports = [{
         // load_blocks_for_chunks()
         fields: {
             chunk: 1,
-            deleted: 1,
         },
         options: {
             unique: false,
+            sparse: true,
         }
     },
     {
@@ -18,11 +18,11 @@ module.exports = [{
         // count_blocks_of_node()
         fields: {
             node: 1,
-            deleted: 1,
             _id: -1,
         },
         options: {
             unique: false,
+            sparse: true,
         }
     }
 ];

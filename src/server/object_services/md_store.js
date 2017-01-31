@@ -32,15 +32,15 @@ class MDStore {
             schema: object_md_schema,
             db_indexes: object_md_indexes,
         });
-        this._parts = mongo_client.instance().define_collection({
-            name: 'objectparts' + test_suffix,
-            schema: object_part_schema,
-            db_indexes: object_part_indexes,
-        });
         this._multiparts = mongo_client.instance().define_collection({
             name: 'objectmultiparts' + test_suffix,
             schema: object_multipart_schema,
             db_indexes: object_multipart_indexes,
+        });
+        this._parts = mongo_client.instance().define_collection({
+            name: 'objectparts' + test_suffix,
+            schema: object_part_schema,
+            db_indexes: object_part_indexes,
         });
         this._chunks = mongo_client.instance().define_collection({
             name: 'datachunks' + test_suffix,
@@ -61,6 +61,10 @@ class MDStore {
 
     make_md_id(id_str) {
         return new mongodb.ObjectId(id_str);
+    }
+
+    is_valid_md_id(id_str) {
+        return mongodb.ObjectId.isValid(id_str);
     }
 
 
@@ -388,6 +392,67 @@ class MDStore {
     }
 
 
+    ////////////////
+    // MULTIPARTS //
+    ////////////////
+
+    insert_multipart(multipart) {
+        this._multiparts.validate(multipart);
+        return this._multiparts.col().insertOne(multipart);
+
+    }
+
+    update_multipart_by_id(multipart_id, set_updates) {
+        return this._multiparts.col().updateOne({
+                _id: multipart_id,
+            }, compact_updates(set_updates))
+            .then(res => mongo_utils.check_update_one(res, 'multipart'));
+    }
+
+    find_multipart_by_id(multipart_id) {
+        return this._multiparts.col().findOne({
+                _id: multipart_id,
+            })
+            .then(obj => mongo_utils.check_entity_not_deleted(obj, 'multipart'));
+    }
+
+    find_multiparts_of_object(obj_id, num_gt, limit) {
+        return this._multiparts.col().find({
+                obj: obj_id,
+                num: {
+                    $gt: num_gt
+                },
+                size: {
+                    $exists: true
+                },
+                md5_b64: {
+                    $exists: true
+                },
+            }, {
+                sort: {
+                    num: 1,
+                    _id: -1, // last created first
+                },
+                limit: limit,
+            })
+            .toArray();
+    }
+
+    delete_multiparts_of_object(obj, delete_date) {
+        return this._multiparts.col().updateMany({
+            obj: obj._id,
+        }, {
+            $set: {
+                deleted: delete_date
+            },
+            $rename: {
+                obj: 'obj_del',
+                num: 'num_del',
+            }
+        });
+    }
+
+
     ///////////
     // PARTS //
     ///////////
@@ -398,12 +463,6 @@ class MDStore {
             this._parts.validate(part);
         }
         return this._parts.col().insertMany(parts, unordered_insert_options());
-    }
-
-    update_parts_of_object(obj, set_updates) {
-        return this._parts.col().updateMany({
-            obj: obj._id,
-        }, compact_updates(set_updates));
     }
 
     find_parts_by_start_range({ obj_id, start_gte, start_lt, end_gt, skip, limit }) {
@@ -545,52 +604,21 @@ class MDStore {
         return bulk.length ? bulk.execute() : P.resolve();
     }
 
-
-    ////////////////
-    // MULTIPARTS //
-    ////////////////
-
-    insert_multipart(multipart) {
-        this._multiparts.validate(multipart);
-        return this._multiparts.col().insertOne(multipart);
-
+    delete_parts_of_object(obj, delete_date) {
+        return this._parts.col().updateMany({
+            obj: obj._id,
+        }, {
+            $set: {
+                deleted: delete_date
+            },
+            $rename: {
+                obj: 'obj_del',
+                start: 'start_del',
+                chunk: 'chunk_del',
+            }
+        });
     }
 
-    update_multipart_by_id(multipart_id, set_updates) {
-        return this._multiparts.col().updateOne({
-                _id: multipart_id,
-            }, compact_updates(set_updates))
-            .then(res => mongo_utils.check_update_one(res, 'multipart'));
-    }
-
-    find_multipart_by_id(multipart_id) {
-        return this._multiparts.col().findOne({
-                _id: multipart_id,
-            })
-            .then(obj => mongo_utils.check_entity_not_deleted(obj, 'multipart'));
-    }
-
-    find_multiparts_of_object(obj_id, num_gt, limit) {
-        return this._multiparts.col().find({
-                obj: obj_id,
-                num: {
-                    $gt: num_gt
-                },
-                size: {
-                    $exists: true
-                },
-                md5_b64: {
-                    $exists: true
-                },
-            }, {
-                sort: {
-                    num: 1,
-                    _id: -1, // last created first
-                },
-                limit: limit,
-            })
-            .toArray();
-    }
 
     ////////////
     // CHUNKS //
@@ -724,6 +752,22 @@ class MDStore {
             });
     }
 
+    delete_chunks_by_ids(chunk_ids, delete_date) {
+        if (!chunk_ids || !chunk_ids.length) return;
+        return this._chunks.col().updateMany({
+            _id: {
+                $in: chunk_ids
+            }
+        }, {
+            $set: {
+                deleted: delete_date
+            },
+            $unset: {
+                dedup_key: true
+            }
+        });
+    }
+
 
     ////////////
     // BLOCKS //
@@ -745,15 +789,6 @@ class MDStore {
                 $in: block_ids
             }
         }, compact_updates(set_updates, unset_updates));
-    }
-
-    update_blocks_of_chunks(chunk_ids, set_updates) {
-        if (!chunk_ids || !chunk_ids.length) return;
-        return this._blocks.col().updateMany({
-            chunk: {
-                $in: chunk_ids
-            }
-        }, compact_updates(set_updates));
     }
 
     find_blocks_of_chunks(chunk_ids) {
@@ -800,10 +835,10 @@ class MDStore {
     iterate_node_chunks({ node_id, marker, skip, limit }) {
         return this._blocks.col().find(compact({
                 node: node_id,
-                deleted: null,
                 _id: marker ? {
                     $lt: marker
                 } : undefined,
+                deleted: null,
             }), {
                 fields: {
                     _id: 1,
@@ -830,6 +865,24 @@ class MDStore {
             deleted: null,
         });
     }
+
+    delete_blocks_of_chunks(chunk_ids, delete_date) {
+        if (!chunk_ids || !chunk_ids.length) return;
+        return this._blocks.col().updateMany({
+            chunk: {
+                $in: chunk_ids
+            }
+        }, {
+            $set: {
+                deleted: delete_date
+            },
+            $rename: {
+                chunk: 'chunk_del',
+                node: 'node_del',
+            }
+        });
+    }
+
 }
 
 

@@ -637,7 +637,7 @@ class S3Controller {
      */
     post_object_uploadId(req) {
         this.usage_report.s3_usage_info.post_object_uploadId += 1;
-        return P.fromCallback(callback => xml2js.parseString(req.body, callback))
+        return P.fromCallback(callback => xml2js.parseString(req.body || '', callback))
             .then(data => req.rpc_client.object.complete_object_upload({
                 bucket: req.params.bucket,
                 key: req.params.key,
@@ -842,35 +842,42 @@ class S3Controller {
         };
         return req.rpc_client.bucket.get_bucket_lifecycle_configuration_rules(params)
             .then(reply => ({
-                LifecycleConfiguration: [
-                    _.map(reply, rule => ({
-                        Rule: {
+                LifecycleConfiguration: _.map(reply, rule => ({
+                    Rule: [{
                             ID: rule.id,
                             Prefix: rule.prefix,
                             Status: rule.status,
-                            Transition: rule.transition ? {
+                        },
+                        rule.transition ? {
+                            Transition: {
                                 Days: rule.transition.days,
                                 StorageClass: rule.transition.storage_class,
-                            } : null,
-                            Expiration: rule.expiration ? (rule.expiration.days ? {
+                            }
+                        } : {},
+                        rule.expiration ? {
+                            Expiration: (rule.expiration.days ? {
                                 Days: rule.expiration.days,
                                 ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ?
-                                    rule.expiration.expired_object_delete_marker : null
+                                    rule.expiration.expired_object_delete_marker : {}
                             } : {
                                 Date: rule.expiration.date,
                                 ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ?
-                                    rule.expiration.expired_object_delete_marker : null
-                            }) : null,
-                            NoncurrentVersionTransition: rule.noncurrent_version_transition ? {
+                                    rule.expiration.expired_object_delete_marker : {}
+                            })
+                        } : {},
+                        rule.noncurrent_version_transition ? {
+                            NoncurrentVersionTransition: {
                                 NoncurrentDays: rule.noncurrent_version_transition.noncurrent_days,
                                 StorageClass: rule.noncurrent_version_transition.storage_class,
-                            } : null,
-                            NoncurrentVersionExpiration: rule.noncurrent_version_expiration ? {
+                            }
+                        } : {},
+                        rule.noncurrent_version_expiration ? {
+                            NoncurrentVersionExpiration: {
                                 NoncurrentDays: rule.noncurrent_version_expiration.noncurrent_days,
-                            } : null,
-                        }
-                    }))
-                ]
+                            }
+                        } : {},
+                    ]
+                }))
             }));
     }
 

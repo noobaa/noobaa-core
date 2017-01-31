@@ -16,26 +16,24 @@ const server_rpc = require('../server_rpc');
  */
 function delete_object_mappings(obj) {
     const delete_date = new Date();
-    const deleted_update = {
-        deleted: delete_date
-    };
     return P.join(
             MDStore.instance().find_parts_chunk_ids(obj),
-            MDStore.instance().update_parts_of_object(obj, deleted_update)
+            MDStore.instance().delete_parts_of_object(obj, delete_date),
+            MDStore.instance().delete_multiparts_of_object(obj, delete_date)
         )
-        .spread(chunk_ids => delete_chunks_if_unreferenced(chunk_ids, deleted_update));
+        .spread(chunk_ids => delete_chunks_if_unreferenced(chunk_ids, delete_date));
 }
 
-function delete_chunks_if_unreferenced(chunk_ids, deleted_update) {
+function delete_chunks_if_unreferenced(chunk_ids, delete_date) {
     return MDStore.instance().find_parts_unreferenced_chunk_ids(chunk_ids)
-        .then(unreferenced_chunk_ids => delete_chunks(unreferenced_chunk_ids, deleted_update));
+        .then(unreferenced_chunk_ids => delete_chunks(unreferenced_chunk_ids, delete_date));
 }
 
-function delete_chunks(chunk_ids, deleted_update) {
+function delete_chunks(chunk_ids, delete_date) {
     return P.join(
             MDStore.instance().find_blocks_of_chunks(chunk_ids),
-            MDStore.instance().update_blocks_of_chunks(chunk_ids, deleted_update),
-            MDStore.instance().update_chunks_by_ids(chunk_ids, deleted_update)
+            MDStore.instance().delete_blocks_of_chunks(chunk_ids, delete_date),
+            MDStore.instance().delete_chunks_by_ids(chunk_ids, delete_date)
         )
         .spread(blocks => delete_blocks_from_nodes(blocks));
 }

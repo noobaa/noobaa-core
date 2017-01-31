@@ -859,6 +859,9 @@ function find_object_md(req) {
 
 function find_object_upload(req) {
     load_bucket(req);
+    if (!MDStore.instance().is_valid_md_id(req.rpc_params.upload_id)) {
+        throw new RpcError('NO_SUCH_UPLOAD', `invalid id ${req.rpc_params.upload_id}`);
+    }
     const obj_id = MDStore.instance().make_md_id(req.rpc_params.upload_id);
     return MDStore.instance().find_object_by_id(obj_id)
         .then(obj => check_object_upload_mode(req, obj));

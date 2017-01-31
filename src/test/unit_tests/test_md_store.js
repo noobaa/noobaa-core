@@ -146,6 +146,30 @@ mocha.describe('md_store', function() {
     });
 
 
+    mocha.describe('multiparts', function() {
+
+        const multipart = {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: md_store.make_md_id(),
+            obj: md_store.make_md_id(),
+            num: 1,
+        };
+
+        mocha.it('insert_multipart()', function() {
+            return md_store.insert_multipart(multipart);
+        });
+
+        mocha.it('delete_multiparts_of_object()', function() {
+            const obj = {
+                _id: multipart.obj,
+            };
+            return md_store.delete_multiparts_of_object(obj, new Date());
+        });
+
+    });
+
+
     mocha.describe('parts', function() {
 
         const parts = [{
@@ -157,18 +181,10 @@ mocha.describe('md_store', function() {
             start: 0,
             end: 10,
             seq: 0,
-            multipart_number: 8642,
         }];
 
         mocha.it('insert_parts()', function() {
             return md_store.insert_parts(parts);
-        });
-
-        mocha.it('update_parts_of_object()', function() {
-            const obj = {
-                _id: parts[0].obj,
-            };
-            return md_store.update_parts_of_object(obj, { etag: 'ETAG1' });
         });
 
         mocha.it('find_parts_by_start_range()', function() {
@@ -214,6 +230,13 @@ mocha.describe('md_store', function() {
                 _id: md_store.make_md_id(),
             };
             return md_store.copy_object_parts(obj, target_obj);
+        });
+
+        mocha.it('delete_parts_of_object()', function() {
+            const obj = {
+                _id: parts[0].obj,
+            };
+            return md_store.delete_parts_of_object(obj, new Date());
         });
 
     });
@@ -269,6 +292,10 @@ mocha.describe('md_store', function() {
                 .then(res => assert_equal_docs_list(res, chunks));
         });
 
+        mocha.it('delete_chunks_by_ids()', function() {
+            return md_store.delete_chunks_by_ids(_.map(chunks, '_id'), new Date());
+        });
+
     });
 
 
@@ -289,6 +316,10 @@ mocha.describe('md_store', function() {
 
         mocha.it('insert_blocks()', function() {
             return md_store.insert_blocks(blocks);
+        });
+
+        mocha.it('delete_blocks_of_chunks()', function() {
+            return md_store.delete_blocks_of_chunks([blocks[0].chunk], new Date());
         });
 
 

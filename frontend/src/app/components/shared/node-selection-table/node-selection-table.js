@@ -55,7 +55,7 @@ class NodeSelectionTableViewModel extends BaseViewModel {
         this.selectedMessage = ko.pureComputed(
             () => {
                 let selectedCount = this.selectedNodes().length;
-                return `${selectedCount} nodes selected of ${nodeCount()}`;
+                return `${selectedCount} nodes selected of all nodes (${nodeCount()})`;
             }
         );
     }

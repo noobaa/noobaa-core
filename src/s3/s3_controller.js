@@ -993,10 +993,10 @@ function to_s3_date(input) {
     return date.toISOString();
 }
 
-function to_aws_date_for_http_header(input)
-{
+function to_aws_date_for_http_header(input) {
     return time_utils.toRFC822(new Date(input));
 }
+
 function get_request_xattr(req) {
     let xattr = {};
     _.each(req.headers, (val, hdr) => {

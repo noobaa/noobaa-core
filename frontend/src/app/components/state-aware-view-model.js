@@ -1,19 +1,29 @@
 import state from 'state';
 
+const stateSub = Symbol('stateSub');
+const oldState = Symbol('oldState');
+
 export default class StateAwareViewModel {
     constructor() {
-        this._stateSub;
+        this[stateSub] = undefined;
+        this[oldState] = undefined;
+
+        // Wait for child class constructor to execute before
+        // adding the subscription.
         setImmediate(() => {
-            this._stateSub = state.subscribe(
-                state => this.onState(state)
+            this[stateSub] = state.subscribe(
+                state => {
+                    this.onState(state, this[oldState]);
+                    this[oldState] = state;
+                }
             );
         });
     }
 
-    onState(/*state*/) {
+    onState(/*state, oldState*/) {
     }
 
     dispose() {
-        this._stateSub.dispose();
+        this[stateSub].dispose();
     }
 }

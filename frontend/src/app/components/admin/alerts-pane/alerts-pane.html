@@ -7,3 +7,66 @@
         <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
     </button>
 </h1>
+
+<section class="column hpad greedy push-next">
+    <toggle-filter class="push-next align-start" params="
+        options: severityOptions,
+        selected: severityFilter
+    "></toggle-filter>
+
+    <div class="row content-middle">
+        <checkbox class="greedy" params="
+            label: 'Show unread only',
+            checked: unreadOnlyFilter
+        "></checkbox>
+
+        <button class="link alt-colors" data-bind="
+            disable: loading,
+            click: markListAsRead
+        ">
+            Mark all as read
+        </button>
+    </div>
+
+    <div class="column alt-bg greedy alert-list" data-bind="scroll: scroll">
+        <ul class="list-no-style" data-bind="foreach: rows">
+            <li class="pad alert row content-middle" data-bind="css: css">
+                <svg-icon class="push-next" params="name: icon"></svg-icon>
+
+                <div class="column greedy">
+                    <p class="greedy" data-bind="text: text"></p>
+                    <span class="remark" data-bind="text: time"></span>
+                </div>
+
+                <button class="mark-as-read-btn link alt-colors remark align-start" data-bind="
+                    visible: markButton,
+                    click: $component.markRowAsRead
+                ">
+                    Mark as read
+                </button>
+
+                <div class="align-top alerts-loader" data-bind="visible: loader">
+                    <span class="circle"></span>
+                    <span class="circle"></span>
+                    <span class="circle"></span>
+                </div>
+            </li>
+        </ul>
+
+        <div class="align-middle alerts-loader pad" data-bind="visible: loading">
+            <span class="circle"></span>
+            <span class="circle"></span>
+            <span class="circle"></span>
+        </div>
+
+        <div class="align-middle remark pad" data-bind="visible: endOfList">
+            No more results
+        </div>
+
+        <div class="link align-middle pad" data-bind="visible: loadFailed">
+            <button class="link no-outline error" data-bind="click: retryLoad">
+                Loading failed, click to retry
+            </button>
+        </div>
+    </div>
+</section>

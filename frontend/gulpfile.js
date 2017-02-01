@@ -273,6 +273,7 @@ function bundleApp(watch) {
             presets: ['es2015'],
             plugins: [
                 'transform-async-to-generator',
+                'transform-object-rest-spread',
                 'transform-runtime'
             ]
         })

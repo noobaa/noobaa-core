@@ -16,6 +16,10 @@ export function deepFreeze(val) {
     }
 }
 
+export function deepClone(val) {
+    return JSON.parse(JSON.stringify(val));
+}
+
 export function isArray(value){
     return value instanceof Array;
 }
@@ -212,4 +216,13 @@ export function interpolateLinear(a, b, t) {
 export function decimalRound(number, fractionalLength = 2) {
     const factor = Math.pow(10, fractionalLength);
     return Math.round(number * factor) / factor;
+}
+
+export function mergeBy(...arrays) {
+    const keySelector = isFunction(last(arrays)) ? arrays.pop() : echo;
+    const merge = {};
+    for (const arr of arrays) {
+        Object.assign(merge, keyBy(arr, keySelector));
+    }
+    return Object.values(merge);
 }

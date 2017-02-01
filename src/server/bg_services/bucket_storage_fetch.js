@@ -88,10 +88,13 @@ function background_worker() {
                 new_storage_stats.chunks_capacity = (new size_utils.BigInteger(new_storage_stats.chunks_capacity).plus(delta_chunk_compress_size)).toJSON();
                 new_storage_stats.objects_size = (new size_utils.BigInteger(new_storage_stats.objects_size).plus(delta_object_size)).toJSON();
                 new_storage_stats.objects_count += delta_object_count;
+                new_storage_stats.objects_size_hist = get_objects_size_hist(bucket, existing_objects_aggregate, deleted_objects_aggregate);
+                new_storage_stats.objects_count_hist = get_objects_count_hist(bucket, existing_objects_aggregate, deleted_objects_aggregate);
+
                 dbg.log0('Bucket storage stats after deltas:', new_storage_stats);
                 return {
                     _id: bucket._id,
-                    storage_stats: new_storage_stats
+                    storage_stats: new_storage_stats,
                 };
             });
             return system_store.make_changes({
@@ -104,6 +107,48 @@ function background_worker() {
             dbg.log0('BUCKET STORAGE FETCH:', 'ERROR', err, err.stack);
         })
         .return();
+}
+
+function get_hist_array_from_aggregate(agg, key) {
+    return [
+        (agg && agg[key + '_0mega']) || 0,
+        (agg && agg[key + '_5mega']) || 0,
+        (agg && agg[key + '_100mega']) || 0,
+        (agg && agg[key + '_1gig']) || 0,
+        (agg && agg[key + '_100gig']) || 0,
+        (agg && agg[key + '_1tb']) || 0,
+        (agg && agg[key + '_10tb']) || 0
+    ];
+}
+
+
+function get_objects_size_hist(bucket, existing_agg, deleted_agg) {
+    let current_objects_size_hist = (bucket.storage_stats && bucket.storage_stats.objects_size_hist) || [0, 0, 0, 0, 0, 0, 0];
+    let existing_size_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'size');
+    let deleted_size_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'size');
+    let new_size_hist = [];
+    // calculate new size for each bin
+    for (var i = 0; i < current_objects_size_hist.length; i++) {
+        let bigint_existing_size_bin = new size_utils.BigInteger(existing_size_hist[i]);
+        let bigint_deleted_size_bin = new size_utils.BigInteger(deleted_size_hist[i]);
+        let delta_size_bin = bigint_existing_size_bin.minus(bigint_deleted_size_bin);
+        new_size_hist.push((new size_utils.BigInteger(current_objects_size_hist[i]).plus(delta_size_bin)).toJSON());
+    }
+    return new_size_hist;
+}
+
+
+function get_objects_count_hist(bucket, existing_agg, deleted_agg) {
+    let current_objects_count_hist = (bucket.storage_stats && bucket.storage_stats.objects_count_hist) || [0, 0, 0, 0, 0, 0, 0];
+    let existing_count_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'count');
+    let deleted_count_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'count');
+    let new_count_hist = [];
+    // calculate new size for each bin
+    for (var i = 0; i < current_objects_count_hist.length; i++) {
+        let delta_count_bin = existing_count_hist[i] - deleted_count_hist[i];
+        new_count_hist.push(current_objects_count_hist[i] + delta_count_bin);
+    }
+    return new_count_hist;
 }
 
 

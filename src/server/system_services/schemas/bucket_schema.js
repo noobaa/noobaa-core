@@ -84,28 +84,51 @@ module.exports = {
         },
         storage_stats: {
             type: 'object',
-            required: ['chunks_capacity', 'objects_size', 'objects_count', 'last_update'],
+            required: ['chunks_capacity', 'objects_size', 'objects_count', 'last_update', 'objects_count_hist', 'objects_size_hist'],
             properties: {
                 chunks_capacity: {
                     oneOf: [{
-                            type: 'integer'
-                        }, {
-                            type: 'object',
-                            properties: {
-                                n: {
-                                    type: 'integer',
-                                },
-                                // to support bigger integers we can specify a peta field
-                                // which is considered to be based from 2^50
-                                peta: {
-                                    type: 'integer',
-                                }
+                        type: 'integer'
+                    }, {
+                        type: 'object',
+                        properties: {
+                            n: {
+                                type: 'integer',
+                            },
+                            // to support bigger integers we can specify a peta field
+                            // which is considered to be based from 2^50
+                            peta: {
+                                type: 'integer',
                             }
-                        }]
-                        // $ref: 'common_api#/definitions/bigint'
+                        }
+                    }]
+                    // $ref: 'common_api#/definitions/bigint'
                 },
                 objects_size: {
                     oneOf: [{
+                        type: 'integer'
+                    }, {
+                        type: 'object',
+                        properties: {
+                            n: {
+                                type: 'integer',
+                            },
+                            // to support bigger integers we can specify a peta field
+                            // which is considered to be based from 2^50
+                            peta: {
+                                type: 'integer',
+                            }
+                        }
+                    }]
+                    // $ref: 'common_api#/definitions/bigint'
+                },
+                objects_count: {
+                    type: 'integer'
+                },
+                objects_size_hist: {
+                    type: 'array',
+                    items: {
+                        oneOf: [{
                             type: 'integer'
                         }, {
                             type: 'object',
@@ -121,9 +144,13 @@ module.exports = {
                             }
                         }]
                         // $ref: 'common_api#/definitions/bigint'
+                    },
                 },
-                objects_count: {
-                    type: 'integer'
+                objects_count_hist: {
+                    type: 'array',
+                    items: {
+                        type: 'integer'
+                    },
                 },
                 last_update: {
                     format: 'idate'

@@ -74,6 +74,17 @@ function map_aggregate_objects() {
     emit(['', 'count'], 1);
     emit([this.bucket, 'size'], this.size);
     emit([this.bucket, 'count'], 1);
+    const bins = [0, 5, 100, 1000, 100000, 1000000, 10000000];
+    const keys_suff = ['0mega', '5mega', '100mega', '1gig', '100gig', '1tb', '10tb'];
+    const sizeMB = this.size / (1024 * 1024);
+    for (var i = bins.length - 1; i >= 0; --i) {
+        if (sizeMB >= bins[i]) {
+            var suff = keys_suff[i];
+            emit([this.bucket, 'count_' + suff], 1);
+            emit([this.bucket, 'size_' + suff], this.size);
+            break;
+        }
+    }
 }
 
 /**

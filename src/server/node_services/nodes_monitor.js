@@ -1304,7 +1304,7 @@ class NodesMonitor extends EventEmitter {
 
     _get_item_mode(item) {
         const MB = Math.pow(1024, 2);
-        const storage = get_storage_info(item.node.storage, item.node.is_internal_node);
+        const storage = this._node_storage_info(item);
         const free = size_utils.json_to_bigint(storage.free);
         const used = size_utils.json_to_bigint(storage.used);
         const free_ratio = free.add(used).isZero() ?
@@ -1853,13 +1853,13 @@ class NodesMonitor extends EventEmitter {
         let count = 0;
         let online = 0;
         const by_mode = {};
-        const storage = {
-            total: BigInteger.zero,
-            free: BigInteger.zero,
-            used: BigInteger.zero,
-            reserved: BigInteger.zero,
-            unavailable_free: BigInteger.zero,
-            used_other: BigInteger.zero,
+        let storage = {
+            total: 0,
+            free: 0,
+            used: 0,
+            reserved: 0,
+            unavailable_free: 0,
+            used_other: 0,
         };
         const data_activities = {};
         _.each(list, item => {
@@ -1885,42 +1885,12 @@ class NodesMonitor extends EventEmitter {
                 a.time.end = Math.max(a.time.end, act.time.end || Infinity);
             }
 
-            item.node.storage.free = Math.max(item.node.storage.free, 0);
-            // for internal agents set reserve to 0
-            let reserve = 0;
-            if (!item.node.is_internal_node &&
-                !item.node.is_cloud_node) {
-                reserve = config.NODES_FREE_SPACE_RESERVE;
-            }
-
-            const free_considering_reserve =
-                new BigInteger(item.node.storage.free || 0)
-                .minus(reserve);
-            if (free_considering_reserve.greater(0)) {
-                if (item.has_issues) {
-                    storage.unavailable_free = storage.unavailable_free
-                        .plus(free_considering_reserve);
-                } else {
-                    storage.free = storage.free
-                        .plus(free_considering_reserve);
-                }
-                storage.reserved = storage.reserved
-                    .plus(reserve || 0);
-            } else {
-                storage.reserved = storage.reserved
-                    .plus(item.node.storage.free || 0);
-            }
-            storage.total = storage.total
-                .plus(item.node.storage.total || 0);
-            storage.used = storage.used
-                .plus(item.node.storage.used || 0);
+            const node_storage = this._node_storage_info(item);
+            _.forIn(storage, (value, key) => {
+                storage[key] = size_utils.reduce_sum(key, [node_storage[key], value]);
+            });
         });
-        storage.used_other = BigInteger.max(0,
-            storage.total
-            .minus(storage.used)
-            .minus(storage.reserved)
-            .minus(storage.free)
-            .minus(storage.unavailable_free));
+
         const now = Date.now();
         return {
             nodes: {
@@ -1928,7 +1898,7 @@ class NodesMonitor extends EventEmitter {
                 online,
                 by_mode
             },
-            storage: size_utils.to_bigint_storage(storage),
+            storage: storage,
             data_activities: _.map(data_activities, a => {
                 if (!_.isFinite(a.time.end)) delete a.time.end;
                 a.progress = progress_by_time(a.time, now);
@@ -1985,11 +1955,10 @@ class NodesMonitor extends EventEmitter {
                 'size',
                 'wait_reason');
         }
-        info.storage = get_storage_info(node.storage, /*ignore_reserve=*/ node.is_internal_node);
+        info.storage = this._node_storage_info(item);
         info.drives = _.map(node.drives, drive => ({
             mount: drive.mount,
             drive_id: drive.drive_id,
-            storage: get_storage_info(drive.storage, /*ignore_reserve=*/ node.is_internal_node)
         }));
         info.os_info = _.defaults({}, node.os_info);
         if (info.os_info.uptime) {
@@ -2186,24 +2155,38 @@ class NodesMonitor extends EventEmitter {
             this._disconnect_node(item);
         }
     }
-}
 
 
-function get_storage_info(storage, ignore_reserve) {
-    let reply = {
-        total: storage.total || 0,
-        free: Math.max(storage.free || 0, 0),
-        used: storage.used || 0,
-        alloc: storage.alloc || 0,
-        limit: storage.limit || 0,
-        reserved: config.NODES_FREE_SPACE_RESERVE || 0,
-        used_other: storage.used_other || 0
-    };
+    _node_storage_info(item) {
+        const ignore_reserve = item.node.is_internal_node || item.node.is_cloud_node;
+        let reply = {
+            total: size_utils.json_to_bigint(item.node.storage.total || 0),
+            free: BigInteger.max(size_utils.json_to_bigint(item.node.storage.free || 0), BigInteger.zero),
+            used: size_utils.json_to_bigint(item.node.storage.used || 0),
+            alloc: size_utils.json_to_bigint(item.node.storage.alloc || 0),
+            limit: size_utils.json_to_bigint(item.node.storage.limit || 0),
+            reserved: size_utils.json_to_bigint(config.NODES_FREE_SPACE_RESERVE || 0),
+            used_other: size_utils.json_to_bigint(item.node.storage.used_other || 0),
+            unavailable_free: size_utils.json_to_bigint(item.node.storage.unavailable_free || 0),
+        };
 
-    reply.reserved = ignore_reserve ? 0 : Math.min(config.NODES_FREE_SPACE_RESERVE, reply.free);
-    reply.free -= reply.reserved;
-    reply.used_other = Math.max(reply.total - reply.used - reply.reserved - reply.free, 0);
-    return reply;
+        reply.reserved = ignore_reserve ? BigInteger.zero : BigInteger.min(reply.reserved, reply.free);
+        reply.free = reply.free.minus(reply.reserved);
+
+        if (item.has_issues) {
+            reply.unavailable_free = reply.free;
+            reply.free = BigInteger.zero;
+        }
+
+        reply.used_other = BigInteger.max(reply.total
+            .minus(reply.used)
+            .minus(reply.reserved)
+            .minus(reply.free)
+            .minus(reply.unavailable_free),
+            BigInteger.zero);
+
+        return size_utils.to_bigint_storage(reply);
+    }
 }
 
 function scale_number_token(num) {

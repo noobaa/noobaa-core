@@ -10,6 +10,7 @@ const _ = require('lodash');
 const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_monitor = require('./nodes_monitor');
+const nodes_aggregator = require('./nodes_aggregator');
 const dbg = require('../../util/debug_module')(__filename);
 
 let monitor;
@@ -136,6 +137,7 @@ exports.list_nodes = list_nodes;
 exports.aggregate_nodes = aggregate_nodes;
 exports.get_test_nodes = get_test_nodes;
 exports.allocate_nodes = allocate_nodes;
+exports.aggregate_data_free_by_tier = req => nodes_aggregator.aggregate_data_free_by_tier(req);
 exports.migrate_nodes_to_pool = req => monitor.migrate_nodes_to_pool(req);
 exports.n2n_signal = req => monitor.n2n_signal(req.rpc_params);
 exports.n2n_proxy = req => monitor.n2n_proxy(req.rpc_params);

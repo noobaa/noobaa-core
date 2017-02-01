@@ -106,8 +106,8 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
                 const reduced_value = reducer(key, values);
                 // using BigInteger to calculate the factors
                 const factored_value = json_to_bigint(reduced_value)
-                    .multiply(mult_factor)
-                    .divide(div_factor);
+                    .multiply(_.isUndefined(mult_factor) ? 1 : mult_factor)
+                    .divide(_.isUndefined(div_factor) ? 1 : div_factor);
                 // convert back to json for json schemas (rpc/db)
                 storage[key] = bigint_to_json(factored_value);
             }

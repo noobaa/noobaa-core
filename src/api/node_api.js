@@ -354,6 +354,43 @@ module.exports = {
             }
         },
 
+        aggregate_data_free_by_tier: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['tier_names'],
+                properties: {
+                    tier_names: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+                },
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['tier_name', 'mirrors_storage'],
+                    properties: {
+                        tier_name: {
+                            type: 'string'
+                        },
+                        mirrors_storage: {
+                            type: 'array',
+                            items: {
+                                $ref: 'common_api#/definitions/storage_info'
+                            }
+                        }
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         report_error_on_node_blocks: {
             method: 'PUT',
             params: {

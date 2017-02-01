@@ -12,6 +12,7 @@ const dns = require('dns');
 const path = require('path');
 const request = require('request');
 const ip_module = require('ip');
+const moment = require('moment');
 
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
@@ -506,15 +507,11 @@ function set_maintenance_mode(req) {
     const send_event = req.rpc_params.duration ?
         'dbg.maintenance_mode' : 'dbg.maintenance_mode_stopped';
     if (req.rpc_params.duration) {
-        const hours = Math.floor(req.rpc_params.duration / 60);
-        const minutes = req.rpc_params.duration % 60;
-        audit_desc = `Maintanance mode activated for `;
-        if (hours) {
-            audit_desc += `${hours} hour${hours === 1 ? '' : 's'}`;
-        }
-        if (minutes) {
-            audit_desc += `${hours > 0 ? ' and ' : ''} ${minutes} minute${minutes === 1 ? '' : 's'}`;
-        }
+        const d = moment.duration(req.rpc_params.duration, 'minutes');
+        audit_desc = `Maintanance mode activated for ${[
+            `${d.hours()} hour${d.hours() === 1 ? '' : 's'}`,
+            `${d.minutes()} min${d.minutes() === 1 ? '' : 's'}`,
+        ].join(' and ')}`;
     }
     updates._id = req.system._id;
     // duration is in minutes (?!$%)

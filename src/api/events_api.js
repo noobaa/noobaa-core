@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 /**
@@ -208,17 +209,16 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['ids', 'state'],
+                required: ['state'],
                 properties: {
                     ids: {
-                        anyOf: [{
-                            type: 'null'
-                        }, {
-                            type: 'array',
-                            items: {
-                                type: 'string'
-                            },
-                        }]
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    },
+                    filter: {
+                        type: 'string'
                     },
                     state: {
                         type: 'boolean'
@@ -235,6 +235,9 @@ module.exports = {
                 type: 'object',
                 required: [],
                 properties: {
+                    severity: {
+                        $ref: '#/definitions/alert_severity_enum'
+                    },
                     till: {
                         format: 'idate'
                     },
@@ -257,7 +260,7 @@ module.exports = {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['id', 'time', 'severity', 'alert'],
+                            required: ['id', 'time', 'severity', 'alert', 'read'],
                             properties: {
                                 id: {
                                     type: 'string',
@@ -270,6 +273,9 @@ module.exports = {
                                 },
                                 alert: {
                                     type: 'string',
+                                },
+                                read: {
+                                    type: 'boolean',
                                 },
                             }
                         }

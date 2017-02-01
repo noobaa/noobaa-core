@@ -190,6 +190,11 @@ export default {
             maintenance_mode: {
                 message: 'Maintenance Mode Started',
                 entityId: () => ''
+            },
+
+            maintenance_mode_stopped: {
+                message: 'Maintenance Mode Stopped',
+                entityId: () => ''
             }
         }
     },
@@ -255,4 +260,3 @@ export default {
         }
     }
 };
-

@@ -10,8 +10,9 @@ const AlertsLog = require('./alerts_log.js');
 const server_rpc = require('../server_rpc');
 const native_core = require('../../util/native_core')();
 const ActivityLog = require('../analytic_services/activity_log');
-const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
+const nodes_client = require('../node_services/nodes_client');
+
 
 var NotificationTypes = Object.freeze({
     ALERT: 1,
@@ -168,7 +169,12 @@ class Dispatcher {
                     $in: req.rpc_params.ids
                 }
             };
+        } else if (req.rpc_params.filter) {
+            query = {
+                severity: req.rpc_params.filter
+            };
         }
+
         return AlertsLog.update(query, {
             read: req.rpc_params.state
         }).exec();
@@ -205,6 +211,7 @@ class Dispatcher {
                     severity: alert_item.severity,
                     alert: alert_item.alert,
                     time: alert_item.time.getTime(),
+                    read: alert_item.read
                 };
                 return l;
             }))
@@ -216,8 +223,10 @@ class Dispatcher {
     //Internals
     _resolve_activity_item(log_item, l) {
         return P.resolve()
-            .then(() => nodes_client.instance().populate_nodes(log_item.system, log_item, 'node', NODE_POPULATE_FIELDS))
-            .then(() => MDStore.instance().populate_objects(log_item, 'obj', OBJECT_POPULATE_FIELDS))
+            .then(() => nodes_client.instance().populate_nodes(
+                log_item.system, log_item, 'node', NODE_POPULATE_FIELDS))
+            .then(() => MDStore.instance().populate_objects(
+                log_item, 'obj', OBJECT_POPULATE_FIELDS))
             .then(() => {
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');

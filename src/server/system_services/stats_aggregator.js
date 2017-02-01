@@ -215,7 +215,8 @@ function get_bucket_sizes_stats(req) {
     return MDStore.instance().aggregate_object_size_by_ranges()
         .then(res => res.map(bucket_stats => {
             let objects_histo = get_empty_objects_histo();
-            return objects_histo.add_values_batch(bucket_stats);
+            objects_histo.histo_size.add_aggregated_values(bucket_stats);
+            return _.mapValues(objects_histo, histo => histo.get_object_data(false));
         }));
 }
 

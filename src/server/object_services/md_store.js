@@ -337,6 +337,7 @@ class MDStore {
         return this._objects.col().mapReduce(
                 mongo_functions.map_object_size_to_bins,
                 mongo_functions.reduce_bins, {
+                    query: { deleted: null },
                     out: {
                         inline: 1
                     }

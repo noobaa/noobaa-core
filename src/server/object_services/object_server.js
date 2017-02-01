@@ -359,7 +359,6 @@ function copy_object(req) {
                 bucket: req.bucket._id,
                 key: req.rpc_params.key,
                 size: source_obj.size,
-                etag: source_obj.etag,
                 content_type: req.rpc_params.content_type ||
                     source_obj.content_type ||
                     mime.lookup(req.rpc_params.key) ||
@@ -394,7 +393,9 @@ function copy_object(req) {
             });
             // mark the new object not in upload mode
             return MDStore.instance().update_object_by_id(create_info._id, {
-                create_time: new Date()
+                etag: source_obj.etag,
+                num_parts: source_obj.num_parts,
+                create_time: new Date(),
             }, {
                 upload_size: 1,
                 upload_started: 1,

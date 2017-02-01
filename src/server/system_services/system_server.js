@@ -345,44 +345,46 @@ function create_system(req) {
  */
 function read_system(req) {
     const system = req.system;
-    return P.join(
+    return P.props({
         // nodes - count, online count, allocated/used storage aggregate by pool
-        nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
-        // TODO: find a better solution than aggregating nodes twice
-        nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false),
+        nodes_aggregate_pool_no_cloud: nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
 
-        MDStore.instance().count_objects_per_bucket(system._id),
+        // TODO: find a better solution than aggregating nodes twice
+        nodes_aggregate_pool_with_cloud: nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false),
+
+        obj_count_per_bucket: MDStore.instance().count_objects_per_bucket(system._id),
 
         // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
         // which is supported instead of sending the bucket name in an rpc req
         // just to reuse the rpc function code without calling through rpc.
-        promise_utils.all_obj(
-            system.buckets_by_name,
-            bucket => bucket_server.get_cloud_sync(req, bucket)
-        ),
+        cloud_sync_by_bucket: P.props(_.mapValues(system.buckets_by_name,
+            bucket => bucket_server.get_cloud_sync(req, bucket))),
 
-        P.fcall(() => server_rpc.client.account.list_accounts({}, {
+        accounts: P.fcall(() => server_rpc.client.account.list_accounts({}, {
             auth_token: req.auth_token
         })).then(
             response => response.accounts
         ),
 
-        fs.statAsync(path.join('/etc', 'private_ssl_path', 'server.key'))
-        .return(true)
-        .catch(() => false),
+        has_ssl_cert: fs.statAsync(path.join('/etc', 'private_ssl_path', 'server.key'))
+            .return(true)
+            .catch(() => false),
 
-        promise_utils.all_obj(
-            system.buckets_by_name,
-            bucket => node_allocator.refresh_tiering_alloc(bucket.tiering)
-        )
-    ).spread(function(
+        aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
+            _.map(system.tiers_by_name, tier => tier.name),
+            system._id),
+
+        refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket =>
+                node_allocator.refresh_tiering_alloc(bucket.tiering)))
+    }).then(({
         nodes_aggregate_pool_no_cloud,
         nodes_aggregate_pool_with_cloud,
         obj_count_per_bucket,
         cloud_sync_by_bucket,
         accounts,
-        has_ssl_cert
-    ) {
+        has_ssl_cert,
+        aggregate_data_free_by_tier
+    }) => {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
             size: size_utils.BigInteger.zero,
@@ -444,12 +446,15 @@ function read_system(req) {
                 bucket => bucket_server.get_bucket_info(
                     bucket,
                     nodes_aggregate_pool_with_cloud,
+                    aggregate_data_free_by_tier,
                     obj_count_per_bucket[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
-                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_with_cloud)),
+                tier => tier_server.get_tier_info(tier,
+                    nodes_aggregate_pool_with_cloud,
+                    aggregate_data_free_by_tier[tier.name])),
             storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
             }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),

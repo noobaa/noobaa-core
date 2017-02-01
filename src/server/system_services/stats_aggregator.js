@@ -183,6 +183,8 @@ function get_nodes_stats(req) {
                         node.storage.used / SCALE_BYTES_TO_GB);
                     nodes_histo.histo_free.add_value(
                         node.storage.free / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_unavailable_free.add_value(
+                        node.storage.unavailable_free / SCALE_BYTES_TO_GB);
                     nodes_histo.histo_uptime.add_value(
                         node.os_info.uptime / SCALE_SEC_TO_DAYS);
                     if (node.os_info.ostype === 'Darwin') {
@@ -516,6 +518,17 @@ function get_empty_nodes_histo() {
     }]);
 
     empty_nodes_histo.histo_free = new Histogram('FreeSpace(GB)', [{
+        label: 'low',
+        start_val: 0
+    }, {
+        label: 'med',
+        start_val: 100
+    }, {
+        label: 'high',
+        start_val: 500
+    }]);
+
+    empty_nodes_histo.histo_unavailable_free = new Histogram('UnavailableFreeSpace(GB)', [{
         label: 'low',
         start_val: 0
     }, {

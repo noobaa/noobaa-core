@@ -110,6 +110,9 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
+                data: {
+                    $ref: 'common_api#/definitions/storage_info'
+                },
                 tiers: {
                     type: 'array',
                     items: {

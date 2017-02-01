@@ -71,6 +71,20 @@ class NodesClient {
         return nodes_aggregate_pool;
     }
 
+
+    aggregate_data_free_by_tier(tier_names, system_id) {
+        return server_rpc.client.node.aggregate_data_free_by_tier({
+            tier_names: tier_names,
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            })
+        })
+        .then(res => _.mapValues(_.keyBy(res, 'tier_name'), 'mirrors_storage'));
+    }
+
+
     migrate_nodes_to_pool(system_id, node_identities, pool_id, account_id) {
         return server_rpc.client.node.migrate_nodes_to_pool({
             nodes: node_identities,

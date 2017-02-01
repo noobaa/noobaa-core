@@ -278,6 +278,14 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
+            .then(() => {
+                if (!process.env.AWS_ACCESS_KEY_ID ||
+                    !process.env.AWS_SECRET_ACCESS_KEY) {
+                    throw new Error('No valid AWS credentials in env - ' +
+                        'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
+                        'for testing account.add_external_connection()');
+                }
+            })
             .then(() => client.account.add_external_connection({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',

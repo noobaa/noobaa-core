@@ -11,14 +11,14 @@
 </ol>
 
 <editor params="label: 'Server IP'">
-    <input data-bind="value: address"/>
+    <input data-bind="textInput: address"/>
     <svg-icon class="validating-indicator spin"
         data-bind="visible: asyncValidation.isValidating"
         params="name: 'in-progress'"></svg-icon>
 </editor>
 
 <editor params="label: 'Server Secret Key'">
-    <input data-bind="value: secret"/>
+    <input data-bind="textInput: secret"/>
     <svg-icon class="validating-indicator spin"
         data-bind="visible: asyncValidation.isValidating"
         params="name: 'in-progress'"></svg-icon>

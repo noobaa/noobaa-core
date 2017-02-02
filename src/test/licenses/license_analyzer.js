@@ -2,6 +2,7 @@
 'use strict';
 var fs = require('fs');
 var path = require('path');
+var minimist = require('minimist');
 
 var DETECTABLE_LICENSES;
 var PERMISSIVE_LICENSES_MAP_UPPERCASE;
@@ -18,7 +19,7 @@ module.exports = {
 };
 
 if (require.main === module) {
-    var argv = require('minimist')(process.argv);
+    var argv = minimist(process.argv);
     // run with --debug for debug printouts
     config.debug = argv.debug;
     // run with --comments to add comments on parse errors to the output

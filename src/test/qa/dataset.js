@@ -66,7 +66,8 @@ promise_utils.pwhile(() => current_size < size_of_ds, () => {
                             .then(function(res) {
                                 console.log("file copying from: " + res.Key);
                                 return s3ops.copy_file_with_md5(server, bucket, res.Key, dataset_name + 'file' + (i++));
-                            }).then(function(res) {
+                            })
+                            .then(function(res) {
                                 console.log("file copied to: " + dataset_name + 'file' + (i));
                                 current_size += rand_size;
                             });

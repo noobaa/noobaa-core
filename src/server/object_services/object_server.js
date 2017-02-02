@@ -808,7 +808,8 @@ function read_s3_usage_report(req) {
     if (req.rpc_params.from_time) {
         // query backwards from given time
         req.rpc_params.from_time = new Date(req.rpc_params.from_time);
-        q.where('time').gt(req.rpc_params.from_time).sort('-time');
+        q.where('time').gt(req.rpc_params.from_time)
+            .sort('-time');
     } else {
         // query backward from last time
         q.sort('-time');

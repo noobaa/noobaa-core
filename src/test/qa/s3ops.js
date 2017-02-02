@@ -26,7 +26,8 @@ function put_file_with_md5(ip, bucket, file_name, data_size) {
     var actual_size = data_size * 1024 * 1024;
 
     var data = crypto.randomBytes(actual_size);
-    let md5 = crypto.createHash('md5').update(data).digest('hex');
+    let md5 = crypto.createHash('md5').update(data)
+        .digest('hex');
 
     var params = {
         Bucket: bucket,
@@ -42,7 +43,8 @@ function put_file_with_md5(ip, bucket, file_name, data_size) {
         .then(res => {
             console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
             return md5;
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error('Put failed!', err);
             throw err;
         });
@@ -70,7 +72,8 @@ function copy_file_with_md5(ip, bucket, source, destination) {
     return P.ninvoke(s3bucket, 'copyObject', params)
         .then(res => {
             console.log('Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error('Copy failed!', err);
             throw err;
         });
@@ -91,7 +94,8 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
     var actual_size = data_size * 1024 * 1024;
 
     var data = crypto.randomBytes(actual_size);
-    let md5 = crypto.createHash('md5').update(data).digest('hex');
+    let md5 = crypto.createHash('md5').update(data)
+        .digest('hex');
 
     console.log('>>> MultiPart UPLOAD - About to multipart upload object...' + file_name);
     var start_ts = Date.now();
@@ -120,7 +124,8 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
                 });
             }
             return P.all(promises);
-        }).then(() => {
+        })
+        .then(() => {
             console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
             P.ninvoke(s3bucket, 'completeMultipartUpload', {
                 Key: file_name,
@@ -128,7 +133,8 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
                 UploadId: uploadID,
             });
             return md5;
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error('Multipart upload failed!', err);
             throw err;
         });
@@ -154,7 +160,8 @@ function get_file_check_md5(ip, bucket, file_name) {
     return P.ninvoke(s3bucket, 'getObject', params)
         .then(res => {
             console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
-            var md5 = crypto.createHash('md5').update(res.Body).digest('hex');
+            var md5 = crypto.createHash('md5').update(res.Body)
+                .digest('hex');
             var file_md5 = res.Metadata.md5;
             if (md5 === file_md5) {
                 console.log("uploaded MD5: " + file_md5 + " and downloaded MD5: " + md5 + " - they are same :)");
@@ -162,7 +169,8 @@ function get_file_check_md5(ip, bucket, file_name) {
                 console.error("uploaded MD5: " + file_md5 + " and downloaded MD5: " + md5 + " - they are different :(");
                 throw new Error('Bad MD5 from download');
             }
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error('Download failed!', err);
             throw err;
         });
@@ -226,7 +234,8 @@ function get_a_random_file(ip, bucket, prefix) {
             }
             let rand = Math.floor(Math.random() * list.length);
             return list[rand];
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error('Get random file failed!', err);
             throw err;
         });
@@ -251,7 +260,8 @@ function get_file_number(ip, bucket, prefix) {
         .then(function(res) {
             let list = res.Contents;
             return list.length;
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error('Get number of files failed!', err);
             throw err;
         });
@@ -278,7 +288,8 @@ function delete_file(ip, bucket, file_name) {
         .then(function() {
             console.log('Delete object took', (Date.now() - start_ts) / 1000, 'seconds');
             console.log('file ' + file_name + ' successfully deleted');
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error('Delete file failed!', err);
             throw err;
         });

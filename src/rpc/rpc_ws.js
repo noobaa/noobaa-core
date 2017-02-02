@@ -6,7 +6,7 @@ let _ = require('lodash');
 let RpcBaseConnection = require('./rpc_base_conn');
 let buffer_utils = require('../util/buffer_utils');
 let dbg = require('../util/debug_module')(__filename);
-let WS = global.WebSocket || require('ws');
+let WS = global.WebSocket || require('ws'); // eslint-disable-line global-require
 
 let WS_CONNECT_OPTIONS = {
     // accept self signed ssl certificates

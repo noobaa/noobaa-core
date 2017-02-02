@@ -5,6 +5,7 @@ const _ = require('lodash');
 const util = require('util');
 const mongodb = require('mongodb');
 const EventEmitter = require('events').EventEmitter;
+const system_schema = require('./schemas/system_schema');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
@@ -17,7 +18,7 @@ const mongo_client = require('../../util/mongo_client');
 
 const COLLECTIONS = [{
     name: 'clusters',
-    schema: require('./schemas/cluster_schema'),
+    schema: system_schema,
     mem_indexes: [{
         name: 'cluster_by_server',
         key: 'owner_secret'
@@ -32,7 +33,7 @@ const COLLECTIONS = [{
     }],
 }, {
     name: 'systems',
-    schema: require('./schemas/system_schema'),
+    schema: system_schema,
     mem_indexes: [{
         name: 'systems_by_name',
         key: 'name'
@@ -48,7 +49,7 @@ const COLLECTIONS = [{
     }],
 }, {
     name: 'roles',
-    schema: require('./schemas/role_schema'),
+    schema: system_schema,
     mem_indexes: [{
         name: 'roles_by_account',
         context: 'system',
@@ -65,7 +66,7 @@ const COLLECTIONS = [{
     db_indexes: [],
 }, {
     name: 'accounts',
-    schema: require('./schemas/account_schema'),
+    schema: system_schema,
     mem_indexes: [{
         name: 'accounts_by_email',
         key: 'email'
@@ -81,7 +82,7 @@ const COLLECTIONS = [{
     }],
 }, {
     name: 'buckets',
-    schema: require('./schemas/bucket_schema'),
+    schema: system_schema,
     mem_indexes: [{
         name: 'buckets_by_name',
         context: 'system',
@@ -99,7 +100,7 @@ const COLLECTIONS = [{
     }],
 }, {
     name: 'tieringpolicies',
-    schema: require('./schemas/tiering_policy_schema'),
+    schema: system_schema,
     mem_indexes: [{
         name: 'tiering_policies_by_name',
         context: 'system',
@@ -117,7 +118,7 @@ const COLLECTIONS = [{
     }],
 }, {
     name: 'tiers',
-    schema: require('./schemas/tier_schema'),
+    schema: system_schema,
     mem_indexes: [{
         name: 'tiers_by_name',
         context: 'system',
@@ -135,7 +136,7 @@ const COLLECTIONS = [{
     }],
 }, {
     name: 'pools',
-    schema: require('./schemas/pool_schema'),
+    schema: system_schema,
     mem_indexes: [{
         name: 'pools_by_name',
         context: 'system',

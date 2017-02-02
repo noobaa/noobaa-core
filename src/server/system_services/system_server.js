@@ -59,7 +59,7 @@ var client_syslog;
 function _init() {
     const DEFUALT_DELAY = 5000;
 
-    var native_core = require('../../util/native_core')();
+    var native_core = require('../../util/native_core')(); // eslint-disable-line global-require
     client_syslog = new native_core.Syslog();
 
     function wait_for_system_store() {

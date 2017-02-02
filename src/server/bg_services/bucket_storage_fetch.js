@@ -85,8 +85,12 @@ function background_worker() {
                     ((deleted_objects_aggregate[bucket._id] && deleted_objects_aggregate[bucket._id].count) || 0);
                 // If we won't always update the checkpoint, on no changes
                 // We will reduce all of the chunks from last checkpoint (which can be a lot)
-                new_storage_stats.chunks_capacity = (new size_utils.BigInteger(new_storage_stats.chunks_capacity).plus(delta_chunk_compress_size)).toJSON();
-                new_storage_stats.objects_size = (new size_utils.BigInteger(new_storage_stats.objects_size).plus(delta_object_size)).toJSON();
+                new_storage_stats.chunks_capacity = (new size_utils.BigInteger(new_storage_stats.chunks_capacity)
+                    .plus(delta_chunk_compress_size))
+                    .toJSON();
+                new_storage_stats.objects_size = (new size_utils.BigInteger(new_storage_stats.objects_size)
+                    .plus(delta_object_size))
+                    .toJSON();
                 new_storage_stats.objects_count += delta_object_count;
                 dbg.log0('Bucket storage stats after deltas:', new_storage_stats);
                 return {

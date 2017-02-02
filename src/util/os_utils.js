@@ -139,7 +139,8 @@ function get_disk_mount_points() {
 
             if (os.type() === 'Windows_NT') {
                 _.each(hds, function(hd_info) {
-                    if (process.cwd().toLowerCase().indexOf(hd_info.drive_id.toLowerCase()) === 0) {
+                    if (process.cwd().toLowerCase()
+                        .indexOf(hd_info.drive_id.toLowerCase()) === 0) {
                         hd_info.mount = '.\\agent_storage\\';
                         mount_points.push(hd_info);
                     } else {
@@ -258,7 +259,8 @@ function read_windows_drives() {
                 if (vol.Label.indexOf('Temporary Storage') === 0) return;
                 return windows_volume_to_drive(vol);
             }));
-        }).then(function(local_volumes) {
+        })
+        .then(function(local_volumes) {
             windows_drives = local_volumes;
             return wmic('netuse')
                 .then(function(network_volumes) {
@@ -397,7 +399,8 @@ function get_ntp() {
 
 function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
-        var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
+        var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server +
+            " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
         return _set_time_zone(timez)
             .then(() => promise_utils.exec(command))
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
@@ -479,7 +482,8 @@ function get_time_config() {
                     reply.timezone = '';
                 } else {
                     var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
-                    reply.srv_time = moment().tz(symlink).format();
+                    reply.srv_time = moment().tz(symlink)
+                        .format();
                     reply.timezone = symlink;
                 }
                 return reply;
@@ -489,7 +493,8 @@ function get_time_config() {
         return promise_utils.exec('ls -l /etc/localtime', false, true)
             .then(tzone => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
-                reply.srv_time = moment().tz(symlink).format();
+                reply.srv_time = moment().tz(symlink)
+                    .format();
                 reply.timezone = symlink;
                 return reply;
             });

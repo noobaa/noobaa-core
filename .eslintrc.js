@@ -80,7 +80,7 @@ module.exports = {
         }],
 
         // prefer that requires are on module scope and not in a function
-        'global-require': 'warn',
+        'global-require': 'error',
 
         // better handle every err in callbacks
         // TODO eslint handle-callback-err should be error
@@ -138,7 +138,7 @@ module.exports = {
         // newlines to separate vars and return are not productive
         'newline-after-var': 'off',
         'newline-before-return': 'off',
-        'newline-per-chained-call': 'warn',
+        'newline-per-chained-call': 'error',
 
         // use only x|0 for int casting, but avoid other bitwise operators
         'no-bitwise': ['warn', {

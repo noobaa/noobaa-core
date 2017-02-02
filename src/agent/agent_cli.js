@@ -116,7 +116,9 @@ AgentCLI.prototype.init = function() {
             if (self.params.cleanup) {
                 return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
                     var storage_path = storage_path_info.mount;
-                    var path_modification = storage_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
+                    var path_modification = storage_path.replace('/agent_storage/', '')
+                        .replace('/', '')
+                        .replace('.', '');
                     return fs_utils.folder_delete(path_modification);
                 }));
             } else if (self.params.duplicate) {
@@ -138,7 +140,7 @@ AgentCLI.prototype.init = function() {
                         process.exit(0);
                     })
                     .catch(err => {
-                        dbg.error('got error while handling duplication!!');
+                        dbg.error('got error while handling duplication!!', err);
                         process.exit(1);
                     });
             } else {
@@ -147,7 +149,8 @@ AgentCLI.prototype.init = function() {
                         dbg.log0('COMPLETED: load');
                     });
             }
-        }).then(null, function(err) {
+        })
+        .then(null, function(err) {
             dbg.error('ERROR: load', self.params, err.stack);
             throw new Error(err);
         });
@@ -301,10 +304,12 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
         dbg.log0('create_node_helper called with self.params', self.params);
         var current_node_path = current_node_path_info.mount;
         var node_name = internal_node_name || os.hostname();
-        var path_modification = current_node_path.replace('/agent_storage/', '').replace(/\//g, '').replace('.', '');
+        var path_modification = current_node_path.replace('/agent_storage/', '').replace(/\//g, '')
+            .replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
-        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_name, 'current_node_path', current_node_path, 'exists');
+        dbg.log0('create_node_helper with path_modification', path_modification, 'node:',
+            node_name, 'current_node_path', current_node_path, 'exists');
         if (os.type().indexOf('Windows') >= 0) {
             node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
         } else if (!_.isEmpty(path_modification)) {
@@ -556,7 +561,7 @@ AgentCLI.prototype.list = function() {
     _.each(self.agents, function(agent, node_name) {
         dbg.log0('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
             'node', node_name, 'address', agent.rpc_address);
-        i++;
+        i += 1;
     });
 };
 

@@ -19,6 +19,7 @@ const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
+const size_utils = require('../../util/size_utils');
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
@@ -212,7 +213,7 @@ function get_ops_stats(req) {
 
 function get_bucket_sizes_stats(req) {
     return system_store.data.buckets.map(bucket => {
-        let objects_histo = get_empty_objects_histo();
+        let objects_histo = get_empty_objects_histo(bucket.storage_stats.objects_count_hist.length);
         objects_histo.histo_size.add_aggregated_values({
             count: bucket.storage_stats.objects_count_hist,
             aggregated_sum: bucket.storage_stats.objects_size_hist
@@ -553,32 +554,28 @@ function get_empty_sync_histo() {
     return empty_sync_histo;
 }
 
-function get_empty_objects_histo() {
+function get_empty_objects_histo(len) {
     //TODO: Add histogram for limit, once implemented
-    var empty_objects_histo = {};
-    empty_objects_histo.histo_size = new Histogram('Size(MegaBytes)', [{
-        label: '0 MegaBytes - 5 MegaBytes',
-        start_val: 0
-    }, {
-        label: '5 MegaBytes - 100 MegaBytes',
-        start_val: 5
-    }, {
-        label: '100 MegaBytes - 1 GigaBytes',
-        start_val: 100
-    }, {
-        label: '1 GigaBytes - 100 GigaBytes',
-        start_val: 1000
-    }, {
-        label: '100 GigaBytes - 1 TeraBytes',
-        start_val: 100000
-    }, {
-        label: '1 TeraBytes - 10 TeraBytes',
-        start_val: 1000000
-    }, {
-        label: '10 TeraBytes - What?!',
-        start_val: 10000000
-    }]);
-
+    let empty_objects_histo = {};
+    let labels_arr = [];
+    let prev_size_label = '0';
+    let prev_size = 0;
+    let sizebytes = 1024;
+    for (var i = 0; i <= len - 1; i++) {
+        let size_label = prev_size_label + ' - ' + size_utils.human_size(sizebytes);
+        labels_arr.push({
+            label: size_label,
+            start_val: prev_size
+        });
+        prev_size_label = size_utils.human_size(sizebytes);
+        prev_size = sizebytes;
+        sizebytes *= 2;
+    }
+    labels_arr.push({
+        label: 'Over ' + prev_size_label,
+        start_val: prev_size
+    });
+    empty_objects_histo.histo_size = new Histogram('Size', labels_arr);
     return empty_objects_histo;
 }
 

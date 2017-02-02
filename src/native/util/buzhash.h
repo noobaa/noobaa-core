@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #ifndef NOOBAA__BUZHASH__H
 #define NOOBAA__BUZHASH__H
 

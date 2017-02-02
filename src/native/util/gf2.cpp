@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #include "gf2.h"
 
 namespace noobaa {

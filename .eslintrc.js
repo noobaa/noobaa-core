@@ -25,7 +25,7 @@ module.exports = {
 
         // verify every file contains our copyright header
         // TODO eslint-plugin-header copyright should be error
-        'header/header': ['warn', 'block', [
+        'header/header': ['error', 'block', [
             ' Copyright (C) 2016 NooBaa '
         ]],
 

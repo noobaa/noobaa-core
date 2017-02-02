@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 /*
   Hijack console.log, .info, .error and .warn
   Call the DebugLogger (this way all console output willalso be sent to the debug log)

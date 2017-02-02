@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #ifndef NOOBAA__RABIN_KARP__H
 #define NOOBAA__RABIN_KARP__H
 

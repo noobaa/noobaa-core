@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 let Ntcp = require('../util/native_core')().Ntcp;
 let Speedometer = require('../util/speedometer');

@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var dbg = require('../../util/debug_module')(__filename);

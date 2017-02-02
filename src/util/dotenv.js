@@ -1,3 +1,4 @@
+/* eslint-disable header/header */
 /*
 Copyright (c) 2015, Scott Motte
 All rights reserved.

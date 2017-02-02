@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 /*
   DebugLogger is a wrapper for winston.
   It provides multi nested modules definitions for easier module->level management.

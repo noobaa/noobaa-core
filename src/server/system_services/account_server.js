@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 /**
  *
  * ACCOUNT_SERVER

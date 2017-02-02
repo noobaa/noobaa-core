@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #ifndef NOOBAA__OBJECT_CODING__H
 #define NOOBAA__OBJECT_CODING__H
 

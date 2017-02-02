@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 "use strict";
 
 var ec2_wrap = require('./ec2_wrapper');

@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 /*
  * Basic (Common) Diagnostics between server and agent,
  * see agent diagnostics and server diagnostics as well

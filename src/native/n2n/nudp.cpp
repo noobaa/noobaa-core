@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #include "nudp.h"
 #include "../third_party/libutp/utp.h"
 #include "../third_party/crc32/crc32.h"

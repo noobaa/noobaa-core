@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 // module targets: nodejs & browserify
 'use strict';
 

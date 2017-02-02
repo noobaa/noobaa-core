@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #include "object_coding.h"
 #include "../util/buf.h"
 #include "../util/crypto.h"

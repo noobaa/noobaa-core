@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // catch process uncaught exceptions, and treat as a panic and exit after logging

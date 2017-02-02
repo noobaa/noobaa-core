@@ -542,7 +542,7 @@ class S3Controller {
             start_index = 1;
             slash_index = copy_source.indexOf('/', 1);
         }
-        console.log('COPY OBJECT ', req.params.key);
+        dbg.log0('COPY OBJECT ', req.params.key);
         let source_bucket = copy_source.slice(start_index, slash_index);
         let source_key = copy_source.slice(slash_index + 1);
         let params = {
@@ -556,7 +556,39 @@ class S3Controller {
         };
         this._set_md_conditions(req, params, 'overwrite_if');
         this._set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
-        return req.rpc_client.object.copy_object(params)
+        return P.resolve()
+            .then(() => {
+                if (source_bucket === params.bucket) {
+                    return req.rpc_client.object.copy_object(params);
+                }
+                return req.rpc_client.object.read_object_md({
+                        bucket: source_bucket,
+                        key: source_key
+                    })
+                    .then(object_md => {
+                        if (params.xattr_copy) params.xattr = object_md.xattr || {};
+                        let source_stream = this.object_io.open_read_stream({
+                            bucket: source_bucket,
+                            key: source_key,
+                            client: req.rpc_client,
+                        });
+                        return this.object_io.upload_object({
+                            client: req.rpc_client,
+                            bucket: req.params.bucket,
+                            key: req.params.key,
+                            content_type: req.headers['content-type'],
+                            xattr: params.xattr_copy ? object_md.xattr : params.xattr,
+                            source_stream
+                        });
+                    })
+                    .then(() => req.rpc_client.object.read_object_md({
+                        bucket: req.params.bucket,
+                        key: req.params.key
+                    }))
+                    .then(object_md => ({
+                        source_md: object_md
+                    }));
+            })
             .then(reply => ({
                 CopyObjectResult: {
                     LastModified: to_s3_date(reply.source_md.create_time),
@@ -688,7 +720,10 @@ class S3Controller {
     put_object_uploadId(req, res) {
         this.usage_report.s3_usage_info.put_object_uploadId += 1;
         const num = Number(req.query.partNumber);
-        if (!_.isInteger(num) || num < 1 || num > 10000) throw s3_errors.InvalidArgument;
+        if (!_.isInteger(num) || num < 1 || num > 10000) {
+            dbg.error('Invalid parameter partNumber', num);
+            throw s3_errors.InvalidArgument;
+        }
 
         // TODO GGG IMPLEMENT COPY PART
         const copy_source = req.headers['x-amz-copy-source'];
@@ -724,7 +759,10 @@ class S3Controller {
         const max = Number(req.query['max-parts']);
         const num_marker = Number(req.query['part-number-marker']);
         if (!_.isInteger(max) || max < 0) throw s3_errors.InvalidArgument;
-        if (!_.isInteger(num_marker) || num_marker < 1 || num_marker > 10000) throw s3_errors.InvalidArgument;
+        if (!_.isInteger(num_marker) || num_marker < 1 || num_marker > 10000) {
+            dbg.error('Invalid parameter partNumber', num_marker);
+            throw s3_errors.InvalidArgument;
+        }
 
         return req.rpc_client.object.list_multiparts({
                 bucket: req.params.bucket,

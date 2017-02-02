@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #include "ntcp.h"
 #include "../util/buf.h"
 

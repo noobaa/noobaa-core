@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 //While the appropriate place is under util/ since used by server and bg_workers

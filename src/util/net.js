@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const net_ping = require('net-ping');

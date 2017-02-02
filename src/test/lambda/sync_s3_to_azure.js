@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 var azure = require('azure-storage');
 var AWS = require('aws-sdk');

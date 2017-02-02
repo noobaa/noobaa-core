@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #include "signup_validator.h"
 #include <fstream>
 #include <sstream>

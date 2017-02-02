@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const system_store = require('../system_services/system_store').get_instance();

@@ -750,6 +750,7 @@ function get_bucket_lifecycle_configuration_rules(req) {
     var bucket = find_bucket(req);
     return bucket.lifecycle_configuration_rules || [];
 }
+
 /**
  *
  * GET_CLOUD_BUCKETS

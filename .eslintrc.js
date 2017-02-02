@@ -97,7 +97,7 @@ module.exports = {
         'init-declarations': 'off',
 
         // expect empty line before comment to create visual relation to the relevant code
-        'lines-around-comment': 'warn',
+        'lines-around-comment': 'error',
 
         // directive means 'use strict', we don't enforce lines around
         'lines-around-directive': 'off',
@@ -158,7 +158,7 @@ module.exports = {
         // constant conditions make loop breaking unclear
         // prefer to use a loop variable
         // TODO eslint no-constant-condition should be error
-        'no-constant-condition': 'warn',
+        'no-constant-condition': 'error',
 
         // continue in loops is better off avoided for readability
         // prefer to use a function with returns and call from the loop

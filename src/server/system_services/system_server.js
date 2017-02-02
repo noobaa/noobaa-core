@@ -101,6 +101,7 @@ function new_system_defaults(name, owner_account_id) {
         _id: system_store.generate_id(),
         name: name,
         owner: owner_account_id,
+
         /*access_keys: (name === 'demo') ? [{
             access_key: '123',
             secret_key: 'abc',

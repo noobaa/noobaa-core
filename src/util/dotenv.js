@@ -35,6 +35,7 @@ var DROPPED_LINES = {
 };
 
 module.exports = {
+
     /*
      * Main entry point into dotenv. Allows configuration before loading .env
      * @param {Object} options - valid options: path ('.env'), encoding ('utf8')

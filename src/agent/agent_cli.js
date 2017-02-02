@@ -381,6 +381,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
             });
     });
 };
+
 /**
  *
  * CREATE

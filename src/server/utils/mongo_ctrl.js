@@ -1,17 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var server_rpc = require('../server_rpc');
-var P = require('../../util/promise');
-var fs_utils = require('../../util/fs_utils');
-var config = require('../../../config.js');
-var SupervisorCtl = require('./supervisor_ctrl');
-var mongo_client = require('../../util/mongo_client');
-var mongoose_client = require('../../util/mongoose_utils');
-var dotenv = require('../../util/dotenv');
-var dbg = require('../../util/debug_module')(__filename);
-var cutil = require('./clustering_utils');
+const _ = require('lodash');
+const server_rpc = require('../server_rpc');
+const P = require('../../util/promise');
+const fs_utils = require('../../util/fs_utils');
+const config = require('../../../config.js');
+const SupervisorCtl = require('./supervisor_ctrl');
+const mongo_client = require('../../util/mongo_client');
+const mongoose_client = require('../../util/mongoose_utils');
+const dotenv = require('../../util/dotenv');
+const dbg = require('../../util/debug_module')(__filename);
+const cutil = require('./clustering_utils');
+const promise_utils = require('../../util/promise_utils');
 
 module.exports = new MongoCtrl(); // Singleton
 
@@ -36,6 +37,11 @@ MongoCtrl.prototype.add_replica_set_member = function(name, first_server, server
         .then(() => self._add_replica_set_member_program(name, first_server))
         .then(() => SupervisorCtl.apply_changes())
         .delay(5000) // TODO: find better solution
+        .then(() => {
+            if (first_server) {
+                self._init_replica_set_from_shell(cutil.extract_servers_ip(servers)[0]);
+            }
+        })
         .then(() => {
             // build new connection url for mongo and write to .env
             return self.update_dotenv(name, cutil.extract_servers_ip(servers));
@@ -164,6 +170,15 @@ MongoCtrl.prototype.get_hb_rs_status = function() {
 //
 //Internals
 //
+MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
+    let host = ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+    let mongo_shell_command = `mongo nbcore --port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT}` +
+        ` --eval "rs.initiate({_id: 'shard1',members: [{_id: 0,host: '${host}'}]})"`;
+    dbg.log0(`init replica set: running command ${mongo_shell_command}`);
+    return promise_utils.exec(mongo_shell_command, false, false);
+};
+
+
 MongoCtrl.prototype._add_replica_set_member_program = function(name, first_server) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');

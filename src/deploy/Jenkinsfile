@@ -95,7 +95,7 @@ node('node2') {
             sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/system_config.js --server_ip '${nodeLocalIP}' --my_ip '${serverLocalIP}'
+                node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}'
             """
           }
       )

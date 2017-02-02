@@ -1,28 +1,29 @@
-/* Copyright (C) 2016 NooBaa */
 "use strict";
 
 var vsphere = require("vsphere");
 var promise_utils = require('../../util/promise_utils');
 var vm_helper = require('../qa/vm-helper');
 var P = require('../../util/promise');
-// var request = require('request');
 var request = require('request');
 var ops = require('../system_tests/basic_server_ops');
 var ssh2 = require('ssh2');
 var argv = require('minimist')(process.argv);
 
 var ssh_client = new ssh2.Client();
-var host_ip = argv.host || '192.168.100.162';
+var host_ip = argv.host || '10.25.14.56';
 var host_user = argv.host_user || 'root';
 var host_password = argv.host_password || 'roonoobaa';
 var vm_name = argv.guest || 'NooBaa-Community-Edition';
-var vm_ip = argv.guest_ip || '192.168.100.137';
+var vm_ip = argv.guest_ip || '10.25.14.69';
 var vm_user = argv.guest_user || 'noobaaroot';
-var vm_password = argv.guest_password || '9d4f775f';
-var snap_name = argv.base_snapshot || 'NooBaa-after-wizard';
-var ova_name = argv.ova_name || 'noobaa-community';
-var upgrade_file = argv.upgrade_package || '/Users/jacky/Downloads/noobaa-NVA-0.5.1-50679c2.tar.gz';
-var description = argv.description || 'NooBaa Community Edition - Build ' + get_build_number(upgrade_file);
+var vm_password = argv.guest_password || 'b2633625';
+var snap_name = argv.base_snapshot || '0.8 official after wizard';
+var upgrade_file = argv.upgrade_package;
+var full_build = get_build_number(upgrade_file);
+var mainversion = full_build.split('-')[0];
+var build = full_build.split('-')[1];
+var ova_name = argv.ova_name || 'NooBaa-' + mainversion;
+var description = argv.description || 'NooBaa V' + mainversion + ' [build ' + build + ']';
 var service;
 var sessionManager;
 var vimPort;
@@ -131,13 +132,14 @@ vsphere.vimService(host_ip)
     .then(() => console.log('cleaned the OVA'))
     .then(() => console.log('powering machine OFF'))
     .then(() => vimPort.powerOffVMTask(vm_obj, null))
-    .then(task => vm_helper.completeTask(service, task))
     .then(() => console.log('machine is OFF'))
     .then(() => P.delay(5000))
     .then(() => vimPort.exportVm(vm_obj))
     .then(nfcLease => vm_helper.downloadOVF(service, vm_obj, nfcLease, host_ip, ova_name, description))
     .then(() => vimPort.logout(sessionManager))
     .then(() => console.log('All done.'))
+    .then(() => process.exit(0))
     .catch(function(err) {
         console.log('jacky !', err.stack);
+        process.exit(1);
     });

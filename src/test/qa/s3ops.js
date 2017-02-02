@@ -95,47 +95,30 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
 
     var data = crypto.randomBytes(actual_size);
     let md5 = crypto.createHash('md5').update(data)
-        .digest('hex');
+    	.digest('hex');
+
+    var start_ts = Date.now();
+    var size = Math.ceil(actual_size / parts_num);
 
     console.log('>>> MultiPart UPLOAD - About to multipart upload object...' + file_name);
-    var start_ts = Date.now();
-    var offset = 0;
-    var size = Math.ceil(actual_size / parts_num);
-    var uploadID = 0;
-    return P.ninvoke(s3bucket, 'createMultipartUpload', {
-            Bucket: bucket,
-            Key: file_name,
-            Metadata: {
-                md5: md5,
-            },
-        })
-        .then(function(res) {
-            var promises = [];
-            uploadID = res.UploadId;
-            for (var i = 0; i < parts_num; i++) {
-                var part_data = data.slice(offset, offset + size);
-                offset += size;
-                promises[i] = P.ninvoke(s3bucket, 'uploadPart', {
-                    Key: file_name,
-                    Bucket: bucket,
-                    PartNumber: i,
-                    UploadId: uploadID,
-                    Body: part_data,
-                });
-            }
-            return P.all(promises);
-        })
-        .then(() => {
+    var params = {
+        Bucket: bucket,
+        Key: file_name,
+        Body: data,
+        Metadata: {
+            md5: md5
+        },
+    };
+    var options = {
+        partSize: size
+    };
+    return P.ninvoke(s3bucket, 'upload', params, options)
+        .then(res => {
             console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
-            P.ninvoke(s3bucket, 'completeMultipartUpload', {
-                Key: file_name,
-                Bucket: bucket,
-                UploadId: uploadID,
-            });
             return md5;
         })
         .catch(err => {
-            console.error('Multipart upload failed!', err);
+            console.error('Put failed!', err);
             throw err;
         });
 }

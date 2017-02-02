@@ -84,7 +84,7 @@ module.exports = {
 
         // better handle every err in callbacks
         // TODO eslint handle-callback-err should be error
-        'handle-callback-err': 'warn',
+        'handle-callback-err': 'error',
 
         // allow short variable names like '_' or 'P' etc. use with care.
         'id-length': 'off',

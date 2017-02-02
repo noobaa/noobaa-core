@@ -385,6 +385,9 @@ function describe_instances(params, filter) {
             });
     }).then(function(err, data) {
         var instances = _.flatten(created_instance_data);
+        if (err) {
+            console.warn('got err', err);
+        }
         // also put the regions list as a "secret" property of the array
         return _.filter(instances, function(instance) {
             instance.tags_map = _.mapValues(_.keyBy(instance.metadata.items, 'key'), 'value');
@@ -702,6 +705,9 @@ function init(callback) {
     setTimeout(function() {
         authClient.authorize(function(err, token) {
             console.log('Authenticated!', token);
+            if (err) {
+                console.warn('err', err);
+            }
             callback(token);
         });
     }, 2000);

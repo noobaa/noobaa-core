@@ -608,12 +608,13 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
         }
         session.tcp = net.connect(session.remote.port, session.remote.address);
         session.tcp.on('error', function(err) {
+            dbg.log0('Got error', err);
             session.tcp.destroy();
             setTimeout(try_ap, delay);
             attempts += 1;
         });
         session.tcp.on('connect', function(err) {
-            dbg.log0('ICE TCP AP CONNECTED', session.key, 'took', attempts, 'attempts');
+            dbg.log0('ICE TCP AP CONNECTED', session.key, 'took', attempts, 'attempts', err);
             attempts = MAX_ATTEMPTS;
             if (self.active_session || self.closed || session.is_closed()) {
                 session.tcp.destroy();
@@ -654,6 +655,7 @@ Ice.prototype._connect_tcp_simultaneous_open_pair = function(session) {
         }
         session.tcp = net.connect(so_connect_conf);
         session.tcp.on('error', function(err) {
+            dbg.log0('Got error', err);
             session.tcp.destroy();
             setTimeout(try_so, delay);
             attempts += 1;
@@ -662,7 +664,7 @@ Ice.prototype._connect_tcp_simultaneous_open_pair = function(session) {
             }
         });
         session.tcp.on('connect', function(err) {
-            dbg.log0('ICE TCP SO CONNECTED', session.key, 'took', attempts, 'attempts');
+            dbg.log0('ICE TCP SO CONNECTED', session.key, 'took', attempts, 'attempts', err);
             attempts = MAX_ATTEMPTS;
             if (self.active_session || self.closed || session.is_closed()) {
                 session.tcp.destroy();

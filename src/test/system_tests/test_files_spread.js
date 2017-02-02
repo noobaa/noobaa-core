@@ -135,9 +135,9 @@ function run_test() {
                 _.each(part.chunk.frags, frag => {
                     _.each(frag.blocks, block => {
                         if (block.adminfo.pool_name === 'pool1') {
-                            pool1_count++;
+                            pool1_count += 1;
                         } else {
-                            pool2_count++;
+                            pool2_count += 1;
                         }
                     });
                 });
@@ -161,7 +161,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .catch(function(err) {
+        .catch(function() {
             process.exit(1);
         });
 }

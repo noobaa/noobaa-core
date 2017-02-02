@@ -70,7 +70,7 @@ function upload_and_upgrade(ip, upgrade_pack) {
                         console.log('S3 server started after upgrade');
                         isNotListening = false;
                     }, err => {
-                        console.log('waiting for S3 server to start');
+                        console.log('waiting for S3 server to start', err);
                         return P.delay(10000);
                     });
                 });

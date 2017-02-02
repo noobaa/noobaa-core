@@ -314,7 +314,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .catch(function(err) {
+        .catch(function() {
             process.exit(1);
         });
 }

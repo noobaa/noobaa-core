@@ -1191,9 +1191,9 @@ function _validate_add_member_request(req) {
     //TODO on sharding will also need to add verification to the cfg port
     return promise_utils.exec(`nc -z ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT}`)
         .then(() => P.resolve())
-        .catch(err => P.resolve()) //Error in this case still means no FW dropped us on the way
+        .catch(() => P.resolve()) //Error in this case still means no FW dropped us on the way
         .timeout(30 * 1000)
-        .catch(err => {
+        .catch(() => {
             throw new Error(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT},
             might be due to a FW blocking`);
         });

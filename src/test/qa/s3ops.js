@@ -95,7 +95,7 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
 
     var data = crypto.randomBytes(actual_size);
     let md5 = crypto.createHash('md5').update(data)
-    	.digest('hex');
+        .digest('hex');
 
     var start_ts = Date.now();
     var size = Math.ceil(actual_size / parts_num);

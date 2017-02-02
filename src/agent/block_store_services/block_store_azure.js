@@ -86,7 +86,7 @@ class BlockStoreAzure extends BlockStoreBase {
                 overwrite_size += md_size;
                 console.warn('block already found in cloud, will overwrite. id =', block_md.id);
                 overwrite_count = 1;
-            }, err => {
+            }, () => {
                 // noop when missing
             })
             .then(() => dbg.log3('writing block id to cloud: ', block_key))

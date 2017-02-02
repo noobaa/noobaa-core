@@ -230,7 +230,7 @@ function s3_ceph_test() {
     var had_errors = false;
     return promise_utils.pwhile(
             function() {
-                i++;
+                i += 1;
                 return i < S3_CEPH_TEST_WHITELIST.length;
             },
             function() {
@@ -241,7 +241,7 @@ function s3_ceph_test() {
                     })
                     .catch((err) => {
                         if (!IGNORE_S3_CEPH_TEST_LIST.contains(S3_CEPH_TEST_WHITELIST[i])) {
-                            fail_count++;
+                            fail_count += 1;
                             had_errors = true;
                         }
                         console.warn('Test Failed:', S3_CEPH_TEST_WHITELIST[i], '\n' + err);
@@ -264,7 +264,7 @@ function system_ceph_test() {
     var had_errors = false;
     return promise_utils.pwhile(
             function() {
-                i++;
+                i += 1;
                 return i < SYSTEM_CEPH_TEST_WHITELIST.length;
             },
             function() {
@@ -295,7 +295,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .catch(function(err) {
+        .catch(function() {
             process.exit(1);
         });
 }

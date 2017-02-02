@@ -99,6 +99,9 @@ function get_main_drive_name() {
 }
 
 function get_distro() {
+    if (os.type() === 'Darwin') {
+        return P.resolve('OSX - Darwin');
+    }
     return os_detailed_info((err, distro) => {
         if (err) {
             return P.reject(err);

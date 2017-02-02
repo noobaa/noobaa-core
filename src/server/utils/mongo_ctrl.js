@@ -19,7 +19,7 @@ module.exports = new MongoCtrl(); // Singleton
 //API
 //
 function MongoCtrl() {
-
+    //Empty Constructor
 }
 
 MongoCtrl.prototype.init = function() {
@@ -86,7 +86,7 @@ MongoCtrl.prototype.is_master = function(is_config_set) {
     return mongo_client.instance().get_mongo_rs_status({
             is_config_set: is_config_set,
         })
-        .then((res) => {
+        .then(res => {
             mongo_res = res;
             let topo = cutil.get_topology();
             let res_master = false;
@@ -109,7 +109,7 @@ MongoCtrl.prototype.is_master = function(is_config_set) {
 
 MongoCtrl.prototype.redirect_to_cluster_master = function() {
     return mongo_client.instance().get_mongo_rs_status()
-        .then((mongo_res) => {
+        .then(mongo_res => {
             let res_address;
             _.forEach(mongo_res.members, member => {
                 if (member.stateStr === 'PRIMARY') {

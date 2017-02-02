@@ -74,6 +74,6 @@ CoalesceStream.prototype._flush = function(callback) {
 
     // done
     if (callback) {
-        callback();
+        return callback();
     }
 };

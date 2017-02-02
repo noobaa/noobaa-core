@@ -22,12 +22,14 @@ class RpcNtcpServer extends EventEmitter {
         let Ntcp = native_core().Ntcp;
         this.server = new Ntcp();
         this.server.on('connection', ntcp => this._on_connection(ntcp));
-        this.server.on('close', err =>
-            this.emit('error', new Error('NTCP SERVER CLOSED')));
+        this.server.on('close', err => {
+                dbg.log0('on close::', err);
+                this.emit('error', new Error('NTCP SERVER CLOSED'));
+            });
         this.server.on('error', err => this.emit('error', err));
     }
 
-    close(err) {
+    close() {
         if (this.closed) return;
         this.closed = true;
         this.emit('close');

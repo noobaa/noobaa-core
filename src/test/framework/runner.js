@@ -25,9 +25,9 @@ function TestRunner(args) {
     this._argv = args;
     this._error = false;
     if (args.FLOW_FILE) {
-        this._steps = require(args.FLOW_FILE);
+        this._steps = require(args.FLOW_FILE); // eslint-disable-line global-require
     } else {
-        this._steps = require(process.cwd() + '/src/test/framework/flow.js');
+        this._steps = require(process.cwd() + '/src/test/framework/flow.js'); // eslint-disable-line global-require
     }
 }
 
@@ -49,14 +49,16 @@ TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait, po
                 return P.ninvoke(request, 'get', {
                     url: 'http://127.0.0.1:' + port,
                     rejectUnauthorized: false,
-                }).then(function() {
+                })
+                .then(function() {
                     console.log('server started after ' + wait_counter + ' seconds');
                     isNotListening = false;
-                }).catch(function(err) {
+                })
+                .catch(function(err) {
                     console.log('waiting for server to start(2)');
                     wait_counter += 1;
                     if (wait_counter >= MAX_RETRIES) {
-                        console.Error('Too many retries after restart server');
+                        console.Error('Too many retries after restart server', err);
                         throw new Error('Too many retries');
                     }
                     return P.delay(1000);
@@ -160,7 +162,7 @@ TestRunner.prototype.complete_run = function() {
             return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + self._version + '.tgz');
         })
         .catch(function(err) {
-            console.log('Failed restarting webserver');
+            console.log('Failed restarting webserver', err);
             throw new Error('Failed restarting webserver');
         });
 };
@@ -176,7 +178,8 @@ TestRunner.prototype.run_tests = function() {
                 .then(function(step_res) {
                     fs.appendFileSync(REPORT_PATH, step_res + '\n');
                     return;
-                }).catch(function(error) {
+                })
+                .catch(function(error) {
                     fs.appendFileSync(REPORT_PATH, 'Stopping tests with error ' + error + ' ' + error.stace + ' ' + error.message);
                     throw new Error(error);
                 });
@@ -235,7 +238,8 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
                 return step_res + ' - Successeful common step ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
                 //return step_res;
-            }).catch(function(err) {
+            })
+            .catch(function(err) {
                 console.warn('Failure while running ' + step_res + ' with error ' + err);
                 throw new Error(err);
             });
@@ -296,7 +300,7 @@ TestRunner.prototype._run_lib_test = function(current_step, step_res) {
     var ts = new Date();
     // Used in order to log inside a file instead of console prints
     dbg.set_log_to_file(process.cwd() + COVERAGE_DIR.substring(1) + '/' + path.parse(current_step.lib_test).name);
-    var test = require(process.cwd() + current_step.lib_test);
+    var test = require(process.cwd() + current_step.lib_test); // eslint-disable-line global-require
     return P.resolve(test.run_test())
         .then(function(res) {
             dbg.set_log_to_file();

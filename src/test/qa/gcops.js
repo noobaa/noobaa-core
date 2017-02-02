@@ -18,7 +18,8 @@ function list_machines(project, authClient, zone, prefix) {
                 filter: 'name eq ^' + prefix + '.*',
             };
             return P.nfcall(compute.instances.list, instancesListParams);
-        }).then(instances_list => {
+        })
+        .then(instances_list => {
             var names_list = [];
             _.each(instances_list.items, function(current_instance) {
                 names_list.push(current_instance.name);
@@ -37,7 +38,8 @@ function count_on_machines(project, authClient, zone, prefix) {
                 filter: '(name eq ^' + prefix + '.*)(status eq RUNNING)',
             };
             return P.nfcall(compute.instances.list, instancesListParams);
-        }).then(instances_list => {
+        })
+        .then(instances_list => {
             console.log(instances_list.items.length);
             return instances_list.items.length;
         });
@@ -48,7 +50,8 @@ function get_random_machine(project, authClient, zone, prefix) {
         .then(function(list) {
             let rand = Math.floor(Math.random() * list.length);
             return list[rand];
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error('Get random machine failed!', err);
             throw err;
         });
@@ -123,7 +126,8 @@ function wait_machine_state(project, authClient, zone, machine, state) {
                     .then(machine_info => {
                         c_state = machine_info.status;
                         console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
-                    }).delay(5000);
+                    })
+                    .delay(5000);
             });
         });
 }

@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var js_utils = require('../util/js_utils');
 
-function Clazz() {}
+function Clazz() { /* Clazz? */ }
 
 Clazz.prototype.func = function() {
     return this;
@@ -15,7 +15,8 @@ Clazz.prototype.measure = function() {
     var start = Date.now();
     var now = Date.now();
     var count = 0;
-    while (true) {
+    var run = true;
+    while (run) {
         for (var i = 0; i < 100000; ++i) {
             if (self.func() !== self) {
                 throw new Error('HUH');
@@ -26,7 +27,7 @@ Clazz.prototype.measure = function() {
         now = Date.now();
         if (now - start > 2000) {
             process.stdout.write('\n');
-            break;
+            run = false;
         }
     }
     console.log('Calls per second', (count * 1000 / (now - start)).toFixed(1));

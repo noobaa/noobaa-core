@@ -253,13 +253,13 @@ class MongoClient extends EventEmitter {
             replSetReconfig: rep_config
         };
         return P.resolve(this.get_rs_version(is_config_set))
-            .then((ver) => {
+            .then(ver => {
                 ver += 1;
                 rep_config.version = ver;
                 dbg.log0('Calling replica_update_members', util.inspect(command, false, null));
                 if (!is_config_set) { //connect the mongod server
                     return P.resolve(this.db.admin().command(command))
-                        .catch((err) => {
+                        .catch(err => {
                             dbg.error('Failed replica_update_members', set, members, 'with', err.message);
                             throw err;
                         });
@@ -337,7 +337,7 @@ class MongoClient extends EventEmitter {
         return P.fcall(function() {
                 if (!is_config_set) { //connect the mongod server
                     return P.resolve(self.db.admin().command(command))
-                        .catch((err) => {
+                        .catch(err => {
                             dbg.error('Failed get_rs_version with', err.message);
                             throw err;
                         });
@@ -345,7 +345,7 @@ class MongoClient extends EventEmitter {
                     return P.resolve(self._send_command_config_rs(command));
                 }
             })
-            .then((res) => {
+            .then(res => {
                 dbg.log0('Recieved replSetConfig', res, 'Returning RS version', res.config.version);
                 return res.config.version;
             });

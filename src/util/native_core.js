@@ -10,7 +10,7 @@ var native_core;
 function lazy_init_native_core(dont_fail) {
     if (!native_core) {
         try {
-            native_core = require('bindings')('native_core.node');
+            native_core = require('bindings')('native_core.node'); // eslint-disable-line global-require
 
             // see https://github.com/bnoordhuis/node-event-emitter
             inherits(native_core.Nudp, events.EventEmitter);

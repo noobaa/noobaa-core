@@ -142,7 +142,7 @@ function main() {
                                 }).spread(function(res, body) {
                                     console.log('server started');
                                     isNotListening = false;
-                                }, function(err) {
+                                }, function() {
                                     console.log('waiting for server to start');
                                     return P.delay(10000);
                                 });

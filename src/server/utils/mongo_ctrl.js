@@ -19,7 +19,7 @@ module.exports = new MongoCtrl(); // Singleton
 //API
 //
 function MongoCtrl() {
-
+    //Empty Constructor
 }
 
 MongoCtrl.prototype.init = function() {

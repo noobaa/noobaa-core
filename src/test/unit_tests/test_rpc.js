@@ -201,11 +201,11 @@ mocha.describe('RPC', function() {
 
         mocha.it('should work on mock server', function() {
             var server = {
-                get: function() {},
-                put: function() {},
-                post: function() {},
-                delete: function() {},
-                use: function() {},
+                get: function() { /* Empty Func */ },
+                put: function() { /* Empty Func */ },
+                post: function() { /* Empty Func */ },
+                delete: function() { /* Empty Func */ },
+                use: function() { /* Empty Func */ },
             };
             rpc.register_service(test_api, server);
         });

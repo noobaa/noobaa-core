@@ -169,7 +169,7 @@ module.exports = {
         'no-else-return': 'warn',
 
         // for empty functions we expect at least a comment why it's there
-        'no-empty-function': 'warn',
+        'no-empty-function': 'error',
 
         'no-extra-parens': ['off', 'all', {
             nestedBinaryExpressions: false

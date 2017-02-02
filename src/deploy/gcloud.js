@@ -84,7 +84,7 @@ function promiseWhile(condition, body) {
  *
  */
 function import_key_pair_to_region() {
-
+    //Empty function
 }
 
 // eslint-disable-next-line max-params
@@ -154,7 +154,8 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
 
             return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
         }));
-    }).catch(function(err) {
+    })
+    .catch(function(err) {
         console.log('####');
         console.log('#### Cannot scale. Reason:', err.message, err.stack);
         console.log('####');
@@ -232,7 +233,9 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
     if (count > instances.length) {
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' +++ adding', count - instances.length);
-        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf, instanceCreationProgressHandler)
+        return add_region_instances(
+                region_name, count - instances.length, is_docker_host, number_of_dockers,
+                is_win, agent_conf, instanceCreationProgressHandler)
             //once the instances are up, we can add disk dependency
             .then(instance_post_creation_handler,
                 instance_creation_error_handler);
@@ -410,10 +413,12 @@ function describe_instances(params, filter) {
             return true;
         });
 
-    }).then(function(instances) {
+    })
+    .then(function(instances) {
         instances.zones = zones;
         return instances;
-    }).catch(
+    })
+    .catch(
         function(error) {
             if (error && error.errors && error.errors[0].reason === 'notFound') {
                 console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', error);

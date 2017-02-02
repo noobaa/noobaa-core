@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var js_utils = require('../util/js_utils');
 
-function Clazz() {}
+function Clazz() { /* Clazz? */ }
 
 Clazz.prototype.func = function() {
     return this;

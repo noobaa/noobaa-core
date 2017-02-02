@@ -1304,10 +1304,7 @@ function _initiate_replica_set(shardname) {
     return P.resolve(() => _update_cluster_info(new_topology))
         .then(() => MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ true, new_topology.shards[shard_idx].servers))
         .then(() => {
-            dbg.log0('Replica set created, calling initiate');
-            return MongoCtrl.initiate_replica_set(shardname, cutil.extract_servers_ip(
-                cutil.get_topology().shards[shard_idx].servers
-            ));
+            dbg.log0('Replica set created and initiated');
         });
 }
 

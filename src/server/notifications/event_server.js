@@ -41,9 +41,10 @@ function export_activity_log(req) {
                     let account = entry.actor ? entry.actor.email : '';
                     let entity = entry[entity_type];
                     let description = entry.desc.join(' ');
-                    let entity_name = entity ?
-                        (entity_type === 'obj' ? entity.key : entity.name) :
-                        '';
+                    let entity_name = '';
+                    if (entity) {
+                        entity_name = entity_type === 'obj' ? entity.key : entity.name;
+                    }
 
                     lines.push(`"${time}",${entry.level},${account},${entry.event},${entity_name},"${description}"`);
                     return lines;

@@ -110,7 +110,7 @@ function read_all_files(dir, names, callback) {
             res[i] = data;
             remain -= 1;
             if (remain === 0) {
-                callback(null, res);
+                return callback(null, res);
             }
         });
     });

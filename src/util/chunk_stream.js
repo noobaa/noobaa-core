@@ -49,7 +49,7 @@ class ChunkStream extends stream.Transform {
             this.pending_bytes = 0;
         }
         if (callback) {
-            callback();
+            return callback();
         }
     }
 }

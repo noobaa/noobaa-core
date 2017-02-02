@@ -41,7 +41,7 @@ module.exports = {
         'no-div-regex': 'off',
 
         // prefer to always return when calling callbacks to avoid double calls
-        'callback-return': 'warn',
+        'callback-return': 'error',
 
         // not enforcing all class methods to use 'this'
         'class-methods-use-this': 'off',
@@ -194,8 +194,7 @@ module.exports = {
         'no-negated-condition': 'warn',
 
         // avoid nesting ternary operators. really.
-        // TODO eslint no-nested-ternary should be error
-        'no-nested-ternary': 'warn',
+        'no-nested-ternary': 'error',
 
         // prefer to avoid reassigning to function params and use a new variable
         'no-param-reassign': 'off',
@@ -259,7 +258,7 @@ module.exports = {
         'object-shorthand': 'off',
 
         // prefer x+=4 over x=x+4
-        'operator-assignment': 'warn',
+        'operator-assignment': 'error',
 
         // break lines after operators, not before
         'operator-linebreak': ['error', 'after'],

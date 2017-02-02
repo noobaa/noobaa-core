@@ -173,7 +173,7 @@ function get_network_counter() {
         if (cloud_context) {
             return cloud_context.sem.surround(function() {
                 console.log('Current network counter is', cloud_context.counter);
-                cloud_context.counter = cloud_context.counter + 1;
+                cloud_context.counter += 1;
                 return cloud_context.counter;
             });
 

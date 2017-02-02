@@ -55,7 +55,7 @@ function test_s3_connection() {
             return P.ninvoke(s3, "listBuckets");
         })
         .then(() => true,
-            (error) => {
+            error => {
                 console.warn('Failed with', error, error.stack);
                 throw new Error(error);
             }
@@ -104,8 +104,8 @@ function getSignedUrl(bucket, obj, expiry) {
             });
         })
         .delay(1000)
-        .then((url) => url,
-            (error) => {
+        .then(url => url,
+            error => {
                 console.warn('Failed with', error, error.stack);
                 throw new Error(error);
             }
@@ -115,7 +115,7 @@ function getSignedUrl(bucket, obj, expiry) {
 function httpGetAsPromise(url) {
     console.log('TEST SIGNED_URL: ', url);
     return new P(function(resolve, reject) {
-        return http.get(url, (res) => {
+        return http.get(url, res => {
             if (res.statusCode >= 400) {
                 reject(({
                     url: url,
@@ -326,7 +326,7 @@ function run_test() {
     let signed_url;
     return authenticate().then(() => test_s3_connection())
         .then(() => basic_server_ops.generate_random_file(file_sizes[0]))
-        .then((fl) => {
+        .then(fl => {
             fkey = fl;
             return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 'files', file_names[0]);
         })
@@ -336,14 +336,14 @@ function run_test() {
         .then(() => get_object('files', file_names[0]))
         .delay(1000)
         .then(() => getSignedUrl('files', file_names[0]))
-        .then((url) => {
+        .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
         })
         .delay(1000)
         .then(() => create_bucket('s3testbucket'))
         .then(() => basic_server_ops.generate_random_file(file_sizes[1]))
-        .then((fl) => {
+        .then(fl => {
             fkey = fl;
             return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 's3testbucket', file_names[1]);
         })
@@ -353,14 +353,14 @@ function run_test() {
         .then(() => get_object('s3testbucket', file_names[1]))
         .delay(1000)
         .then(() => getSignedUrl('s3testbucket', file_names[1]))
-        .then((url) => {
+        .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
         })
         .delay(1000)
         .then(() => create_folder('s3testbucket', 's3folder'))
         .then(() => basic_server_ops.generate_random_file(file_sizes[2]))
-        .then((fl) => {
+        .then(fl => {
             fkey = fl;
             return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 's3testbucket', 's3folder/' + file_names[2]);
         })
@@ -370,13 +370,13 @@ function run_test() {
         .then(() => get_object('s3testbucket', 's3folder/' + file_names[2]))
         .delay(1000)
         .then(() => getSignedUrl('s3testbucket', 's3folder/' + file_names[2]))
-        .then((url) => {
+        .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
         })
         .delay(1000)
         .then(() => getSignedUrl('s3testbucket', 's3folder/' + file_names[2], 1))
-        .then((url) => {
+        .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
         })

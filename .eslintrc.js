@@ -30,7 +30,7 @@ module.exports = {
         ]],
 
         // arrow function styling is not a real error but should be consistent
-        'arrow-parens': ['warn', 'as-needed'],
+        'arrow-parens': ['error', 'as-needed'],
         'arrow-body-style': ['warn', 'as-needed'],
 
         // camelcase is a religion. we were born differently.

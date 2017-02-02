@@ -209,12 +209,12 @@ module.exports = {
 function deploy_ceph() {
     var command = `chmod a+x ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_deploy}`;
     return promise_utils.exec(command, false, true)
-        .then((res) => {
+        .then(res => {
             console.log('Starting Deployment Of Ceph Tests...');
             command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} > /tmp/ceph_deploy.log`;
             return promise_utils.exec(command, false, true);
         })
-        .then((res) => {
+        .then(res => {
             return console.log(res);
         })
         .catch(function(err) {
@@ -239,7 +239,7 @@ function s3_ceph_test() {
                     .then(() => {
                         console.log('Test Passed:', S3_CEPH_TEST_WHITELIST[i]);
                     })
-                    .catch((err) => {
+                    .catch(err => {
                         if (!IGNORE_S3_CEPH_TEST_LIST.contains(S3_CEPH_TEST_WHITELIST[i])) {
                             fail_count += 1;
                             had_errors = true;
@@ -273,9 +273,9 @@ function system_ceph_test() {
                     .then(() => {
                         console.log('Test Passed:', SYSTEM_CEPH_TEST_WHITELIST[i]);
                     })
-                    .catch((err) => {
+                    .catch(err => {
                         had_errors = true;
-                        fail_count++;
+                        fail_count += 1;
                         console.warn('Test Failed:', SYSTEM_CEPH_TEST_WHITELIST[i], '\n' + err);
                     });
             })

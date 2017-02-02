@@ -1353,7 +1353,7 @@ function _update_cluster_info(params) {
                     dbg.log0('local cluster info updates successfully');
                     return;
                 })
-                .catch((err) => {
+                .catch(err => {
                     console.error('failed on local cluster info update with', err.message);
                     throw err;
                 });

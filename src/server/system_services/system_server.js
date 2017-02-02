@@ -82,7 +82,7 @@ function _init() {
                     }
                 }
             })
-            .catch((err) => {
+            .catch(err => {
                 dbg.log('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
                 return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
             })

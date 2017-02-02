@@ -81,7 +81,7 @@ function run_test() {
             tiering: 'tiering1',
         }))
         .then(() => basic_server_ops.generate_random_file(20))
-        .then((fl) => {
+        .then(fl => {
             fkey = fl;
             return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
@@ -97,7 +97,7 @@ function run_test() {
                 adminfo: true
             });
         })
-        .then((res) => {
+        .then(res => {
             _.each(res.parts, part => {
                 _.each(part.chunk.frags, frag => {
                     if (frag.blocks.length !== 3) {
@@ -112,7 +112,7 @@ function run_test() {
             data_placement: 'MIRROR'
         }))
         .then(() => basic_server_ops.generate_random_file(20))
-        .then((fl) => {
+        .then(fl => {
             fkey = fl;
             return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
@@ -128,7 +128,7 @@ function run_test() {
                 adminfo: true
             });
         })
-        .then((res) => {
+        .then(res => {
             _.each(res.parts, part => {
                 var pool1_count = 0;
                 var pool2_count = 0;

@@ -313,7 +313,7 @@ function main() {
         })
         .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
             file_names[1], ['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name]))
-        .then((block_ids) => {
+        .then(block_ids => {
             return verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
                     file_names[2], ['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name])
                 .then(function(second_block_ids) {

@@ -57,15 +57,6 @@ module.exports = {
             auth: {
                 system: false
             },
-            reply: {
-                type: 'object',
-                required: ['new_hostname'],
-                properties: {
-                    new_hostname: {
-                        type: 'string'
-                    }
-                }
-            },
         },
 
         verify_join_conditions: {

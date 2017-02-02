@@ -37,8 +37,8 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
             chunks_capacity: 0,
             objects_size: 0,
             objects_count: 0,
-            objects_size_hist: [0, 0, 0, 0, 0, 0, 0],
-            objects_count_hist: [0, 0, 0, 0, 0, 0, 0],
+            objects_size_hist: [],
+            objects_count_hist: [],
             last_update: now
         },
         stats: {

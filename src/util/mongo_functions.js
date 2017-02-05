@@ -76,10 +76,9 @@ function map_aggregate_objects() {
     emit([this.bucket, 'count'], 1);
 
     // map for histogram calcs - emit the size and count with a key that is the log2 of the size
-    const sizeKB = this.size / 1024;
     var pow = 0;
-    if (sizeKB > 1) {
-        pow = Math.ceil(Math.log2(sizeKB));
+    if (this.size > 1) {
+        pow = Math.ceil(Math.log2(this.size));
     }
     emit([this.bucket, 'count_pow2_' + pow], 1);
     emit([this.bucket, 'size_pow2_' + pow], this.size);

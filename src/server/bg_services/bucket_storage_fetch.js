@@ -10,8 +10,6 @@ const size_utils = require('../../util/size_utils');
 const system_store = require('../system_services/system_store').get_instance();
 
 
-const MAX_NUM_BINS = 31;
-
 // TODO: This method is based on a single system
 function background_worker() {
     if (!system_store.is_finished_initial_load) {
@@ -91,8 +89,7 @@ function background_worker() {
                 new_storage_stats.chunks_capacity = (new size_utils.BigInteger(new_storage_stats.chunks_capacity).plus(delta_chunk_compress_size)).toJSON();
                 new_storage_stats.objects_size = (new size_utils.BigInteger(new_storage_stats.objects_size).plus(delta_object_size)).toJSON();
                 new_storage_stats.objects_count += delta_object_count;
-                new_storage_stats.objects_size_hist = get_objects_size_hist(bucket, existing_objects_aggregate, deleted_objects_aggregate);
-                new_storage_stats.objects_count_hist = get_objects_count_hist(bucket, existing_objects_aggregate, deleted_objects_aggregate);
+                new_storage_stats.objects_hist = build_objects_hist(bucket, existing_objects_aggregate, deleted_objects_aggregate);
 
                 dbg.log0('Bucket storage stats after deltas:', new_storage_stats);
                 return {
@@ -115,41 +112,74 @@ function background_worker() {
 function get_hist_array_from_aggregate(agg, key) {
     const key_prefix = key + '_pow2_';
     let bins_arr = [];
-    for (var i = 0; i < MAX_NUM_BINS; i++) {
-        let bin_key = key_prefix + i.toString();
-        bins_arr.push((agg && agg[bin_key]) || 0);
+    for (var prop in agg) {
+        if (prop.startsWith(key_prefix)) {
+            let index = parseInt(prop.replace(key_prefix, ''), 10);
+            bins_arr[index] = agg[prop];
+        }
     }
     return bins_arr;
 }
 
+function build_objects_hist(bucket, existing_agg, deleted_agg) {
+    // get the current histogram from DB
+    let current_objects_hist = (bucket.storage_stats && bucket.storage_stats.objects_hist) || [];
 
-function get_objects_size_hist(bucket, existing_agg, deleted_agg) {
-    let current_objects_size_hist = (bucket.storage_stats && bucket.storage_stats.objects_size_hist) || [];
+    // get the latest additions\deletions in an array form
     let existing_size_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'size');
     let deleted_size_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'size');
-    let new_size_hist = [];
-    // calculate new size for each bin
-    for (var i = 0; i < MAX_NUM_BINS; i++) {
-        let bigint_existing_size_bin = new size_utils.BigInteger(existing_size_hist[i]);
-        let bigint_deleted_size_bin = new size_utils.BigInteger(deleted_size_hist[i]);
-        let delta_size_bin = bigint_existing_size_bin.minus(bigint_deleted_size_bin);
-        new_size_hist.push((new size_utils.BigInteger(current_objects_size_hist[i] || 0).plus(delta_size_bin)).toJSON());
+    let existing_count_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'count');
+    let deleted_count_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'count');
+
+    // size and count should have the same length, since they are emitted together in mongo mapreduce
+    if (deleted_size_hist.length !== deleted_count_hist.length ||
+        existing_size_hist.length !== existing_count_hist.length) {
+        dbg.error('size histogram and count histogram have different lengths',
+            'deleted_size_hist.length =', deleted_size_hist.length,
+            'deleted_count_hist.length =', deleted_count_hist.length,
+            'existing_size_hist.length =', existing_size_hist.length,
+            'existing_count_hist.length =', existing_count_hist.length);
     }
+
+    let num_bins = Math.max(deleted_size_hist.length, existing_size_hist.length, current_objects_hist.length);
+    if (num_bins === 0) return current_objects_hist;
+    let new_size_hist = [];
+    for (var i = 0; i < num_bins; i++) {
+        let bin = {
+            label: (current_objects_hist[i] && current_objects_hist[i].label) || get_hist_label(i),
+            aggregated_sum: get_new_bin(
+                existing_size_hist[i] || 0,
+                deleted_size_hist[i] || 0,
+                (current_objects_hist[i] && current_objects_hist[i].aggregated_sum) || 0),
+            count: get_new_bin(
+                existing_count_hist[i] || 0,
+                deleted_count_hist[i] || 0,
+                (current_objects_hist[i] && current_objects_hist[i].count) || 0)
+        };
+        new_size_hist.push(bin);
+    }
+
     return new_size_hist;
 }
 
-
-function get_objects_count_hist(bucket, existing_agg, deleted_agg) {
-    let current_objects_count_hist = (bucket.storage_stats && bucket.storage_stats.objects_count_hist) || [];
-    let existing_count_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'count');
-    let deleted_count_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'count');
-    let new_count_hist = [];
-    // calculate new size for each bin
-    for (var i = 0; i < MAX_NUM_BINS; i++) {
-        let delta_count_bin = existing_count_hist[i] - deleted_count_hist[i];
-        new_count_hist.push((current_objects_count_hist[i] || 0) + delta_count_bin);
+function get_hist_label(pow) {
+    if (pow === 0) {
+        return "0 - " + size_utils.human_size(1);
     }
-    return new_count_hist;
+    return `${size_utils.human_size(Math.pow(2, pow - 1))} - ${size_utils.human_size(Math.pow(2, pow))}`;
+}
+
+function get_new_bin(existing, deleted, current) {
+    if (!existing && !deleted) {
+        return current;
+    }
+    let bigint_existing_size_bin = new size_utils.BigInteger(existing);
+    let bigint_deleted_size_bin = new size_utils.BigInteger(deleted);
+    let delta_size_bin = bigint_existing_size_bin
+        .minus(bigint_deleted_size_bin);
+    let new_bin = (new size_utils.BigInteger(current).plus(delta_size_bin))
+        .toJSON();
+    return new_bin;
 }
 
 

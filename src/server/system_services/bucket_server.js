@@ -838,7 +838,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         _.compact((mirror_object.spread_pools || []).map(pool =>
                 tiering_pools_status[pool.name]))
             .forEach(pool_status => {
-                num_valid_nodes += pool_status.num_nodes;
+                num_valid_nodes += pool_status.num_nodes || 0;
                 has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
             });
         return has_valid_pool || num_valid_nodes >= config.NODES_MIN_COUNT;

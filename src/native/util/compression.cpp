@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #include "compression.h"
 #include "../third_party/snappy/snappy.h"
 #include "../third_party/snappy/snappy-sinksource.h"

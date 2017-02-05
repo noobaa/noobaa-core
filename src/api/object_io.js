@@ -939,7 +939,7 @@ class ObjectIO {
                 })
                 .catch(err => this._report_error_on_object_read(
                     params, part, block.block_md, err))
-                .catch(err => read_next_block(index + 1));
+                .catch(() => read_next_block(index + 1));
         };
         return read_next_block(0);
     }

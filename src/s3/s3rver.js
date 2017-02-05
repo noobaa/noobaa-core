@@ -91,7 +91,7 @@ function run_server() {
                 addr_url.hostname === 'localhost';
             if (is_local_address) {
                 dbg.log0('Initialize S3 RPC with MDServer');
-                const md_server = require('../server/md_server');
+                const md_server = require('../server/md_server'); // eslint-disable-line global-require
                 return md_server.register_rpc();
             } else {
                 dbg.log0('Initialize S3 RPC to address', params.address);

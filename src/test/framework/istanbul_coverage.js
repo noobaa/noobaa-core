@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 //NO REQUIRES for NooBaa's code
 

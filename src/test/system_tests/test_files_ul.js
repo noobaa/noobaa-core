@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 "use strict";
 
 var _ = require('lodash');
@@ -56,7 +57,7 @@ function pre_generation() {
                     return i < dirs;
                 },
                 function() {
-                    ++i;
+                    i += 1;
                     return promise_utils.exec('mkdir -p ' + UL_TEST.base_dir + '/dir' + i);
                 });
         })
@@ -72,7 +73,7 @@ function pre_generation() {
                     return d < dirs;
                 },
                 function() {
-                    ++d;
+                    d += 1;
                     var files = (d === dirs) ? UL_TEST.num_files % UL_TEST.files_per_dir : UL_TEST.files_per_dir;
                     console.log(' generating batch', d, 'of', files, 'files');
                     for (var i = 1; i <= files; ++i) {
@@ -123,7 +124,7 @@ function upload_file(test_file) {
                 .then(function(res) {
                     console.log('Done uploading', test_file);
                     //TODO:: Add histogram as well
-                    UL_TEST.measurement.points++;
+                    UL_TEST.measurement.points += 1;
                     UL_TEST.measurement.time += (Date.now() - start_ts) / 1000;
 
                     if (UL_TEST.measurement.points === 1000) { //Save mid results per each 1K files
@@ -139,7 +140,7 @@ function upload_file(test_file) {
         })
         .then(null, function(err) {
             console.error('Error in upload_file', err);
-            ++UL_TEST.total_ul_errors;
+            UL_TEST.total_ul_errors += 1;
             if (UL_TEST.total_ul_errors > UL_TEST.num_files * 0.1) {
                 throw new Error('Failed uploading ' + UL_TEST.total_ul_errors + ' files');
             }
@@ -161,7 +162,7 @@ function print_summary() {
     var i = 0;
     _.each(UL_TEST.measurement.mid, function(m) {
         console.log('  for files', (i * 1000) + 1, 'to', (i + 1) * 1000, 'avg ul time', m);
-        ++i;
+        i += 1;
     });
     console.log('  for files', (i * 1000) + 1, 'to', (i + 1) * 1000 + UL_TEST.measurement.points, 'avg ul time',
         UL_TEST.measurement.time / UL_TEST.measurement.points);
@@ -237,7 +238,7 @@ function main() {
             console.log('Finished running upload test');
             return;
         })
-        .catch(function(err) {
+        .catch(function() {
             if (!UL_TEST.skip_cleanup) {
                 return promise_utils.exec('rm -rf /tmp/' + UL_TEST.base_dir);
             }

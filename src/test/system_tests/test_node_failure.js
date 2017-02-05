@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 "use strict";
 
 let _ = require('lodash');
@@ -162,7 +163,9 @@ function validate_mappings() {
         }
         let num_online = 0;
         _.each(part.blocks, block => {
-            if (block.online) num_online++;
+            if (block.online) {
+                num_online += 1;
+            }
         });
         if (num_online < 3) {
             console.log('not enough online replicas, wait and retry');
@@ -209,7 +212,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .catch(function(err) {
+        .catch(function() {
             process.exit(1);
         });
 }

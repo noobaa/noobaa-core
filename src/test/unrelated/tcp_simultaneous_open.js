@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var net = require('net');
@@ -31,7 +32,7 @@ function tcp_simultaneous_open(local_port, remote_port, attempts) {
         if (attempts < 1000) {
             setTimeout(tcp_simultaneous_open, delay, local_port, remote_port, attempts);
         } else {
-            console.log('PEW EXHAUSTED');
+            console.log('PEW EXHAUSTED', err);
         }
     });
     conn.on('data', function(data) {
@@ -72,7 +73,8 @@ function get_seq_buffer(buffer) {
 }
 
 function on_readable(conn, is_server) {
-    while (true) {
+    var run = true;
+    while (run) {
         var buffer = conn.read(4);
         if (!buffer) return;
         var seq = get_seq_buffer(buffer);
@@ -83,7 +85,10 @@ function on_readable(conn, is_server) {
         if (seq <= 100) {
             conn.write(new_seq_buffer(seq + 1));
         }
-        if (seq >= 100) return;
+        if (seq >= 100) {
+            run = false;
+            return;
+        }
     }
 
     function do_upgrade() {

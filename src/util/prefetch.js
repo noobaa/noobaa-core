@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var P = require('../util/promise');
@@ -37,7 +38,7 @@ function Prefetch(options) {
         get: function() {
             return self._length;
         },
-        set: function(value) {}
+        set: function(value) { /* Empty Func */ }
     });
 }
 

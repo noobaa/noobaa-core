@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // var _ = require('lodash');
@@ -80,7 +81,7 @@ mocha.describe('keys_lock', function() {
                 kl = new KeysLock();
                 assert.strictEqual(kl.length, 0);
 
-                P.resolve(kl.surround_keys(['key1'], () => {}));
+                P.resolve(kl.surround_keys(['key1'], () => { /* Empty Func */ }));
                 assert.strictEqual(kl.length, 0);
 
                 P.resolve(kl.surround_keys(['key2'], do_wake_first));

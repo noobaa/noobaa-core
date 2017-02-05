@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 let fs = require('fs');
 let http = require('http');
@@ -102,7 +103,7 @@ function run_sender(port, host, ssl) {
                 process.exit();
             }
             send_speedometer.update(buf.length);
-            res.on('data', () => {});
+            res.on('data', () => { /* Empty Func */ });
             res.on('end', send);
         });
         req.on('error', err => {

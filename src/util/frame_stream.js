@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
@@ -75,8 +76,8 @@ FrameStream.prototype.send_message = function(buffer_or_buffers, message_type_co
 };
 
 FrameStream.prototype._on_readable = function() {
-    while (true) {
-
+    var run = true;
+    while (run) {
         // read the message header if not already read
         if (!this._msg_header) {
 
@@ -85,13 +86,17 @@ FrameStream.prototype._on_readable = function() {
             // and not extract any bytes, so will be kept in the buffer for next
             // 'readable' event.
             this._msg_header = this.stream.read(this._header_len);
-            if (!this._msg_header) return;
+            if (!this._msg_header) {
+                run = false;
+                return;
+            }
 
             // verify the magic
             var magic = this._msg_header.slice(0, this._magic_len).toString();
             if (magic !== this._magic) {
                 this.stream.emit('error', new Error('received magic mismatch ' +
                     magic + ' expected ' + this._magic));
+                run = false;
                 return;
             }
 
@@ -109,6 +114,7 @@ FrameStream.prototype._on_readable = function() {
                 } else {
                     this.stream.emit('error', new Error('received seq mismatch ' +
                         seq + ' expected ' + (this._recv_seq + 1)));
+                    run = false;
                     return;
                 }
             }
@@ -121,13 +127,17 @@ FrameStream.prototype._on_readable = function() {
         if (msg_len > this._max_len) {
             this.stream.emit('error', new Error('received message too big ' +
                 msg_len + ' expected up to ' + this._max_len));
+            run = false;
             return;
         }
 
         // try to get the entire message from the stream buffer
         // if not available, will wait for next 'readable' event
         var msg = this.stream.read(msg_len);
-        if (!msg) return;
+        if (!msg) {
+            run = false;
+            return;
+        }
 
         // got a complete message, remove the previous header and emit
         var msg_type = this._msg_header.readUInt16BE(this._magic_len + 2);

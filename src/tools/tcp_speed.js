@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 let fs = require('fs');
@@ -145,24 +146,32 @@ function run_sender(conn, send_speedometer) {
 function run_receiver(conn, recv_speedometer) {
     if (!argv.noframe) {
         let hdr;
+        let run = true;
         conn.on('readable', () => {
-            while (true) {
+            while (run) {
                 if (!hdr) {
                     hdr = conn.read(4);
                     if (!hdr) break;
                 }
                 let len = hdr.readUInt32BE(0);
                 let data = conn.read(len);
-                if (!data) break;
+                if (!data) {
+                    run = false;
+                    break;
+                }
                 hdr = null;
                 recv_speedometer.update(data.length);
             }
         });
     } else {
         conn.on('readable', () => {
-            while (true) {
+            let run = true;
+            while (run) {
                 let data = conn.read();
-                if (!data) break;
+                if (!data) {
+                    run = false;
+                    break;
+                }
                 recv_speedometer.update(data.length);
             }
         });

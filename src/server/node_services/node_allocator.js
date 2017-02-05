@@ -117,7 +117,9 @@ function _get_tiering_pools_status(pools) {
  *
  */
 function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_params) {
-    let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
+    let pool_set = _.map(pools, pool => String(pool._id))
+        .sort()
+        .join(',');
     let alloc_group =
         alloc_group_by_pool_set[pool_set] =
         alloc_group_by_pool_set[pool_set] || {

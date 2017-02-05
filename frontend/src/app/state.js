@@ -15,6 +15,5 @@ state.subscribe(
     () => console.error('STATE STREAM TERMINATED')
 );
 
-
 export default state;
 

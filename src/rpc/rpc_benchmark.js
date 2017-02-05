@@ -1,6 +1,9 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
+var path = require('path');
+var look = require('look');
 var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
@@ -19,7 +22,7 @@ argv.client = argv.client || false;
 argv.server = argv.server || false;
 
 if (!argv.server && !argv.client) {
-    let script_name = require('path').relative(process.cwd(), process.argv[1]);
+    let script_name = path.relative(process.cwd(), process.argv[1]);
     process.stdout.write('Usage: \n');
     process.stdout.write('node ' + script_name + ' --server --addr tcp://server:5656 [--n2n] \n');
     process.stdout.write('node ' + script_name + ' --client --addr tcp://server:5656 [--n2n] \n');
@@ -57,7 +60,7 @@ argv.debug = argv.debug || 0;
 
 // profiling tools
 if (argv.look) {
-    require('look').start();
+    look.start();
 }
 if (argv.leak) {
     memwatch.on('leak', function(info) {

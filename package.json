@@ -125,7 +125,7 @@
     "setimmediate": "1.0.4",
     "ssh2": "0.5.1",
     "utf-8-validate": "1.2.1",
-    "vsphere": "https://download3.vmware.com/software/vmw-tools/vsphere-sdk-for-javascript/vsphere-1.0.0_.tgz",
+    "vsphere": "https://download3.vmware.com/software/vmw-tools/vsphere-sdk-for-javascript/vsphere-1.1.0.tgz",
     "which": "1.2.10",
     "winston": "1.1.2",
     "ws": "1.1.1",

@@ -572,7 +572,7 @@ class Agent {
                     this._test_connection_timeout = null;
                 })
                 .catch(P.TimeoutError, err => {
-                    dbg.error('node_server did not respond to ping. closing connection');
+                    dbg.error('node_server did not respond to ping. closing connection', err);
                     this._server_connection.close();
                     this._test_connection_timeout = null;
                 });

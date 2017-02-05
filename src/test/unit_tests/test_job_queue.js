@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
@@ -139,10 +140,11 @@ mocha.describe('job_queue', function() {
 });
 
 function assert_callback(condition, callback, message) {
+
     /* istanbul ignore if */
     if (!condition) {
         message = message || 'assertion failed (no message)';
-        callback(message);
+        callback(message); // eslint-disable-line callback-return
         throw new Error(message);
     }
 }

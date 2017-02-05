@@ -59,7 +59,7 @@ var client_syslog;
 function _init() {
     const DEFUALT_DELAY = 5000;
 
-    var native_core = require('../../util/native_core')();
+    var native_core = require('../../util/native_core')(); // eslint-disable-line global-require
     client_syslog = new native_core.Syslog();
 
     function wait_for_system_store() {
@@ -82,7 +82,7 @@ function _init() {
                     }
                 }
             })
-            .catch((err) => {
+            .catch(err => {
                 dbg.log('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
                 return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
             })
@@ -101,6 +101,7 @@ function new_system_defaults(name, owner_account_id) {
         _id: system_store.generate_id(),
         name: name,
         owner: owner_account_id,
+
         /*access_keys: (name === 'demo') ? [{
             access_key: '123',
             secret_key: 'abc',

@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
@@ -83,7 +84,7 @@ function promiseWhile(condition, body) {
  *
  */
 function import_key_pair_to_region() {
-
+    //Empty function
 }
 
 // eslint-disable-next-line max-params
@@ -153,7 +154,8 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
 
             return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
         }));
-    }).catch(function(err) {
+    })
+    .catch(function(err) {
         console.log('####');
         console.log('#### Cannot scale. Reason:', err.message, err.stack);
         console.log('####');
@@ -172,7 +174,7 @@ function get_network_counter() {
         if (cloud_context) {
             return cloud_context.sem.surround(function() {
                 console.log('Current network counter is', cloud_context.counter);
-                cloud_context.counter = cloud_context.counter + 1;
+                cloud_context.counter += 1;
                 return cloud_context.counter;
             });
 
@@ -231,7 +233,9 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
     if (count > instances.length) {
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' +++ adding', count - instances.length);
-        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf, instanceCreationProgressHandler)
+        return add_region_instances(
+                region_name, count - instances.length, is_docker_host, number_of_dockers,
+                is_win, agent_conf, instanceCreationProgressHandler)
             //once the instances are up, we can add disk dependency
             .then(instance_post_creation_handler,
                 instance_creation_error_handler);
@@ -381,6 +385,9 @@ function describe_instances(params, filter) {
             });
     }).then(function(err, data) {
         var instances = _.flatten(created_instance_data);
+        if (err) {
+            console.warn('got err', err);
+        }
         // also put the regions list as a "secret" property of the array
         return _.filter(instances, function(instance) {
             instance.tags_map = _.mapValues(_.keyBy(instance.metadata.items, 'key'), 'value');
@@ -409,10 +416,12 @@ function describe_instances(params, filter) {
             return true;
         });
 
-    }).then(function(instances) {
+    })
+    .then(function(instances) {
         instances.zones = zones;
         return instances;
-    }).catch(
+    })
+    .catch(
         function(error) {
             if (error && error.errors && error.errors[0].reason === 'notFound') {
                 console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', error);
@@ -545,7 +554,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                     key: 'startup-script-url',
                                     //production
                                     value: startup_script
-                                        //value: 'https://s3.amazonaws.com/elasticbeanstalk-us-east-1-628038730422/setupgc.sh'
+                                    //value: 'https://s3.amazonaws.com/elasticbeanstalk-us-east-1-628038730422/setupgc.sh'
                                 }, {
                                     key: 'windows-startup-script-url',
                                     value: startup_script
@@ -591,59 +600,58 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                             var instanceName = pieces_array[pieces_array.length - 1];
                             console.log('New instance name:' + JSON.stringify(instanceName));
 
-                            if (true) {
-                                //waiting until the instance is running.
-                                //Disk dependecy can be added only after the instance is up and running.
-                                var interval = setInterval(function() {
-                                    var operationsParams = {
-                                        project: NooBaaProject,
-                                        zone: instanceResource.zone,
-                                        operation: instanceInformation.name,
-                                        auth: authClient,
-                                        instanceName: instanceName
-                                    };
+                            //waiting until the instance is running.
+                            //Disk dependecy can be added only after the instance is up and running.
+                            var interval = setInterval(function() {
+                                var operationsParams = {
+                                    project: NooBaaProject,
+                                    zone: instanceResource.zone,
+                                    operation: instanceInformation.name,
+                                    auth: authClient,
+                                    instanceName: instanceName
+                                };
 
-                                    return P.nfcall(compute.zoneOperations.get, operationsParams)
-                                        .then(function(operationResource) {
-                                            progress_func(operationResource);
+                                return P.nfcall(compute.zoneOperations.get, operationsParams)
+                                    .then(function(operationResource) {
+                                        progress_func(operationResource);
 
-                                            if (operationResource.status === 'DONE') {
-                                                console.log('Instance ' + instanceName + '::: is up and started installation ' + JSON.stringify(operationResource.status));
-                                                var instanceDetailedInformationParams = {
-                                                    instance: operationsParams.instanceName,
-                                                    zone: operationsParams.zone,
-                                                    project: NooBaaProject,
-                                                    auth: authClient,
+                                        if (operationResource.status === 'DONE') {
+                                            console.log('Instance ' + instanceName +
+                                                '::: is up and started installation ' + JSON.stringify(operationResource.status));
+                                            var instanceDetailedInformationParams = {
+                                                instance: operationsParams.instanceName,
+                                                zone: operationsParams.zone,
+                                                project: NooBaaProject,
+                                                auth: authClient,
 
-                                                };
-                                                return P.nfcall(compute.instances.get, instanceDetailedInformationParams)
-                                                    .then(function(instanceDetails) {
-                                                        console.log('instanceDetails up:' + instanceDetails.name);
-                                                        instancesDetails.push(instanceDetails);
-                                                        if (instancesDetails.length === count) {
-                                                            deferred.resolve(instancesDetails);
-                                                        }
-                                                        clearInterval(interval);
-                                                    }).then(null, function(err) {
-                                                        console.log('Instance get details err (2):', err);
-                                                    });
-                                            }
+                                            };
+                                            return P.nfcall(compute.instances.get, instanceDetailedInformationParams)
+                                                .then(function(instanceDetails) {
+                                                    console.log('instanceDetails up:' + instanceDetails.name);
+                                                    instancesDetails.push(instanceDetails);
+                                                    if (instancesDetails.length === count) {
+                                                        deferred.resolve(instancesDetails);
+                                                    }
+                                                    clearInterval(interval);
+                                                })
+                                                .then(null, function(err) {
+                                                    console.log('Instance get details err (2):', err);
+                                                });
+                                        }
 
 
-                                        })
-                                        .catch(function(err) {
-                                            console.log('Zone Operation err(1):', err);
-                                            console.log('Zone Operation err:' + JSON.stringify(err) + JSON.stringify(operationsParams));
-                                            deferred.resolve(null);
-                                            clearInterval(interval);
-                                        });
+                                    })
+                                    .catch(function(err) {
+                                        console.log('Zone Operation err(1):', err);
+                                        console.log('Zone Operation err:' + JSON.stringify(err) + JSON.stringify(operationsParams));
+                                        deferred.resolve(null);
+                                        clearInterval(interval);
+                                    });
 
-                                }, 8000);
-                            }
-                            index++;
+                            }, 8000);
+                            index += 1;
                             return P.delay(1000); // arbitrary async
                         });
-
 
                 });
 
@@ -697,6 +705,9 @@ function init(callback) {
     setTimeout(function() {
         authClient.authorize(function(err, token) {
             console.log('Authenticated!', token);
+            if (err) {
+                console.warn('err', err);
+            }
             callback(token);
         });
     }, 2000);

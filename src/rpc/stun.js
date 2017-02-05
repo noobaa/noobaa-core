@@ -1,6 +1,8 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var _ = require('lodash');
+var util = require('util');
 var P = require('../util/promise');
 var url = require('url');
 // var util = require('util');
@@ -553,7 +555,7 @@ function align_offset(offset) {
  *
  */
 function test() {
-    var argv = require('minimist')(process.argv);
+    var argv = require('minimist')(process.argv); // eslint-disable-line global-require
     var socket = dgram.createSocket('udp4');
     var stun_url = stun.PUBLIC_SERVERS[0];
     if (argv.stun_host) {
@@ -577,7 +579,7 @@ function test() {
                 attr.attr,
                 '0x' + attr.type.toString(16),
                 '[len ' + attr.length + ']',
-                require('util').inspect(attr.value, {
+                util.inspect(attr.value, {
                     depth: null
                 }));
         });

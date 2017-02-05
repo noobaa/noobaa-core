@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 //Depricated and NOT COMPLETE
 
 /* jshint node:true */

@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #ifndef NOOBAA__COMPRESSION__H
 #define NOOBAA__COMPRESSION__H
 

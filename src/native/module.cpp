@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #include "util/crypto.h"
 #include "util/tpool.h"
 #include "coding/dedup_config.h"

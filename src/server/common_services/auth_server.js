@@ -410,6 +410,7 @@ function _prepare_auth_request(req) {
 
     req.has_bucket_permission = function(bucket, optional_account) {
         let account = optional_account || req.account;
+
         /*if (req.role === 'admin' || account.is_support) {
             return true;
         }*/

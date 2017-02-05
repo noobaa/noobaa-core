@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #ifndef NOOBAA__DEDUP_CHUNKER__H
 #define NOOBAA__DEDUP_CHUNKER__H
 

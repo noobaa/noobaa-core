@@ -750,6 +750,7 @@ function get_bucket_lifecycle_configuration_rules(req) {
     var bucket = find_bucket(req);
     return bucket.lifecycle_configuration_rules || [];
 }
+
 /**
  *
  * GET_CLOUD_BUCKETS
@@ -885,7 +886,12 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         last_write: last_write
     };
 
-    info.cloud_sync = cloud_sync_policy ? (cloud_sync_policy.status ? cloud_sync_policy : undefined) : undefined;
+    if (cloud_sync_policy) {
+        info.cloud_sync = cloud_sync_policy.status ? cloud_sync_policy : undefined;
+    } else {
+        info.cloud_sync = undefined;
+    }
+
     info.demo_bucket = Boolean(bucket.demo_bucket);
     return info;
 }

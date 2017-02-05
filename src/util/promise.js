@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var P = require('bluebird');
@@ -80,7 +81,7 @@ P.hijackQ = function hijackQ() {
         // the reason we define the module name as a variable
         // is to avoid browserify loading it to the bundle
         const q_module_name = 'q';
-        const Q = require(q_module_name);
+        const Q = require(q_module_name); // eslint-disable-line global-require
         _.forIn(P, function(key, val) {
             Q[key] = val;
         });

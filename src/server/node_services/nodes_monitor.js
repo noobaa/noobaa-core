@@ -1,4 +1,4 @@
-/* eslint-disable max-lines */
+/* eslint-disable max-lines, header/header */
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 

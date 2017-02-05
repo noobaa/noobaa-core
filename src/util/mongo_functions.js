@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 /**
@@ -122,4 +123,4 @@ function reduce_sum(key, values) {
     } : n;
 }
 
-function reduce_noop() {}
+function reduce_noop() { /* Empty Func */ }

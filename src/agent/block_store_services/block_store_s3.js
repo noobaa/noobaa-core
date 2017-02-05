@@ -59,7 +59,9 @@ class BlockStoreS3 extends BlockStoreBase {
                     this._usage = this._decode_block_md(usage_data);
                     dbg.log0('found usage data in', this.usage_path, 'usage_data = ', this._usage);
                 }
-            }, err => {});
+            }, err => {
+                console.warn('init::recieved', err);
+            });
     }
 
     get_storage_info() {
@@ -121,7 +123,9 @@ class BlockStoreS3 extends BlockStoreBase {
                 overwrite_size += md_size;
                 console.warn('block already found in cloud, will overwrite. id =', block_md.id);
                 overwrite_count = 1;
-            }, err => {})
+            }, err => {
+                console.warn('_write_block reiceved', err);
+            })
             .then(() => {
                 dbg.log3('writing block id to cloud: ', params.Key);
                 //  write block + md to cloud
@@ -211,7 +215,9 @@ class BlockStoreS3 extends BlockStoreBase {
                         deleted_size += md_size;
                         usage.size += deleted_size;
                         usage.count += 1;
-                    }, err => {});
+                    }, err => {
+                        console.warn('_get_blocks_usage recieved', err);
+                    });
             }, {
                 // limit concurrency to 10
                 concurrency: 10

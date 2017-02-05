@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 /**
  *
  * ACCOUNT_SERVER
@@ -729,7 +730,8 @@ function validate_create_account_params(req) {
 function generate_access_keys() {
     return {
         access_key: random_string(20),
-        secret_key: crypto.randomBytes(40).toString('base64').slice(0, 40)
+        secret_key: crypto.randomBytes(40).toString('base64')
+            .slice(0, 40)
     };
 }
 

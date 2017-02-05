@@ -25,12 +25,12 @@ module.exports = {
 
         // verify every file contains our copyright header
         // TODO eslint-plugin-header copyright should be error
-        'header/header': ['warn', 'block', [
+        'header/header': ['error', 'block', [
             ' Copyright (C) 2016 NooBaa '
         ]],
 
         // arrow function styling is not a real error but should be consistent
-        'arrow-parens': ['warn', 'as-needed'],
+        'arrow-parens': ['error', 'as-needed'],
         'arrow-body-style': ['warn', 'as-needed'],
 
         // camelcase is a religion. we were born differently.
@@ -41,7 +41,7 @@ module.exports = {
         'no-div-regex': 'off',
 
         // prefer to always return when calling callbacks to avoid double calls
-        'callback-return': 'warn',
+        'callback-return': 'error',
 
         // not enforcing all class methods to use 'this'
         'class-methods-use-this': 'off',
@@ -80,11 +80,11 @@ module.exports = {
         }],
 
         // prefer that requires are on module scope and not in a function
-        'global-require': 'warn',
+        'global-require': 'error',
 
         // better handle every err in callbacks
         // TODO eslint handle-callback-err should be error
-        'handle-callback-err': 'warn',
+        'handle-callback-err': 'error',
 
         // allow short variable names like '_' or 'P' etc. use with care.
         'id-length': 'off',
@@ -97,7 +97,7 @@ module.exports = {
         'init-declarations': 'off',
 
         // expect empty line before comment to create visual relation to the relevant code
-        'lines-around-comment': 'warn',
+        'lines-around-comment': 'error',
 
         // directive means 'use strict', we don't enforce lines around
         'lines-around-directive': 'off',
@@ -138,7 +138,7 @@ module.exports = {
         // newlines to separate vars and return are not productive
         'newline-after-var': 'off',
         'newline-before-return': 'off',
-        'newline-per-chained-call': 'warn',
+        'newline-per-chained-call': 'error',
 
         // use only x|0 for int casting, but avoid other bitwise operators
         'no-bitwise': ['warn', {
@@ -158,7 +158,7 @@ module.exports = {
         // constant conditions make loop breaking unclear
         // prefer to use a loop variable
         // TODO eslint no-constant-condition should be error
-        'no-constant-condition': 'warn',
+        'no-constant-condition': 'error',
 
         // continue in loops is better off avoided for readability
         // prefer to use a function with returns and call from the loop
@@ -169,7 +169,7 @@ module.exports = {
         'no-else-return': 'warn',
 
         // for empty functions we expect at least a comment why it's there
-        'no-empty-function': 'warn',
+        'no-empty-function': 'error',
 
         'no-extra-parens': ['off', 'all', {
             nestedBinaryExpressions: false
@@ -194,8 +194,7 @@ module.exports = {
         'no-negated-condition': 'warn',
 
         // avoid nesting ternary operators. really.
-        // TODO eslint no-nested-ternary should be error
-        'no-nested-ternary': 'warn',
+        'no-nested-ternary': 'error',
 
         // prefer to avoid reassigning to function params and use a new variable
         'no-param-reassign': 'off',
@@ -259,7 +258,7 @@ module.exports = {
         'object-shorthand': 'off',
 
         // prefer x+=4 over x=x+4
-        'operator-assignment': 'warn',
+        'operator-assignment': 'error',
 
         // break lines after operators, not before
         'operator-linebreak': ['error', 'after'],

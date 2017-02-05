@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // let _ = require('lodash');
@@ -23,12 +24,14 @@ class RpcTcpServer extends EventEmitter {
         this.server = tls_options ?
             tls.createServer(tls_options, tcp_conn => this._on_tcp_conn(tcp_conn)) :
             net.createServer(tcp_conn => this._on_tcp_conn(tcp_conn));
-        this.server.on('close', err =>
-            this.emit('error', new Error('TCP SERVER CLOSED')));
+        this.server.on('close', err => {
+                dbg.log0('on close:', err);
+                this.emit('error', new Error('TCP SERVER CLOSED'));
+        });
         this.server.on('error', err => this.emit('error', err));
     }
 
-    close(err) {
+    close() {
         if (this.closed) return;
         this.closed = true;
         this.emit('close');

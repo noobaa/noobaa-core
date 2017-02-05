@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 //While the appropriate place is under util/ since used by server and bg_workers
@@ -44,7 +45,7 @@ function update_host_address(address) {
                 clusters: [current_clustering]
             }
         })
-        .catch((err) => {
+        .catch(err => {
             dbg.log0('Failed updating host address in clustering info');
             throw new Error('Failed updating host address in clustering info', err, err.stack);
         });

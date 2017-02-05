@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 // let _ = require('lodash');
@@ -6,7 +7,7 @@ let url = require('url');
 let EventEmitter = require('events').EventEmitter;
 let RpcWsConnection = require('./rpc_ws');
 let dbg = require('../util/debug_module')(__filename);
-let WS = global.WebSocket || require('ws');
+let WS = global.WebSocket || require('ws'); // eslint-disable-line global-require
 
 
 /**

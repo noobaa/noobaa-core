@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 var perf_now = require('performance-now');
@@ -34,7 +35,8 @@ function sectook(since) {
 
 function time_suffix() {
     var d = new Date();
-    return d.toISOString().replace(/T/, '-').substr(5, 11);
+    return d.toISOString().replace(/T/, '-')
+        .substr(5, 11);
 }
 
 //UTC is RFC822 + full year presentation (4 digits).
@@ -43,5 +45,6 @@ function time_suffix() {
 function toRFC822(in_date) {
     return in_date.toUTCString().replace(
         ' ' + in_date.getFullYear() + ' ',
-        ' ' + (in_date.getFullYear().toString()).substr(2) + ' ');
+        ' ' + (in_date.getFullYear().toString())
+            .substr(2) + ' ');
 }

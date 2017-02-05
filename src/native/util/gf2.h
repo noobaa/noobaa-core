@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 #ifndef NOOBAA__GF2__H
 #define NOOBAA__GF2__H
 

@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -99,6 +100,9 @@ function get_main_drive_name() {
 }
 
 function get_distro() {
+    if (os.type() === 'Darwin') {
+        return P.resolve('OSX - Darwin');
+    }
     return os_detailed_info((err, distro) => {
         if (err) {
             return P.reject(err);
@@ -135,7 +139,8 @@ function get_disk_mount_points() {
 
             if (os.type() === 'Windows_NT') {
                 _.each(hds, function(hd_info) {
-                    if (process.cwd().toLowerCase().indexOf(hd_info.drive_id.toLowerCase()) === 0) {
+                    if (process.cwd().toLowerCase()
+                        .indexOf(hd_info.drive_id.toLowerCase()) === 0) {
                         hd_info.mount = '.\\agent_storage\\';
                         mount_points.push(hd_info);
                     } else {
@@ -226,7 +231,7 @@ function read_mac_linux_drives(include_all) {
         .then(volumes => P.all(_.map(volumes, function(vol) {
                 return fs_utils.file_must_not_exist(vol.mount + '/' + AZURE_TMP_DISK_README)
                     .then(() => linux_volume_to_drive(vol))
-                    .catch(err => {
+                    .catch(() => {
                         dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
                         return;
                     });
@@ -254,7 +259,8 @@ function read_windows_drives() {
                 if (vol.Label.indexOf('Temporary Storage') === 0) return;
                 return windows_volume_to_drive(vol);
             }));
-        }).then(function(local_volumes) {
+        })
+        .then(function(local_volumes) {
             windows_drives = local_volumes;
             return wmic('netuse')
                 .then(function(network_volumes) {
@@ -393,7 +399,8 @@ function get_ntp() {
 
 function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
-        var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
+        var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server +
+            " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
         return _set_time_zone(timez)
             .then(() => promise_utils.exec(command))
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
@@ -475,7 +482,8 @@ function get_time_config() {
                     reply.timezone = '';
                 } else {
                     var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
-                    reply.srv_time = moment().tz(symlink).format();
+                    reply.srv_time = moment().tz(symlink)
+                        .format();
                     reply.timezone = symlink;
                 }
                 return reply;
@@ -485,7 +493,8 @@ function get_time_config() {
         return promise_utils.exec('ls -l /etc/localtime', false, true)
             .then(tzone => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
-                reply.srv_time = moment().tz(symlink).format();
+                reply.srv_time = moment().tz(symlink)
+                    .format();
                 reply.timezone = symlink;
                 return reply;
             });

@@ -165,7 +165,7 @@ app.use(function(req, res, next) {
                 res.status(307);
                 return res.redirect(`http://${host}:8080` + req.originalUrl);
             })
-            .catch(err => {
+            .catch(() => {
                 res.status(500);
             });
     } else {

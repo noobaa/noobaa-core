@@ -9,6 +9,7 @@ const azure = require('azure-storage');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
@@ -829,12 +830,18 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
-    let tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
-    info.writable = tier_of_bucket.mirrors.some(mirror_object =>
-        (mirror_object.spread_pools || []).some(pool =>
-            _.get(tiering_pools_status[pool.name], 'valid_for_allocation', false)
-        )
-    );
+    const tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
+    info.writable = tier_of_bucket.mirrors.some(mirror_object => {
+        let num_valid_nodes = 0;
+        let has_valid_pool = false;
+        _.compact((mirror_object.spread_pools || []).map(pool =>
+                tiering_pools_status[pool.name]))
+            .forEach(pool_status => {
+                num_valid_nodes += pool_status.num_nodes;
+                has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
+            });
+        return has_valid_pool || num_valid_nodes >= config.NODES_MIN_COUNT;
+    });
 
     let objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,

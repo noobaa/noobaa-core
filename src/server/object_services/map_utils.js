@@ -90,10 +90,10 @@ function select_pool_type(spread_pools, tiering_pools_status) {
 
     // Checking if there are any valid on premise pools
     mirror_status.regular_pools_valid = _.some(mirror_status.regular_pools,
-        pool => _.get(tiering_pools_status, pool.name, false));
+        pool => _.get(tiering_pools_status, 'pool.name.valid_for_allocation', false));
     // Checking if there are any valid cloud pools
     mirror_status.cloud_pools_valid = _.some(mirror_status.cloud_pools,
-        pool => _.get(tiering_pools_status, pool.name, false));
+        pool => _.get(tiering_pools_status, 'pool.name.valid_for_allocation', false));
 
     // Checking what type of a pool we've selected above
     if (_.get(selected_pool_type, 'cloud_pool_info', false)) {

@@ -103,7 +103,7 @@ P.fcall(function() {
                         retries = 0;
                         final_result = res;
                     })
-                    .catch(err => {
+                    .catch(() => {
                         console.log('waiting for read server config, will retry extra', retries, 'times');
                         return P.delay(10000);
                     });

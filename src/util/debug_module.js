@@ -205,11 +205,13 @@ function InternalDebugLogger() {
                 formatter: function(options) {
                     //prefix - time, level, module & pid
                     var proc = '[' + self._proc_name + '/' + self._pid + ']';
+                    var formatted_level = ' \x1B[31m[';
+                    if (self._levels[options.level]) {
+                        formatted_level = self._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
+                    }
                     var prefix = '\x1B[32m' + formatted_time() +
                         '\x1B[35m ' + proc +
-                        ((self._levels[options.level] === 0) ?
-                            ' \x1B[31m[' :
-                            ((self._levels[options.level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
+                        formatted_level +
                         options.level + ']\x1B[39m ';
                     //message - one liner for file transport
                     var message = (options.message !== undefined ? (options.message.replace(/(\r\n|\n|\r)/gm, "")) : '');
@@ -225,11 +227,13 @@ function InternalDebugLogger() {
                 showLevel: false,
                 formatter: function(options) {
                     var proc = '[' + self._proc_name + '/' + self._pid + ']';
+                    var formatted_level = ' \x1B[31m[';
+                    if (self._levels[options.level]) {
+                        formatted_level = self._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
+                    }
                     return '\x1B[32m' + formatted_time() +
                         '\x1B[35m ' + proc +
-                        ((self._levels[options.level] === 0) ?
-                            ' \x1B[31m[' :
-                            ((self._levels[options.level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
+                        formatted_level +
                         options.level + ']\x1B[39m ' +
                         (undefined !== options.message ? options.message : '') +
                         (options.meta && Object.keys(options.meta).length ?
@@ -343,12 +347,13 @@ InternalDebugLogger.prototype.syslog_formatter = function(level, args) {
     if (args.length > 2) {
         msg = util.format.apply(msg, Array.prototype.slice.call(args, 1));
     }
-    let level_str = ((self._levels[level] === 0) ?
-            ' \x1B[31m[' :
-            ((self._levels[level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
-        level + ']\x1B[39m ';
+    let formmated_level = ' \x1B[31m[';
+    if (self._levels[level]) {
+        formmated_level = self._levels[level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
+    }
+    let level_str = formmated_level + level + ']\x1B[39m ';
 
-    var proc = '[' + self._proc_name + '/' + self._pid + ']';
+    let proc = '[' + self._proc_name + '/' + self._pid + ']';
     let prefix = '\x1B[32m' + formatted_time() +
         '\x1B[35m ' + proc;
 
@@ -384,11 +389,13 @@ InternalDebugLogger.prototype.log_internal = function(level) {
                         formatter: function(options) {
                             //prefix - time, level, module & pid
                             var proc = '[' + self._proc_name + '/' + self._pid + ']';
+                            var formatted_level = ' \x1B[31m[';
+                            if (self._levels[options.level]) {
+                                formatted_level = self._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
+                            }
                             var prefix = '\x1B[32m' + formatted_time() +
                                 '\x1B[35m ' + proc +
-                                ((self._levels[options.level] === 0) ?
-                                    ' \x1B[31m[' :
-                                    ((self._levels[options.level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
+                                formatted_level +
                                 options.level + ']\x1B[39m ';
                             //message - one liner for file transport
                             var message = (options.message !== undefined ? (options.message.replace(/(\r\n|\n|\r)/gm, "")) : '');

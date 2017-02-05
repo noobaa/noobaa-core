@@ -123,4 +123,4 @@ function reduce_sum(key, values) {
     } : n;
 }
 
-function reduce_noop() {}
+function reduce_noop() { /* Empty Func */ }

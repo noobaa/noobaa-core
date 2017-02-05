@@ -20,7 +20,8 @@ var object_io = new ObjectIO();
 if (!bkt) {
     init_api().then(function() {
         return client.bucket.list_buckets();
-    }).then(function(res) {
+    })
+    .then(function(res) {
         output.write('\nLIST BUCKETS:\n\n');
         res.buckets.forEach(function(bucket) {
             output.write('    ' +
@@ -35,7 +36,8 @@ if (!bkt) {
         return client.object.list_objects({
             bucket: bkt
         });
-    }).then(function(res) {
+    })
+    .then(function(res) {
         output.write('\nLIST OBJECTS:\n\n');
         res.objects.forEach(function(obj) {
             output.write('    ' +

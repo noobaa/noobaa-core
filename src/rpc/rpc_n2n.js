@@ -84,6 +84,7 @@ class RpcN2NConnection extends RpcBaseConnection {
     }
 
     _close(err) {
+        dbg.log0('_close', err);
         this.n2n_agent.removeListener('reset_n2n', this.reset_n2n_listener);
         this.ice.close();
     }

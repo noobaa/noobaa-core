@@ -131,7 +131,8 @@ function describe_instances(params, filter, verbose) {
                         }
                         return true;
                     });
-                }).then(null, function(err) {
+                })
+                .then(null, function(err) {
                     if (verbose) {
                         console.log('Error:', err);
                     }
@@ -436,7 +437,8 @@ function get_object(ip, path) {
     console.log('about to download object');
     return P.fcall(function() {
             if (path) {
-                return s3bucket.getObject(params).createReadStream().pipe(file);
+                return s3bucket.getObject(params).createReadStream()
+                    .pipe(file);
             } else {
                 return s3bucket.getObject(params).createWriteStream();
             }
@@ -520,7 +522,8 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
                 }
                 new_count += region_count;
             }
-            return scale_region(region_name, region_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
+            return scale_region(region_name, region_count, instances, allow_terminate,
+                    is_docker_host, number_of_dockers, is_win, agent_conf);
         }));
     });
 }
@@ -708,7 +711,8 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
             if (count > instances.length) {
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' +++ adding', count - instances.length);
-                return add_agent_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf);
+                return add_agent_region_instances(region_name, count - instances.length, is_docker_host,
+                        number_of_dockers, is_win, agent_conf);
             }
 
             // need to terminate

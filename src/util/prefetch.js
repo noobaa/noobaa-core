@@ -38,7 +38,7 @@ function Prefetch(options) {
         get: function() {
             return self._length;
         },
-        set: function(value) {}
+        set: function(value) { /* Empty Func */ }
     });
 }
 

@@ -23,7 +23,7 @@ if (cluster.isMaster) {
 
 } else {
     show_spawn_fds('WORKER');
-    setInterval(function() {}, 10000);
+    setInterval(function() { /* Empty Func */ }, 10000);
 }
 
 function show_spawn_fds(who) {

@@ -34,7 +34,7 @@ function background_worker() {
         // TODO: Currently checks the replica set master since we don't have shards
         // We always need to send so the webserver will be updated if the
         return MongoCtrl.is_master()
-            .then((is_master) => {
+            .then(is_master => {
                 if (!is_master.ismaster && is_cluster_master) {
                     dbg.log0(`this server was master before, but now is not. remove master workers`);
                     bg_workers.remove_master_workers();
@@ -57,7 +57,7 @@ function background_worker() {
                 cluster_master_retries = 0;
                 return cutil.send_master_update(is_cluster_master, is_master.master_address);
             })
-            .catch((err) => {
+            .catch(err => {
                 if (cluster_master_retries > MAX_RETRIES && is_cluster_master) {
                     dbg.error(`number of retries exceeded ${MAX_RETRIES}. step down as master if was master before`);
                     // step down after MAX_RETRIES

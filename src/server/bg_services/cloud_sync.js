@@ -270,7 +270,7 @@ function diff_worklists(wl1, wl2, sync_time) {
 
     while (comp(wl1[pos1], wl2[pos2]) === -1 && pos1 < wl1.length) {
         uniq_1.push(wl1[pos1]);
-        pos1++;
+        pos1 += 1;
     }
 
     var res;
@@ -278,33 +278,33 @@ function diff_worklists(wl1, wl2, sync_time) {
         res = comp(wl1[pos1], wl2[pos2]);
         if (res === -1) { //appear in bucket
             uniq_1.push(wl1[pos1]);
-            pos1++;
+            pos1 += 1;
         } else if (res === 1) { //appear in cloud
             uniq_2.push(wl2[pos2]);
-            pos2++;
+            pos2 += 1;
         } else if (res === 2) { //same key, mod time newer in bucket
             uniq_1.push(wl1[pos1]);
-            pos1++;
-            pos2++;
+            pos1 += 1;
+            pos2 += 1;
         } else if (res === -2) { //same key, mod time newer in cloud
             uniq_2.push(wl2[pos2]);
-            pos1++;
-            pos2++;
+            pos1 += 1;
+            pos2 += 1;
         } else { //same key, same mod time
-            pos1++;
-            pos2++;
+            pos1 += 1;
+            pos2 += 1;
         }
     }
 
     //Handle tails
     for (; pos1 < wl1.length; ++pos1) {
         uniq_1.push(wl1[pos1]);
-        pos1++;
+        pos1 += 1;
     }
 
     for (; pos2 < wl2.length; ++pos2) {
         uniq_2.push(wl2[pos2]);
-        pos2++;
+        pos2 += 1;
     }
 
     dbg.log4('diff_arrays recieved wl1 #', wl1.length, 'wl2 #', wl2.length,
@@ -499,7 +499,7 @@ function update_c2n_worklist(policy) {
                                 signatureVersion: 'v4',
                             });
                             return P.ninvoke(policy.s3cloud, 'listObjects', params)
-                                .catch(function(err) {
+                                .catch(function() {
                                     dbg.error('update_c2n_worklist failed to list files from cloud: sys',
                                         policy.system._id, 'bucket', policy.bucket.id, error, error.stack);
                                     throw new Error('update_c2n_worklist failed to list files from cloud');

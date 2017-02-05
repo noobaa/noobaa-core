@@ -54,7 +54,8 @@ class GcloudFunctions {
                     filter: '(name eq ^' + prefix + '.*)(status eq RUNNING)',
                 };
                 return P.nfcall(compute.instances.list, instancesListParams);
-            }).then(instances_list => {
+            })
+            .then(instances_list => {
                 return instances_list.items.length;
             });
     }
@@ -64,7 +65,8 @@ class GcloudFunctions {
             .then(function(list) {
                 let rand = Math.floor(Math.random() * list.length);
                 return list[rand];
-            }).catch(err => {
+            })
+            .catch(err => {
                 console.error('Get random machine failed!', err);
                 throw err;
             });
@@ -125,7 +127,8 @@ class GcloudFunctions {
                 .then(machine_info => {
                     c_state = machine_info.status;
                     console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
-                }).delay(5000);
+                })
+                .delay(5000);
         });
     }
 }

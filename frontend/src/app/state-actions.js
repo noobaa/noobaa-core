@@ -8,5 +8,5 @@ export function dispatch(action) {
         throw TypeError('Action missing a type');
     }
 
-    setImmediate(() => actions.onNext(deepFreeze(action)));
+    actions.onNext(deepFreeze(action));
 }

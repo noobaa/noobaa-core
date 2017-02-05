@@ -8,22 +8,24 @@ export default class StateAwareViewModel {
         this[stateSub] = undefined;
         this[oldState] = undefined;
 
-        // Wait for child class constructor to execute before
-        // adding the subscription.
-        setImmediate(() => {
-            this[stateSub] = state.subscribe(
-                state => {
-                    this.onState(state, this[oldState]);
-                    this[oldState] = state;
-                }
-            );
-        });
+        if (this.onState !== StateAwareViewModel.prototype.onState) {
+            // Wait for child class constructor to execute before
+            // adding the subscription.
+            setImmediate(() => {
+                this[stateSub] = state.subscribe(
+                    state => {
+                        this.onState(state, this[oldState]);
+                        this[oldState] = state;
+                    }
+                );
+            });
+        }
     }
 
     onState(/*state, oldState*/) {
     }
 
     dispose() {
-        this[stateSub].dispose();
+        if (this[stateSub]) this[stateSub].dispose();
     }
 }

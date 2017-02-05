@@ -143,10 +143,7 @@ class Dispatcher {
                 });
                 //TODO:: need to suppress alerts of the same kind
                 return server_rpc.client.redirector.publish_alerts({
-                    request_params: {
-                        severity: sev,
-                        id: res._id
-                    }
+                    request_params: { ids: [res._id] }
                 });
             });
     }
@@ -161,66 +158,59 @@ class Dispatcher {
             .then(num => num);
     }
 
-    mark_alerts_read(req) {
-        let query = {};
-        if (req.rpc_params.ids) {
-            query = {
-                _id: {
-                    $in: req.rpc_params.ids
-                }
-            };
-        } else if (req.rpc_params.filter) {
-            query = {
-                severity: req.rpc_params.filter
-            };
-        }
+    update_alerts_state(req) {
+        const { query, state } = req.rpc_params;
+        const selector = this._create_alerts_selector(req.system, query);
+        const update = AlertsLog.update(selector, { read: state }, { multi: true });
 
-        return AlertsLog.update(query, {
-            read: req.rpc_params.state
-        }).exec();
+        return P.resolve(update.exec())
+            .then(() => server_rpc.client.redirector.publish_alerts({
+                request_params: req.rpc_params.query
+            }));
     }
 
     read_alerts(req) {
-        var q = AlertsLog.find({
-            system: req.system._id,
-        });
-
-        if (req.rpc_params.till) {
-            // query backwards from given time
-            req.rpc_params.till = new Date(req.rpc_params.till);
-            q.where('time').lt(req.rpc_params.till)
-                .sort('-time');
-
-        } else if (req.rpc_params.since) {
-            // query forward from given time
-            req.rpc_params.since = new Date(req.rpc_params.since);
-            q.where('time').gte(req.rpc_params.since)
-                .sort('time');
-        } else {
-            // query backward from last time
-            q.sort('-time');
-        }
-
-        if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
-        q.limit(req.rpc_params.limit || 10);
+        const { query, skip = 0, limit = 100 } = req.rpc_params;
+        const selector = this._create_alerts_selector(req.system, query);
+        const q = AlertsLog
+            .find(selector)
+            .skip(skip)
+            .limit(limit)
+            .sort({ _id: -1 });
 
         return P.resolve(q.lean().exec())
             .then(alerts => P.map(alerts, function(alert_item) {
-                var l = {
+                return {
                     id: String(alert_item._id),
                     severity: alert_item.severity,
                     alert: alert_item.alert,
                     time: alert_item.time.getTime(),
                     read: alert_item.read
                 };
-                return l;
-            }))
-            .then(alerts => ({
-                alerts: alerts
             }));
     }
 
     //Internals
+    _create_alerts_selector(system, query) {
+        const { ids, till, since, severity, read } = query;
+
+        let _id;
+        if (ids) {
+            _id = { $in: ids };
+        } else if (till) {
+            _id = { $lt: till };
+        } else if (since) {
+            _id = { $gt: since };
+        }
+
+        return _.omitBy({
+            system: system._id,
+            _id,
+            severity,
+            read
+        }, _.isUndefined);
+    }
+
     _resolve_activity_item(log_item, l) {
         return P.resolve()
             .then(() => nodes_client.instance().populate_nodes(

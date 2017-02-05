@@ -3,7 +3,7 @@ import AuditRowViewModel from './audit-row';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { auditLog } from 'model';
-import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';
+import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries } from 'actions';
 import categories from './categories';
 import { deepFreeze } from 'utils/core-utils';
 import { infinitScrollPageSize as pageSize } from 'config';
@@ -17,9 +17,10 @@ const columns = deepFreeze([
 ]);
 
 class AuditPaneViewModel extends BaseViewModel {
-    constructor() {
+    constructor({ onClose }) {
         super();
 
+        this.onClose = onClose;
         this.categories = Object.keys(categories).map(
             key => ({
                 value: key,
@@ -56,6 +57,10 @@ class AuditPaneViewModel extends BaseViewModel {
         this.selectedCategories(Object.keys(categories));
     }
 
+    onX() {
+        this.onClose();
+    }
+
     createAuditRow(auditEntry) {
         return new AuditRowViewModel(auditEntry, this.selectedRow);
     }
@@ -72,10 +77,6 @@ class AuditPaneViewModel extends BaseViewModel {
 
     exportToCSV() {
         exportAuditEnteries(this.selectedCategories());
-    }
-
-    closeDrawer() {
-        closeDrawer();
     }
 }
 

@@ -1,38 +1,50 @@
-import { dispatch } from 'actions.new';
-import api from 'services/mock-api';
+import { dispatch } from 'state-actions';
+import api from 'services/api';
 
-export  async function loadAlerts(filter, count, till) {
-    dispatch({ type: 'ALERTS_LOAD', filter, count, till });
+/// -------------------------------
+/// Drawer action dispatchers
+/// -------------------------------
+export function openDrawer(component) {
+    dispatch({ type: 'DRAWER_OPEN', component });
+}
+
+export function closeDrawer() {
+    dispatch({ type: 'DRAWER_CLOSE' });
+}
+
+/// -------------------------------
+/// Alerts action dispatchers
+/// -------------------------------
+
+export async function loadAlerts(query, limit) {
+    dispatch({ type: 'ALERTS_LOAD', query, limit });
 
     try {
-        const list = await api.events.read_alerts({
-            read: filter.read,
-            severity: filter.severity,
-            limit: count,
-            till
-        });
-
-        dispatch({ type: 'ALERTS_LOADED', filter, requested: count, list });
+        const list = await api.events.read_alerts({ query, limit });
+        dispatch({ type: 'ALERTS_LOADED', requested: limit, list });
 
     } catch (error) {
         dispatch({ type: 'ALERTS_LOAD_FAILED', error });
     }
 }
 
-export function filterAlerts(filter) {
-    dispatch({ type: 'ALERTS_FILTER', filter });
+export async function updateAlerts(query, read) {
+    dispatch({ type: 'ALERTS_UPDATE', query });
+
+    try {
+        await api.events.update_alerts_state({ query, state: read });
+        dispatch({ type: 'ALERTS_UPDATED', query, read });
+
+    } catch (error) {
+        dispatch({ type: 'ALERTS_UPDATE_FAILED', query });
+    }
 }
 
-export async function updateAlerts(filter, read) {
-    dispatch({ type: 'ALERTS_UPDATE', filter, read });
-
-    await api.events.mark_alerts_read({
-        filter, state: read
-    });
-
-    dispatch({ type: 'ALERTS_UPDATED', filter, read});
+export async function getUnreadAlertsCount() {
+    const count = await api.events.get_unread_alerts_count();
+    dispatch({ type: 'ALERTS_UPDATE_UNREAD_COUNT', count });
 }
 
-export function dropAlerts() {
-    dispatch({ type: 'ALERTS_DROP' });
+export function dropAlertsState() {
+    dispatch({ type: 'ALERTS_DROP_STATE' });
 }

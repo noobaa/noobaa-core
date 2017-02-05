@@ -2,8 +2,7 @@ import template from './alerts-pane.html';
 import StateAwareViewModel from 'components/state-aware-view-model';
 import AlertRowViewModel from './alert-row';
 import ko from 'knockout';
-import { closeDrawer } from 'actions';
-import { loadAlerts, filterAlerts, updateAlerts, dropAlerts } from 'dispatchers';
+import { loadAlerts, updateAlerts, dropAlertsState } from 'dispatchers';
 import { deepFreeze, last } from 'utils/core-utils';
 import { infinitScrollPageSize } from 'config';
 
@@ -15,10 +14,12 @@ const severityOptions = deepFreeze([
 ]);
 
 class AlertsPaneViewModel extends StateAwareViewModel {
-    constructor() {
+    constructor({ onClose }) {
         super();
 
+        this.onClose = onClose;
         this.loading = ko.observable();
+        this.markAllDisabled = ko.observable();
         this.loadFailed = ko.observable();
         this.endOfList = ko.observable();
         this.severityOptions = severityOptions;
@@ -26,6 +27,7 @@ class AlertsPaneViewModel extends StateAwareViewModel {
         this.severityFilter = ko.observable();
         this.unreadOnlyFilter = ko.observable();
         this.scroll = ko.observable();
+        this.i = 0;
 
         ko.group(this.severityFilter, this.unreadOnlyFilter)
             .subscribe(() => this.onFilter());
@@ -39,14 +41,15 @@ class AlertsPaneViewModel extends StateAwareViewModel {
             return;
         }
 
-        const { filter, loading, endOfList, list, lastLoadError } = state.alerts;
+        const { filter, loading, endOfList, list, loadError } = state.alerts;
         const { severity, read } = filter;
 
         // Update the view model state.
         this.severityFilter(severity || 'ALL');
         this.unreadOnlyFilter(read === false);
         this.loading(loading);
-        this.loadFailed(Boolean(!loading && lastLoadError));
+        this.loadFailed(Boolean(loadError));
+        this.markAllDisabled(loading || list.length === 0);
         this.endOfList(endOfList);
         this.rows(
             list.map(
@@ -58,18 +61,10 @@ class AlertsPaneViewModel extends StateAwareViewModel {
                 }
             )
         );
-
-        // Check if we need more results and try loading if neccecery.
-        const needMore = infinitScrollPageSize - list.length;
-        if (!lastLoadError && needMore) {
-            this.tryLoadMore(needMore);
-        }
     }
 
-    onScroll() {
-        if (this.scroll() > .99 && !this.loadFailed()) {
-            this.tryLoadMore();
-        }
+    onX() {
+        this.onClose();
     }
 
     onFilter() {
@@ -79,27 +74,18 @@ class AlertsPaneViewModel extends StateAwareViewModel {
             undefined;
 
 
-        filterAlerts({ severity, read });
+        loadAlerts({ severity, read }, infinitScrollPageSize);
         this.scroll(0);
     }
 
-    retryLoad() {
-        this.tryLoadMore();
+    onScroll() {
+        if (!this.loadFailed() && this.scroll() > .99 ) {
+            this._loadMore();
+        }
     }
 
-    tryLoadMore(count = infinitScrollPageSize) {
-        if (this.loading() || this.endOfList()) {
-            return;
-        }
-
-        const read = this.unreadOnlyFilter() ? false : undefined;
-        const severity = this.severityFilter() !== 'ALL' ?
-            this.severityFilter() :
-            undefined;
-
-        const rows = this.rows();
-        const lastId = rows.length ? last(rows).id() : undefined;
-        loadAlerts({ severity, read }, count, lastId);
+    retryLoad() {
+        this._loadMore();
     }
 
     markRowAsRead(row) {
@@ -115,13 +101,24 @@ class AlertsPaneViewModel extends StateAwareViewModel {
         updateAlerts({ severity, read: false }, true);
     }
 
-    closeDrawer() {
-        closeDrawer();
-    }
-
     dispose() {
         super.dispose();
-        dropAlerts();
+        dropAlertsState();
+    }
+
+    _loadMore() {
+        if (this.endOfList()) {
+            return;
+        }
+
+        const rows = this.rows();
+        const till = rows.length ? last(rows).id() : undefined;
+        const read = this.unreadOnlyFilter() ? false : undefined;
+        const severity = this.severityFilter() !== 'ALL' ?
+            this.severityFilter() :
+            undefined;
+
+        loadAlerts({ severity, read, till }, infinitScrollPageSize);
     }
 }
 

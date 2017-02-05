@@ -1,4 +1,4 @@
-import { actions } from 'actions.new';
+import { actions } from 'state-actions';
 import { deepFreeze, noop } from 'utils/core-utils';
 import appReducer from 'reducers/app-reducer';
 

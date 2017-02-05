@@ -1,4 +1,4 @@
-import { isUndefined, entries } from './core-utils';
+import { isUndefined } from './core-utils';
 import { toCammelCase, toDashedCase } from './string-utils';
 import { sleep } from './promise-utils';
 
@@ -116,7 +116,7 @@ export function recognizeBrowser() {
 }
 
 export function toFormData(payload) {
-    return entries(payload).reduce(
+    return Object.entries(payload).reduce(
         (formData, [ key, value ]) => {
             formData.append(key, value);
             return formData;

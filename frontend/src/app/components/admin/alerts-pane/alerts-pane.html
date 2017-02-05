@@ -1,9 +1,7 @@
 <h1 class="row content-middle heading2 hpad pane-header push-next">
     <span class="greedy push-next">Alerts &amp; Notifications</span>
 
-    <button class="icon-btn no-outline" data-bind="
-        click: closeDrawer
-    ">
+    <button class="icon-btn no-outline" data-bind="click: onX">
         <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
     </button>
 </h1>
@@ -21,7 +19,7 @@
         "></checkbox>
 
         <button class="link alt-colors" data-bind="
-            disable: loading,
+            disable: markAllDisabled,
             click: markListAsRead
         ">
             Mark all as read
@@ -45,7 +43,7 @@
                     Mark as read
                 </button>
 
-                <div class="align-top alerts-loader" data-bind="visible: loader">
+                <div class="align-top alerts-loader" data-bind="visible: updating">
                     <span class="circle"></span>
                     <span class="circle"></span>
                     <span class="circle"></span>

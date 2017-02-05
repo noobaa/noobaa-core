@@ -1,4 +1,4 @@
-import { mergeBy, isUndefined } from 'utils/core-utils';
+import { mergeBy, isUndefined, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 
 // ------------------------------
@@ -6,12 +6,12 @@ import { createReducer } from 'utils/reducer-utils';
 // ------------------------------
 const defaultState = {
     loading: 0,
+    loadError: null,
     filter: {},
     list: [],
     endOfList: false,
-    lastLoadError: null
+    unreadCount: undefined
 };
-
 
 // ------------------------------
 // Action Handlers
@@ -20,51 +20,53 @@ function onInit() {
     return defaultState;
 }
 
-function onAlertsLoad(state) {
+function onAlertsLoad(state, { query }) {
     const loading = state.loading + 1;
-    return { ...state, loading };
-}
+    const loadError = null;
+    const { severity, read } = query;
+    const { filter } = state;
 
-function onAlertsLoaded(state, { filter, requested, list }) {
-    const loading = state.loading - 1;
-    const lastLoadError = null;
-
-    // Check to see if we can use the results in our current state
-    //configuration.
-    if (_isSubsetFilter(state.filter, filter)) {
-        const endOfList = list.length < requested;
-
-        // Merge the relevent result with the current list of alerts.
-        list = list.filter(item => _matchs(item, state.filter));
-        list = mergeBy(state.list, list, item => item.id)
-            .sort((a, b) => b.id - a.id);
-
-        return { ...state, list, loading, endOfList, lastLoadError };
+    if (severity === filter.severity && read === filter.read) {
+        return { ...state, loading, loadError };
 
     } else {
-        return { ...state, loading, lastLoadError  };
+        const filter = { severity, read };
+        const list = [];
+        const endOfList = false;
+
+        return { ...state, loading, loadError, filter, list, endOfList };
+    }
+}
+
+function onAlertsLoaded(state, { requested, list }) {
+    const loading = state.loading - 1;
+    if (loading === 0) {
+        const endOfList = list.length < requested;
+        list = mergeBy(state.list, list, item => item.id)
+            .sort((a, b) => -1 * compare(a.id, b.id));
+
+        return { ...state, list, endOfList, loading };
+
+    } else {
+        return { ...state, loading };
     }
 }
 
 function onAlertsLoadFailed(state, { error }) {
     const loading = state.loading - 1;
-    return { ...state, loading, lastLoadError: error };
+
+    if (loading === 0) {
+        return { ...state, loading, loadError: error };
+
+    } else {
+        return { ...state, loading };
+    }
+
 }
 
-function onAlertsFilter(state, { filter }) {
-    const isSubsetFilter = _isSubsetFilter(filter, state.filter);
-    const list = isSubsetFilter ?
-        state.list.filter(item => _matchs(item, filter)) :
-        [];
-
-    const endOfList = isSubsetFilter ? state.endOfList : false;
-
-    return { ...state, filter, list, endOfList };
-}
-
-function onAlertsUpdate(state, { filter }) {
+function onAlertsUpdate(state, { query }) {
     const list = state.list.map(
-        item => _matchs(item, filter) ?
+        item => _matchs(item, query) ?
             { ...item, updating: true } :
             item
     );
@@ -72,9 +74,9 @@ function onAlertsUpdate(state, { filter }) {
     return { ...state, list };
 }
 
-function onAlertsUpdated(state, { filter, read }) {
+function onAlertsUpdated(state, { query, read }) {
     const list = state.list.map(
-        item => _matchs(item, filter) ?
+        item => _matchs(item, query) ?
             { ...item, updating: false, read: read } :
             item
     );
@@ -82,20 +84,28 @@ function onAlertsUpdated(state, { filter, read }) {
     return { ...state, list };
 }
 
-function onAlertsDrop() {
-    return defaultState;
+function onAlertsUpdateFailed(state, { query }) {
+    const list = state.list.map(
+        item => _matchs(item, query) ?
+            { ...item, updating: false } :
+            item
+    );
+
+    return { ...state, list };
+}
+
+function onAlertsUpdateUnreadCount(state, { count }) {
+    return { ...state, unreadCount: count };
+}
+
+function onAlertsDropState(state) {
+    const { unreadCount } = state;
+    return { ...defaultState, unreadCount };
 }
 
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _isSubsetFilter(subset, base) {
-    return true &&
-        (isUndefined(base.ids) || subset.ids.every(id => base.includes(id))) &&
-        (isUndefined(base.severity) || subset.severity === base.severity) &&
-        (isUndefined(base.read) || subset.read === base.read);
-}
-
 function _matchs(item, { ids, severity, read }) {
     return true &&
         (isUndefined(ids) || ids.includes(item.id)) &&
@@ -111,8 +121,9 @@ export default createReducer({
     ALERTS_LOAD: onAlertsLoad,
     ALERTS_LOADED: onAlertsLoaded,
     ALERTS_LOAD_FAILED: onAlertsLoadFailed,
-    ALERTS_FILTER: onAlertsFilter,
     ALERTS_UPDATE: onAlertsUpdate,
     ALERTS_UPDATED: onAlertsUpdated,
-    ALERTS_DROP: onAlertsDrop
+    ALERTS_UPDATE_FAILED: onAlertsUpdateFailed,
+    ALERTS_UPDATE_UNREAD_COUNT: onAlertsUpdateUnreadCount,
+    ALERTS_DROP_STATE: onAlertsDropState
 });

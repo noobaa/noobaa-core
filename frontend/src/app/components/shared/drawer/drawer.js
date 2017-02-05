@@ -1,32 +1,29 @@
 import template from './drawer.html';
-import BaseViewModel from 'components/base-view-model';
+import StateAwareViewModel from 'components/state-aware-view-model';
 import ko from 'knockout';
-import { uiState } from 'model';
-import { closeDrawer } from 'actions';
+import { closeDrawer } from 'dispatchers';
 
-class DrawerViewModel extends BaseViewModel {
+class DrawerViewModel extends StateAwareViewModel {
     constructor() {
         super();
-
-        // Hold the content of the drawer state until transition (slide) is over.
-        this.holdContent = ko.observable();
-
-        // Decide if we render the content.
-        this.content = ko.pureComputed(
-            () => uiState().drawer || this.holdContent()
-        );
-
-        // Adding rate limit to create an async behaviour in order to apply
-        // css transitions.
-        this.isVisible = ko.pureComputed(
-            () => uiState().drawer
-        ).extend({
-            rateLimit: 1
-        });
+        this.component = ko.observable();
+        this.opened = ko.observable();
     }
 
-    update() {
-        this.holdContent(uiState().drawer);
+    onState(state) {
+        if (!this.opened() || state.drawer) {
+            this.component(state.drawer);
+        }
+
+        // Must be async in oreder to invoke the css transition.
+        setImmediate(() => this.opened(Boolean(state.drawer)));
+    }
+
+    onTransitionEnd() {
+        // Destroy the component only after the transition ends.
+        if (!this.opened()) {
+            this.component(null);
+        }
     }
 
     close() {

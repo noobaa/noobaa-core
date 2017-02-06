@@ -2059,7 +2059,12 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.test_network_perf_to_peer(self_test_params, {
                 connection: item.connection
             })
-            .timeout(AGENT_RESPONSE_TIMEOUT);
+            .timeout(AGENT_RESPONSE_TIMEOUT)
+            .then(res => {
+                dbg.log2('test_node_network', self_test_params, 'returned', res);
+                return res;
+            }
+            
     }
 
     collect_agent_diagnostics(node_identity) {

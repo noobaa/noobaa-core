@@ -14,18 +14,18 @@ if [ "$1" == "ignore_rc" ]; then
 fi
 
 function verify_command_run {
-        $@ >> /var/log/noobaa_service_rem_${instdate} 2>&1
-        local rc=$?
-        if [ $ignore_rc -ne 1 ]; then
-            if [ $rc -ne 0 ]; then
-                echo "NooBaa uninstall failed (on $@)"
-                exit 1
-            fi
-        fi
+  $@ >> /var/log/noobaa_service_rem_${instdate} 2>&1
+  local rc=$?
+  if [ $ignore_rc -ne 1 ]; then
+    if [ $rc -ne 0 ]; then
+      echo "NooBaa uninstall failed (on $@)"
+      exit 1
+    fi
+  fi
 }
 
 function echo_to_log {
-        echo $@ >> /var/log/noobaa_service_rem_${instdate} 2>&1
+  echo $@ >> /var/log/noobaa_service_rem_${instdate}
 }
 
 #attempting to remove old service installations

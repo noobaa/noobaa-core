@@ -7,16 +7,16 @@ instdate=$(date -u +"%m-%d-%H:%M")
 echo $(date)
 
 function verify_command_run {
-        $@ >> /var/log/noobaa_service_${instdate} 2>&1
-        local rc=$?
-        if [ $rc -ne 0 ]; then
-                echo "NooBaa installation failed (on $@)"
-                exit 1
-        fi
+  $@ >> /var/log/noobaa_service_${instdate} 2>&1
+  local rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "NooBaa installation failed (on $@)"
+    exit 1
+  fi
 }
 
 function echo_to_log {
-        echo $@ >> /var/log/noobaa_service_${instdate} 2>&1
+  echo $@ >> /var/log/noobaa_service_${instdate}
 }
 
 PATH=/usr/local/noobaa:$PATH;
@@ -35,7 +35,7 @@ if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   verify_command_run systemctl start noobaalocalservice
   echo_to_log "Service started"
   verify_command_run systemctl daemon-reload
-  echo_to_log "systemctl daemons reloaded"
+echo_to_log "systemctl daemons reloaded"
 elif [[ -d /etc/init ]]; then
   echo_to_log "Upstart detected. Creating startup script"
   cp /usr/local/noobaa/src/agent/upstart.conf /etc/init/noobaalocalservice.conf

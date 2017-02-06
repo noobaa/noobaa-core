@@ -79,7 +79,7 @@ class CreateAccountWizardViewModel extends BaseViewModel {
             () => {
                 const { accounts = [], endpoint, ssl_port } = systemInfo();
                 const account = accounts.find( account => account.email === this.emailAddress() );
-                const access_keys = account && account.access_keys[0];
+                const access_keys = account ? account.access_keys[0] : {};
 
                 const data = {
                     serverAddress: `https://${endpoint}:${ssl_port}`,

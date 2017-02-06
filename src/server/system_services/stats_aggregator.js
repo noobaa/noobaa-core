@@ -212,14 +212,17 @@ function get_ops_stats(req) {
 }
 
 function get_bucket_sizes_stats(req) {
-    return system_store.data.buckets.map(bucket => ({
-        master_label: 'Size',
-        bins: bucket.storage_stats.objects_hist.map(bin => ({
-            label: bin.label,
-            count: bin.count,
-            avg: bin.count ? bin.aggregated_sum / bin.count : 0
-        }))
-    }));
+    return system_store.data.buckets.map(bucket => {
+        let bins = bucket.storage_stats.objects_hist || [];
+        return {
+            master_label: 'Size',
+            bins: bins.map(bin => ({
+                label: bin.label,
+                count: bin.count,
+                avg: bin.count ? bin.aggregated_sum / bin.count : 0
+            }))
+        };
+    });
 }
 
 function get_pool_stats(req) {

@@ -1,7 +1,7 @@
 import template from './attach-server-modal.html';
 import configureServerStepTemplate from './configure-server-step.html';
 import editDetailsStepTemplate from './edit-details-step.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { verifyServer, attachServerToCluster } from 'actions';
 import { support } from 'config';

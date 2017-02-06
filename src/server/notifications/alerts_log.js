@@ -25,7 +25,7 @@ var alerts_log_schema = new Schema({
 
     severity: {
         type: String,
-        enum: ['CRIT', 'NAJOR', 'INFO'],
+        enum: ['CRIT', 'MAJOR', 'INFO'],
         required: true,
     },
 

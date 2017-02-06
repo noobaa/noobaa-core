@@ -1,3 +1,5 @@
-export function alert(req) {
-    console.log('ALERT', req.rpc_params);
+import { getUnreadAlertsCount } from 'dispatchers';
+
+export function alert() {
+    getUnreadAlertsCount();
 }

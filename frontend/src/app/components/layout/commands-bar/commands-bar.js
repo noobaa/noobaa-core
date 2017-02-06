@@ -1,14 +1,22 @@
 import template from './commands-bar.html';
-import BaseViewModel from 'base-view-model';
+import StateAwareViewModel from 'components/state-aware-view-model';
 import ko from 'knockout';
-import { refresh, openDrawer } from 'actions';
+import { refresh } from 'actions';
+import { openDrawer, getUnreadAlertsCount } from 'dispatchers';
 import { sleep } from 'utils/promise-utils';
 
-class CommandBarViewModel extends BaseViewModel {
+class CommandBarViewModel extends StateAwareViewModel {
     constructor() {
         super();
 
         this.isRefreshSpinning = ko.observable(false);
+        this.unreadAlertsCount = ko.observable();
+
+        getUnreadAlertsCount();
+    }
+
+    onState({ alerts }) {
+        this.unreadAlertsCount(alerts.unreadCount);
     }
 
     refresh() {
@@ -19,7 +27,11 @@ class CommandBarViewModel extends BaseViewModel {
     }
 
     showAuditLog() {
-        openDrawer();
+        openDrawer('audit-pane');
+    }
+
+    showAlerts() {
+        openDrawer('alerts-pane');
     }
 }
 

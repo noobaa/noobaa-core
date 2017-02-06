@@ -1,22 +1,13 @@
-audit-pane {
+.audit-pane {
     .column();
     .greedy();
-    padding: 0 @gutter;
 
-    .audit-header {
-        margin: 0 -@gutter;
-        margin-bottom: @gutter;
-        padding: 0 @gutter;
+    .pane-header {
         line-height: 3 * @gutter;
         border-bottom: 1px solid @color8;
     }
 
-    .close-icon {
-        width: 12px;
-        height: 12px;
-    }
-
-    data-table {
+    .audit-table {
         .main-row {
             height: 54px;
 

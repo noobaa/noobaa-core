@@ -1,5 +1,5 @@
 import template from './upgrade-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { upgradeStatus } from 'model';

@@ -1,5 +1,5 @@
 import template from './file-uploads-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { uploads } from 'model';

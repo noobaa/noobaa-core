@@ -1,4 +1,3 @@
-/*global setImmediate */
 import ko from 'knockout';
 
 export default {

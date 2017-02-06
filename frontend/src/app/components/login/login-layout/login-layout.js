@@ -1,5 +1,5 @@
 import template from './login-layout.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { supportedBrowsers} from 'config';
 import { sessionInfo, serverInfo } from 'model';

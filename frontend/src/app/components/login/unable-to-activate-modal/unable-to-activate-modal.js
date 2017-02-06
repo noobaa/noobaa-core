@@ -1,5 +1,5 @@
 import template from './unable-to-activate-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { support } from 'config';
 import { serverInfo } from 'model';

@@ -1,5 +1,5 @@
 import template from './property-sheet.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { copyTextToClipboard } from 'utils/browser-utils';
 

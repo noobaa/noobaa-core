@@ -1,5 +1,5 @@
 import template from './resource-overview.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import style from 'style';
 import { systemInfo } from 'model';
 import ko from 'knockout';

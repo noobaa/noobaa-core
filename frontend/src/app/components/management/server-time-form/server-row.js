@@ -1,7 +1,8 @@
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
+import { timeLongFormat } from 'config';
 
 const stateIconMapping = deepFreeze({
     CONNECTED: {
@@ -69,7 +70,7 @@ export default class ServerRowViewModel extends BaseViewModel {
 
         this.time = time.extend({
             formatTime: {
-                format: 'DD MMM YYYY HH:mm:ss ([GMT]Z)',
+                format: timeLongFormat,
                 timezone: timezone
             }
         });

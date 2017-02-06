@@ -1,5 +1,5 @@
 import template from './change-password-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { resetAccountPassword, signOut, refresh } from 'actions';
 import { sessionInfo, resetPasswordState } from 'model';

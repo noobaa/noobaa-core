@@ -1,8 +1,7 @@
 import ko from 'knockout';
 import moment from 'moment-timezone';
 import { isNumber, isString } from 'utils/core-utils';
-
-const defaultFormat = 'DD MMM YYYY hh:mm:ss';
+import { timeShortFormat as defaultFormat } from 'config';
 
 export default function formatTime(target, params) {
     return ko.pureComputed(

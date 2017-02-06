@@ -1,5 +1,5 @@
 import template from './assign-nodes-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { noop, throttle } from 'utils/core-utils';
 import { systemInfo, nodeList } from 'model';

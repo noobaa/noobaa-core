@@ -1,5 +1,5 @@
 import template from './cluster-panel.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { uiState } from 'model';
 
 class ClusterPanelViewModel extends BaseViewModel {

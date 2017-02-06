@@ -1,5 +1,5 @@
 import template from './add-cloud-resource-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, createCloudResource } from 'actions';

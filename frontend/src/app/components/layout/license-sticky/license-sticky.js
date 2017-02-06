@@ -1,5 +1,5 @@
 import template from './license-sticky.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { systemInfo } from 'model';
 import ko from 'knockout';
 import { support } from 'config';

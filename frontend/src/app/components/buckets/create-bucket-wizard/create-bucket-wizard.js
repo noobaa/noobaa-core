@@ -1,7 +1,7 @@
 import template from './create-bucket-wizard.html';
 import chooseNameStepTemplate from './choose-name-step.html';
 import setPolicyStepTemplate from './set-policy-step.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import { systemInfo } from 'model';

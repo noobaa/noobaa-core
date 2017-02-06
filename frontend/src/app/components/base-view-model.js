@@ -1,4 +1,7 @@
 import { isFunction } from 'utils/core-utils';
+import StateAwareViewModel from 'components/state-aware-view-model';
+
+const disposeList = Symbol('disposeList');
 
 // Used to dispose an handle that contain a dispose method.
 function dispose(handle) {
@@ -11,14 +14,15 @@ function isValidationGroup(group) {
         isFunction (group.isAnyMessageShown);
 }
 
-export default class BaseViewModel {
+export default class BaseViewModel extends StateAwareViewModel {
     constructor() {
-        // Define a non enumrable read only property to hold the dispose list.
-        Object.defineProperty(this, 'disposeList', { value: [] });
+        super();
+
+        this[disposeList] = [];
     }
 
     addToDisposeList(subject, disposer = dispose) {
-        this.disposeList.push(
+        this[disposeList].push(
             () => disposer(subject)
         );
     }
@@ -40,8 +44,10 @@ export default class BaseViewModel {
             }
         }
 
-        this.disposeList.forEach(
+        this[disposeList].forEach(
             disposer => disposer()
         );
+
+        super.dispose();
     }
 }

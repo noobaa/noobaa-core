@@ -1,5 +1,5 @@
 import template from './buckets-overview.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo, systemUsageHistory } from 'model';
 import { deepFreeze, keyBy, interpolateLinear } from 'utils/core-utils';

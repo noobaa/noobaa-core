@@ -1,5 +1,5 @@
 import template from './breadcrumbs.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 
 class BreadcrumbsViewModel extends BaseViewModel {
     constructor({ crumbs }) {

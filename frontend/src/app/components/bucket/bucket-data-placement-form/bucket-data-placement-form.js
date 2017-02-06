@@ -1,6 +1,6 @@
 import template from './bucket-data-placement-form.html';
 import placementSectionTemplate from './placement-policy-section.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import PlacementRowViewModel from './placement-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';

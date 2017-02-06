@@ -15,16 +15,7 @@ module.exports = {
         alert: {
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['severity', 'id'],
-                properties: {
-                    severity: {
-                        $ref: 'events_api#/definitions/alert_severity_enum'
-                    },
-                    id: {
-                        type: 'integer',
-                    }
-                }
+                $ref: 'events_api#/definitions/alert_query'
             },
             auth: {
                 system: false

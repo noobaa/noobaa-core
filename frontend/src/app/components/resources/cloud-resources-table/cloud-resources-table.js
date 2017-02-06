@@ -1,5 +1,5 @@
 import template from './cloud-resources-table.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
 import { systemInfo, routeContext } from 'model';

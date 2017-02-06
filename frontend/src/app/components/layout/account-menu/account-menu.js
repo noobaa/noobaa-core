@@ -1,5 +1,5 @@
 import template from './account-menu.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo } from 'model';
 import { support } from 'config';

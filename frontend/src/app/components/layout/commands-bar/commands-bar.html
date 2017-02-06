@@ -14,3 +14,12 @@
 ">
     <svg-icon class="hightlight" params="name: 'audit'"></svg-icon>
 </button>
+
+<button class="icon-btn alerts" data-bind="
+    click: showAlerts,
+    tooltip: 'Alerts',
+    css: { counter: unreadAlertsCount },
+    attr: { 'data-count': unreadAlertsCount }
+">
+    <svg-icon class="hightlight" params="name: 'alert'"></svg-icon>
+</button>

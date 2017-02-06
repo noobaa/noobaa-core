@@ -1,5 +1,5 @@
 import template from './file-selector.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { noop } from 'utils/core-utils';
 

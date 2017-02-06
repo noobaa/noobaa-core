@@ -1,5 +1,5 @@
 import template from './server-dns-settings-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ServerRow from './server-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';

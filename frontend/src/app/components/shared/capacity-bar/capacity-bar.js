@@ -1,5 +1,5 @@
 import template from './capacity-bar.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isArray } from 'utils/core-utils';
 import { sumSize, formatSize, toBytes } from 'utils/size-utils';

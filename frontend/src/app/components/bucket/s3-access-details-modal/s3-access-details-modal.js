@@ -1,5 +1,5 @@
 import template from './s3-access-details-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { noop } from 'utils/core-utils';

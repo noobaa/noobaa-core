@@ -1,5 +1,5 @@
 import template from './bucket-summary.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import { systemInfo } from 'model';

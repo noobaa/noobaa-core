@@ -1,5 +1,5 @@
 import template from './server-diagnostics-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import TestResultRowViewModel from './test-result-row';
 import ko from 'knockout';
 import { systemInfo, collectDiagnosticsState } from 'model';

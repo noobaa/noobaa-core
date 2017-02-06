@@ -205,20 +205,14 @@ module.exports = {
             }
         },
 
-        mark_alerts_read: {
+        update_alerts_state: {
             method: 'POST',
             params: {
                 type: 'object',
                 required: ['state'],
                 properties: {
-                    ids: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
-                    },
-                    filter: {
-                        type: 'string'
+                    query: {
+                        $ref: '#/definitions/alert_query'
                     },
                     state: {
                         type: 'boolean'
@@ -235,14 +229,8 @@ module.exports = {
                 type: 'object',
                 required: [],
                 properties: {
-                    severity: {
-                        $ref: '#/definitions/alert_severity_enum'
-                    },
-                    till: {
-                        format: 'idate'
-                    },
-                    since: {
-                        format: 'idate'
+                    query: {
+                        $ref: '#/definitions/alert_query'
                     },
                     skip: {
                         type: 'integer',
@@ -253,32 +241,26 @@ module.exports = {
                 }
             },
             reply: {
-                required: ['alerts'],
-                type: 'object',
-                properties: {
-                    alerts: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['id', 'time', 'severity', 'alert', 'read'],
-                            properties: {
-                                id: {
-                                    type: 'string',
-                                },
-                                time: {
-                                    format: 'idate'
-                                },
-                                severity: {
-                                    $ref: '#/definitions/alert_severity_enum'
-                                },
-                                alert: {
-                                    type: 'string',
-                                },
-                                read: {
-                                    type: 'boolean',
-                                },
-                            }
-                        }
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['id', 'time', 'severity', 'alert', 'read'],
+                    properties: {
+                        id: {
+                            type: 'string',
+                        },
+                        time: {
+                            format: 'idate'
+                        },
+                        severity: {
+                            $ref: '#/definitions/alert_severity_enum'
+                        },
+                        alert: {
+                            type: 'string',
+                        },
+                        read: {
+                            type: 'boolean',
+                        },
                     }
                 }
             },
@@ -289,6 +271,30 @@ module.exports = {
     },
 
     definitions: {
+        alert_query: {
+            type: 'object',
+            properties: {
+                ids: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
+                till: {
+                    type: 'string'
+                },
+                since: {
+                    type: 'string'
+                },
+                read: {
+                    type: 'boolean'
+                },
+                severity: {
+                    $ref: '#/definitions/alert_severity_enum'
+                },
+            }
+        },
+
         alert_severity_enum: {
             enum: ['CRIT', 'MAJOR', 'INFO'],
             type: 'string',

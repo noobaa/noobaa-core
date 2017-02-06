@@ -1,10 +1,10 @@
 import template from './[[name]].html';
-import Disposable from 'disposable';
+import BaseViewModel from 'components/base-view-model';
 // import ko from 'knockout';
 // import numeral from 'numeral';
 // import moment from 'moment';
 
-class [[nameCammelCased]]ViewModel extends Disposable{
+class [[nameCammelCased]]ViewModel extends BaseViewModel {
     constructor() {
         super();
 

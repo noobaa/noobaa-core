@@ -1,5 +1,5 @@
 import template from './account-s3-access-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { routeContext, systemInfo } from 'model';
 

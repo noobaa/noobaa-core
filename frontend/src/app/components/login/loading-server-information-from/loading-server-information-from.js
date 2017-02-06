@@ -1,5 +1,5 @@
 import template from './loading-server-information-from.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { serverInfo } from 'model';
 

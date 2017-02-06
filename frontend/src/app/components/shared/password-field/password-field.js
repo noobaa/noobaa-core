@@ -1,5 +1,5 @@
 import template from './password-field.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze, isFunction } from 'utils/core-utils';
 import { tweenColors } from 'utils/color-utils';

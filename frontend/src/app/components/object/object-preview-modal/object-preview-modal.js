@@ -1,5 +1,5 @@
 import template from './object-preview-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 
 class ObjectPreviewModalViewModel extends BaseViewModel {
     constructor({ uri, onClose }) {

@@ -34,7 +34,8 @@ const libs = [
     { name: 'shifty',               path: './src/lib/shifty/dist/shifty.js' },
     { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
     { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' },
-    { name: 'chartjs',              path: './src/lib/chart.js/dist/Chart.js' }
+    { name: 'chartjs',              path: './src/lib/chart.js/dist/Chart.js' },
+    { name: 'rx',                   path: './src/lib/rxjs/dist/rx.lite.js' }
 ];
 
 let apiBlackList = [
@@ -270,7 +271,11 @@ function bundleApp(watch) {
         .require(buildPath + '/style.json', { expose: 'style' })
         .transform(babelify, {
             presets: ['es2015'],
-            plugins: ['transform-runtime']
+            plugins: [
+                'transform-async-to-generator',
+                'transform-object-rest-spread',
+                'transform-runtime'
+            ]
         })
         .transform(stringify({ minify: uglify }))
         .add('src/app/main');

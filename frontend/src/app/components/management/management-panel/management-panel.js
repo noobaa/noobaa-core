@@ -1,5 +1,5 @@
 import template from './management-panel.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import * as routes from 'routes';
 import { uiState, routeContext } from 'model';

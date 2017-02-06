@@ -11,12 +11,12 @@ export default function formatTime(target, params) {
             const {
                 format = isString(naked) ? naked : defaultFormat,
                 timezone = '',
-                nanText = 'N/A'
+                notAvailableText  = 'N/A'
             } = naked;
 
             const value = target();
             if (!isNumber(value)) {
-                return nanText;
+                return notAvailableText;
             }
 
             const time = timezone ? moment.tz(value, timezone) : moment(value);

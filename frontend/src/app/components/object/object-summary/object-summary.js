@@ -29,9 +29,7 @@ class ObjectSummaryViewModel extends BaseViewModel {
         this.lastRead = ko.pureComputed(
             () => (obj() && obj().stats.last_read) || undefined
         ).extend({
-            formatTime: {
-                nanText: 'File not read'
-            }
+            formatTime: { notAvailableText: 'File not read' }
         });
 
         this.readCount = ko.pureComputed(

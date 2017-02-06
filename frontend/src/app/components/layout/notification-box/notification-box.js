@@ -1,5 +1,5 @@
 import template from './notification-box.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { lastNotification } from 'model';
 import { sleep } from 'utils/promise-utils';

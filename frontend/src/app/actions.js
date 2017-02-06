@@ -57,7 +57,6 @@ export function start() {
                     system: system.name,
                     mustChangePassword: account.must_change_password
                 });
-                //api.redirector.register_for_alerts(); //For now comment this out until add it properly
             }
         })
         .catch(err => {
@@ -517,11 +516,11 @@ export function handleUnknownRoute() {
     redirectTo(uri);
 }
 
-export function openDrawer() {
-    logAction('openDrawer');
+export function openDrawer(content) {
+    logAction('openDrawer', { content });
 
     model.uiState(
-        Object.assign(model.uiState(), { drawer: true })
+        Object.assign(model.uiState(), { drawer: content })
     );
 }
 
@@ -529,7 +528,7 @@ export function closeDrawer() {
     logAction('closeDarwer');
 
     model.uiState(
-        Object.assign(model.uiState(), { drawer: false })
+        Object.assign(model.uiState(), { drawer: undefined })
     );
 }
 
@@ -564,7 +563,6 @@ export function signIn(email, password, keepSessionAlive = false) {
                             system: info.system.name,
                             mustChangePassword: account.must_change_password
                         });
-                        //api.redirector.register_for_alerts(); ////For now comment this out until add it properly
                         model.loginInfo({ retryCount: 0 });
                         refresh();
                     });
@@ -2101,6 +2099,11 @@ export function verifyServer(address, secret) {
             )
         )
         .done();
+}
+
+export function registerForAlerts() {
+    logAction('registerForAlerts');
+    api.redirector.register_for_alerts();
 }
 
 // ------------------------------------------

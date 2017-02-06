@@ -1,26 +1,31 @@
 toggle-filter {
-    .row();
-    .align-start();
+    display: inline-block;
 
-    border: 1px solid @color15;
-    overflow: hidden;
-    padding: 4px;
-    line-height: 1;
-
-    label + label {
-        margin-left: 4px;
+    .toggle-options {
+        border: 1px solid @color15;
+        overflow: hidden;
+        padding: 4px;
+        line-height: 1;
     }
 
-    input {
-        position: absolute;
-        visibility: hidden;
-        z-index: -1;
+    .toggle-option {
+        > input {
+            position: absolute;
+            visibility: hidden;
+            z-index: -1;
 
-        &:checked + .toggle-btn {
-            color: @color8;
-            background-color: fadeout(@color8, 90%);
+            &:checked + .toggle-btn {
+                color: @color8;
+                background-color: fadeout(@color8, 90%);
+            }
+        }
+
+        + .toggle-option {
+            margin-left: 4px;
         }
     }
+
+
 
     .toggle-btn {
         line-height: 28px;

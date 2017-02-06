@@ -1,5 +1,5 @@
 import template from './node-diagnostics-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { collectDiagnosticsState } from 'model';
 import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';

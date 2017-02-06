@@ -1,5 +1,5 @@
 import template from './create-system-form.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { validateActivation, attemptResolveSystemName, createSystem } from 'actions';
 import { activationState, nameResolutionState, serverInfo } from 'model';

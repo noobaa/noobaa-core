@@ -1,5 +1,5 @@
 import template from './pie-chart.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import {  makeArray, deepFreeze, decimalRound } from 'utils/core-utils';
 import style from 'style';

@@ -1,5 +1,5 @@
 import template from './node-parts-table.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import PartRowViewModel from './part-row';

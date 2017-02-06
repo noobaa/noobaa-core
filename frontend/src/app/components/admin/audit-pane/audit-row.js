@@ -1,6 +1,5 @@
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import moment from 'moment';
 import categories from './categories';
 
 export default class AuditRowViewModel extends BaseViewModel {
@@ -30,8 +29,10 @@ export default class AuditRowViewModel extends BaseViewModel {
         );
 
         this.time = ko.pureComputed(
-            () => entry() ? moment(entry().time).format('DD MMM YYYY HH:mm:ss') : ''
-        );
+            () => entry() ? entry().time : ''
+        ).extend({
+            formatTime: true
+        });
 
         this.account = ko.pureComputed(
             () => entry() && entry().actor ? entry().actor.email : '---'

@@ -38,6 +38,7 @@ ko.subscribable.fn.debug = function(prefix) {
     );
 };
 
+
 ko.observableWithDefault = function(valueAccessor) {
     let storage = ko.observable();
     return ko.pureComputed({
@@ -97,6 +98,13 @@ ko.renderToString = function(template, data) {
     ko.cleanNode(doc);
     return htmlString;
 };
+
+ko.group = function(...observables) {
+    return ko.pureComputed(
+        () => observables.map(obs => ko.unwrap(obs))
+    );
+};
+
 
 // ko.validation specific extentions:
 // ----------------------------------

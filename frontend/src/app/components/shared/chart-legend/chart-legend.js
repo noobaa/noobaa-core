@@ -1,5 +1,5 @@
 import template from './chart-legend.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { echo, deepFreeze, isFunction } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import ko from 'knockout';

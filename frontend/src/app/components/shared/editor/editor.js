@@ -1,5 +1,5 @@
 import template from './editor.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 
 class EditorViewModel extends BaseViewModel {
     constructor({

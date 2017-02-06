@@ -1,5 +1,5 @@
 import template from './server-table.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
 import { createCompareFunc, deepFreeze, throttle } from 'utils/core-utils';

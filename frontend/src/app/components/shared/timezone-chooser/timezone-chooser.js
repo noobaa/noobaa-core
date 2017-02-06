@@ -1,5 +1,5 @@
 import template from './timezone-chooser.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import moment from 'moment-timezone';
 
 const options = moment.tz.names()

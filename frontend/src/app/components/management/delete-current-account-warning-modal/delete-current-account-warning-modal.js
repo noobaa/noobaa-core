@@ -1,5 +1,5 @@
 import template from './delete-current-account-warning-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo } from 'model';
 import { deleteAccount } from 'actions';

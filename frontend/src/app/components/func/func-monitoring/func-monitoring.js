@@ -1,5 +1,5 @@
 import template from './func-monitoring.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';

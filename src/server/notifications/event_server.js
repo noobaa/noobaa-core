@@ -69,8 +69,8 @@ function get_unread_alerts_count(req) {
     return Dispatcher.instance().get_unread_alerts_count(req.system._id);
 }
 
-function mark_alerts_read(req) {
-    return Dispatcher.instance().mark_alerts_read(req);
+function update_alerts_state(req) {
+    return Dispatcher.instance().update_alerts_state(req);
 }
 
 function read_alerts(req) {
@@ -82,5 +82,5 @@ function read_alerts(req) {
 exports.read_activity_log = read_activity_log;
 exports.export_activity_log = export_activity_log;
 exports.get_unread_alerts_count = get_unread_alerts_count;
-exports.mark_alerts_read = mark_alerts_read;
+exports.update_alerts_state = update_alerts_state;
 exports.read_alerts = read_alerts;

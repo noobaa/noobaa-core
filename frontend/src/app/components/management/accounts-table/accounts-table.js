@@ -1,5 +1,5 @@
 import template from './accounts-table.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
 import { sessionInfo, systemInfo, routeContext } from 'model';

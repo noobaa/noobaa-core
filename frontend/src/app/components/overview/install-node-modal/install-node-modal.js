@@ -1,5 +1,5 @@
 import template from './install-node-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { lastSegment } from 'utils/string-utils';

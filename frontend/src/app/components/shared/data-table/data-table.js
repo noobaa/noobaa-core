@@ -2,7 +2,7 @@ import './data-table-binding';
 import template from './data-table.html';
 import ColumnViewModel from './column';
 import * as cellTemplates from './cell-templates';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { noop, isFunction } from 'utils/core-utils';
 

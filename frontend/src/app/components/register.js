@@ -190,6 +190,7 @@ export default function register(ko) {
     // Admin
     // -------------------------------
     ko.components.register('audit-pane',         require('./admin/audit-pane/audit-pane').default);
+    ko.components.register('alerts-pane', require('./admin/alerts-pane/alerts-pane').default);
     /** INJECT:admin **/
 
     // -------------------------------

@@ -1,5 +1,5 @@
 import template from './server-dns-settings-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateServerDNSSettings } from 'actions';

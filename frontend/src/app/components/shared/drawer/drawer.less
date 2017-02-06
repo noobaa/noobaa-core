@@ -5,12 +5,12 @@ drawer {
         .fill();
         overflow: hidden;
 
-        &.visible {
-            .drawer-backdrop {
+        &.opened {
+            > .drawer-backdrop {
                 opacity: 1;
             }
 
-            .drawer-content {
+            > .drawer-content {
                 transform: translateX(0);
             }
         }

@@ -1,5 +1,5 @@
 import template from './bucket-objects-table.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils/core-utils';

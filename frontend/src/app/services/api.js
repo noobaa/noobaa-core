@@ -1,5 +1,5 @@
 import { new_rpc_default_only } from 'nb-api';
-import * as notifs from './notifications';
+import * as notifications from './notifications';
 
 const rpc_proto = window.WebSocket ?
     (window.location.protocol === 'https:' ? 'wss:' : 'ws:') :
@@ -13,9 +13,9 @@ rpc.set_request_logger(
 
 rpc.register_service(
     rpc.schema.frontend_notifications_api,
-    notifs,
-    {}/*options*/
+    notifications,
+    {}
 );
 
-const client = window.api = rpc.new_client();
-export default client;
+export default window.api = rpc.new_client();
+

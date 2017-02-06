@@ -1,5 +1,5 @@
 import template from './welcome-modal.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sleep } from 'utils/promise-utils';
 

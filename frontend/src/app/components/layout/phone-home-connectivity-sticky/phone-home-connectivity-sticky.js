@@ -1,5 +1,5 @@
 import template from './phone-home-connectivity-sticky.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { systemInfo } from 'model';
 import ko from 'knockout';
 

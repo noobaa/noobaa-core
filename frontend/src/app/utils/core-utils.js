@@ -16,6 +16,10 @@ export function deepFreeze(val) {
     }
 }
 
+export function deepClone(val) {
+    return JSON.parse(JSON.stringify(val));
+}
+
 export function isArray(value){
     return value instanceof Array;
 }
@@ -42,6 +46,13 @@ export function isUndefined(value) {
 
 export function isDefined(value) {
     return !isUndefined(value);
+}
+
+export function pick(obj, ...keys) {
+    return keys.reduce(
+        (picked, key) => (picked[key] = obj[key], picked),
+        {}
+    );
 }
 
 export function throttle(func, grace, owner) {
@@ -150,12 +161,6 @@ export function averageBy(array, selector = echo) {
     return sumBy(array, selector) / array.length;
 }
 
-export function entries(obj) {
-    return Object.keys(obj).map(
-        key => [ key, obj[key]]
-    );
-}
-
 export function keyBy(array, keySelector, valueGenerator = echo) {
     return array.reduce(
         (map, item) => {
@@ -189,7 +194,7 @@ export function assignWith(target, ...sources) {
         (_, value) => value;
 
     for (const source of sources) {
-        for (const [ key, value ] of entries(source)) {
+        for (const [ key, value ] of Object.entries(source)) {
             target[key] = assignOp(target[key], value);
         }
     }
@@ -199,7 +204,7 @@ export function assignWith(target, ...sources) {
 
 export function mapValues(obj, mapOp) {
     const res = {};
-    for (const [ key, value ] of entries(obj)) {
+    for (const [ key, value ] of Object.entries(obj)) {
         res[key] = mapOp(value, key);
     }
     return res;
@@ -212,4 +217,13 @@ export function interpolateLinear(a, b, t) {
 export function decimalRound(number, fractionalLength = 2) {
     const factor = Math.pow(10, fractionalLength);
     return Math.round(number * factor) / factor;
+}
+
+export function mergeBy(...arrays) {
+    const keySelector = isFunction(last(arrays)) ? arrays.pop() : echo;
+    const merge = {};
+    for (const arr of arrays) {
+        Object.assign(merge, keyBy(arr, keySelector));
+    }
+    return Object.values(merge);
 }

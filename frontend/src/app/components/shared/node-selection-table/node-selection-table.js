@@ -1,5 +1,5 @@
 import template from './node-selection-table.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import NodeRowViewModel from './node-row';
 import { deepFreeze } from 'utils/core-utils';
 import ko from 'knockout';

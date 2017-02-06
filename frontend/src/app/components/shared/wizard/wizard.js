@@ -1,5 +1,5 @@
 import template from './wizard.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isObject, noop } from 'utils/core-utils';
 

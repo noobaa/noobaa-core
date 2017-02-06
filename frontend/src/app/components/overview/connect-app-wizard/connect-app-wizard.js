@@ -1,7 +1,7 @@
 import template from './connect-app-wizard.html';
 import selectConnectionSlideTemplate from './select-connection.html';
 import selectAccountSlideTemplate from './select-account.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';

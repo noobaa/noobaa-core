@@ -1,6 +1,6 @@
 import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';

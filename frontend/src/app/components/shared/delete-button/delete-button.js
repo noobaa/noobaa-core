@@ -1,5 +1,5 @@
 import template from './delete-button.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isFunction, noop } from 'utils/core-utils';
 

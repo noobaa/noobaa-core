@@ -1,5 +1,5 @@
 import template from './server-panel.html';
-import BaseViewModel from 'base-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { routeContext, uiState } from 'model';
 import { lastSegment } from 'utils/string-utils';
 import ko from 'knockout';

@@ -276,16 +276,16 @@ function verify_candidate_join_conditions(req) {
                     hostname: res.hostname,
                     result: res.result,
                     version: version_check_res.version
-                }))
-                .catch(RpcError, err => {
-                    if (err.rpc_code === 'RPC_CONNECT_TIMEOUT') {
-                        dbg.warn('received', err, ' on verify_candidate_join_conditions');
-                        return {
-                            result: 'UNREACHABLE'
-                        };
-                    }
-                    throw err;
-                });
+                }));
+        })
+        .catch(RpcError, err => {
+            if (err.rpc_code === 'RPC_CONNECT_TIMEOUT') {
+                dbg.warn('received', err, ' on verify_candidate_join_conditions');
+                return {
+                    result: 'UNREACHABLE'
+                };
+            }
+            throw err;
         });
 }
 

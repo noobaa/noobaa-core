@@ -22,7 +22,6 @@ const server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
-const SCALE_BYTES_TO_MB = 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 
 var successfuly_sent_period = 0;
@@ -212,25 +211,14 @@ function get_ops_stats(req) {
 }
 
 function get_bucket_sizes_stats(req) {
-    return P.all(_.map(system_store.data.buckets,
-            bucket => {
-                // TODO disabled the object listing here which crashes the process out of memory
-                return [];
-                // let new_req = req;
-                // new_req.rpc_params.bucket = bucket.name;
-                // return object_server.list_objects(new_req);
-            }
-        ))
-        .then(bucket_arr => {
-            let histo_arr = [];
-            _.each(bucket_arr, bucket_res => {
-                let objects_histo = get_empty_objects_histo();
-                _.forEach(bucket_res.objects, obj =>
-                    objects_histo.histo_size.add_value(obj.info.size / SCALE_BYTES_TO_MB));
-                histo_arr.push(_.mapValues(objects_histo, histo => histo.get_object_data(false)));
-            });
-            return histo_arr;
-        });
+    return system_store.data.buckets.map(bucket => ({
+        master_label: 'Size',
+        bins: bucket.storage_stats.objects_hist.map(bin => ({
+            label: bin.label,
+            count: bin.count,
+            avg: bin.count ? bin.aggregated_sum / bin.count : 0
+        }))
+    }));
 }
 
 function get_pool_stats(req) {
@@ -563,35 +551,6 @@ function get_empty_sync_histo() {
     }]);
 
     return empty_sync_histo;
-}
-
-function get_empty_objects_histo() {
-    //TODO: Add histogram for limit, once implemented
-    var empty_objects_histo = {};
-    empty_objects_histo.histo_size = new Histogram('Size(MegaBytes)', [{
-        label: '0 MegaBytes - 5 MegaBytes',
-        start_val: 0
-    }, {
-        label: '5 MegaBytes - 100 MegaBytes',
-        start_val: 5
-    }, {
-        label: '100 MegaBytes - 1 GigaBytes',
-        start_val: 100
-    }, {
-        label: '1 GigaBytes - 100 GigaBytes',
-        start_val: 1000
-    }, {
-        label: '100 GigaBytes - 1 TeraBytes',
-        start_val: 100000
-    }, {
-        label: '1 TeraBytes - 10 TeraBytes',
-        start_val: 1000000
-    }, {
-        label: '10 TeraBytes - What?!',
-        start_val: 10000000
-    }]);
-
-    return empty_objects_histo;
 }
 
 function background_worker() {

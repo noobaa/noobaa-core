@@ -45,16 +45,8 @@ function _ping_ip(session, ip) {
 
 function dns_resolve(target, options) {
     dbg.log0('resolving dns address', target);
-    return new Promise((resolve, reject) => {
-        dns.resolve(url.parse(target).hostname || target,
-            (options && options.rrtype) || 'A', (err, ip_table) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(ip_table);
-                }
-            });
-    });
+    return P.fromCallback(callback => dns.resolve(url.parse(target).hostname || target,
+        (options && options.rrtype) || 'A', callback));
 }
 
 function _is_valid_ip(input) {

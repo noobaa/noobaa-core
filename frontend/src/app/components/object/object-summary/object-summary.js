@@ -27,9 +27,11 @@ class ObjectSummaryViewModel extends BaseViewModel {
         });
 
         this.lastRead = ko.pureComputed(
-            () => obj() && obj().stats.last_read
+            () => (obj() && obj().stats.last_read) || undefined
         ).extend({
-            formatTime: true
+            formatTime: {
+                nanText: 'File not read'
+            }
         });
 
         this.readCount = ko.pureComputed(

@@ -14,36 +14,40 @@ if [ "$1" == "ignore_rc" ]; then
 fi
 
 function verify_command_run {
-        $@ >> /var/log/noobaa_service_rem_${instdate} 2>&1
-        local rc=$?
-        if [ $ignore_rc -ne 1 ]; then
-            if [ $rc -ne 0 ]; then
-                echo "NooBaa uninstall failed (on $@)"
-                exit 1
-            fi
-        fi
+  $@ >> /var/log/noobaa_service_rem_${instdate} 2>&1
+  local rc=$?
+  if [ $ignore_rc -ne 1 ]; then
+    if [ $rc -ne 0 ]; then
+      echo "NooBaa uninstall failed (on $@)"
+      exit 1
+    fi
+  fi
+}
+
+function echo_to_log {
+  echo $@ >> /var/log/noobaa_service_rem_${instdate}
 }
 
 #attempting to remove old service installations
 /usr/local/noobaa/node /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service >> /var/log/noobaa_service_rem_${instdate} 2>&1
 
-echo "Uninstalling NooBaa local service"
+echo_to_log "Uninstalling NooBaa local service"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
-  echo "Systemd detected. Uninstalling service"
+  echo_to_log "Systemd detected. Uninstalling service"
   systemctl stop noobaalocalservice >> /var/log/noobaa_service_rem_${instdate} 2>&1
-  echo "Service stopped. Disabling service"
+  echo_to_log "Service stopped. Disabling service"
   verify_command_run systemctl disable noobaalocalservice
-  echo "Service disabled. removing config files"
+  echo_to_log "Service disabled. removing config files"
   #attempting to uninstall bruteforce service installations
   rm /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service >> /var/log/noobaa_service_rem_${instdate} 2>&1
   rm /lib/systemd/system/noobaalocalservice.service
   verify_command_run systemctl daemon-reload
 elif [[ -d /etc/init ]]; then
-  echo "Upstart detected. Removing init script"
+  echo_to_log "Upstart detected. Removing init script"
   initctl stop noobaalocalservice >> /var/log/noobaa_service_rem_${instdate} 2>&1
   rm /etc/init/noobaalocalservice.conf
 elif [[ -d /etc/init.d ]]; then
-  echo "System V detected. Uninstalling service"
+  echo_to_log "System V detected. Uninstalling service"
   # This command may or may not exist, depending on linux distro
   type chkconfig &> /dev/null
   if [ $? -eq 0 ]; then
@@ -55,8 +59,8 @@ elif [[ -d /etc/init.d ]]; then
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall >> /var/log/noobaa_service_rem_${instdate} 2>&1
   rm /etc/init.d/noobaalocalservice
 else
-  echo "ERROR: Cannot detect init mechanism, NooBaa uninstallation failed"
+  echo_to_log "ERROR: Cannot detect init mechanism, NooBaa uninstallation failed"
   exit 1
 fi
-echo "Uninstalled NooBaa local agent"
+echo_to_log "Uninstalled NooBaa local agent"
 exit 0

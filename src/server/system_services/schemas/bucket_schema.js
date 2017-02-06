@@ -106,23 +106,7 @@ module.exports = {
             type: 'object',
             required: ['chunks_capacity', 'objects_size', 'objects_count', 'last_update'],
             properties: {
-                chunks_capacity: {
-                    oneOf: [{
-                        type: 'integer'
-                    }, {
-                        type: 'object',
-                        properties: {
-                            n: {
-                                type: 'integer',
-                            },
-                            // to support bigger integers we can specify a peta field
-                            // which is considered to be based from 2^50
-                            peta: {
-                                type: 'integer',
-                            }
-                        }
-                    }]
-                },
+                chunks_capacity: bigint,
                 objects_size: bigint,
                 objects_count: {
                     type: 'integer'
@@ -140,6 +124,9 @@ module.exports = {
                         }
                     }
                 },
+                last_update: {
+                    format: 'idate'
+                }
             }
         },
         //lifecycle rules if exist

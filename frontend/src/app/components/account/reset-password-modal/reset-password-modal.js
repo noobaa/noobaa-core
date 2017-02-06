@@ -4,7 +4,8 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { resetAccountPassword } from 'actions';
 import { resetPasswordState } from 'model';
-import { deepFreeze, randomString } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
+import { randomString } from 'utils/string-utils';
 
 const screenTitleMapping = deepFreeze({
     0: {
@@ -28,11 +29,14 @@ class RestPasswordModalViewModel extends BaseViewModel {
         this.email = email;
         this.password = randomString();
 
+        const isAsyncValidationStale = ko.observable(true);
+
         this.verificationPassword = ko.observable()
             .extend({
                 required: { message: 'Please enter your current password' },
                 validation: {
-                    validator: () => touched() || resetPasswordState() !== 'UNAUTHORIZED',
+                    validator: () => isAsyncValidationStale() ||
+                        resetPasswordState() !== 'UNAUTHORIZED',
                     message: 'Please make sure your password is correct'
                 }
             });
@@ -53,20 +57,24 @@ class RestPasswordModalViewModel extends BaseViewModel {
         );
 
         this.errors = ko.validation.group(this);
-
-        const touched = ko.touched([this.verificationPassword]);
-
         this.screen = ko.observable(0);
+
         this.addToDisposeList(
             resetPasswordState.subscribe(
                 state => {
-                    touched.reset();
+                    isAsyncValidationStale(false);
                     if (state === 'SUCCESS'){
                         this.screen(1);
                     } else if (state == 'ERROR') {
                         this.screen(2);
                     }
                 }
+            )
+        );
+
+        this.addToDisposeList(
+            this.verificationPassword.subscribe(
+                () => isAsyncValidationStale(true)
             )
         );
     }

@@ -153,7 +153,7 @@ class ServerSummaryViewModel extends BaseViewModel {
             {
                 label: ko.pureComputed(
                     () => `CPU: ${
-                        this.isConnected() ? numeral(cpus().usage).format('%') : 'N/A'
+                        this.isConnected() ? numeral(cpus().usage).format('%') : '-'
                     }`
                 ),
                 value: ko.pureComputed(
@@ -164,7 +164,7 @@ class ServerSummaryViewModel extends BaseViewModel {
             {
                 label: ko.pureComputed(
                     () => `Disk: ${
-                        this.isConnected() ? numeral(diskUsage()).format('%') : 'N/A'
+                        this.isConnected() ? numeral(diskUsage()).format('%') : '-'
                     }`
                 ),
                 value: diskUsage,
@@ -173,7 +173,7 @@ class ServerSummaryViewModel extends BaseViewModel {
             {
                 label: ko.pureComputed(
                     () => `Memory: ${
-                        this.isConnected() ? numeral(memoryUsage()).format('%') : 'N/A'
+                        this.isConnected() ? numeral(memoryUsage()).format('%') : '-'
                     }`
                 ),
                 value: memoryUsage,

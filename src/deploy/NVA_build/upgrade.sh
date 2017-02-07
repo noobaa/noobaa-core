@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# redirect the output log file to syslog
+exec 1> >(logger -t UPGRADE -p local0.warn) 2>&1
+
 EXTRACTION_PATH="/tmp/test/"
 
 . ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
@@ -275,8 +278,6 @@ else
       LOG_FILE="/var/log/noobaa_deploy_${1}.log"
       OUT_LOG_FILE="/var/log/noobaa_deploy_out${1}.log"
       FSUFFIX="$1"
-      # redirect the output log file to syslog
-      tail -F ${OUT_LOG_FILE} -n 0 | logger -t UPGRADE -p local0.warn &
       shift
     fi
 

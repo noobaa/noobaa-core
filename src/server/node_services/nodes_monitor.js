@@ -148,6 +148,7 @@ const MODE_COMPARE_ORDER = [
     'GATEWAY_ERRORS',
     'IO_ERRORS',
     'UNTRUSTED',
+    'INITALIZING',
     'OFFLINE'
 ];
 
@@ -1311,8 +1312,8 @@ class NodesMonitor extends EventEmitter {
             free.multiply(100).divide(free.add(used));
 
         return (!item.online && 'OFFLINE') ||
-            (!item.trusted && 'UNTRUSTED') ||
             (!item.node.rpc_address && 'INITALIZING') ||
+            (!item.trusted && 'UNTRUSTED') ||
             (item.node.deleting && 'DELETING') ||
             (item.node.deleted && 'DELETED') ||
             (item.node.decommissioned && 'DECOMMISSIONED') ||

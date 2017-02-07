@@ -243,26 +243,27 @@ export function getPoolCapacityBarValues(pool) {
     return { total, used: usage };
 }
 
-const nodeIssueModes = deepFreeze([
-    'LOW_CAPACITY',
-    'NO_CAPACITY',
-    'DECOMMISSIONING',
-    'MIGRATING',
-    'DELETING',
-    'DECOMMISSIONED',
-    'DELETED',
-    'N2N_ERRORS',
-    'GATEWAY_ERRORS',
-    'IO_ERRORS',
-    'UNTRUSTED'
-]);
-
 export function countNodesByState(modeCoutners) {
-    const healthy = modeCoutners.OPTIMAL || 0;
-    const offline = modeCoutners.OFFLINE || 0;
-    const hasIssues = sumBy(nodeIssueModes, mode => modeCoutners[mode] || 0);
-    const all = healthy + offline + hasIssues;
-    return { all, healthy, hasIssues, offline };
+    const counters = {
+        all: 0,
+        healthy: 0,
+        offline: 0,
+        hasIssues: 0
+    };
+
+    return Object.entires(modeCoutners.reduce()).reduce(
+        (counters, [key, value]) => {
+            counters.all += value;
+            if (key === 'OPTIMAL') {
+                counters.healthy += value;
+            } else if (key === 'OFFLINE') {
+                counters.offline += value;
+            } else {
+                counters.hasIssues += value;
+            }
+        },
+        counters
+    );
 }
 
 export function getModeFilterFromState(state) {
@@ -271,7 +272,20 @@ export function getModeFilterFromState(state) {
             return ['OPTIMAL'];
 
         case 'HAS_ISSUES':
-            return nodeIssueModes;
+            return [
+                'LOW_CAPACITY',
+                'NO_CAPACITY',
+                'DECOMMISSIONING',
+                'MIGRATING',
+                'DELETING',
+                'DECOMMISSIONED',
+                'DELETED',
+                'N2N_ERRORS',
+                'GATEWAY_ERRORS',
+                'IO_ERRORS',
+                'UNTRUSTED',
+                'INITALIZING'
+            ];
 
         case 'OFFLINE':
             return ['OFFLINE'];

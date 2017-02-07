@@ -245,7 +245,6 @@ function verify_supported_upgrade {
     fi
 }
 
-
 #Node.js Cluster chnages the .spawn behavour. On a normal spawn FDs are not inherited,
 #on a node cluster they are, which meand the listening ports of the webserver are inherited by this upgrade.
 #murder them
@@ -263,7 +262,7 @@ if [ "$1" == "from_file" ]; then
     cp -f $1 ${TMP_PATH}${PACKAGE_FILE_NAME}
     extract_package
     shift
-    ${NEW_UPGRADE_SCRIPT} do_upgrade $@ 
+    ${NEW_UPGRADE_SCRIPT} do_upgrade $@
   else
     deploy_log "upgrade.sh called with ${allargs}"
     echo "Must supply path to upgrade package"
@@ -276,7 +275,6 @@ else
     if [ "$1" == "fsuffix" ]; then
       shift
       LOG_FILE="/var/log/noobaa_deploy_${1}.log"
-      OUT_LOG_FILE="/var/log/noobaa_deploy_out${1}.log"
       FSUFFIX="$1"
       shift
     fi

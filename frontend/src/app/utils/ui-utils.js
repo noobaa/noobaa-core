@@ -244,14 +244,7 @@ export function getPoolCapacityBarValues(pool) {
 }
 
 export function countNodesByState(modeCoutners) {
-    const counters = {
-        all: 0,
-        healthy: 0,
-        offline: 0,
-        hasIssues: 0
-    };
-
-    return Object.entires(modeCoutners.reduce()).reduce(
+    return Object.entries(modeCoutners).reduce(
         (counters, [key, value]) => {
             counters.all += value;
             if (key === 'OPTIMAL') {
@@ -261,8 +254,9 @@ export function countNodesByState(modeCoutners) {
             } else {
                 counters.hasIssues += value;
             }
+            return counters;
         },
-        counters
+        { all: 0, healthy: 0, offline: 0, hasIssues: 0 }
     );
 }
 

@@ -37,8 +37,8 @@ node('node2') {
         sh script: """
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
-              nvm install 6.9.1
-              nvm use 6.9.1
+              nvm install 6.9.4
+              nvm use 6.9.4
               cd $WORKSPACE
               npm install
               npm install azure

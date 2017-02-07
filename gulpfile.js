@@ -147,7 +147,7 @@ function package_build_task() {
         .then(function(res) { //build agent distribution setup
             if (!use_local_executable) {
                 gutil.log('before downloading setup and rest');
-                return P.resolve()
+                return P.resolve()                    
                     .then(() => fs_utils.create_path(DEST))
                     .then(function() {
                         return promise_utils.exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version);
@@ -171,7 +171,7 @@ function package_build_task() {
             return promise_utils.exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
         })
         .then(function() {
-            return promise_utils.exec('curl -o- https://nodejs.org/dist/v6.9.1/node-v6.9.1-linux-x64.tar.xz >build/public/node-v6.9.1-linux-x64.tar.xz', [], process.cwd());
+            return promise_utils.exec('curl -o- https://nodejs.org/dist/v6.9.4/node-v6.9.4-linux-x64.tar.xz >build/public/node-v6.9.4-linux-x64.tar.xz', [], process.cwd());
         })
         .then(function() {
             //call for packing

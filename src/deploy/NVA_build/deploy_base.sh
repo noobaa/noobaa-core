@@ -136,9 +136,9 @@ function install_nodejs {
 	curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash
     export NVM_DIR="$HOME/.nvm"
     source /root/.nvm/nvm.sh
-    nvm install 6.9.1
-	nvm alias default 6.9.1
-    nvm use 6.9.1
+    nvm install 6.9.4
+	nvm alias default 6.9.4
+    nvm use 6.9.4
     cd ~
     ln -sf $(which node) /usr/local/bin/node
 

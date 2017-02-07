@@ -98,7 +98,8 @@ function _get_tiering_pools_status(pools) {
             valid_for_allocation = false;
         }
         pools_status_by_name[pool.name] = {
-            valid_for_allocation: valid_for_allocation
+            valid_for_allocation,
+            num_nodes
         };
     });
     return pools_status_by_name;

@@ -97,7 +97,7 @@ class PoolsTableViewModel extends BaseViewModel {
 
         this.createPoolTooltip = ko.pureComputed(
             () => this.isCreatePoolDisabled() ?
-                'In order to create a pool you must install at least 3 node' :
+                'Not enough nodes to create a new pool, please install at least 3 nodes' :
                 ''
         );
 

@@ -10,12 +10,13 @@ export default function formatTime(target, params) {
             const naked = ko.deepUnwrap(params);
             const {
                 format = isString(naked) ? naked : defaultFormat,
-                timezone = ''
+                timezone = '',
+                notAvailableText  = 'N/A'
             } = naked;
 
             const value = target();
             if (!isNumber(value)) {
-                return 'N/A';
+                return notAvailableText;
             }
 
             const time = timezone ? moment.tz(value, timezone) : moment(value);

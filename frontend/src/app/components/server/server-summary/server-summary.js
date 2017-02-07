@@ -50,7 +50,7 @@ const statusMapping = deepFreeze({
 const barOptions = deepFreeze({
     values: false,
     labels: true,
-    underline: false,
+    underline: true,
     format: 'percentage',
     spacing: 50,
     scale: 1

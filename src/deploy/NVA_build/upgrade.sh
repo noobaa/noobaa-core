@@ -259,7 +259,7 @@ if [ "$1" == "from_file" ]; then
     cp -f $1 ${TMP_PATH}${PACKAGE_FILE_NAME}
     extract_package
     shift
-    ${NEW_UPGRADE_SCRIPT} do_upgrade $@
+    ${NEW_UPGRADE_SCRIPT} do_upgrade $@ 2>&1 | logger -t UPGRADE -p local0.warn
   else
     deploy_log "upgrade.sh called with ${allargs}"
     echo "Must supply path to upgrade package"

@@ -23,7 +23,9 @@ module.exports = {
     reduce_sum: reduce_sum,
     reduce_noop: reduce_noop,
     map_common_prefixes_and_objects: map_common_prefixes_and_objects,
-    reduce_common_prefixes_occurrence_and_objects: reduce_common_prefixes_occurrence_and_objects
+    reduce_common_prefixes_occurrence_and_objects: reduce_common_prefixes_occurrence_and_objects,
+    map_object_size_to_bins: map_object_size_to_bins,
+    reduce_bins: reduce_bins
 };
 
 // declare names that these functions expect to have in scope
@@ -96,6 +98,56 @@ function map_key_with_prefix_delimiter() {
     }
 }
 
+
+
+/**
+ * map function for stats_aggregator - map object size in a bucket to a histogram bin
+ * @this mongodb doc being mapped
+ */
+function map_object_size_to_bins() {
+    const size = this.size / (1024 * 1024);
+    const bins = [0, 5, 100, 1000, 100000, 1000000, 10000000];
+    var map_arr = [];
+    // go over all bins, and set 1 in count and the size as sum for the correct bin
+    // emit the result for this bucket
+    var found = false;
+    for (var i = bins.length - 1; i >= 0; --i) {
+        if (size >= bins[i] && !found) {
+            found = true;
+            map_arr[i] = {
+                count: 1,
+                aggregated_sum: size,
+            };
+        } else {
+            map_arr[i] = {
+                count: 0,
+                aggregated_sum: 0,
+            };
+        }
+    }
+    var hist_element = {
+        bins: map_arr
+    };
+    emit(this.bucket, hist_element);
+}
+
+
+/**
+ * reduce mapped objects sizes to histogram count\sum
+ */
+function reduce_bins(key, values) {
+    var reduced_array = values[0].bins;
+    for (var i = 1; i < values.length; i++) {
+        var map_arr = values[i].bins;
+        for (var j = 0; j < map_arr.length; j++) {
+            reduced_array[j].count += map_arr[j].count;
+            reduced_array[j].aggregated_sum += map_arr[j].aggregated_sum;
+        }
+    }
+    return {
+        bins: reduced_array
+    };
+}
 
 
 // a map-reduce part for summing up

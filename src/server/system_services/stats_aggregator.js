@@ -20,10 +20,10 @@ const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
+const MDStore = require('../object_services/md_store').MDStore;
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
-const SCALE_BYTES_TO_MB = 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 
 var successfuly_sent_period = 0;
@@ -213,25 +213,12 @@ function get_ops_stats(req) {
 }
 
 function get_bucket_sizes_stats(req) {
-    return P.all(_.map(system_store.data.buckets,
-            bucket => {
-                // TODO disabled the object listing here which crashes the process out of memory
-                return [];
-                // let new_req = req;
-                // new_req.rpc_params.bucket = bucket.name;
-                // return object_server.list_objects(new_req);
-            }
-        ))
-        .then(bucket_arr => {
-            let histo_arr = [];
-            _.each(bucket_arr, bucket_res => {
-                let objects_histo = get_empty_objects_histo();
-                _.forEach(bucket_res.objects, obj =>
-                    objects_histo.histo_size.add_value(obj.info.size / SCALE_BYTES_TO_MB));
-                histo_arr.push(_.mapValues(objects_histo, histo => histo.get_object_data(false)));
-            });
-            return histo_arr;
-        });
+    return MDStore.instance().aggregate_object_size_by_ranges()
+        .then(res => res.map(bucket_stats => {
+            let objects_histo = get_empty_objects_histo();
+            objects_histo.histo_size.add_aggregated_values(bucket_stats);
+            return _.mapValues(objects_histo, histo => histo.get_object_data(false));
+        }));
 }
 
 function get_pool_stats(req) {

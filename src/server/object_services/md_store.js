@@ -329,6 +329,24 @@ class MDStore {
             });
     }
 
+    ////////////////
+    //    STATS   //
+    ////////////////
+
+    aggregate_object_size_by_ranges() {
+        return this._objects.col().mapReduce(
+                mongo_functions.map_object_size_to_bins,
+                mongo_functions.reduce_bins, {
+                    query: { deleted: null },
+                    out: {
+                        inline: 1
+                    }
+                }
+            )
+            .then(res => res.map(b => b.value.bins));
+    }
+
+
 
     ////////////////
     // CLOUD SYNC //

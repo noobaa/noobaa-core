@@ -2,7 +2,8 @@ import template from './pools-table.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
-import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, keyByProperty } from 'utils/core-utils';
+import { countNodesByState } from 'utils/ui-utils';
 import { navigateTo } from 'actions';
 import { routeContext, systemInfo } from 'model';
 import { inputThrottle } from 'config';
@@ -30,8 +31,13 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'onlineCount',
-        label: 'online',
+        name: 'healthyCount',
+        label: 'healthy',
+        sortable: true
+    },
+    {
+        name: 'issuesCount',
+        label: 'issues',
         sortable: true
     },
     {
@@ -77,13 +83,28 @@ const poolsToBuckets = ko.pureComputed(
     }
 );
 
+const poolsNodeCounters = ko.pureComputed(
+    () => {
+        const nodePools = (systemInfo() ? systemInfo().pools : []).filter(
+            pool => pool.nodes
+        );
+
+        return keyByProperty(
+            nodePools,
+            'name',
+            pool => countNodesByState(pool.nodes.by_mode)
+        );
+    }
+);
+
 const compareAccessors = deepFreeze({
-    state: pool => pool.nodes.online >= 3,
+    state: pool => pool.mode,
     name: pool => pool.name,
     buckets: pool => (poolsToBuckets()[pool.name] || []).length,
-    nodeCount: pool => pool.nodes.count,
-    onlineCount: pool => pool.nodes.online,
-    offlineCount: pool => pool.nodes.count - pool.nodes.online,
+    nodeCount: pool => poolsNodeCounters()[pool.name].all,
+    healthyCount: pool => poolsNodeCounters()[pool.name].healthy,
+    issuesCount: pool => poolsNodeCounters()[pool.name].hasIssues,
+    offlineCount: pool => poolsNodeCounters()[pool.name].offline,
     capacity: pool => pool.storage.used
 });
 

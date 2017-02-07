@@ -304,6 +304,9 @@ function delete_bucket(req) {
             system_id: req.system._id.toString()
         }, {
             auth_token: req.auth_token
+        }).catch(err => {
+            // don't fail delete_bucket if refresh_policy fails
+            dbg.error('got error on refresh_policy when deleting bucket. bucket=', bucket.name, 'error:', err);
         }))
         .then(res => {
             //TODO NEED TO INSERT CODE THAT DELETES BUCKET ID FROM ALL ACCOUNT PERMISSIONS;

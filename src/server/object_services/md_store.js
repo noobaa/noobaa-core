@@ -329,6 +329,69 @@ class MDStore {
             });
     }
 
+    ////////////////
+    //    STATS   //
+    ////////////////
+
+    aggregate_object_size_by_ranges() {
+        let emit;
+
+        /**
+         * @this mongodb doc being mapped
+         */
+        function map_ranges() {
+            const size = this.size / (1024 * 1024);
+            const bins = [0, 5, 100, 1000, 100000, 1000000, 10000000];
+            var map_arr = [];
+            // go over all bins, and set 1 in count and the size as sum for the correct bin
+            // emit the result for this bucket
+            var found = false;
+            for (var i = bins.length - 1; i >= 0; --i) {
+                if (size >= bins[i] && !found) {
+                    found = true;
+                    map_arr[i] = {
+                        count: 1,
+                        aggregated_sum: size,
+                    };
+                } else {
+                    map_arr[i] = {
+                        count: 0,
+                        aggregated_sum: 0,
+                    };
+                }
+            }
+            var hist = {
+                bins: map_arr
+            };
+            emit(this.bucket, hist);
+        }
+
+        function reduce_ranges(key, values) {
+            var reduced_array = values[0].bins;
+            for (var i = 1; i < values.length; i++) {
+                var map_arr = values[i].bins;
+                for (var j = 0; j < map_arr.length; j++) {
+                    reduced_array[j].count += map_arr[j].count;
+                    reduced_array[j].aggregated_sum += map_arr[j].aggregated_sum;
+                }
+            }
+            return {
+                bins: reduced_array
+            };
+        }
+
+        return this._objects.col().mapReduce(
+                map_ranges,
+                reduce_ranges, {
+                    out: {
+                        inline: 1
+                    }
+                }
+            )
+            .then(res => res.map(b => b.value.bins));
+    }
+
+
 
     ////////////////
     // CLOUD SYNC //

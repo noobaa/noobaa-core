@@ -49,6 +49,13 @@ Histogram.prototype.add_value = function(value) {
     }
 };
 
+Histogram.prototype.add_values_batch = function(val_arr) {
+    for (var i = this._bins.length - 1; i >= 0; --i) {
+        this._bins[i].count += val_arr[i].count;
+        this._bins[i].aggregated_sum += val_arr[i].aggregated_sum;
+    }
+};
+
 Histogram.prototype.get_object_data = function(skip_master_label) {
     var ret = {
         master_label: skip_master_label ? this._master_label : '',

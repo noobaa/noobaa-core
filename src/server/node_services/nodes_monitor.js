@@ -2063,8 +2063,7 @@ class NodesMonitor extends EventEmitter {
             .then(res => {
                 dbg.log2('test_node_network', self_test_params, 'returned', res);
                 return res;
-            }
-            
+            });
     }
 
     collect_agent_diagnostics(node_identity) {

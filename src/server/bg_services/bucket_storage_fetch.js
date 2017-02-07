@@ -75,7 +75,7 @@ function background_worker() {
                     objects_count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0,
                     last_update: till_date.getTime(),
                 };
-                dbg.log0('Bucket storage stats before deltas:', new_storage_stats);
+                dbg.log3('Bucket storage stats before deltas:', new_storage_stats);
                 let bigint_ex_chunks_agg = new BigInteger((existing_chunks_aggregate[bucket._id] && existing_chunks_aggregate[bucket._id].compress_size) || 0);
                 let bigint_de_chunks_agg = new BigInteger((deleted_chunks_aggregate[bucket._id] && deleted_chunks_aggregate[bucket._id].compress_size) || 0);
                 let bigint_ex_obj_agg = new BigInteger((existing_objects_aggregate[bucket._id] && existing_objects_aggregate[bucket._id].size) || 0);
@@ -96,7 +96,7 @@ function background_worker() {
                 new_storage_stats.objects_count += delta_object_count;
                 new_storage_stats.objects_hist = build_objects_hist(bucket, existing_objects_aggregate, deleted_objects_aggregate);
 
-                dbg.log0('Bucket storage stats after deltas:', new_storage_stats);
+                dbg.log3('Bucket storage stats after deltas:', new_storage_stats);
                 return {
                     _id: bucket._id,
                     storage_stats: new_storage_stats,

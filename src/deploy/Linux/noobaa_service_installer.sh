@@ -32,10 +32,10 @@ if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo_to_log "systemctl daemons reloaded"
   verify_command_run systemctl enable noobaalocalservice
   echo_to_log "Starting Service"
-  verify_command_run systemctl start noobaalocalservice
-  echo_to_log "Service started"
   verify_command_run systemctl daemon-reload
-echo_to_log "systemctl daemons reloaded"
+  echo_to_log "systemctl daemons reloaded"
+  verify_command_run systemctl restart noobaalocalservice
+  echo_to_log "Service started"
 elif [[ -d /etc/init ]]; then
   echo_to_log "Upstart detected. Creating startup script"
   cp /usr/local/noobaa/src/agent/upstart.conf /etc/init/noobaalocalservice.conf

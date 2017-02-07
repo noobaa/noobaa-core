@@ -34,8 +34,6 @@ function echo_to_log {
 echo_to_log "Uninstalling NooBaa local service"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo_to_log "Systemd detected. Uninstalling service"
-  systemctl stop noobaalocalservice
-  echo_to_log "Service stopped. Disabling service"
   verify_command_run systemctl disable noobaalocalservice
   echo_to_log "Service disabled. removing config files"
   #attempting to uninstall bruteforce service installations

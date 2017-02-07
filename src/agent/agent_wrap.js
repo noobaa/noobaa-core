@@ -61,10 +61,10 @@ fs_utils.file_delete(SETUP_FILENAME)
     })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => P.delay(2000)) // Not sure why this is necessary, but it is.
-    .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null 2>&1'))
+    .then(() => promise_utils.exec('setsid ' + SETUP_FILENAME + ' >> /dev/null'))
     .then(() => promise_utils.retry(NUM_UPGRADE_WARNINGS, TIME_BETWEEN_WARNINGS, attempts => {
         let msg = `Still upgrading. ${(NUM_UPGRADE_WARNINGS - attempts) * (TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
         if (attempts !== NUM_UPGRADE_WARNINGS) dbg.warn(msg);
-        throw Error(msg);
+        throw new Error(msg);
     }))
     .catch(err => dbg.error(err));

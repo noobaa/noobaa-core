@@ -249,23 +249,23 @@ function pre_upgrade {
         echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
     fi
 
-	#install nvm use v6.9.1
+	#install nvm use v6.9.4
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
 	chmod 777 ~/.nvm/nvm.sh
-	mkdir /tmp/v6.9.1
-	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v6.9.1-linux-x64.tar.xz /tmp/
-	tar -xJf /tmp/node-v6.9.1-linux-x64.tar.xz -C /tmp/v6.9.1 --strip-components 1
-	mkdir -p ~/.nvm/versions/node/v6.9.1/
-	mv /tmp/v6.9.1/* ~/.nvm/versions/node/v6.9.1/
+	mkdir /tmp/v6.9.4
+	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v6.9.4-linux-x64.tar.xz /tmp/
+	tar -xJf /tmp/node-v6.9.4-linux-x64.tar.xz -C /tmp/v6.9.4 --strip-components 1
+	mkdir -p ~/.nvm/versions/node/v6.9.4/
+	mv /tmp/v6.9.4/* ~/.nvm/versions/node/v6.9.4/
 	export NVM_DIR="$HOME/.nvm"
 	. "$NVM_DIR/nvm.sh"
-	export PATH=~/.nvm/versions/node/v6.9.1/bin:$PATH
+	export PATH=~/.nvm/versions/node/v6.9.4/bin:$PATH
 	rm -f /usr/local/bin/node
-	ln -s  ~/.nvm/versions/node/v6.9.1/bin/node /usr/local/bin/node
-	nvm alias default 6.9.1
-	nvm use 6.9.1
+	ln -s  ~/.nvm/versions/node/v6.9.4/bin/node /usr/local/bin/node
+	nvm alias default 6.9.4
+	nvm use 6.9.4
 }
 
 function post_upgrade {

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# redirect the output log file to syslog (http://urbanautomaton.com/blog/2014/09/09/redirecting-bash-script-output-to-syslog)
+exec 1> >(logger -t UPGRADE -p local0.warn) 2>&1
+
 EXTRACTION_PATH="/tmp/test/"
 
 . ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh

@@ -12,6 +12,7 @@ function deploy_log {
     local now=$(date)
     echo "${now} $*" >> ${LOG_FILE}
     echo "${now} $*"
+    logger -t UPGRADE -p local0.warn "$*"
 }
 
 function install_platform {

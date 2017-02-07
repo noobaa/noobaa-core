@@ -77,26 +77,29 @@ class BacketPlacementPolicyModalViewModel extends BaseViewModel {
             }
         });
 
-        this.errors = ko.validation.group(this);
+        const poolsByName = ko.pureComputed(
+            () => keyByProperty(this.pools(), 'name')
+        );
 
         this.isWarningVisible = ko.pureComputed(
             () => {
                 if (this.placementType() === 'MIRROR') {
                     return false;
-
-                } else {
-                    const poolsByNames = keyByProperty(this.pools(), 'name');
-                    const hasNodesPool = this.selectedPools().some(
-                        name => Boolean(poolsByNames[name].nodes)
-                    );
-                    const hasCloudResource = this.selectedPools().some(
-                        name => Boolean(poolsByNames[name].cloud_info)
-                    );
-
-                    return hasNodesPool && hasCloudResource;
                 }
+
+                const selectedPools = this.selectedPools();
+                const hasNodesPool = selectedPools.some(
+                    name => Boolean(poolsByName()[name].nodes)
+                );
+                const hasCloudResource = selectedPools.some(
+                    name => Boolean(poolsByName()[name].cloud_info)
+                );
+
+                return hasNodesPool && hasCloudResource;
             }
         );
+
+        this.errors = ko.validation.group(this);
     }
 
     backToEdit() {

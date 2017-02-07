@@ -10,7 +10,7 @@ const height = 168;
 const minWidth = 168;
 const gutter = 19;
 const barWidth = 45;
-const maxBarHeight = height - 2 * gutter;
+const maxBarHeight = height - 2.2 * gutter;
 const minBarHeight = 2;
 
 const labelFont = `${style['font-size1']} ${style['font-family1']}`;
@@ -171,7 +171,7 @@ class BarChartViewModel extends BaseViewModel {
 
     drawUnderline(ctx) {
         ctx.fillStyle = underlineColor;
-        ctx.fillRect(0, this.canvasHeight - gutter, this.canvasWidth(), 1);
+        ctx.fillRect(0, gutter + maxBarHeight, this.canvasWidth(), 1);
     }
 }
 

@@ -9,4 +9,5 @@ chmod 777 /usr/local/noobaa/remove_service.sh
 
 /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_uninstall.js --remove_agent_storage
 rm -rf /usr/local/noobaa
+systemctl stop noobaalocalservice >> /dev/null
 echo "NooBaa agent removed"

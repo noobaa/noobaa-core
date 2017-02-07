@@ -181,9 +181,12 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         );
 
         const clock = ko.pureComputed(
-            () => this.clock()
+            () => this.clock() || undefined
         ).extend({
-            formatTime: timeLongFormat
+            formatTime: {
+                format: timeLongFormat,
+                notAvailableText: 'Not available'
+            }
         });
 
         return { icon, tooltip, clock, ntp };

@@ -94,46 +94,58 @@ export default class ServerRowViewModel extends BaseViewModel {
             () => {
                 if(!server()) {
                     return '';
+
+                } else if (server().status === 'DISCONNECTED') {
+                    return '---';
+
+                } else {
+                    const { free, total } = server().storage;
+                    const used = total - free;
+                    const usedRatio = used / total;
+                    const text = numeral(usedRatio).format('0%');
+                    const tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
+
+                    let css = '';
+                    if(usedRatio >= diskUsageWarningBound) {
+                        css = usedRatio >= diskUsageErrorBound ? 'error' : 'warning';
+                    }
+
+                    return { text, tooltip, css };
                 }
-
-                const { free, total } = server().storage;
-                const used = total - free;
-                const usedRatio = used / total;
-                const text = numeral(usedRatio).format('0%');
-                const tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
-
-                let css = '';
-                if(usedRatio >= diskUsageWarningBound) {
-                    css = usedRatio >= diskUsageErrorBound ? 'error' : 'warning';
-                }
-
-                return { text, tooltip, css };
             }
         );
 
         this.memoryUsage = ko.pureComputed(
             () => {
                 if (!server()) {
-                    return 'N/A';
-                }
+                    return '';
 
-                return {
-                    text: numeral(server().memory_usage).format('%'),
-                    tooltip: 'Avg. over the last minute'
-                };
+                } else if (server().status === 'DISCONNECTED') {
+                    return '---';
+
+                } else {
+                    return {
+                        text: numeral(server().memory_usage).format('%'),
+                        tooltip: 'Avg. over the last minute'
+                    };
+                }
             }
         );
 
         this.cpuUsage = ko.pureComputed(
             () => {
                 if (!server()) {
-                    return 'N/A';
-                }
+                    return '';
 
-                return {
-                    text: numeral(server().cpus.usage).format('%'),
-                    tooltip: 'Avg. over the last minute'
-                };
+                } else if (server().status === 'DISCONNECTED') {
+                    return '---';
+
+                } else {
+                    return {
+                        text: numeral(server().cpus.usage).format('%'),
+                        tooltip: 'Avg. over the last minute'
+                    };
+                }
             }
         );
 

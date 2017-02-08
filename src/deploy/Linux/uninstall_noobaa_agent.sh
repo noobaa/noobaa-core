@@ -5,6 +5,7 @@ PATH=/usr/local/noobaa:$PATH;
 
 #attempting to remove service installations
 chmod 777 /usr/local/noobaa/remove_service.sh
+systemctl stop noobaalocalservice >> /dev/null
 /usr/local/noobaa/remove_service.sh
 
 /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_uninstall.js --remove_agent_storage

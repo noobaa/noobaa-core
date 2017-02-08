@@ -35,10 +35,11 @@ const libs = [
     { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
     { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' },
     { name: 'chartjs',              path: './src/lib/chart.js/dist/Chart.js' },
-    { name: 'rx',                   path: './src/lib/rxjs/dist/rx.lite.js' }
+    { name: 'rx',                   path: './src/lib/rxjs/dist/rx.lite.js' },
+    { name: 'big-integer',          path: './src/lib/big-integer/BigInteger.min.js'}
 ];
 
-let apiBlackList = [
+const apiBlackList = [
     'rpc_ws_server',
     'rpc_n2n_agent',
     'rpc_tcp_server',

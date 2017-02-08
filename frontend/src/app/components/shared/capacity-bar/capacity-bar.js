@@ -1,7 +1,6 @@
 import template from './capacity-bar.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { isArray } from 'utils/core-utils';
 import { sumSize, formatSize, toBytes } from 'utils/size-utils';
 import style from 'style';
 
@@ -19,7 +18,7 @@ class CapacityBarViewModel extends BaseViewModel {
         const sum = ko.pureComputed(
             () => {
                 const usedNaked = ko.deepUnwrap(used);
-                if (isArray(usedNaked)) {
+                if (Array.isArray(usedNaked)) {
                     const sizeList = usedNaked.map( ({ value }) => value );
                     return sumSize(...sizeList);
                 } else {
@@ -78,7 +77,7 @@ class CapacityBarViewModel extends BaseViewModel {
         this.tooltip = ko.pureComputed(
             () => {
                 const usedNaked = ko.deepUnwrap(used);
-                if (!isArray(usedNaked)) {
+                if (!Array.isArray(usedNaked)) {
                     return;
                 }
 

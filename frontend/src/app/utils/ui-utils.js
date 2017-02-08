@@ -1,4 +1,4 @@
-import { deepFreeze, isFunction, sumBy } from './core-utils';
+import { deepFreeze, isFunction } from './core-utils';
 import { toBytes, formatSize } from './size-utils';
 import numeral from 'numeral';
 

@@ -1,38 +1,39 @@
-const unit = 1024;
-const petaInBytes = Math.pow(unit, 5);
-export const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
+import bigInteger from 'big-integer';
+import { deepFreeze } from './core-utils';
 
-function _addSize(size1, size2) {
-    // The order op operations is important in order to
-    // not overflow above one peta.
-    const n = -petaInBytes + size1.n + size2.n;
-    const peta = size1.peta + size2.peta;
-    return {
-        n: n < 0 ? petaInBytes + n : n,
-        peta: peta + Number(n >= 0)
-    };
-}
+const unit = 1024;
+const bytesInPeta = Math.pow(unit, 5);
+
+export const sizeUnits = deepFreeze([
+    ' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'
+]);
+
+export { bigInteger };
 
 // normalize size number or size object to size object.
 export function normalizeSize(sizeOrBytes) {
     const { peta = 0, n = sizeOrBytes } = sizeOrBytes;
-    return { peta, n };
+    return peta !== 0 ? sizeOrBytes : { peta, n };
 }
 
-export function sumSize(...sizeOrBytesList) {
-    return sizeOrBytesList
-        .map(normalizeSize)
-        .reduce(_addSize);
+// Compact a size object to nubmer if possible.
+export function compactSize(sizeOrBytes) {
+    const { peta, n } = normalizeSize(sizeOrBytes);
+    return peta === 0 ? n : sizeOrBytes;
 }
 
-export function addSize(sizeOrBytes1, sizeOrBytes2) {
-    return _addSize(normalizeSize(sizeOrBytes1, sizeOrBytes2));
+export function toBigInteger(sizeOrBytes) {
+    const { n, peta } = normalizeSize(sizeOrBytes);
+    return _toBigInteger(n, peta);
 }
 
-// export function subtrcutSize(sizeOrBytes1, sizeOrBytes2) {
-//     const { peta, n } = normalizeSize(sizeOrBytes2);
-//     return _addSize(sizeOrBytes2, { peta: -peta, n: -n });
-// }
+export function fromBigInteger(bi) {
+    const { quotient, remainder } = bi.divmod(bytesInPeta);
+    return compactSize({
+        peta: quotient.toJSNumber(),
+        n: remainder.toJSNumber()
+    });
+}
 
 // This function, if passed a size object, will convert the object to a non exact
 // integer representation of the size object. A difference may happen for sizes above
@@ -40,7 +41,30 @@ export function addSize(sizeOrBytes1, sizeOrBytes2) {
 // represent very big numbers.
 export function toBytes(sizeOrBytes){
     const { peta, n } = normalizeSize(sizeOrBytes);
-    return peta * petaInBytes + n;
+    return peta * bytesInPeta + n;
+}
+
+export function interpolateSizes(sizeOrBytes1 = 0, sizeOrBytes2 = 0, t) {
+    const bi1 = toBigInteger(sizeOrBytes1);
+    const bi2 = toBigInteger(sizeOrBytes2);
+
+    // Interpolates bi1 and bi2 using the the formola bi1 + (bi2 - bi1) * t
+    // where 0 <= t <= 1. The interpolation is written using Numbers because bigInteger
+    // does not support multiplication with a fraction. The algorithm it guaranteed to
+    // work because t is defined as friction between 0 and 1.
+    const { quotient, remainder } = bi2.subtract(bi1).divmod(bytesInPeta);
+    const peta = Math.floor(quotient * t);
+    const n = Math.round(remainder * t + (quotient % 1) * bytesInPeta);
+    return fromBigInteger(_toBigInteger(n, peta).add(bi1));
+}
+
+export function sumSize(...sizeOrBytesList) {
+    return fromBigInteger(
+        sizeOrBytesList.reduce(
+            (sum, size) => sum.add(toBigInteger(size)),
+            bigInteger.zero
+        )
+    );
 }
 
 // Format a size number or size object to human readable string.
@@ -50,7 +74,7 @@ export function formatSize(sizeOrBytes) {
 
     if (peta > 0) {
         i = 5;
-        n = peta + n / petaInBytes;
+        n = peta + n / bytesInPeta;
     }
 
     while (n / unit >= 1) {
@@ -63,4 +87,13 @@ export function formatSize(sizeOrBytes) {
     }
 
     return `${n}${sizeUnits[i]}`;
+}
+
+// ----------------------------------
+// Internal Helpers
+// ----------------------------------
+function _toBigInteger(n, peta) {
+    return bigInteger(bytesInPeta)
+        .multiply(peta)
+        .add(n);
 }

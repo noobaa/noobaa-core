@@ -280,30 +280,21 @@ function handle_options(req, res, next) {
 }
 
 function read_post_body(req, res, next) {
-
-    //temporary fix for put_bucket_lifecycle
-    //We need this body in this case, and want to avoid reading the body for
-    //other requests, like put_object
-
-    if (req.headers['content-type'] === 'application/xml' ||
-        req.headers['content-type'] === 'text/xml' ||
-        (req.headers['content-type'] === 'application/octet-stream' &&
-            (req.method === 'POST' ||
-            (req.method === 'PUT' && 'lifecycle' in req.query)))) {
-
-        let data = '';
-        req.setEncoding('utf8');
-        req.on('data', function(chunk) {
-            data += chunk;
-        });
-        req.on('end', function() {
-            req.body = data;
-            next();
-        });
-
-    } else {
+    // We are not interested in reading the body when we upload objects
+    if ((req.method === 'POST' || req.method === 'PUT') &&
+        req._parsedUrl.pathname.split('/').length > 2) {
         return next();
     }
+
+    let data = '';
+    req.setEncoding('utf8');
+    req.on('data', function(chunk) {
+        data += chunk;
+    });
+    req.on('end', function() {
+        req.body = data;
+        next();
+    });
 }
 
 function handle_testme(req, res, next) {

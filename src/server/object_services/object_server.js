@@ -680,7 +680,6 @@ function list_objects_s3(req) {
                 marker,
                 limit
             })
-            .then()
             .then(res => {
                 res = _.map(res, r => (
                     r.obj ? {

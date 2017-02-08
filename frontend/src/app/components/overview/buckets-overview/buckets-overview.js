@@ -1,29 +1,45 @@
 import template from './buckets-overview.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
+import { loadSystemUsageHistory } from 'actions';
+import style from 'style';
+import moment from 'moment';
 import { systemInfo, systemUsageHistory } from 'model';
-import { deepFreeze, keyBy, interpolateLinear } from 'utils/core-utils';
 import { hexToRgb } from 'utils/color-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { toBytes, formatSize, sumSize } from 'utils/size-utils';
-import { aggregateStorage } from 'utils/storage-utils';
-import style from 'style';
-import moment from 'moment';
-import { loadSystemUsageHistory } from 'actions';
+import { aggregateStorage, interpolateStorage } from 'utils/storage-utils';
+import { deepFreeze, keyBy, isFunction } from 'utils/core-utils';
 
 const durationOptions = deepFreeze([
     {
-        label: 'Last Week',
+        label: 'Day',
         value: {
-            duration: 7,
-            stepSize: 1
+            duration: 24,
+            stepSize: 4,
+            stepUnit: 'hour',
+            tickFormat: 'HH:mm',
+            pointRadius: 1
         }
     },
     {
-        label : 'Last Month',
+        label: 'Week',
+        value: {
+            duration: 7,
+            stepSize: 1,
+            stepUnit: 'day',
+            tickFormat: 'D MMM',
+            pointRadius: 0
+        }
+    },
+    {
+        label : 'Month',
         value: {
             duration: 30,
-            stepSize: 6
+            stepSize: 6,
+            stepUnit: 'day',
+            tickFormat: 'D MMM',
+            pointRadius: 0
         }
     }
 ]);
@@ -33,37 +49,35 @@ const chartDatasets = deepFreeze([
         key: 'used',
         label: 'Used',
         labelPadding: 10,
-        color: hexToRgb(style['color8'], .4),
+        color: hexToRgb(style['color8']),
         fill: hexToRgb(style['color8'], .3)
     },
     {
         key: 'unavailable_free',
         label: 'Unavailable',
         labelPadding: 10,
-        color: hexToRgb(style['color6'], .4),
+        color: hexToRgb(style['color6']),
         fill: hexToRgb(style['color6'], .3)
     },
     {
         key: 'free',
         label: 'Free',
         labelPadding: 10,
-        color: hexToRgb(style['color16'], .4),
+        color: hexToRgb(style['color16']),
         fill: hexToRgb(style['color16'], .3)
     }
 ]);
 
 function interpolateSamples(sample0, sample1, time) {
-    const dt = (time - sample0.timestamp) / (sample1.timestamp - sample0.timestamp);
-    return keyBy(
-        chartDatasets,
-        ({ key }) => key,
-        ({ key }) => interpolateLinear(sample0.storage[key], sample1.storage[key], dt)
-    );
+    const t = (time - sample0.timestamp) / (sample1.timestamp - sample0.timestamp);
+    return interpolateStorage(sample0.storage, sample1.storage, t);
 }
 
 function filterSamples(samples, start, end, includeCloudStorage) {
+    // We clone the array before sorting because Array.sort changes the
+    // array and will not work if the array is immutable.
     const sorted = Array.from(samples).sort(
-        (p1, p2) => p1.timestamp - p2.timestamp
+        (a, b) => a.timestamp - b.timestamp
     );
 
     const filtered = [];
@@ -104,7 +118,7 @@ function filterSamples(samples, start, end, includeCloudStorage) {
     return aggregated;
 }
 
-function getChartOptions(samples, start, end, stepSize) {
+function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
     const gutter = parseInt(style['gutter']);
 
     const useFixedMax = samples.every(
@@ -117,6 +131,9 @@ function getChartOptions(samples, start, end, stepSize) {
     const { timezone } = cluster.shards[0].servers.find(
         ({ secret }) => secret === cluster.master_secret
     );
+
+    const formatFunc = isFunction(tickFormat) ? tickFormat : () => tickFormat;
+    const tickFormatter = t => moment.tz(t, timezone).format(formatFunc(t).toString());
 
     return {
         responsive: true,
@@ -134,11 +151,11 @@ function getChartOptions(samples, start, end, stepSize) {
                         color: style['color15']
                     },
                     ticks: {
-                        callback: t => moment.tz(t, timezone).format('D MMM'),
+                        callback: tickFormatter,
                         maxTicksLimit: 10000,
                         min: start,
                         max: end,
-                        stepSize: moment.duration(stepSize, 'days').asMilliseconds(),
+                        stepSize: moment.duration(stepSize, stepUnit).asMilliseconds(),
                         fontColor: style['color7'],
                         fontFamily: style['font-family1'],
                         fontSize: 8,
@@ -184,7 +201,7 @@ function getChartOptions(samples, start, end, stepSize) {
             bodyFontSize: parseInt(style['font-size1']),
             bodySpacing: gutter / 2,
             callbacks: {
-                title: items => moment.tz(items[0].xLabel, timezone).format('D MMM HH:mm:ss'),
+                title: items => moment.tz(items[0].xLabel, timezone).format('D MMM HH:mm'),
                 label: item => {
                     const { label } = chartDatasets[item.datasetIndex];
                     const value = formatSize(item.yLabel);
@@ -199,19 +216,20 @@ function getChartOptions(samples, start, end, stepSize) {
     };
 }
 
-function getChartData(samples) {
+function getChartData(samples, pointRadius) {
     const datasets = chartDatasets.map(
         ({ key, color, fill }) => ({
             lineTension: 0,
             borderWidth: 1,
             borderColor: color,
             backgroundColor: fill,
-            pointRadius: 0,
+            pointRadius: pointRadius,
             pointHitRadius: 10,
             data: samples.map(
                 ({ timestamp, storage }) => ({
                     x: timestamp,
-                    y: toBytes(storage[key])
+                    y: toBytes(storage[key]),
+                    radius: 10
                 })
             )
         })
@@ -225,10 +243,9 @@ class BucketsOverviewViewModel extends BaseViewModel {
     constructor() {
         super();
 
-        // These cannot be declered as constants because they need to update
-        // every time the component is instantize so they will not be too stale.
+        // This cannot be declered as constant because the value need to be updated
+        // to the time the component is instantize so it will not be too stale.
         this.now = Date.now();
-        this.endOfDay = moment(this.now).add(1, 'day').startOf('day').valueOf();
 
         this.bucketCount = ko.pureComputed(
             () => {
@@ -248,6 +265,8 @@ class BucketsOverviewViewModel extends BaseViewModel {
                     pool => pool.cloud_info ? 'cloud' : 'nodes',
                     (pool, list = []) => (list.push(pool.storage), list)
                 );
+
+                console.warn(aggregateStorage(...cloud));
 
                 return {
                     timestamp: this.now,
@@ -280,9 +299,12 @@ class BucketsOverviewViewModel extends BaseViewModel {
                     return { options: {}, data: {} };
                 }
 
-                const { stepSize, duration } = this.selectedDuration();
-                const start = this.endOfDay - moment.duration(duration, 'days').asMilliseconds();
-                const end = this.endOfDay;
+                const { duration, stepSize, stepUnit, tickFormat,
+                    pointRadius } = this.selectedDuration();
+
+                const t = moment(this.now).add(1, stepUnit).startOf(stepUnit);
+                const end = t.valueOf();
+                const start = t.subtract(duration, stepUnit).startOf(stepUnit).valueOf();
                 const samples = filterSamples(
                     (systemUsageHistory() || []).concat(currentUsage()),
                     start,
@@ -291,8 +313,8 @@ class BucketsOverviewViewModel extends BaseViewModel {
                 );
 
                 return {
-                    options: getChartOptions(samples, start, end, stepSize),
-                    data: getChartData(samples)
+                    options: getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat),
+                    data: getChartData(samples, pointRadius)
                 };
             }
         );

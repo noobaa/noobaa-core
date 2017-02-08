@@ -20,10 +20,6 @@ export function deepClone(val) {
     return JSON.parse(JSON.stringify(val));
 }
 
-export function isArray(value){
-    return value instanceof Array;
-}
-
 export function isNumber(value) {
     return typeof value === 'number' || value instanceof Number;
 }
@@ -76,13 +72,13 @@ export function compareArray(a, b) {
     return 0;
 }
 
-export function createCompareFunc(accessor, factor = 1) {
+export function createCompareFunc(valueSelector, factor = 1) {
     return (a,b) => {
-        let key1 = accessor(a);
-        let key2 = accessor(b);
+        let key1 = valueSelector(a);
+        let key2 = valueSelector(b);
 
         return factor * (
-            isArray(key1) ? compareArray(key1, key2) : compare(key1, key2)
+            Array.isArray(key1) ? compareArray(key1, key2) : compare(key1, key2)
         );
     };
 }
@@ -139,7 +135,7 @@ export function flatMap(arr, predicate) {
         (result, item) => {
             let mappedValue = predicate(item);
 
-            if (isArray(mappedValue)) {
+            if (Array.isArray(mappedValue)) {
                 result.push(...mappedValue);
             } else {
                 result.push(mappedValue);
@@ -161,7 +157,11 @@ export function averageBy(array, selector = echo) {
     return sumBy(array, selector) / array.length;
 }
 
-export function keyBy(array, keySelector, valueGenerator = echo) {
+export function keyBy(arrayOrIter, keySelector, valueGenerator = echo) {
+    const array = Array.isArray(arrayOrIter) ?
+        arrayOrIter :
+        Array.from(arrayOrIter);
+
     return array.reduce(
         (map, item) => {
             const key = keySelector(item);

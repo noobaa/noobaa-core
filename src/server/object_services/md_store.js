@@ -446,7 +446,7 @@ class MDStore {
                 deleted: delete_date
             },
             $rename: {
-                obj: 'obj_del',
+                // obj: 'obj_del',
                 num: 'num_del',
             }
         });
@@ -612,9 +612,9 @@ class MDStore {
                 deleted: delete_date
             },
             $rename: {
-                obj: 'obj_del',
+                // obj: 'obj_del',
                 start: 'start_del',
-                chunk: 'chunk_del',
+                // chunk: 'chunk_del',
             }
         });
     }
@@ -876,10 +876,10 @@ class MDStore {
             $set: {
                 deleted: delete_date
             },
-            $rename: {
-                chunk: 'chunk_del',
-                node: 'node_del',
-            }
+            // $rename: {
+            //     chunk: 'chunk_del',
+            //     node: 'node_del',
+            // }
         });
     }
 

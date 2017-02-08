@@ -169,14 +169,14 @@ class MDStore {
 
     find_objects_by_prefix_and_delimiter({ bucket_id, upload_mode, delimiter, prefix, marker, limit }) {
         // filter keys starting with prefix, *not* followed by marker
-        let regexp_text = '^' + prefix;
+        let regexp_text = '^' + _.escapeRegExp(prefix);
         if (marker) {
             if (!marker.startsWith(prefix)) {
                 throw new Error('BAD MARKER ' + marker + ' FOR PREFIX ' + prefix);
             }
             const marker_suffix = marker.slice(prefix.length);
             if (marker_suffix) {
-                regexp_text += '(?!' + marker_suffix + ')';
+                regexp_text += '(?!' + _.escapeRegExp(marker_suffix) + ')';
             }
         }
         const regexp = new RegExp(regexp_text);

@@ -135,8 +135,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
         this.resourceName = ko.observableWithDefault(
             () => {
                 let i = 0;
-                let name = this.targetBucket();
-
+                let name = (this.targetBucket() || '').toLowerCase();
                 while(namesInUse().includes(name)) {
                     name = `${this.targetBucket()}-${++i}`;
                 }

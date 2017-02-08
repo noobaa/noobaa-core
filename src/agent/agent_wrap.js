@@ -82,6 +82,6 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
         CONFIGURATION.TIME_BETWEEN_WARNINGS, attempts => {
             let msg = `Still upgrading. ${(CONFIGURATION.NUM_UPGRADE_WARNINGS - attempts) * (CONFIGURATION.TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
             if (attempts !== CONFIGURATION.NUM_UPGRADE_WARNINGS) dbg.warn(msg);
-            throw Error(msg);
+            throw new Error(msg);
         }))
     .catch(err => dbg.error(err));

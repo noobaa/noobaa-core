@@ -6,6 +6,7 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount} from 'utils/string-utils';
 import { countNodesByState } from 'utils/ui-utils';
+import { hexToRgb } from 'utils/color-utils';
 
 const coutners = deepFreeze({
     ALL: 0,
@@ -14,6 +15,8 @@ const coutners = deepFreeze({
     AZURE: 0,
     S3_COMPATIBLE: 0
 });
+
+const pieColorsOpacityFactor = .5;
 
 class ResourceOverviewViewModel extends BaseViewModel {
     constructor() {
@@ -100,17 +103,17 @@ class ResourceOverviewViewModel extends BaseViewModel {
             {
                 label: 'Online',
                 value: healthyNodesCount,
-                color: style['color12']
+                color: hexToRgb(style['color12'], pieColorsOpacityFactor)
             },
             {
                 label: 'Has issues',
                 value: nodesWithIssuesCount,
-                color: style['color11']
+                color: hexToRgb(style['color11'], pieColorsOpacityFactor)
             },
             {
                 label: 'Offline',
                 value: offlineNodesCount,
-                color: style['color10']
+                color: hexToRgb(style['color10'], pieColorsOpacityFactor)
             }
         ];
 

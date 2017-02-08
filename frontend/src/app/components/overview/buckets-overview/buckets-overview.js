@@ -266,8 +266,6 @@ class BucketsOverviewViewModel extends BaseViewModel {
                     (pool, list = []) => (list.push(pool.storage), list)
                 );
 
-                console.warn(aggregateStorage(...cloud));
-
                 return {
                     timestamp: this.now,
                     nodes: aggregateStorage(...nodes),

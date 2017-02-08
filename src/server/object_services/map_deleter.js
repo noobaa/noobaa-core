@@ -25,11 +25,13 @@ function delete_object_mappings(obj) {
 }
 
 function delete_chunks_if_unreferenced(chunk_ids, delete_date) {
+    dbg.log2('delete_chunks_if_unreferenced: chunk_ids', chunk_ids);
     return MDStore.instance().find_parts_unreferenced_chunk_ids(chunk_ids)
         .then(unreferenced_chunk_ids => delete_chunks(unreferenced_chunk_ids, delete_date));
 }
 
 function delete_chunks(chunk_ids, delete_date) {
+    dbg.log2('delete_chunks: chunk_ids', chunk_ids);
     return P.join(
             MDStore.instance().find_blocks_of_chunks(chunk_ids),
             MDStore.instance().delete_blocks_of_chunks(chunk_ids, delete_date),

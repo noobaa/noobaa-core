@@ -6,8 +6,9 @@ LOG_FILE="/var/log/noobaa_deploy_wrapper.log"
 
 function deploy_log {
 	if [ "$1" != "" ]; then
-			local now=$(date)
-			echo "${now} ${1}" >> ${LOG_FILE}
+        local now=$(date)
+        echo "${now} ${1}" >> ${LOG_FILE}
+        logger -t UPGRADE -p local0.warn "${1}"
 	fi
 }
 

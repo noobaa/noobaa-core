@@ -3,10 +3,12 @@
 
 source ~/.bashrc
 source "$NVM_DIR/nvm.sh"
-nvm install 6.9.4
-nvm alias default 6.9.4
-nvm use 6.9.4
 
+nodever=$(cat ./.nvmrc)
+
+nvm install ${nodever}
+nvm alias default ${nodever}
+nvm use ${nodever}
 
 CLEAN=true;
 #ON_PREMISE means that we are currently building the ON_PREMISE package
@@ -57,7 +59,7 @@ else
         echo "copy files"
         cp ../../package.json ./package/
         cp ../../config.js ./package/
-        cp ~/.nvm/versions/node/v6.9.4/bin/node ./package/
+        cp ~/.nvm/versions/node/v${nodever}/bin/node ./package/
 
         mkdir ./package/src/
         cp -R ../../src/s3 ./package/src/

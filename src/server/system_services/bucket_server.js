@@ -871,8 +871,9 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
 
     let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
     // Note: This do not include special replicas, also it is an estimation regarding optimal condition
-    // This is a temporary fix notice that we lose estimation because we also round the multiplier
-    let bucket_used = bucket_chunks_capacity.multiply(Math.round(mirror_multiplier));
+    const multiplier_denominator = 1000000;
+    const multiplier_numerator = Math.round(mirror_multiplier * multiplier_denominator);
+    let bucket_used = bucket_chunks_capacity.multiply(multiplier_numerator).divide(multiplier_denominator);
     let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
     let bucket_used_other = size_utils.BigInteger.max(
         size_utils.json_to_bigint(_.get(info, 'tiering.storage.used', 0)).minus(bucket_used),

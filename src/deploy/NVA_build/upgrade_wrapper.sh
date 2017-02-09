@@ -254,10 +254,7 @@ function pre_upgrade {
 	mkdir ~/.nvm
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
 	chmod 777 ~/.nvm/nvm.sh
-  local nodever=$(cat ${EXTRACTION_PATH}/noobaa-core/.nvmrc)
-  logger "NBNB:: nodever is ${nodever}"
-  date > /tmp/nodever
-  echo "NBNB:: nodeveris" >> /tmp/nodever
+  local nodever=$(cat ${EXTRACTION_PATH}noobaa-core/.nvmrc)
 	mkdir /tmp/v${nodever}
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v${nodever}-linux-x64.tar.xz /tmp/
 	tar -xJf /tmp/node-v${nodever}-linux-x64.tar.xz -C /tmp/v${nodever} --strip-components 1

@@ -149,13 +149,17 @@ function read_bucket(req) {
 
     let pool_names = pools.map(pool => pool.name);
     return P.join(
-        nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
-        MDStore.instance().count_objects_of_bucket(bucket._id),
-        get_cloud_sync(req, bucket),
-        node_allocator.refresh_tiering_alloc(bucket.tiering)
-    ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
-        return get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy);
-    });
+            nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
+            nodes_client.instance().aggregate_data_free_by_tier(
+                bucket.tiering.tiers.map(tiers_object => tiers_object.tier.name), req.system._id),
+            MDStore.instance().count_objects_of_bucket(bucket._id),
+            get_cloud_sync(req, bucket),
+            node_allocator.refresh_tiering_alloc(bucket.tiering)
+        )
+        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) => {
+            return get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier,
+                num_of_objects, cloud_sync_policy);
+        });
 }
 
 
@@ -822,13 +826,13 @@ function find_bucket(req) {
     return bucket;
 }
 
-function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
+function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
     var tier_of_bucket;
     if (bucket.tiering) {
         // We always have tiering so this if is irrelevant
         tier_of_bucket = bucket.tiering.tiers[0].tier;
-        info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
+        info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool, aggregate_data_free_by_tier);
     }
 
     const tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
@@ -852,12 +856,24 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     info.tag = bucket.tag ? bucket.tag : '';
 
     info.num_objects = num_of_objects || 0;
-    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ?
-        Math.max(_.get(tier_of_bucket, 'mirrors.length', 0), 1) : 1;
+
+    let mirror_multiplier = 0;
+    _.forEach(tier_of_bucket.mirrors, mirror_object => {
+        const on_premise_pools = _.filter(mirror_object.spread_pools, pool => !pool.cloud_pool_info).length;
+        const on_cloud_pools = _.filter(mirror_object.spread_pools, pool => pool.cloud_pool_info).length;
+        const total_pool_count = on_premise_pools + on_cloud_pools;
+
+        if (total_pool_count > 0) {
+            const blocks_multiplier = (on_premise_pools * tier_of_bucket.replicas) + on_cloud_pools;
+            mirror_multiplier += (blocks_multiplier / total_pool_count);
+        }
+    });
+
     let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
-    let bucket_used = bucket_chunks_capacity
-        .multiply(tier_of_bucket.replicas) // JEN TODO when we save on cloud we only create 1 replica
-        .multiply(placement_mul);
+    // Note: This do not include special replicas, also it is an estimation regarding optimal condition
+    const multiplier_denominator = 1000000;
+    const multiplier_numerator = Math.round(mirror_multiplier * multiplier_denominator);
+    let bucket_used = bucket_chunks_capacity.multiply(multiplier_numerator).divide(multiplier_denominator);
     let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
     let bucket_used_other = size_utils.BigInteger.max(
         size_utils.json_to_bigint(_.get(info, 'tiering.storage.used', 0)).minus(bucket_used),
@@ -873,7 +889,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
         size_reduced: bucket_chunks_capacity,
-        actual_free: _.get(info, 'tiering.storage.real', 0)
+        actual_free: _.get(info, 'tiering.data.free', 0)
     });
 
     let stats = bucket.stats;

@@ -91,9 +91,13 @@ function read_tier(req) {
         });
     });
 
-    return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool(_.compact(pool_names), req.system._id))
-        .then(nodes_aggregate_pool => get_tier_info(tier, nodes_aggregate_pool));
+    return P.join(
+            nodes_client.instance().aggregate_nodes_by_pool(_.compact(pool_names), req.system._id),
+            nodes_client.instance().aggregate_data_free_by_tier([tier.name], req.system._id)
+        )
+        .spread(function(nodes_aggregate_pool, available_to_upload) {
+            return get_tier_info(tier, nodes_aggregate_pool, available_to_upload[tier.name]);
+        });
 }
 
 
@@ -248,11 +252,15 @@ function read_policy(req) {
         });
     });
     pools = _.compact(pools);
-
     var pool_names = pools.map(pool => pool.name);
-    return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id))
-        .then(nodes_aggregate_pool => get_tiering_policy_info(policy, nodes_aggregate_pool));
+    return P.join(
+            nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
+            nodes_client.instance().aggregate_data_free_by_tier(
+                policy.tiers.map(tiers_object => tiers_object.tier.name), req.system._id)
+        )
+        .spread(function(nodes_aggregate_pool, aggregate_data_free_by_tier) {
+            return get_tiering_policy_info(policy, nodes_aggregate_pool, aggregate_data_free_by_tier);
+        });
 }
 
 function delete_policy(req) {
@@ -311,42 +319,40 @@ function find_policy_by_name(req) {
     return policy;
 }
 
-function get_tier_info(tier, nodes_aggregate_pool) {
+function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier) {
     var info = _.pick(tier, 'name', TIER_PLACEMENT_FIELDS);
     let mirrors_storage = [];
     info.attached_pools = [];
 
     _.forEach(tier.mirrors, mirror_object => {
-        info.attached_pools = _.concat(info.attached_pools, mirror_object.spread_pools);
-
         let spread_storage;
         var pools_storage = _.map(mirror_object.spread_pools, pool =>
             _.defaults(_.get(nodes_aggregate_pool, ['groups', String(pool._id), 'storage']), {
+                used: 0,
+                total: 0,
                 free: 0,
+                unavailable_free: 0,
+                used_other: 0,
+                reserved: 0
             })
         );
-        spread_storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage, 1, 1);
+        spread_storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage);
         _.defaults(spread_storage, {
             used: 0,
             total: 0,
-            // free: 0,
+            free: 0,
             unavailable_free: 0,
             used_other: 0,
             reserved: 0
         });
 
-        let temp_storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage, 1, tier.replicas);
-        _.defaults(temp_storage, {
-            free: 0,
-        });
-
-        spread_storage.real = temp_storage.free;
         mirrors_storage.push(spread_storage);
+        info.attached_pools = _.concat(info.attached_pools, mirror_object.spread_pools);
     });
 
     info.attached_pools = _.compact(info.attached_pools).map(pool => pool.name);
 
-    info.storage = size_utils.reduce_storage(size_utils.reduce_minimum, mirrors_storage, 1, 1);
+    info.storage = size_utils.reduce_storage(size_utils.reduce_sum, mirrors_storage);
     _.defaults(info.storage, {
         used: 0,
         total: 0,
@@ -356,22 +362,25 @@ function get_tier_info(tier, nodes_aggregate_pool) {
         reserved: 0
     });
 
-    let actual_free = size_utils.reduce_storage(size_utils.reduce_minimum, mirrors_storage, 1, tier.replicas);
-    _.defaults(actual_free, {
+    info.data = _.pick(_.defaults(
+        size_utils.reduce_storage(size_utils.reduce_minimum, aggregate_data_free_for_tier), {
         free: 0,
-    });
-    info.storage.real = actual_free.free;
+    }), 'free');
 
     return info;
 }
 
-function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool) {
+function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate_data_free_by_tier) {
     var info = _.pick(tiering_policy, 'name');
     var tiers_storage = nodes_aggregate_pool ? [] : null;
+    var tiers_data = aggregate_data_free_by_tier ? [] : null;
     info.tiers = _.map(tiering_policy.tiers, function(tier_and_order) {
         if (tiers_storage) {
-            var tier_info = get_tier_info(tier_and_order.tier, nodes_aggregate_pool);
+            var tier_info = get_tier_info(tier_and_order.tier,
+                nodes_aggregate_pool,
+                aggregate_data_free_by_tier[tier_and_order.tier.name]);
             tiers_storage.push(tier_info.storage);
+            tiers_data.push(tier_info.data);
         }
         return {
             order: tier_and_order.order,
@@ -379,7 +388,10 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool) {
         };
     });
     if (tiers_storage) {
-        info.storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage, 1, 1);
+        info.storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage);
+    }
+    if (tiers_data) {
+        info.data = size_utils.reduce_storage(size_utils.reduce_sum, tiers_data);
     }
     return info;
 }

@@ -5,6 +5,7 @@ var _ = require('lodash');
 var mocha = require('mocha');
 var assert = require('assert');
 var map_utils = require('../../server/object_services/map_utils');
+var config = require('../../../config.js');
 
 mocha.describe('map_utils', function() {
 
@@ -33,7 +34,10 @@ mocha.describe('map_utils', function() {
             pools = _.concat(pools);
             let tiering_pools_status = {};
             _.forEach(pools, pool => {
-                tiering_pools_status[pool.name] = true;
+                tiering_pools_status[pool.name] = {
+                    valid_for_allocation: true,
+                    num_nodes: config.NODES_MIN_COUNT
+                };
             });
 
             mocha.describe(test_name, function() {

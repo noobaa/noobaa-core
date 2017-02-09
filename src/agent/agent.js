@@ -63,6 +63,7 @@ class Agent {
         this.agent_conf = params.agent_conf || new json_utils.JsonObjectWrapper();
 
         this.connect_attempts = 0;
+        this._test_connection_timeout = null;
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
@@ -211,6 +212,7 @@ class Agent {
         // mark the rpc state as disconnected to close and reject incoming connections
         this.rpc.set_disconnected_state(true);
         this.rpc_address = '';
+        clearTimeout(this._test_connection_timeout);
         this._start_stop_server();
         // TODO: for now commented out the update_n2n_config. revisit if needed (issue #2379)
         // // reset the n2n config to close any open ports
@@ -560,10 +562,8 @@ class Agent {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
         }
 
-        // clear previous timeout to test connection
-        if (this._test_connection_timeout) {
-            clearTimeout(this._test_connection_timeout);
-        }
+        clearTimeout(this._test_connection_timeout);
+
         // if get_agent_info_and_update_masters is not called in the next 2 minutes, test the connection.
         this._test_connection_timeout = setTimeout(() => {
             this.client.node.ping()
@@ -573,6 +573,11 @@ class Agent {
                 })
                 .catch(P.TimeoutError, err => {
                     dbg.error('node_server did not respond to ping. closing connection', err);
+                    this._server_connection.close();
+                    this._test_connection_timeout = null;
+                })
+                .catch(err => {
+                    dbg.error('Ping to server returned error:', err);
                     this._server_connection.close();
                     this._test_connection_timeout = null;
                 });

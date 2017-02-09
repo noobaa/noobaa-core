@@ -87,7 +87,8 @@ function pack(dest, name) {
         'gulpfile.js',
         'EULA.pdf',
         '.jshintrc',
-        '.eslintrc'
+        '.eslintrc',
+        '.nvmrc'
     ], {});
 
     var agent_distro = gulp.src(['src/build/windows/noobaa_setup.exe'], {})

@@ -1,4 +1,4 @@
-import { deepFreeze, isFunction, sumBy } from './core-utils';
+import { deepFreeze, isFunction } from './core-utils';
 import { toBytes, formatSize } from './size-utils';
 import numeral from 'numeral';
 
@@ -243,26 +243,21 @@ export function getPoolCapacityBarValues(pool) {
     return { total, used: usage };
 }
 
-const nodeIssueModes = deepFreeze([
-    'LOW_CAPACITY',
-    'NO_CAPACITY',
-    'DECOMMISSIONING',
-    'MIGRATING',
-    'DELETING',
-    'DECOMMISSIONED',
-    'DELETED',
-    'N2N_ERRORS',
-    'GATEWAY_ERRORS',
-    'IO_ERRORS',
-    'UNTRUSTED'
-]);
-
 export function countNodesByState(modeCoutners) {
-    const healthy = modeCoutners.OPTIMAL || 0;
-    const offline = modeCoutners.OFFLINE || 0;
-    const hasIssues = sumBy(nodeIssueModes, mode => modeCoutners[mode] || 0);
-    const all = healthy + offline + hasIssues;
-    return { all, healthy, hasIssues, offline };
+    return Object.entries(modeCoutners).reduce(
+        (counters, [key, value]) => {
+            counters.all += value;
+            if (key === 'OPTIMAL') {
+                counters.healthy += value;
+            } else if (key === 'OFFLINE') {
+                counters.offline += value;
+            } else {
+                counters.hasIssues += value;
+            }
+            return counters;
+        },
+        { all: 0, healthy: 0, offline: 0, hasIssues: 0 }
+    );
 }
 
 export function getModeFilterFromState(state) {
@@ -271,7 +266,20 @@ export function getModeFilterFromState(state) {
             return ['OPTIMAL'];
 
         case 'HAS_ISSUES':
-            return nodeIssueModes;
+            return [
+                'LOW_CAPACITY',
+                'NO_CAPACITY',
+                'DECOMMISSIONING',
+                'MIGRATING',
+                'DELETING',
+                'DECOMMISSIONED',
+                'DELETED',
+                'N2N_ERRORS',
+                'GATEWAY_ERRORS',
+                'IO_ERRORS',
+                'UNTRUSTED',
+                'INITALIZING'
+            ];
 
         case 'OFFLINE':
             return ['OFFLINE'];

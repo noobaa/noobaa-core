@@ -7,7 +7,7 @@ import nameValidationRules from 'name-validation-rules';
 import { systemInfo } from 'model';
 import { createBucket } from 'actions';
 import { defaultPoolName } from 'config';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, keyByProperty } from 'utils/core-utils';
 
 const steps = deepFreeze([
     { label: 'choose name', size: 'medium' },
@@ -23,7 +23,7 @@ class CreateBucketWizardViewModel extends BaseViewModel {
         this.chooseNameStepTemplate = chooseNameStepTemplate;
         this.setPolicyStepTemplate = setPolicyStepTemplate;
 
-        let existingBucketNames = ko.pureComputed(
+        const existingBucketNames = ko.pureComputed(
             () => (systemInfo() ? systemInfo().buckets : []).map(
                 ({ name }) => name
             )
@@ -52,6 +52,28 @@ class CreateBucketWizardViewModel extends BaseViewModel {
                     message: 'Mirror policy requires at least 2 participating pools'
                 }
             });
+
+        const poolsByName = ko.pureComputed(
+            () => keyByProperty(this.pools(), 'name')
+        );
+
+        this.isWarningVisible = ko.pureComputed(
+            () => {
+                if (this.placementType() === 'MIRROR') {
+                    return false;
+                }
+
+                const selectedPools = this.selectedPools();
+                const hasNodesPool = selectedPools.some(
+                    name => Boolean(poolsByName()[name].nodes)
+                );
+                const hasCloudResource = selectedPools.some(
+                    name => Boolean(poolsByName()[name].cloud_info)
+                );
+
+                return hasNodesPool && hasCloudResource;
+            }
+        );
 
         this.chooseNameErrors = ko.validation.group([
             this.bucketName

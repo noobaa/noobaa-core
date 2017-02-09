@@ -1,7 +1,8 @@
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deletePool } from 'actions';
-import { getPoolStateIcon, getPoolCapacityBarValues } from 'utils/ui-utils';
+import { getPoolStateIcon, getPoolCapacityBarValues,
+    countNodesByState } from 'utils/ui-utils';
 
 export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool, deleteGroup, poolsToBuckets) {
@@ -40,27 +41,31 @@ export default class PoolRowViewModel extends BaseViewModel {
             }
         );
 
+        const nodeCoutners = ko.pureComputed(
+            () => pool() ? countNodesByState(pool().nodes.by_mode) : {}
+        );
+
+
         this.nodeCount = ko.pureComputed(
-            () => pool() && pool().nodes.count
+            () => nodeCoutners().all
         ).extend({
             formatNumber: true
         });
 
-        this.onlineCount = ko.pureComputed(
-            () => pool() && pool().nodes.online
+        this.healthyCount = ko.pureComputed(
+            () => nodeCoutners().healthy
+        ).extend({
+            formatNumber: true
+        });
+
+        this.issuesCount = ko.pureComputed(
+            () => nodeCoutners().hasIssues
         ).extend({
             formatNumber: true
         });
 
         this.offlineCount = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return '';
-                }
-
-                const { count, online } = pool().nodes;
-                return count - online;
-            }
+            () => nodeCoutners().offline
         ).extend({
             formatNumber: true
         });

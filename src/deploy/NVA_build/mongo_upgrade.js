@@ -450,6 +450,9 @@ function upgrade_object_mds() {
     db.objectmds.find({
         upload_size: {
             $exists: true
+        },
+        upload_started: {
+            $exists: false
         }
     }).forEach(function(obj) {
         db.objectmds.update({

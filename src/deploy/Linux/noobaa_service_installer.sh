@@ -20,7 +20,7 @@ function echo_to_log {
 }
 
 PATH=/usr/local/noobaa:$PATH;
-mkdir /usr/local/noobaa/logs
+mkdir -p /usr/local/noobaa/logs
 chmod 777 /usr/local/noobaa/remove_service.sh
 /usr/local/noobaa/remove_service.sh ignore_rc > /dev/null 2>&1
 echo_to_log "Old services were removed if existed."

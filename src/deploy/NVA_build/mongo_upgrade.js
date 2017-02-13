@@ -27,6 +27,7 @@ function upgrade() {
     upgrade_accounts();
     upgrade_pools();
     upgrade_buckets();
+    upgrade_usage_stats();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -564,6 +565,10 @@ function upgrade_pools() {
 
 function upgrade_buckets() {
     add_account_id_to_cloud_sync();
+}
+
+function upgrade_usage_stats() {
+    db.objectstats.deleteMany({});
 }
 
 function add_account_id_to_cloud_pools() {

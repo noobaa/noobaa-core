@@ -35,11 +35,11 @@ function strictify(schema, options, base) {
     if (!_.isObject(schema)) return schema;
 
     if (schema.type === 'object') {
-        if (!_.isObject(schema.properties)) {
+        if (!_.isObject(schema.properties) && !_.isObject(schema.patternProperties)) {
             illegal_json_schema(schema, base, 'missing properties for object type');
         }
         check_schema_extra_keywords(schema, base, [
-            'type', 'properties', 'additionalProperties', 'required'
+            'type', 'properties', 'additionalProperties', 'patternProperties', 'required'
         ]);
         if (options &&
             'additionalProperties' in options &&

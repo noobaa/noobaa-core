@@ -20,7 +20,7 @@ const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
 const cloud_utils = require('../../util/cloud_utils');
-const ObjectStats = require('../analytic_services/object_stats');
+const S3UsageStore = require('../analytic_services/s3_usage_store').S3UsageStore;
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -773,63 +773,16 @@ function report_error_on_object(req) {
 
 
 function add_s3_usage_report(req) {
-    return P.fcall(() => {
-        return ObjectStats.create({
-            system: req.system,
-            s3_usage_info: req.rpc_params.s3_usage_info,
-            s3_errors_info: req.rpc_params.s3_errors_info,
-        });
-    }).return();
+    return S3UsageStore.instance().update_usage(req.system, req.rpc_params.s3_usage_info, req.rpc_params.s3_errors_info);
 }
 
 function remove_s3_usage_reports(req) {
-    var q = ObjectStats.remove();
-    if (!_.isUndefined(req.rpc_params.till_time)) {
-        // query backwards from given time
-        req.rpc_params.till_time = new Date(req.rpc_params.till_time);
-        q.where('time').lte(req.rpc_params.till_time);
-    } else {
-        throw new RpcError('NO TILL_TIME', 'Parameters do not have till_time: ' + req.rpc_params);
-    }
-    //q.limit(req.rpc_params.limit || 10);
-    return P.resolve(q.exec())
-        .catch(err => {
-            throw new RpcError('COULD NOT DELETE REPORTS', 'Error Deleting Reports: ' + err);
-        })
-        .return();
+    return S3UsageStore.instance().reset_usage(req.system);
 }
 
 function read_s3_usage_report(req) {
-    var q = ObjectStats.find({
-        deleted: null
-    }).lean();
-    if (req.rpc_params.from_time) {
-        // query backwards from given time
-        req.rpc_params.from_time = new Date(req.rpc_params.from_time);
-        q.where('time').gt(req.rpc_params.from_time)
-            .sort('-time');
-    } else {
-        // query backward from last time
-        q.sort('-time');
-    }
-    //q.limit(req.rpc_params.limit || 10);
-    return P.resolve(q.exec())
-        .then(reports => {
-            reports = _.map(reports, report_item => {
-                let report = _.pick(report_item, 'system', 's3_usage_info', 's3_errors_info');
-                report.time = report_item.time.getTime();
-                return report;
-            });
-            // if (reverse) {
-            //     reports.reverse();
-            // }
-            return {
-                reports: reports
-            };
-        });
+    return S3UsageStore.instance().get_usage(req.system);
 }
-
-
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -888,7 +841,7 @@ function find_object_upload(req) {
 const object_md_cache = new LRUCache({
     name: 'ObjectMDCache',
     max_usage: 1000,
-    expiry_ms: 1000, // 1 second of blissfull ignorance
+    expiry_ms: 1000, // 1 second of blissful ignorance
     load: function(id) {
         const obj_id = MDStore.instance().make_md_id(id);
         console.log('ObjectMDCache: load', obj_id);

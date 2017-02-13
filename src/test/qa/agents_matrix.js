@@ -167,12 +167,12 @@ return azf.authenticate()
             typeHandlerVersion: '1.5',
             autoUpgradeMinorVersion: true,
             settings: {
-                fileUris: ["https://capacitystorage.blob.core.windows.net/agentscripts/remove_agent.sh"],
+                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/remove_agent.sh"],
                 commandToExecute: 'bash remove_agent.sh '
             },
             protectedSettings: {
-                storageAccountName: "capacitystorage",
-                storageAccountKey: "2kMy7tNY8wm/PQdv0vdXOFnnAXhL77/jidKw6QfGt2q/vhfswRKAG5aUGqNamv8Bs6PEZ36SAw6AYVKePZwM9g=="
+                storageAccountName: "pluginsstorage",
+                storageAccountKey: "bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=="
             },
             location: location,
         };
@@ -181,7 +181,7 @@ return azf.authenticate()
             extension.virtualMachineExtensionType = 'CustomScriptExtension';
             extension.typeHandlerVersion = '1.7';
             extension.settings = {
-                fileUris: ["https://capacitystorage.blob.core.windows.net/agentscripts/remove_agent.ps1"],
+                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/remove_agent.ps1"],
                 commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File remove_agent.ps1 '
             };
         }

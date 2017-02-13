@@ -1,4 +1,4 @@
-import { isUndefined } from './core-utils';
+import { isUndefined, runAsync } from './core-utils';
 import { toCammelCase, toDashedCase } from './string-utils';
 import { sleep } from './promise-utils';
 
@@ -87,9 +87,7 @@ export function downloadFile(url) {
     body.appendChild(link);
     link.click();
 
-    setImmediate(
-        () => body.removeChild(link)
-    );
+    runAsync(() => body.removeChild(link));
 }
 
 export function domFromHtml(html) {

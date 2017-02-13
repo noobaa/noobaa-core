@@ -1,4 +1,5 @@
 import state from 'state';
+import { runAsync } from 'utils/core-utils';
 
 const stateSub = Symbol('stateSub');
 const oldState = Symbol('oldState');
@@ -11,10 +12,10 @@ export default class StateAwareViewModel {
         if (this.onState !== StateAwareViewModel.prototype.onState) {
             // Wait for child class constructor to execute before
             // adding the subscription.
-            setImmediate(() => {
+            runAsync(() => {
                 this[stateSub] = state.subscribe(
                     state => {
-                        this.onState(state, this[oldState]);
+                        this.onState(state, this[oldState] || {});
                         this[oldState] = state;
                     }
                 );

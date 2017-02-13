@@ -35,6 +35,21 @@ export function fromBigInteger(bi) {
     });
 }
 
+
+export function mulBigIntegerReal(bi, real){
+    const scalar = Math.floor(real);
+    const friction = real % 1;
+
+    const { quotient, remainder } = bi.divmod(Number.MAX_SAFE_INTEGER);
+    const p1 = Math.floor(quotient * friction);
+    const p2 = Math.round(remainder * friction + (quotient % 1) * Number.MAX_SAFE_INTEGER);
+
+    return bigInteger(Number.MAX_SAFE_INTEGER)
+        .mul(p1)
+        .add(p2)
+        .add(bi.mul(scalar));
+}
+
 // This function, if passed a size object, will convert the object to a non exact
 // integer representation of the size object. A difference may happen for sizes above
 // Number.MAX_SAFE_INTEGER because of the inability of floating point numbers to

@@ -70,12 +70,12 @@ class AzureFunctions {
                     typeHandlerVersion: '1.5',
                     autoUpgradeMinorVersion: true,
                     settings: {
-                        fileUris: ["https://capacitystorage.blob.core.windows.net/agentscripts/init_agent.sh"],
+                        fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts'],
                         commandToExecute: 'bash init_agent.sh ' + server_name + ' ' + agent_conf
                     },
                     protectedSettings: {
-                        storageAccountName: "capacitystorage",
-                        storageAccountKey: "2kMy7tNY8wm/PQdv0vdXOFnnAXhL77/jidKw6QfGt2q/vhfswRKAG5aUGqNamv8Bs6PEZ36SAw6AYVKePZwM9g=="
+                        storageAccountName: 'pluginsstorage',
+                        storageAccountKey: 'bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=='
                     },
                     location: this.location,
                 };
@@ -84,7 +84,7 @@ class AzureFunctions {
                     extension.virtualMachineExtensionType = 'CustomScriptExtension';
                     extension.typeHandlerVersion = '1.7';
                     extension.settings = {
-                        fileUris: ["https://capacitystorage.blob.core.windows.net/agentscripts/init_agent.ps1"],
+                        fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts'],
                         commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + server_name +
                             ' ' + agent_conf
                     };
@@ -196,7 +196,7 @@ class AzureFunctions {
         return P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, origMachine, callback))
             .then(machine_info => {
                 var pos = machine_info.storageProfile.osDisk.vhd.uri.lastIndexOf('/');
-                var new_vhd = machine_info.storageProfile.osDisk.vhd.uri.substring(0, pos) + '/' + newMachine + '-disk.vhd';
+                var new_vhd = machine_info.storageProfile.osDisk.vhd.uri.substring(0, pos) + '/' + newMachine + '-os.vhd';
                 var vmParameters = {
                     location: machine_info.location,
                     plan: machine_info.plan,
@@ -231,6 +231,28 @@ class AzureFunctions {
                 };
                 return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
                     newMachine, vmParameters, callback));
+            });
+    }
+
+    addDataDiskToVM(vm, size, storageAccountName) {
+        console.log('Adding DataDisk to Virtual Machine: ' + vm);
+        return P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, vm, callback))
+            .then(machine_info => {
+                if (!machine_info.storageProfile.dataDisks) {
+                    machine_info.storageProfile.dataDisks = [];
+                }
+                var disk_number = machine_info.storageProfile.dataDisks.length + 1;
+                machine_info.storageProfile.dataDisks.push({
+                    name: 'dataDisk' + disk_number,
+                    diskSizeGB: size,
+                    lun: disk_number - 1,
+                    vhd: {
+                        uri: 'https://' + storageAccountName + '.blob.core.windows.net/datadisks/' + vm + '-data' + disk_number + '.vhd'
+                    },
+                    createOption: 'Empty'
+                });
+                return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
+                    vm, machine_info, callback));
             });
     }
 
@@ -326,7 +348,14 @@ class AzureFunctions {
         console.log('Deleting Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(this.resourceGroupName, vmName, callback))
             .then(() => P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(this.resourceGroupName, vmName + '_nic', callback)))
-            .then(() => P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback)));
+            .then(() => P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback)))
+            .then(() => P.fromCallback(callback => blobSvc.listBlobsSegmentedWithPrefix('datadisks', vmName, null, callback)))
+            .then(result => {
+                if (result && result.entries) {
+                    console.log('Deleting data disks', result.entries);
+                    return P.map(result.entries, blob => P.fromCallback(callback => blobSvc.deleteBlob('datadisks', blob.name, callback)));
+                }
+            });
     }
 
     listVirtualMachines(prefix, status) {

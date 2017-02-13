@@ -4,15 +4,11 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const path = require('path');
-const https = require('https');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const http_utils = require('../../util/http_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-
-const https_agent = new https.Agent({
-    rejectUnauthorized: false,
-});
 
 class BlockStoreS3 extends BlockStoreBase {
 
@@ -41,7 +37,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 accessKeyId: this.cloud_info.access_keys.access_key,
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
                 httpOptions: {
-                    agent: https_agent
+                    agent: http_utils.get_unsecured_http_agent(this.cloud_info.endpoint)
                 }
             });
         }

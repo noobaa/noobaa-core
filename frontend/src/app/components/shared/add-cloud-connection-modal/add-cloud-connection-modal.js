@@ -14,13 +14,13 @@ const serviceMapping = deepFreeze({
         },
         identity: {
             label: 'Access Key',
-            placeholder: 'Enter Key',
+            placeholder: 'Enter key',
             requiredMessage: 'Please enter an AWS access key',
             duplicateMessage: 'Access key already used in another AWS connection'
         },
         secret: {
             label: 'Secret Key',
-            placeholder: 'Enter Secret',
+            placeholder: 'Enter secret',
             requiredMessage: 'Please enter an AWS secret key'
         },
         defaultEndpoint: 'https://s3.amazonaws.com'
@@ -33,13 +33,13 @@ const serviceMapping = deepFreeze({
         },
         identity: {
             label: 'Account Name',
-            placeholder: 'Enter Name',
+            placeholder: 'Enter name',
             requiredMessage: 'Please enter an Azure acount name',
             duplicateMessage: 'Account name already used in another azure connection'
         },
         secret: {
             label: 'Account Key',
-            placeholder: 'Enter Key',
+            placeholder: 'Enter key',
             requiredMessage: 'Please enter an Azure account key'
         },
         defaultEndpoint: 'https://blob.core.windows.net'
@@ -52,13 +52,13 @@ const serviceMapping = deepFreeze({
         },
         identity: {
             label: 'Access Key',
-            placeholder: 'Enter Key',
+            placeholder: 'Enter key',
             requiredMessage: 'Please enter an access key',
             duplicateMessage: 'Access key already used in another S3 compatible connection'
         },
         secret: {
             label: 'Secret Key',
-            placeholder: 'Enter Secret',
+            placeholder: 'Enter secret',
             requiredMessage: 'Please enter a secret key'
         }
     }

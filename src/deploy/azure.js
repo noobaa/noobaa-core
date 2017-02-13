@@ -40,7 +40,7 @@ var os = {
     // Ubuntu 14 config - default
     publisher: 'Canonical',
     offer: 'UbuntuServer',
-    sku: '14.04.3-LTS',
+    sku: '14.04.5-LTS',
     osType: 'Linux'
 };
 if (argv.os === 'ubuntu16') {

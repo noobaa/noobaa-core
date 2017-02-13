@@ -1,0 +1,31 @@
+<!-- ko if: hasModals -->
+<div class="modals-backdrop fixed fade-in" data-bind="click: onBackdrop">
+    <!-- ko foreach: modals -->
+    <div class="modal column text-left pop-centered" data-bind="
+        css: sizeCss,
+        click: () => {},
+        clickBubble: false
+    ">
+        <!-- ko if: titleText -->
+        <h1 class="row heading2 modal-heading content-middle" data-bind="css: titleCss">
+            <svg-icon class="severity-icon" params="name: titleIcon" data-bind="
+                visible: titleIcon,
+                css: titleCss
+            "></svg-icon>
+
+            <span class="greedy push-next" data-bind="text: titleText"></span>
+
+            <button class="close-btn icon-btn no-outline" tabindex="-1" data-bind="
+                visible: isXButtonVisible,
+                disable: isXButtonDisabled,
+                click: onX
+            ">
+                <svg-icon params="name: 'x'"></svg-icon>
+            </button>
+        </h1>
+        <!-- /ko -->
+        <section class="column greedy" data-bind="component: component"></section>
+    </div>
+    <!-- /ko -->
+</div>
+<!-- /ko -->

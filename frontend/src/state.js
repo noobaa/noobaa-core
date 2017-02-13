@@ -10,4 +10,3 @@ const state = actions
     .shareReplay(1);
 
 export default state;
-

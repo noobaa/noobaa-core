@@ -1,0 +1,85 @@
+modal-manager {
+    .modals-backdrop {
+        display: block;
+        z-index: 999;
+        background-color: @shadow-color;
+    }
+
+    .modal-heading {
+        margin: -@gutter;
+        margin-bottom: @gutter;
+        padding: 0 @gutter;
+        line-height: 3 * @gutter;
+        text-align: left;
+        border-bottom: 1px solid @color8;
+
+        svg-icon {
+            margin-right: @gutter/2;
+        }
+
+        &.info {
+            border-color: @color16;
+        }
+
+        &.success  {
+            border-color: @color12;
+        }
+
+        &.warning {
+            border-color: @color11;
+        }
+
+        &.error {
+            border-color: @color10;
+        }
+    }
+
+    .modal {
+        display: none;
+        background: @color2;
+        box-shadow: 0 0 20px @black;
+        padding: @gutter;
+        width: 610px;
+        height: 455px;
+        transition: all 250ms ease-in-out;
+
+        &:last-child {
+            display: flex;
+        }
+
+        &.modal-xsmall {
+            width: 570px;
+            height: 330px;
+        }
+
+        &.modal-medium {
+            width: 610px;
+            height: 540px;
+        }
+
+        &.modal-large {
+            width: 750px;
+            height: 540px;
+        }
+
+        &.modal-xlarge {
+            width: 900px;
+            height: 540px;
+        }
+
+        &.modal-auto-height {
+            width: 900px;
+            height: 80%;
+            min-height: 540px;
+        }
+    }
+
+    .close-btn {
+        padding: 0;
+
+        > svg-icon {
+            width :12px;
+            height: 12px;
+        }
+    }
+}

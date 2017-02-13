@@ -4,8 +4,6 @@
 source ~/.bashrc
 source "$NVM_DIR/nvm.sh"
 
-nodever=$(cat ./.nvmrc)
-
 nvm install
 nvm alias default $(nvm current)
 

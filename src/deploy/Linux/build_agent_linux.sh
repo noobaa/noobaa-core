@@ -7,9 +7,7 @@ source "$NVM_DIR/nvm.sh"
 echo "WARNING: devtoolset-2 is enabled!"
 . /opt/rh/devtoolset-2/enable
 
-nodever=$(cat ./.nvmrc)
-
-nvm install ${nodever}
+nvm install 
 nvm alias default $(nvm current)
 
 CLEAN=true;

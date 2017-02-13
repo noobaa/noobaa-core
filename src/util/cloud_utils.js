@@ -3,6 +3,7 @@
 
 const dbg = require('./debug_module')(__filename);
 const RpcError = require('../rpc/rpc_error');
+const http_utils = require('./http_utils');
 const AWS = require('aws-sdk');
 const url = require('url');
 
@@ -20,6 +21,7 @@ function find_cloud_connection(account, conn_name) {
 
 
 function get_signed_url(params) {
+    let agent = http_utils.get_unsecured_http_agent(params.endpoint);
     let s3 = new AWS.S3({
         endpoint: params.endpoint,
         credentials: {
@@ -29,7 +31,10 @@ function get_signed_url(params) {
         s3ForcePathStyle: true,
         sslEnabled: false,
         signatureVersion: 'v4',
-        region: 'eu-central-1'
+        region: 'eu-central-1',
+        httpOptions: {
+            agent: agent
+        }
     });
     return s3.getSignedUrl(
         'getObject', {

@@ -670,15 +670,6 @@ function remove_role(req) {
 }
 
 
-
-// var S3_SYSTEM_BUCKET = process.env.S3_SYSTEM_BUCKET || 'noobaa-core';
-// var aws_s3 = process.env.AWS_ACCESS_KEY_ID && new AWS.S3({
-//     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-//     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-//     region: process.env.AWS_REGION || 'eu-central-1'
-// });
-
-
 function get_system_web_links(system) {
     var reply = _.mapValues(system.resources, function(val, key) {
         if (key === 'toObject' || !_.isString(val) || !val) {

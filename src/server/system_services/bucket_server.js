@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const net = require('net');
-const https = require('https');
 const azure = require('azure-storage');
 
 const P = require('../../util/promise');
@@ -17,6 +16,7 @@ const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
+const http_utils = require('../../util/http_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -781,9 +781,7 @@ function get_cloud_buckets(req) {
             accessKeyId: connection.access_key,
             secretAccessKey: connection.secret_key,
             httpOptions: {
-                agent: new https.Agent({
-                    rejectUnauthorized: false,
-                })
+                agent: http_utils.get_unsecured_http_agent(connection.endpoint)
             }
         });
         return P.ninvoke(s3, "listBuckets")

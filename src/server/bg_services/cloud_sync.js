@@ -3,7 +3,9 @@
 
 const _ = require('lodash');
 const AWS = require('aws-sdk');
+const url = require('url');
 const util = require('util');
+const http = require('http');
 const https = require('https');
 
 const P = require('../../util/promise');
@@ -34,6 +36,11 @@ const CLOUD_SYNC = {
     //Configured policies cache & related objects
     configured_policies: PolicyMap.create()
 };
+
+const https_agent = new https.Agent({
+    rejectUnauthorized: false,
+});
+const http_agent = new http.Agent();
 
 /*
  *************** Cloud Sync Background Worker & Other Eports
@@ -385,9 +392,7 @@ function load_single_policy(bucket_id, system_id) {
         secretAccessKey: bucket.system.owner.access_keys[0].secret_key,
         maxRedirects: 10,
         httpOptions: {
-            agent: new https.Agent({
-                rejectUnauthorized: false,
-            })
+            agent: get_shared_http_agent('https://127.0.0.1')
         }
     });
 
@@ -407,9 +412,7 @@ function load_single_policy(bucket_id, system_id) {
             accessKeyId: policy.access_keys.access_key,
             secretAccessKey: policy.access_keys.secret_key,
             httpOptions: {
-                agent: new https.Agent({
-                    rejectUnauthorized: false,
-                })
+                agent: get_shared_http_agent(policy.endpoint)
             }
         });
 
@@ -494,6 +497,7 @@ function update_c2n_worklist(policy) {
                             // change default region from US to EU due to restricted signature of v4 and end point
                             //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
                             policy.s3cloud = new AWS.S3({
+                                //endpoint: https://aws.amazon.com
                                 accessKeyId: policy.access_keys.access_key,
                                 secretAccessKey: policy.access_keys.secret_key,
                                 signatureVersion: 'v4',
@@ -624,6 +628,7 @@ function sync_single_file_to_cloud(policy, object, target) {
                 //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
                 dbg.log0('Resetting (upload) signature type and region to eu-central-1 and v4');
                 policy.s3cloud = new AWS.S3({
+                    //endpoint: https://aws.amazon.com
                     accessKeyId: policy.access_keys.access_key,
                     secretAccessKey: policy.access_keys.secret_key,
                     signatureVersion: 'v4',
@@ -739,6 +744,7 @@ function sync_to_cloud_single_bucket(policy) {
                             dbg.log0('Resetting (delete) signature type and region to eu-central-1 and v4');
                             //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
                             policy.s3cloud = new AWS.S3({
+                                //endpoint: https://aws.amazon.com
                                 accessKeyId: policy.access_keys.access_key,
                                 secretAccessKey: policy.access_keys.secret_key,
                                 signatureVersion: 'v4',
@@ -871,6 +877,11 @@ function update_bucket_last_sync(bucket, date) {
             }]
         }
     });
+}
+
+function get_shared_http_agent(endpoint) {
+    const protocol = url.parse(endpoint).protocol;
+    return (protocol === "https:") ? https_agent : http_agent;
 }
 
 

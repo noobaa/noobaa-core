@@ -9,7 +9,6 @@ const P = require('../../util/promise');
 
 const _ = require('lodash');
 const AWS = require('aws-sdk');
-const https = require('https');
 const crypto = require('crypto');
 const bcrypt = P.promisifyAll(require('bcrypt'));
 const random_string = require('../../util/string_utils').random_string;
@@ -21,6 +20,7 @@ const Dispatcher = require('../notifications/dispatcher');
 const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../../util/cloud_utils');
+const http_utils = require('../../util/http_utils');
 const azure = require('azure-storage');
 
 const demo_access_keys = Object.freeze({
@@ -538,9 +538,7 @@ function check_external_connection(req) {
                 accessKeyId: params.identity,
                 secretAccessKey: params.secret,
                 httpOptions: {
-                    agent: new https.Agent({
-                        rejectUnauthorized: false,
-                    })
+                    agent: http_utils.get_unsecured_http_agent(params.endpoint)
                 }
             });
 

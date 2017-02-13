@@ -508,46 +508,18 @@ function parse_put_bucket_method(req) {
         method = S3_REQ_PUT_BUCKET_METRIC_CONFIGURATION;
     } else if (req.query.website) {
         method = S3_REQ_PUT_BUCKET_WEBSITE;
-    } //else {
+    }
+
     return method;
-    //     return next();
-    // }
-    //
-    // return read_request_body(req)
-    //     .then(body_data => {
-    //         if (!body_data) {
-    //             if (method.required) {
-    //                 return P.reject(s3_errors.MissingRequestBodyError);
-    //             } else {
-    //                 return P.resolve();
-    //             }
-    //         }
-    //         return parse_request_body(req, method.body_type);
-    //     })
-    //     .asCallback(next);
 }
 
 function parse_post_bucket_method(req) {
     let method;
     if (req.query.delete) {
         method = S3_REQ_POST_BUCKET_OBJECTS_DELETE;
-    } //else {
+    }
+
     return method;
-    //     return next();
-    // }
-    //
-    // return read_request_body(req)
-    //     .then(body_data => {
-    //         if (!body_data) {
-    //             if (method.required) {
-    //                 return P.reject(s3_errors.MissingRequestBodyError);
-    //             } else {
-    //                 return P.resolve();
-    //             }
-    //         }
-    //         return parse_request_body(req, method.body_type);
-    //     })
-    //     .asCallback(next);
 }
 
 function parse_put_object_method(req) {
@@ -556,36 +528,9 @@ function parse_put_object_method(req) {
         method = S3_REQ_PUT_OBJECT_ACL;
     } else if (req.query.tagging) {
         method = S3_REQ_PUT_OBJECT_TAGGING;
-    }// else {
+    }
+
     return method;
-    //     // We should not read the body when uploading objects
-    //     return next();
-    // }
-    //
-    // return read_request_body(req)
-    //     .then(body_data => {
-    //         if (!body_data) {
-    //             if (method.required) {
-    //                 return P.reject(s3_errors.MissingRequestBodyError);
-    //             } else {
-    //                 return P.resolve();
-    //             }
-    //         }
-    //         return parse_request_body(req, method.body_type);
-    //     })
-    //     .asCallback(next);
-    // const put_object_query = ['acl', 'tagging'];
-    // _.find(put_object_query, q => {
-    //     if (q in req.query) {
-    //         // Currently there are only XML queries
-    //         const body_type = REQUEST_BODY_TYPE.XML;
-    //         return read_request_body(req)
-    //             .then(() => {
-    //                 return parse_request_body(req, body_type)
-    //             })
-    //             .asCallback(next);
-    //     }
-    // });
 }
 
 function parse_post_object_method(req) {
@@ -595,46 +540,14 @@ function parse_post_object_method(req) {
     } else if (req.query.uploadId) {
         method = S3_REQ_POST_OBJECT_UPLOAD_COMPLETE;
     }
-    return method; //else {
-    //     // We should not read the body when uploading objects
-    //     return next();
-    // }
-    //
-    // return read_request_body(req)
-    //     .then(body_data => {
-    //         if (!body_data) {
-    //             if (method.required) {
-    //                 return P.reject(s3_errors.MissingRequestBodyError);
-    //             } else {
-    //                 return P.resolve();
-    //             }
-    //         }
-    //         return parse_request_body(req, method.body_type);
-    //     })
-    //     .asCallback(next);
-    // const put_object_query = ['restore', 'uploadId'];
-    // _.find(put_object_query, q => {
-    //     // Combination of uploadId and partNumber means that we are uploading an object part
-    //     // In that case we are not interested in reading the body since it transfers the part's payload
-    //     if (q in req.query && !('partNumber' in req.query)) {
-    //         // Currently there are only XML queries
-    //         const body_type = REQUEST_BODY_TYPE.XML;
-    //         return read_request_body(req)
-    //             .then(() => {
-    //                 return parse_request_body(req, body_type)
-    //             })
-    //             .asCallback(next);
-    //     }
-    // });
-    //
-    // // We should not read the body when uploading objects
-    // next();
+
+    return method;
 }
 
 
-function post_put_body_handler(func) {
+function post_put_body_handler(method_func) {
     return function(req, res, next) {
-        let method = func(req);
+        let method = method_func(req);
         if (!method) {
             // We should not read the body when uploading objects
             return next();

@@ -275,7 +275,7 @@ function bundleApp(watch) {
             plugins: [
                 'transform-async-to-generator',
                 'transform-object-rest-spread',
-                'transform-runtime'
+                ['transform-runtime', { polyfill: false }]
             ]
         })
         .transform(stringify({ minify: uglify }))

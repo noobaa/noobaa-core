@@ -10,6 +10,7 @@ const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const s3_errors = require('./s3_errors');
 const xml_utils = require('../util/xml_utils');
+const xml2js = require('xml2js');
 const signature_utils = require('../util/signature_utils');
 
 //const S3Auth = require('aws-sdk/lib/signers/s3');
@@ -18,6 +19,162 @@ const signature_utils = require('../util/signature_utils');
 const S3_XML_ATTRS = Object.freeze({
     xmlns: 'http://s3.amazonaws.com/doc/2006-03-01'
 });
+
+const S3_REQ_XML_BODY = 'xml';
+const S3_REQ_JSON_BODY = 'json';
+const S3_REQ_EMPTY_BODY = 'empty';
+// Limit body to 4 megabytes
+const S3_MAX_REQ_CONTENT_LEN = 4 * 1024;
+
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
+const S3_REQ_PUT_BUCKET = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: false
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTaccelerate.html
+const S3_REQ_PUT_BUCKET_ACCELERATE = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTacl.html
+const S3_REQ_PUT_BUCKET_ACL = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: false
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTAnalyticsConfig.html
+const S3_REQ_PUT_BUCKET_ANALYTICS_CONFIG = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTcors.html
+const S3_REQ_PUT_BUCKET_CORS = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTInventoryConfig.html
+const S3_REQ_PUT_BUCKET_INVENTORY_CONFIG = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlifecycle.html
+const S3_REQ_PUT_BUCKET_LIFECYCLE = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTpolicy.html
+const S3_REQ_PUT_BUCKET_POLICY = {
+    body_type: S3_REQ_JSON_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlogging.html
+const S3_REQ_PUT_BUCKET_LOGGING = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTnotification.html
+const S3_REQ_PUT_BUCKET_NOTIFICATION = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTreplication.html
+const S3_REQ_PUT_BUCKET_REPLICATION = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTtagging.html
+const S3_REQ_PUT_BUCKET_TAGGING = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTrequestPaymentPUT.html
+const S3_REQ_PUT_BUCKET_REQUEST_PAYMENT = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTVersioningStatus.html
+const S3_REQ_PUT_BUCKET_VERSIONING = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTwebsite.html
+const S3_REQ_PUT_BUCKET_WEBSITE = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html
+const S3_REQ_PUT_BUCKET_METRIC_CONFIGURATION = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
+const S3_REQ_POST_BUCKET_OBJECTS_DELETE = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPOSTrestore.html
+const S3_REQ_POST_OBJECT_RESTORE = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
+const S3_REQ_POST_OBJECT_UPLOAD_COMPLETE = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUTacl.html
+const S3_REQ_PUT_OBJECT_ACL = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUTtagging.html
+const S3_REQ_PUT_OBJECT_TAGGING = {
+    body_type: S3_REQ_XML_BODY,
+    schema: {},
+    required: true
+};
+
+
 const BUCKET_QUERIES = Object.freeze([
     'acl',
     'cors',
@@ -64,18 +221,17 @@ function s3_rest(controller) {
     app.use(handle_options);
     app.use(check_headers);
     app.use(handle_testme);
-    app.use(read_post_body);
     app.use(authenticate_s3_request);
     app.get('/', s3_handler('list_buckets'));
     app.head('/:bucket', s3_handler('head_bucket'));
     app.get('/:bucket', s3_handler('get_bucket', GET_BUCKET_QUERIES));
-    app.put('/:bucket', s3_handler('put_bucket', BUCKET_QUERIES));
-    app.post('/:bucket', s3_handler('post_bucket', ['delete']));
+    app.put('/:bucket', post_put_body_handler(parse_put_bucket_method), s3_handler('put_bucket', BUCKET_QUERIES));
+    app.post('/:bucket', post_put_body_handler(parse_post_bucket_method), s3_handler('post_bucket', ['delete']));
     app.delete('/:bucket', s3_handler('delete_bucket', BUCKET_QUERIES));
     app.head('/:bucket/:key(*)', s3_handler('head_object'));
     app.get('/:bucket/:key(*)', s3_handler('get_object', ['uploadId', 'acl']));
-    app.put('/:bucket/:key(*)', s3_handler('put_object', ['uploadId', 'acl']));
-    app.post('/:bucket/:key(*)', s3_handler('post_object', ['uploadId', 'uploads']));
+    app.put('/:bucket/:key(*)', post_put_body_handler(parse_put_object_method), s3_handler('put_object', ['uploadId', 'acl']));
+    app.post('/:bucket/:key(*)', post_put_body_handler(parse_post_object_method), s3_handler('post_object', ['uploadId', 'uploads']));
     app.delete('/:bucket/:key(*)', s3_handler('delete_object', ['uploadId']));
     app.use(handle_common_s3_errors);
     return app;
@@ -279,22 +435,224 @@ function handle_options(req, res, next) {
     next();
 }
 
-function read_post_body(req, res, next) {
-    // We are not interested in reading the body when we upload objects
-    if ((req.method === 'POST' || req.method === 'PUT') &&
-        req._parsedUrl.pathname.split('/').length > 2) {
-        return next();
-    }
+function read_request_body(req) {
+    return new P((resolve, reject) => {
+        let data = '';
+        let content_len = 0;
+        req.on('data', chunk => {
+            content_len += chunk.length;
+            if (content_len > S3_MAX_REQ_CONTENT_LEN) {
+                return reject(s3_errors.MaxMessageLengthExceeded);
+            }
+            // Parse the data after the length check
+            data += chunk.toString('utf8');
+        });
+        req.once('error', reject);
+        req.once('end', () => {
+            req.body = data;
+            return resolve(data);
+        });
+    });
+}
 
-    let data = '';
-    req.setEncoding('utf8');
-    req.on('data', function(chunk) {
-        data += chunk;
-    });
-    req.on('end', function() {
-        req.body = data;
-        next();
-    });
+function parse_request_body(req, body_type) {
+    if (body_type === S3_REQ_EMPTY_BODY) {
+        req.body = undefined;
+        return P.resolve();
+    } else if (body_type === S3_REQ_XML_BODY) {
+        return P.fromCallback(callback => xml2js.parseString(req.body, callback))
+            .then(data => {
+                req.body = data;
+            });
+    } else if (body_type === S3_REQ_JSON_BODY) {
+        return P.fcall(() => {
+                req.body = JSON.parse(req.body);
+            });
+    } else {
+        console.log(`parse_request_body (req_id:${req.request_id}): Body type ${body_type} not supported`);
+        return P.reject();
+    }
+}
+
+function parse_put_bucket_method(req) {
+    let method;
+    if (_.isEmpty(req.query)) {
+        method = S3_REQ_PUT_BUCKET;
+    } else if (req.query.accelerate) {
+        method = S3_REQ_PUT_BUCKET_ACCELERATE;
+    } else if (req.query.acl) {
+        method = S3_REQ_PUT_BUCKET_ACL;
+    } else if (req.query.analytics && req.query.id) {
+        method = S3_REQ_PUT_BUCKET_ANALYTICS_CONFIG;
+    } else if (req.query.cors) {
+        method = S3_REQ_PUT_BUCKET_CORS;
+    } else if (req.query.inventory && req.query.id) {
+        method = S3_REQ_PUT_BUCKET_INVENTORY_CONFIG;
+    } else if (req.query.lifecycle) {
+        method = S3_REQ_PUT_BUCKET_LIFECYCLE;
+    } else if (req.query.policy) {
+        method = S3_REQ_PUT_BUCKET_POLICY;
+    } else if (req.query.logging) {
+        method = S3_REQ_PUT_BUCKET_LOGGING;
+    } else if (req.query.notification) {
+        method = S3_REQ_PUT_BUCKET_NOTIFICATION;
+    } else if (req.query.replication) {
+        method = S3_REQ_PUT_BUCKET_REPLICATION;
+    } else if (req.query.tagging) {
+        method = S3_REQ_PUT_BUCKET_TAGGING;
+    } else if (req.query.requestPayment) {
+        method = S3_REQ_PUT_BUCKET_REQUEST_PAYMENT;
+    } else if (req.query.versioning) {
+        method = S3_REQ_PUT_BUCKET_VERSIONING;
+    } else if (req.query.metrics && req.query.id) {
+        method = S3_REQ_PUT_BUCKET_METRIC_CONFIGURATION;
+    } else if (req.query.website) {
+        method = S3_REQ_PUT_BUCKET_WEBSITE;
+    } //else {
+    return method;
+    //     return next();
+    // }
+    //
+    // return read_request_body(req)
+    //     .then(body_data => {
+    //         if (!body_data) {
+    //             if (method.required) {
+    //                 return P.reject(s3_errors.MissingRequestBodyError);
+    //             } else {
+    //                 return P.resolve();
+    //             }
+    //         }
+    //         return parse_request_body(req, method.body_type);
+    //     })
+    //     .asCallback(next);
+}
+
+function parse_post_bucket_method(req) {
+    let method;
+    if (req.query.delete) {
+        method = S3_REQ_POST_BUCKET_OBJECTS_DELETE;
+    } //else {
+    return method;
+    //     return next();
+    // }
+    //
+    // return read_request_body(req)
+    //     .then(body_data => {
+    //         if (!body_data) {
+    //             if (method.required) {
+    //                 return P.reject(s3_errors.MissingRequestBodyError);
+    //             } else {
+    //                 return P.resolve();
+    //             }
+    //         }
+    //         return parse_request_body(req, method.body_type);
+    //     })
+    //     .asCallback(next);
+}
+
+function parse_put_object_method(req) {
+    let method;
+    if (req.query.acl) {
+        method = S3_REQ_PUT_OBJECT_ACL;
+    } else if (req.query.tagging) {
+        method = S3_REQ_PUT_OBJECT_TAGGING;
+    }// else {
+    return method;
+    //     // We should not read the body when uploading objects
+    //     return next();
+    // }
+    //
+    // return read_request_body(req)
+    //     .then(body_data => {
+    //         if (!body_data) {
+    //             if (method.required) {
+    //                 return P.reject(s3_errors.MissingRequestBodyError);
+    //             } else {
+    //                 return P.resolve();
+    //             }
+    //         }
+    //         return parse_request_body(req, method.body_type);
+    //     })
+    //     .asCallback(next);
+    // const put_object_query = ['acl', 'tagging'];
+    // _.find(put_object_query, q => {
+    //     if (q in req.query) {
+    //         // Currently there are only XML queries
+    //         const body_type = REQUEST_BODY_TYPE.XML;
+    //         return read_request_body(req)
+    //             .then(() => {
+    //                 return parse_request_body(req, body_type)
+    //             })
+    //             .asCallback(next);
+    //     }
+    // });
+}
+
+function parse_post_object_method(req) {
+    let method;
+    if (req.query.restore) {
+        method = S3_REQ_POST_OBJECT_RESTORE;
+    } else if (req.query.uploadId) {
+        method = S3_REQ_POST_OBJECT_UPLOAD_COMPLETE;
+    }
+    return method; //else {
+    //     // We should not read the body when uploading objects
+    //     return next();
+    // }
+    //
+    // return read_request_body(req)
+    //     .then(body_data => {
+    //         if (!body_data) {
+    //             if (method.required) {
+    //                 return P.reject(s3_errors.MissingRequestBodyError);
+    //             } else {
+    //                 return P.resolve();
+    //             }
+    //         }
+    //         return parse_request_body(req, method.body_type);
+    //     })
+    //     .asCallback(next);
+    // const put_object_query = ['restore', 'uploadId'];
+    // _.find(put_object_query, q => {
+    //     // Combination of uploadId and partNumber means that we are uploading an object part
+    //     // In that case we are not interested in reading the body since it transfers the part's payload
+    //     if (q in req.query && !('partNumber' in req.query)) {
+    //         // Currently there are only XML queries
+    //         const body_type = REQUEST_BODY_TYPE.XML;
+    //         return read_request_body(req)
+    //             .then(() => {
+    //                 return parse_request_body(req, body_type)
+    //             })
+    //             .asCallback(next);
+    //     }
+    // });
+    //
+    // // We should not read the body when uploading objects
+    // next();
+}
+
+
+function post_put_body_handler(func) {
+    return function(req, res, next) {
+        let method = func(req);
+        if (!method) {
+            // We should not read the body when uploading objects
+            return next();
+        }
+
+        return read_request_body(req)
+            .then(body_data => {
+                if (!body_data) {
+                    if (method.required) {
+                        return P.reject(s3_errors.MissingRequestBodyError);
+                    } else {
+                        return P.resolve();
+                    }
+                }
+                return parse_request_body(req, method.body_type);
+            })
+            .asCallback(next);
+    };
 }
 
 function handle_testme(req, res, next) {

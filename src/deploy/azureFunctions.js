@@ -70,7 +70,7 @@ class AzureFunctions {
                     typeHandlerVersion: '1.5',
                     autoUpgradeMinorVersion: true,
                     settings: {
-                        fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts'],
+                        fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/init_agent.sh'],
                         commandToExecute: 'bash init_agent.sh ' + server_name + ' ' + agent_conf
                     },
                     protectedSettings: {
@@ -84,7 +84,7 @@ class AzureFunctions {
                     extension.virtualMachineExtensionType = 'CustomScriptExtension';
                     extension.typeHandlerVersion = '1.7';
                     extension.settings = {
-                        fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts'],
+                        fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/init_agent.ps1'],
                         commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + server_name +
                             ' ' + agent_conf
                     };

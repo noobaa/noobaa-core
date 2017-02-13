@@ -46,7 +46,12 @@ export function isDefined(value) {
 
 export function pick(obj, ...keys) {
     return keys.reduce(
-        (picked, key) => (picked[key] = obj[key], picked),
+        (picked, key) => {
+            if (obj.hasOwnProperty(key)) {
+                picked[key] = obj[key];
+            }
+            return picked;
+        },
         {}
     );
 }
@@ -157,7 +162,7 @@ export function averageBy(array, selector = echo) {
     return sumBy(array, selector) / array.length;
 }
 
-export function keyBy(arrayOrIter, keySelector, valueGenerator = echo) {
+export function keyBy(arrayOrIter, keySelector, valueMapper = echo) {
     const array = Array.isArray(arrayOrIter) ?
         arrayOrIter :
         Array.from(arrayOrIter);
@@ -165,26 +170,29 @@ export function keyBy(arrayOrIter, keySelector, valueGenerator = echo) {
     return array.reduce(
         (map, item) => {
             const key = keySelector(item);
-            map[key] = valueGenerator(item, map[key]);
+            map[key] = valueMapper(item, map[key]);
             return map;
         },
         {}
     );
 }
 
-export function keyByProperty(array, keyName, valueGenerator) {
+export function keyByProperty(array, keyName, valueMapper) {
     return keyBy(
         array,
         item => item[keyName],
-        valueGenerator
+        valueMapper
     );
 }
 
-export function groupBy(array, keySelector) {
+export function groupBy(array, keySelector, valueMapper = echo) {
     return keyBy(
         array,
         keySelector,
-        (item, list = []) => (list.push(item), list)
+        (item, list = []) => {
+            list.push(valueMapper(item));
+            return list;
+        }
     );
 }
 
@@ -226,4 +234,9 @@ export function mergeBy(...arrays) {
         Object.assign(merge, keyBy(arr, keySelector));
     }
     return Object.values(merge);
+}
+
+export function runAsync(callback) {
+    // TODO: Replace with a postMessage implementation for better results.
+    setTimeout(() => callback(), 0);
 }

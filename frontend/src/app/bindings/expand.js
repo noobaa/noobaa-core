@@ -1,3 +1,4 @@
+import { runAsync } from 'utils/core-utils';
 import ko from 'knockout';
 
 export default {
@@ -23,17 +24,11 @@ export default {
                     style.removeProperty('max-height');
                     let height = element.offsetHeight;
                     style.maxHeight = '0px';
-                    setImmediate(
-                        () => { style.maxHeight = `${height}px`; }
-                    );
+                    runAsync(() => { style.maxHeight = `${height}px`; });
 
                 } else {
                     style.maxHeight = `${element.offsetHeight}px`;
-                    setImmediate(
-                        () => {
-                            style.maxHeight = '0px';
-                        }
-                    );
+                    runAsync(() => { style.maxHeight = '0px'; });
 
                     classList.remove('expanding', 'expanded');
                 }

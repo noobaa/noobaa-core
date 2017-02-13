@@ -2,6 +2,7 @@ import template from './drawer.html';
 import StateAwareViewModel from 'components/state-aware-view-model';
 import ko from 'knockout';
 import { closeDrawer } from 'dispatchers';
+import { runAsync } from 'utils/core-utils';
 
 class DrawerViewModel extends StateAwareViewModel {
     constructor() {
@@ -16,7 +17,7 @@ class DrawerViewModel extends StateAwareViewModel {
         }
 
         // Must be async in oreder to invoke the css transition.
-        setImmediate(() => this.opened(Boolean(state.drawer)));
+        runAsync(() => this.opened(Boolean(state.drawer)));
     }
 
     onTransitionEnd() {

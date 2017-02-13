@@ -4,7 +4,7 @@
   "private": true,
   "description": "noobaa-core ===========",
   "engines": {
-    "node": "6.9.4"
+    "node": "6.9.5"
   },
   "main": "index.js",
   "scripts": {

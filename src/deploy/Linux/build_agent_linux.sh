@@ -10,8 +10,7 @@ echo "WARNING: devtoolset-2 is enabled!"
 nodever=$(cat ./.nvmrc)
 
 nvm install ${nodever}
-nvm alias default ${nodever}
-nvm use ${nodever}
+nvm alias default $(nvm current)
 
 CLEAN=true;
 GIT_COMMIT=0
@@ -61,7 +60,7 @@ if [ "$CLEAN" = true ] ; then
     echo "copy files"
     cp ../../package.json ./package/
     cp ../../config.js ./package/
-    cp ~/.nvm/versions/node/v${nodever}/bin/node ./package/
+    cp $(nvm which current) ./package/
     mkdir ./package/src/
     cp -R ../../src/agent ./package/src/
     cp -R ../../src/util ./package/src/

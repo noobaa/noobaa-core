@@ -1,8 +1,10 @@
 import { combineReducers } from 'utils/reducer-utils';
-import alertsReducer from './alerts-reducer';
 import drawerReducer from './drawer-reducer';
+import modalsReducer from './modals-reducer';
+import alertsReducer from './alerts-reducer';
 
 export default combineReducers({
-    alerts: alertsReducer,
-    drawer: drawerReducer
+    drawer: drawerReducer,
+    modals: modalsReducer,
+    alerts: alertsReducer
 });

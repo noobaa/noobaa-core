@@ -249,7 +249,6 @@ function pre_upgrade {
         echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
     fi
 
-	#install nvm use v .nvmrc
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/

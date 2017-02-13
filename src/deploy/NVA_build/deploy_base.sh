@@ -136,7 +136,6 @@ function install_nodejs {
 	curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash
     export NVM_DIR="$HOME/.nvm"
     source /root/.nvm/nvm.sh
-    local nodever=$(cat ${CORE_DIR}/.nvmrc)
 
     nvm install
     nvm alias default $(nvm current)

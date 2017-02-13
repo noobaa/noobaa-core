@@ -198,6 +198,9 @@ function get_cluster_info() {
                 }
             }, _.isUndefined);
         }
+        for (var i = 0; i < 50; ++i) {
+            shard.servers.push(server_info);
+        }
         shard.servers.push(server_info);
     });
     _.each(shards, shard => {

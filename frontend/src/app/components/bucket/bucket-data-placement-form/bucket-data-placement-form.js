@@ -1,10 +1,10 @@
 import template from './bucket-data-placement-form.html';
-import placementSectionTemplate from './placement-policy-section.html';
 import BaseViewModel from 'components/base-view-model';
 import PlacementRowViewModel from './placement-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
+import { openBucketPlacementPolicyModal } from 'dispatchers';
 
 const placementTableColumns = deepFreeze([
     {
@@ -28,10 +28,6 @@ const placementTableColumns = deepFreeze([
         label: 'Resource Capacity',
         type: 'capacity'
     }
-    // {
-    //     name: 'freeSpace',
-    //     label: 'Available Capacity'
-    // }
 ]);
 
 const placementTypeMapping = deepFreeze({
@@ -43,7 +39,6 @@ class BucketDataPlacementFormViewModel extends BaseViewModel {
     constructor({ bucket }) {
         super();
 
-        this.placementSectionTemplate = placementSectionTemplate;
         this.placementTableColumns = placementTableColumns;
 
         this.bucketName = ko.pureComputed(
@@ -97,20 +92,14 @@ class BucketDataPlacementFormViewModel extends BaseViewModel {
             () => this.editingDisabled() &&
                 'Editing policies is not supported for demo buckets'
         );
-
-        this.isPlacementPolicyModalVisible = ko.observable(false);
     }
 
     createPlacementRow(pool) {
         return new PlacementRowViewModel(pool);
     }
 
-    showPlacementPolicyModal() {
-        this.isPlacementPolicyModalVisible(true);
-    }
-
-    hidePlacementPolicyModal() {
-        this.isPlacementPolicyModalVisible(false);
+    onEditDataPlacement() {
+        openBucketPlacementPolicyModal(this.bucketName());
     }
 }
 

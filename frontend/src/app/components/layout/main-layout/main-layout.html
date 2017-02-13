@@ -28,18 +28,6 @@
     </div>
 </div>
 
-<!-- ko if: isWelcomeModalVisible -->
-<welcome-modal params="onClose: () => hideWelcomeModal()"></welcome-modal>
-<!-- /ko -->
-
-<!-- ko if: isAfterUpgradeModalVisible -->
-<after-upgrade-modal params="onClose: () => hideAfterUpgradeModal()"></after-upgrade-modal>
-<!-- /ko -->
-
-<!-- ko if: isUpgradedCapacityNofiticationModalVisible -->
-<upgraded-capacity-notification-modal></upgraded-capacity-notification-modal>
-<!-- /ko -->
-
 <modal-manager></modal-manager>
 
 

@@ -23,20 +23,20 @@ const severityMapping = deepFreeze({
 export default class Modal {
     constructor(requestClose) {
         this.requestClose = requestClose;
-        this.sizeCss = ko.observable();
+        this.css = ko.observable();
         this.titleText = ko.observable();
         this.titleCss = ko.observable();
         this.titleIcon = ko.observable();
         this.isXButtonVisible = ko.observable();
         this.isXButtonDisabled = ko.observable();
         this.backdropClose = ko.observable();
-        this.component = ko.observable();
+        this.component = ko.observable({});
     }
 
     update({ size, title, severity, closeButton, backdropClose, component }) {
         const { icon, css } = severityMapping[severity] || {};
 
-        this.sizeCss(size ? `modal-${size}` : '');
+        this.css(`${size ? `modal-${size}` : ''} ${component.name}`);
         this.titleText(title);
         this.titleCss(css);
         this.titleIcon(icon);
@@ -44,13 +44,18 @@ export default class Modal {
         this.isXButtonDisabled(closeButton === 'disabled');
         this.backdropClose(backdropClose);
 
-        this.component({
-            name: component.name,
-            params: {
-                ...component.params,
-                onClose: this.requestClose
-            }
-        });
+        // Updating the component observable will cause a rerendering
+        // of the modal content so we check that the component changed
+        // before updating the observable.
+        if (component.name !== this.component().name) {
+            this.component({
+                name: component.name,
+                params: {
+                    ...component.params,
+                    onClose: this.requestClose
+                }
+            });
+        }
     }
 
     onX() {

@@ -3,7 +3,7 @@
         Accounts with S3 access for this bucket
     </h2>
 
-    <button class="btn" data-bind="click: openS3AccessModal">
+    <button class="btn" data-bind="click: onEditS3Access">
         Edit S3 Access
     </button>
 </div>
@@ -18,24 +18,9 @@
     <li class="row">
         <span class="greedy" data-bind="text: $data"></span>
 
-        <button class="link" data-bind="
-            click: () => $component.openConnectionDetailsFor($data)">
+        <button class="link" data-bind="click: $component.onConnectionDetails">
             Connection Details
         </button>
 
     </li>
 </ul>
-
-<!-- ko if: isS3AccessModalVisible -->
-<bucket-s3-access-modal params="
-    bucketName: bucketName,
-    onClose: () => closeS3AccessModal()
-"></bucket-s3-access-modal>
-<!-- /ko -->
-
-<!-- ko if: selectedAccount -->
-<s3-access-details-modal params="
-    email: selectedAccount,
-    onClose: () => closeConnectionDetails()
-"></s3-access-details-modal>
-<!-- /ko -->

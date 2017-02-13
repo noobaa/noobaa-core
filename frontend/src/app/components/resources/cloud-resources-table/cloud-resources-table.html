@@ -11,9 +11,7 @@
         selected: selectedResourceType
     "></dropdown>
 
-    <button class="btn align-end" data-bind="
-        click: () => showAddCloudResourceModal(),
-    ">
+    <button class="btn align-end" data-bind="click: onAddCloudResource">
          Add Cloud Resource
     </button>
 </div>
@@ -25,8 +23,3 @@
     data: resources,
     emptyMessage: emptyMessage
 "></data-table>
-
-<!-- ko if: isAddCloudResourceModalVisible -->
-<add-cloud-resource-modal params="onClose: () => hideCloudReousrceModal()">
-</add-cloud-resource-modal>
-<!-- /ko -->

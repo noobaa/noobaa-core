@@ -5,6 +5,7 @@ import moment from 'moment';
 import { removeCloudSyncPolicy, toogleCloudSync } from 'actions';
 import { bitsToNumber } from 'utils/core-utils';
 import { formatDuration } from 'utils/string-utils';
+import { openSetCloudSyncModal, openEditCloudSyncModal } from 'dispatchers';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
@@ -160,8 +161,19 @@ class BucketCloudSyncFormViewModel extends BaseViewModel {
             }
         ];
 
-        this.isSetCloudSyncModalVisible = ko.observable(false);
         this.isEditCloudSyncModalVisible = ko.observable(false);
+    }
+
+    onSetPolicy() {
+        openSetCloudSyncModal(
+            ko.unwrap(this.bucketName())
+        );
+    }
+
+    onEditPolicy() {
+        openEditCloudSyncModal(
+            ko.unwrap(this.bucketName())
+        );
     }
 
     removePolicy() {
@@ -172,22 +184,6 @@ class BucketCloudSyncFormViewModel extends BaseViewModel {
         if (this.hasCloudSync()) {
             toogleCloudSync(this.bucketName(), !this.isPaused());
         }
-    }
-
-    showSetCloudSyncModal() {
-        this.isSetCloudSyncModalVisible(true);
-    }
-
-    hideSetCloudSyncModal() {
-        this.isSetCloudSyncModalVisible(false);
-    }
-
-    showEditCloudSyncModal() {
-        this.isEditCloudSyncModalVisible(true);
-    }
-
-    hideEditCloudSyncModal() {
-        this.isEditCloudSyncModalVisible(false);
     }
 }
 

@@ -7,7 +7,6 @@ const _ = require('lodash');
 // const pkg = require('../../../package.json');
 // const dbg = require('../../util/debug_module')(__filename);
 // const config = require('../../../config');
-const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_monitor = require('./nodes_monitor');
 const nodes_aggregator = require('./nodes_aggregator');
@@ -75,10 +74,10 @@ function _prepare_nodes_query(req) {
     const query = req.rpc_params.query || {};
     query.system = String(req.system._id);
     if (query.filter) {
-        query.filter = new RegExp(string_utils.escapeRegExp(query.filter), 'i');
+        query.filter = new RegExp(_.escapeRegExp(query.filter), 'i');
     }
     if (query.geolocation) {
-        query.geolocation = new RegExp(string_utils.escapeRegExp(query.geolocation), 'i');
+        query.geolocation = new RegExp(_.escapeRegExp(query.geolocation), 'i');
     }
     if (query.pools) {
         query.pools = new Set(_.map(query.pools, pool_name => {

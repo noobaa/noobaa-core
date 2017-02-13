@@ -23,7 +23,6 @@ const cloud_utils = require('../../util/cloud_utils');
 const ObjectStats = require('../analytic_services/object_stats');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
-const string_utils = require('../../util/string_utils');
 const promise_utils = require('../../util/promise_utils');
 const map_allocator = require('./map_allocator');
 const system_server_utils = require('../utils/system_server_utils');
@@ -732,9 +731,9 @@ function list_objects(req) {
     load_bucket(req);
     let key;
     if (req.rpc_params.prefix) {
-        key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.prefix));
+        key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
     } else if (req.rpc_params.key_query) {
-        key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
+        key = new RegExp(_.escapeRegExp(req.rpc_params.key_query), 'i');
     } else if (req.rpc_params.key_regexp) {
         key = new RegExp(req.rpc_params.key_regexp);
     } else if (req.rpc_params.key_glob) {

@@ -2,7 +2,7 @@ import template from './alerts-pane.html';
 import StateAwareViewModel from 'components/state-aware-view-model';
 import AlertRowViewModel from './alert-row';
 import ko from 'knockout';
-import { loadAlerts, updateAlerts, dropAlertsState } from 'dispatchers';
+import { fetchAlerts, updateAlerts, dropAlertsState } from 'dispatchers';
 import { deepFreeze, last } from 'utils/core-utils';
 import { infinitScrollPageSize } from 'config';
 
@@ -57,7 +57,6 @@ class AlertsPaneViewModel extends StateAwareViewModel {
                     const row = this.rows()[i] || new AlertRowViewModel();
                     row.update(alert);
                     return row;
-
                 }
             )
         );
@@ -74,7 +73,7 @@ class AlertsPaneViewModel extends StateAwareViewModel {
             undefined;
 
 
-        loadAlerts({ severity, read }, infinitScrollPageSize);
+        fetchAlerts({ severity, read }, infinitScrollPageSize);
         this.scroll(0);
     }
 
@@ -118,7 +117,7 @@ class AlertsPaneViewModel extends StateAwareViewModel {
             this.severityFilter() :
             undefined;
 
-        loadAlerts({ severity, read, till }, infinitScrollPageSize);
+        fetchAlerts({ severity, read, till }, infinitScrollPageSize);
     }
 }
 

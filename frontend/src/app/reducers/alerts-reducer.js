@@ -20,7 +20,7 @@ function onInit() {
     return defaultState;
 }
 
-function onAlertsLoad(state, { query }) {
+function onAlertsFetch(state, { query }) {
     const loading = state.loading + 1;
     const loadError = null;
     const { severity, read } = query;
@@ -38,7 +38,7 @@ function onAlertsLoad(state, { query }) {
     }
 }
 
-function onAlertsLoaded(state, { requested, list }) {
+function onAlertsFetched(state, { requested, list }) {
     const loading = state.loading - 1;
     if (loading === 0) {
         const endOfList = list.length < requested;
@@ -52,7 +52,7 @@ function onAlertsLoaded(state, { requested, list }) {
     }
 }
 
-function onAlertsLoadFailed(state, { error }) {
+function onAlertsFetchFailed(state, { error }) {
     const loading = state.loading - 1;
 
     if (loading === 0) {
@@ -118,9 +118,9 @@ function _matchs(item, { ids, severity, read }) {
 // ------------------------------
 export default createReducer({
     INIT: onInit,
-    ALERTS_LOAD: onAlertsLoad,
-    ALERTS_LOADED: onAlertsLoaded,
-    ALERTS_LOAD_FAILED: onAlertsLoadFailed,
+    ALERTS_FETCH: onAlertsFetch,
+    ALERTS_FETCHED: onAlertsFetched,
+    ALERTS_FETCH_FAILED: onAlertsFetchFailed,
     ALERTS_UPDATE: onAlertsUpdate,
     ALERTS_UPDATED: onAlertsUpdated,
     ALERTS_UPDATE_FAILED: onAlertsUpdateFailed,

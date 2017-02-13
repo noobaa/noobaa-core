@@ -12,6 +12,10 @@ import { getModeFilterFromState } from 'utils/ui-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
     toFormData } from 'utils/browser-utils';
 
+// Action dispathers from refactored code.
+import { fetchSystemInfo } from 'dispatchers';
+import { actions as stateActions } from 'state-actions';
+
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -617,26 +621,19 @@ export function loadServerInfo() {
         .done();
 }
 
+// REFACTOR: This action was refactored into  dispatcher + state action.
+// This code will be removed after all referneces to modal.systemInfo will
+// be refactored to use the state stream.
+// ----------------------------------------------------------------------
 export function loadSystemInfo() {
     logAction('loadSystemInfo');
-
-    model.uiState.assign({
-        working: true
-    });
-
-    api.system.read_system()
-        .then(
-            reply => model.systemInfo(
-                deepFreeze(Object.assign(reply, { endpoint }))
-            )
-        )
-        .then(
-            () => model.uiState.assign({
-                working: false
-            })
-        )
-        .done();
+    fetchSystemInfo();
 }
+stateActions
+    .filter(action => action.type === 'SYSTEM_INFO_FETCHED')
+    .map(action => Object.assign({}, action.info, { endpoint }))
+    .subscribe(model.systemInfo);
+// ----------------------------------------------------------------------
 
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
     logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });

@@ -85,8 +85,8 @@ xcopy /Y/I/E .\build\Release .\build\Release-64
 
 call curl -L https://nodejs.org/dist/v6.9.4/win-x86/node.exe > node-32.exe
 call curl -L https://nodejs.org/dist/v6.9.4/win-x64/node.exe > node-64.exe
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2h-i386-win32.zip > openssl_32.zip
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2h-x64_86-win64.zip > openssl_64.zip
+call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2k-i386-win32.zip  > openssl_32.zip
+call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2k-x64_86-win64.zip> openssl_64.zip
 
 mkdir .\32
 mkdir .\64

@@ -478,35 +478,35 @@ function parse_put_bucket_method(req) {
     let method;
     if (_.isEmpty(req.query)) {
         method = S3_REQ_PUT_BUCKET;
-    } else if (req.query.accelerate) {
+    } else if (_.has(req.query, 'accelerate')) {
         method = S3_REQ_PUT_BUCKET_ACCELERATE;
-    } else if (req.query.acl) {
+    } else if (_.has(req.query, 'acl')) {
         method = S3_REQ_PUT_BUCKET_ACL;
-    } else if (req.query.analytics && req.query.id) {
+    } else if (_.has(req.query, 'analytics') && _.has(req.query, 'id')) {
         method = S3_REQ_PUT_BUCKET_ANALYTICS_CONFIG;
-    } else if (req.query.cors) {
+    } else if (_.has(req.query, 'cors')) {
         method = S3_REQ_PUT_BUCKET_CORS;
-    } else if (req.query.inventory && req.query.id) {
+    } else if (_.has(req.query, 'inventory') && _.has(req.query, 'id')) {
         method = S3_REQ_PUT_BUCKET_INVENTORY_CONFIG;
-    } else if (req.query.lifecycle) {
+    } else if (_.has(req.query, 'lifecycle')) {
         method = S3_REQ_PUT_BUCKET_LIFECYCLE;
-    } else if (req.query.policy) {
+    } else if (_.has(req.query, 'policy')) {
         method = S3_REQ_PUT_BUCKET_POLICY;
-    } else if (req.query.logging) {
+    } else if (_.has(req.query, 'logging')) {
         method = S3_REQ_PUT_BUCKET_LOGGING;
-    } else if (req.query.notification) {
+    } else if (_.has(req.query, 'notification')) {
         method = S3_REQ_PUT_BUCKET_NOTIFICATION;
-    } else if (req.query.replication) {
+    } else if (_.has(req.query, 'replication')) {
         method = S3_REQ_PUT_BUCKET_REPLICATION;
-    } else if (req.query.tagging) {
+    } else if (_.has(req.query, 'tagging')) {
         method = S3_REQ_PUT_BUCKET_TAGGING;
-    } else if (req.query.requestPayment) {
+    } else if (_.has(req.query, 'requestPayment')) {
         method = S3_REQ_PUT_BUCKET_REQUEST_PAYMENT;
-    } else if (req.query.versioning) {
+    } else if (_.has(req.query, 'versioning')) {
         method = S3_REQ_PUT_BUCKET_VERSIONING;
-    } else if (req.query.metrics && req.query.id) {
+    } else if (_.has(req.query, 'metrics') && _.has(req.query, 'id')) {
         method = S3_REQ_PUT_BUCKET_METRIC_CONFIGURATION;
-    } else if (req.query.website) {
+    } else if (_.has(req.query, 'website')) {
         method = S3_REQ_PUT_BUCKET_WEBSITE;
     }
 
@@ -515,7 +515,7 @@ function parse_put_bucket_method(req) {
 
 function parse_post_bucket_method(req) {
     let method;
-    if (req.query.delete) {
+    if (_.has(req.query, 'delete')) {
         method = S3_REQ_POST_BUCKET_OBJECTS_DELETE;
     }
 
@@ -524,9 +524,9 @@ function parse_post_bucket_method(req) {
 
 function parse_put_object_method(req) {
     let method;
-    if (req.query.acl) {
+    if (_.has(req.query, 'acl')) {
         method = S3_REQ_PUT_OBJECT_ACL;
-    } else if (req.query.tagging) {
+    } else if (_.has(req.query, 'tagging')) {
         method = S3_REQ_PUT_OBJECT_TAGGING;
     }
 
@@ -535,9 +535,9 @@ function parse_put_object_method(req) {
 
 function parse_post_object_method(req) {
     let method;
-    if (req.query.restore) {
+    if (_.has(req.query, 'restore')) {
         method = S3_REQ_POST_OBJECT_RESTORE;
-    } else if (req.query.uploadId) {
+    } else if (_.has(req.query, 'uploadId')) {
         method = S3_REQ_POST_OBJECT_UPLOAD_COMPLETE;
     }
 

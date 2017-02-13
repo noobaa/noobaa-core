@@ -225,13 +225,13 @@ function s3_rest(controller) {
     app.get('/', s3_handler('list_buckets'));
     app.head('/:bucket', s3_handler('head_bucket'));
     app.get('/:bucket', s3_handler('get_bucket', GET_BUCKET_QUERIES));
-    app.put('/:bucket', post_put_body_handler(parse_put_bucket_function), s3_handler('put_bucket', BUCKET_QUERIES));
-    app.post('/:bucket', post_put_body_handler(parse_post_bucket_function), s3_handler('post_bucket', ['delete']));
+    app.put('/:bucket', prepare_put_bucket_req, s3_handler('put_bucket', BUCKET_QUERIES));
+    app.post('/:bucket', prepare_post_bucket_req, s3_handler('post_bucket', ['delete']));
     app.delete('/:bucket', s3_handler('delete_bucket', BUCKET_QUERIES));
     app.head('/:bucket/:key(*)', s3_handler('head_object'));
     app.get('/:bucket/:key(*)', s3_handler('get_object', ['uploadId', 'acl']));
-    app.put('/:bucket/:key(*)', post_put_body_handler(parse_put_object_function), s3_handler('put_object', ['uploadId', 'acl']));
-    app.post('/:bucket/:key(*)', post_put_body_handler(parse_post_object_function), s3_handler('post_object', ['uploadId', 'uploads']));
+    app.put('/:bucket/:key(*)', prepare_put_object_req, s3_handler('put_object', ['uploadId', 'acl']));
+    app.post('/:bucket/:key(*)', prepare_post_object_req, s3_handler('post_object', ['uploadId', 'uploads']));
     app.delete('/:bucket/:key(*)', s3_handler('delete_object', ['uploadId']));
     app.use(handle_common_s3_errors);
     return app;
@@ -435,6 +435,39 @@ function handle_options(req, res, next) {
     next();
 }
 
+function prepare_post_object_req(req, res, next) {
+    return read_and_parse_body(req, parse_post_object_req(req)).asCallback(next);
+}
+
+function prepare_put_object_req(req, res, next) {
+    return read_and_parse_body(req, parse_put_object_req(req)).asCallback(next);
+}
+
+function prepare_post_bucket_req(req, res, next) {
+    return read_and_parse_body(req, parse_post_bucket_req(req)).asCallback(next);
+}
+
+function prepare_put_bucket_req(req, res, next) {
+    return read_and_parse_body(req, parse_put_bucket_req(req)).asCallback(next);
+}
+
+function read_and_parse_body(req, req_type) {
+    if (!req_type) return P.resolve();
+
+    return read_request_body(req)
+        .then(body_data => {
+            if (!body_data) {
+                if (req_type.required) {
+                    return P.reject(s3_errors.MissingRequestBodyError);
+                }
+
+                return P.resolve();
+            }
+
+            return parse_request_body(req, req_type.body_type);
+        });
+}
+
 function read_request_body(req) {
     return new P((resolve, reject) => {
         let data = '';
@@ -455,148 +488,63 @@ function read_request_body(req) {
     });
 }
 
-function parse_request_body(req, method) {
-    if (method.body_type === S3_REQ_XML_BODY) {
+function parse_request_body(req, req_type) {
+    if (req_type.body_type === S3_REQ_XML_BODY) {
         return P.fromCallback(callback => xml2js.parseString(req.body, callback))
             .then(data => {
                 req.body = data;
             })
             .catch(err => {
                 console.error('parse_request_body: XML parse problem', err);
-                return P.reject(method.error || s3_errors.MalformedXML);
+                return P.reject(req_type.error || s3_errors.MalformedXML);
             });
     }
 
-    if (method.body_type === S3_REQ_JSON_BODY) {
+    if (req_type.body_type === S3_REQ_JSON_BODY) {
         return P.fcall(() => {
                 req.body = JSON.parse(req.body);
             })
             .catch(err => {
                 console.error('parse_request_body: JSON parse problem', err);
-                // TODO: JEN What is the default error for JSON?!
-                return P.reject(method.error || s3_errors.InvalidPolicyDocument);
+                return P.reject(req_type.error || s3_errors.InvalidRequest);
             });
     }
 
-    console.log(`parse_request_body (req_id:${req.request_id}): Body type ${method.body_type} not supported`);
-    return P.reject(new Error(`Body type parsing not supported ${method.body_type}`));
+    console.log(`parse_request_body (req_id:${req.request_id}): Body type ${req_type.body_type} not supported`);
+    return P.reject(new Error(`Body type parsing not supported ${req_type.body_type}`));
 }
 
-function parse_put_bucket_function(req) {
-    if (_.isEmpty(req.query)) {
-        return S3_REQ_PUT_BUCKET;
-    }
-
-    if (_.has(req.query, 'accelerate')) {
-        return S3_REQ_PUT_BUCKET_ACCELERATE;
-    }
-
-    if (_.has(req.query, 'acl')) {
-        return S3_REQ_PUT_BUCKET_ACL;
-    }
-
-    if (_.has(req.query, 'analytics') && _.has(req.query, 'id')) {
-        return S3_REQ_PUT_BUCKET_ANALYTICS_CONFIG;
-    }
-
-    if (_.has(req.query, 'cors')) {
-        return S3_REQ_PUT_BUCKET_CORS;
-    }
-
-    if (_.has(req.query, 'inventory') && _.has(req.query, 'id')) {
-        return S3_REQ_PUT_BUCKET_INVENTORY_CONFIG;
-    }
-
-    if (_.has(req.query, 'lifecycle')) {
-        return S3_REQ_PUT_BUCKET_LIFECYCLE;
-    }
-
-    if (_.has(req.query, 'policy')) {
-        return S3_REQ_PUT_BUCKET_POLICY;
-    }
-
-    if (_.has(req.query, 'logging')) {
-        return S3_REQ_PUT_BUCKET_LOGGING;
-    }
-
-    if (_.has(req.query, 'notification')) {
-        return S3_REQ_PUT_BUCKET_NOTIFICATION;
-    }
-
-    if (_.has(req.query, 'replication')) {
-        return S3_REQ_PUT_BUCKET_REPLICATION;
-    }
-
-    if (_.has(req.query, 'tagging')) {
-        return S3_REQ_PUT_BUCKET_TAGGING;
-    }
-
-    if (_.has(req.query, 'requestPayment')) {
-        return S3_REQ_PUT_BUCKET_REQUEST_PAYMENT;
-    }
-
-    if (_.has(req.query, 'versioning')) {
-        return S3_REQ_PUT_BUCKET_VERSIONING;
-    }
-
-    if (_.has(req.query, 'metrics') && _.has(req.query, 'id')) {
-        return S3_REQ_PUT_BUCKET_METRIC_CONFIGURATION;
-    }
-
-    if (_.has(req.query, 'website')) {
-        return S3_REQ_PUT_BUCKET_WEBSITE;
-    }
+function parse_put_bucket_req(req) {
+    if (_.isEmpty(req.query)) return S3_REQ_PUT_BUCKET;
+    if (_.has(req.query, 'lifecycle')) return S3_REQ_PUT_BUCKET_LIFECYCLE;
+    if (_.has(req.query, 'acl')) return S3_REQ_PUT_BUCKET_ACL;
+    if (_.has(req.query, 'accelerate')) return S3_REQ_PUT_BUCKET_ACCELERATE;
+    if (_.has(req.query, 'analytics') && _.has(req.query, 'id')) return S3_REQ_PUT_BUCKET_ANALYTICS_CONFIG;
+    if (_.has(req.query, 'cors')) return S3_REQ_PUT_BUCKET_CORS;
+    if (_.has(req.query, 'inventory') && _.has(req.query, 'id')) return S3_REQ_PUT_BUCKET_INVENTORY_CONFIG;
+    if (_.has(req.query, 'policy')) return S3_REQ_PUT_BUCKET_POLICY;
+    if (_.has(req.query, 'logging')) return S3_REQ_PUT_BUCKET_LOGGING;
+    if (_.has(req.query, 'notification')) return S3_REQ_PUT_BUCKET_NOTIFICATION;
+    if (_.has(req.query, 'replication')) return S3_REQ_PUT_BUCKET_REPLICATION;
+    if (_.has(req.query, 'tagging')) return S3_REQ_PUT_BUCKET_TAGGING;
+    if (_.has(req.query, 'requestPayment')) return S3_REQ_PUT_BUCKET_REQUEST_PAYMENT;
+    if (_.has(req.query, 'versioning')) return S3_REQ_PUT_BUCKET_VERSIONING;
+    if (_.has(req.query, 'metrics') && _.has(req.query, 'id')) return S3_REQ_PUT_BUCKET_METRIC_CONFIGURATION;
+    if (_.has(req.query, 'website')) return S3_REQ_PUT_BUCKET_WEBSITE;
 }
 
-function parse_post_bucket_function(req) {
-    if (_.has(req.query, 'delete')) {
-        return S3_REQ_POST_BUCKET_OBJECTS_DELETE;
-    }
+function parse_post_bucket_req(req) {
+    if (_.has(req.query, 'delete')) return S3_REQ_POST_BUCKET_OBJECTS_DELETE;
 }
 
-function parse_put_object_function(req) {
-    if (_.has(req.query, 'acl')) {
-        return S3_REQ_PUT_OBJECT_ACL;
-    }
-
-    if (_.has(req.query, 'tagging')) {
-        return S3_REQ_PUT_OBJECT_TAGGING;
-    }
+function parse_put_object_req(req) {
+    if (_.has(req.query, 'acl')) return S3_REQ_PUT_OBJECT_ACL;
+    if (_.has(req.query, 'tagging')) return S3_REQ_PUT_OBJECT_TAGGING;
 }
 
-function parse_post_object_function(req) {
-    if (_.has(req.query, 'restore')) {
-        return S3_REQ_POST_OBJECT_RESTORE;
-    }
-
-    if (_.has(req.query, 'uploadId')) {
-        return S3_REQ_POST_OBJECT_UPLOAD_COMPLETE;
-    }
-}
-
-
-function post_put_body_handler(func) {
-    return function(req, res, next) {
-        let req_function = func(req);
-        if (!req_function) {
-            // We should not read the body when uploading objects
-            return next();
-        }
-
-        return read_request_body(req)
-            .then(body_data => {
-                if (!body_data) {
-                    if (req_function.required) {
-                        return P.reject(s3_errors.MissingRequestBodyError);
-                    }
-
-                    return P.resolve();
-                }
-
-                return parse_request_body(req, req_function.body_type);
-            })
-            .asCallback(next);
-    };
+function parse_post_object_req(req) {
+    if (_.has(req.query, 'restore')) return S3_REQ_POST_OBJECT_RESTORE;
+    if (_.has(req.query, 'uploadId')) return S3_REQ_POST_OBJECT_UPLOAD_COMPLETE;
 }
 
 function handle_testme(req, res, next) {

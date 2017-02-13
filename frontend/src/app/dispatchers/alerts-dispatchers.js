@@ -1,30 +1,15 @@
 import { dispatch } from 'state-actions';
 import api from 'services/api';
 
-/// -------------------------------
-/// Drawer action dispatchers
-/// -------------------------------
-export function openDrawer(component) {
-    dispatch({ type: 'DRAWER_OPEN', component });
-}
-
-export function closeDrawer() {
-    dispatch({ type: 'DRAWER_CLOSE' });
-}
-
-/// -------------------------------
-/// Alerts action dispatchers
-/// -------------------------------
-
-export async function loadAlerts(query, limit) {
-    dispatch({ type: 'ALERTS_LOAD', query, limit });
+export async function fetchAlerts(query, limit) {
+    dispatch({ type: 'ALERTS_FETCH', query, limit });
 
     try {
         const list = await api.events.read_alerts({ query, limit });
-        dispatch({ type: 'ALERTS_LOADED', requested: limit, list });
+        dispatch({ type: 'ALERTS_FETCHED', requested: limit, list });
 
     } catch (error) {
-        dispatch({ type: 'ALERTS_LOAD_FAILED', error });
+        dispatch({ type: 'ALERTS_FETCH_FAILED', error });
     }
 }
 

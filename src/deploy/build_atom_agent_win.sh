@@ -85,7 +85,7 @@ else
                 sed -i  '/nodetime/d' package.json
                 sed -i  '/newrelic/d' package.json
                 rm -rf ./node_modules/gulp*
-        	      rm -rf ./node_modules/bower*
+                rm -rf ./node_modules/bower*
                 rm -rf ./node_modules/bootstrap*
                 rm -rf ./node_modules/browserify*
                 rm -rf ./node_modules/nodetime*

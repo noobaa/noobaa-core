@@ -138,9 +138,8 @@ function install_nodejs {
     source /root/.nvm/nvm.sh
     local nodever=$(cat ${CORE_DIR}/.nvmrc)
 
-    nvm install ${nodever}
-    nvm alias default ${nodever}
-    nvm use ${nodever}
+    nvm install
+    nvm alias default $(nvm current)
 
     cd ~
     ln -sf $(which node) /usr/local/bin/node

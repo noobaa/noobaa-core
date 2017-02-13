@@ -2,6 +2,7 @@ import template from './bucket-s3-access-list.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
+import { openBucketS3AccessModal, openS3AccessDetailsModal } from 'dispatchers';
 
 class BucketS3AccessListViewModel extends BaseViewModel {
     constructor({ bucketName }) {
@@ -25,24 +26,16 @@ class BucketS3AccessListViewModel extends BaseViewModel {
         this.selectedAccount = ko.observable();
 
         this.bucketName = bucketName;
-
-        this.isS3AccessModalVisible = ko.observable(false);
     }
 
-    openS3AccessModal() {
-        ko.unwrap(this.bucketName) && this.isS3AccessModalVisible(true);
+    onEditS3Access() {
+        openBucketS3AccessModal(
+            ko.unwrap(this.bucketName)
+        );
     }
 
-    closeS3AccessModal() {
-        this.isS3AccessModalVisible(false);
-    }
-
-    openConnectionDetailsFor(email) {
-        this.selectedAccount(email);
-    }
-
-    closeConnectionDetails() {
-        this.selectedAccount(null);
+    onConnectionDetails(email) {
+        openS3AccessDetailsModal(email);
     }
 }
 

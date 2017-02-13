@@ -7,6 +7,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount} from 'utils/string-utils';
 import { countNodesByState } from 'utils/ui-utils';
 import { hexToRgb } from 'utils/color-utils';
+import { openInstallNodesModal } from 'dispatchers';
 
 const coutners = deepFreeze({
     ALL: 0,
@@ -135,17 +136,10 @@ class ResourceOverviewViewModel extends BaseViewModel {
         this.nodeCountText = ko.pureComputed(
             () => `${nodeCount()} Nodes`
         );
-
-        this.isInstallNodeModalVisible = ko.observable(false);
-
     }
 
-    showInstallNodeModal() {
-        this.isInstallNodeModalVisible(true);
-    }
-
-    hideInstallNodeModal() {
-        this.isInstallNodeModalVisible(false);
+    onInstallNodes() {
+        openInstallNodesModal();
     }
 }
 

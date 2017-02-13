@@ -7,6 +7,7 @@ import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { keyByProperty } from 'utils/core-utils';
 import { inputThrottle } from 'config';
+import { openAddCloudResrouceModal } from 'dispatchers';
 
 const columns = deepFreeze([
     {
@@ -174,7 +175,6 @@ class CloudResourcesTableViewModel extends BaseViewModel {
         );
 
         this.deleteGroup = ko.observable();
-        this.isAddCloudResourceModalVisible = ko.observable(false);
     }
 
     newResourceRow(resource) {
@@ -212,12 +212,8 @@ class CloudResourcesTableViewModel extends BaseViewModel {
         navigateTo(undefined, undefined, { filter, sortBy, order, resourceType });
     }
 
-    showAddCloudResourceModal() {
-        this.isAddCloudResourceModalVisible(true);
-    }
-
-    hideCloudReousrceModal() {
-        this.isAddCloudResourceModalVisible(false);
+    onAddCloudResource() {
+        openAddCloudResrouceModal();
     }
 }
 

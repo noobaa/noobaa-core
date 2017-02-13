@@ -9,7 +9,7 @@
             Cloud sync was not set for this bucket
         </p>
 
-        <button class="btn" data-bind="click: showSetCloudSyncModal">
+        <button class="btn" data-bind="click: onSetPolicy">
             Set Policy
         </button>
     </div>
@@ -30,12 +30,6 @@
                 Remove
             </button>
             <!-- /ko -->
-
-            <!-- ko ifnot: hasCloudSync -->
-            <button class="btn" data-bind="click: showSetCloudSyncModal">
-                Set Policy
-            </button>
-            <!-- /ko -->
         </div>
         <property-sheet params="properties: statusDetails"></property-sheet>
     </section>
@@ -52,7 +46,7 @@
     <section class="column pad">
         <div class="row">
             <h3 class="heading3 greedy push-next">Sync Policy</h3>
-            <button class="btn" data-bind="click: showEditCloudSyncModal">
+            <button class="btn" data-bind="click: onEditPolicy">
                 Edit
             </button>
         </div>
@@ -60,16 +54,3 @@
     </section>
     <!-- /ko -->
 </div>
-<!-- ko if: isSetCloudSyncModalVisible -->
-<set-cloud-sync-modal params="
-    bucketName: bucketName,
-    onClose: () => hideSetCloudSyncModal()
-"></set-cloud-sync-modal>
-<!-- /ko -->
-
-<!-- ko if: isEditCloudSyncModalVisible -->
-<edit-cloud-sync-modal params="
-    bucketName: bucketName,
-    onClose: () => hideEditCloudSyncModal()
-"></edit-cloud-sync-modal>
-<!-- /ko -->

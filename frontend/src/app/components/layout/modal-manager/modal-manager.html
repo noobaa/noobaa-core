@@ -1,11 +1,9 @@
 <!-- ko if: hasModals -->
-<div class="modals-backdrop fixed fade-in" data-bind="click: onBackdrop">
+<div class="modals-backdrop fixed fade-in" data-bind="
+    click: (_, evt) => (evt.target === $element && onBackdrop(), true)
+">
     <!-- ko foreach: modals -->
-    <div class="modal column text-left pop-centered" data-bind="
-        css: sizeCss,
-        click: () => {},
-        clickBubble: false
-    ">
+    <div class="modal column text-left pop-centered" data-bind="css: css">
         <!-- ko if: titleText -->
         <h1 class="row heading2 modal-heading content-middle" data-bind="css: titleCss">
             <svg-icon class="severity-icon" params="name: titleIcon" data-bind="

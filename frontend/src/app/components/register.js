@@ -15,16 +15,30 @@ export default function register(ko) {
     ko.components.register('commands-bar',                          require('./layout/commands-bar/commands-bar').default);
     ko.components.register('breadcrumbs',                           require('./layout/breadcrumbs/breadcrumbs').default);
     ko.components.register('notification-box',                      require('./layout/notification-box/notification-box').default);
-    ko.components.register('welcome-modal',                         require('./layout/welcome-modal/welcome-modal').default);
-    ko.components.register('upgraded-capacity-notification-modal',  require('./layout/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal').default);
     ko.components.register('debug-mode-sticky',                     require('./layout/debug-mode-sticky/debug-mode-sticky').default);
     ko.components.register('maintenance-sticky',                    require('./layout/maintenance-sticky/maintenance-sticky').default);
     ko.components.register('license-sticky',                        require('./layout/license-sticky/license-sticky').default);
     ko.components.register('phone-home-connectivity-sticky',        require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky').default);
     ko.components.register('file-uploads-modal',                    require('./layout/file-uploads-modal/file-uploads-modal').default);
     ko.components.register('account-menu',                          require('./layout/account-menu/account-menu').default);
-    ko.components.register('modal-manager', require('./layout/modal-manager/modal-manager').default);
+    ko.components.register('modal-manager',                         require('./layout/modal-manager/modal-manager').default);
     /** INJECT:layout **/
+
+    // -------------------------------
+    // Modals
+    // -------------------------------
+    ko.components.register('install-nodes-modal',                   require('./modals/install-nodes-modal/install-nodes-modal').default);
+    ko.components.register('upgraded-capacity-notification-modal',  require('./modals/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal').default);
+    ko.components.register('welcome-modal',                         require('./modals/welcome-modal/welcome-modal').default);
+    ko.components.register('after-upgrade-modal',                   require('./modals/after-upgrade-modal/after-upgrade-modal').default);
+    ko.components.register('add-cloud-resource-modal',              require('./modals/add-cloud-resource-modal/add-cloud-resource-modal').default);
+    ko.components.register('add-cloud-connection-modal',            require('./modals/add-cloud-connection-modal/add-cloud-connection-modal').default);
+    ko.components.register('set-cloud-sync-modal',                  require('./modals/set-cloud-sync-modal/set-cloud-sync-modal').default);
+    ko.components.register('edit-cloud-sync-modal',                 require('./modals/edit-cloud-sync-modal/edit-cloud-sync-modal').default);
+    ko.components.register('s3-access-details-modal',               require('./modals/s3-access-details-modal/s3-access-details-modal').default);
+    ko.components.register('bucket-s3-access-modal',                require('./modals/bucket-s3-access-modal/bucket-s3-access-modal').default);
+    ko.components.register('bucket-placement-policy-modal',         require('./modals/bucket-placement-policy-modal/bucket-placement-policy-modal').default);
+    /** INJECT:modals **/
 
     // -------------------------------
     // Login
@@ -42,9 +56,7 @@ export default function register(ko) {
     // Overview
     // -------------------------------
     ko.components.register('overview-panel',        require('./overview/overview-panel/overview-panel').default);
-    ko.components.register('install-node-modal',    require('./overview/install-node-modal/install-node-modal').default);
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard').default);
-    ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal').default);
     ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview').default);
     ko.components.register('resource-overview',     require('./overview/resource-overview/resource-overview').default);
     ko.components.register('system-health',         require('./overview/system-health/system-health').default);
@@ -66,12 +78,7 @@ export default function register(ko) {
     ko.components.register('bucket-objects-table',                  require('./bucket/bucket-objects-table/bucket-objects-table').default);
     ko.components.register('bucket-data-placement-form',            require('./bucket/bucket-data-placement-form/bucket-data-placement-form').default);
     ko.components.register('bucket-cloud-sync-form',                require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
-    ko.components.register('bucket-placement-policy-modal',         require('./bucket/bucket-placement-policy-modal/bucket-placement-policy-modal').default);
-    ko.components.register('set-cloud-sync-modal',                  require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal').default);
-    ko.components.register('edit-cloud-sync-modal',                 require('./bucket/edit-cloud-sync-modal/edit-cloud-sync-modal').default);
     ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list').default);
-    ko.components.register('s3-access-details-modal',               require('./bucket/s3-access-details-modal/s3-access-details-modal').default);
-    ko.components.register('bucket-s3-access-modal',                require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal').default);
     /** INJECT:bucket **/
 
     // -------------------------------
@@ -90,7 +97,6 @@ export default function register(ko) {
     ko.components.register('pools-table',                       require('./resources/pools-table/pools-table').default);
     ko.components.register('create-pool-wizard',                require('./resources/create-pool-wizard/create-pool-wizard').default);
     ko.components.register('cloud-resources-table',             require('./resources/cloud-resources-table/cloud-resources-table').default);
-    ko.components.register('add-cloud-resource-modal',          require('./resources/add-cloud-resource-modal/add-cloud-resource-modal').default);
     /** INJECT:resources **/
 
     // -------------------------------
@@ -219,7 +225,6 @@ export default function register(ko) {
     ko.components.register('toggle-switch',             require('./shared/toggle-switch/toggle-switch').default);
     ko.components.register('property-sheet',            require('./shared/property-sheet/property-sheet').default);
     ko.components.register('capacity-bar',              require('./shared/capacity-bar/capacity-bar').default);
-    ko.components.register('add-cloud-connection-modal',require('./shared/add-cloud-connection-modal/add-cloud-connection-modal').default);
     ko.components.register('toggle-filter',             require('./shared/toggle-filter/toggle-filter').default);
     ko.components.register('data-table',                require('./shared/data-table/data-table').default);
     ko.components.register('timezone-chooser',          require('./shared/timezone-chooser/timezone-chooser').default);

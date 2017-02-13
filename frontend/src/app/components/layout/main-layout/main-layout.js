@@ -1,9 +1,10 @@
 import template from './main-layout.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { redirectTo, registerForAlerts } from 'actions';
-import { system as systemRoute } from 'routes';
+import { registerForAlerts } from 'actions';
 import { uiState, systemInfo, routeContext } from 'model';
+import { openAfterUpgradeModal, openWelcomeModal,
+    openUpgradedCapacityNofiticationModal } from 'dispatchers';
 
 class MainLayoutViewModel extends BaseViewModel {
     constructor() {
@@ -17,27 +18,39 @@ class MainLayoutViewModel extends BaseViewModel {
             () => Boolean(uiState().useBackground)
         );
 
-        this.isAfterUpgradeModalVisible = ko.pureComputed(
-            () => !!routeContext().query.afterupgrade
+        const query = ko.pureComputed(
+            () => routeContext().query
         );
 
-        this.isWelcomeModalVisible = ko.pureComputed(
-            () => !!routeContext().query.welcome
+        // Handle after upgrade modal.
+        this.addToDisposeList(
+            ko.computed(
+                () => query().afterupgrade && openAfterUpgradeModal()
+            )
         );
 
-        this.isUpgradedCapacityNofiticationModalVisible = ko.pureComputed(
-            () => systemInfo() && systemInfo().phone_home_config.upgraded_cap_notification
+        // Handle welcome modal.
+        this.addToDisposeList(
+            ko.computed(
+                () => query().welcome && openWelcomeModal()
+            )
+        );
+
+        // Handle upgraded capacity nofitication modal
+        const upgradedCapNotification = ko.pureComputed(
+            () => Boolean(
+                systemInfo() &&
+                systemInfo().phone_home_config.upgraded_cap_notification
+            )
+        );
+        this.addToDisposeList(
+            ko.computed(
+                () => upgradedCapNotification() &&
+                    openUpgradedCapacityNofiticationModal()
+            )
         );
 
         registerForAlerts();
-    }
-
-    hideWelcomeModal() {
-        redirectTo(systemRoute);
-    }
-
-    hideAfterUpgradeModal() {
-        redirectTo(systemRoute);
     }
 }
 

@@ -76,14 +76,7 @@
             <span data-bind="text: systemCapacity"></span>
         </p>
     </div>
-    <button class="btn overview-btn" data-bind="
-        click: () => showInstallNodeModal()
-    ">
+    <button class="btn overview-btn" data-bind="click: onInstallNodes">
         Install Nodes
     </button>
 </section>
-
- <!-- ko if: isInstallNodeModalVisible -->
-<install-node-modal params="onClose: () => hideInstallNodeModal()">
-</install-node-modal>
-<!-- /ko -->

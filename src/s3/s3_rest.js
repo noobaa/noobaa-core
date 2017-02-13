@@ -22,9 +22,8 @@ const S3_XML_ATTRS = Object.freeze({
 
 const S3_REQ_XML_BODY = 'xml';
 const S3_REQ_JSON_BODY = 'json';
-const S3_REQ_EMPTY_BODY = 'empty';
 // Limit body to 4 megabytes
-const S3_MAX_REQ_CONTENT_LEN = 4 * 1024;
+const S3_MAX_REQ_CONTENT_LEN = 4 * 1024 * 1024;
 
 
 // http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
@@ -80,7 +79,8 @@ const S3_REQ_PUT_BUCKET_LIFECYCLE = {
 const S3_REQ_PUT_BUCKET_POLICY = {
     body_type: S3_REQ_JSON_BODY,
     schema: {},
-    required: true
+    required: true,
+    error: s3_errors.InvalidPolicyDocument
 };
 
 // http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlogging.html
@@ -455,93 +455,123 @@ function read_request_body(req) {
     });
 }
 
-function parse_request_body(req, body_type) {
-    if (body_type === S3_REQ_EMPTY_BODY) {
-        req.body = undefined;
-        return P.resolve();
-    } else if (body_type === S3_REQ_XML_BODY) {
+function parse_request_body(req, method) {
+    if (method.body_type === S3_REQ_XML_BODY) {
         return P.fromCallback(callback => xml2js.parseString(req.body, callback))
             .then(data => {
                 req.body = data;
+            })
+            .catch(err => {
+                console.error('parse_request_body: XML parse problem', err);
+                return P.reject(method.error || s3_errors.MalformedXML);
             });
-    } else if (body_type === S3_REQ_JSON_BODY) {
+    }
+
+    if (method.body_type === S3_REQ_JSON_BODY) {
         return P.fcall(() => {
                 req.body = JSON.parse(req.body);
+            })
+            .catch(err => {
+                console.error('parse_request_body: JSON parse problem', err);
+                // TODO: JEN What is the default error for JSON?!
+                return P.reject(method.error || s3_errors.InvalidPolicyDocument);
             });
-    } else {
-        console.log(`parse_request_body (req_id:${req.request_id}): Body type ${body_type} not supported`);
-        return P.reject();
     }
+
+    console.log(`parse_request_body (req_id:${req.request_id}): Body type ${method.body_type} not supported`);
+    return P.reject(new Error(`Body type parsing not supported ${method.body_type}`));
 }
 
 function parse_put_bucket_method(req) {
-    let method;
     if (_.isEmpty(req.query)) {
-        method = S3_REQ_PUT_BUCKET;
-    } else if (_.has(req.query, 'accelerate')) {
-        method = S3_REQ_PUT_BUCKET_ACCELERATE;
-    } else if (_.has(req.query, 'acl')) {
-        method = S3_REQ_PUT_BUCKET_ACL;
-    } else if (_.has(req.query, 'analytics') && _.has(req.query, 'id')) {
-        method = S3_REQ_PUT_BUCKET_ANALYTICS_CONFIG;
-    } else if (_.has(req.query, 'cors')) {
-        method = S3_REQ_PUT_BUCKET_CORS;
-    } else if (_.has(req.query, 'inventory') && _.has(req.query, 'id')) {
-        method = S3_REQ_PUT_BUCKET_INVENTORY_CONFIG;
-    } else if (_.has(req.query, 'lifecycle')) {
-        method = S3_REQ_PUT_BUCKET_LIFECYCLE;
-    } else if (_.has(req.query, 'policy')) {
-        method = S3_REQ_PUT_BUCKET_POLICY;
-    } else if (_.has(req.query, 'logging')) {
-        method = S3_REQ_PUT_BUCKET_LOGGING;
-    } else if (_.has(req.query, 'notification')) {
-        method = S3_REQ_PUT_BUCKET_NOTIFICATION;
-    } else if (_.has(req.query, 'replication')) {
-        method = S3_REQ_PUT_BUCKET_REPLICATION;
-    } else if (_.has(req.query, 'tagging')) {
-        method = S3_REQ_PUT_BUCKET_TAGGING;
-    } else if (_.has(req.query, 'requestPayment')) {
-        method = S3_REQ_PUT_BUCKET_REQUEST_PAYMENT;
-    } else if (_.has(req.query, 'versioning')) {
-        method = S3_REQ_PUT_BUCKET_VERSIONING;
-    } else if (_.has(req.query, 'metrics') && _.has(req.query, 'id')) {
-        method = S3_REQ_PUT_BUCKET_METRIC_CONFIGURATION;
-    } else if (_.has(req.query, 'website')) {
-        method = S3_REQ_PUT_BUCKET_WEBSITE;
+        return S3_REQ_PUT_BUCKET;
     }
 
-    return method;
+    if (_.has(req.query, 'accelerate')) {
+        return S3_REQ_PUT_BUCKET_ACCELERATE;
+    }
+
+    if (_.has(req.query, 'acl')) {
+        return S3_REQ_PUT_BUCKET_ACL;
+    }
+
+    if (_.has(req.query, 'analytics') && _.has(req.query, 'id')) {
+        return S3_REQ_PUT_BUCKET_ANALYTICS_CONFIG;
+    }
+
+    if (_.has(req.query, 'cors')) {
+        return S3_REQ_PUT_BUCKET_CORS;
+    }
+
+    if (_.has(req.query, 'inventory') && _.has(req.query, 'id')) {
+        return S3_REQ_PUT_BUCKET_INVENTORY_CONFIG;
+    }
+
+    if (_.has(req.query, 'lifecycle')) {
+        return S3_REQ_PUT_BUCKET_LIFECYCLE;
+    }
+
+    if (_.has(req.query, 'policy')) {
+        return S3_REQ_PUT_BUCKET_POLICY;
+    }
+
+    if (_.has(req.query, 'logging')) {
+        return S3_REQ_PUT_BUCKET_LOGGING;
+    }
+
+    if (_.has(req.query, 'notification')) {
+        return S3_REQ_PUT_BUCKET_NOTIFICATION;
+    }
+
+    if (_.has(req.query, 'replication')) {
+        return S3_REQ_PUT_BUCKET_REPLICATION;
+    }
+
+    if (_.has(req.query, 'tagging')) {
+        return S3_REQ_PUT_BUCKET_TAGGING;
+    }
+
+    if (_.has(req.query, 'requestPayment')) {
+        return S3_REQ_PUT_BUCKET_REQUEST_PAYMENT;
+    }
+
+    if (_.has(req.query, 'versioning')) {
+        return S3_REQ_PUT_BUCKET_VERSIONING;
+    }
+
+    if (_.has(req.query, 'metrics') && _.has(req.query, 'id')) {
+        return S3_REQ_PUT_BUCKET_METRIC_CONFIGURATION;
+    }
+
+    if (_.has(req.query, 'website')) {
+        return S3_REQ_PUT_BUCKET_WEBSITE;
+    }
 }
 
 function parse_post_bucket_method(req) {
-    let method;
     if (_.has(req.query, 'delete')) {
-        method = S3_REQ_POST_BUCKET_OBJECTS_DELETE;
+        return S3_REQ_POST_BUCKET_OBJECTS_DELETE;
     }
-
-    return method;
 }
 
 function parse_put_object_method(req) {
-    let method;
     if (_.has(req.query, 'acl')) {
-        method = S3_REQ_PUT_OBJECT_ACL;
-    } else if (_.has(req.query, 'tagging')) {
-        method = S3_REQ_PUT_OBJECT_TAGGING;
+        return S3_REQ_PUT_OBJECT_ACL;
     }
 
-    return method;
+    if (_.has(req.query, 'tagging')) {
+        return S3_REQ_PUT_OBJECT_TAGGING;
+    }
 }
 
 function parse_post_object_method(req) {
-    let method;
     if (_.has(req.query, 'restore')) {
-        method = S3_REQ_POST_OBJECT_RESTORE;
-    } else if (_.has(req.query, 'uploadId')) {
-        method = S3_REQ_POST_OBJECT_UPLOAD_COMPLETE;
+        return S3_REQ_POST_OBJECT_RESTORE;
     }
 
-    return method;
+    if (_.has(req.query, 'uploadId')) {
+        return S3_REQ_POST_OBJECT_UPLOAD_COMPLETE;
+    }
 }
 
 
@@ -558,10 +588,11 @@ function post_put_body_handler(method_func) {
                 if (!body_data) {
                     if (method.required) {
                         return P.reject(s3_errors.MissingRequestBodyError);
-                    } else {
-                        return P.resolve();
                     }
+
+                    return P.resolve();
                 }
+
                 return parse_request_body(req, method.body_type);
             })
             .asCallback(next);

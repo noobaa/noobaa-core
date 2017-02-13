@@ -9,15 +9,10 @@
  *
  */
 module.exports = {
-    escapeRegExp: escapeRegExp,
     left_pad_zeros: left_pad_zeros,
     random_string: random_string
 };
 
-
-function escapeRegExp(str) {
-    return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
-}
 
 function left_pad_zeros(str, to_length) {
     let num_zeros = to_length - str.length;

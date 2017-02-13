@@ -225,13 +225,13 @@ function s3_rest(controller) {
     app.get('/', s3_handler('list_buckets'));
     app.head('/:bucket', s3_handler('head_bucket'));
     app.get('/:bucket', s3_handler('get_bucket', GET_BUCKET_QUERIES));
-    app.put('/:bucket', post_put_body_handler(parse_put_bucket_method), s3_handler('put_bucket', BUCKET_QUERIES));
-    app.post('/:bucket', post_put_body_handler(parse_post_bucket_method), s3_handler('post_bucket', ['delete']));
+    app.put('/:bucket', post_put_body_handler(parse_put_bucket_function), s3_handler('put_bucket', BUCKET_QUERIES));
+    app.post('/:bucket', post_put_body_handler(parse_post_bucket_function), s3_handler('post_bucket', ['delete']));
     app.delete('/:bucket', s3_handler('delete_bucket', BUCKET_QUERIES));
     app.head('/:bucket/:key(*)', s3_handler('head_object'));
     app.get('/:bucket/:key(*)', s3_handler('get_object', ['uploadId', 'acl']));
-    app.put('/:bucket/:key(*)', post_put_body_handler(parse_put_object_method), s3_handler('put_object', ['uploadId', 'acl']));
-    app.post('/:bucket/:key(*)', post_put_body_handler(parse_post_object_method), s3_handler('post_object', ['uploadId', 'uploads']));
+    app.put('/:bucket/:key(*)', post_put_body_handler(parse_put_object_function), s3_handler('put_object', ['uploadId', 'acl']));
+    app.post('/:bucket/:key(*)', post_put_body_handler(parse_post_object_function), s3_handler('post_object', ['uploadId', 'uploads']));
     app.delete('/:bucket/:key(*)', s3_handler('delete_object', ['uploadId']));
     app.use(handle_common_s3_errors);
     return app;
@@ -482,7 +482,7 @@ function parse_request_body(req, method) {
     return P.reject(new Error(`Body type parsing not supported ${method.body_type}`));
 }
 
-function parse_put_bucket_method(req) {
+function parse_put_bucket_function(req) {
     if (_.isEmpty(req.query)) {
         return S3_REQ_PUT_BUCKET;
     }
@@ -548,13 +548,13 @@ function parse_put_bucket_method(req) {
     }
 }
 
-function parse_post_bucket_method(req) {
+function parse_post_bucket_function(req) {
     if (_.has(req.query, 'delete')) {
         return S3_REQ_POST_BUCKET_OBJECTS_DELETE;
     }
 }
 
-function parse_put_object_method(req) {
+function parse_put_object_function(req) {
     if (_.has(req.query, 'acl')) {
         return S3_REQ_PUT_OBJECT_ACL;
     }
@@ -564,7 +564,7 @@ function parse_put_object_method(req) {
     }
 }
 
-function parse_post_object_method(req) {
+function parse_post_object_function(req) {
     if (_.has(req.query, 'restore')) {
         return S3_REQ_POST_OBJECT_RESTORE;
     }
@@ -575,10 +575,10 @@ function parse_post_object_method(req) {
 }
 
 
-function post_put_body_handler(method_func) {
+function post_put_body_handler(func) {
     return function(req, res, next) {
-        let method = method_func(req);
-        if (!method) {
+        let req_function = func(req);
+        if (!req_function) {
             // We should not read the body when uploading objects
             return next();
         }
@@ -586,14 +586,14 @@ function post_put_body_handler(method_func) {
         return read_request_body(req)
             .then(body_data => {
                 if (!body_data) {
-                    if (method.required) {
+                    if (req_function.required) {
                         return P.reject(s3_errors.MissingRequestBodyError);
                     }
 
                     return P.resolve();
                 }
 
-                return parse_request_body(req, method.body_type);
+                return parse_request_body(req, req_function.body_type);
             })
             .asCallback(next);
     };

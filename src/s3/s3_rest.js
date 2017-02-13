@@ -464,7 +464,7 @@ function read_and_parse_body(req, req_type) {
                 return P.resolve();
             }
 
-            return parse_request_body(req, req_type.body_type);
+            return parse_request_body(req, req_type);
         });
 }
 

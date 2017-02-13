@@ -37,6 +37,9 @@ const S3_USAGE_INFO_DEFAULTS = {
     delete_object_uploadId: 0,
     get_object_uploadId: 0,
     put_object_uploadId: 0,
+    delete_bucket_lifecycle: 0,
+    put_bucket_lifecycle: 0,
+    get_bucket_lifecycle: 0
 };
 
 const STORAGE_CLASS_STANDARD = 'STANDARD';
@@ -348,6 +351,7 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETElifecycle.html
      */
     delete_bucket_lifecycle(req, res) {
+        this.usage_report.s3_usage_info.delete_bucket_lifecycle += 1;
         return req.rpc_client.bucket.delete_bucket_lifecycle({
             name: req.params.bucket
         }).return();
@@ -769,6 +773,7 @@ class S3Controller {
         //    </Expiration>
         //  </Rule>
         //var lifecycle_rules = data.LifecycleConfiguration.Rule;
+        this.usage_report.s3_usage_info.put_bucket_lifecycle += 1;
         var lifecycle_rules = [];
         _.each(req.body.LifecycleConfiguration.Rule, rule => {
                 var rule_id = uuid().split('-')[0];
@@ -838,6 +843,7 @@ class S3Controller {
     }
 
     get_bucket_lifecycle(req) {
+        this.usage_report.s3_usage_info.get_bucket_lifecycle += 1;
         let params = {
             name: req.params.bucket
         };

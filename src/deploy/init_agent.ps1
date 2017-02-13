@@ -1,12 +1,14 @@
 [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 $TARGETDIR = "c:\noobaa"
+$dpscript = @"
+select volume=c
+extend
+"@
 if(!(Test-Path -Path $TARGETDIR )){
     New-Item -ItemType directory -Path $TARGETDIR
     cd -Path $TARGETDIR
     $args
-    $MaxSize = (Get-PartitionSupportedSize -DriveLetter c).sizeMax
-    Resize-Partition -DriveLetter c -Size $MaxSize
-    # Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+    $dpscript | diskpart
     netsh advfirewall set allprofiles state off
     $env_name = $args[0]
     $setup_link = "https://"+$env_name+":8443/public/noobaa-setup.exe"

@@ -47,16 +47,27 @@ return azf.authenticate()
                         typeHandlerVersion: '1.5',
                         autoUpgradeMinorVersion: true,
                         settings: {
-                            fileUris: ['https://capacitystorage.blob.core.windows.net/agentscripts/ddisk.sh'],
+                            fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.sh'],
                             commandToExecute: 'bash -x ddisk.sh ' + serverName + ' ' + agentConf
                         },
                         protectedSettings: {
-                            storageAccountName: 'capacitystorage',
-                            storageAccountKey: '2kMy7tNY8wm/PQdv0vdXOFnnAXhL77/jidKw6QfGt2q/vhfswRKAG5aUGqNamv8Bs6PEZ36SAw6AYVKePZwM9g=='
+                            storageAccountName: 'pluginsstorage',
+                            storageAccountKey: 'bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=='
                         },
                         location: location,
                     };
-                    console.log('running new extension to mount disk to file system');
+                    if (vm.includes('Linux')) {
+                        console.log('running new extension to mount disk to file system for Linux');
+                    } else {
+                        extension.publisher = 'Microsoft.Compute';
+                        extension.virtualMachineExtensionType = 'CustomScriptExtension';
+                        extension.typeHandlerVersion = '1.7';
+                        extension.settings = {
+                            fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.ps1"],
+                            commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ddisk.ps1 ' + serverName + ' ' + agentConf
+                        };
+                        console.log('running new extension to mount disk to file system for Windows');
+                    }
                     return azf.createVirtualMachineExtension(vm, extension);
                 })
                 .catch(err => {

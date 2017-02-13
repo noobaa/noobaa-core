@@ -819,7 +819,7 @@ class NodesMonitor extends EventEmitter {
     _test_store_perf(item) {
         if (!item.connection) return;
 
-        dbg.log0('_test_store_perf::', item.node.name);
+        dbg.log2('_test_store_perf::', item.node.name);
         return this.client.agent.test_store_perf({
                 count: 5
             }, {
@@ -833,7 +833,7 @@ class NodesMonitor extends EventEmitter {
                 item.node.latency_of_disk_write = js_utils.array_push_keep_latest(
                     item.node.latency_of_disk_write, res.write, MAX_NUM_LATENCIES);
 
-                dbg.log0('_test_store_perf:: success in test', item.node.name);
+                dbg.log2('_test_store_perf:: success in test', item.node.name);
                 if (item.io_test_errors &&
                     Date.now() - item.io_test_errors > config.NODE_IO_DETENTION_THRESHOLD) {
                     item.io_test_errors = 0;
@@ -1179,7 +1179,7 @@ class NodesMonitor extends EventEmitter {
 
     _update_status(item) {
         if (!item.node_from_store) return;
-        dbg.log1('_update_status:', item.node.name);
+        dbg.log3('_update_status:', item.node.name);
 
         const now = Date.now();
         item.online = Boolean(item.connection) &&
@@ -1198,6 +1198,7 @@ class NodesMonitor extends EventEmitter {
         let io_detention_recent_issues = 0;
 
         if (item.node.issues_report) {
+            dbg.log0('_update_status:', item.node.name, 'issues:', item.node.issues_report);
             for (const issue of item.node.issues_report) {
                 // tampering is a trust issue, but maybe we need to refine this
                 // and only consider trust issue after 3 tampering strikes
@@ -1732,7 +1733,7 @@ class NodesMonitor extends EventEmitter {
             const node_id = String(item.node._id);
             const pool_id = String(item.node.pool);
             const pool = system_store.data.get_by_id(pool_id);
-            dbg.log0('_suggest_pool_assign: node', item.node.name, 'pool', pool && pool.name);
+            dbg.log3('_suggest_pool_assign: node', item.node.name, 'pool', pool && pool.name);
             if (!pool) continue;
             // skip new nodes
             if (!item.node_from_store) continue;
@@ -1832,14 +1833,14 @@ class NodesMonitor extends EventEmitter {
     }
 
     list_nodes(query, options) {
-        console.log('list_nodes: query', query);
+        dbg.log2('list_nodes: query', query);
         this._throw_if_not_started_and_loaded();
         const filter_res = this._filter_nodes(query);
         const list = filter_res.list;
         this._sort_nodes_list(list, options);
         const res_list = options && options.pagination ?
             this._paginate_nodes_list(list, options) : list;
-        console.log('list_nodes', res_list.length, '/', list.length);
+        dbg.log2('list_nodes', res_list.length, '/', list.length);
 
         return {
             total_count: list.length,
@@ -2059,7 +2060,11 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.test_network_perf_to_peer(self_test_params, {
                 connection: item.connection
             })
-            .timeout(AGENT_RESPONSE_TIMEOUT);
+            .timeout(AGENT_RESPONSE_TIMEOUT)
+            .then(res => {
+                dbg.log2('test_node_network', self_test_params, 'returned', res);
+                return res;
+            });
     }
 
     collect_agent_diagnostics(node_identity) {

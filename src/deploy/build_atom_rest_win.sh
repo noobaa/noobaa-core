@@ -72,8 +72,9 @@ else
         sed -i '' '/bootstrap/d' package.json
         sed -i '' '/browserify"/d' package.json
         pwd
+        nodever=$(cat ../../.nvmrc)
         npm install -dd
-        curl -Lk https://nodejs.org/dist/v6.9.1/win-x86/node.exe > node.exe                 
+        curl -Lk https://nodejs.org/dist/v${nodever}/win-x86/node.exe > node.exe                 
         #echo "Downloading atom-shell for windows"
         #curl -L https://github.com/atom/atom-shell/releases/download/v0.17.1/atom-shell-v0.17.1-win32-ia32.zip > atom-shell.zip
         #unzip atom-shell.zip -d atom-shell

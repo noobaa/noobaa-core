@@ -85,7 +85,7 @@ else
                 sed -i  '/nodetime/d' package.json
                 sed -i  '/newrelic/d' package.json
                 rm -rf ./node_modules/gulp*
-        	    rm -rf ./node_modules/bower*
+                rm -rf ./node_modules/bower*
                 rm -rf ./node_modules/bootstrap*
                 rm -rf ./node_modules/browserify*
                 rm -rf ./node_modules/nodetime*
@@ -103,7 +103,8 @@ else
                 sed -i '' '/nodetime/d' package.json
                 sed -i '' '/newrelic/d' package.json
                 npm install -dd
-                curl -Lk https://nodejs.org/dist/v6.9.1/win-x86/node.exe > node.exe
+                nodever=$(cat ../../.nvmrc)
+                curl -Lk https://nodejs.org/dist/v${nodever}/win-x86/node.exe > node.exe
                 curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe
                 cp node.exe ../public/node.exe
                 cp openssl.exe ../public/openssl.exe

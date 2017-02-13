@@ -136,9 +136,10 @@ function install_nodejs {
 	curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash
     export NVM_DIR="$HOME/.nvm"
     source /root/.nvm/nvm.sh
-    nvm install 6.9.1
-	nvm alias default 6.9.1
-    nvm use 6.9.1
+
+    nvm install
+    nvm alias default $(nvm current)
+
     cd ~
     ln -sf $(which node) /usr/local/bin/node
 
@@ -352,8 +353,8 @@ function runinstall {
     set -e
 	install_platform
 	setup_linux_users
-    install_nodejs
     install_noobaa_repos
+    install_nodejs
     install_mongo
     general_settings
     setup_supervisors

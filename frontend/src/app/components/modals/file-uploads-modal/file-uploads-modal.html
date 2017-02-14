@@ -1,0 +1,60 @@
+<div class="row push-next content-middle">
+    <div class="column greedy">
+        <h2 class="heading3">Upload progress</h2>
+
+        <div class="row" data-bind="visible: uploading">
+            <span class ="remark" data-bind="text: progressText"></span>
+            <bar class="progress-bar push-prev align-middle" params="values: barValues"></bar>
+        </div>
+
+        <span data-bind="visible: !uploading()">
+            No uploads running
+        </span>
+    </div>
+
+    <button class="btn" data-bind="click: clearCompleted">
+        Clear Completed
+    </button>
+</div>
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: uploads,
+    rowFactory: upload => createUploadRow(upload),
+    emptyMessage: 'No upload transactions'
+"></data-table>
+
+<section class="alt-bg summary row push-next content-middle">
+    <span class="row success push-next content-middle">
+        <svg-icon params="name: 'healthy'" class="success icon-small">
+        </svg-icon>
+        <span>
+            Uploaded
+            <span data-bind="text: uploaded"></span>
+        </span>
+    </span>
+
+    <span class="row content-middle error push-both"
+        data-bind="css: { disabled: failed() === 0 }">
+        <svg-icon params="name: 'problem'" class="error icon-small">
+        </svg-icon>
+        <span>
+            Failed
+            <span data-bind="text: failed"></span>
+        </span>
+    </span>
+
+    <span class="row content-middle push-prev" data-bind="visible: uploading">
+        <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
+        <span>
+            Uploading
+            <span data-bind="text: uploading"></span>
+        </span>
+    </span>
+
+
+    <span class="file-counter content-middle" data-bind="text: countText">
+    </span>
+</section>
+
+<button class="btn align-end" data-bind="click: close">Close</button>

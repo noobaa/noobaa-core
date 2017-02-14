@@ -13,7 +13,7 @@ class AccountMenuViewModel extends BaseViewModel {
         this.isLocalClick = ko.observable(false);
 
         this.userEmail = ko.pureComputed(
-            () => sessionInfo().user
+            () => sessionInfo() && sessionInfo().user
         );
 
         this.profileHref = {

@@ -64,23 +64,10 @@ class ServerDnsSettingsFormViewModel extends BaseViewModel {
         this.masterSecondaryDNS = ko.observableWithDefault(
             () => masterDNSServers()[1]
         );
-
-        this.editContext = ko.observable();
-        this.isServerDNSSettingsModalVisible = ko.observable(false);
     }
 
     createRow(server) {
-        return new ServerRow(
-            server,
-            () => {
-                this.editContext(server().secret);
-                this.isServerDNSSettingsModalVisible(true);
-            }
-        );
-    }
-
-    hideServerDNSSettingsModal() {
-        this.isServerDNSSettingsModalVisible(false);
+        return new ServerRow(server,);
     }
 }
 

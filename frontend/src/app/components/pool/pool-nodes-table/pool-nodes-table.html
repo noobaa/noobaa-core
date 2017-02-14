@@ -15,7 +15,7 @@
     <div data-bind="tooltip: assignNodeTooltip">
         <button class="btn " data-bind="
             disable: isAssignNodesDisabled,
-            click: () => showAssignNodesModal()
+            click: onAssignNodes
         ">
             Assign Nodes
         </button>
@@ -35,10 +35,3 @@
     pageSize: pageSize,
     page: page
 "></paginator>
-
-<!-- ko if: isAssignNodeModalVisible -->
-    <assign-nodes-modal params="
-        poolName: poolName,
-        onClose: () => hideAssignNodesModal()
-    "></assign-nodes-modal>
-<!-- /ko -->

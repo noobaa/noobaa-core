@@ -520,22 +520,6 @@ export function handleUnknownRoute() {
     redirectTo(uri);
 }
 
-export function openDrawer(content) {
-    logAction('openDrawer', { content });
-
-    model.uiState(
-        Object.assign(model.uiState(), { drawer: content })
-    );
-}
-
-export function closeDrawer() {
-    logAction('closeDarwer');
-
-    model.uiState(
-        Object.assign(model.uiState(), { drawer: undefined })
-    );
-}
-
 export function clearCompletedUploads() {
     model.uploads(
         model.uploads().filter(

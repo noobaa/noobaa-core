@@ -5,6 +5,7 @@ import { systemInfo, nameResolutionState } from 'model';
 import { makeRange } from 'utils/core-utils';
 import { attemptResolveSystemName } from 'actions';
 import { inputThrottle } from 'config';
+import { openUpdateSystemNameModal } from 'dispatchers';
 
 const [ IP, DNS ] = makeRange(2);
 const addressOptions = [
@@ -71,19 +72,15 @@ class ServerDNSFormViewModel extends BaseViewModel {
             this.dnsName
         ]);
 
-        this.isUpdateSystemNameModalVisible = ko.observable(false);
     }
 
     update() {
         if (this.errors.validatingCount() > 0 || this.errors().length > 0) {
             this.errors.showAllMessages();
-        } else {
-            this.isUpdateSystemNameModalVisible(true);
-        }
-    }
 
-    hideUpdateSystemNameModal() {
-        this.isUpdateSystemNameModalVisible(false);
+        } else {
+            openUpdateSystemNameModal(this.baseAddress());
+        }
     }
 }
 

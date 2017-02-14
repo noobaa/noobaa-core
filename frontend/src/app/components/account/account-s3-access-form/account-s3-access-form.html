@@ -2,9 +2,7 @@
     <h2 class="heading3 greedy push-next">
         Account S3 Access
     </h2>
-    <button class="btn" data-bind="
-        click: showEditAccountS3AccessModal
-    ">
+    <button class="btn" data-bind="click: onEditS3Access">
         Edit S3 Access
     </button>
 </div>
@@ -34,13 +32,6 @@
     </span>
     <property-sheet class="pad alt-bg" params="properties: credentials"></property-sheet>
 </div>
-
-<!-- ko if: isEditAccountS3AccessModalVisible -->
-<edit-account-s3-access-modal params="
-    email: email,
-    onClose: () => hideEditAccountS3AccessModal()
-"></edit-account-s3-access-modal>
-<!-- /ko -->
 
 <!-- ko if: isRegenerateAccountCredentialsModalVisible -->
 <regenerate-account-credentials-modal params="

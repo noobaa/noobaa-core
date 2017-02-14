@@ -93,7 +93,6 @@ class AccountsTableViewModel extends BaseViewModel {
         );
 
         this.isCreateAccountModalVisible = ko.observable(false);
-        this.isDeleteAccountWarningModalVisible = ko.observable(false);
     }
 
     filterAccounts(phrase) {
@@ -111,15 +110,7 @@ class AccountsTableViewModel extends BaseViewModel {
     }
 
     createAccountRow(account) {
-        return new AccountRowViewModel(account, this);
-    }
-
-    deleteAccount(email) {
-        if (email == sessionInfo().user) {
-            this.isDeleteAccountWarningModalVisible(true);
-        } else {
-            deleteAccount(email);
-        }
+        return new AccountRowViewModel(account, this.deleteGroup);
     }
 
     showCreateAccountModal() {
@@ -128,10 +119,6 @@ class AccountsTableViewModel extends BaseViewModel {
 
     hideCreateAccountModal() {
         this.isCreateAccountModalVisible(false);
-    }
-
-    hideDeleteAccountWarningModal() {
-        this.isDeleteAccountWarningModalVisible(false);
     }
 }
 

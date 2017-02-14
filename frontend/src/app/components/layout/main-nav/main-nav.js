@@ -5,6 +5,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { sleep } from 'utils/promise-utils';
 import ko from 'knockout';
 import style from 'style';
+import { openFileUploadsModal } from 'dispatchers';
 
 const navItems = deepFreeze([
     /*{
@@ -98,20 +99,14 @@ class NavMenuViewModel extends BaseViewModel {
                 color: style['color6']
             }
         ];
+    }
 
-        this.isUploadsModalVisible = ko.observable(false);
+    onUploads() {
+        openFileUploadsModal();
     }
 
     isSelected(item) {
         return item === this.selectedItem();
-    }
-
-    showUploadsModal() {
-        this.isUploadsModalVisible(true);
-    }
-
-    hideUploadsModal() {
-        this.isUploadsModalVisible(false);
     }
 }
 

@@ -3,15 +3,19 @@ import { createReducer } from 'utils/reducer-utils';
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInit() {
+function onApplicationInit() {
     return null;
 }
 
-function onDrawerOpen(_, { component }) {
-    return component;
+function onOpenAuditDrawer() {
+    return 'audit-pane';
 }
 
-function onDrawerClose() {
+function onOpenAlertsDrawer() {
+    return 'alerts-pane';
+}
+
+function onCloseActiveDrawer() {
     return null;
 }
 
@@ -19,7 +23,8 @@ function onDrawerClose() {
 // Exported reducer function.
 // ------------------------------
 export default createReducer({
-    INIT: onInit,
-    DRAWER_OPEN: onDrawerOpen,
-    DRAWER_CLOSE: onDrawerClose
+    APPLICATION_INIT: onApplicationInit,
+    OPEN_AUDIT_DRAWER: onOpenAuditDrawer,
+    OPEN_ALERTS_DRAWER: onOpenAlertsDrawer,
+    CLOSE_ACTIVE_DRAWER: onCloseActiveDrawer,
 });

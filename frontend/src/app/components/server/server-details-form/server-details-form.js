@@ -6,6 +6,7 @@ import { getServerIssues } from 'utils/cluster-utils';
 import { loadServerTime } from 'actions';
 import { timeLongFormat } from 'config';
 import ko from 'knockout';
+import { openEditServerDetailsModal } from 'dispatchers';
 
 const icons = deepFreeze({
     healthy: {
@@ -86,8 +87,6 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             route: 'management',
             params: { tab: 'settings' }
         };
-
-        this.isEditServerModalVisible = ko.observable(false);
 
         loadServerTime(ko.unwrap(serverSecret));
     }
@@ -362,12 +361,8 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         return { icon, tooltip, proxy };
     }
 
-    showEditServerModal() {
-        this.isEditServerModalVisible(true);
-    }
-
-    hideEditServerModal() {
-        this.isEditServerModalVisible(false);
+    onEditServerDetails() {
+        openEditServerDetailsModal(this.secret);
     }
 }
 

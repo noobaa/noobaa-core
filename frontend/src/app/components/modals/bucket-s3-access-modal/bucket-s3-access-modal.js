@@ -44,6 +44,10 @@ class BucketS3AccessModalViewModel extends BaseViewModel {
         this.selectedAccounts([]);
     }
 
+    onAccounts() {
+        this.onClose();
+    }
+
     save() {
         updateBucketS3Access(ko.unwrap(this.bucketName), this.selectedAccounts());
         this.onClose();

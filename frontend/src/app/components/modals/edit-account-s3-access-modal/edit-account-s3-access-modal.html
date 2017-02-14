@@ -1,0 +1,39 @@
+ <h2 class="heading3">Allow S3 access for this user</h2>
+<toggle-switch class="push-next" params="
+    value: hasS3Access,
+    onLabel: 'Enabled',
+    offLabel: 'Disabled'
+"></toggle-switch>
+
+<div class="row content-middle push-prev">
+    <h2 class="heading3 greedy push-next" data-bind="
+        css: { disabled: !hasS3Access() }
+    ">
+        Edit S3 access permissions for buckets
+    </h2>
+
+    <div>
+        <button class="link alt-colors" data-bind="
+            click: selectAllBuckets, enable: hasS3Access
+        ">
+            Select all
+        </button>
+        |
+        <button class="link alt-colors" data-bind="
+            click: clearAllBuckets, enable: hasS3Access
+        ">
+            Clear
+        </button>
+    </div>
+</div>
+
+<multiselect class="push-next greedy" params="
+    options: buckets,
+    selected: selectedBuckets,
+    disabled: !hasS3Access()">
+</multiselect>
+
+<div class="row align-end content-middle">
+    <button class="link alt-colors push-next" data-bind="click: cancel">Cancel</button>
+    <button class="btn" data-bind="click: save">Save</button>
+</div>

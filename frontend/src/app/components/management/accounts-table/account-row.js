@@ -2,9 +2,11 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo, systemInfo } from 'model';
 import { stringifyAmount } from 'utils/string-utils';
+import { openDeleteCurrentAccountWarningModal } from 'dispatchers';
+import { deleteAccount } from 'actions';
 
 export default class AccountRowViewModel extends BaseViewModel {
-    constructor(account, table) {
+    constructor(account, deleteGroup) {
         super();
 
         let systemName = ko.pureComputed(
@@ -47,7 +49,7 @@ export default class AccountRowViewModel extends BaseViewModel {
         );
 
 
-        const isSystemOwner = ko.pureComputed(
+        this.isSystemOwner = ko.pureComputed(
             () => systemInfo() && this.email() === systemInfo().owner.email
         );
 
@@ -57,35 +59,39 @@ export default class AccountRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                return  isSystemOwner() ? 'owner' : account().systems.find(
+                return  this.isSystemOwner() ? 'owner' : account().systems.find(
                     ({ name }) => name === systemName()
                 ).roles[0];
             }
         );
 
         this.s3Access = ko.pureComputed(
-            () => {
-                if (!account()) {
-                    return {};
-                }
-
-                return {
-                    text: account().has_s3_access ? 'enabled' : 'disabled',
-                    edit: () => table.openS3AccessModal(this.email())
-                };
-            }
+            () => account() ?
+                (account().has_s3_access ? 'enabled' : 'disabled') :
+                ''
         );
-
-        this.password = () => table.openResetPasswordModal(this.email());
 
         this.deleteButton = {
             subject: 'account',
-            group: table.deleteGroup,
-            undeletable: isSystemOwner,
-            tooltip: ko.pureComputed(
-                () => isSystemOwner() ? 'Cannot delete system owner' : 'Delete account'
-            ),
-            onDelete: () => table.deleteAccount(this.email())
+            group: deleteGroup,
+            undeletable: this.isSystemOwner,
+            tooltip: ko.pureComputed(() => this.deleteTooltip()),
+            onDelete: () => this.onDelete()
         };
+    }
+
+    deleteTooltip() {
+        return this.isSystemOwner() ?
+            'Cannot delete system owner' :
+            'Delete account';
+    }
+
+    onDelete() {
+        const email = this.email();
+        if (email === sessionInfo().user) {
+            openDeleteCurrentAccountWarningModal();
+        } else {
+            deleteAccount(email);
+        }
     }
 }

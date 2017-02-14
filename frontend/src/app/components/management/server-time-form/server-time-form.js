@@ -71,9 +71,6 @@ class ServerTimeFormViewModel extends BaseViewModel {
             }
         });
 
-        this.editContext = ko.observable();
-        this.isServerTimeSettingsModalVisible = ko.observable(false);
-
         this.addToDisposeList(
             setInterval(
                 () => this.masterTime() && this.masterTime(this.masterTime() + 1000),
@@ -84,17 +81,7 @@ class ServerTimeFormViewModel extends BaseViewModel {
     }
 
     createRow(server) {
-        return new ServerRow(
-            server,
-            () => {
-                this.editContext(server().secret);
-                this.isServerTimeSettingsModalVisible(true);
-            }
-        );
-    }
-
-    hideServerTimeSettingsModal()  {
-        this.isServerTimeSettingsModalVisible(false);
+        return new ServerRow(server);
     }
 }
 

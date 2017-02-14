@@ -7,6 +7,7 @@ import { deepFreeze, throttle} from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { routeContext } from 'model';
 import { countNodesByState } from 'utils/ui-utils';
+import { openAssignNodesModal } from 'dispatchers';
 
 const columns = deepFreeze([
     {
@@ -114,8 +115,6 @@ class PoolNodesTableViewModel extends BaseViewModel {
             () => this.isAssignNodesDisabled() &&
                 'Node assigment in not supported for demo pool'
         );
-
-        this.isAssignNodeModalVisible = ko.observable(false);
     }
 
     getStateOptions(modeCounters) {
@@ -197,12 +196,8 @@ class PoolNodesTableViewModel extends BaseViewModel {
         navigateTo(undefined, undefined, params);
     }
 
-    showAssignNodesModal() {
-        this.isAssignNodeModalVisible(true);
-    }
-
-    hideAssignNodesModal() {
-        this.isAssignNodeModalVisible(false);
+    onAssignNodes() {
+        openAssignNodesModal(this.poolName());
     }
 }
 

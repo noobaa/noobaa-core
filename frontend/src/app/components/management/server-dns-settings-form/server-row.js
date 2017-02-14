@@ -2,6 +2,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
+import { openEditServerDNSSettingsModal } from 'dispatchers';
 
 const stateIconMapping = deepFreeze({
     CONNECTED: {
@@ -24,7 +25,7 @@ const stateIconMapping = deepFreeze({
 });
 
 export default class ServerRowViewModel extends BaseViewModel {
-    constructor(server, showDNSSettingsModal ) {
+    constructor(server) {
         super();
 
         this.state = ko.pureComputed(
@@ -63,7 +64,7 @@ export default class ServerRowViewModel extends BaseViewModel {
 
         this.actions = {
             text: 'Edit',
-            click: showDNSSettingsModal
+            click: () => openEditServerDNSSettingsModal(server().secret)
         };
     }
 }

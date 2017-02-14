@@ -3,6 +3,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { collectDiagnosticsState } from 'model';
 import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
+import { openTestNodeModal } from 'dispatchers';
 
 class NodeDiagnosticsFormViewModel extends BaseViewModel {
     constructor({ node }) {
@@ -82,12 +83,8 @@ class NodeDiagnosticsFormViewModel extends BaseViewModel {
         downloadNodeDiagnosticPack(this.nodeName());
     }
 
-    showTestNodeModal() {
-        this.isTestNodeModalVisible(true);
-    }
-
-    hideTestNodeModal() {
-        this.isTestNodeModalVisible(false);
+    onRunTest() {
+        openTestNodeModal(this.rpcAddress());
     }
 }
 

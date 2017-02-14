@@ -4,6 +4,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
+import { openObjectPreviewModal } from 'dispatchers';
 
 class ObjectPartsListViewModel extends BaseViewModel {
     constructor({ obj, parts }) {
@@ -27,16 +28,10 @@ class ObjectPartsListViewModel extends BaseViewModel {
         this.s3SignedUrl = ko.pureComputed(
             () => obj() && obj().s3_signed_url
         );
-
-        this.isPreviewModalVisible = ko.observable(false);
     }
 
-    showPreviewModal() {
-        this.isPreviewModalVisible(true);
-    }
-
-    hidePreviewModal() {
-        this.isPreviewModalVisible(false);
+    onPreviewFile() {
+        openObjectPreviewModal(this.s3SignedUrl());
     }
 }
 

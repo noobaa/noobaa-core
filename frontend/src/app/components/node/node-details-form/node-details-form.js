@@ -49,7 +49,7 @@ class NodeInfoViewModel extends BaseViewModel {
             () => `${
                 node().version
             } ${
-                node().version === systemInfo().version ?
+                node().version === (systemInfo() || {}).version ?
                     '(Up to date)' :
                     '<span class="error">(Not up to date, waiting for next heartbeat)</span>'
             }</span>`

@@ -3,12 +3,16 @@ import { dispatch } from 'state-actions';
 /// -------------------------------
 /// Drawer action dispatchers
 /// -------------------------------
-export function openDrawer(component) {
-    dispatch({ type: 'DRAWER_OPEN', component });
+export function openAuditDrawer() {
+    dispatch({ type: 'OPEN_AUDIT_DRAWER' });
 }
 
-export function closeDrawer() {
-    dispatch({ type: 'DRAWER_CLOSE' });
+export function openAlertsDrawer() {
+    dispatch({ type: 'OPEN_ALERTS_DRAWER' });
+}
+
+export function closeActiveDrawer() {
+    dispatch({ type: 'CLOSE_ACTIVE_DRAWER' });
 }
 
 /// -------------------------------
@@ -19,139 +23,98 @@ export function updateModal(options) {
     dispatch({ type: 'MODAL_UPDATE', ...options });
 }
 
-export function closeModal() {
-    dispatch({ type: 'MODAL_CLOSE' });
+export function closeActiveModal() {
+    dispatch({ type: 'CLOSE_ACTIVE_MODAL' });
+}
+
+export function lockActiveModal() {
+    dispatch({ type: 'LOCK_ACTIVE_MODAL' });
 }
 
 export function openInstallNodesModal() {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: 'install-nodes-modal',
-        options: {
-            title: 'Install Nodes',
-            size: 'medium'
-        }
-    });
+    dispatch({ type: 'OPEN_INSTALL_NODES_MODAL' });
 }
 
 export function openAfterUpgradeModal() {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: 'after-upgrade-modal',
-        options: {
-            size: 'xsmall'
-        }
-    });
+    dispatch({ type: 'OPEN_AFTER_UPGRADE_MODAL' });
 }
 
 export function openUpgradedCapacityNofiticationModal() {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: 'upgraded-capacity-notification-modal',
-        options: {
-            size: 'small',
-            backdropClose: false
-        }
-    });
+    dispatch({ type: 'OPEN_UPGRADED_CAPACITY_NOFITICATION_MODAL' });
 }
 
 export function openWelcomeModal() {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: 'welcome-modal',
-        options: {
-            size: 'custom',
-            backdropClose: false
-        }
-    });
+    dispatch({ type: 'OPEN_WELCOME_MODAL' });
 }
 
 export function openAddCloudResrouceModal() {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: 'add-cloud-resource-modal',
-        options: {
-            title: 'Add Cloud Resource',
-            size: 'medium'
-        }
-    });
+    dispatch({ type: 'OPEN_ADD_CLOUD_RESROUCE_MODAL' });
 }
 
 export function openAddCloudConnectionModal() {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: 'add-cloud-connection-modal',
-        options: {
-            title: 'Add Cloud Connection',
-            size: 'medium'
-        }
-    });
+    dispatch({ type: 'OPEN_ADD_CLOUD_CONNECTION_MODAL' });
 }
 
 export function openSetCloudSyncModal(bucketName) {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: {
-            name: 'set-cloud-sync-modal',
-            params: { bucketName }
-        },
-        options: {
-            title: 'Set Cloud Sync',
-            size: 'medium'
-        }
-    });
+    dispatch({ type: 'OPEN_SET_CLOUD_SYNC_MODAL', bucketName });
 }
 
 export function openEditCloudSyncModal(bucketName) {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: {
-            name: 'edit-cloud-sync-modal',
-            params: { bucketName }
-        },
-        options: {
-            title: 'Edit Cloud Sync Policy'
-        }
-    });
+    dispatch({ type: 'OPEN_EDIT_CLOUD_SYNC_MODAL', bucketName });
 }
 
-export function openS3AccessDetailsModal(email) {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: {
-            name: 's3-access-details-modal',
-            params: { email }
-        },
-        options: {
-            title: 'Connection Details',
-            size: 'xsmall'
-        }
-    });
+export function openS3AccessDetailsModal(accountEmail) {
+    dispatch({ type: 'OPEN_S3_ACCESS_DETAILS_MODAL', accountEmail });
 }
 
 export function openBucketS3AccessModal(bucketName) {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: {
-            name: 'bucket-s3-access-modal',
-            params: { bucketName }
-        },
-        options: {
-            title: 'Bucket S3 Access'
-        }
-    });
+    dispatch({ type: 'OPEN_BUCKET_S3_ACCESS_MODAL', bucketName });
 }
 
 export function openBucketPlacementPolicyModal(bucketName) {
-    dispatch({
-        type: 'MODAL_OPEN',
-        component: {
-            name: 'bucket-placement-policy-modal',
-            params: { bucketName }
-        },
-        options: {
-            title: 'Bucket Data Placement Policy',
-            size: 'large'
-        }
-    });
+    dispatch({ type: 'OPEN_BUCKET_PLACEMENT_POLICY_MODAL', bucketName });
+}
+
+export function openFileUploadsModal() {
+    dispatch({ type: 'OPEN_FILE_UPLOADS_MODAL' });
+}
+
+export function openDeleteCurrentAccountWarningModal() {
+    dispatch({ type: 'OPEN_DELETE_CURRENT_ACCOUNT_WARNING_MODAL' });
+}
+
+export function openStartMaintenanceModal() {
+    dispatch({ type: 'START_MAINTENANCE_MODAL' });
+}
+
+export function openObjectPreviewModal(objectUri) {
+    dispatch({ type: 'OPEN_OBJECT_PREVIEW_MODAL', objectUri });
+}
+
+export function openTestNodeModal(nodeRpcAddress) {
+    dispatch( { type: 'OPEN_TEST_NODE_MODAL', nodeRpcAddress });
+}
+
+export function openEditServerDNSSettingsModal(serverSecret) {
+    dispatch( { type: 'OPEN_EDIT_SERVER_DNS_SETTINGS_MODAL', serverSecret });
+}
+
+export function openEditServerTimeSettingsModal(serverSecret) {
+    dispatch( { type: 'OPEN_EDIT_SERVER_TIME_SETTINGS_MODAL', serverSecret });
+}
+
+export function openEditAccountS3AccessModal(accountEmail) {
+    dispatch( { type: 'OPEN_EDIT_ACCOUNT_S3_ACCESS_MODAL', accountEmail });
+}
+
+export function openEditServerDetailsModal(serverSecret) {
+    dispatch( { type: 'OPEN_EDIT_SERVER_DETAILS_MODAL', serverSecret });
+}
+
+export function openAssignNodesModal(poolName) {
+    dispatch( { type: 'OPEN_ASSIGN_NODES_MODAL', poolName });
+}
+
+export function openUpdateSystemNameModal(name) {
+    dispatch( { type: 'OPEN_UPDATE_SYSTEM_NAME_MODAL', name });
 }

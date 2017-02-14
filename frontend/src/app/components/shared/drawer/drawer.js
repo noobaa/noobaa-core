@@ -1,7 +1,7 @@
 import template from './drawer.html';
 import StateAwareViewModel from 'components/state-aware-view-model';
 import ko from 'knockout';
-import { closeDrawer } from 'dispatchers';
+import { closeActiveDrawer } from 'dispatchers';
 import { runAsync } from 'utils/core-utils';
 
 class DrawerViewModel extends StateAwareViewModel {
@@ -28,7 +28,7 @@ class DrawerViewModel extends StateAwareViewModel {
     }
 
     close() {
-        closeDrawer();
+        closeActiveDrawer();
     }
 }
 

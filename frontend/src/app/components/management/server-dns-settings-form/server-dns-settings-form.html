@@ -35,10 +35,3 @@
         "></data-table>
     </section>
 </collapsible-section>
-
-<!-- ko if: isServerDNSSettingsModalVisible -->
-<server-dns-settings-modal params="
-    serverSecret: editContext,
-    onClose: () => hideServerDNSSettingsModal()
-"></server-dns-settings-modal>
-<!-- /ko -->

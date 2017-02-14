@@ -16,7 +16,7 @@ const defaultState = {
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInit() {
+function onApplicationInit() {
     return defaultState;
 }
 
@@ -117,7 +117,7 @@ function _matchs(item, { ids, severity, read }) {
 // Exported reducer function.
 // ------------------------------
 export default createReducer({
-    INIT: onInit,
+    APPLICATION_INIT: onApplicationInit,
     ALERTS_FETCH: onAlertsFetch,
     ALERTS_FETCHED: onAlertsFetched,
     ALERTS_FETCH_FAILED: onAlertsFetchFailed,

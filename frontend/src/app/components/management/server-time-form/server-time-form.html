@@ -22,10 +22,3 @@
         "></data-table>
     </section>
 </collapsible-section>
-
-<!-- ko if: isServerTimeSettingsModalVisible -->
-<server-time-settings-modal params="
-    serverSecret: editContext,
-    onClose: () => hideServerTimeSettingsModal()
-"></server-time-settings-modal>
-<!-- /ko -->

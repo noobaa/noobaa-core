@@ -2,6 +2,7 @@ import template from './account-s3-access-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { routeContext, systemInfo } from 'model';
+import { openEditAccountS3AccessModal } from 'dispatchers';
 
 class AccountS3AccessFormViewModel extends BaseViewModel {
     constructor() {
@@ -65,16 +66,11 @@ class AccountS3AccessFormViewModel extends BaseViewModel {
             }
         ];
 
-        this.isEditAccountS3AccessModalVisible = ko.observable(false);
         this.isRegenerateAccountCredentialsModalVisible = ko.observable(false);
     }
 
-    showEditAccountS3AccessModal() {
-        this.isEditAccountS3AccessModalVisible(true);
-    }
-
-    hideEditAccountS3AccessModal() {
-        this.isEditAccountS3AccessModalVisible(false);
+    onEditS3Access() {
+        openEditAccountS3AccessModal(this.email());
     }
 
     showRegenerateAccountCredentialsModal() {

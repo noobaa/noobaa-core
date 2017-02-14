@@ -8,7 +8,7 @@
         Download File
     </a>
 
-    <button class="btn" data-bind="click: () => showPreviewModal()">
+    <button class="btn" data-bind="click: onPreviewFile">
         Preview File
     </button>
 </div>
@@ -80,10 +80,3 @@
 </ul>
 
 <paginator params="page: page, itemCount: count, pageSize: pageSize"></paginator>
-
-<!-- ko if: isPreviewModalVisible -->
-<object-preview-modal params="
-    onClose: () => hidePreviewModal(),
-    uri: s3SignedUrl
-"></object-preview-modal>
-<!-- /ko -->

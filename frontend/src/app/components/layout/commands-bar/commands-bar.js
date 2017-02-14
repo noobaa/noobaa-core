@@ -2,7 +2,7 @@ import template from './commands-bar.html';
 import StateAwareViewModel from 'components/state-aware-view-model';
 import ko from 'knockout';
 import { refresh } from 'actions';
-import { openDrawer, getUnreadAlertsCount } from 'dispatchers';
+import { openAuditDrawer, openAlertsDrawer, getUnreadAlertsCount } from 'dispatchers';
 import { sleep } from 'utils/promise-utils';
 
 class CommandBarViewModel extends StateAwareViewModel {
@@ -27,11 +27,11 @@ class CommandBarViewModel extends StateAwareViewModel {
     }
 
     showAuditLog() {
-        openDrawer('audit-pane');
+        openAuditDrawer();
     }
 
     showAlerts() {
-        openDrawer('alerts-pane');
+        openAlertsDrawer();
     }
 }
 

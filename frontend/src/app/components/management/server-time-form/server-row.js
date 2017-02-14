@@ -3,6 +3,7 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { timeLongFormat } from 'config';
+import { openEditServerTimeSettingsModal } from 'dispatchers';
 
 const stateIconMapping = deepFreeze({
     CONNECTED: {
@@ -25,7 +26,7 @@ const stateIconMapping = deepFreeze({
 });
 
 export default class ServerRowViewModel extends BaseViewModel {
-    constructor(server, showTimeSettingsModal ) {
+    constructor(server) {
         super();
 
         this.state = ko.pureComputed(
@@ -85,7 +86,7 @@ export default class ServerRowViewModel extends BaseViewModel {
 
         this.actions = {
             text: 'Edit',
-            click: showTimeSettingsModal
+            click: () => openEditServerTimeSettingsModal(server().secret)
         };
     }
 }

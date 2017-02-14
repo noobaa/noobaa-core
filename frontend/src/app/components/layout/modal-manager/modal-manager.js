@@ -3,7 +3,7 @@ import StateAwareViewModel from 'components/state-aware-view-model';
 import Modal from './modal';
 import ko from 'knockout';
 import { last } from 'utils/core-utils';
-import { closeModal } from 'dispatchers';
+import { closeActiveModal } from 'dispatchers';
 
 class ModalManagerViewModel extends StateAwareViewModel {
     constructor() {
@@ -13,7 +13,7 @@ class ModalManagerViewModel extends StateAwareViewModel {
         this.hasModals = ko.observable();
 
         // bind the closeTopmost modal the manager.
-        this.closeTopmostModal = this.closeTopmostModal.bind(this);
+        this.closeActiveModal = closeActiveModal;
     }
 
     onState({ modals }, { modals: prevModals }) {
@@ -24,7 +24,7 @@ class ModalManagerViewModel extends StateAwareViewModel {
         this.modals(
             modals.map(
                 (modalState, i) => {
-                    const modal = this.modals()[i] || new Modal(this.closeTopmostModal);
+                    const modal = this.modals()[i] || new Modal(this.closeActiveModal);
                     modal.update(modalState);
                     return modal;
                 }
@@ -37,12 +37,8 @@ class ModalManagerViewModel extends StateAwareViewModel {
     onBackdrop() {
         const top = last(this.modals());
         if (top && top.backdropClose()) {
-            this.closeTopmostModal();
+            this.closeActiveModal();
         }
-    }
-
-    closeTopmostModal() {
-        closeModal();
     }
 }
 

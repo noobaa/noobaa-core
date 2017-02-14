@@ -19,7 +19,7 @@
     tabindex="-1"
     data-bind="
         tooltip: { text: 'Upload transactions', position: 'after' },
-        click: () => showUploadsModal(),
+        click: onUploads,
         css: { 'uploading': uploadsCount },
         attr: { 'data-count': uploadsCount }
     ">
@@ -30,8 +30,3 @@
         text: lastUploadCount
     "></span>
 </button>
-
-<!-- ko if: isUploadsModalVisible -->
-<file-uploads-modal params="onClose: () => hideUploadsModal()">
-</file-uploads-modal>
-<!-- /ko -->

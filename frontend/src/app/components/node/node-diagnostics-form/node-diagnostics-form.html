@@ -30,7 +30,7 @@
         <div data-bind="tooltip: actionsTooltip">
             <button class="btn" data-bind="
                 disable: areActionsDisabled,
-                click: showTestNodeModal
+                click: onRunTest
             ">
                 Run Test
             </button>
@@ -39,11 +39,3 @@
 
     <p class="pad">Testing a node allows you the verify peer to peer connectivity &amp; bandwidth between this node and several of its peers</p>
 </section>
-
-<!-- ko if: isTestNodeModalVisible -->
-<test-node-modal params="
-    nodeName: nodeName,
-    sourceRpcAddress: rpcAddress,
-    onClose: () => hideTestNodeModal()
-"></test-node-modal>
-<!-- /ko -->

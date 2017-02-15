@@ -103,18 +103,17 @@ function get_distro() {
     if (os.type() === 'Darwin') {
         return P.resolve('OSX - Darwin');
     }
-    return os_detailed_info((err, distro) => {
-        if (err) {
-            return P.reject(err);
-        }
-        let res;
-        if (distro && distro.dist) {
-            res = distro.dist;
-            if (distro.release) res += ` ${distro.release}`;
-            if (distro.codename) res += ` (${distro.codename})`;
-        }
-        return res ? P.resolve(res) : P.reject(new Error('unknown distro'));
-    });
+    return P.fromCallback(callback => os_detailed_info(callback))
+        .then(distro => {
+            let res = '';
+            if (distro && distro.dist) {
+                res = distro.dist;
+                if (distro.release) res += ` ${distro.release}`;
+                if (distro.codename) res += ` (${distro.codename})`;
+            }
+            if (!res) throw new Error('unknown distro');
+            return res;
+        });
 }
 
 function get_disk_mount_points() {

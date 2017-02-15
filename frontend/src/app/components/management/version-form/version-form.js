@@ -2,7 +2,8 @@ import template from './version-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { upgradeSystem } from 'actions';
+import { upgradeSystem as upgradeSystemAction } from 'actions';
+import { upgradeSystem as upgradeSystemDispatcher } from 'dispatchers';
 import { upgradePackageSuffix } from 'config';
 
 const licenseInfoLink =
@@ -63,13 +64,12 @@ class AboutFormViewModel extends BaseViewModel {
         ];
 
         this.upgradePackageSuffix = upgradePackageSuffix;
-
-        this.isUpgradingModalVisible = ko.observable(false);
     }
 
-    upgrade(upgradePackage) {
-        this.isUpgradingModalVisible(true);
-        upgradeSystem(upgradePackage);
+    onUpgrade(upgradePackage) {
+        // REFACTOR - should be merged into one dispatcher (upgradeSystem)
+        upgradeSystemDispatcher(upgradePackage);
+        upgradeSystemAction(upgradePackage);
     }
 }
 

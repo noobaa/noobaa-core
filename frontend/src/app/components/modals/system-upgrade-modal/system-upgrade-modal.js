@@ -1,4 +1,4 @@
-import template from './upgrade-modal.html';
+import template from './system-upgrade-modal.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';

@@ -48,6 +48,7 @@ export default function register(ko) {
     ko.components.register('edit-server-details-modal',             require('./modals/edit-server-details-modal/edit-server-details-modal').default);
     ko.components.register('assign-nodes-modal',                    require('./modals/assign-nodes-modal/assign-nodes-modal').default);
     ko.components.register('update-system-name-modal',              require('./modals/update-system-name-modal/update-system-name-modal').default);
+    ko.components.register('system-upgrade-modal',                  require('./modals/system-upgrade-modal/system-upgrade-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -135,7 +136,6 @@ export default function register(ko) {
     ko.components.register('p2p-form',                              require('./management/p2p-form/p2p-form').default);
     ko.components.register('server-dns-form',                       require('./management/server-dns-form/server-dns-form').default);
     ko.components.register('version-form',                          require('./management/version-form/version-form').default);
-    ko.components.register('upgrade-modal',                         require('./management/upgrade-modal/upgrade-modal').default);
     ko.components.register('diagnostics-form',                      require('./management/diagnostics-form/diagnostics-form').default);
     ko.components.register('maintenance-form'   ,                   require('./management/maintenance-form/maintenance-form').default);
     ko.components.register('phone-home-form',                       require('./management/phone-home-form/phone-home-form').default);

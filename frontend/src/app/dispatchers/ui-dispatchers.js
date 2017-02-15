@@ -92,29 +92,29 @@ export function openObjectPreviewModal(objectUri) {
 }
 
 export function openTestNodeModal(nodeRpcAddress) {
-    dispatch( { type: 'OPEN_TEST_NODE_MODAL', nodeRpcAddress });
+    dispatch({ type: 'OPEN_TEST_NODE_MODAL', nodeRpcAddress });
 }
 
 export function openEditServerDNSSettingsModal(serverSecret) {
-    dispatch( { type: 'OPEN_EDIT_SERVER_DNS_SETTINGS_MODAL', serverSecret });
+    dispatch({ type: 'OPEN_EDIT_SERVER_DNS_SETTINGS_MODAL', serverSecret });
 }
 
 export function openEditServerTimeSettingsModal(serverSecret) {
-    dispatch( { type: 'OPEN_EDIT_SERVER_TIME_SETTINGS_MODAL', serverSecret });
+    dispatch({ type: 'OPEN_EDIT_SERVER_TIME_SETTINGS_MODAL', serverSecret });
 }
 
 export function openEditAccountS3AccessModal(accountEmail) {
-    dispatch( { type: 'OPEN_EDIT_ACCOUNT_S3_ACCESS_MODAL', accountEmail });
+    dispatch({ type: 'OPEN_EDIT_ACCOUNT_S3_ACCESS_MODAL', accountEmail });
 }
 
 export function openEditServerDetailsModal(serverSecret) {
-    dispatch( { type: 'OPEN_EDIT_SERVER_DETAILS_MODAL', serverSecret });
+    dispatch({ type: 'OPEN_EDIT_SERVER_DETAILS_MODAL', serverSecret });
 }
 
 export function openAssignNodesModal(poolName) {
-    dispatch( { type: 'OPEN_ASSIGN_NODES_MODAL', poolName });
+    dispatch({ type: 'OPEN_ASSIGN_NODES_MODAL', poolName });
 }
 
 export function openUpdateSystemNameModal(name) {
-    dispatch( { type: 'OPEN_UPDATE_SYSTEM_NAME_MODAL', name });
+    dispatch({ type: 'OPEN_UPDATE_SYSTEM_NAME_MODAL', name });
 }

@@ -12,15 +12,14 @@
         </span>
     </div>
 
-    <button class="btn" data-bind="click: clearCompleted">
+    <button class="btn" data-bind="click: onClearCompeleted">
         Clear Completed
     </button>
 </div>
 
 <data-table class="greedy" params="
     columns: columns,
-    data: uploads,
-    rowFactory: upload => createUploadRow(upload),
+    data: rows,
     emptyMessage: 'No upload transactions'
 "></data-table>
 
@@ -57,4 +56,6 @@
     </span>
 </section>
 
-<button class="btn align-end" data-bind="click: close">Close</button>
+<button class="btn align-end" data-bind="click: onClose">
+    Close
+</button>

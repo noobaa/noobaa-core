@@ -4,8 +4,9 @@ import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import ObjectRowViewModel from './object-row';
-import { navigateTo, uploadFiles } from 'actions';
+import { navigateTo } from 'actions';
 import { routeContext } from 'model';
+import { uploadFiles } from 'dispatchers';
 
 const columns = deepFreeze([
     {

@@ -20,13 +20,14 @@
     data-bind="
         tooltip: { text: 'Upload transactions', position: 'after' },
         click: onUploads,
-        css: { 'uploading': uploadsCount },
-        attr: { 'data-count': uploadsCount }
+        css: { 'uploading': uploadCount },
+        attr: { 'data-count': uploadCount }
     ">
     <svg-icon params="name: 'upload'"></svg-icon>
-    <bar params="values: uploadStateValues"></bar>
-    <span class="anim shrink-in" data-bind="
-        visible: animateUploadCount,
-        text: lastUploadCount
-    "></span>
+    <bar params="values: uploadBarValues"></bar>
+<!--     <span class="anim shrink-in" data-bind="
+        visible: animateNewUploadsCounter,
+        animation: { end: onUploadAniamtionEnd },
+        text: newUploadsCount
+    "></span> -->
 </button>

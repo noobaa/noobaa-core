@@ -1,8 +1,7 @@
 import template from './main-nav.html';
-import BaseViewModel from 'components/base-view-model';
-import { uiState, uploads } from 'model';
-import { deepFreeze } from 'utils/core-utils';
-import { sleep } from 'utils/promise-utils';
+import StateAwareViewModel from 'components/state-aware-view-model';
+import { uiState } from 'model';
+import { deepFreeze, last } from 'utils/core-utils';
 import ko from 'knockout';
 import style from 'style';
 import { openFileUploadsModal } from 'dispatchers';
@@ -56,53 +55,48 @@ const navItems = deepFreeze([
     }
 ]);
 
-class NavMenuViewModel extends BaseViewModel {
+class NavMenuViewModel extends StateAwareViewModel {
     constructor() {
         super();
 
         this.items = navItems;
+
+        // REFATOR: need to be refactored after uistate moves to the state.
         this.selectedItem = ko.pureComputed(
             () => uiState().selectedNavItem
         );
 
-        this.uploadsCount = ko.pureComputed(
-            () => uploads.stats().uploading
-        );
+        this.uploadCount = ko.observable();
+        this.uploadProgress = ko.observable();
+        this.recentUploadCounter = ko.observable();
 
-        this.animateUploadCount = ko.observable(false);
-        this.lastUploadCount = uploads.lastRequestFileCount;
-        this.addToDisposeList(
-            this.lastUploadCount.subscribe(
-                () => {
-                    this.animateUploadCount(false);
-                    sleep(100, true).then(this.animateUploadCount);
-                }
-            )
-        );
-
-        let uploadProgress = ko.pureComputed(
-            () => {
-                let { size, progress } = uploads.stats().batch;
-                return progress / size;
-            }
-        );
-
-        this.uploadStateValues = [
+        this.uploadBarValues = [
             {
-                value: uploadProgress,
+                value: this.uploadProgress,
                 color: style['color8']
             },
             {
-                value: ko.pureComputed(
-                    () => 1 - uploadProgress()
-                ),
+                value: ko.pureComputed(() => 1 - this.uploadProgress()),
                 color: style['color6']
             }
         ];
     }
 
+    onState({ objectUploads: uploads }, { objectUploads: prevUploads }) {
+        if (uploads === prevUploads) {
+            return;
+        }
+
+        const { stats } = uploads;
+        this.uploadCount(stats.uploading);
+        this.uploadProgress(stats.batchLoaded / stats.batchSize);
+    }
+
     onUploads() {
         openFileUploadsModal();
+    }
+
+    onUploadAniamtionEnd() {
     }
 
     isSelected(item) {

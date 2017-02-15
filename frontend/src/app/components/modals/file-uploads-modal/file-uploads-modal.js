@@ -1,14 +1,17 @@
 import template from './file-uploads-modal.html';
-import BaseViewModel from 'components/base-view-model';
+import StateAwareViewModel from 'components/state-aware-view-model';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
-import { uploads } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
-import { clearCompletedUploads } from 'actions';
-import style from 'style';
 import numeral from 'numeral';
+import { clearCompletedObjectUploads } from 'dispatchers';
+import style from 'style';
+
+
+
+
 
 const columns = deepFreeze([
     'fileName',
@@ -17,79 +20,72 @@ const columns = deepFreeze([
     'progress'
 ]);
 
-class FileUploadsModalViewModel extends BaseViewModel {
+function formatProgress(total, uploaded) {
+    return `Uploading ${
+            formatSize(uploaded)
+        } of ${
+            formatSize(total)
+        } (${
+            numeral(uploaded/total).format('%')
+        })`;
+}
+
+class FileUploadsModalViewModel extends StateAwareViewModel {
     constructor({ onClose }) {
         super();
 
-        this.uploads = uploads;
-        this.columns = columns;
         this.onClose = onClose;
-
-        this.countText = ko.pureComputed(
-            () => stringifyAmount('file', uploads.stats().count)
-        );
-
-        let uploadStats = uploads.stats;
-
-        this.uploaded = ko.pureComputed(
-            () => uploadStats().uploaded
-        );
-
-        this.failed = ko.pureComputed(
-            () => uploadStats().failed
-        );
-
-        this.uploading = ko.pureComputed(
-            () => uploadStats().uploading
-        );
-
-        let progress = ko.pureComputed(
-            () => {
-                let { size, progress } = uploadStats().batch;
-                return progress / size;
-            }
-        );
-
-        this.progressText = ko.pureComputed(
-            () => {
-                if (uploadStats().uploading === 0) {
-                    return '';
-                }
-
-                return `Uploading ${
-                    formatSize(uploadStats().batch.progress)
-                } of ${
-                    formatSize(uploadStats().batch.size)
-                } (${
-                    numeral(progress()).format('%')
-                })`;
-            }
-        );
-
+        this.columns = columns;
+        this.countText = ko.observable();
+        this.uploaded = ko.observable();
+        this.failed = ko.observable();
+        this.uploading = ko.observable();
+        this.progress = ko.observable();
+        this.progressText = ko.observable();
+        this.rows = ko.observableArray();
         this.barValues = [
             {
-                value: progress,
+                value: this.progress,
                 color: style['color8']
             },
             {
-                value: ko.pureComputed(
-                    () => 1 - progress()
-                ),
+                value: ko.pureComputed(() => 1 - this.progress()),
                 color: style['color7']
             }
         ];
+
+
     }
 
-    createUploadRow(file) {
-        return new UploadRowViewModel(file);
+    onState({ objectUploads: uploads }, { uploads: prevUploads }) {
+        if (uploads === prevUploads) {
+            return;
+        }
+
+        const { stats, requests } = uploads;
+        const  progressText = stats.uploading > 0 ?
+            formatProgress(stats.batchSize, stats.batchLoaded) :
+            '';
+
+        this.countText(stringifyAmount('file', stats.count));
+        this.uploading(stats.uploading);
+        this.failed(stats.failed);
+        this.uploaded(stats.uploaded);
+        this.progress(stats.batchLoaded / stats.batchSize);
+        this.progressText(progressText);
+        this.rows(
+            requests.map(
+                (req, i) => {
+                    const row = this.rows()[i] || new UploadRowViewModel();
+                    row.update(req);
+                    return row;
+                }
+            )
+        );
     }
 
-    clearCompleted() {
-        clearCompletedUploads();
-    }
-
-    close() {
-        this.onClose();
+    onClearCompeleted() {
+        clearCompletedObjectUploads();
     }
 }
 

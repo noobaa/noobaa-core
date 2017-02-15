@@ -4,7 +4,7 @@ import ColumnViewModel from './column';
 import * as cellTemplates from './cell-templates';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { noop, isFunction } from 'utils/core-utils';
+import { echo, isFunction } from 'utils/core-utils';
 
 const scrollThrottle = 750;
 
@@ -20,7 +20,7 @@ class DataTableViewModel extends BaseViewModel {
 
         let {
             columns = [],
-            rowFactory = noop,
+            rowFactory = echo,
             data,
             sorting,
             scroll = ko.observable(),

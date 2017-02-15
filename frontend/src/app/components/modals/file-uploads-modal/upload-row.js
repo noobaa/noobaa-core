@@ -1,46 +1,28 @@
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { formatSize } from 'utils/size-utils';
 
-export default class UploadRowViewModel extends BaseViewModel {
-    constructor(upload) {
-        super();
+export default class UploadRowViewModel {
+    constructor() {
+        this.fileName = ko.observable();
+        this.bucketName = ko.observable();
+        this.size = ko.observable();
+        this.progress = ko.observable();
+    }
 
-        this.fileName = ko.pureComputed(
-            () => upload() ? upload().name : ''
-        );
+    update(upload) {
+        const { name, bucket, completed, error, size, loaded } = upload;
+        const progressText = completed ?
+            (error ? 'FAILED' : 'UPLOADED') :
+            numeral(loaded/size).format('%');
 
-        this.bucketName = ko.pureComputed(
-            () => upload() ? upload().targetBucket : ''
-        );
-
-        this.size = ko.pureComputed(
-            () => upload() ? formatSize(upload().size) : ''
-        );
-
-        this.progress = ko.pureComputed(
-            () => {
-                if (!upload()) {
-                    return {};
-                }
-
-                let { completed, error, size, progress } = upload();
-                let text = completed ?
-                    (error ? 'FAILED' : 'UPLOADED') :
-                    numeral(progress/size).format('0%');
-
-                let tooltip = error || '';
-
-                let css = '';
-                if (error) {
-                    css = 'error';
-                } else if (completed) {
-                    css = 'success';
-                }
-
-                return { text, css, tooltip };
-            }
-        );
+        this.fileName(name);
+        this.bucketName(bucket);
+        this.size(formatSize(size));
+        this.progress({
+            text: progressText,
+            tooltip: error,
+            css: error ? 'error' : (completed ? 'success' : '')
+        });
     }
 }

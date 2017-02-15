@@ -1,6 +1,7 @@
 import * as model from 'model';
 import page from 'page';
 import api from 'services/api';
+import AWS from 'services/aws';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
@@ -15,12 +16,6 @@ import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
 // Action dispathers from refactored code.
 import { fetchSystemInfo } from 'dispatchers';
 import { actions as stateActions } from 'state-actions';
-
-
-// TODO: resolve browserify issue with export of the aws-sdk module.
-// The current workaround use the AWS that is set on the global window object.
-import 'aws-sdk';
-const AWS = window.AWS;
 
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;
@@ -597,6 +592,7 @@ export function loadServerInfo() {
                     config => ({
                         initialized: false,
                         address: endpoint,
+                        // config: Object.assign(config, { phone_home_connectivity_status: 'CANNOT_REACH_DNS_SERVER'})
                         config: config
                     })
                 )

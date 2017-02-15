@@ -296,6 +296,19 @@ function onOpenUpdateSystemNameModal(modals, { name }) {
     });
 }
 
+function onUpgradeSystem(modals) {
+    return _openModal(modals, {
+        component: {
+            name: 'system-upgrade-modal'
+        },
+        options: {
+            size: 'xsmall'
+        }
+    });
+}
+
+
+
 // ------------------------------
 // Local util functions
 // ------------------------------
@@ -347,5 +360,6 @@ export default createReducer({
     OPEN_EDIT_ACCOUNT_S3_ACCESS_MODAL: onOpenEditAccountS3AccessModal,
     OPEN_EDIT_SERVER_DETAILS_MODAL: onOpenEditServerDetailsModal,
     OPEN_ASSIGN_NODES_MODAL: onOpenAssignNOdesModal,
-    OPEN_UPDATE_SYSTEM_NAME_MODAL: onOpenUpdateSystemNameModal
+    OPEN_UPDATE_SYSTEM_NAME_MODAL: onOpenUpdateSystemNameModal,
+    UPGRADE_SYSTEM: onUpgradeSystem
 });

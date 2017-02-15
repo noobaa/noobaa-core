@@ -30,7 +30,6 @@ class LoginLayoutViewModel extends BaseViewModel {
                 } else {
                     if (config.phone_home_connectivity_status !== 'CONNECTED') {
                         return 'loading-server-information-from';
-
                     }
 
                     return 'create-system-form';

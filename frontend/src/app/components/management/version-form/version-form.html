@@ -20,12 +20,7 @@
         <file-selector params="
             message: 'Drag an upgrade package here',
             filter: upgradePackageSuffix,
-            onFilesReady: files => upgrade(files)
+            onFilesReady: onUpgrade
         "></file-selector>
     </div>
 </section>
-
-<!-- ko if: isUpgradingModalVisible -->
-<upgrade-modal params="onClose: () => isUpgradingModalVisible(false)">
-</upgrade-modal>
-<!-- /ko -->

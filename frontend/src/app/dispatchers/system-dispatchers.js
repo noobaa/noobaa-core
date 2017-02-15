@@ -6,3 +6,9 @@ export async function fetchSystemInfo() {
     dispatch({ type: 'SYSTEM_INFO_FETCHED', info });
 }
 
+
+export async function upgradeSystem() {
+    dispatch({ type: 'UPGRADE_SYSTEM' });
+
+    // REFACTOR: move the actual upgrade process from actions.js to here.
+}

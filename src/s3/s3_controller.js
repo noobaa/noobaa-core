@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const uuid = require('node-uuid');
 const moment = require('moment');
+const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const ObjectIO = require('../api/object_io');
 const s3_errors = require('./s3_errors');
@@ -194,7 +195,7 @@ class S3Controller {
                         Contents: {
                             Key: obj.key,
                             LastModified: to_s3_date(obj.info.create_time),
-                            ETag: obj.info.etag,
+                            ETag: `"${obj.info.etag}"`,
                             Size: obj.info.size,
                             Owner: DEFAULT_S3_USER,
                             StorageClass: STORAGE_CLASS_STANDARD,
@@ -257,7 +258,7 @@ class S3Controller {
                             VersionId: '',
                             IsLatest: true,
                             LastModified: to_s3_date(obj.info.create_time),
-                            ETag: obj.info.etag,
+                            ETag: `"${obj.info.etag}"`,
                             Size: obj.info.size,
                             Owner: DEFAULT_S3_USER,
                             StorageClass: STORAGE_CLASS_STANDARD,
@@ -453,7 +454,7 @@ class S3Controller {
         return req.rpc_client.object.read_object_md(this._object_path(req))
             .then(object_md => {
                 req.object_md = object_md;
-                res.setHeader('ETag', '"' + object_md.etag + '"');
+                res.setHeader('ETag', `"${object_md.etag}"`);
                 res.setHeader('Last-Modified', to_aws_date_for_http_header(object_md.create_time));
                 res.setHeader('Content-Type', object_md.content_type);
                 res.setHeader('Content-Length', object_md.size);
@@ -524,7 +525,7 @@ class S3Controller {
         this._set_md_conditions(req, params, 'overwrite_if');
         return this.object_io.upload_object(params)
             .then(reply => {
-                res.setHeader('ETag', '"' + reply.etag + '"');
+                res.setHeader('ETag', `"${reply.etag}"`);
             });
     }
 
@@ -545,58 +546,83 @@ class S3Controller {
         dbg.log0('COPY OBJECT ', req.params.key);
         let source_bucket = copy_source.slice(start_index, slash_index);
         let source_key = copy_source.slice(slash_index + 1);
-        let params = {
-            bucket: req.params.bucket,
-            key: req.params.key,
-            source_bucket: source_bucket,
-            source_key: source_key,
-            content_type: req.headers['content-type'],
-            xattr: get_request_xattr(req),
-            xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY')
-        };
-        this._set_md_conditions(req, params, 'overwrite_if');
-        this._set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
+        let xattr_copy = req.headers['x-amz-metadata-directive'] === 'COPY';
+        let xattr = get_request_xattr(req);
+        const content_type = req.headers['content-type'];
         return P.resolve()
             .then(() => {
-                if (source_bucket === params.bucket) {
+                if (source_bucket === req.params.bucket) {
+                    let params = {
+                        bucket: req.params.bucket,
+                        key: req.params.key,
+                        source_bucket,
+                        source_key,
+                        content_type,
+                        xattr,
+                        xattr_copy
+                    };
+                    this._set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
+                    this._set_md_conditions(req, params, 'overwrite_if');
                     return req.rpc_client.object.copy_object(params);
                 }
-                return req.rpc_client.object.read_object_md({
-                        bucket: source_bucket,
-                        key: source_key
-                    })
-                    .then(object_md => {
-                        if (params.xattr_copy) params.xattr = object_md.xattr || {};
-                        let source_stream = this.object_io.open_read_stream({
-                            bucket: source_bucket,
-                            key: source_key,
-                            client: req.rpc_client,
-                        });
-                        return this.object_io.upload_object({
-                            client: req.rpc_client,
-                            bucket: req.params.bucket,
-                            key: req.params.key,
-                            content_type: req.headers['content-type'],
-                            xattr: params.xattr_copy ? object_md.xattr : params.xattr,
-                            source_stream
-                        });
-                    })
-                    .then(() => req.rpc_client.object.read_object_md({
-                        bucket: req.params.bucket,
-                        key: req.params.key
-                    }))
-                    .then(object_md => ({
-                        source_md: object_md
-                    }));
+                return this._copy_between_buckets(req, source_bucket, source_key, xattr_copy, xattr);
             })
             .then(reply => ({
                 CopyObjectResult: {
                     LastModified: to_s3_date(reply.source_md.create_time),
-                    ETag: '"' + reply.source_md.etag + '"'
+                    ETag: `"${reply.source_md.etag}"`
                 }
             }));
     }
 
+    _copy_between_buckets(req, source_bucket, source_key, xattr_copy, xattr) {
+        const read_params = {
+            bucket: source_bucket,
+            key: source_key,
+        };
+        this._set_md_conditions(req, read_params, 'read_if', 'x-amz-copy-source-');
+        return req.rpc_client.object.get_md_conditions({
+                conditions: read_params.read_if,
+                bucket: source_bucket,
+                key: source_key,
+            })
+            .then(md_condition_res => {
+                if (md_condition_res.result) throw new Error('MD condition did not pass for read in copy: ' + md_condition_res.result);
+            })
+            .then(() => req.rpc_client.object.read_object_md(read_params))
+            .then(object_md => {
+                let source_stream = this.object_io.open_read_stream({
+                    bucket: source_bucket,
+                    key: source_key,
+                    client: req.rpc_client,
+                });
+                const write_params = {
+                    client: req.rpc_client,
+                    bucket: req.params.bucket,
+                    key: req.params.key,
+                    content_type: req.headers['content-type'],
+                    xattr: xattr_copy ? object_md.xattr : xattr,
+                    source_stream
+                };
+                this._set_md_conditions(req, write_params, 'overwrite_if');
+                return req.rpc_client.object.get_md_conditions({
+                        conditions: write_params.overwrite_if,
+                        bucket: req.params.bucket,
+                        key: req.params.key,
+                    })
+                    .then(md_condition_res => {
+                        if (md_condition_res.result) throw new Error('MD condition did not pass for write in copy: ' + md_condition_res.result);
+                    })
+                    .then(() => this.object_io.upload_object(write_params));
+            })
+            .then(() => req.rpc_client.object.read_object_md({
+                bucket: req.params.bucket,
+                key: req.params.key
+            }))
+            .then(object_md => ({
+                source_md: object_md
+            }));
+    }
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPOST.html
@@ -745,7 +771,7 @@ class S3Controller {
         if (req.content_sha256) params.sha256_b64 = req.content_sha256.toString('base64');
         return this.object_io.upload_multipart(params)
             .then(reply => {
-                res.setHeader('ETag', '"' + reply.etag + '"');
+                res.setHeader('ETag', `"${reply.etag}"`);
             });
     }
 

@@ -889,29 +889,43 @@ function delete_object_internal(obj) {
 }
 
 function check_md_conditions(req, conditions, obj) {
+    const res = _get_md_conditions(conditions, obj);
+    if (res) throw new RpcError(res);
+}
+
+function get_md_conditions(req) {
+    load_bucket(req);
+    return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key)
+        .then(obj => {
+            const result = _get_md_conditions(req.rpc_params.conditions, obj);
+            return result ? { result } : result;
+        });
+}
+
+function _get_md_conditions(conditions, obj) {
     if (!conditions) {
         return;
     }
     if (conditions.if_modified_since) {
         if (!obj ||
             conditions.if_modified_since < obj._id.getTimestamp().getTime()) {
-            throw new RpcError('IF_MODIFIED_SINCE');
+            return 'IF_MODIFIED_SINCE';
         }
     }
     if (conditions.if_unmodified_since) {
         if (!obj ||
             conditions.if_unmodified_since > obj._id.getTimestamp().getTime()) {
-            throw new RpcError('IF_UNMODIFIED_SINCE');
+            return 'IF_UNMODIFIED_SINCE';
         }
     }
     if (conditions.if_match_etag) {
         if (!(obj && http_utils.match_etag(conditions.if_match_etag, obj.etag))) {
-            throw new RpcError('IF_MATCH_ETAG');
+            return 'IF_MATCH_ETAG';
         }
     }
     if (conditions.if_none_match_etag) {
         if (obj && http_utils.match_etag(conditions.if_none_match_etag, obj.etag)) {
-            throw new RpcError('IF_NONE_MATCH_ETAG');
+            return 'IF_NONE_MATCH_ETAG';
         }
     }
 }
@@ -943,6 +957,7 @@ exports.read_node_mappings = read_node_mappings;
 // object meta-data
 exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
+exports.get_md_conditions = get_md_conditions;
 // deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;

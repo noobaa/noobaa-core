@@ -139,7 +139,7 @@ class ObjectIO {
             'key',
             'content_type',
             'xattr',
-            'overwrite_ifs',
+            'overwrite_if',
             'size',
             'md5_b64',
             'sha256_b64'

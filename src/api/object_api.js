@@ -605,6 +605,37 @@ module.exports = {
             }
         },
 
+        get_md_conditions: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['conditions'],
+                properties: {
+                    conditions: {
+                        $ref: '#/definitions/md_conditions',
+                    },
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    result: {
+                        type: 'string',
+                        enum: ['IF_MODIFIED_SINCE', 'IF_UNMODIFIED_SINCE', 'IF_MATCH_ETAG', 'IF_NONE_MATCH_ETAG']
+                    }
+                }
+            },
+            auth: {
+                system: ['admin']
+            }
+        },
+
         update_object_md: {
             method: 'PUT',
             params: {

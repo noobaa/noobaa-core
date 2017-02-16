@@ -102,7 +102,8 @@ function get_test_nodes(req) {
         deleting: false,
         deleted: false,
         skip_address: req.rpc_params.source,
-        is_cloud_node: false,
+        skip_cloud_nodes: true,
+        skip_internal: true
     }, {
         pagination: true,
         limit: req.rpc_params.count,

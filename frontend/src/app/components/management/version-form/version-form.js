@@ -60,7 +60,6 @@ class AboutFormViewModel extends BaseViewModel {
                 label: 'License information',
                 value: licenseInfoLink
             }
-
         ];
 
         this.upgradePackageSuffix = upgradePackageSuffix;

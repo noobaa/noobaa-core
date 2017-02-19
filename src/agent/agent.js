@@ -14,6 +14,7 @@ const express_compress = require('compression');
 const express_body_parser = require('body-parser');
 const express_morgan_logger = require('morgan');
 const express_method_override = require('method-override');
+const child_process = require('child_process');
 
 const P = require('../util/promise');
 const pem = require('../util/pem');
@@ -76,8 +77,6 @@ class Agent {
             this.storage_limit = params.storage_limit;
         }
 
-        this.is_demo_agent = params.is_demo_agent;
-
         const block_store_options = {
             node_name: this.node_name,
             rpc_client: this.client,
@@ -86,7 +85,10 @@ class Agent {
         if (this.storage_path) {
             assert(!this.token, 'unexpected param: token. ' +
                 'with storage_path the token is expected in the file <storage_path>/token');
-            if (params.cloud_info) {
+            if (params.s3_agent) {
+                dbg.log0(`this is a S3 agent`);
+                this.s3_info = { enabled: false };
+            } else if (params.cloud_info) {
                 this.cloud_info = params.cloud_info;
                 block_store_options.cloud_info = params.cloud_info;
                 block_store_options.cloud_path = params.cloud_path;
@@ -149,6 +151,7 @@ class Agent {
             'test_network_perf_to_peer',
             'collect_diagnostics',
             'set_debug_node',
+            'update_s3rver',
         ]);
 
         // register rpc to serve the apis
@@ -157,12 +160,14 @@ class Agent {
             this, {
                 middleware: [req => this._authenticate_agent_api(req)]
             });
-        this.rpc.register_service(
-            this.rpc.schema.block_store_api,
-            this.block_store, {
-                // TODO verify requests for block store?
-                // middleware: [ ... ]
-            });
+        if (this.block_store) {
+            this.rpc.register_service(
+                this.rpc.schema.block_store_api,
+                this.block_store, {
+                    // TODO verify requests for block store?
+                    // middleware: [ ... ]
+                });
+        }
         this.rpc.register_service(
             this.rpc.schema.func_node_api,
             this.func_node, {
@@ -305,7 +310,54 @@ class Agent {
                 // update the n2n ssl to use my certificate
                 this.n2n_agent.set_ssl_context(this.ssl_cert);
             })
-            .then(() => this.block_store.init());
+            .then(() => {
+                if (this.block_store) {
+                    return this.block_store.init();
+                }
+            });
+    }
+
+    _stop_s3rver() {
+        // should we use a different signal?
+        this.s3_info.enabled = false;
+        if (!this.s3_info.s3rver_process) return;
+        this.s3_info.s3rver_process.kill('SIGTERM');
+        this.s3_info.s3rver_process = null;
+    }
+
+    _start_s3rver() {
+        try {
+            if (this.s3_info.s3rver_process) {
+                throw new Error('S3 server already started. process:', this.s3_info.s3rver_process);
+            }
+
+            this.s3_info.enabled = true;
+
+            // run node process, inherit stdio and connect ipc channel for communication.
+            this.s3_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', [], {
+                stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+            });
+
+            this.s3_info.s3rver_process.on('error', err => {
+                dbg.error('got error from s3rver:', err);
+                this.s3_info.error_event = err;
+            });
+            this.s3_info.s3rver_process.on('exit', (code, signal) => {
+                dbg.warn(`s3rver process exited with code=${code} signal=${signal}`);
+                this.s3_info.s3rver_process = null;
+                if (this.s3_info.enabled) {
+                    this._start_s3rver();
+                }
+            });
+            // this.s3_info.s3rver_process.on('message', message => {
+            //     dbg.log0('got message from s3rver:', message);
+            //     if (message.error && message.error.fatal) {
+            //         this.s3_info.fatal_error = message.error;
+            //     }
+            // });
+        } catch (err) {
+            dbg.error('got error when spawning s3rver:', err);
+        }
     }
 
     _do_heartbeat() {
@@ -316,8 +368,6 @@ class Agent {
         };
         if (this.cloud_info) {
             hb_info.pool_name = this.cloud_info.cloud_pool_name;
-        } else if (this.is_demo_agent) {
-            hb_info.pool_name = config.DEMO_DEFAULTS.POOL_NAME;
         }
 
         dbg.log0(this.node_name, `_do_heartbeat called`);
@@ -543,6 +593,25 @@ class Agent {
 
     // AGENT API //////////////////////////////////////////////////////////////////
 
+    update_s3rver(req) {
+        if (!this.is_started) return;
+        if (!this.s3_info) {
+            dbg.error(this.node_name, 'got update_s3rver on a storage agent');
+            throw new Error('got update_s3rver on a storage agent ' + this.node_name);
+        }
+        dbg.log0('got update_s3rver with params = ', req.rpc_params);
+        if (req.rpc_params.enabled) {
+            if (this.s3_info.enabled) {
+                dbg.log0(this.node_name, 's3rver is already enabled. running process =', this.s3_info.s3rver_process);
+                return;
+            }
+            dbg.log0(this.node_name, 'calling _start_s3rver');
+            this._start_s3rver();
+        } else {
+            dbg.log0(this.node_name, 'calling _stop_s3rver');
+            this._stop_s3rver();
+        }
+    }
 
     get_agent_info_and_update_masters(req) {
         if (!this.is_started) return;
@@ -562,6 +631,11 @@ class Agent {
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
             reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
+        }
+
+
+        if (this.s3_info) {
+            reply.s3_info = { enabled: this.s3_info.enabled };
         }
 
         clearTimeout(this._test_connection_timeout);
@@ -600,18 +674,28 @@ class Agent {
             .then(() => this.create_node_token_wrapper.read())
             .then(create_node_token => {
                 reply.create_node_token = create_node_token;
+                return this.agent_conf.read();
             })
-            .then(() => this.block_store.get_storage_info())
+            .then(agent_conf => {
+                reply.roles = agent_conf.roles;
+            })
+            .then(() => {
+                if (this.block_store) {
+                    return this.block_store.get_storage_info();
+                }
+            })
             .then(storage_info => {
-                dbg.log0(this.node_name, 'storage_info:', storage_info);
-                reply.storage = storage_info;
-                if (this.storage_limit) {
-                    this._fix_storage_limit(reply.storage);
-                    // reply.storage.limit = this.storage_limit;
-                    // let limited_total = this.storage_limit;
-                    // let limited_free = limited_total - reply.storage.used;
-                    // reply.storage.total = Math.min(limited_total, reply.storage.total);
-                    // reply.storage.free = Math.min(limited_free, reply.storage.free);
+                if (storage_info) {
+                    dbg.log0(this.node_name, 'storage_info:', storage_info);
+                    reply.storage = storage_info;
+                    if (this.storage_limit) {
+                        this._fix_storage_limit(reply.storage);
+                        // reply.storage.limit = this.storage_limit;
+                        // let limited_total = this.storage_limit;
+                        // let limited_free = limited_total - reply.storage.used;
+                        // reply.storage.total = Math.min(limited_total, reply.storage.total);
+                        // reply.storage.free = Math.min(limited_free, reply.storage.free);
+                    }
                 }
             })
             .then(() => extended_hb && os_utils.read_drives()
@@ -620,7 +704,7 @@ class Agent {
                 })
             )
             .then(drives => {
-                if (!drives) return;
+                if (!drives || this.s3_info) return;
                 // for now we only use a single drive,
                 // so mark the usage on the drive of our storage folder.
                 const used_size = reply.storage.used;
@@ -692,11 +776,15 @@ class Agent {
         });
     }
 
+
     n2n_signal(req) {
         return this.rpc.accept_n2n_signal(req.rpc_params);
     }
 
     test_store_perf(req) {
+        if (!this.block_store) {
+            return {};
+        }
         const reply = {};
         const count = req.rpc_params.count || 5;
         const delay_ms = 200;

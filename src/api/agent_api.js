@@ -80,6 +80,22 @@ module.exports = {
                     },
                     create_node_token: {
                         type: 'string'
+                    },
+
+                    // the agent's "recommendation" of it's roles. nodes_monitor will only use it
+                    // when initializing the node and the role is not yet known.
+                    roles: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/agent_roles_enum'
+                        }
+                    },
+
+                    s3_info: {
+                        type: 'object',
+                        properties: {
+                            enabled: 'boolean'
+                        }
                     }
                 }
             },
@@ -124,6 +140,20 @@ module.exports = {
                     },
                     n2n_config: {
                         $ref: 'common_api#/definitions/n2n_config'
+                    }
+                }
+            }
+        },
+
+        // only supported by s3 agents
+        update_s3rver: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['enabled'],
+                properties: {
+                    enabled: {
+                        type: 'boolean'
                     }
                 }
             }

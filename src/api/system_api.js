@@ -263,7 +263,15 @@ module.exports = {
                     os_type: {
                         type: 'string',
                         enum: ['LINUX', 'WINDOWS']
+                    },
+                    roles: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                            enum: ['STORAGE', 'S3']
+                        }
                     }
+
                 }
             },
             reply: {

@@ -349,5 +349,10 @@ module.exports = {
                 }
             }
         },
+
+        agent_roles_enum: {
+            type: 'string',
+            enum: ['STORAGE', 'S3']
+        }
     }
 };

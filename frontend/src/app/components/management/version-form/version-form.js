@@ -5,6 +5,9 @@ import { systemInfo } from 'model';
 import { upgradeSystem } from 'actions';
 import { upgradePackageSuffix } from 'config';
 
+const licenseInfoLink =
+    '<a class="link" target="_blank" href="/public/license-info">See details</a>';
+
 class AboutFormViewModel extends BaseViewModel {
     constructor() {
         super();
@@ -52,7 +55,12 @@ class AboutFormViewModel extends BaseViewModel {
             {
                 label: 'Cluster status',
                 value: clusterVersionStatus
+            },
+            {
+                label: 'License information',
+                value: licenseInfoLink
             }
+
         ];
 
         this.upgradePackageSuffix = upgradePackageSuffix;

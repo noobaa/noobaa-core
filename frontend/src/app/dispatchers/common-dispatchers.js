@@ -1,15 +1,19 @@
-import { deepFreeze } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 import { dispatch } from 'state-actions';
 import AWS from 'services/aws';
 
-export function uploadFiles(bucket, files) {
-    const s3 = createS3Client(window.location.hostname, '123', 'abc');
+export function uploadObjects(bucket, files) {
+    const time = Date.now();
+    const objects = Array.from(files).map(file => ({
+        id: randomString(),
+        bucket,
+        file
+    }));
 
-    for (const file of files) {
-        const id = randomString();
-        const time = Date.now();
-        dispatch({ type: 'OBJECT_UPLOAD_STARTED', id, bucket, file, time });
+    dispatch({ type: 'OBJECT_UPLOAD_STARTED', time, objects });
+
+    const s3 = createS3Client(window.location.hostname, '123', 'abc');
+    for (const { id, bucket, file } of objects) {
 
         s3.upload(
             {
@@ -31,6 +35,10 @@ export function uploadFiles(bucket, files) {
             ({ loaded }) => dispatch({ type: 'OBJECT_UPLOAD_PROGRESS', id, loaded })
         );
     }
+}
+
+export function clearCompletedObjectUploads() {
+    dispatch({ type: 'CLEAR_COPLETED_OBJECT_UPLOADES' });
 }
 
 function createS3Client(endpoint, accessKey, secretKey) {

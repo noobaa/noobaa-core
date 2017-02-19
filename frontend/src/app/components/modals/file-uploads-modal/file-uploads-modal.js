@@ -9,26 +9,12 @@ import numeral from 'numeral';
 import { clearCompletedObjectUploads } from 'dispatchers';
 import style from 'style';
 
-
-
-
-
 const columns = deepFreeze([
     'fileName',
     'bucketName',
     'size',
     'progress'
 ]);
-
-function formatProgress(total, uploaded) {
-    return `Uploading ${
-            formatSize(uploaded)
-        } of ${
-            formatSize(total)
-        } (${
-            numeral(uploaded/total).format('%')
-        })`;
-}
 
 class FileUploadsModalViewModel extends StateAwareViewModel {
     constructor({ onClose }) {
@@ -53,8 +39,6 @@ class FileUploadsModalViewModel extends StateAwareViewModel {
                 color: style['color7']
             }
         ];
-
-
     }
 
     onState({ objectUploads: uploads }, { uploads: prevUploads }) {
@@ -62,10 +46,8 @@ class FileUploadsModalViewModel extends StateAwareViewModel {
             return;
         }
 
-        const { stats, requests } = uploads;
-        const  progressText = stats.uploading > 0 ?
-            formatProgress(stats.batchSize, stats.batchLoaded) :
-            '';
+        const { stats, objects } = uploads;
+        const progressText = this._getCurrentUploadProgressText(stats);
 
         this.countText(stringifyAmount('file', stats.count));
         this.uploading(stats.uploading);
@@ -74,10 +56,10 @@ class FileUploadsModalViewModel extends StateAwareViewModel {
         this.progress(stats.batchLoaded / stats.batchSize);
         this.progressText(progressText);
         this.rows(
-            requests.map(
-                (req, i) => {
+            Array.from(objects).reverse().map(
+                (obj, i) => {
                     const row = this.rows()[i] || new UploadRowViewModel();
-                    row.update(req);
+                    row.update(obj);
                     return row;
                 }
             )
@@ -86,6 +68,20 @@ class FileUploadsModalViewModel extends StateAwareViewModel {
 
     onClearCompeleted() {
         clearCompletedObjectUploads();
+    }
+
+    _getCurrentUploadProgressText({ uploading, batchSize, batchLoaded }) {
+        if (uploading === 0) {
+            return '';
+        }
+
+        return `Uploading ${
+            formatSize(batchLoaded)
+        } of ${
+            formatSize(batchSize)
+        } (${
+            numeral(batchLoaded/batchSize).format('%')
+        })`;
     }
 }
 

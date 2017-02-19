@@ -6,7 +6,7 @@ import { deepFreeze, throttle } from 'utils/core-utils';
 import ObjectRowViewModel from './object-row';
 import { navigateTo } from 'actions';
 import { routeContext } from 'model';
-import { uploadFiles } from 'dispatchers';
+import { uploadObjects } from 'dispatchers';
 
 const columns = deepFreeze([
     {
@@ -88,7 +88,7 @@ class BucketObjectsTableViewModel extends BaseViewModel {
     }
 
     uploadFiles(files) {
-        uploadFiles(this.bucketName(), files);
+        uploadObjects(this.bucketName(), files);
         this.fileSelectorExpanded(false);
     }
 

@@ -2,7 +2,11 @@ import { deepFreeze } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 
 const initialState = deepFreeze({
-    requests: [],
+    objects: [],
+    lastUpload: {
+        time: 0,
+        objectCount: 0
+    },
     stats: {
         count: 0,
         uploading: 0,
@@ -13,7 +17,7 @@ const initialState = deepFreeze({
     }
 });
 
-const initialRequestState = deepFreeze({
+const initialObjectState = deepFreeze({
     id: '',
     name: '',
     bucket: '',
@@ -31,27 +35,32 @@ function onApplicationInit() {
     return initialState;
 }
 
-function onObjectUploadStarted(uploads, { id, bucket, file, time }) {
-    const request = {
-        ...initialRequestState,
-        id: id,
-        name: file.name,
-        bucket: bucket,
-        size: file.size,
-        time: time
-    };
+function onObjectUploadStarted(uploads, { time, objects }) {
+    const newObjects = objects.map(
+        ({ id, bucket, file }) => ({
+            ...initialObjectState,
+            id,
+            bucket,
+            name: file.name,
+            size: file.size
+        })
+    );
 
-    const requests = [ ...uploads.requests, request ];
-    const stats = _recalcStats(requests);
-    return { requests, stats };
+    objects = [ ...uploads.objects, ...newObjects ];
+    const stats = _recalcStats(objects);
+    const lastUpload = {
+        time: time,
+        objectCount: newObjects.length
+    };
+    return { ...uploads, objects, lastUpload, stats };
 }
 
 function onObjectUploadProgress(uploads, { id, loaded }) {
-    const requests = uploads.requests.map(
-        req => req.id === id ? { ...req, loaded } : req
+    const objects = uploads.objects.map(
+        obj => obj.id === id ? { ...obj, loaded } : obj
     );
-    const stats = _recalcStats(requests);
-    return { ...uploads, requests, stats };
+    const stats = _recalcStats(objects);
+    return { ...uploads, objects, stats };
 }
 
 function onObjectUploadCompleted(uploads, action) {
@@ -63,28 +72,26 @@ function onObjectUploadFailed(uploads, action) {
 }
 
 function onClearCompletedObjectUploads(uploads) {
-    const requests = uploads.requests.filter(
-        req => !req.completed
-    );
-    const stats = _recalcStats(requests);
-    return { ...uploads, requests, stats };
+    const objects = uploads.objects.filter(obj => !obj.completed);
+    const stats = _recalcStats(objects);
+    return { ...uploads, objects, stats };
 }
 
 // ------------------------------
 // Local util functions
 // ------------------------------
 function _completeUpload(uploads, { id, error = '' }) {
-    const requests = uploads.requests.map(
-        req => req.id === id ? { ...req, completed: true, error } : req
+    const objects = uploads.objects.map(
+        obj => obj.id === id ? { ...obj, completed: true, error } : obj
     );
 
-    const stats = _recalcStats(requests);
+    const stats = _recalcStats(objects);
 
     if (stats.uploading === 0) {
         return {
             ...uploads,
-            requests: requests.map(
-                req => ({ ...req, archived: true })
+            objects: objects.map(
+                obj => ({ ...obj, archived: true })
             ),
             stats: {
                 ...stats,
@@ -94,21 +101,21 @@ function _completeUpload(uploads, { id, error = '' }) {
         };
 
     } else {
-        return { ...uploads, requests, stats };
+        return { ...uploads, objects, stats };
     }
 }
 
-function _recalcStats(requests) {
-    return requests.reduce(
-        (stats, req) => {
-            const { archived, completed, error } = req;
+function _recalcStats(objects) {
+    return objects.reduce(
+        (stats, obj) => {
+            const { archived, completed, error } = obj;
             stats.count += 1;
             stats.uploading += Number(!completed);
             stats.failed += Number(completed && Boolean(error));
             stats.uploaded += Number(completed && !error);
 
             if (!archived) {
-                const { size, loaded } = req;
+                const { size, loaded } = obj;
                 stats.batchSize += size;
                 stats.batchLoaded += loaded;
             }

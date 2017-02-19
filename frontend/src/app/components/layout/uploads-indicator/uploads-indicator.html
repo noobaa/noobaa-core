@@ -1,0 +1,16 @@
+<button class="icon-btn no-outline column content-middle"
+    tabindex="-1"
+    data-bind="
+        tooltip: { text: 'Upload transactions', position: 'after' },
+        click: onUploads,
+        css: { 'uploading': uploadCount },
+        attr: { 'data-count': uploadCount }
+    ">
+    <svg-icon params="name: 'upload'"></svg-icon>
+    <bar params="values: uploadBarValues"></bar>
+    <span class="anim shrink-in" data-bind="
+        visible: animatedCount,
+        animation: { end: onUploadAnimationEnd },
+        text: animatedCount
+    "></span>
+</button>

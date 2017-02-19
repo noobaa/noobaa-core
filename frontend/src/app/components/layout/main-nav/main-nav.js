@@ -1,10 +1,9 @@
 import template from './main-nav.html';
-import StateAwareViewModel from 'components/state-aware-view-model';
+import BaseViewModel from 'components/base-view-model';
 import { uiState } from 'model';
-import { deepFreeze, last } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
 import ko from 'knockout';
-import style from 'style';
-import { openFileUploadsModal } from 'dispatchers';
+
 
 const navItems = deepFreeze([
     /*{
@@ -55,48 +54,14 @@ const navItems = deepFreeze([
     }
 ]);
 
-class NavMenuViewModel extends StateAwareViewModel {
+class NavMenuViewModel extends BaseViewModel {
     constructor() {
         super();
 
         this.items = navItems;
-
-        // REFATOR: need to be refactored after uistate moves to the state.
         this.selectedItem = ko.pureComputed(
             () => uiState().selectedNavItem
         );
-
-        this.uploadCount = ko.observable();
-        this.uploadProgress = ko.observable();
-        this.recentUploadCounter = ko.observable();
-
-        this.uploadBarValues = [
-            {
-                value: this.uploadProgress,
-                color: style['color8']
-            },
-            {
-                value: ko.pureComputed(() => 1 - this.uploadProgress()),
-                color: style['color6']
-            }
-        ];
-    }
-
-    onState({ objectUploads: uploads }, { objectUploads: prevUploads }) {
-        if (uploads === prevUploads) {
-            return;
-        }
-
-        const { stats } = uploads;
-        this.uploadCount(stats.uploading);
-        this.uploadProgress(stats.batchLoaded / stats.batchSize);
-    }
-
-    onUploads() {
-        openFileUploadsModal();
-    }
-
-    onUploadAniamtionEnd() {
     }
 
     isSelected(item) {

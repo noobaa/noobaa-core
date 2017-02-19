@@ -1,0 +1,51 @@
+uploads-indicator {
+    position: relative;
+    margin-left: 0;
+    width: 42px;
+    margin: 0 auto;
+
+    svg-icon {
+        margin: 0 auto;
+    }
+
+    bar {
+        margin: @gutter/2 0;
+        height: 1px;
+        width: 42px;
+        border-radius: 0;
+    }
+
+    .anim {
+        position: absolute;
+        display: block;
+        top: 3px;
+        left: 8px;
+        background: transparent;
+        border: 1px solid @color6;
+        border-radius: 1px;
+        padding: 4px 2px;
+        color: @color8;
+        animation-fill-mode: forwards;
+
+        &::before {
+            content: '+';
+        }
+    }
+
+    .uploading::after {
+        @size : 10px;
+        content: attr(data-count);
+        position: absolute;
+        top: -7px;
+        left: 0;
+        display: block;
+        min-width: @size;
+        height: @size;
+        line-height: 100%;
+        padding: 2px;
+        background-color: @color6;
+        border-radius: @size;
+        color: @color8;
+        text-align: center;
+    }
+}

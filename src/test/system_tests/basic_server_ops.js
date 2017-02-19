@@ -24,8 +24,12 @@ module.exports = {
     generate_random_file: generate_random_file,
     wait_on_agents_upgrade: wait_on_agents_upgrade,
     calc_md5: calc_md5,
+    disable_rpc_validation: disable_rpc_validation
 };
 
+function disable_rpc_validation(ip, upgrade_pack) {
+    rpc.disable_validation();
+}
 
 function upload_and_upgrade(ip, upgrade_pack) {
     console.log('Upgrading the machine');

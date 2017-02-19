@@ -29,26 +29,29 @@ const s3_rest = require('./s3_rest');
 const S3Controller = require('./s3_controller');
 const lambda_rest = require('../lambda/lambda_rest');
 const LambdaController = require('../lambda/lambda_controller');
-
 dbg.set_process_name('S3rver');
 
-if (cluster.isMaster && config.S3_FORKS_ENABLED) {
-    // Fork workers
-    for (let i = 0; i < numCPUs; i++) {
-        console.warn('Spawning S3 Server', i + 1);
-        cluster.fork();
+function start_all() {
+    if (cluster.isMaster && config.S3_FORKS_ENABLED && argv.address) {
+        // Fork workers
+        for (let i = 0; i < numCPUs; i++) {
+            console.warn('Spawning S3 Server', i + 1);
+            cluster.fork();
+        }
+        cluster.on('exit', function(worker, code, signal) {
+            console.log('worker ' + worker.process.pid + ' died');
+            // fork again on exit
+            cluster.fork();
+        });
+    } else {
+        run_server({
+            s3: true,
+            lambda: true
+        });
     }
-    cluster.on('exit', function(worker, code, signal) {
-        console.log('worker ' + worker.process.pid + ' died');
-        // fork again on exit
-        cluster.fork();
-    });
-} else {
-    run_server();
 }
 
-
-function run_server() {
+function run_server(options) {
 
     // Workers can share any TCP connection
     // In this case its a HTTP server
@@ -99,8 +102,14 @@ function run_server() {
             }
         })
         .then(rpc => {
-            app.use('/2015-03-31/functions/', lambda_rest(new LambdaController(rpc)));
-            app.use(s3_rest(new S3Controller(rpc)));
+            if (options && options.lambda) {
+                dbg.log0('starting lambda controller');
+                app.use('/2015-03-31/functions/', lambda_rest(new LambdaController(rpc)));
+            }
+            if (options && options.s3) {
+                dbg.log0('starting s3 controller');
+                app.use(s3_rest(new S3Controller(rpc)));
+            }
         })
         .then(() => dbg.log0('Starting HTTP', params.port))
         .then(() => listen_http(params.port, http.createServer(app)))
@@ -148,3 +157,6 @@ function connection_setup(socket) {
     // socket._readableState.highWaterMark = 1024 * 1024;
     // socket.setNoDelay(true);
 }
+
+
+exports.start_all = start_all;

@@ -26,7 +26,7 @@
     "db": "mongod -f mongod.conf",
     "web": "node src/server/web_server",
     "bg": "node src/server/bg_workers",
-    "s3": "node src/s3/s3rver",
+    "s3": "node src/s3/s3rver_starter",
     "hosted_agents": "node src/hosted_agents/hosted_agents_starter",
     "tunnel": "sudo node src/tools/tcp_tunnel --ssl",
     "agent": "node src/agent/agent_cli",

@@ -1,4 +1,4 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-module.exports = require('./s3rver');
+require('./s3rver').start_all();

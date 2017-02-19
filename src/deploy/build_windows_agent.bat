@@ -29,6 +29,8 @@ copy ..\..\package.json .
 copy ..\..\config.js .
 mkdir .\src\
 xcopy /Y/I/E ..\..\src\agent .\src\agent
+xcopy /Y/I/E ..\..\src\s3 .\src\s3
+xcopy /Y/I/E ..\..\src\lambda .\src\lambda
 xcopy /Y/I/E ..\..\src\util .\src\util
 xcopy /Y/I/E ..\..\src\rpc .\src\rpc
 xcopy /Y/I/E ..\..\src\api .\src\api

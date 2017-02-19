@@ -60,6 +60,8 @@ if [ "$CLEAN" = true ] ; then
     cp ../../config.js ./package/
     cp $(nvm which current) ./package/
     mkdir ./package/src/
+    cp -R ../../src/s3 ./package/src/
+    cp -R ../../src/lambda ./package/src/
     cp -R ../../src/agent ./package/src/
     cp -R ../../src/util ./package/src/
     cp -R ../../src/rpc ./package/src/

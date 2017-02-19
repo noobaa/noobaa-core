@@ -717,7 +717,8 @@ function get_node_installation_string(req) {
                 secret_key: secret_key,
                 tier: 'nodes',
                 root_path: './agent_storage/',
-                exclude_drives: req.rpc_params.exclude_drives ? req.rpc_params.exclude_drives : []
+                exclude_drives: req.rpc_params.exclude_drives ? req.rpc_params.exclude_drives : [],
+                roles: req.rpc_params.roles || ['STORAGE']
             };
             const base64_configuration = new Buffer(JSON.stringify(agent_conf)).toString('base64');
             switch (req.rpc_params.os_type) {

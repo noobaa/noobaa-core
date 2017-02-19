@@ -18,7 +18,7 @@ const SERVICES = [{
     fork: './src/server/web_server.js'
 }, {
     name: 's3',
-    fork: './src/s3/s3rver.js'
+    fork: './src/s3/s3rver_starter.js'
 }, {
     name: 'hosted_agents',
     fork: './src/hosted_agents/hosted_agents_starter.js'

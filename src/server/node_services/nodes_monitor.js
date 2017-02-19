@@ -54,6 +54,7 @@ const AGENT_INFO_FIELDS = [
     'os_info',
     'debug_level',
     'is_internal_agent',
+    's3_info'
 ];
 const MONITOR_INFO_FIELDS = [
     'has_issues',
@@ -1239,6 +1240,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_item_storage_full(item) {
+        if (!item.node.storage) return true;
         return item.node.storage.limit ?
             (item.node.storage.used >= item.node.storage.limit) :
             (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
@@ -1293,7 +1295,8 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioning &&
             !item.node.decommissioned &&
             !item.node.deleting &&
-            !item.node.deleted);
+            !item.node.deleted &&
+            !item.node.s3_info);
     }
 
     _get_item_accessibility(item) {
@@ -1350,6 +1353,7 @@ class NodesMonitor extends EventEmitter {
     _get_data_activity_reason(item) {
         if (!item.node_from_store) return '';
         if (item.node.deleted) return '';
+        if (item.node.s3_info) return '';
         if (item.node.deleting) return ACT_DELETING;
         if (item.node.decommissioned) return '';
         if (item.node.decommissioning) return ACT_DECOMMISSIONING;

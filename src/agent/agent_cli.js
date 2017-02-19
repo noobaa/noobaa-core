@@ -29,6 +29,8 @@ module.exports = AgentCLI;
 const CREATE_TOKEN_RESPONSE_TIMEOUT = 30 * 1000; // 30s timeout for master to respond to HB
 const CREATE_TOKEN_RETRY_INTERVAL = 10 * 1000;
 
+const S3_AGENT_NAME_PREFIX = 's3-agent-';
+
 /**
  *
  * AgentCLI
@@ -198,7 +200,10 @@ AgentCLI.prototype.load = function() {
                         return self.start(name, node_path);
                     } else {
                         dbg.log0('starting new internal agent. name = ', name);
-                        return self.create_node_helper(self.params.all_storage_paths[0], /*use_host_id=*/ true, name);
+                        return self.create_node_helper(self.params.all_storage_paths[0], {
+                            use_host_id: true,
+                            internal_node_name: name
+                        });
                     }
                 }));
             });
@@ -231,7 +236,25 @@ AgentCLI.prototype.load = function() {
                     });
                 });
         }))
-        .then(function(storage_path_nodes) {
+        // .then(storage_path_nodes => {
+        //     // if no s3 agent exist for root storage path, run one
+        //     let s3_started = _.find(storage_path_nodes[0], name => this._is_s3_agent(name));
+        //     if (!s3_started) {
+        //         // create path for s3 agent. it will be used if agent_conf contains s3 role
+        //         dbg.log0(`creating s3 storage_path in ${self.params.all_storage_paths[0]}`);
+        //         return self.create_node_helper(self.params.all_storage_paths[0], {
+        //                 use_host_id: true,
+        //                 is_s3_agent: true
+        //             })
+        //             // return storage nodes that will be created according to scale
+        //             .then(() => storage_path_nodes);
+        //     }
+        //     dbg.log0(`DZDZ: found started s3 node ${s3_started}. skipping creation`);
+        //     // remover s3 node name from storage_path_nodes[0] so scale will be calculated according to storage nodes only.
+        //     storage_path_nodes[0] = _.reject(storage_path_nodes[0], name => this._is_s3_agent(name));
+        //     return storage_path_nodes;
+        // })
+        .then(storage_path_nodes => {
             var nodes_scale = parseInt(self.params.scale, 10) || 0;
             var number_of_new_paths = 0;
             var existing_nodes_count = 0;
@@ -297,13 +320,16 @@ AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");
 };
 
-AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_host_id, internal_node_name) {
+AgentCLI.prototype.create_node_helper = function(current_node_path_info, options) {
     var self = this;
+
+    let { use_host_id, internal_node_name, is_s3_agent } = options;
 
     return P.fcall(function() {
         dbg.log0('create_node_helper called with self.params', self.params);
         var current_node_path = current_node_path_info.mount;
-        var node_name = internal_node_name || os.hostname();
+        let name_prefix = is_s3_agent ? S3_AGENT_NAME_PREFIX : '';
+        var node_name = internal_node_name || name_prefix + os.hostname();
         var path_modification = current_node_path.replace('/agent_storage/', '').replace(/\//g, '')
             .replace('.', '');
         //windows
@@ -406,7 +432,7 @@ AgentCLI.prototype.create = function(number_of_nodes, use_host_id) {
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(current_storage_path, use_host_id);
+                            return self.create_node_helper(current_storage_path, { use_host_id });
                         }
                     });
             }
@@ -420,13 +446,13 @@ AgentCLI.prototype.create = function(number_of_nodes, use_host_id) {
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(self.params.all_storage_paths[0], use_host_id);
+                            return self.create_node_helper(self.params.all_storage_paths[0], { use_host_id });
                         }
                     });
             } else if (number_of_nodes === 0) {
                 return;
             } else {
-                return self.create_node_helper(self.params.all_storage_paths[0], use_host_id);
+                return self.create_node_helper(self.params.all_storage_paths[0], { use_host_id });
             }
         })
         .then(null, function(err) {
@@ -503,6 +529,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             agent_conf: self.agent_conf,
             token_wrapper: token_wrapper,
             create_node_token_wrapper: create_node_token_wrapper,
+            s3_agent: this._is_s3_agent(node_name)
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);
@@ -610,6 +637,15 @@ AgentCLI.prototype.create_auth_token = function(auth_params) {
 function populate_general_help(general) {
     general.push('show("<function>"") to show help on a specific API');
 }
+
+
+AgentCLI.prototype._is_s3_agent = function(node_name) {
+    return node_name.startsWith(S3_AGENT_NAME_PREFIX);
+};
+
+AgentCLI.prototype._is_s3_enabled = function(node_name) {
+    return (this.params.roles && this.params.roles.indexOf('S3') >= 0);
+};
 
 AgentCLI.main = main;
 

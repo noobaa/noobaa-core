@@ -18,7 +18,7 @@ class DataTableViewModel extends BaseViewModel {
     constructor(params, inlineTemplates) {
         super();
 
-        let {
+        const {
             columns = [],
             rowFactory = echo,
             data,
@@ -30,7 +30,7 @@ class DataTableViewModel extends BaseViewModel {
             emptyMessage
         } = params;
 
-        let templates = Object.assign({}, cellTemplates, inlineTemplates);
+        const templates = Object.assign({}, cellTemplates, inlineTemplates);
         this.subRowTemplate = subRow && inlineTemplates[subRow];
 
         this.tableCss = {

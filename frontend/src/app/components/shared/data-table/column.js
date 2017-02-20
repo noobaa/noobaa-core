@@ -12,8 +12,7 @@ export default class ColumnViewModel extends BaseViewModel {
         super();
 
         config = isObject(config) ? config : { name: config.toString() };
-
-        let {
+        const {
             name,
             label = addSpaces(name),
             type = 'text',
@@ -37,13 +36,13 @@ export default class ColumnViewModel extends BaseViewModel {
     }
 
     getSortCss() {
-        let { sorting, sortKey } = this;
+        const { sorting, sortKey } = this;
 
         if (!sorting || !sortKey) {
             return '';
         }
 
-        let { sortBy, order } = ko.unwrap(sorting) || {};
+        const { sortBy, order } = ko.unwrap(sorting) || {};
         return `sortable ${
             sortBy === sortKey ? (order === 1 ? 'des' : 'asc') : ''
         }`;
@@ -54,7 +53,7 @@ export default class ColumnViewModel extends BaseViewModel {
             return;
         }
 
-        let { sortBy, order } = this.sorting();
+        const { sortBy, order } = this.sorting();
         this.sorting({
             sortBy: this.sortKey,
             order: sortBy === this.sortKey ? 0 - order : 1
@@ -62,7 +61,7 @@ export default class ColumnViewModel extends BaseViewModel {
     }
 
     generateCellTemplate() {
-        let { css, name, template } = this;
+        const { css, name, template } = this;
         return `<td data-bind="css:'${css}',let:{ $data: $data.${name}, $rawData: $data.${name} }">${
             template
         }</td>`;

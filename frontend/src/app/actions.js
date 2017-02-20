@@ -144,10 +144,6 @@ export function showOverview() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'Overview',
-        breadcrumbs: [
-            { route: 'system', label: 'Overview' }
-        ],
         selectedNavItem: 'overview',
         panel: 'overview'
     });
@@ -158,10 +154,6 @@ export function showBuckets() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'Buckets',
-        breadcrumbs: [
-            { route: 'buckets', label: 'Buckets' }
-        ],
         selectedNavItem: 'buckets',
         panel: 'buckets',
         tab: 'buckets'
@@ -177,11 +169,6 @@ export function showBucket() {
 
     model.uiState({
         layout: 'main-layout',
-        title: bucket,
-        breadcrumbs: [
-            { route: 'buckets', label: 'Buckets' },
-            { route: 'bucket', label: bucket }
-        ],
         selectedNavItem: 'buckets',
         panel: 'bucket',
         tab: tab
@@ -199,12 +186,6 @@ export function showObject() {
 
     model.uiState({
         layout: 'main-layout',
-        title: object,
-        breadcrumbs: [
-            { route: 'buckets', label: 'Buckets' },
-            { route: 'bucket', label: bucket },
-            { route: 'object', label: object }
-        ],
         selectedNavItem: 'buckets',
         panel: 'object',
         tab: tab
@@ -222,10 +203,6 @@ export function showResources() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'Resources',
-        breadcrumbs: [
-            { route: 'pools', label: 'Resources' }
-        ],
         selectedNavItem: 'resources',
         panel: 'resources',
         tab: tab
@@ -240,11 +217,6 @@ export function showPool() {
 
     model.uiState({
         layout: 'main-layout',
-        title: pool,
-        breadcrumbs: [
-            { route: 'pools', label: 'Resources'},
-            { route: 'pool', label: pool }
-        ],
         selectedNavItem: 'resources',
         panel: 'pool',
         tab: tab
@@ -259,17 +231,11 @@ export function showNode() {
     logAction('showNode');
 
     const ctx = model.routeContext();
-    const { pool, node, tab = 'details' } = ctx.params;
+    const { node, tab = 'details' } = ctx.params;
     const { page = 0 } = ctx.query;
 
     model.uiState({
         layout: 'main-layout',
-        title: node,
-        breadcrumbs: [
-            { route: 'pools', label: 'Resources'},
-            { route: 'pool', label: pool },
-            { route: 'node', label: node }
-        ],
         selectedNavItem: 'resources',
         panel: 'node',
         tab: tab
@@ -286,10 +252,6 @@ export function showManagement() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'System Management',
-        breadcrumbs: [
-            { route: 'management', label: 'System Management' }
-        ],
         selectedNavItem: 'management',
         panel: 'management',
         tab: tab,
@@ -302,15 +264,10 @@ export function showAccount() {
     logAction('showAccount');
 
     const ctx = model.routeContext();
-    const { account, tab = 's3-access' } = ctx.params;
+    const { tab = 's3-access' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
-        title: account,
-        breadcrumbs: [
-            { route: 'management', label: 'System Management' },
-            { route: 'account', label: account }
-        ],
         selectedNavItem: 'management',
         panel: 'account',
         tab: tab
@@ -325,10 +282,6 @@ export function showCluster() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'Cluster',
-        breadcrumbs: [
-            { route: 'cluster', label: 'Cluster' }
-        ],
         selectedNavItem: 'cluster',
         panel: 'cluster',
         tab: tab
@@ -339,16 +292,11 @@ export function showServer() {
     logAction('showServer');
 
     const ctx = model.routeContext();
-    const { server, tab = 'details' } = ctx.params;
+    const { tab = 'details' } = ctx.params;
 
 
     model.uiState({
         layout: 'main-layout',
-        title: server,
-        breadcrumbs: [
-            { route: 'cluster', label: 'Cluster' },
-            { route: 'server', label: server }
-        ],
         selectedNavItem: 'cluster',
         panel: 'server',
         tab: tab
@@ -360,10 +308,6 @@ export function showFuncs() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'Functions',
-        breadcrumbs: [
-            { route: 'funcs', label: 'Functions' }
-        ],
         selectedNavItem: 'funcs',
         panel: 'funcs'
     });
@@ -379,11 +323,6 @@ export function showFunc() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'Function',
-        breadcrumbs: [
-            { route: 'funcs', label: 'Functions' },
-            { route: 'func', label: func }
-        ],
         selectedNavItem: 'funcs',
         panel: 'func',
         tab: tab

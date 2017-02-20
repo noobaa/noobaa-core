@@ -2,6 +2,7 @@ import { parseQueryString } from 'utils/browser-utils';
 import { sessionInfo, routeContext } from 'model';
 import * as routes from 'routes';
 import * as actions from 'actions';
+import { locationChanged } from 'dispatchers';
 
 export default function routing(page) {
     // General midlleware that saves the current route contexts.
@@ -26,6 +27,17 @@ export default function routing(page) {
         next();
     }
 
+    function registerRouteHandler(route, handler) {
+        page(route, ctx => {
+            const { path, params, query } = ctx;
+            locationChanged(path, route, params, query);
+
+            // TODO REFACTOR.
+            handler(ctx);
+        });
+    }
+
+
     // Global middlewares.
     page('*', saveContext, authorize);
 
@@ -33,20 +45,20 @@ export default function routing(page) {
     page(routes.system, ensureSystemInfo);
     page(`${routes.system}/*`, ensureSystemInfo);
 
-    // Screens handlers.
-    page(routes.system, actions.showOverview);
-    page(routes.buckets, actions.showBuckets);
-    page(routes.bucket, actions.showBucket);
-    page(routes.object, actions.showObject);
-    page(routes.pools,  actions.showResources);
-    page(routes.pool, actions.showPool);
-    page(routes.node, actions.showNode);
-    page(routes.account, actions.showAccount);
-    page(routes.management, actions.showManagement);
-    page(routes.cluster, actions.showCluster);
-    page(routes.server, actions.showServer);
-    page(routes.funcs, actions.showFuncs);
-    page(routes.func, actions.showFunc);
+        // Screens handlers.
+    registerRouteHandler(routes.system, actions.showOverview);
+    registerRouteHandler(routes.buckets, actions.showBuckets);
+    registerRouteHandler(routes.bucket, actions.showBucket);
+    registerRouteHandler(routes.object, actions.showObject);
+    registerRouteHandler(routes.pools,  actions.showResources);
+    registerRouteHandler(routes.pool, actions.showPool);
+    registerRouteHandler(routes.node, actions.showNode);
+    registerRouteHandler(routes.account, actions.showAccount);
+    registerRouteHandler(routes.management, actions.showManagement);
+    registerRouteHandler(routes.cluster, actions.showCluster);
+    registerRouteHandler(routes.server, actions.showServer);
+    registerRouteHandler(routes.funcs, actions.showFuncs);
+    registerRouteHandler(routes.func, actions.showFunc);
 
     // Unknown paths
     page('*', actions.handleUnknownRoute);

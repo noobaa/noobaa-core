@@ -4,6 +4,7 @@ import { createReducer } from 'utils/reducer-utils';
 // Action Handlers
 // ------------------------------
 function onApplicationInit() {
+    return;
 }
 
 // ------------------------------

@@ -36,8 +36,7 @@ configureRouter(page);
 // Bind the ui to the
 ko.applyBindings({
     previewMode: previewMode,
-    layout: ko.pureComputed( () => uiState().layout ),
-    modal: ko.pureComputed( () => uiState().modal )
+    layout: ko.pureComputed( () => uiState().layout )
 });
 
 // start the application.

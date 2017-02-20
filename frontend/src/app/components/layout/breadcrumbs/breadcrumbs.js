@@ -1,10 +1,19 @@
 import template from './breadcrumbs.html';
-import BaseViewModel from 'components/base-view-model';
+import StateAwareViewModel from 'components/state-aware-view-model';
+import ko from 'knockout';
 
-class BreadcrumbsViewModel extends BaseViewModel {
-    constructor({ crumbs }) {
+class BreadcrumbsViewModel extends StateAwareViewModel {
+    constructor() {
         super();
-        this.crumbs = crumbs;
+        this.crumbs = ko.observable();
+    }
+
+    stateEventsFilter(state) {
+        return [ state.breadcrumbs ];
+    }
+
+    onState({ breadcrumbs }) {
+        this.crumbs(breadcrumbs);
     }
 }
 

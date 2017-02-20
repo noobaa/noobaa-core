@@ -1,8 +1,15 @@
 import { dispatch } from 'state-actions';
 
-/// -------------------------------
-/// Drawer action dispatchers
-/// -------------------------------
+// -------------------------------
+// Navigation action dispatchers
+// -------------------------------
+export function locationChanged(path, route, params, query) {
+    dispatch({ type: 'LOCATION_CHANGED', path, route, params, query });
+}
+
+// -------------------------------
+// Drawer action dispatchers
+// -------------------------------
 export function openAuditDrawer() {
     dispatch({ type: 'OPEN_AUDIT_DRAWER' });
 }
@@ -15,9 +22,9 @@ export function closeActiveDrawer() {
     dispatch({ type: 'CLOSE_ACTIVE_DRAWER' });
 }
 
-/// -------------------------------
-/// Modal action dispatchers
-/// -------------------------------
+// -------------------------------
+// Modal action dispatchers
+// -------------------------------
 
 export function updateModal(options) {
     dispatch({ type: 'MODAL_UPDATE', ...options });

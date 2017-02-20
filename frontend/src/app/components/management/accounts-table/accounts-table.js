@@ -2,10 +2,10 @@ import template from './accounts-table.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
-import { sessionInfo, systemInfo, routeContext } from 'model';
+import { systemInfo, routeContext } from 'model';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { inputThrottle } from 'config';
-import { navigateTo, deleteAccount } from 'actions';
+import { navigateTo } from 'actions';
 
 const columns = deepFreeze([
     {

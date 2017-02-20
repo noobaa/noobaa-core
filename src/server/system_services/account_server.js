@@ -9,15 +9,14 @@ const P = require('../../util/promise');
 
 const _ = require('lodash');
 const AWS = require('aws-sdk');
-const crypto = require('crypto');
 const bcrypt = P.promisifyAll(require('bcrypt'));
-const random_string = require('../../util/string_utils').random_string;
 
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
 const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
 const mongo_utils = require('../../util/mongo_utils');
+const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../../util/cloud_utils');
 const http_utils = require('../../util/http_utils');
@@ -727,9 +726,8 @@ function validate_create_account_params(req) {
 
 function generate_access_keys() {
     return {
-        access_key: random_string(20),
-        secret_key: crypto.randomBytes(40).toString('base64')
-            .slice(0, 40)
+        access_key: string_utils.crypto_random_string(20, string_utils.ALPHA_NUMERIC_CHARSET),
+        secret_key: string_utils.crypto_random_string(40, string_utils.ALPHA_NUMERIC_CHARSET + '+/'),
     };
 }
 

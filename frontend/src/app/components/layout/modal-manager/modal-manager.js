@@ -16,11 +16,11 @@ class ModalManagerViewModel extends StateAwareViewModel {
         this.closeActiveModal = closeActiveModal;
     }
 
-    onState({ modals }, { modals: prevModals }) {
-        if (modals === prevModals) {
-            return;
-        }
+    stateEventsFilter(state) {
+        return [ state.modals ];
+    }
 
+    onState({ modals }) {
         this.modals(
             modals.map(
                 (modalState, i) => {

@@ -35,13 +35,12 @@ class AlertsPaneViewModel extends StateAwareViewModel {
         this.scroll.subscribe(() => this.onScroll());
     }
 
-    onState(state, oldState = {}) {
-        // Ignore updates that are no concern for this component.
-        if (state.alerts === oldState.alerts) {
-            return;
-        }
+    stateEventsFilter(state) {
+        return [ state.alerts ];
+    }
 
-        const { filter, loading, endOfList, list, loadError } = state.alerts;
+    onState({ alerts }) {
+        const { filter, loading, endOfList, list, loadError } = alerts;
         const { severity, read } = filter;
 
         // Update the view model state.

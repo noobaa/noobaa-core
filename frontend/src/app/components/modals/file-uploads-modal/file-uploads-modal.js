@@ -41,12 +41,12 @@ class FileUploadsModalViewModel extends StateAwareViewModel {
         ];
     }
 
-    onState({ objectUploads: uploads }, { uploads: prevUploads }) {
-        if (uploads === prevUploads) {
-            return;
-        }
+    stateEventsFilter(state) {
+        return [ state.objectUploads ];
+    }
 
-        const { stats, objects } = uploads;
+    onState({ objectUploads }) {
+        const { stats, objects } = objectUploads;
         const progressText = this._getCurrentUploadProgressText(stats);
 
         this.countText(stringifyAmount('file', stats.count));

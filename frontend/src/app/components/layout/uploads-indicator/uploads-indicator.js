@@ -26,21 +26,22 @@ class UploadsIndicatorViewModel extends StateAwareViewModel {
 
     }
 
-    onState({ objectUploads: uploads }, { objectUploads: prevUploads }) {
-        if (uploads === prevUploads) {
-            return;
-        }
+    stateEventsFilter(state) {
+        return [ state.objectUploads ];
+    }
 
-        const { stats, lastUpload } = uploads;
+    onState({ objectUploads }, prevState) {
+        const { stats, lastUpload } = objectUploads;
         this.uploadCount(stats.uploading);
         this.uploadProgress(stats.batchLoaded / stats.batchSize);
 
+        const prevUploads = prevState.objectUploads;
         if(!prevUploads || lastUpload.time > prevUploads.lastUpload.time) {
             this.animatedCount(lastUpload.objectCount);
         }
     }
 
-    onUploads() {
+    onClick() {
         openFileUploadsModal();
     }
 

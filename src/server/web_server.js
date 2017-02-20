@@ -42,6 +42,7 @@ const dbg = require('../util/debug_module')(__filename);
 const pem = require('../util/pem');
 const pkg = require('../../package.json');
 const config = require('../../config.js');
+const license_info = require('./license_info');
 const mongo_client = require('../util/mongo_client');
 const system_store = require('./system_services/system_store').get_instance();
 const SupervisorCtl = require('./utils/supervisor_ctrl');
@@ -375,6 +376,7 @@ app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
 app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
 app.use('/public/images/', express.static(path.join(rootdir, 'images')));
 app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
+app.use('/public/license-info', license_info.serve_http);
 
 // Serve the new frontend (management console)
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));

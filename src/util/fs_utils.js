@@ -91,6 +91,10 @@ function read_dir_recursive(options) {
                                 }
                                 sub_dirs.push(entry_path);
                             }
+                        })
+                        .catch(err => {
+                            console.warn('read_dir_recursive:',
+                                'entry error', entry_path, err);
                         });
                 })
                 .return();

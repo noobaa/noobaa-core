@@ -20,8 +20,6 @@ if (argv.presign && !_.isNumber(argv.presign)) {
 }
 
 let s3_config = {
-    accessKeyId: argv.access_key || process.env.AWS_ACCESS_KEY_ID || '123',
-    secretAccessKey: argv.secret_key || process.env.AWS_SECRET_ACCESS_KEY || 'abc',
     signatureVersion: argv.sig || 'v4', // use s3/v4, v2 seems irrelevant
     sslEnabled: argv.ssl || false,
     computeChecksums: argv.checksum || false,

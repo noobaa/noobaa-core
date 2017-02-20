@@ -7,6 +7,7 @@ let Speedometer = require('../util/speedometer');
 let argv = require('minimist')(process.argv);
 argv.forks = argv.forks || 1;
 argv.size = argv.size || 1024;
+argv.hash = argv.hash || 'sha256';
 
 if (argv.forks > 1 && cluster.isMaster) {
     let master_speedometer = new Speedometer('Total Speed');
@@ -28,10 +29,10 @@ if (argv.forks > 1 && cluster.isMaster) {
 function main() {
     let speedometer = new Speedometer('CPU Speed');
     speedometer.enable_cluster();
-    let hasher = crypto.createHash('sha256');
+    let hasher = crypto.createHash(argv.hash);
     let size = argv.size * 1024 * 1024;
     let buf = new Buffer(1024 * 1024);
-    console.log('Crunching', argv.size, 'MB with SHA256...');
+    console.log(`Crunching ${argv.size} MB with ${argv.hash}...`);
     run();
 
     function run() {

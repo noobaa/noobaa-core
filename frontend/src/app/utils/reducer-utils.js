@@ -1,4 +1,4 @@
-import { echo } from 'utils/core-utils';
+import { echo, mapValues } from 'utils/core-utils';
 
 // Join action handlers into a single reducer.
 export function createReducer(handlers) {
@@ -9,14 +9,10 @@ export function createReducer(handlers) {
 
 // Combine a map of slice reducers into a master reducer.
 export function combineReducers(reducers) {
-    const pairs = Object.entries(reducers);
-    return function(state, action, root = state) {
-        return pairs.reduce(
-            (newState, [key, reducer]) => {
-                newState[key] = reducer(state[key], action, root);
-                return newState;
-            },
-            {}
+    return function(state = {}, action, root = state) {
+        return mapValues(
+            reducers,
+            (reducer, key) => reducer(state[key], action, root)
         );
     };
 }

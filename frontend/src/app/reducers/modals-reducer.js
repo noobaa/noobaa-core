@@ -2,10 +2,15 @@ import { createReducer } from 'utils/reducer-utils';
 import { pick, last } from 'utils/core-utils';
 
 // ------------------------------
+// Initial State
+// ------------------------------
+const initialState = [];
+
+// ------------------------------
 // Action Handlers
 // ------------------------------
 function onApplicationInit() {
-    return [];
+    return initialState;
 }
 
 function onModalUpdate(modals, action) {
@@ -56,25 +61,6 @@ function onOpenAfterUpgradeModal(modals) {
         component: 'after-upgrade-modal',
         options: {
             size: 'xsmall'
-        }
-    });
-}
-
-function onOpenUpgradedCapacityNofiticationModal(modals) {
-    return _openModal(modals, {
-        component: 'upgraded-capacity-notification-modal',
-        options: {
-            backdropClose: false
-        }
-    });
-}
-
-function onOpenWelcomeModal(modals) {
-    return _openModal(modals, {
-        component: 'welcome-modal',
-        options: {
-            size: 'custom',
-            backdropClose: false
         }
     });
 }
@@ -307,7 +293,39 @@ function onUpgradeSystem(modals) {
     });
 }
 
+function onLocationChanged(modals, { query }) {
+    if (query.afterupgrade) {
+        return _openModal(modals, {
+            component: 'after-upgrade-modal',
+            options: {
+                size: 'xsmall'
+            }
+        });
 
+    } else if (query.welcome) {
+        return _openModal(modals, {
+            component: 'welcome-modal',
+            options: {
+                size: 'custom',
+                backdropClose: false
+            }
+        });
+
+    } else {
+        return modals;
+    }
+}
+
+function onSystemInfoFetched(modals, { info }) {
+    if (info.phone_home_config.upgraded_cap_notification) {
+        return _openModal(modals, {
+            component: 'upgraded-capacity-notification-modal'
+        });
+
+    } else {
+        return modals;
+    }
+}
 
 // ------------------------------
 // Local util functions
@@ -340,9 +358,6 @@ export default createReducer({
     CLOSE_ACTIVE_MODAL: onCloseActiveModal,
     LOCK_ACTIVE_MODAL: onLockActiveModal,
     OPEN_INSTALL_NODES_MODAL: onOpenInstallNodesModal,
-    OPEN_AFTER_UPGRADE_MODAL: onOpenAfterUpgradeModal,
-    OPEN_UPGRADED_CAPACITY_NOFITICATION_MODAL: onOpenUpgradedCapacityNofiticationModal,
-    OPEN_WELCOME_MODAL: onOpenWelcomeModal,
     OPEN_ADD_CLOUD_RESROUCE_MODAL: onOpenAddCloudResrouceModal,
     OPEN_ADD_CLOUD_CONNECTION_MODAL: onOpenAddCloudConnectionModal,
     OPEN_SET_CLOUD_SYNC_MODAL: onOpenSetCloudSyncModal,
@@ -361,5 +376,7 @@ export default createReducer({
     OPEN_EDIT_SERVER_DETAILS_MODAL: onOpenEditServerDetailsModal,
     OPEN_ASSIGN_NODES_MODAL: onOpenAssignNOdesModal,
     OPEN_UPDATE_SYSTEM_NAME_MODAL: onOpenUpdateSystemNameModal,
-    UPGRADE_SYSTEM: onUpgradeSystem
+    UPGRADE_SYSTEM: onUpgradeSystem,
+    LOCATION_CHANGED: onLocationChanged,
+    SYSTEM_INFO_FETCHED: onSystemInfoFetched
 });

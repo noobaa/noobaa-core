@@ -10,10 +10,8 @@ export default function register(ko) {
     // Layout
     // -------------------------------
     ko.components.register('main-layout',                           require('./layout/main-layout/main-layout').default);
-    ko.components.register('main-header',                           require('./layout/main-header/main-header').default);
     ko.components.register('main-nav',                              require('./layout/main-nav/main-nav').default);
     ko.components.register('commands-bar',                          require('./layout/commands-bar/commands-bar').default);
-    ko.components.register('breadcrumbs',                           require('./layout/breadcrumbs/breadcrumbs').default);
     ko.components.register('notification-box',                      require('./layout/notification-box/notification-box').default);
     ko.components.register('debug-mode-sticky',                     require('./layout/debug-mode-sticky/debug-mode-sticky').default);
     ko.components.register('maintenance-sticky',                    require('./layout/maintenance-sticky/maintenance-sticky').default);
@@ -240,5 +238,6 @@ export default function register(ko) {
     ko.components.register('working-button',            require('./shared/working-button/working-button').default);
     ko.components.register('collapsible-section',       require('./shared/collapsible-section/collapsible-section').default);
     ko.components.register('chartjs',                   require('./shared/chartjs/chartjs').default);
+    ko.components.register('breadcrumbs',               require('./shared/breadcrumbs/breadcrumbs').default);
     /** INJECT:shared **/
 }

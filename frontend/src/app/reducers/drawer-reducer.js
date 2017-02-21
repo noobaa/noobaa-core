@@ -1,10 +1,15 @@
 import { createReducer } from 'utils/reducer-utils';
 
 // ------------------------------
+// Initial State
+// ------------------------------
+const initialState = null;
+
+// ------------------------------
 // Action Handlers
 // ------------------------------
 function onApplicationInit() {
-    return null;
+    return initialState;
 }
 
 function onOpenAuditDrawer() {
@@ -26,5 +31,5 @@ export default createReducer({
     APPLICATION_INIT: onApplicationInit,
     OPEN_AUDIT_DRAWER: onOpenAuditDrawer,
     OPEN_ALERTS_DRAWER: onOpenAlertsDrawer,
-    CLOSE_ACTIVE_DRAWER: onCloseActiveDrawer,
+    CLOSE_ACTIVE_DRAWER: onCloseActiveDrawer
 });

@@ -11,7 +11,7 @@ const state = actions
 
 state.subscribe(
     noop,
-    (err) => console.error('STATE STREAM ERROR:', err),
+    err => console.error('STATE STREAM ERROR:', err),
     () => console.error('STATE STREAM TERMINATED')
 );
 

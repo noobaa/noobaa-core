@@ -35,7 +35,7 @@ class UploadsIndicatorViewModel extends StateAwareViewModel {
         this.uploadCount(stats.uploading);
         this.uploadProgress(stats.batchLoaded / stats.batchSize);
 
-        const prevUploads = prevState.objectUploads;
+        const prevUploads = prevState && prevState.objectUploads;
         if(!prevUploads || lastUpload.time > prevUploads.lastUpload.time) {
             this.animatedCount(lastUpload.objectCount);
         }

@@ -1,9 +1,6 @@
  <nav class="row content-middle" data-bind="foreach: crumbs">
      <a class="crumb" data-bind="
-        href: {
-            route: route,
-            params: { tab: null }
-        },
+        attr: { href: url },
         tooltip: label
     ">
         <span class="no-wrap" data-bind="text: label"></span>

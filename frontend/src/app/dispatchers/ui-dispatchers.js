@@ -42,16 +42,8 @@ export function openInstallNodesModal() {
     dispatch({ type: 'OPEN_INSTALL_NODES_MODAL' });
 }
 
-export function openAfterUpgradeModal() {
-    dispatch({ type: 'OPEN_AFTER_UPGRADE_MODAL' });
-}
-
 export function openUpgradedCapacityNofiticationModal() {
     dispatch({ type: 'OPEN_UPGRADED_CAPACITY_NOFITICATION_MODAL' });
-}
-
-export function openWelcomeModal() {
-    dispatch({ type: 'OPEN_WELCOME_MODAL' });
 }
 
 export function openAddCloudResrouceModal() {

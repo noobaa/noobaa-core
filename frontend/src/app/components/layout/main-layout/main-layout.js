@@ -1,56 +1,27 @@
 import template from './main-layout.html';
-import BaseViewModel from 'components/base-view-model';
+import StateAwareViewModel from 'components/state-aware-view-model';
 import ko from 'knockout';
 import { registerForAlerts } from 'actions';
-import { uiState, systemInfo, routeContext } from 'model';
-import { openAfterUpgradeModal, openWelcomeModal,
-    openUpgradedCapacityNofiticationModal } from 'dispatchers';
 
-class MainLayoutViewModel extends BaseViewModel {
+class MainLayoutViewModel extends StateAwareViewModel {
     constructor() {
         super();
 
-        this.panel = ko.pureComputed(
-            () => `${uiState().panel}-panel`
-        );
-
-        this.useBackground = ko.pureComputed(
-            () => Boolean(uiState().useBackground)
-        );
-
-        const query = ko.pureComputed(
-            () => routeContext().query
-        );
-
-        // Handle after upgrade modal.
-        this.addToDisposeList(
-            ko.computed(
-                () => query().afterupgrade && openAfterUpgradeModal()
-            )
-        );
-
-        // Handle welcome modal.
-        this.addToDisposeList(
-            ko.computed(
-                () => query().welcome && openWelcomeModal()
-            )
-        );
-
-        // Handle upgraded capacity nofitication modal
-        const upgradedCapNotification = ko.pureComputed(
-            () => Boolean(
-                systemInfo() &&
-                systemInfo().phone_home_config.upgraded_cap_notification
-            )
-        );
-        this.addToDisposeList(
-            ko.computed(
-                () => upgradedCapNotification() &&
-                    openUpgradedCapacityNofiticationModal()
-            )
-        );
+        this.breadcrumbs = ko.observable([]);
+        this.panel = ko.observable();
 
         registerForAlerts();
+    }
+
+    stateEventFilter(state) {
+        return [ state.layout ];
+    }
+
+    onState({ layout }) {
+        const { breadcrumbs, panel } = layout;
+
+        this.breadcrumbs(breadcrumbs);
+        this.panel(`${panel}-panel`);
     }
 }
 

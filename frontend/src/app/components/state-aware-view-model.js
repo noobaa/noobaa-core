@@ -7,12 +7,12 @@ const prevState = Symbol('prevState');
 export default class StateAwareViewModel {
     constructor() {
         this[stateSub] = undefined;
-        this[prevState] = {};
+        this[prevState] = undefined;
 
         // Create a filter used filter out non relevet state events.
         const stateFilter = (state) => {
             const curr = this.stateEventsFilter(state);
-            const prev = this.stateEventsFilter(this[prevState]);
+            const prev = this[prevState] && this.stateEventsFilter(this[prevState]);
             return prev && curr.length > 0 ?
                 curr.some((item, i) => item !== prev[i]) :
                 true;

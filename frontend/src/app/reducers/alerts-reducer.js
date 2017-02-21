@@ -2,9 +2,9 @@ import { mergeBy, isUndefined, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 
 // ------------------------------
-// Default state
+// Initial state
 // ------------------------------
-const defaultState = {
+const initialState = {
     loading: 0,
     loadError: null,
     filter: {},
@@ -17,7 +17,7 @@ const defaultState = {
 // Action Handlers
 // ------------------------------
 function onApplicationInit() {
-    return defaultState;
+    return initialState;
 }
 
 function onAlertsFetch(state, { query }) {
@@ -100,7 +100,7 @@ function onAlertsUpdateUnreadCount(state, { count }) {
 
 function onAlertsDropState(state) {
     const { unreadCount } = state;
-    return { ...defaultState, unreadCount };
+    return { ...initialState, unreadCount };
 }
 
 // ------------------------------

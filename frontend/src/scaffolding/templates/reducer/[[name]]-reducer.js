@@ -1,10 +1,15 @@
 import { createReducer } from 'utils/reducer-utils';
 
 // ------------------------------
+// Initial State
+// ------------------------------
+const initialState = null;
+
+// ------------------------------
 // Action Handlers
 // ------------------------------
 function onApplicationInit() {
-    return;
+    return initialState;
 }
 
 // ------------------------------

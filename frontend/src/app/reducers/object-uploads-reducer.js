@@ -1,6 +1,9 @@
 import { deepFreeze } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 
+// ------------------------------
+// Initial State
+// ------------------------------
 const initialState = deepFreeze({
     objects: [],
     lastUpload: {

@@ -19,6 +19,7 @@ module.exports = {
     map_size: map_size,
     map_aggregate_objects: map_aggregate_objects,
     map_aggregate_chunks: map_aggregate_chunks,
+    map_aggregate_blocks: map_aggregate_blocks,
     map_key_with_prefix_delimiter: map_key_with_prefix_delimiter,
     reduce_sum: reduce_sum,
     reduce_noop: reduce_noop,
@@ -91,6 +92,14 @@ function map_aggregate_objects() {
 function map_aggregate_chunks() {
     emit(['', 'compress_size'], this.compress_size);
     emit([this.bucket, 'compress_size'], this.compress_size);
+}
+
+/**
+ * @this mongodb doc being mapped
+ */
+function map_aggregate_blocks() {
+    emit(['', 'size'], this.size);
+    emit([this.bucket, 'size'], this.size);
 }
 
 /**

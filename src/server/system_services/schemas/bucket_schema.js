@@ -104,9 +104,10 @@ module.exports = {
         },
         storage_stats: {
             type: 'object',
-            required: ['chunks_capacity', 'objects_size', 'objects_count', 'last_update'],
+            required: ['chunks_capacity', 'blocks_size', 'objects_size', 'objects_count', 'last_update'],
             properties: {
                 chunks_capacity: bigint,
+                blocks_size: bigint,
                 objects_size: bigint,
                 objects_count: {
                     type: 'integer'

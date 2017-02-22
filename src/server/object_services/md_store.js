@@ -883,6 +883,47 @@ class MDStore {
         });
     }
 
+    aggregate_blocks_by_create_dates(from_date, till_date) {
+        // ObjectId consists of 24 hex string so we allign to that
+        const hex_from_date = Math.floor(from_date.getTime() / 1000).toString(16);
+        const hex_till_date = Math.floor(till_date.getTime() / 1000).toString(16);
+        const from_date_object_id = new mongodb.ObjectId(hex_from_date + "0".repeat(24 - hex_from_date.length));
+        const till_date_object_id = new mongodb.ObjectId(hex_till_date + "0".repeat(24 - hex_till_date.length));
+        return this._aggregate_blocks_internal({
+            _id: {
+                $gte: from_date_object_id,
+                $lt: till_date_object_id,
+            }
+        });
+    }
+
+    aggregate_blocks_by_delete_dates(from_date, till_date) {
+        return this._aggregate_blocks_internal({
+            deleted: {
+                $gte: from_date,
+                $lt: till_date,
+            }
+        });
+    }
+
+    _aggregate_blocks_internal(query) {
+        return this._blocks.col().mapReduce(
+                mongo_functions.map_aggregate_blocks,
+                mongo_functions.reduce_sum, {
+                    query: query,
+                    out: {
+                        inline: 1
+                    }
+                })
+            .then(res => {
+                const buckets = {};
+                _.each(res, r => {
+                    const b = buckets[r._id[0]] = buckets[r._id[0]] || {};
+                    b[r._id[1]] = r.value;
+                });
+                return buckets;
+            });
+    }
 }
 
 

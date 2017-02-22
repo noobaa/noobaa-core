@@ -47,6 +47,8 @@ config.TIME_SKEW_MAX_SECONDS = 15 * 60;
 
 // TODO DEDUP is temporarily disabled for capacity. Will enable once resolving the issues.
 config.DEDUP_ENABLED = false;
+// Date was chosen as default NooBaa epoch date 2015
+config.NOOBAA_EPOCH = 1430006400000;
 
 ///////////////
 // IO CONFIG //
@@ -157,7 +159,11 @@ config.CLUSTERING_PATHS = {
 
 config.CLUSTER_HB_INTERVAL = 1 * 60000;
 config.CLUSTER_MASTER_INTERVAL = 10000;
-config.BUCKET_FETCH_INTERVAL = 30000;
+config.MD_AGGREGATOR_INTERVAL = 30000;
+// Currently the grace is 3 cycles of md_aggregator
+// This grace is used since we can hold up an ObjectID and not push it inside the DB
+// Which will mean that it will be pushed later on with a previous date
+config.MD_GRACE_IN_MILLISECONDS = config.MD_AGGREGATOR_INTERVAL * 3;
 config.CLUSTER_NODE_MISSING_TIME = 3 * 60000;
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
 

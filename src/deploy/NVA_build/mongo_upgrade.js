@@ -11,6 +11,9 @@ var param_secret;
 var param_bcrypt_secret;
 var param_client_subject;
 
+// This NooBaa epoch is used as initialization date value for md_aggregator
+const NOOBAA_EPOCH = 1430006400000;
+
 setVerboseShell(true);
 upgrade();
 
@@ -595,6 +598,24 @@ function upgrade_pools() {
 
 function upgrade_buckets() {
     add_account_id_to_cloud_sync();
+    initialize_storage_values();
+}
+
+function initialize_storage_values() {
+    db.buckets.updateMany({
+        'storage_stats.blocks_size': {
+            $exists: false
+        }
+    }, {
+        storage_stats: {
+            chunks_capacity: 0,
+            blocks_size: 0,
+            objects_size: 0,
+            objects_count: 0,
+            objects_hist: [],
+            last_update: NOOBAA_EPOCH
+        },
+    });
 }
 
 function upgrade_usage_stats() {

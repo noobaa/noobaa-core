@@ -73,27 +73,38 @@ function iterate(array, func) {
  * and only returns a promise for completion or failure
  *
  */
-function loop(times, func, current_index) {
-    current_index = current_index || 0;
-    if (current_index < times) {
-        return P.try(() => func(current_index))
-            .then(() => loop(times, func, current_index + 1));
-    }
+function loop(times, func) {
+    let index = 0;
+    return pwhile(
+        () => index < times,
+        () => {
+            index -= 1;
+            return func(index + 1);
+        }
+    );
 }
 
-
+// Implementation of while for promises that is optimized for memory purposes
+// Current implementation doesn't hold unnecessary memory between iterations
+// We use setImmediate in order to break the promise chain and allow v8 to free all memory that is hold by
+// the previous iteration promise chain. This includes all objects, function scopes and
+// promise handlers.
 function pwhile(condition, body) {
-    return loop2();
-
-    // When the result of calling `condition` is no longer true, we are done.
-    // Use `when`, in case `body` does not return a promise.
-    // When it completes loop again otherwise, if it fails, reject the
-    // done promise
-    function loop2() {
-        if (condition()) {
-            return P.try(body).then(loop2);
-        }
-    }
+    // Defer is depreciated in bluebird, that's why we use the Promise constructor
+    return new P(function(resolve, reject) {
+        (function while_loop() {
+            if (condition()) {
+                // Please notice that replacing the setImmediate with a returned
+                // promise will reintroduce the hanged momory bug, DONT DO IT!!!
+                P.try(body).then(
+                    () => setImmediate(while_loop),
+                    reject
+                );
+            } else {
+                resolve();
+            }
+        }());
+    });
 }
 
 /**

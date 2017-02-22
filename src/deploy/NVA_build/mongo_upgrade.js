@@ -257,6 +257,7 @@ function upgrade_system(system) {
         });
     });
 
+    let support_account_found = false;
     db.accounts.find().forEach(function(account) {
 
         if (account.sync_credentials_cache &&
@@ -285,18 +286,28 @@ function upgrade_system(system) {
                 }
 
             });
-        } else if (account.is_support && String(account.password) !== String(param_bcrypt_secret)) {
-            print('\n*** updated old support account', param_bcrypt_secret);
-            db.accounts.update({
-                _id: account._id
-            }, {
-                $set: {
-                    password: param_bcrypt_secret
-                },
-                $unset: {
-                    __v: 1
+        } else if (account.is_support) {
+            if (support_account_found) {
+                print('\n*** more than one support account exists! deleting');
+                db.accounts.deleteMany({
+                    _id: account._id
+                });
+            } else {
+                support_account_found = true;
+                if (String(account.password) !== String(param_bcrypt_secret)) {
+                    print('\n*** updated old support account', param_bcrypt_secret);
+                    db.accounts.update({
+                        _id: account._id
+                    }, {
+                        $set: {
+                            password: param_bcrypt_secret
+                        },
+                        $unset: {
+                            __v: 1
+                        }
+                    });
                 }
-            });
+            }
         } else {
             db.accounts.update({
                 _id: account._id

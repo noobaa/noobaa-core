@@ -870,13 +870,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     // });
 
     let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
-    // Note: This do not include special replicas, also it is an estimation regarding optimal condition
-    // const multiplier_denominator = 1000000;
-    // const multiplier_numerator = Math.round(mirror_multiplier * multiplier_denominator);
-    // TODO JEN should be the blocks aggregation that we do in the md_aggregator
-    let bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size', 0)); //bucket_chunks_capacity.multiply(multiplier_numerator).divide(multiplier_denominator);
+    let bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size', 0));
     let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
-    // TODO: JEN check if we shall consider summing all of the blocks instead
     let bucket_used_other = size_utils.BigInteger.max(
         size_utils.json_to_bigint(_.get(info, 'tiering.storage.used', 0)).minus(bucket_used),
         0);

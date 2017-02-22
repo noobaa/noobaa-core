@@ -78,8 +78,8 @@ function loop(times, func) {
     return pwhile(
         () => index < times,
         () => {
-            index -= 1;
-            return func(index + 1);
+            index += 1;
+            return func(index - 1);
         }
     );
 }

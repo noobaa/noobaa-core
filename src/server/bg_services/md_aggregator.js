@@ -49,15 +49,12 @@ function background_worker() {
             const next_group_from_date = is_last_group ? now :
                 (parseInt(sorted_group_update_times[group_index + 1], 10) || config.NOOBAA_EPOCH);
             const time_diff = next_group_from_date - from_date;
-            // TODO: JEN you should consider doing the calculation more smartly regarding 30001 example and above
             const date_delta = Math.max(Math.floor(time_diff / JUMP_ALLOWANCE) || time_diff, config.MD_AGGREGATOR_INTERVAL);
-            console.warn('JEN WORK', is_last_group, next_group_from_date, time_diff, date_delta);
 
             return promise_utils.pwhile(
                     () => !group_finished,
                     () => {
                         const till_date = Math.min(from_date + date_delta, next_group_from_date);
-                        console.warn('JEN CALCULATIONS', from_date, date_delta, next_group_from_date, till_date);
                         return group_md_aggregator(
                                 from_date,
                                 till_date,
@@ -79,14 +76,11 @@ function background_worker() {
                             });
                     })
                 .then(() => {
-                    console.warn('JEN END OF GROUP', current_group);
                     // On the last group the aggregation not needed since there is no more work
                     if (!is_last_group) {
-                        console.warn('JEN CONCAT TO GROUP', bucket_groups_by_update_time[sorted_group_update_times[group_index + 1]]);
                         // The buckets inside the groups are unique so I'm not worried that I will have an overwrite
                         bucket_groups_by_update_time[sorted_group_update_times[group_index + 1]] =
                             _.concat(bucket_groups_by_update_time[sorted_group_update_times[group_index + 1]], current_group);
-                        console.warn('JEN RESULT GROUP', bucket_groups_by_update_time[sorted_group_update_times[group_index + 1]]);
                     }
                 })
                 .catch(err => {

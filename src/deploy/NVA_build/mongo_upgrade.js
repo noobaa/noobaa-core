@@ -634,14 +634,16 @@ function initialize_storage_values() {
             $exists: false
         }
     }, {
-        storage_stats: {
-            chunks_capacity: 0,
-            blocks_size: 0,
-            objects_size: 0,
-            objects_count: 0,
-            objects_hist: [],
-            last_update: NOOBAA_EPOCH
-        },
+        $set: {
+            storage_stats: {
+                chunks_capacity: 0,
+                blocks_size: 0,
+                objects_size: 0,
+                objects_count: 0,
+                objects_hist: [],
+                last_update: NOOBAA_EPOCH
+            }
+        }
     });
 }
 

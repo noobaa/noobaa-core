@@ -856,7 +856,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         return has_valid_pool || num_valid_nodes >= config.NODES_MIN_COUNT;
     });
 
-    let objects_aggregate = {
+    const objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
         count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
     };
@@ -865,24 +865,13 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
 
     info.num_objects = num_of_objects || 0;
 
-    // let mirror_multiplier = 0;
-    // _.forEach(tier_of_bucket.mirrors, mirror_object => {
-    //     const on_premise_pools = _.filter(mirror_object.spread_pools, pool => !pool.cloud_pool_info).length;
-    //     const on_cloud_pools = _.filter(mirror_object.spread_pools, pool => pool.cloud_pool_info).length;
-    //     const total_pool_count = on_premise_pools + on_cloud_pools;
-
-    //     if (total_pool_count > 0) {
-    //         const blocks_multiplier = (on_premise_pools * tier_of_bucket.replicas) + on_cloud_pools;
-    //         mirror_multiplier += (blocks_multiplier / total_pool_count);
-    //     }
-    // });
-
-    let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
-    let bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size', 0));
-    let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
-    let bucket_used_other = size_utils.BigInteger.max(
-        size_utils.json_to_bigint(_.get(info, 'tiering.storage.used', 0)).minus(bucket_used),
-        0);
+    const used_by_other_buckets = size_utils.reduce_sum('blocks_size', _.values(
+        _.mapValues(_.omit(bucket.system.buckets_by_name, bucket.name), 'storage_stats.blocks_size')
+    ));
+    const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
+    const bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size', 0));
+    const bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
+    const bucket_used_other = size_utils.json_to_bigint(used_by_other_buckets || 0);
 
     info.storage = size_utils.to_bigint_storage({
         used: bucket_used,
@@ -897,15 +886,15 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         actual_free: _.get(info, 'tiering.data.free', 0)
     });
 
-    let stats = bucket.stats;
-    let last_read = (stats && stats.last_read) ?
+    const stats = bucket.stats;
+    const last_read = (stats && stats.last_read) ?
         new Date(bucket.stats.last_read).getTime() :
         undefined;
-    let last_write = (stats && stats.last_write) ?
+    const last_write = (stats && stats.last_write) ?
         new Date(bucket.stats.last_write).getTime() :
         undefined;
-    let reads = (stats && stats.reads) ? stats.reads : undefined;
-    let writes = (stats && stats.writes) ? stats.writes : undefined;
+    const reads = (stats && stats.reads) ? stats.reads : undefined;
+    const writes = (stats && stats.writes) ? stats.writes : undefined;
 
     info.stats = {
         reads: reads,

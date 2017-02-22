@@ -257,7 +257,7 @@ function upgrade_system(system) {
         });
     });
 
-    let support_account_found = false;
+    var support_account_found = false;
     db.accounts.find().forEach(function(account) {
 
         if (account.sync_credentials_cache &&

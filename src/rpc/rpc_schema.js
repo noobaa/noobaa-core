@@ -2,11 +2,13 @@
 'use strict';
 
 
-let _ = require('lodash');
-let assert = require('assert');
-let Ajv = require('ajv');
-let dbg = require('../util/debug_module')(__filename);
-let schema_utils = require('../util/schema_utils');
+const _ = require('lodash');
+const Ajv = require('ajv');
+const assert = require('assert');
+
+const dbg = require('../util/debug_module')(__filename);
+const RpcError = require('./rpc_error');
+const schema_utils = require('../util/schema_utils');
 
 const VALID_HTTP_METHODS = {
     GET: 1,
@@ -125,22 +127,20 @@ class RpcSchema {
                 method_api.validate_params = (params, desc) => {
                     let result = method_api.params_validator(params);
                     if (!result) {
-                        dbg.error('INVALID SCHEMA', desc, 'PARAMS', method_api.fullname,
+                        dbg.error('INVALID_SCHEMA_PARAMS', desc, method_api.fullname,
                             'ERRORS:', method_api.params_validator.errors,
                             'PARAMS:', params);
-                        throw new Error('INVALID SCHEMA ' + desc + ' PARAMS ' +
-                            method_api.fullname);
+                        throw new RpcError('INVALID_SCHEMA_PARAMS', `INVALID_SCHEMA_PARAMS ${desc} ${method_api.fullname}`);
                     }
                 };
 
                 method_api.validate_reply = (reply, desc) => {
                     let result = method_api.reply_validator(reply);
                     if (!result) {
-                        dbg.error('INVALID SCHEMA', desc, 'REPLY', method_api.fullname,
+                        dbg.error('INVALID_SCHEMA_REPLY', desc, method_api.fullname,
                             'ERRORS:', method_api.reply_validator.errors,
                             'REPLY:', reply);
-                        throw new Error('INVALID SCHEMA ' + desc + ' REPLY ' +
-                            method_api.fullname);
+                        throw new RpcError('INVALID_SCHEMA_REPLY', `INVALID_SCHEMA_REPLY ${desc} ${method_api.fullname}`);
                     }
                 };
             });

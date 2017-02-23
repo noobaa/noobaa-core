@@ -15,7 +15,7 @@ function zip_from_files(files) {
     return P.resolve()
         .then(() => _.each(files, (file, name) => {
             if (file.data) {
-                zipfile.addBuffer(buffer_utils.to_buffer(file.data), name);
+                zipfile.addBuffer(Buffer.from(file.data), name);
             } else if (file.stream) {
                 zipfile.addReadStream(file.stream, name);
             } else if (file.path) {
@@ -45,7 +45,7 @@ function zip_from_dir(dir) {
 }
 
 function zip_to_buffer(zipfile) {
-    return buffer_utils.buffer_from_stream(zipfile.outputStream);
+    return buffer_utils.read_stream_join(zipfile.outputStream);
 }
 
 function zip_to_file(zipfile, file_path) {
@@ -79,7 +79,7 @@ function unzip_to_func(zipfile, on_entry) {
 function unzip_to_buffers(zipfile) {
     const files = {};
     return unzip_to_func(zipfile, (entry, stream) =>
-            buffer_utils.buffer_from_stream(stream)
+            buffer_utils.read_stream_join(stream)
             .then(buffer => {
                 files[entry.fileName] = {
                     path: entry.fileName,

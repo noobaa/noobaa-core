@@ -1,56 +1,72 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let _ = require('lodash');
-let P = require('../util/promise');
-let http = require('http');
-let https = require('https');
-let EventEmitter = require('events').EventEmitter;
-let dbg = require('../util/debug_module')(__filename);
-let pem = require('../util/pem');
-let url_utils = require('../util/url_utils');
-let RpcHttpConnection = require('./rpc_http');
-let express = require('express');
-let express_morgan_logger = require('morgan');
-let express_body_parser = require('body-parser');
-let express_method_override = require('method-override');
-let express_compress = require('compression');
+const _ = require('lodash');
+const http = require('http');
+const https = require('https');
+const events = require('events');
+
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const pem = require('../util/pem');
+const url_utils = require('../util/url_utils');
+const RpcHttpConnection = require('./rpc_http');
 
 /**
  *
  * RpcHttpServer
  *
  */
-class RpcHttpServer extends EventEmitter {
-
-    // constructor() { super(); }
+class RpcHttpServer extends events.EventEmitter {
 
     /**
-     *
-     * install
-     *
+     * install for express app on a route
      */
-    install(app_or_server) {
-        if (_.isFunction(app_or_server.use)) {
-            // install for express app on a route
-            app_or_server.use(RpcHttpConnection.BASE_PATH, (req, res, next) => this.middleware(req, res, next));
-        } else {
-            // install for http server without express app
-            app_or_server.on('request', (req, res) => {
-                if (_.startsWith(req.url, RpcHttpConnection.BASE_PATH)) {
-                    return this.middleware(req, res);
-                }
-            });
-        }
+    install_on_express(app) {
+        return app.use(RpcHttpConnection.BASE_PATH, (req, res, next) => this.handle_request(req, res));
     }
 
+    /**
+     * install for http server without express app
+     */
+    install_on_server(server) {
+        return server.on('request', (req, res) => {
+            if (_.startsWith(req.url, RpcHttpConnection.BASE_PATH)) {
+                return this.handle_request(req, res);
+            }
+        });
+    }
 
     /**
-     *
-     * middleware
-     *
+     * start_server
      */
-    middleware(req, res, next) {
+    start_server(options) {
+        const port = parseInt(options.port, 10);
+        const secure = options.protocol === 'https:' || options.protocol === 'wss:';
+        const logging = options.logging;
+        dbg.log0('HTTP SERVER:', 'port', port, 'secure', secure, 'logging', logging);
+
+        return P.resolve()
+            .then(() => (
+                secure ?
+                P.fromCallback(callback => pem.createCertificate({
+                    days: 365 * 100,
+                    selfSigned: true
+                }, callback))
+                .then(cert => https.createServer({
+                    key: cert.serviceKey,
+                    cert: cert.certificate
+                })) :
+                http.createServer()
+            ))
+            .then(server => this.install_on_server(server))
+            .then(server => P.fromCallback(callback => server.listen(port, callback)).return(server));
+    }
+
+    /**
+     * handle_request
+     */
+    handle_request(req, res) {
         try {
             res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
@@ -79,52 +95,6 @@ class RpcHttpServer extends EventEmitter {
             res.statusCode = 500;
             res.end(err);
         }
-    }
-
-
-    /**
-     *
-     * start
-     *
-     */
-    start(options) {
-        const port = Number(options.port);
-        const secure = options.protocol === 'https:' || options.protocol === 'wss:';
-        const logging = options.logging;
-        dbg.log0('HTTP SERVER:', 'port', port, 'secure', secure, 'logging', logging);
-
-        let app = express();
-        if (logging) {
-            app.use(express_morgan_logger('dev'));
-        }
-        app.use(express_body_parser.json());
-        app.use(express_body_parser.raw({
-            // increase size limit on raw requests to allow serving data blocks
-            limit: 4 * 1024 * 1024
-        }));
-        app.use(express_body_parser.text());
-        app.use(express_body_parser.urlencoded({
-            extended: false
-        }));
-        app.use(express_method_override());
-        app.use(express_compress());
-        this.install(app);
-
-        return P.fcall(() => secure && P.fromCallback(callback =>
-                pem.createCertificate({
-                    days: 365 * 100,
-                    selfSigned: true
-                }, callback)))
-            .then(cert => {
-                let http_server = secure ?
-                    https.createServer({
-                        key: cert.serviceKey,
-                        cert: cert.certificate
-                    }, app) :
-                    http.createServer(app);
-                return P.ninvoke(http_server, 'listen', port)
-                    .return(http_server);
-            });
     }
 
 }

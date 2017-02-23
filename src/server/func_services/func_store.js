@@ -10,6 +10,7 @@ const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
+const buffer_utils = require('../../util/buffer_utils');
 const func_schema = require('./func_schema');
 
 class FuncStore {
@@ -150,14 +151,7 @@ class FuncStore {
     }
 
     read_code_gridfs(id) {
-        return new P((resolve, reject) => {
-            const download_stream = this.stream_code_gridfs(id);
-            const chunks = [];
-            download_stream
-                .on('data', chunk => chunks.push(chunk))
-                .once('error', reject)
-                .once('end', () => resolve(Buffer.concat(chunks)));
-        });
+        return buffer_utils.read_stream_join(this.stream_code_gridfs(id));
     }
 
     code_filename(system, name, version) {

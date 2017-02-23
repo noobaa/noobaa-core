@@ -161,18 +161,13 @@ RPCShell.prototype.call = function(str_args) {
     return P.fcall(function() {
             return self.client[apiname][func](rpc_args);
         })
-        .catch(function(error) {
-            if (error.rpc_code === 'BAD_REQUEST') {
-                console.warn('Bad request');
-            } else {
-                console.warn('Recieved error', error, error.stack);
-            }
-            if (!argv.run) {
-                repl_srv.displayPrompt();
-            } else {
+        .catch(function(err) {
+            console.warn('Recieved error', err.stack || err);
+            if (argv.run) {
                 process.exit(1);
+            } else {
+                repl_srv.displayPrompt();
             }
-            return;
         })
         .then(function(res) {
             if (argv.json) {
@@ -231,59 +226,53 @@ RPCShell.prototype.params = function(str_args) {
             if (!argv.run) {
                 repl_srv.displayPrompt();
             }
-            return;
         })
-        .catch(function(error) {
-            if (error.rpc_code === 'BAD_REQUEST') {
-                console.warn('Bad request');
-            } else {
-                console.warn('Recieved error', error, error.stack);
-            }
-            if (!argv.run) {
-                repl_srv.displayPrompt();
-            } else {
+        .catch(function(err) {
+            console.warn('Recieved error', err.stack || err);
+            if (argv.run) {
                 process.exit(1);
+            } else {
+                repl_srv.displayPrompt();
             }
-            return;
         });
 };
 
 function main() {
     rpcshell.init().then(function() {
-        if (argv.run) {
-            // rpcshell.list();
-            // rpcshell.list_functions();
-            return rpcshell[argv.run]();
-        } else {
-            // start a Read-Eval-Print-Loop
-            repl_srv = repl.start({
-                prompt: 'rpc-shell > ',
-                useGlobal: false,
-                ignoreUndefined: true
-            });
-            //Bind RPCshell functions to repl
-            _.forIn(rpcshell, function(val, key) {
-                if (typeof(val) === 'function') {
-                    var action = val.bind(rpcshell);
-                    repl_srv.defineCommand(key, {
-                        action: action
-                    });
+            if (argv.run) {
+                // rpcshell.list();
+                // rpcshell.list_functions();
+                return rpcshell[argv.run]();
+            } else {
+                // start a Read-Eval-Print-Loop
+                repl_srv = repl.start({
+                    prompt: 'rpc-shell > ',
+                    useGlobal: false,
+                    ignoreUndefined: true
+                });
+                //Bind RPCshell functions to repl
+                _.forIn(rpcshell, function(val, key) {
+                    if (typeof(val) === 'function') {
+                        var action = val.bind(rpcshell);
+                        repl_srv.defineCommand(key, {
+                            action: action
+                        });
 
-                } else {
-                    repl_srv.context[key] = val;
-                }
-            });
-            rpcshell.list();
-            rpcshell.list_functions();
-        }
-    }, function(err) {
-        console.error('init err:' + err);
-    })
-    .then(() => {
-        if (argv.run) {
-            process.exit();
-        }
-    });
+                    } else {
+                        repl_srv.context[key] = val;
+                    }
+                });
+                rpcshell.list();
+                rpcshell.list_functions();
+            }
+        }, function(err) {
+            console.error('init err:' + err);
+        })
+        .then(() => {
+            if (argv.run) {
+                process.exit();
+            }
+        });
 }
 
 if (require.main === module) {

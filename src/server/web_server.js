@@ -31,9 +31,7 @@ const multer = require('multer');
 const express = require('express');
 const express_favicon = require('serve-favicon');
 const express_compress = require('compression');
-const express_body_parser = require('body-parser');
 const express_morgan_logger = require('morgan');
-const express_method_override = require('method-override');
 const P = require('../util/promise');
 const ssl_utils = require('../util/ssl_utils');
 const dbg = require('../util/debug_module')(__filename);
@@ -100,7 +98,7 @@ server_rpc.register_node_services();
 server_rpc.register_object_services();
 server_rpc.register_func_services();
 server_rpc.register_common_services();
-server_rpc.rpc.register_http_transport(app);
+server_rpc.rpc.register_http_app(app);
 server_rpc.rpc.router.default = 'fcall://fcall';
 
 var http_port = process.env.PORT = process.env.PORT || 5001;
@@ -179,13 +177,6 @@ app.use(function(req, res, next) {
         return next();
     }
 });
-app.use(express_method_override());
-app.use(express_body_parser.json());
-app.use(express_body_parser.raw());
-app.use(express_body_parser.text());
-app.use(express_body_parser.urlencoded({
-    extended: false
-}));
 app.use(express_compress());
 
 

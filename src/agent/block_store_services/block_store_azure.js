@@ -3,10 +3,10 @@
 
 // const _ = require('lodash');
 const azure = require('azure-storage');
-const stream = require('stream');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const RpcError = require('../../rpc/rpc_error');
 
@@ -39,25 +39,17 @@ class BlockStoreAzure extends BlockStoreBase {
 
     _read_block(block_md) {
         const block_key = this._block_key(block_md.id);
-        let buffers = [];
-        let datalen = 0;
-        let ws = new stream.Writable({
-            write(chunk, encoding, callback) {
-                buffers.push(chunk);
-                datalen += chunk.length;
-                callback();
-            }
-        });
+        const writable = buffer_utils.write_stream();
         return P.fromCallback(callback => this.blob.getBlobToStream(
                 this.container_name,
                 block_key,
-                ws, {
+                writable, {
                     disableContentMD5Validation: true
                 },
                 callback
             ))
             .then(info => ({
-                data: Buffer.concat(buffers, datalen),
+                data: buffer_utils.join(writable.buffers, writable.total_length),
                 block_md: this._decode_block_md(info.metadata.noobaa_block_md)
             }))
             .catch(err => {
@@ -90,6 +82,7 @@ class BlockStoreAzure extends BlockStoreBase {
                 dbg.warn('block already found in cloud, will overwrite. id =', block_md.id);
                 overwrite_count = 1;
             }, err => {
+                // TODO check if the error code is indeed "not found"
                 dbg.log1('_write_block: will write block', err.message);
             })
             .then(() => dbg.log3('writing block id to cloud: ', block_key))

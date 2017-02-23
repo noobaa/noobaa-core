@@ -367,11 +367,11 @@ class MDStore {
         // TODO cloud sync scalability
         return this._objects.col().updateMany({
             bucket: bucket_id,
-            cloud_synced: false,
+            cloud_synced: true,
             deleted: null,
         }, {
             $set: {
-                cloud_synced: true
+                cloud_synced: false
             }
         });
     }
@@ -380,13 +380,13 @@ class MDStore {
         // TODO cloud sync scalability
         return this._objects.col().updateMany({
             bucket: bucket_id,
-            cloud_synced: true,
+            cloud_synced: false,
             deleted: {
                 $exists: true
             },
         }, {
             $set: {
-                cloud_synced: false
+                cloud_synced: true
             }
         });
     }

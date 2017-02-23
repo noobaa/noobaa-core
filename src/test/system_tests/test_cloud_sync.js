@@ -60,10 +60,10 @@ function set_cloud_sync(params) {
         .then(
             () => client.account.add_external_connection({
                 name: TEST_CTX.connection_name,
-                endpoint: TEST_CTX.target_ip,
+                endpoint: 'http://' + TEST_CTX.target_ip,
                 identity: '123',
                 secret: 'abc',
-                endpoint_type: 'AWS'
+                endpoint_type: 'S3_COMPATIBLE'
             })
         )
         .then(

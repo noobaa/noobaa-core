@@ -587,6 +587,7 @@ function update_c2n_worklist(policy) {
                 if (_.findIndex(joint_worklist, function(it) {
                         return it.key === cloud_obj.key;
                     }) === -1) {
+                    cloud_obj.bucket = policy.bucket._id;
                     work_list.c2n_added.push(cloud_obj);
                 }
             });

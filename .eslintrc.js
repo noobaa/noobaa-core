@@ -81,6 +81,9 @@ module.exports = {
             allowArrowFunctions: true
         }],
 
+        // match generator-star-spacing to the beautifier preference
+        'generator-star-spacing': ['error', { before: false, after: true }],
+
         // prefer that requires are on module scope and not in a function
         'global-require': 'error',
 

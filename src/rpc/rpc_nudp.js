@@ -56,7 +56,7 @@ class RpcNudpConnection extends RpcBaseConnection {
         let nudp = this.nudp;
         nudp.on('close', () => this.emit('error', new Error('NUDP CLOSED')));
         nudp.on('error', err => this.emit('error', err));
-        nudp.on('message', msg => this.emit('message', msg));
+        nudp.on('message', msg => this.emit('message', [msg]));
         nudp.on('stun', (buffer, rinfo) => console.log('STUN:', rinfo, buffer));
     }
 

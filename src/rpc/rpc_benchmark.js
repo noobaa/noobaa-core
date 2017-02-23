@@ -2,17 +2,19 @@
 'use strict';
 
 const _ = require('lodash');
-const P = require('../util/promise');
 const url = require('url');
 const path = require('path');
 const util = require('util');
 const argv = require('minimist')(process.argv);
-const RPC = require('./rpc');
-const pem = require('../util/pem');
-const RpcSchema = require('./rpc_schema');
 const chance = require('chance')();
 const memwatch = null; //require('memwatch');
+
+const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const pem = require('../util/pem');
+const RPC = require('./rpc');
+const RpcSchema = require('./rpc_schema');
+
 const MB = 1024 * 1024;
 
 // test arguments
@@ -146,11 +148,14 @@ start();
 function start() {
     P.resolve()
         .then(() => {
-            if (!argv.server) return;
             const proto = argv.addr.protocol;
+
+            if (!argv.server) return;
+
             if (proto === 'nudp:') {
                 return rpc.register_nudp_transport(argv.addr.port);
             }
+
             if (proto === 'tcp:' || proto === 'tls:') {
                 return P.fromCallback(callback => pem.createCertificate({
                         days: 365 * 100,
@@ -160,8 +165,10 @@ function start() {
                         proto === 'tls:' && {
                             key: cert.serviceKey,
                             cert: cert.certificate
-                        }));
+                        }
+                    ));
             }
+
             if (proto === 'ntcp:' || proto === 'ntls:') {
                 return P.fromCallback(callback => pem.createCertificate({
                         days: 365 * 100,
@@ -171,7 +178,8 @@ function start() {
                         proto === 'ntls:' && {
                             key: cert.serviceKey,
                             cert: cert.certificate
-                        }));
+                        }
+                    ));
             }
 
             // open http listening port for http based protocols
@@ -199,9 +207,7 @@ function start() {
             // start report interval (both server and client)
             setInterval(report, 1000);
 
-            if (!argv.client) {
-                return;
-            }
+            if (!argv.client) return;
 
             // run io with concurrency
             return P.all(_.times(argv.concur, () => call_next_io()));

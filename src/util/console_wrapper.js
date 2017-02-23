@@ -20,28 +20,23 @@ var dbg_logger;
  */
 
 wrapperConsole.trace = function() {
-    var args = Array.prototype.slice.call(arguments);
-    dbg_logger.trace.apply(dbg_logger, args);
+    dbg_logger.trace.apply(dbg_logger, arguments);
 };
 
 wrapperConsole.log = function() {
-    var args = Array.prototype.slice.call(arguments);
-    dbg_logger.log.apply(dbg_logger, args);
+    dbg_logger.log.apply(dbg_logger, arguments);
 };
 
 wrapperConsole.info = function() {
-    var args = Array.prototype.slice.call(arguments);
-    dbg_logger.info.apply(dbg_logger, args);
+    dbg_logger.info.apply(dbg_logger, arguments);
 };
 
 wrapperConsole.error = function() {
-    var args = Array.prototype.slice.call(arguments);
-    dbg_logger.error.apply(dbg_logger, args);
+    dbg_logger.error.apply(dbg_logger, arguments);
 };
 
 wrapperConsole.warn = function() {
-    var args = Array.prototype.slice.call(arguments);
-    dbg_logger.warn.apply(dbg_logger, args);
+    dbg_logger.warn.apply(dbg_logger, arguments);
 };
 
 

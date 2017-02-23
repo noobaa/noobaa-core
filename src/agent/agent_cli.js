@@ -17,7 +17,7 @@ const child_process = require('child_process');
 const P = require('../util/promise');
 const api = require('../api');
 const dbg = require('../util/debug_module')(__filename);
-const createAgent = require('./agent');
+const Agent = require('./agent');
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
 const Semaphore = require('../util/semaphore');
@@ -568,7 +568,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
         // if running with --scale simulate different hosts by adding the node name as suffix to the host id
         const host_id = self.params.scale ? self.params.host_id + node_name : self.params.host_id;
 
-        agent = self.agents[node_name] = createAgent({
+        agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             servers: self.params.servers,
             node_name: node_name,

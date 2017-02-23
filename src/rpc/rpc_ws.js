@@ -1,31 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let _ = require('lodash');
-// let P = require('../util/promise');
-let RpcBaseConnection = require('./rpc_base_conn');
-let buffer_utils = require('../util/buffer_utils');
-let dbg = require('../util/debug_module')(__filename);
-let WS = global.WebSocket || require('ws'); // eslint-disable-line global-require
+const WS = global.WebSocket || require('ws'); // eslint-disable-line global-require
 
-let WS_CONNECT_OPTIONS = {
-    // accept self signed ssl certificates
-    rejectUnauthorized: false
-};
-
-let WS_SEND_OPTIONS = {
-    // rpc throughput with these options is ~200 MB/s (no ssl)
-    binary: true,
-    // masking (http://tools.ietf.org/html/rfc6455#section-10.3)
-    // will randomly mask the messages on the wire.
-    // this is needed for browsers that were malicious scripts
-    // may send fake http messages inside the websocket
-    // in order to poison intermediate proxy caches.
-    // reduces rpc throughput to ~70 MB/s
-    mask: false,
-    // zlib compression reduces throughput to ~15 MB/s
-    compress: false
-};
+// const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const buffer_utils = require('../util/buffer_utils');
+const RpcBaseConnection = require('./rpc_base_conn');
 
 /**
  *
@@ -34,57 +15,97 @@ let WS_SEND_OPTIONS = {
  */
 class RpcWsConnection extends RpcBaseConnection {
 
-    // constructor(addr_url) { super(addr_url); }
+    constructor(addr_url) {
+        super(addr_url);
+        if (WS === global.WebSocket) {
+            this._init = this._init_browser;
+            this._connect = this._connect_browser;
+            this._send = this._send_browser;
+        } else {
+            this._init = this._init_node;
+            this._connect = this._connect_node;
+            this._send = this._send_node;
+        }
+    }
 
-    _connect() {
-        let ws = new WS(this.url.href, null, WS_CONNECT_OPTIONS);
-        this._init_ws(ws);
+    _connect_node() {
+        const ws = new WS(this.url.href, [], {
+            // accept self signed ssl certificates
+            rejectUnauthorized: false
+        });
+        ws.on('open', () => this.emit('connect'));
+        this._init_node(ws);
+    }
+
+    _init_node(ws) {
+        this.ws = ws;
+        ws.binaryType = 'fragments';
+        ws.on('error', err => this.emit('error', err));
+        ws.on('close', () => this.emit('error', stackless_error('WS CLOSED')));
+        ws.on('message', (fragments, flags) => this.emit('message', fragments));
+    }
+
+    _send_node(msg) {
+        const opts = {
+            // fin marks the last fragment of the message
+            fin: false,
+            // rpc throughput with these options is ~200 MB/s (no ssl)
+            binary: true,
+            // masking (http://tools.ietf.org/html/rfc6455#section-10.3)
+            // will randomly mask the messages on the wire.
+            // this is needed for browsers that were malicious scripts
+            // may send fake http messages inside the websocket
+            // in order to poison intermediate proxy caches.
+            // reduces rpc throughput to ~70 MB/s
+            mask: false,
+            // zlib compression reduces throughput to ~15 MB/s
+            compress: false,
+        };
+        for (let i = 0; i < msg.length; ++i) {
+            opts.fin = (i + 1 === msg.length);
+            this.ws.send(msg[i], opts);
+        }
+    }
+
+    _connect_browser() {
+        const ws = new WS(this.url.href);
+        this._init_browser(ws);
         ws.onopen = () => this.emit('connect');
     }
 
-    _close() {
-        close_ws(this.ws);
-    }
-
-    _send(msg) {
-        msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
-        this.ws.send(msg, WS_SEND_OPTIONS);
-    }
-
-    _init_ws(ws) {
+    _init_browser(ws) {
         this.ws = ws;
         ws.binaryType = 'arraybuffer';
-
-        ws.onclose = () => this.emit('error', closed_err());
-
-        ws.onerror = err => this.emit('error', err || closed_err());
-
-        ws.onmessage = msg => {
+        ws.onerror = err => this.emit('error', err);
+        ws.onclose = () => this.emit('error', stackless_error('WS CLOSED'));
+        ws.onmessage = event => {
             try {
-                let buffer = buffer_utils.to_buffer(msg.data);
-                this.emit('message', buffer);
+                this.emit('message', [Buffer.from(event.data.buffer)]);
             } catch (err) {
-                dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err, msg);
+                dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err, event.data);
                 this.emit('error', err);
             }
         };
     }
 
-}
-
-function close_ws(ws) {
-    if (ws &&
-        ws.readyState !== WS.CLOSED &&
-        ws.readyState !== WS.CLOSING) {
-        ws.close();
+    _send_browser(msg) {
+        this.ws.send(buffer_utils.join(msg));
     }
+
+    _close() {
+        if (this.ws &&
+            this.ws.readyState !== WS.CLOSED &&
+            this.ws.readyState !== WS.CLOSING) {
+            this.ws.close();
+        }
+    }
+
 }
 
-function closed_err() {
-    const err = new Error('WS CLOSED');
+function stackless_error(msg) {
+    const err = new Error(msg);
     err.stack = '';
     return err;
 }
-
 
 module.exports = RpcWsConnection;

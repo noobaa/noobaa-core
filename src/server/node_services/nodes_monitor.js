@@ -2598,7 +2598,7 @@ class NodesMonitor extends EventEmitter {
                     proxy_reply: reply
                 };
                 if (method.reply_export_buffers) {
-                    res.proxy_buffer = buffer_utils.concatify(method.reply_export_buffers(reply));
+                    res.proxy_buffer = buffer_utils.join(method.reply_export_buffers(reply));
                     // dbg.log5('n2n_proxy: reply_export_buffers', reply);
                 }
                 return res;

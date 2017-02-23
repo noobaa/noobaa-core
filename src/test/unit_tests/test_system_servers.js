@@ -11,8 +11,8 @@ const assert = require('assert');
 const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
+const config = require('../../../config');
 const account_server = require('../../server/system_services/account_server');
-const config = require('../../../config.js');
 
 const s3_auth = new S3Auth();
 

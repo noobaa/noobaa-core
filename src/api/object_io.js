@@ -15,6 +15,7 @@ const Semaphore = require('../util/semaphore');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
 const range_utils = require('../util/range_utils');
+const buffer_utils = require('../util/buffer_utils');
 const promise_utils = require('../util/promise_utils');
 const dedup_options = require("./dedup_options");
 
@@ -705,8 +706,8 @@ class ObjectIO {
     }
 
     _error_injection_on_write() {
-        if (process.env.ERROR_INJECTON_ON_WRITE &&
-            process.env.ERROR_INJECTON_ON_WRITE > Math.random()) {
+        if (config.ERROR_INJECTON_ON_WRITE &&
+            config.ERROR_INJECTON_ON_WRITE > Math.random()) {
             throw new RpcError('ERROR_INJECTON_ON_WRITE');
         }
     }
@@ -724,23 +725,7 @@ class ObjectIO {
      *
      */
     read_entire_object(params) {
-        return new P((resolve, reject) => {
-            const buffers = [];
-            this.create_read_stream(params)
-                .on('data', buffer => {
-                    dbg.log0('read data', buffer.length);
-                    buffers.push(buffer);
-                })
-                .once('end', () => {
-                    const read_buf = Buffer.concat(buffers);
-                    dbg.log0('read end', read_buf.length);
-                    resolve(read_buf);
-                })
-                .once('error', err => {
-                    dbg.log0('read error', err);
-                    reject(err);
-                });
-        });
+        return buffer_utils.read_stream_join(this.create_read_stream(params));
     }
 
 
@@ -853,7 +838,7 @@ class ObjectIO {
         }
 
         return P.all(promises)
-            .then(buffers => Buffer.concat(_.compact(buffers)));
+            .then(buffers => buffer_utils.join(_.compact(buffers)));
     }
 
 
@@ -1103,8 +1088,8 @@ class ObjectIO {
     }
 
     _error_injection_on_read() {
-        if (process.env.ERROR_INJECTON_ON_READ &&
-            process.env.ERROR_INJECTON_ON_READ > Math.random()) {
+        if (config.ERROR_INJECTON_ON_READ &&
+            config.ERROR_INJECTON_ON_READ > Math.random()) {
             throw new RpcError('ERROR_INJECTON_ON_READ');
         }
     }
@@ -1130,11 +1115,10 @@ function combine_parts_buffers_in_range(parts, start, end) {
         throw new Error('no parts for data');
     }
     let pos = start;
-    let buffers = _.compact(_.map(parts, function(part) {
+    const buffers = [];
+    _.forEach(parts, part => {
         let part_range = range_utils.intersection(part.start, part.end, pos, end);
-        if (!part_range) {
-            return;
-        }
+        if (!part_range) return;
         let buffer_start = part_range.start - part.start;
         let buffer_end = part_range.end - part.start;
         if (part.chunk_offset) {
@@ -1142,8 +1126,8 @@ function combine_parts_buffers_in_range(parts, start, end) {
             buffer_end += part.chunk_offset;
         }
         pos = part_range.end;
-        return part.buffer.slice(buffer_start, buffer_end);
-    }));
+        buffers.push(part.buffer.slice(buffer_start, buffer_end));
+    });
     if (pos !== end) {
         dbg.error('missing parts for data',
             range_utils.human_range({
@@ -1152,9 +1136,8 @@ function combine_parts_buffers_in_range(parts, start, end) {
             }), 'pos', size_utils.human_offset(pos), parts);
         throw new Error('missing parts for data');
     }
-    let len = end - start;
-    let buffer = Buffer.concat(buffers, len);
-    if (buffer.length !== len) {
+    const buffer = buffer_utils.join(buffers);
+    if (buffer.length !== end - start) {
         dbg.error('short buffer from parts',
             range_utils.human_range({
                 start: start,

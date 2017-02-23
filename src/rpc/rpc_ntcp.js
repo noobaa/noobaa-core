@@ -58,7 +58,7 @@ class RpcNtcpConnection extends RpcBaseConnection {
             this.emit('error', closed_err);
         });
         ntcp.on('error', err => this.emit('error', err));
-        ntcp.on('message', msg => this.emit('message', msg));
+        ntcp.on('message', msg => this.emit('message', [msg]));
     }
 
 }

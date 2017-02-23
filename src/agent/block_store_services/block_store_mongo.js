@@ -7,6 +7,7 @@ const mongo_client = require('../../util/mongo_client');
 const P = require('../../util/promise');
 // const RpcError = require('../../rpc/rpc_error');
 const dbg = require('../../util/debug_module')(__filename);
+const buffer_util = require('../../util/buffer_util');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
 const GRID_FS_BUCKET_NAME_FILES = 'mongo_internal_agent.files';
@@ -92,14 +93,7 @@ class BlockStoreMongo extends BlockStoreBase {
     _read_block(block_md) {
         const block_name = this._block_key(block_md.id);
         return P.join(
-                new P((resolve, reject) => {
-                    const download_stream = this._gridfs().openDownloadStreamByName(block_name);
-                    const chunks = [];
-                    download_stream
-                        .on('data', chunk => chunks.push(chunk))
-                        .once('error', reject)
-                        .once('end', () => resolve(Buffer.concat(chunks)));
-                }),
+                buffer_util.read_stream_join(this._gridfs().openDownloadStreamByName(block_name)),
                 this.head_block(block_name)
             )
             .spread((block_buffer, block_metadata) => ({
@@ -182,11 +176,11 @@ class BlockStoreMongo extends BlockStoreBase {
     }
 
     _encode_block_md(block_md) {
-        return new Buffer(JSON.stringify(block_md)).toString('base64');
+        return Buffer.from(JSON.stringify(block_md)).toString('base64');
     }
 
     _decode_block_md(noobaa_block_md) {
-        return JSON.parse(new Buffer(noobaa_block_md, 'base64'));
+        return JSON.parse(Buffer.from(noobaa_block_md, 'base64'));
     }
 
     head_block(block_name) {

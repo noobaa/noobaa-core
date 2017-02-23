@@ -2,9 +2,9 @@
 'use strict';
 
 const _ = require('lodash');
-const dbg = require('../util/debug_module')(__filename);
 const time_utils = require('../util/time_utils');
 const RpcError = require('../rpc/rpc_error');
+const buffer_utils = require('../util/buffer_utils');
 
 /*
 // TODO zlib in browserify doesn't work?
@@ -47,27 +47,24 @@ class RpcRequest {
     }
 
     static encode_message(header, buffers) {
-        let msg_buffers = [
-            new Buffer(4),
-            new Buffer(JSON.stringify(header)),
-            // zlib.deflateRawSync(new Buffer(JSON.stringify(header)), ZLIB_OPTIONS),
+        const length_buffer = new Buffer(4);
+        const header_buffer = new Buffer(JSON.stringify(header));
+        length_buffer.writeUInt32BE(header_buffer.length, 0);
+        const msg_buffers = buffers ? [
+            length_buffer,
+            header_buffer,
+            ...buffers
+        ] : [
+            length_buffer,
+            header_buffer
         ];
-        if (buffers) {
-            msg_buffers = msg_buffers.concat(buffers);
-        }
-        msg_buffers[0].writeUInt32BE(msg_buffers[1].length, 0);
         return msg_buffers;
     }
 
-    static decode_message(msg_buffer) {
-        const len = msg_buffer.readUInt32BE(0);
-        dbg.log3('decode_message', msg_buffer.length, len);
-        const header = JSON.parse(msg_buffer.slice(4, 4 + len).toString());
-        // const header = JSON.parse(zlib.inflateRawSync(msg_buffer.slice(4, 4 + len)).toString());
-        const buffer = (4 + len < msg_buffer.length) ? msg_buffer.slice(4 + len) : null;
-        if (msg_buffer && buffer) {
-            dbg.log3('decode_message with buffer', msg_buffer.length, len, 'HEADER', header, 'Buffer', buffer.length);
-        }
+    static decode_message(msg_buffers) {
+        const header_length = buffer_utils.extract_join(msg_buffers, 4).readUInt32BE(0);
+        const header = JSON.parse(buffer_utils.extract_join(msg_buffers, header_length));
+        const buffer = buffer_utils.join(msg_buffers);
         return {
             header: header,
             buffer: buffer

@@ -2,70 +2,83 @@
 'use strict';
 
 const P = require('./promise');
+const stream = require('stream');
 
-/**
- * concatify returns a single buffer from list of buffers
- * but optimized for the common case of a single buffer to avoid copyful concat
- */
-function concatify(buffers) {
-    if (!buffers) return new Buffer(0);
-    if (buffers.length === 1) return buffers[0];
-    return Buffer.concat(buffers);
+const EMPTY_BUFFER = Buffer.allocUnsafeSlow(0);
+
+function join(buffers, total_length) {
+    if (buffers.length > 1) return Buffer.concat(buffers, total_length);
+    return buffers[0] || EMPTY_BUFFER;
 }
 
-function buffer_from_stream(stream) {
-    return buffers_from_stream(stream).then(concatify);
+function extract(buffers, len) {
+    const res = [];
+    var pos = 0;
+    while (pos < len && buffers.length) {
+        const b = buffers[0];
+        const n = Math.min(b.length, len - pos);
+        if (n < b.length) {
+            buffers[0] = b.slice(n);
+            res.push(b.slice(0, n));
+        } else {
+            buffers.shift();
+            res.push(b);
+        }
+        pos += n;
+    }
+    return res;
 }
 
-function buffers_from_stream(stream) {
-    const chunks = [];
-    return new P((resolve, reject) => stream
-            .on('data', chunk => chunks.push(chunk))
+function extract_join(buffers, len) {
+    return join(extract(buffers, len), len);
+}
+
+function read_stream(readable) {
+    const res = {
+        buffers: [],
+        total_length: 0,
+    };
+    return new P((resolve, reject) => readable
+            .on('data', data => {
+                res.buffers.push(data);
+                res.total_length += data.length;
+            })
             .once('error', reject)
-            .once('end', resolve))
-        .return(chunks);
+            .once('end', resolve)
+        )
+        .return(res);
 }
 
-/**
- *
- * to_array_buffer
- *
- */
-function to_array_buffer(buffer) {
-
-    if (buffer instanceof ArrayBuffer) {
-        return buffer;
-    }
-
-    // in browserify the buffer can just convert immediately to arraybuffer
-    if (buffer.toArrayBuffer) {
-        return buffer.toArrayBuffer();
-    }
-
-    // TODO support strings? need to convert chars to bytes? with utf8 support or not?
-
-    // slow convert from buffer
-    var ab = new ArrayBuffer(buffer.length);
-    var bytes_view = new Uint8Array(ab);
-    for (var i = 0; i < buffer.length; ++i) {
-        bytes_view[i] = buffer[i];
-    }
-    return ab;
+function read_stream_join(readable) {
+    return read_stream(readable)
+        .then(res => join(res.buffers, res.total_length));
 }
 
-
-/**
- *
- * to_buffer
- *
- */
-function to_buffer(b) {
-    return Buffer.isBuffer(b) ? b : Buffer.from(b);
+function write_stream() {
+    const writable = new stream.Writable({
+        write(data, encoding, callback) {
+            this.buffers.push(data);
+            this.total_length += data.length;
+            callback();
+        }
+    });
+    writable.buffers = [];
+    writable.total_length = 0;
+    return writable;
 }
 
+function count_length(buffers) {
+    var l = 0;
+    for (var i = 0; i < buffers.length; ++i) {
+        l += buffers[i].length;
+    }
+    return l;
+}
 
-exports.concatify = concatify;
-exports.buffer_from_stream = buffer_from_stream;
-exports.buffers_from_stream = buffers_from_stream;
-exports.to_array_buffer = to_array_buffer;
-exports.to_buffer = to_buffer;
+exports.join = join;
+exports.extract = extract;
+exports.extract_join = extract_join;
+exports.read_stream = read_stream;
+exports.read_stream_join = read_stream_join;
+exports.write_stream = write_stream;
+exports.count_length = count_length;

@@ -39,8 +39,8 @@ class RpcWsServer extends EventEmitter {
                 let addr_url = url.parse(address);
                 conn = new RpcWsConnection(addr_url);
                 dbg.log0('WS ACCEPT CONNECTION', conn.connid);
+                conn._init(ws);
                 conn.emit('connect');
-                conn._init_ws(ws);
                 this.emit('connection', conn);
             } catch (err) {
                 dbg.log0('WS ACCEPT ERROR', address, err.stack || err);

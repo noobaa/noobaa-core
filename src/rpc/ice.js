@@ -3,22 +3,24 @@
 
 module.exports = Ice;
 
-var _ = require('lodash');
-var P = require('../util/promise');
-var os = require('os');
-var net = require('net');
-var tls = require('tls');
-var util = require('util');
-var ip_module = require('ip');
-var crypto = require('crypto');
-var EventEmitter = require('events').EventEmitter;
-var stun = require('./stun');
-var chance = require('chance')();
-var js_utils = require('../util/js_utils');
-var url_utils = require('../util/url_utils');
-var promise_utils = require('../util/promise_utils');
-var FrameStream = require('../util/frame_stream');
-var dbg = require('../util/debug_module')(__filename);
+const _ = require('lodash');
+const P = require('../util/promise');
+const os = require('os');
+const net = require('net');
+const tls = require('tls');
+const util = require('util');
+const crypto = require('crypto');
+const chance = require('chance')();
+const ip_module = require('ip');
+const EventEmitter = require('events').EventEmitter;
+
+const dbg = require('../util/debug_module')(__filename);
+const stun = require('./stun');
+const js_utils = require('../util/js_utils');
+const url_utils = require('../util/url_utils');
+const FrameStream = require('../util/frame_stream');
+const buffer_utils = require('../util/buffer_utils');
+const promise_utils = require('../util/promise_utils');
 
 
 const CAND_TYPE_HOST = 'host';
@@ -621,7 +623,7 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
                 return;
             }
             self._init_tcp_connection(session.tcp, session);
-            session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
+            session.tcp.frame_stream.send_message([session.packet], ICE_FRAME_STUN_MSG_TYPE);
         });
     };
     try_ap();
@@ -674,7 +676,7 @@ Ice.prototype._connect_tcp_simultaneous_open_pair = function(session) {
             // after the connection is made, we prefer just one req-res
             // so we make only the controlling send the request.
             if (self.controlling) {
-                session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
+                session.tcp.frame_stream.send_message([session.packet], ICE_FRAME_STUN_MSG_TYPE);
             }
         });
     };
@@ -780,10 +782,11 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
         }
     });
 
-    conn.frame_stream = new FrameStream(conn, function(buffer, msg_type) {
+    conn.frame_stream = new FrameStream(conn, function(buffers, msg_type) {
         if (msg_type === ICE_FRAME_STUN_MSG_TYPE) {
+            const stun_buffer = buffer_utils.join(buffers);
             if (!ice) {
-                ice = ice_lookup(buffer, info);
+                ice = ice_lookup(stun_buffer, info);
                 if (!ice) {
                     destroy_conn(new Error('ICE LOOKUP FAILED'));
                     return;
@@ -791,11 +794,11 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
                 // remember to close this connection when ICE closes
                 ice.on('close', destroy_conn);
             }
-            ice._handle_stun_packet(buffer, info);
+            ice._handle_stun_packet(stun_buffer, info);
             return;
         }
         if (!temp_queue) {
-            conn.emit('message', buffer);
+            conn.emit('message', buffers);
             return;
         }
         // limit tcp that receives non-stun messages before
@@ -804,7 +807,7 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
             destroy_conn(new Error('ICE TCP TOO MANY QUEUED MESSAGES'));
             return;
         }
-        temp_queue.push(buffer);
+        temp_queue.push(buffers);
         dbg.log0('ICE TCP HOLDING MESSAGE IN QUEUE FOR LISTENER',
             temp_queue.length, info.key);
     }, ICE_FRAME_CONFIG);
@@ -887,7 +890,7 @@ Ice.prototype._activate_session = function(session) {
     session.mark_activating(activate_packet);
 
     if (session.tcp) {
-        session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
+        session.tcp.frame_stream.send_message([session.packet], ICE_FRAME_STUN_MSG_TYPE);
     } else {
         session.run_udp_request_loop();
     }
@@ -1072,7 +1075,7 @@ Ice.prototype._handle_stun_request = function(buffer, info) {
     // send stun response
     var reply = this._make_stun_request_response(info, buffer, attr_map.use_candidate);
     if (info.tcp) {
-        info.tcp.frame_stream.send_message(reply, ICE_FRAME_STUN_MSG_TYPE);
+        info.tcp.frame_stream.send_message([reply], ICE_FRAME_STUN_MSG_TYPE);
     } else {
         info.udp.send_outbound(reply, info.port, info.address, _.noop);
     }

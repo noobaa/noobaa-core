@@ -1496,7 +1496,7 @@ class NodesMonitor extends EventEmitter {
                 setTimeout(() => {
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
-                }, config.REBUILD_BATCH_DELAY).unref();
+                }, config.REBUILD_NODE_BATCH_DELAY).unref();
             }
         }
 
@@ -1508,12 +1508,14 @@ class NodesMonitor extends EventEmitter {
                 setTimeout(() => {
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
-                }, config.REBUILD_BATCH_DELAY).unref();
+                }, config.REBUILD_NODE_BATCH_DELAY).unref();
             }
         }
     }
 
     _wakeup_rebuild() {
+        if (!this._started) return;
+        if (!config.REBUILD_NODE_ENABLED) return;
         const count = Math.min(
             config.REBUILD_NODE_CONCURRENCY,
             this._set_need_rebuild.size - this._num_running_rebuilds);
@@ -1556,7 +1558,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => MDStore.instance().iterate_node_chunks({
                 node_id: item.node._id,
                 marker: start_marker,
-                limit: config.REBUILD_BATCH_SIZE,
+                limit: config.REBUILD_NODE_BATCH_SIZE,
             }))
             .then(res => {
                 // we update the stage marker even if failed to advance the scan

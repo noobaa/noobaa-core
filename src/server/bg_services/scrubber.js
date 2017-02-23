@@ -31,28 +31,28 @@ function background_worker() {
         dbg.log0('SCRUBBER:', 'BEGIN');
     }
 
-    return MDStore.instance().iterate_all_chunks(this.marker, config.REBUILD_BATCH_SIZE)
+    return MDStore.instance().iterate_all_chunks(this.marker, config.SCRUBBER_BATCH_SIZE)
         .then(res => {
             // update the marker for next time
             this.marker = res.marker;
             if (!res.chunk_ids.length) return;
             dbg.log0('SCRUBBER:', 'WORKING ON', res.chunk_ids.length, 'CHUNKS');
             const builder = new map_builder.MapBuilder(res.chunk_ids);
-            return builder.run()
-                .catch(err => dbg.error('SCRUBBER:', 'BUILD ERROR', err, err.stack));
+            return builder.run();
         })
         .then(() => {
             // return the delay before next batch
             if (this.marker) {
                 dbg.log0('SCRUBBER:', 'CONTINUE', this.marker);
-                return config.REBUILD_BATCH_DELAY;
+                return config.SCRUBBER_BATCH_DELAY;
             }
             dbg.log0('SCRUBBER:', 'END');
             return config.SCRUBBER_RESTART_DELAY;
-        }, err => {
+        })
+        .catch(err => {
             // return the delay before next batch
             dbg.error('SCRUBBER:', 'ERROR', err, err.stack);
-            return config.REBUILD_BATCH_ERROR_DELAY;
+            return config.SCRUBBER_ERROR_DELAY;
         });
 }
 

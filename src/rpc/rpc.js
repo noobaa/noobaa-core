@@ -558,13 +558,13 @@ RPC.prototype._accept_new_connection = function(conn) {
     conn._sent_requests = new Map();
     conn._received_requests = new Map();
     if (self._disconnected_state) {
-        conn.close();
-        throw new Error('RPC IN DISCONNECTED STATE - rejecting connection ' + conn.connid);
+        const err = new Error('RPC IN DISCONNECTED STATE - rejecting connection ' + conn.connid);
+        conn.emit('error', err);
+        throw err;
     }
     conn.on('message', msg => self._on_message(conn, msg));
     conn.on('close', err => self._connection_closed(conn, err));
-    // we prefer to let the connection handle it's own errors and decide if to close or not
-    // conn.on('error', self._connection_error.bind(self, conn));
+    // we let the connection handle it's own errors and decide if to close or not
 
     if (!conn.transient) {
         // always replace previous connection in the address map,
@@ -575,11 +575,21 @@ RPC.prototype._accept_new_connection = function(conn) {
         // send pings to keepalive
         conn._ping_interval = setInterval(function() {
             dbg.log4('RPC PING', conn.connid);
-            conn._ping_last_reqid = conn._alloc_reqid();
+            const reqid = conn._alloc_reqid();
+            conn._ping_reqid_set = conn._ping_reqid_set || new Set();
+            conn._ping_reqid_set.add(reqid);
+            if (conn._ping_reqid_set.size > 3) {
+                const err = new Error(`RPC PINGPONG EXHAUSTED pings ${
+                    Array.from(conn._ping_reqid_set).join(',')
+                } connid ${conn.connid}`);
+                dbg.warn(err);
+                conn.emit('error', err);
+                return null;
+            }
             P.resolve()
                 .then(() => conn.send(RpcRequest.encode_message({
                     op: 'ping',
-                    reqid: conn._ping_last_reqid
+                    reqid: reqid
                 })))
                 .catch(_.noop); // already means the conn is closed
             return null;
@@ -649,15 +659,6 @@ RPC.prototype.disconnect_all = function() {
         conn._no_reconnect = true;
         conn.close();
     }
-};
-
-
-/**
- *
- */
-RPC.prototype._connection_error = function(conn, err) {
-    dbg.error('RPC CONNECTION ERROR:', conn.connid, conn.url.href, err.stack || err);
-    conn.close();
 };
 
 
@@ -746,16 +747,14 @@ RPC.prototype._on_message = function(conn, msg_buffer) {
                 .catch(_.noop); // already means the conn is closed
             break;
         case 'pong':
-            if (conn._ping_last_reqid === msg.header.reqid) {
+            if (conn._ping_reqid_set && conn._ping_reqid_set.has(msg.header.reqid)) {
                 dbg.log4('RPC PINGPONG', conn.connid);
-                conn._ping_mismatch_count = 0;
+                conn._ping_reqid_set.delete(msg.header.reqid);
             } else {
-                conn._ping_mismatch_count = (conn._ping_mismatch_count || 0) + 1;
-                if (conn._ping_mismatch_count < 3) {
-                    dbg.warn('RPC PINGPONG MISMATCH #' + conn._ping_mismatch_count, conn.connid);
-                } else {
-                    conn.close(new Error('RPC PINGPONG MISMATCH #' + conn._ping_mismatch_count + ' ' + conn.connid));
-                }
+                dbg.warn(`RPC PINGPONG MISMATCH pings ${
+                        Array.from(conn._ping_reqid_set).join(',')
+                    } pong ${msg.header.reqid
+                    } connid ${conn.connid}`);
             }
             break;
         default:

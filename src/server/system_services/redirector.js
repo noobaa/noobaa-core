@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const server_rpc = require('../server_rpc');
@@ -17,11 +18,19 @@ function publish_to_cluster(req) {
     const api_name = req.rpc_params.method_api.slice(0, -4); // remove _api suffix
     const method = req.rpc_params.method_name;
     const connections = cluster_conn_set.list();
-    dbg.log0('publish_to_cluster:', connections.length);
+    dbg.log0('publish_to_cluster:',
+        api_name, method, req.rpc_params.request_params,
+        _.map(connections, 'connid'));
     return P.map(connections,
-            conn => server_rpc.client[api_name][method](req.rpc_params.request_params, {
+            conn => P.resolve(server_rpc.client[api_name][method](req.rpc_params.request_params, {
                 connection: conn,
                 auth_token: req.auth_token,
+            }))
+            .catch(err => {
+                // close this connection, assuming this can help to recover
+                conn.emit('error', new Error(`publish_to_cluster: disconnect on error ${err.message} ${conn.connid}`));
+                // throw the original error so that callers will receive the root cause reason
+                throw err;
             })
         )
         .then(res => ({
@@ -41,7 +50,9 @@ function unregister_from_alerts(req) {
 
 function publish_alerts(req) {
     const connections = alerts_conn_set.list();
-    dbg.log3('publish_alerts:', req.rpc_params.request_params, connections.length);
+    dbg.log3('publish_alerts:',
+        req.rpc_params.request_params,
+        _.map(connections, 'connid'));
     return P.map(connections, conn =>
             server_rpc.client.frontend_notifications.alert(req.rpc_params.request_params, {
                 connection: conn,

@@ -22,8 +22,8 @@ module.exports = [{
     },
     {
         // list_all_objects_of_bucket_need_sync()
-        // update_all_objects_of_bucket_set_cloud_sync()
-        // update_all_objects_of_bucket_unset_deleted_cloud_sync()
+        // update_all_objects_of_bucket_unset_cloud_sync()
+        // update_all_objects_of_bucket_set_deleted_cloud_sync()
         fields: {
             bucket: 1,
             cloud_synced: 1,

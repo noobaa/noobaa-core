@@ -135,12 +135,12 @@ mocha.describe('md_store', function() {
             return md_store.list_all_objects_of_bucket_need_sync(bucket_id);
         });
 
-        mocha.it('update_all_objects_of_bucket_set_cloud_sync()', function() {
-            return md_store.update_all_objects_of_bucket_set_cloud_sync(bucket_id);
+        mocha.it('update_all_objects_of_bucket_unset_cloud_sync()', function() {
+            return md_store.update_all_objects_of_bucket_unset_cloud_sync(bucket_id);
         });
 
-        mocha.it('update_all_objects_of_bucket_unset_deleted_cloud_sync()', function() {
-            return md_store.update_all_objects_of_bucket_unset_deleted_cloud_sync(bucket_id);
+        mocha.it('update_all_objects_of_bucket_set_deleted_cloud_sync()', function() {
+            return md_store.update_all_objects_of_bucket_set_deleted_cloud_sync(bucket_id);
         });
 
     });

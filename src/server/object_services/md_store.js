@@ -363,7 +363,7 @@ class MDStore {
             .toArray();
     }
 
-    update_all_objects_of_bucket_set_cloud_sync(bucket_id) {
+    update_all_objects_of_bucket_unset_cloud_sync(bucket_id) {
         // TODO cloud sync scalability
         return this._objects.col().updateMany({
             bucket: bucket_id,
@@ -376,7 +376,7 @@ class MDStore {
         });
     }
 
-    update_all_objects_of_bucket_unset_deleted_cloud_sync(bucket_id) {
+    update_all_objects_of_bucket_set_deleted_cloud_sync(bucket_id) {
         // TODO cloud sync scalability
         return this._objects.col().updateMany({
             bucket: bucket_id,

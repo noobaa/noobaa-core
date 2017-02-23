@@ -692,10 +692,10 @@ function _set_all_files_for_sync(system, bucket, should_resync_deleted_files) {
     // TODO:: scale, fine for 1000 objects, not for 1M
     return P.join(
             // Mark all "live" objects to be cloud synced
-            MDStore.instance().update_all_objects_of_bucket_set_cloud_sync(bucket._id),
+            MDStore.instance().update_all_objects_of_bucket_unset_cloud_sync(bucket._id),
             // Mark all "previous" deleted objects as not needed for cloud sync
             should_resync_deleted_files &&
-            MDStore.instance().update_all_objects_of_bucket_unset_deleted_cloud_sync(bucket._id)
+            MDStore.instance().update_all_objects_of_bucket_set_deleted_cloud_sync(bucket._id)
         )
         .then(() => dbg.log0('_set_all_files_for_sync: DONE',
             'system', system.name,

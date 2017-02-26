@@ -33,7 +33,7 @@ var steps = [
     }, {
         //Test Data Rebuild and Eviction
         name: 'Rebuild and Eviction Test',
-        lib_test: '/src/test/system_tests//test_build_chunks',
+        lib_test: '/src/test/system_tests/test_build_chunks',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -74,6 +74,14 @@ var steps = [
         //Test Cloud Pools
         name: 'Cloud Pools Test',
         lib_test: '/src/test/system_tests/test_cloud_pools.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test MD Aggregator
+        name: 'MD Aggregator Test',
+        lib_test: '/src/test/system_tests/test_md_aggregator.js',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',

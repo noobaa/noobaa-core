@@ -23,18 +23,14 @@ function background_worker() {
         return;
     }
 
-    const now = Date.now() - config.MD_GRACE_IN_MILLISECONDS;
+    const target_now = Date.now() - config.MD_GRACE_IN_MILLISECONDS;
 
     let bucket_groups_by_update_time =
-        _.groupBy(system_store.data.buckets, 'storage_stats.last_update');
+        _.groupBy(system_store.data.buckets, g_bucket =>
+            _.get(g_bucket, 'storage_stats.last_update', config.NOOBAA_EPOCH));
 
-    const sorted_group_update_times = _.keysIn(bucket_groups_by_update_time).sort((a, b) => {
-        const time_a = parseInt(a, 10) || config.NOOBAA_EPOCH;
-        const time_b = parseInt(b, 10) || config.NOOBAA_EPOCH;
-        if (time_a > time_b) return 1;
-        if (time_a < time_b) return -1;
-        return 0;
-    });
+    const sorted_group_update_times = _.keysIn(bucket_groups_by_update_time)
+        .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
 
     if (_.isEmpty(bucket_groups_by_update_time)) {
         dbg.log0('md_aggregator: There are no groups to work on');
@@ -45,9 +41,9 @@ function background_worker() {
             const is_last_group = Boolean(group_index === (length - 1));
             const current_group = bucket_groups_by_update_time[group_update_date];
             let group_finished = false;
-            let from_date = parseInt(group_update_date, 10) || config.NOOBAA_EPOCH;
-            const next_group_from_date = is_last_group ? now :
-                (parseInt(sorted_group_update_times[group_index + 1], 10) || config.NOOBAA_EPOCH);
+            let from_date = parseInt(group_update_date, 10);
+            const next_group_from_date = is_last_group ? target_now :
+                parseInt(sorted_group_update_times[group_index + 1], 10);
             const time_diff = next_group_from_date - from_date;
             const date_delta = Math.max(Math.floor(time_diff / JUMP_ALLOWANCE) || time_diff, config.MD_AGGREGATOR_INTERVAL);
 
@@ -59,7 +55,7 @@ function background_worker() {
                                 from_date,
                                 till_date,
                                 current_group,
-                                now
+                                target_now
                             )
                             .then(bucket_updates => {
                                 from_date = till_date;
@@ -176,15 +172,15 @@ function group_md_aggregator(from_time, till_time, group_to_aggregate, current_t
 }
 
 function check_time_conditions(from_date, till_date, group_to_aggregate, current_time) {
-    // if (from_date > till_date) {
-    //     return P.reject(new Error(`Skipping current group: ${_.map(group_to_aggregate,
-    //                     bucket => bucket.name)}`));
-    // }
+    if (from_date > till_date) {
+        return P.reject(new Error(`Skipping current group: ${_.map(group_to_aggregate,
+                        bucket => bucket.name)}`));
+    }
 
     if (from_date > current_time || till_date > current_time) {
         console.error(`Timeskew detected: reverting buckets ${_.map(group_to_aggregate,
                         bucket => bucket.name)} to initialized values`);
-        return P.resolve(system_store.make_changes({
+        return system_store.make_changes({
                 update: {
                     buckets: _.map(group_to_aggregate, bucket => ({
                         _id: bucket._id,
@@ -200,7 +196,7 @@ function check_time_conditions(from_date, till_date, group_to_aggregate, current
                         },
                     }))
                 }
-            }))
+            })
             .then(() => {
                 throw new Error('check_time_conditions: Reverted successfully');
             });

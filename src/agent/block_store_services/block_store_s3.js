@@ -3,7 +3,6 @@
 
 const _ = require('lodash');
 const AWS = require('aws-sdk');
-const path = require('path');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -15,8 +14,9 @@ class BlockStoreS3 extends BlockStoreBase {
     constructor(options) {
         super(options);
         this.cloud_info = options.cloud_info;
-        this.blocks_path = this.cloud_info.blocks_path || 'noobaa_blocks/' + options.node_name + '/blocks_tree';
-        this.usage_path = 'noobaa_blocks/' + options.node_name + '/usage';
+        this.base_path = options.cloud_path;
+        this.blocks_path = this.base_path + '/blocks_tree';
+        this.usage_path = this.base_path + '/usage';
         this.usage_md_key = 'noobaa_usage';
         this._usage = {
             size: 0,
@@ -56,7 +56,12 @@ class BlockStoreS3 extends BlockStoreBase {
                     dbg.log0('found usage data in', this.usage_path, 'usage_data = ', this._usage);
                 }
             }, err => {
-                console.warn('init::recieved', err);
+                if (err.code === 'NotFound') {
+                    // first time init, continue without usage info
+                    dbg.log0('BlockStoreS3 init: no usage path');
+                } else {
+                    dbg.error('got error on init:', err);
+                }
             });
     }
 
@@ -223,7 +228,7 @@ class BlockStoreS3 extends BlockStoreBase {
 
     _block_key(block_id) {
         let block_dir = this._get_block_internal_dir(block_id);
-        return path.join(this.blocks_path, block_dir, block_id);
+        return `${this.blocks_path}/${block_dir}/${block_id}`;
     }
 
     _encode_block_md(block_md) {

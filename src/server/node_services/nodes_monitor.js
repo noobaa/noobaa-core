@@ -1126,8 +1126,8 @@ class NodesMonitor extends EventEmitter {
                 }
 
                 // Removing the internal node from the processes
-                return server_rpc.client.hosted_agents.remove_agent({
-                        name: item.node.name
+                return server_rpc.client.hosted_agents.remove_cloud_agent({
+                        node_name: item.node.name
                     })
                     .then(() => {
                         // Marking the node as deleted since we've removed it completely
@@ -1615,6 +1615,10 @@ class NodesMonitor extends EventEmitter {
         // we are generating a function that will implement most of the query
         // so that we can run it on every node item, and minimize the compare work.
         let code = '';
+        if ((query.strictly_cloud_nodes && query.skip_cloud_nodes) ||
+            (query.strictly_internal && query.skip_internal)) { // I mean... srsly
+            code += 'return false; ';
+        }
         if (query.system) {
             code += `if ('${query.system}' !== String(item.node.system)) return false; `;
         }
@@ -1638,8 +1642,14 @@ class NodesMonitor extends EventEmitter {
         if (query.skip_no_address) {
             code += `if (!item.node.rpc_address) return false; `;
         }
+        if (query.strictly_cloud_nodes) {
+            code += `if (!item.node.is_cloud_node) return false; `;
+        }
         if (query.skip_cloud_nodes) {
             code += `if (item.node.is_cloud_node) return false; `;
+        }
+        if (query.strictly_internal) {
+            code += `if (!item.node.is_internal_node) return false; `;
         }
         if (query.skip_internal) {
             code += `if (item.node.is_internal_node) return false; `;

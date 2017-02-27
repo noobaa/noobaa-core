@@ -443,12 +443,11 @@ function upgrade_cluster() {
 }
 
 function upgrade_cloud_agents() {
+    print('\n*** upgrade_cloud_agents ...');
+
     // go over cloud pools and copy
     db.pools.find({
         "deleted": {
-            $exists: false
-        },
-        "cloud_pool_info.agent_info": {
             $exists: false
         },
         "cloud_pool_info": {
@@ -458,19 +457,47 @@ function upgrade_cloud_agents() {
         var path = '/root/node_modules/noobaa-core/agent_storage/noobaa-internal-agent-' + pool.name + '/token';
         var token;
         try {
-            token = cat(path);
-            db.pools.update({
-                _id: pool._id
-            }, {
-                $set: {
-                    "cloud_pool_info.agent_info": {
-                        "node_token": token
+            print('upgrading cloud_pool ' + pool.name);
+            if (!pool.cloud_pool_info.agent_info) {
+                print('adding agent info to ' + pool.name);
+                token = cat(path);
+                db.pools.update({
+                    _id: pool._id
+                }, {
+                    $set: {
+                        "cloud_pool_info.agent_info": {
+                            node_token: token,
+                            cloud_path: "noobaa_blocks/noobaa-internal-agent-" + pool.name
+                        }
                     }
-                }
-            });
+                });
+            } else if (!pool.cloud_pool_info.agent_info.cloud_path) {
+                print('adding cloud path to agent info in ' + pool.name + ' cloud_path = noobaa_blocks/noobaa-internal-agent-' + pool.name);
+                db.pools.update({
+                    _id: pool._id
+                }, {
+                    $set: {
+                        "cloud_pool_info.agent_info.cloud_path": "noobaa_blocks/noobaa-internal-agent-" + pool.name
+                    }
+                });
+            }
         } catch (err) {
             print('encountered error when upgrading cloud pool ' + pool.name + ' ', err);
         }
+    });
+
+    // update cloud node names with pool id instead of pool name
+    var cloud_nodes = db.nodes.find({
+        is_cloud_node: true
+    }).toArray();
+    cloud_nodes.forEach(function(node) {
+        var new_name = 'noobaa-internal-agent-' + node.pool;
+        print('renaming cloud node ' + node.name + ' to ' + new_name);
+        db.nodes.update({ _id: node._id }, {
+            $set: {
+                name: new_name
+            }
+        });
     });
 
 }

@@ -3,7 +3,6 @@
 
 // const _ = require('lodash');
 const azure = require('azure-storage');
-const path = require('path');
 const stream = require('stream');
 
 const P = require('../../util/promise');
@@ -15,9 +14,9 @@ class BlockStoreAzure extends BlockStoreBase {
     constructor(options) {
         super(options);
         this.cloud_info = options.cloud_info;
-        this.blocks_path = this.cloud_info.blocks_path ||
-            'noobaa_blocks/' + options.node_name + '/blocks_tree';
-        this.usage_path = 'noobaa_blocks/' + options.node_name + '/usage';
+        this.base_path = options.cloud_path;
+        this.blocks_path = this.base_path + '/blocks_tree';
+        this.usage_path = this.base_path + '/usage';
         this.usage_md_key = 'noobaa_usage';
         this.blob = azure.createBlobService(this.cloud_info.azure.connection_string);
         this.container_name = this.cloud_info.azure.container;
@@ -182,8 +181,13 @@ class BlockStoreAzure extends BlockStoreBase {
                         this.usage_path, 'usage_data = ', this._usage);
                 }
             }, err => {
-                // first time init, continue without usage info
-                dbg.log0('BlockStoreAzure init: no usage path', err);
+                if (err.code === 'NotFound') {
+                    // first time init, continue without usage info
+                    dbg.log0('BlockStoreAzure init: no usage path');
+                } else {
+                    dbg.error('got error on _read_usage:', err);
+                }
+
             });
     }
 
@@ -206,7 +210,7 @@ class BlockStoreAzure extends BlockStoreBase {
 
     _block_key(block_id) {
         let block_dir = this._get_block_internal_dir(block_id);
-        return path.join(this.blocks_path, block_dir, block_id);
+        return `${this.blocks_path}/${block_dir}/${block_id}`;
     }
 
     _encode_block_md(block_md) {

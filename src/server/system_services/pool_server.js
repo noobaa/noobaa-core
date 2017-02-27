@@ -109,14 +109,11 @@ function create_cloud_pool(req) {
                 pools: [pool]
             }
         })
-        .then(res => {
-            let sys_access_keys = req.system.owner.access_keys[0];
-            return server_rpc.client.hosted_agents.create_agent({
-                name: req.rpc_params.name,
-                access_keys: sys_access_keys,
-                cloud_info: cloud_info,
-            });
-        })
+        .then(res => server_rpc.client.hosted_agents.create_cloud_agent({
+            pool_name: req.rpc_params.name,
+        }, {
+            auth_token: req.auth_token
+        }))
         .then(() => {
             // TODO: should we add different event for cloud pool?
             Dispatcher.instance().activity({
@@ -172,7 +169,7 @@ function read_pool(req) {
 function delete_pool(req) {
     var pool = find_pool_by_name(req);
     if (_is_cloud_pool(pool)) {
-        return _delete_cloud_pool(req.system, pool, req.account);
+        return _delete_cloud_pool(req, pool, req.account);
     } else {
         return _delete_nodes_pool(req.system, pool, req.account);
     }
@@ -208,37 +205,56 @@ function _delete_nodes_pool(system, pool, account) {
         .return();
 }
 
-function _delete_cloud_pool(system, pool, account) {
+function _delete_cloud_pool(req, pool, account) {
     dbg.log0('Deleting cloud pool', pool.name);
-
+    var pool_name = pool.name;
     return P.resolve()
         .then(() => {
             var reason = check_cloud_pool_deletion(pool);
             if (reason) {
                 throw new RpcError(reason, 'Cannot delete pool');
             }
-            return nodes_client.instance().list_nodes_by_pool(pool.name, system._id);
+            return nodes_client.instance().list_nodes_by_pool(pool.name, req.system._id);
         })
         .then(function(pool_nodes) {
+            if (!pool_nodes || pool_nodes.total_count === 0) {
+                // handle edge case where the cloud pool is deleted before it's node is registered in nodes monitor.
+                // in that case, send remove_cloud_agent to hosted_agents, which should also remove the pool.
+                dbg.log0(`cloud_pool ${pool_name} does not have any nodes in nodes_monitor. delete agent and pool from hosted_agents`);
+                return server_rpc.client.hosted_agents.remove_cloud_agent({
+                    cloud_pool_name: pool.name
+                }, {
+                    auth_token: req.auth_token
+                });
+            }
             return P.each(pool_nodes && pool_nodes.nodes, node => {
-                nodes_client.instance().delete_node_by_name(system._id, node.name);
-            });
-        })
-        .then(function() {
-            return system_store.make_changes({
-                remove: {
-                    pools: [pool._id]
-                }
-            });
+                    nodes_client.instance().delete_node_by_name(req.system._id, node.name);
+                })
+                .then(function() {
+                    // rename the deleted pool to avoid an edge case where there are collisions
+                    // with a new cloud pool name
+                    let db_update = {
+                        _id: pool._id,
+                        name: pool.name + '-' + pool._id
+                    };
+                    // mark the cloud pool as pending delete
+                    db_update['cloud_pool_info.pending_delete'] = true;
+                    return system_store.make_changes({
+                        update: {
+                            pools: [db_update]
+                        }
+                    });
+                });
+
         })
         .then(() => {
             Dispatcher.instance().activity({
                 event: 'resource.cloud_delete',
                 level: 'info',
-                system: system._id,
+                system: req.system._id,
                 actor: account && account._id,
                 pool: pool._id,
-                desc: `${pool.name} was deleted by ${account && account.email}`,
+                desc: `${pool_name} was deleted by ${account && account.email}`,
             });
         })
         .return();

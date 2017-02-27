@@ -67,10 +67,16 @@ module.exports = {
                         },
                         node_token: {
                             type: 'string'
+                        },
+                        cloud_pool: {
+                            type: 'string'
                         }
                     }
-                }
+                },
 
+                pending_delete: {
+                    type: 'boolean'
+                },
             }
         }
 

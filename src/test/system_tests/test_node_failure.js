@@ -23,6 +23,7 @@ let TEST_CTX = {
     file_size_mb: 2
 };
 
+
 let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
 let client = rpc.new_client({});
 

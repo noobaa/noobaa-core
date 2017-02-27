@@ -12,6 +12,7 @@ module.exports = {
     id: 'hosted_agents_api',
 
     methods: {
+
         create_agent: {
             method: 'POST',
             params: {
@@ -81,6 +82,22 @@ module.exports = {
 
         },
 
+        create_cloud_agent: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['pool_name'],
+                properties: {
+                    pool_name: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         remove_agent: {
             method: 'POST',
             params: {
@@ -89,6 +106,25 @@ module.exports = {
                 properties: {
                     name: {
                         type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
+
+        remove_cloud_agent: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    node_name: {
+                        type: 'string',
+                    },
+                    cloud_pool_name: {
+                        type: 'string'
                     }
                 }
             },

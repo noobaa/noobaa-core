@@ -683,7 +683,13 @@ module.exports = {
                 deleted: {
                     type: 'boolean',
                 },
+                strictly_internal: {
+                    type: 'boolean'
+                },
                 skip_internal: {
+                    type: 'boolean'
+                },
+                strictly_cloud_nodes: {
                     type: 'boolean'
                 },
                 skip_cloud_nodes: {

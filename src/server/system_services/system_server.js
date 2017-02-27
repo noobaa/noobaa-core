@@ -449,8 +449,8 @@ function read_system(req) {
                     aggregate_data_free_by_tier,
                     obj_count_per_bucket[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
-            pools: _.map(system.pools_by_name,
-                pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
+            pools: _.filter(system.pools_by_name, pool => !_.get(pool, 'cloud_pool_info.pending_delete'))
+                .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier,
                     nodes_aggregate_pool_with_cloud,

@@ -7,20 +7,43 @@ export default function register(ko) {
     ko.components.register('empty', { template: ' ' });
 
     // -------------------------------
-    // Layout
+    // Application
     // -------------------------------
-    ko.components.register('main-layout',                           require('./layout/main-layout/main-layout').default);
-    ko.components.register('main-nav',                              require('./layout/main-nav/main-nav').default);
-    ko.components.register('commands-bar',                          require('./layout/commands-bar/commands-bar').default);
-    ko.components.register('notification-box',                      require('./layout/notification-box/notification-box').default);
-    ko.components.register('debug-mode-sticky',                     require('./layout/debug-mode-sticky/debug-mode-sticky').default);
-    ko.components.register('maintenance-sticky',                    require('./layout/maintenance-sticky/maintenance-sticky').default);
-    ko.components.register('license-sticky',                        require('./layout/license-sticky/license-sticky').default);
-    ko.components.register('phone-home-connectivity-sticky',        require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky').default);
-    ko.components.register('account-menu',                          require('./layout/account-menu/account-menu').default);
-    ko.components.register('modal-manager',                         require('./layout/modal-manager/modal-manager').default);
-    ko.components.register('uploads-indicator', require('./layout/uploads-indicator/uploads-indicator').default);
-    /** INJECT:layout **/
+    ko.components.register('app',           require('./application/app/app').default);
+    ko.components.register('main-layout',   require('./application/main-layout/main-layout').default);
+    ko.components.register('login-layout',  require('./application/login-layout/login-layout').default);
+    ko.components.register('modal-manager', require('./application/modal-manager/modal-manager').default);
+    /** INJECT:application **/
+
+    // -------------------------------
+    // Login
+    // -------------------------------
+    ko.components.register('signin-form',                       require('./login/signin-form/signin-form').default);
+    ko.components.register('create-system-form',                require('./login/create-system-form/create-system-form').default);
+    ko.components.register('unsupported-form',                  require('./login/unsupported-form/unsupported-form').default);
+    ko.components.register('unable-to-activate-modal',          require('./login/unable-to-activate-modal/unable-to-activate-modal').default);
+    ko.components.register('loading-server-information-from',   require('./login/loading-server-information-from/loading-server-information-from').default);
+    ko.components.register('change-password-form',              require('./login/change-password-form/change-password-form').default);
+    /** INJECT:login **/
+
+    // -------------------------------
+    // Main
+    // -------------------------------
+    ko.components.register('main-nav',          require('./main/main-nav/main-nav').default);
+    ko.components.register('commands-bar',      require('./main/commands-bar/commands-bar').default);
+    ko.components.register('notification-box',  require('./main/notification-box/notification-box').default);
+    ko.components.register('account-menu',      require('./main/account-menu/account-menu').default);
+    ko.components.register('uploads-indicator', require('./main/uploads-indicator/uploads-indicator').default);
+    /** INJECT:login **/
+
+    // -------------------------------
+    // Stickies
+    // -------------------------------
+    ko.components.register('debug-mode-sticky',                 require('./stickies/debug-mode-sticky/debug-mode-sticky').default);
+    ko.components.register('maintenance-sticky',                require('./stickies/maintenance-sticky/maintenance-sticky').default);
+    ko.components.register('license-sticky',                    require('./stickies/license-sticky/license-sticky').default);
+    ko.components.register('phone-home-connectivity-sticky',    require('./stickies/phone-home-connectivity-sticky/phone-home-connectivity-sticky').default);
+    /** INJECT:stickies **/
 
     // -------------------------------
     // Modals
@@ -49,18 +72,6 @@ export default function register(ko) {
     ko.components.register('update-system-name-modal',              require('./modals/update-system-name-modal/update-system-name-modal').default);
     ko.components.register('system-upgrade-modal',                  require('./modals/system-upgrade-modal/system-upgrade-modal').default);
     /** INJECT:modals **/
-
-    // -------------------------------
-    // Login
-    // -------------------------------
-    ko.components.register('login-layout',                      require('./login/login-layout/login-layout').default);
-    ko.components.register('signin-form',                       require('./login/signin-form/signin-form').default);
-    ko.components.register('create-system-form',                require('./login/create-system-form/create-system-form').default);
-    ko.components.register('unsupported-form',                  require('./login/unsupported-form/unsupported-form').default);
-    ko.components.register('unable-to-activate-modal',          require('./login/unable-to-activate-modal/unable-to-activate-modal').default);
-    ko.components.register('loading-server-information-from',   require('./login/loading-server-information-from/loading-server-information-from').default);
-    ko.components.register('change-password-form',              require('./login/change-password-form/change-password-form').default);
-    /** INJECT:login **/
 
     // -------------------------------
     // Overview
@@ -239,5 +250,7 @@ export default function register(ko) {
     ko.components.register('collapsible-section',       require('./shared/collapsible-section/collapsible-section').default);
     ko.components.register('chartjs',                   require('./shared/chartjs/chartjs').default);
     ko.components.register('breadcrumbs',               require('./shared/breadcrumbs/breadcrumbs').default);
+    ko.components.register('wizard2', require('./shared/wizard2/wizard2').default);
+    ko.components.register('side-nav', require('./shared/side-nav/side-nav').default);
     /** INJECT:shared **/
 }

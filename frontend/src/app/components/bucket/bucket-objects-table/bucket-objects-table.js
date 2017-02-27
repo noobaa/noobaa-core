@@ -5,7 +5,7 @@ import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import ObjectRowViewModel from './object-row';
 import { navigateTo } from 'actions';
-import { routeContext } from 'model';
+import { routeContext, systemInfo } from 'model';
 import { uploadObjects } from 'dispatchers';
 
 const columns = deepFreeze([
@@ -88,7 +88,8 @@ class BucketObjectsTableViewModel extends BaseViewModel {
     }
 
     uploadFiles(files) {
-        uploadObjects(this.bucketName(), files);
+        const { access_key, secret_key } = systemInfo().owner.access_keys[0];
+        uploadObjects(this.bucketName(), files, access_key, secret_key);
         this.fileSelectorExpanded(false);
     }
 

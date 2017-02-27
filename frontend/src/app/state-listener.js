@@ -4,7 +4,7 @@ import { runAsync } from 'utils/core-utils';
 const stateSub = Symbol('stateSub');
 const prevState = Symbol('prevState');
 
-export default class StateAwareViewModel {
+export default class StateListener {
     constructor() {
         this[stateSub] = undefined;
         this[prevState] = undefined;
@@ -20,7 +20,7 @@ export default class StateAwareViewModel {
 
         // Check if the class override the onState before applying state
         // notifications.
-        if (this.onState !== StateAwareViewModel.prototype.onState) {
+        if (this.onState !== StateListener.prototype.onState) {
             // Wait for child class constructor to execute before
             // adding the subscription.
             runAsync(() => {

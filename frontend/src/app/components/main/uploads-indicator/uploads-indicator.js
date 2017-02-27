@@ -1,12 +1,12 @@
 import template from './uploads-indicator.html';
-import StateAwareViewModel from 'components/state-aware-view-model';
+import StateListener from 'state-listener';
 import ko from 'knockout';
 import style from 'style';
 import { openFileUploadsModal } from 'dispatchers';
 // import numeral from 'numeral';
 // import moment from 'moment';
 
-class UploadsIndicatorViewModel extends StateAwareViewModel {
+class UploadsIndicatorViewModel extends StateListener {
     constructor() {
         super();
 

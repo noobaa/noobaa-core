@@ -21,7 +21,6 @@ const usedTargetTooltip = deepFreeze({
 class AddCloudResourceModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
-
         this.onClose = onClose;
 
         const cloudConnections = ko.pureComputed(

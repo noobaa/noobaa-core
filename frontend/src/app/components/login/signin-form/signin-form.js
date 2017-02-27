@@ -47,7 +47,7 @@ class SignInFormViewModel extends BaseViewModel {
                 this.email(),
                 this.password(),
                 this.keepSessionAlive(),
-                uiState().returnUrl);
+            );
         }
     }
 }

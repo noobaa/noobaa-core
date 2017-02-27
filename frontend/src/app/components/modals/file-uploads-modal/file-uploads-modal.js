@@ -1,5 +1,5 @@
 import template from './file-uploads-modal.html';
-import StateAwareViewModel from 'components/state-aware-view-model';
+import StateListener from 'state-listener';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
@@ -16,7 +16,7 @@ const columns = deepFreeze([
     'progress'
 ]);
 
-class FileUploadsModalViewModel extends StateAwareViewModel {
+class FileUploadsModalViewModel extends StateListener {
     constructor({ onClose }) {
         super();
 

@@ -1,5 +1,5 @@
 import { isFunction } from 'utils/core-utils';
-import StateAwareViewModel from 'components/state-aware-view-model';
+import StateListener from 'state-listener';
 
 const disposeList = Symbol('disposeList');
 
@@ -14,7 +14,7 @@ function isValidationGroup(group) {
         isFunction (group.isAnyMessageShown);
 }
 
-export default class BaseViewModel extends StateAwareViewModel {
+export default class BaseViewModel extends StateListener {
     constructor() {
         super();
 

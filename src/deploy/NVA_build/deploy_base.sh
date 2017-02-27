@@ -165,16 +165,16 @@ function install_mongo {
     deploy_log "----> install_mongo start"
 
     mkdir -p /var/lib/mongo/cluster/shard1
-    # create a Mongo 3.2 Repo file
-    cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
+    # create a Mongo 3.4 Repo file
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.4.repo
 
     # install the needed RPM
     yum install -y \
-		mongodb-org-3.2.1 \
-		mongodb-org-server-3.2.1 \
-		mongodb-org-shell-3.2.1 \
-		mongodb-org-mongos-3.2.1 \
-		mongodb-org-tools-3.2.1
+		mongodb-org-3.4.2 \
+		mongodb-org-server-3.4.2 \
+		mongodb-org-shell-3.4.2 \
+		mongodb-org-mongos-3.4.2 \
+		mongodb-org-tools-3.4.2
 
     # pin mongo version in yum, so it won't auto update
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf

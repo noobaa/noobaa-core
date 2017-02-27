@@ -104,8 +104,6 @@ function mongo_upgrade {
       deploy_log "finished mongo data upgrade"
   fi
 
-
-
   enable_autostart
 
   ${SUPERCTL} update

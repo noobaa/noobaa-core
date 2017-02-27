@@ -245,6 +245,32 @@ module.exports = {
             }
         },
 
+        get_node_installation_string: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['os_type'],
+                properties: {
+                    exclude_drives: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    os_type: {
+                        type: 'string',
+                        enum: ['LINUX', 'WINDOWS']
+                    }
+                }
+            },
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_n2n_config: {
             method: 'POST',
             params: {
@@ -511,9 +537,7 @@ module.exports = {
                 ssl_port: {
                     type: 'string'
                 },
-                web_port: {
-                    type: 'string'
-                },
+                // TODO: Should be removed by Ohad
                 web_links: {
                     type: 'object',
                     properties: {

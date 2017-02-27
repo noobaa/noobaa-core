@@ -457,7 +457,7 @@ function read_system(req) {
                     aggregate_data_free_by_tier[tier.name])),
             storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
-            }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),
+            }, nodes_aggregate_pool_with_cloud.storage, SYS_STORAGE_DEFAULTS)),
             nodes: _.defaults({}, nodes_aggregate_pool_no_cloud.nodes, SYS_NODES_INFO_DEFAULTS),
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report || 0,

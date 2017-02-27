@@ -14,6 +14,8 @@ const MDStore = require('../object_services/md_store').MDStore;
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 
+const HUGE_LIST_SIZE = 100000;
+
 class PolicyMap extends Map {
     static create() {
         return Object.setPrototypeOf(new Map(), new PolicyMap());
@@ -191,7 +193,7 @@ function pretty_policy(policy) {
 
 //TODO:: add limit and skip
 //Preferably move part of list_objects to a mutual function called by both
-function list_all_objects(sysid, bucket) {
+function list_all_objects(bucket) {
     return MDStore.instance().list_all_objects_of_bucket_ordered_by_key(bucket);
 }
 
@@ -249,7 +251,7 @@ function diff_worklists(wl1, wl2, sync_time) {
     var pos1 = 0;
     var pos2 = 0;
 
-    var comp = function(a, b, sync_time) {
+    function comp(a, b) {
         if (_.isUndefined(a) && !_.isUndefined(b)) {
             return -1;
         } else if (_.isUndefined(b) && !_.isUndefined(a)) {
@@ -265,7 +267,7 @@ function diff_worklists(wl1, wl2, sync_time) {
         } else {
             return 0;
         }
-    };
+    }
 
 
     if (wl1.length === 0 || wl2.length === 0) {
@@ -481,6 +483,8 @@ function update_c2n_worklist(policy) {
         Contents: []
     };
 
+    // list all objects in the cloud and hold it in listObjectsResponse.Contents
+    //TODO: SCALE!!! bucket with a lot of objects can consume a lot of memory
     return promise_utils.pwhile(
             function() {
                 return listObjectsResponse.IsTruncated;
@@ -520,6 +524,9 @@ function update_c2n_worklist(policy) {
                         if (list.length) {
                             listObjectsResponse.Contents = _.concat(listObjectsResponse.Contents, list);
                             params.Marker = list[list.length - 1].Key;
+                        }
+                        if (listObjectsResponse.Contents.length > HUGE_LIST_SIZE) {
+                            dbg.warn(`listObjects from cloud bucket ${policy.target_bucket} alredy returned over ${listObjectsResponse.Contents.length} objects`);
                         }
                     });
             })

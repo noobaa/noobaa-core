@@ -375,7 +375,7 @@ function read_system(req) {
             system._id),
 
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket =>
-                node_allocator.refresh_tiering_alloc(bucket.tiering)))
+            node_allocator.refresh_tiering_alloc(bucket.tiering)))
     }).then(({
         nodes_aggregate_pool_no_cloud,
         nodes_aggregate_pool_with_cloud,
@@ -463,7 +463,6 @@ function read_system(req) {
             last_stats_report: system.last_stats_report || 0,
             maintenance_mode: maintenance_mode,
             ssl_port: process.env.SSL_PORT,
-            web_port: process.env.PORT,
             web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
@@ -480,15 +479,9 @@ function read_system(req) {
         // fill cluster information if we have a cluster.
         response.cluster = cutil.get_cluster_info();
 
-        if (system.base_address) {
-            let hostname = url.parse(system.base_address).hostname;
-
-            if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
-                response.ip_address = hostname;
-            } else {
-                response.dns_name = hostname;
-            }
-        }
+        const res = _get_ip_and_dns(system);
+        response.ip_address = res.ip_address;
+        response.dns_name = res.dns_name;
 
         response.accounts = accounts;
 
@@ -694,6 +687,39 @@ function get_system_web_links(system) {
     });
     // remove keys with undefined values
     return _.omitBy(reply, _.isUndefined);
+}
+
+
+function get_node_installation_string(req) {
+    return P.resolve()
+        .then(() => {
+            const system = req.system;
+            const res = _get_ip_and_dns(system);
+            const server_ip = res.dns_name ? res.dns_name : res.ip_address;
+            const linux_agent_installer = `noobaa-setup-${pkg.version}`;
+            const agent_installer = `noobaa-setup-${pkg.version}.exe`;
+            const { access_key, secret_key } = system.owner.access_keys[0];
+            const agent_conf = {
+                address: system.base_address,
+                system: system.name,
+                access_key: access_key,
+                secret_key: secret_key,
+                tier: 'nodes',
+                root_path: './agent_storage/',
+                exclude_drives: req.rpc_params.exclude_drives ? req.rpc_params.exclude_drives : []
+            };
+            const base64_configuration = new Buffer(JSON.stringify(agent_conf)).toString('base64');
+            switch (req.rpc_params.os_type) {
+                case 'LINUX':
+                    return `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} /S /config ${base64_configuration}`;
+
+                case 'WINDOWS':
+                    return `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`;
+
+                default:
+                    throw new Error(`INVALID_OS_TYPE: ${req.rpc_params.os_type} is not supported`);
+            }
+        });
 }
 
 
@@ -1029,6 +1055,23 @@ function get_system_info(system, get_id) {
     }
 }
 
+
+function _get_ip_and_dns(system) {
+    let response = {};
+    response.ip_address = ip_module.address();
+    if (system.base_address) {
+        let hostname = url.parse(system.base_address).hostname;
+
+        if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
+            response.ip_address = hostname;
+        } else {
+            response.dns_name = hostname;
+        }
+    }
+    return response;
+}
+
+
 function find_account_by_email(req) {
     var account = system_store.get_account_by_email(req.rpc_params.email);
     if (!account) {
@@ -1103,3 +1146,4 @@ exports.configure_remote_syslog = configure_remote_syslog;
 exports.set_certificate = set_certificate;
 
 exports.validate_activation = validate_activation;
+exports.get_node_installation_string = get_node_installation_string;

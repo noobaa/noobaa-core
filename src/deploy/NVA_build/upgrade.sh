@@ -3,7 +3,11 @@
 # redirect the output log file to syslog (http://urbanautomaton.com/blog/2014/09/09/redirecting-bash-script-output-to-syslog)
 exec 1> >(logger -t UPGRADE -p local0.warn) 2>&1
 
-EXTRACTION_PATH="/tmp/test/"
+if [ -d /tmp/test/ ]; then
+  EXTRACTION_PATH="/tmp/test/"
+else
+  EXTRACTION_PATH="/root/node_modules"
+fi
 
 . ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 . ${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/common_funcs.sh

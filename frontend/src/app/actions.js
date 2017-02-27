@@ -36,6 +36,24 @@ function logAction(action, payload) {
 // -----------------------------------------------------
 // Applicaiton start action
 // -----------------------------------------------------
+
+// REFACTOR: This action was refactored into dispatcher + state action.
+// This code will be removed after all referneces to modal.systemInfo will
+// be refactored to use the state stream.
+// ----------------------------------------------------------------------
+// stateActions
+//     .filter(action => action.type === 'SESSION_RESTORED')
+//     .map(action => {
+//         const { account, system } = action;
+//         return {
+//             user: account.email,
+//             system: system.name,
+//             mustChangePassword: account.must_change_password
+//         };
+//     })
+//     .subscribe(model.sessionInfo);
+// ----------------------------------------------------------------------
+
 export function start() {
     logAction('start');
 
@@ -120,7 +138,6 @@ export function refresh() {
 
     // Refresh the current path
     page.redirect(pathname + search);
-    model.refreshCounter(model.refreshCounter() + 1);
 }
 
 // -----------------------------------------------------
@@ -129,11 +146,8 @@ export function refresh() {
 export function showLogin() {
     logAction('showLogin');
 
-    const ctx = model.routeContext();
-
     model.uiState({
-        layout: 'login-layout',
-        returnUrl: ctx.query.returnUrl
+        layout: 'login-layout'
     });
 
     loadServerInfo();
@@ -143,9 +157,7 @@ export function showOverview() {
     logAction('showOverview');
 
     model.uiState({
-        layout: 'main-layout',
-        selectedNavItem: 'overview',
-        panel: 'overview'
+        layout: 'main-layout'
     });
 }
 
@@ -154,8 +166,6 @@ export function showBuckets() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'buckets',
-        panel: 'buckets',
         tab: 'buckets'
     });
 }
@@ -169,8 +179,6 @@ export function showBucket() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'buckets',
-        panel: 'bucket',
         tab: tab
     });
 
@@ -186,8 +194,6 @@ export function showObject() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'buckets',
-        panel: 'object',
         tab: tab
     });
 
@@ -203,8 +209,6 @@ export function showResources() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'resources',
-        panel: 'resources',
         tab: tab
     });
 }
@@ -217,8 +221,6 @@ export function showPool() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'resources',
-        panel: 'pool',
         tab: tab
     });
 
@@ -236,8 +238,6 @@ export function showNode() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'resources',
-        panel: 'node',
         tab: tab
     });
 
@@ -252,8 +252,6 @@ export function showManagement() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'management',
-        panel: 'management',
         tab: tab,
         section: section,
         working: model.uiState().working
@@ -268,8 +266,6 @@ export function showAccount() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'management',
-        panel: 'account',
         tab: tab
     });
 }
@@ -282,8 +278,6 @@ export function showCluster() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'cluster',
-        panel: 'cluster',
         tab: tab
     });
 }
@@ -297,8 +291,6 @@ export function showServer() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'cluster',
-        panel: 'server',
         tab: tab
     });
 }
@@ -307,9 +299,7 @@ export function showFuncs() {
     logAction('showFuncs');
 
     model.uiState({
-        layout: 'main-layout',
-        selectedNavItem: 'funcs',
-        panel: 'funcs'
+        layout: 'main-layout'
     });
 
     loadFuncs();
@@ -323,8 +313,6 @@ export function showFunc() {
 
     model.uiState({
         layout: 'main-layout',
-        selectedNavItem: 'funcs',
-        panel: 'func',
         tab: tab
     });
 

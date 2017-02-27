@@ -1,31 +1,33 @@
 import mainLayoutReducer from './main-layout-reducer';
-import loginLayoutReducer from './login-layout-reducer';
-import { deepFreeze, noop } from 'utils/core-utils';
+// import loginLayoutReducer from './login-layout-reducer';
+// import { deepFreeze, noop } from 'utils/core-utils';
 
-const layoutReducerMapping = deepFreeze({
-    main: mainLayoutReducer,
-    login: loginLayoutReducer
-});
+// const layoutReducerMapping = deepFreeze({
+//     main: mainLayoutReducer,
+//     login: loginLayoutReducer
+// });
 
-export default function(state = {}, action) {
-    const { layout } = state;
-    let reducerName = layout && layout.name;
+export default mainLayoutReducer;
 
-    switch(action.type) {
-        case 'SESSION_RESTORED':
-            reducerName = action.passwordExpired ? 'login' : 'main';
-            break;
+// export default function(state = {}, action) {
+//     const { layout } = state;
+//     let reducerName = layout && layout.name;
 
-        case 'SIGNED_IN':
-            reducerName = 'main';
-            break;
+//     switch(action.type) {
+//         case 'SESSION_RESTORED':
+//             reducerName = action.passwordExpired ? 'login' : 'main';
+//             break;
 
-        case 'RESOTREING_SESSION_FAILED':
-        case 'SIGN_OUT':
-            reducerName = 'login';
-            break;
-    }
+//         case 'SIGNED_IN':
+//             reducerName = 'main';
+//             break;
 
-    const reducer = layoutReducerMapping[reducerName] || noop;
-    return reducer(state, action);
-}
+//         case 'RESOTREING_SESSION_FAILED':
+//         case 'SIGN_OUT':
+//             reducerName = 'login';
+//             break;
+//     }
+
+//     const reducer = layoutReducerMapping[reducerName] || noop;
+//     return reducer(state, action);
+// }

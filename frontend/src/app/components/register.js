@@ -29,7 +29,6 @@ export default function register(ko) {
     // -------------------------------
     // Main
     // -------------------------------
-    ko.components.register('main-nav',          require('./main/main-nav/main-nav').default);
     ko.components.register('commands-bar',      require('./main/commands-bar/commands-bar').default);
     ko.components.register('notification-box',  require('./main/notification-box/notification-box').default);
     ko.components.register('account-menu',      require('./main/account-menu/account-menu').default);
@@ -250,7 +249,6 @@ export default function register(ko) {
     ko.components.register('collapsible-section',       require('./shared/collapsible-section/collapsible-section').default);
     ko.components.register('chartjs',                   require('./shared/chartjs/chartjs').default);
     ko.components.register('breadcrumbs',               require('./shared/breadcrumbs/breadcrumbs').default);
-    ko.components.register('wizard2', require('./shared/wizard2/wizard2').default);
-    ko.components.register('side-nav', require('./shared/side-nav/side-nav').default);
+    ko.components.register('side-nav',                  require('./shared/side-nav/side-nav').default);
     /** INJECT:shared **/
 }

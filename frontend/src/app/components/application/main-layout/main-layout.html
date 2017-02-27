@@ -18,7 +18,10 @@
     </header>
 
     <div class="row greedy push-next">
-        <side-nav class="column" params="items: navItems, selected: area"></side-nav>
+        <div class="column main-nav">
+            <side-nav class="greedy" params="items: navItems, selected: area"></side-nav>
+            <uploads-indicator></uploads-indicator>
+        </div>
 
         <!-- ko if: panel -->
         <main class="column greedy bounded" data-bind="

@@ -89,6 +89,7 @@ class Agent {
             if (params.cloud_info) {
                 this.cloud_info = params.cloud_info;
                 block_store_options.cloud_info = params.cloud_info;
+                block_store_options.cloud_path = params.cloud_path;
                 if (params.cloud_info.endpoint_type === 'AWS' || params.cloud_info.endpoint_type === 'S3_COMPATIBLE') {
                     this.block_store = new BlockStoreS3(block_store_options);
                 } else if (params.cloud_info.endpoint_type === 'AZURE') {
@@ -213,6 +214,7 @@ class Agent {
         this.rpc.set_disconnected_state(true);
         this.rpc_address = '';
         clearTimeout(this._test_connection_timeout);
+        if (this._server_connection) this._server_connection.close();
         this._start_stop_server();
         // TODO: for now commented out the update_n2n_config. revisit if needed (issue #2379)
         // // reset the n2n config to close any open ports

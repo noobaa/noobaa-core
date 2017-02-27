@@ -72,7 +72,7 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list) {
             usage_type: 'CLOUD_SYNC'
         })) : [];
     const cloud_resource_targets = pool_list ? pool_list.filter(pool =>
-            (pool.cloud_pool_info && pool.cloud_pool_info.endpoint_type === endpoint_type))
+            (pool.cloud_pool_info && !pool.cloud_pool_info.pending_delete && pool.cloud_pool_info.endpoint_type === endpoint_type))
         .map(pool_with_cloud_resource => ({
             endpoint: pool_with_cloud_resource.cloud_pool_info.endpoint,
             endpoint_type: pool_with_cloud_resource.cloud_pool_info.endpoint_type,

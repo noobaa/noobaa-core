@@ -1,11 +1,11 @@
 import template from './commands-bar.html';
-import StateAwareViewModel from 'components/state-aware-view-model';
+import StateListener from 'state-listener';
 import ko from 'knockout';
 import { refresh } from 'actions';
 import { openAuditDrawer, openAlertsDrawer, getUnreadAlertsCount } from 'dispatchers';
 import { sleep } from 'utils/promise-utils';
 
-class CommandBarViewModel extends StateAwareViewModel {
+class CommandBarViewModel extends StateListener {
     constructor() {
         super();
 

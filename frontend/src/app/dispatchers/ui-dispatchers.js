@@ -1,13 +1,6 @@
 import { dispatch } from 'state-actions';
 
 // -------------------------------
-// Navigation action dispatchers
-// -------------------------------
-export function locationChanged(path, route, params, query) {
-    dispatch({ type: 'LOCATION_CHANGED', path, route, params, query });
-}
-
-// -------------------------------
 // Drawer action dispatchers
 // -------------------------------
 export function openAuditDrawer() {

@@ -1,11 +1,11 @@
 import template from './modal-manager.html';
-import StateAwareViewModel from 'components/state-aware-view-model';
+import StateListener from 'state-listener';
 import Modal from './modal';
 import ko from 'knockout';
 import { last } from 'utils/core-utils';
 import { closeActiveModal } from 'dispatchers';
 
-class ModalManagerViewModel extends StateAwareViewModel {
+class ModalManagerViewModel extends StateListener {
     constructor() {
         super();
 

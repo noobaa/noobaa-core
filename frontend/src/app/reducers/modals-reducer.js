@@ -56,15 +56,6 @@ function onOpenInstallNodesModal(modals) {
     });
 }
 
-function onOpenAfterUpgradeModal(modals) {
-    return _openModal(modals, {
-        component: 'after-upgrade-modal',
-        options: {
-            size: 'xsmall'
-        }
-    });
-}
-
 function onOpenAddCloudResrouceModal(modals) {
     return _openModal(modals, {
         component: 'add-cloud-resource-modal',
@@ -312,7 +303,7 @@ function onLocationChanged(modals, { query }) {
         });
 
     } else {
-        return modals;
+        return initialState;
     }
 }
 

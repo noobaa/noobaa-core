@@ -1,9 +1,6 @@
 import template from './main-nav.html';
-import BaseViewModel from 'components/base-view-model';
-import { uiState } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import ko from 'knockout';
-
 
 const navItems = deepFreeze([
     /*{
@@ -54,18 +51,14 @@ const navItems = deepFreeze([
     }
 ]);
 
-class NavMenuViewModel extends BaseViewModel {
-    constructor() {
-        super();
-
+class NavMenuViewModel {
+    constructor({ selectedItem }) {
         this.items = navItems;
-        this.selectedItem = ko.pureComputed(
-            () => uiState().selectedNavItem
-        );
+        this.selectedItem = selectedItem;
     }
 
     isSelected(item) {
-        return item === this.selectedItem();
+        return item === ko.unwrap(this.selectedItem);
     }
 }
 

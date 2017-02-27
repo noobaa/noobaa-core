@@ -1,5 +1,5 @@
 import template from './alerts-pane.html';
-import StateAwareViewModel from 'components/state-aware-view-model';
+import StateListener from 'state-listener';
 import AlertRowViewModel from './alert-row';
 import ko from 'knockout';
 import { fetchAlerts, updateAlerts, dropAlertsState } from 'dispatchers';
@@ -13,7 +13,7 @@ const severityOptions = deepFreeze([
     { label: 'minor', value: 'INFO' }
 ]);
 
-class AlertsPaneViewModel extends StateAwareViewModel {
+class AlertsPaneViewModel extends StateListener {
     constructor({ onClose }) {
         super();
 

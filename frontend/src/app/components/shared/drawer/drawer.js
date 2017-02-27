@@ -1,10 +1,10 @@
 import template from './drawer.html';
-import StateAwareViewModel from 'components/state-aware-view-model';
+import StateListener from 'state-listener';
 import ko from 'knockout';
 import { closeActiveDrawer } from 'dispatchers';
 import { runAsync } from 'utils/core-utils';
 
-class DrawerViewModel extends StateAwareViewModel {
+class DrawerViewModel extends StateListener {
     constructor() {
         super();
         this.component = ko.observable();

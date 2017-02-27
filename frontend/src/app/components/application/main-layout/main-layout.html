@@ -1,0 +1,32 @@
+<section class="sticky-wrapper">
+    <maintenance-sticky></maintenance-sticky>
+    <debug-mode-sticky></debug-mode-sticky>
+    <phone-home-connectivity-sticky></phone-home-connectivity-sticky>
+    <license-sticky></license-sticky>
+</section>
+
+<div class="content-wrapper column greedy">
+    <header class="main-header push-next">
+        <a class="link no-outline logo" data-bind="href: { route: 'system' }">
+            <svg-icon params="name: 'logo'"></svg-icon>
+        </a>
+
+        <breadcrumbs class="greedy push-both" params="crumbs: breadcrumbs">
+        </breadcrumbs>
+        <commands-bar class="push-next"></commands-bar>
+        <account-menu></account-menu>
+    </header>
+
+    <div class="row greedy push-next">
+        <side-nav class="column" params="items: navItems, selected: area"></side-nav>
+
+        <!-- ko if: panel -->
+        <main class="column greedy bounded" data-bind="
+            component: panel,
+            css: panel
+        "></main>
+        <!-- /ko -->
+    </div>
+    <notification-box></notification-box>
+    <drawer></drawer>
+</div>

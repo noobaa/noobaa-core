@@ -2,7 +2,7 @@ import template from './app.html';
 import StateListener from 'state-listener';
 import ko from 'knockout';
 import { uiState, previewMode } from 'model';
-import { restoreSession } from 'dispatchers';
+// import { restoreSession } from 'dispatchers';
 
 class AppViewModel extends StateListener {
     constructor() {

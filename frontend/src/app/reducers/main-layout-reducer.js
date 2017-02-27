@@ -87,13 +87,13 @@ function onApplicationInit() {
     return initialState;
 }
 
-function onSignedIn() {
-    return initialState;
-}
+// function onSignedIn() {
+//     return initialState;
+// }
 
-function onSessionRestored() {
-    return initialState;
-}
+// function onSessionRestored() {
+//     return initialState;
+// }
 
 function onLocationChanged(state, { route, params } ) {
     const { panel, area, crumbsGenerator } = routeMapping[route] || {};
@@ -238,7 +238,7 @@ function _generateFunctionCrumbs(params) {
 // ------------------------------
 export default createReducer({
     APPLICATION_INIT: onApplicationInit,
-    SESSION_RESTORED: onSessionRestored,
-    SIGNED_IN: onSignedIn,
+    // SESSION_RESTORED: onSessionRestored,
+    // SIGNED_IN: onSignedIn,
     LOCATION_CHANGED: onLocationChanged
 });

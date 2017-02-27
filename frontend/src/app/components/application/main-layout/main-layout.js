@@ -2,7 +2,9 @@ import template from './main-layout.html';
 import StateListener from 'state-listener';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { registerForAlerts } from 'actions';
+import { sessionInfo } from 'model';
 import * as routes from 'routes';
 
 const navItems = deepFreeze([
@@ -58,7 +60,12 @@ class MainLayoutViewModel extends StateListener {
     constructor() {
         super();
 
-        this.navItems = navItems;
+        this.navItems = navItems.map(
+            item => ({
+                ...item,
+                url: realizeUri(item.route, { system: sessionInfo().system })
+            })
+        );
         this.breadcrumbs = ko.observable([]);
         this.area = ko.observable();
         this.panel = ko.observable('');
@@ -75,7 +82,7 @@ class MainLayoutViewModel extends StateListener {
 
         this.breadcrumbs(breadcrumbs);
         this.area(area);
-        this.panel(`${panel}-panel`);
+        this.panel(panel ? `${panel}-panel` : 'empty');
     }
 }
 

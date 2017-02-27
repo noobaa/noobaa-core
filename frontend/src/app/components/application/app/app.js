@@ -8,18 +8,15 @@ class AppViewModel extends StateListener {
     constructor() {
         super();
 
-        this.layout = ko.pureComputed(
-            () => uiState().layout
-        );
-
+        this.layout = ko.pureComputed(() => uiState().layout);
         this.previewMode = ko.pureComputed(previewMode);
 
-        restoreSession();
+        // restoreSession();
     }
 
-    stateEventsFilter(state) {
-        return [ state.session, state.layout ];
-    }
+    // stateEventsFilter(state) {
+    //     return [ state.layout ];
+    // }
 
     // onState({ layout }) {
     //     this.layout(`${layout.name}-layout`);

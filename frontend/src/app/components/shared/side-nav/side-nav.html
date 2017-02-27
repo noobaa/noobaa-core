@@ -1,7 +1,7 @@
 <nav class="column">
     <!-- ko foreach: items -->
     <a class="nav-link link row alt-colors no-outline pad content-middle" data-bind="
-
+        attr: { href: url },
         css: { selected: $component.isSelected(name), 'preview-only': $data.preview }
     ">
         <svg-icon class="highlight" params="name: icon" data-bind="

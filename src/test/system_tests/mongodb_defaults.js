@@ -47,6 +47,16 @@ db.getSiblingDB("nbcore").buckets.remove({
 db.getSiblingDB("nbcore").buckets.updateMany({}, {
     $unset: {
         cloud_sync: true
+    },
+    $set: {
+        storage_stats: {
+            chunks_capacity: 0,
+            blocks_size: 0,
+            objects_size: 0,
+            objects_count: 0,
+            objects_hist: [],
+            last_update: Date.now()
+        }
     }
 });
 

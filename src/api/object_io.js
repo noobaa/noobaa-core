@@ -798,7 +798,9 @@ class ObjectIO {
                     key: params.key
                 })
                 .then(({ object_info }) => {
-                    let validated = object_info.version_id === data.object_md.version_id &&
+                    let validated = object_info &&
+                        data.object_md &&
+                        object_info.version_id === data.object_md.version_id &&
                         object_info.etag === data.object_md.etag &&
                         object_info.size === data.object_md.size &&
                         object_info.create_time === data.object_md.create_time;

@@ -222,8 +222,7 @@ function verify_object_lists_after_delete(params) {
 }
 
 function main() {
-    return authenticate()
-        .then(() => run_basic_test())
+    return run_basic_test()
         .then(() => run_policy_edit_test())
         .then(() => {
             console.log('test_cloud_sync PASSED');
@@ -249,7 +248,8 @@ function run_basic_test() {
         suffix: 'test1-target'
     });
 
-    return _create_bucket(source_params).then(() => _create_bucket(target_params))
+    return authenticate()
+        .then(() => _create_bucket(source_params).then(() => _create_bucket(target_params)))
         .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
         .then(function(res_file_names) {
             let i = 0;

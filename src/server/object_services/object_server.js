@@ -365,18 +365,10 @@ function copy_object(req) {
                 cloud_synced: false,
                 upload_size: 0,
                 upload_started: new Date(),
+                xattr: req.rpc_params.xattr
             };
             if (source_obj.md5_b64) create_info.md5_b64 = source_obj.md5_b64;
             if (source_obj.sha256_b64) create_info.sha256_b64 = source_obj.sha256_b64;
-            if (req.rpc_params.xattr_copy) {
-                create_info.xattr = source_obj.xattr;
-            } else if (req.rpc_params.xattr) {
-                create_info.xattr = req.rpc_params.xattr;
-            }
-            // check if the conditions for overwrite are met, throws if not
-            check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
-            check_md_conditions(req, req.rpc_params.source_if, source_obj);
-            // we passed the checks, so we can delete the existing object if exists
             return delete_object_internal(existing_obj);
         })
         .then(() => MDStore.instance().insert_object(create_info))
@@ -498,10 +490,12 @@ function read_node_mappings(req) {
 function read_object_md(req) {
     dbg.log0('read_obj(1):', req.rpc_params);
     const adminfo = req.rpc_params.adminfo;
-    let info;
+    let object_info = {};
+    let obj_md;
     return find_object_md(req)
         .then(obj => {
-            info = get_object_info(obj);
+            obj_md = obj;
+            object_info = get_object_info(obj);
             if (!adminfo || req.role !== 'admin') return;
 
             // using the internal IP doesn't work when there is a different external ip
@@ -511,7 +505,7 @@ function read_object_md(req) {
                 url.parse(req.system.base_address || '').hostname ||
                 ip_module.address();
             const account_keys = req.account.access_keys[0];
-            info.s3_signed_url = cloud_utils.get_signed_url({
+            object_info.s3_signed_url = cloud_utils.get_signed_url({
                 endpoint: endpoint,
                 access_key: account_keys.access_key,
                 secret_key: account_keys.secret_key,
@@ -524,14 +518,17 @@ function read_object_md(req) {
                     adminfo: true
                 })
                 .then(parts => {
-                    info.total_parts_count = parts.length;
-                    info.capacity_size = _.reduce(parts, (sum_capacity, part) => {
+                    object_info.total_parts_count = parts.length;
+                    object_info.capacity_size = _.reduce(parts, (sum_capacity, part) => {
                         let frag = part.chunk.frags[0];
                         return sum_capacity + (frag.size * frag.blocks.length);
                     }, 0);
                 });
         })
-        .then(() => info);
+        .then(() => ({
+            object_info,
+            md_conditions_res: _get_md_conditions(req.rpc_params.conditions, obj_md)
+        }));
 }
 
 
@@ -890,44 +887,35 @@ function delete_object_internal(obj) {
 
 function check_md_conditions(req, conditions, obj) {
     const res = _get_md_conditions(conditions, obj);
-    if (res) throw new RpcError(res);
-}
-
-function get_md_conditions(req) {
-    load_bucket(req);
-    return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key)
-        .then(obj => {
-            const result = _get_md_conditions(req.rpc_params.conditions, obj);
-            return result ? { result } : result;
+    if (res) {
+        Object.keys(res).forEach(key => {
+            if (res[key] === false) throw new RpcError(res[key], 'failed precondition check');
         });
+    }
 }
 
 function _get_md_conditions(conditions, obj) {
     if (!conditions) {
         return;
     }
+    let res = {};
     if (conditions.if_modified_since) {
-        if (!obj ||
-            conditions.if_modified_since < obj._id.getTimestamp().getTime()) {
-            return 'IF_MODIFIED_SINCE';
-        }
+        res.IF_MODIFIED_SINCE = Boolean(!obj ||
+            conditions.if_modified_since < obj._id.getTimestamp().getTime());
     }
     if (conditions.if_unmodified_since) {
-        if (!obj ||
-            conditions.if_unmodified_since > obj._id.getTimestamp().getTime()) {
-            return 'IF_UNMODIFIED_SINCE';
-        }
+        res.IF_UNMODIFIED_SINCE = Boolean(!obj ||
+            conditions.if_unmodified_since > obj._id.getTimestamp().getTime());
     }
-    if (conditions.if_match_etag) {
-        if (!(obj && http_utils.match_etag(conditions.if_match_etag, obj.etag))) {
-            return 'IF_MATCH_ETAG';
-        }
+    if (conditions.if_match) {
+        res.IF_MATCH_ETAG = Boolean(obj &&
+            http_utils.match_etag(conditions.if_match, obj.etag));
     }
-    if (conditions.if_none_match_etag) {
-        if (obj && http_utils.match_etag(conditions.if_none_match_etag, obj.etag)) {
-            return 'IF_NONE_MATCH_ETAG';
-        }
+    if (conditions.if_none_match) {
+        res.IF_NONE_MATCH_ETAG = Boolean(!obj ||
+            !http_utils.match_etag(conditions.if_none_match, obj.etag));
     }
+    return res;
 }
 
 function throw_if_maintenance(req) {
@@ -957,7 +945,6 @@ exports.read_node_mappings = read_node_mappings;
 // object meta-data
 exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
-exports.get_md_conditions = get_md_conditions;
 // deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;

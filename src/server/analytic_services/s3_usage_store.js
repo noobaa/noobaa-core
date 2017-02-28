@@ -26,6 +26,7 @@ class S3UsageStore {
     }
 
     update_usage(system, usage_info, errors_info) {
+        // There might be a bug here as I saw it getting here with no system
         dbg.log1('update_usage');
         let update = {
             $inc: {}

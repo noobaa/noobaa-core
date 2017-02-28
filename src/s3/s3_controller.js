@@ -4,11 +4,12 @@
 const _ = require('lodash');
 const uuid = require('node-uuid');
 const moment = require('moment');
+
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const RpcError = require('../rpc/rpc_error');
 const ObjectIO = require('../api/object_io');
 const s3_errors = require('./s3_errors');
-const http_utils = require('../util/http_utils');
 const time_utils = require('../util/time_utils');
 
 dbg.set_level(5);
@@ -450,20 +451,45 @@ class S3Controller {
      * (aka read object meta-data)
      */
     head_object(req, res) {
+
         this.usage_report.s3_usage_info.head_object += 1;
-        return req.rpc_client.object.read_object_md(this._object_path(req))
-            .then(object_md => {
-                req.object_md = object_md;
-                res.setHeader('ETag', `"${object_md.etag}"`);
-                res.setHeader('Last-Modified', to_aws_date_for_http_header(object_md.create_time));
-                res.setHeader('Content-Type', object_md.content_type);
-                res.setHeader('Content-Length', object_md.size);
-                res.setHeader('Accept-Ranges', 'bytes');
-                set_response_xattr(res, object_md.xattr);
-                if (this._check_md_conditions(req, res, object_md) === false) {
-                    // _check_md_conditions already responded
-                    return false;
+        return req.rpc_client.object.read_object_md(_.assign(this._object_path(req), {
+                conditions: {
+                    if_modified_since: req.headers['if-modified-since'] &&
+                        new Date(req.headers['if-modified-since']).getTime(),
+                    if_unmodified_since: req.headers['if-unmodified-since'] &&
+                        new Date(req.headers['if-unmodified-since']).getTime(),
+                    if_match: req.headers['if-match'],
+                    if_none_match: req.headers['if-none-match']
                 }
+            }))
+            .then(({ object_info, md_conditions_res }) => {
+                req.object_md = object_info;
+                res.setHeader('ETag', `"${object_info.etag}"`);
+                res.setHeader('Last-Modified', to_aws_date_for_http_header(object_info.create_time));
+                res.setHeader('Content-Type', object_info.content_type);
+                res.setHeader('Content-Length', object_info.size);
+                res.setHeader('Accept-Ranges', 'bytes');
+                set_response_xattr(res, object_info.xattr);
+                if (md_conditions_res) {
+                    if (md_conditions_res.IF_MODIFIED_SINCE === false) {
+                        res.status(304).end();
+                        return false;
+                    }
+                    if (md_conditions_res.IF_UNMODIFIED_SINCE === false) {
+                        res.status(412).end();
+                        return false;
+                    }
+                    if (md_conditions_res.IF_MATCH_ETAG === false) {
+                        res.status(412).end();
+                        return false;
+                    }
+                    if (md_conditions_res.IF_NONE_MATCH_ETAG === false) {
+                        res.status(304).end();
+                        return false;
+                    }
+                }
+                return true;
             });
     }
 
@@ -549,7 +575,41 @@ class S3Controller {
         let xattr_copy = req.headers['x-amz-metadata-directive'] === 'COPY';
         let xattr = get_request_xattr(req);
         const content_type = req.headers['content-type'];
+        let read_params = {
+            bucket: source_bucket,
+            key: source_key,
+            conditions: {}
+        };
+        this._set_md_conditions(req, read_params.conditions, 'source_if', 'x-amz-copy-source-');
+        let write_params = {
+            bucket: req.params.bucket,
+            key: req.params.key,
+            conditions: {}
+        };
+        this._set_md_conditions(req, write_params.conditions, 'overwrite_if');
         return P.resolve()
+            .then(() => req.rpc_client.object.read_object_md(read_params))
+            .then(({ object_info, md_conditions_res }) => {
+                xattr = xattr_copy ? object_info.xattr : xattr;
+                if (md_conditions_res.IF_MATCH_ETAG === true &&
+                    md_conditions_res.IF_UNMODIFIED_SINCE === false) {
+                    return;
+                }
+                if (md_conditions_res) {
+                    Object.keys(md_conditions_res).forEach(condition_failure => {
+                        if (condition_failure) throw new RpcError(condition_failure);
+                    });
+                }
+            })
+            .then(() => req.rpc_client.object.read_object_md(write_params))
+            .then(({ object_info, md_conditions_res }) => {
+                if (!object_info) return;
+                if (md_conditions_res) {
+                    Object.keys(md_conditions_res).forEach(condition_failure => {
+                        if (condition_failure) throw new RpcError(condition_failure);
+                    });
+                }
+            })
             .then(() => {
                 if (source_bucket === req.params.bucket) {
                     let params = {
@@ -561,11 +621,9 @@ class S3Controller {
                         xattr,
                         xattr_copy
                     };
-                    this._set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
-                    this._set_md_conditions(req, params, 'overwrite_if');
                     return req.rpc_client.object.copy_object(params);
                 }
-                return this._copy_between_buckets(req, source_bucket, source_key, xattr_copy, xattr);
+                return this._copy_between_buckets(req, source_bucket, source_key, xattr);
             })
             .then(reply => ({
                 CopyObjectResult: {
@@ -575,52 +633,28 @@ class S3Controller {
             }));
     }
 
-    _copy_between_buckets(req, source_bucket, source_key, xattr_copy, xattr) {
-        const read_params = {
+    _copy_between_buckets(req, source_bucket, source_key, xattr) {
+        let source_stream = this.object_io.open_read_stream({
             bucket: source_bucket,
             key: source_key,
+            client: req.rpc_client,
+        });
+        const write_params = {
+            client: req.rpc_client,
+            bucket: req.params.bucket,
+            key: req.params.key,
+            content_type: req.headers['content-type'],
+            xattr,
+            source_stream
         };
-        this._set_md_conditions(req, read_params, 'read_if', 'x-amz-copy-source-');
-        return req.rpc_client.object.get_md_conditions({
-                conditions: read_params.read_if,
-                bucket: source_bucket,
-                key: source_key,
-            })
-            .then(md_condition_res => {
-                if (md_condition_res.result) throw new Error('MD condition did not pass for read in copy: ' + md_condition_res.result);
-            })
-            .then(() => req.rpc_client.object.read_object_md(read_params))
-            .then(object_md => {
-                let source_stream = this.object_io.open_read_stream({
-                    bucket: source_bucket,
-                    key: source_key,
-                    client: req.rpc_client,
-                });
-                const write_params = {
-                    client: req.rpc_client,
-                    bucket: req.params.bucket,
-                    key: req.params.key,
-                    content_type: req.headers['content-type'],
-                    xattr: xattr_copy ? object_md.xattr : xattr,
-                    source_stream
-                };
-                this._set_md_conditions(req, write_params, 'overwrite_if');
-                return req.rpc_client.object.get_md_conditions({
-                        conditions: write_params.overwrite_if,
-                        bucket: req.params.bucket,
-                        key: req.params.key,
-                    })
-                    .then(md_condition_res => {
-                        if (md_condition_res.result) throw new Error('MD condition did not pass for write in copy: ' + md_condition_res.result);
-                    })
-                    .then(() => this.object_io.upload_object(write_params));
-            })
+        return P.resolve()
+            .then(() => this.object_io.upload_object(write_params))
             .then(() => req.rpc_client.object.read_object_md({
                 bucket: req.params.bucket,
                 key: req.params.key
             }))
-            .then(object_md => ({
-                source_md: object_md
+            .then(({ object_info }) => ({
+                source_md: object_info
             }));
     }
 
@@ -646,7 +680,7 @@ class S3Controller {
     get_object_acl(req) {
         this.usage_report.s3_usage_info.get_object_acl += 1;
         return req.rpc_client.object.read_object_md(this._object_path(req))
-            .then(object_md => ({
+            .then(({ object_info }) => ({
                 AccessControlPolicy: {
                     Owner: DEFAULT_S3_USER,
                     AccessControlList: [{
@@ -968,33 +1002,6 @@ class S3Controller {
     }
 
 
-    _check_md_conditions(req, res, object_md) {
-        if ('if-modified-since' in req.headers && (
-                object_md.create_time <=
-                (new Date(req.headers['if-modified-since'])).getTime()
-            )) {
-            res.status(304).end();
-            return false;
-        }
-        if ('if-unmodified-since' in req.headers && (
-                object_md.create_time >=
-                (new Date(req.headers['if-unmodified-since'])).getTime()
-            )) {
-            res.status(412).end();
-            return false;
-        }
-        if ('if-match' in req.headers &&
-            !http_utils.match_etag(req.headers['if-match'], object_md.etag)) {
-            res.status(412).end();
-            return false;
-        }
-        if ('if-none-match' in req.headers &&
-            http_utils.match_etag(req.headers['if-none-match'], object_md.etag)) {
-            res.status(304).end();
-            return false;
-        }
-        return true;
-    }
 
     _set_md_conditions(req, params, params_key, prefix) {
         prefix = prefix || '';
@@ -1010,11 +1017,11 @@ class S3Controller {
         }
         if (prefix + 'if-match' in req.headers) {
             params[params_key] = params[params_key] || {};
-            params[params_key].if_match_etag = req.headers[prefix + 'if-match'];
+            params[params_key].if_match = req.headers[prefix + 'if-match'];
         }
         if (prefix + 'if-none-match' in req.headers) {
             params[params_key] = params[params_key] || {};
-            params[params_key].if_none_match_etag = req.headers[prefix + 'if-none-match'];
+            params[params_key].if_none_match = req.headers[prefix + 'if-none-match'];
         }
     }
 

@@ -249,7 +249,8 @@ function run_basic_test() {
     });
 
     return authenticate()
-        .then(() => _create_bucket(source_params).then(() => _create_bucket(target_params)))
+        .then(() => _create_bucket(source_params))
+        .then(() => _create_bucket(target_params))
         .then(() => P.all(_.map(file_sizes, size => ops.generate_random_file(size))))
         .then(function(res_file_names) {
             let i = 0;

@@ -32,6 +32,7 @@ class HostedAgents {
     start() {
         const system = system_store.data.systems[0];
         if (!system) return;
+        this._started = true;
         const cloud_pools = _.filter(system.pools_by_name, pool => Boolean(pool.cloud_pool_info));
         // start agent for all cloud pools that doesn't already have a running agent
         const pools_to_start = _.filter(cloud_pools, pool => _.isUndefined(this._started_agents[pool.name]));
@@ -43,7 +44,6 @@ class HostedAgents {
         dbg.log0(`stopping the following agents: ${util.inspect(agents_to_stop)}`);
         _.each(agents_to_stop, (agent, name) => this.stop_agent(name));
 
-        this._started = true;
         dbg.log0(`starting agents for the following pools: ${pools_to_start.map(pool => pool.name)}`);
         return P.map(pools_to_start, pool => this.start_cloud_agent(pool))
             .catch(err => {
@@ -227,6 +227,7 @@ function create_agent(req) {
         const cloud_pool = system_store.data.systems[0].pools_by_name[req.params.name];
         return HostedAgents.instance().start_cloud_agent(cloud_pool);
     }
+    dbg.log0(`not a cloud agnet. call start_local_agent`);
     return HostedAgents.instance().start_local_agent(req.params);
 }
 

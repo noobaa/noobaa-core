@@ -19,6 +19,7 @@ let TEST_CTX = {
     pool: 'test-pool-' + suffix,
     nodes_name: 'test-node-' + suffix,
     init_delay: 60,
+    max_init_retries: 5,
     file_size_mb: 2
 };
 
@@ -74,13 +75,36 @@ function remove_agents() {
         .then(() => names);
 }
 
-function create_test_pool() {
+
+function _list_nodes(retries) {
     let query = {
         filter: TEST_CTX.nodes_name
     };
     return client.node.list_nodes({
             query: query
         })
+        .then(reply => {
+            if (!reply) {
+                throw new Error('list nodes failed');
+            }
+            if (reply.total_count < TEST_CTX.num_of_agents || reply.filter_counts.by_mode.INITALIZING) {
+                let msg = `list nodes returned ${reply.total_count} nodes and ${reply.filter_counts.by_mode.INITALIZING} initializing. ` +
+                    `expected (${TEST_CTX.num_of_agents}) nodes.`;
+                let total_tries = retries || 1;
+                if (total_tries > TEST_CTX.max_init_retries) {
+                    console.error(msg + `aborting after ${TEST_CTX.max_init_retries} retries`);
+                    throw new Error(msg + `aborting after ${TEST_CTX.max_init_retries} retries`);
+                }
+                console.warn(msg + `retry in ${TEST_CTX.init_delay} seconds`);
+                return P.delay(TEST_CTX.init_delay * 1000)
+                    .then(() => _list_nodes(total_tries + 1));
+            }
+            return reply;
+        });
+}
+
+function create_test_pool() {
+    return _list_nodes()
         .then(reply => {
             let nodes = reply.nodes.map(node => ({
                 name: node.name
@@ -126,12 +150,14 @@ function setup() {
 function upload_file() {
     return ops.generate_random_file(TEST_CTX.file_size_mb)
         .then(file => {
+            console.log(`uploading file ${file} to bucket ${TEST_CTX.bucket}`);
             TEST_CTX.key = file;
             return ops.upload_file('127.0.0.1', file, TEST_CTX.bucket, file);
         });
 }
 
 function read_mappings() {
+    console.log(`read objects mapping for file ${TEST_CTX.key}`);
     return client.object.read_object_mappings({
             bucket: TEST_CTX.bucket,
             key: TEST_CTX.key,
@@ -177,10 +203,14 @@ function validate_mappings() {
 
 function test_node_fail_replicate() {
     // kill first node in the nodes array, and then test it's blocks
-    let node = TEST_CTX.nodes_name + '1';
+    let node = _.keys(TEST_CTX.parts_by_nodes)[0];
     return client.hosted_agents.remove_agent({
             name: node
         })
+        .then(() => {
+            console.log(`removed agent ${node}. waiting for 60 seconds for the change to take place`);
+        })
+        .delay(60000)
         .then(() => promise_utils.retry(10, 5000, () => {
             read_mappings();
             validate_mappings();

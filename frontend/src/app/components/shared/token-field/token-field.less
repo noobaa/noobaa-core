@@ -1,0 +1,50 @@
+token-field {
+    display: block;
+
+    .token-field-wrapper {
+        padding: @gutter/8 3/8*@gutter;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+    }
+
+    .token {
+        position: relative;
+        border-radius: 1px;
+        font-size: @font-size1;
+        line-height: 18px;
+        margin: @gutter/8;
+        padding: @gutter/2;
+        max-width: 100%;
+
+        > .token-text {
+            position: relative;
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        &:before {
+            .fill();
+            content: '';
+            background: @color4;
+            border: 1px solid @color2;
+            animation: fade-in 500ms ease-out;
+        }
+    }
+
+    .token-remove-btn{
+        margin-left: @gutter/2;
+
+        > svg-icon {
+            fill: @white;
+            width: 8px;
+            height: 8px;
+        }
+    }
+
+    input[type="text"] {
+        border : none;
+        padding: 0 @gutter/2;
+    }
+}

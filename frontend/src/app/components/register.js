@@ -250,5 +250,6 @@ export default function register(ko) {
     ko.components.register('chartjs',                   require('./shared/chartjs/chartjs').default);
     ko.components.register('breadcrumbs',               require('./shared/breadcrumbs/breadcrumbs').default);
     ko.components.register('side-nav',                  require('./shared/side-nav/side-nav').default);
+    ko.components.register('token-field', require('./shared/token-field/token-field').default);
     /** INJECT:shared **/
 }

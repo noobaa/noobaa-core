@@ -1221,30 +1221,33 @@ function _validate_add_member_request(req) {
 }
 
 function _verify_join_preconditons(req) {
-    dbg.log0('_verify_join_preconditons');
-    //Verify secrets match
-    if (req.rpc_params.secret !== system_store.get_server_secret()) {
-        dbg.error('Secrets do not match!');
-        return 'SECRET_MISMATCH';
-    }
+    return P.resolve()
+        .then(() => {
+            dbg.log0('_verify_join_preconditons');
+            //Verify secrets match
+            if (req.rpc_params.secret !== system_store.get_server_secret()) {
+                dbg.error('Secrets do not match!');
+                return 'SECRET_MISMATCH';
+            }
 
-    let system = system_store.data.systems[0];
-    if (system) {
-        //Verify we are not already joined to a cluster
-        //TODO:: think how do we want to handle it, if at all
-        if (cutil.get_topology().shards.length !== 1 ||
-            cutil.get_topology().shards[0].servers.length !== 1) {
-            dbg.error('Server already joined to a cluster');
-            return 'ALREADY_A_MEMBER';
-        }
+            let system = system_store.data.systems[0];
+            if (system) {
+                //Verify we are not already joined to a cluster
+                //TODO:: think how do we want to handle it, if at all
+                if (cutil.get_topology().shards.length !== 1 ||
+                    cutil.get_topology().shards[0].servers.length !== 1) {
+                    dbg.error('Server already joined to a cluster');
+                    return 'ALREADY_A_MEMBER';
+                }
 
-        // verify there are no objects on the system
-        return MDStore.instance().has_any_objects_in_system(system._id)
-            .then(has_objects => (has_objects ? 'HAS_OBJECTS' : 'OKAY'));
-    }
-    // If we do not need system in order to add a server to a cluster
-    dbg.log0('_verify_join_preconditons okay. server has no system');
-    return 'OKAY';
+                // verify there are no objects on the system
+                return MDStore.instance().has_any_objects_in_system(system._id)
+                    .then(has_objects => (has_objects ? 'HAS_OBJECTS' : 'OKAY'));
+            }
+            // If we do not need system in order to add a server to a cluster
+            dbg.log0('_verify_join_preconditons okay. server has no system');
+            return 'OKAY';
+        });
 }
 
 

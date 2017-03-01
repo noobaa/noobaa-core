@@ -318,9 +318,9 @@ function upload_object() {
                     //         PartNumber: part_num
                     //     }]
                     // }
-                }, function(err, complete_res) {
-                    if (err) {
-                        console.error('s3.completeMultipartUpload ERROR', err);
+                }, function(err2, complete_res) {
+                    if (err2) {
+                        console.error('s3.completeMultipartUpload ERROR', err2);
                         return;
                     }
                     console.log('uploadPart average latency',
@@ -337,7 +337,7 @@ function upload_object() {
                     data_source.pause();
                 }
                 //console.log('uploadPart');
-                let start_time = Date.now();
+                let data_start_time = Date.now();
                 let part_num = next_part_num;
                 s3.uploadPart({
                     Key: upload_key,
@@ -345,14 +345,14 @@ function upload_object() {
                     PartNumber: part_num,
                     UploadId: create_res.UploadId,
                     Body: data,
-                }, (err, res) => {
+                }, (err2, res) => {
                     concur -= 1;
-                    if (err) {
+                    if (err2) {
                         data_source.close();
-                        console.error('s3.uploadPart ERROR', err);
+                        console.error('s3.uploadPart ERROR', err2);
                         return;
                     }
-                    let took = Date.now() - start_time;
+                    let took = Date.now() - data_start_time;
                     // console.log('Part', part_num, 'Took', took, 'ms');
                     latency_avg += took;
                     data_source.resume();
@@ -398,20 +398,20 @@ function get_object() {
         let start_time = Date.now();
         let progress_time = Date.now();
 
-        function on_progress(progress) {
+        function on_progress(progr) {
             let now = Date.now();
             if (now - progress_time >= 500) {
                 progress_time = now;
-                let percents = Math.round(progress.loaded / data_size * 100);
+                let percents = Math.round(progr.loaded / data_size * 100);
                 let passed_seconds = (now - start_time) / 1000;
-                let speed_str = (progress.loaded / passed_seconds / 1024 / 1024).toFixed(0);
+                let speed_str = (progr.loaded / passed_seconds / 1024 / 1024).toFixed(0);
                 console.log(percents + '% progress.', speed_str, 'MB/sec');
             }
         }
 
-        function on_finish(err) {
-            if (err) {
-                console.error('GET ERROR:', err);
+        function on_finish(err2) {
+            if (err2) {
+                console.error('GET ERROR:', err2);
                 return;
             }
             let end_time = Date.now();
@@ -424,8 +424,8 @@ function get_object() {
             .createReadStream()
             .pipe(new stream.Writable({
                 highWaterMark: 64 * 1024 * 1024,
-                write: function(data, enc, next) {
-                    progress.loaded += data.length;
+                write: function(write_data, enc, next) {
+                    progress.loaded += write_data.length;
                     on_progress(progress);
                     next();
                 }

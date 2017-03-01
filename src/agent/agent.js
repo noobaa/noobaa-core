@@ -375,10 +375,10 @@ class Agent {
                     dbg.error(this.node_name, 'This agent appears to be using an old token.',
                         'cleaning this agent agent_storage directory', this.storage_path);
                     return this._start_new_agent()
-                        .catch(err => {
+                        .catch(new_agent_err => {
                             // Failed cleaning and starting a new node. should we do anything here?
-                            dbg.error(`failed starting a new node after previous NODE_NOT_FOUND: ${err}`);
-                            throw err;
+                            dbg.error(`failed starting a new node after previous NODE_NOT_FOUND: ${new_agent_err}`);
+                            throw new_agent_err;
                         });
                 }
                 return P.delay(3000)

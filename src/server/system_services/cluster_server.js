@@ -1158,7 +1158,7 @@ function update_server_conf(req) {
             }
             return cluster_server;
         })
-        .then(cluster_server => {
+        .then(() => {
             if (req.rpc_params.location &&
                 req.rpc_params.location !== cluster_server.location) { //location supplied and actually changed
                 audit_desc += `Location tag set to ${req.rpc_params.location}.`;

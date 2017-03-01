@@ -83,7 +83,6 @@ module.exports = {
         'global-require': 'error',
 
         // better handle every err in callbacks
-        // TODO eslint handle-callback-err should be error
         'handle-callback-err': 'error',
 
         // allow short variable names like '_' or 'P' etc. use with care.
@@ -157,7 +156,6 @@ module.exports = {
 
         // constant conditions make loop breaking unclear
         // prefer to use a loop variable
-        // TODO eslint no-constant-condition should be error
         'no-constant-condition': 'error',
 
         // continue in loops is better off avoided for readability
@@ -213,8 +211,7 @@ module.exports = {
         'no-return-assign': ['error', 'always'],
 
         // prefer not to define a variable that shadows an outer scope variable
-        // TODO eslint no-shadow should be error
-        'no-shadow': 'warn',
+        'no-shadow': 'error',
 
         // warn on usage of sync functions like fs.readFileSync() etc.
         'no-sync': 'warn',

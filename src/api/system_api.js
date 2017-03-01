@@ -700,6 +700,20 @@ module.exports = {
                             }
                         }
                     }
+                },
+                min_requirements: {
+                    type: 'object',
+                    properties: {
+                        ram_gb: {
+                            type: 'integer',
+                        },
+                        disk_gb: {
+                            type: 'integer',
+                        },
+                        cpu_count: {
+                            type: 'integer'
+                        }
+                    }
                 }
             }
         },

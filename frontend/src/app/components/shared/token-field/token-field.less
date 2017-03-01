@@ -24,6 +24,16 @@ token-field {
             text-overflow: ellipsis;
         }
 
+        > .token-remove-btn{
+            margin-left: @gutter/2;
+
+            > svg-icon {
+                fill: @white;
+                width: 8px;
+                height: 8px;
+            }
+        }
+
         &:before {
             .fill();
             content: '';
@@ -33,19 +43,13 @@ token-field {
         }
     }
 
-    .token-remove-btn{
-        margin-left: @gutter/2;
-
-        > svg-icon {
-            fill: @white;
-            width: 8px;
-            height: 8px;
-        }
-    }
-
     input[type="text"] {
         border : none;
         padding: 0 @gutter/2;
         height: 36px;
     }
+
+/*    .token + input:not(:focus) {
+        color: transparent;
+    }*/
 }

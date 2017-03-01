@@ -1,14 +1,11 @@
 <div class="input row multiline content-start token-field-wrapper" data-bind="
     css: { focus: hasFocus },
-    event: {
-        mousedown: onMouseDown,
-        keypress: onKeyPress,
-        paste: onPaste,
-        change: onChange
-    }
+    event: eventHandlers
 ">
     <!-- ko foreach: tokens -->
-    <div class="row content-middle token">
+    <div class="row content-middle token" data-bind="
+        visible: $index() < $component.cursor()
+    ">
         <span class="greedy token-text" data-bind="
             text: $data,
             event: { mousedown: () => true },
@@ -23,7 +20,9 @@
     <!-- /ko -->
     <input type="text" class="internal-input greedy" data-bind="
         textInput: text,
-        hasFocus: hasFocus
+        hasFocus: hasFocus,
+        attr: { placeholder: placeholder },
+        selection: selection
     "/>
 </div>
 

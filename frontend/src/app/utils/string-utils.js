@@ -96,3 +96,7 @@ export function stringifyAmount(subject, amount, zeroMoniker = '0') {
         pluralize(subject, amount)
     }`;
 }
+
+export function splice(str, start, end, replacement = '') {
+    return `${str.substr(0, start)}${replacement}${str.substr(end)}`;
+}

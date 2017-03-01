@@ -212,7 +212,8 @@ function get_cluster_info() {
     });
     let cluster_info = {
         master_secret: system_store.get_server_secret(),
-        shards: shards
+        shards: shards,
+        min_requirements: _get_min_requirements()
     };
     return cluster_info;
 }
@@ -279,6 +280,14 @@ function send_master_update(is_master, master_address) {
             update_master_promise.catch(err => dbg.error('got error on update_master_promise.', err))
         )
         .return();
+}
+
+function _get_min_requirements() {
+        return {
+            ram_gb: 16,
+            disk_gb: 120,
+            cpu_count: 4,
+        };
 }
 
 

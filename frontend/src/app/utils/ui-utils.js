@@ -85,6 +85,11 @@ const poolStateIconMapping = deepFreeze({
         css: 'error',
         name: 'problem'
     },
+    NOT_ENOUGH_NODES: {
+        tooltip: 'Not enough nodes in pool',
+        css: 'error',
+        name: 'problem'
+    },
     ALL_NODES_OFFLINE: {
         tooltip: 'All nodes are offline',
         css: 'error',

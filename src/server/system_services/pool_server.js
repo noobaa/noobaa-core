@@ -320,8 +320,8 @@ function get_pool_info(pool, nodes_aggregate_pool) {
 
 function calc_pool_mode(pool_info) {
     const { nodes, storage, data_activities = [] } = pool_info;
-    const { count, online, has_issues } = nodes;
-    const offline = count - (online + has_issues);
+    const { count } = nodes;
+    const offline = nodes.by_mode.OFFLINE;
     const offline_ratio = (offline / count) * 100;
     const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
@@ -332,7 +332,8 @@ function calc_pool_mode(pool_info) {
 
     return (count === 0 && 'HAS_NO_NODES') ||
         (offline === count && 'ALL_NODES_OFFLINE') ||
-        (online < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
+        (count < 3 && 'NOT_ENOUGH_NODES') ||
+        (nodes.by_mode.OPTIMAL < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
         (offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
         (free < LOW_CAPACITY_HARD_LIMIT && 'LOW_CAPACITY') ||

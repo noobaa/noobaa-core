@@ -89,13 +89,13 @@ function to_bigint_storage(storage) {
  */
 function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     let accumulator = _.reduce(storage_items,
-        (accumulator, item) => {
+        (acc, item) => {
             _.each(SOTRAGE_OBJ_KEYS, key => {
                 if (item && !_.isUndefined(item[key])) {
-                    accumulator[key].push(item[key]);
+                    acc[key].push(item[key]);
                 }
             });
-            return accumulator;
+            return acc;
         },
         make_object(SOTRAGE_OBJ_KEYS, key => []));
 
@@ -120,7 +120,6 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
 // this function must be self contained to be able to send to mongo mapReduce()
 // so not using any functions or constants from above.
 function reduce_minimum(key, values) {
-    var PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
     var n_min = PETABYTE;
     var peta_min = 100000;
     values.forEach(function(v) {

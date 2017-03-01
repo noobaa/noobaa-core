@@ -28,7 +28,7 @@ function background_worker() {
                         if (!bucket.lifecycle_configuration_rules) {
                             return;
                         }
-                        P.all(_.map(bucket.lifecycle_configuration_rules, function(lifecycle_rule, i) {
+                        P.all(_.map(bucket.lifecycle_configuration_rules, function(lifecycle_rule, j) {
                             dbg.log0('LIFECYCLE HANDLING BUCKET:', bucket.name, 'BEGIN');
                             var now = Date.now();
                             //If refresh time
@@ -37,16 +37,16 @@ function background_worker() {
                                     'status:', lifecycle_rule.status, ' setting yesterday time');
                                 lifecycle_rule.last_sync = now - 1000 * 60 * 60 * 24; //set yesterday as last sync
                             }
-                            dbg.log0('LIFECYCLE HANDLING bucket:', bucket.name, 'rule id(', i, ')', lifecycle_rule.id,
+                            dbg.log0('LIFECYCLE HANDLING bucket:', bucket.name, 'rule id(', j, ')', lifecycle_rule.id,
                                 'status:', lifecycle_rule.status, 'last_sync',
-                                    Math.floor((now - lifecycle_rule.last_sync) / 1000 / 60), 'min ago.');
+                                Math.floor((now - lifecycle_rule.last_sync) / 1000 / 60), 'min ago.');
 
                             if ((lifecycle_rule.status === 'Enabled') &&
                                 ((now - lifecycle_rule.last_sync) / 1000 / 60 > LIFECYCLE.schedule_min)) {
-                                dbg.log0('LIFECYCLE PROCESSING bucket:', bucket.name, 'rule id(', i, ')', lifecycle_rule.id);
+                                dbg.log0('LIFECYCLE PROCESSING bucket:', bucket.name, 'rule id(', j, ')', lifecycle_rule.id);
                                 if ((lifecycle_rule.expiration.days) ||
                                     (lifecycle_rule.expiration.date < (new Date()).getTime())) {
-                                    dbg.log0('LIFECYCLE DELETING bucket:', bucket.name, 'rule id(', i, ')', lifecycle_rule.id);
+                                    dbg.log0('LIFECYCLE DELETING bucket:', bucket.name, 'rule id(', j, ')', lifecycle_rule.id);
                                     let deletion_params = {
                                         bucket: bucket.name,
                                         prefix: lifecycle_rule.prefix,
@@ -55,14 +55,14 @@ function background_worker() {
                                     if (lifecycle_rule.expiration.days) {
                                         deletion_params.create_time = moment().subtract(lifecycle_rule.expiration.days, 'minutes')
                                             .unix();
-                                        dbg.log0('LIFECYCLE DELETING bucket:', bucket.name, 'rule id(', i, ')',
+                                        dbg.log0('LIFECYCLE DELETING bucket:', bucket.name, 'rule id(', j, ')',
                                             lifecycle_rule.id, ' Days:', lifecycle_rule.expiration.days, '==', deletion_params.create_time,
-                                                '(', moment().subtract(lifecycle_rule.expiration.days, 'min'), ')');
+                                            '(', moment().subtract(lifecycle_rule.expiration.days, 'min'), ')');
                                     }
                                     return server_rpc.client.object.delete_multiple_objects_by_prefix(deletion_params).then(function() {
-                                        bucket.lifecycle_configuration_rules[i].last_sync = Date.now();
+                                        bucket.lifecycle_configuration_rules[j].last_sync = Date.now();
                                         dbg.log0('LIFECYCLE Done bucket:', bucket.name, ' done deletion of objects per prefix ',
-                                            lifecycle_rule.prefix, ' time:', bucket.lifecycle_configuration_rules[i].last_sync);
+                                            lifecycle_rule.prefix, ' time:', bucket.lifecycle_configuration_rules[j].last_sync);
                                     });
                                 }
                             } else {

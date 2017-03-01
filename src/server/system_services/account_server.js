@@ -665,10 +665,10 @@ function get_account_info(account, include_connection_cache) {
 function ensure_support_account() {
     return system_store.refresh()
         .then(function() {
-            var support_account = _.find(system_store.data.accounts, function(account) {
+            var existing_support_account = _.find(system_store.data.accounts, function(account) {
                 return Boolean(account.is_support);
             });
-            if (support_account) {
+            if (existing_support_account) {
                 return;
             }
 

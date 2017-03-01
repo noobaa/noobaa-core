@@ -91,76 +91,76 @@ function import_key_pair_to_region() {
 function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region, agent_conf) {
 
     return describe_instances({
-        filter: 'status ne STOPPING '
-    }, {
-        match: app_name
-    }).then(function(instances) {
+            filter: 'status ne STOPPING '
+        }, {
+            match: app_name
+        }).then(function(instances) {
 
-        cloud_context.counter = instances.length + 1;
-        //console.log('full instances',instances);
-        var instances_per_zone = _.groupBy(instances, 'zone');
+            cloud_context.counter = instances.length + 1;
+            //console.log('full instances',instances);
+            var instances_per_zone = _.groupBy(instances, 'zone');
 
-        var zones_names = instances.zones;
-        if (!_.isUndefined(filter_region)) {
-            console.log('Filter and use only region:', filter_region);
-            zones_names = [filter_region];
-        } else {
-            console.log('No Filters. Zones:', zones_names);
-        }
-
-        //console.log('instances_per_zone',instances_per_zone);
-        var target_zone_count = 0;
-        var first_zone_extra_count = 0;
-        if (count < zones_names.length) {
-            // if number of instances is smaller than the number of zones,
-            // we will add one instance per zone until we have enough instances.
-            if (count === 0) {
-                target_zone_count = 0;
+            var zones_names = instances.zones;
+            if (!_.isUndefined(filter_region)) {
+                console.log('Filter and use only region:', filter_region);
+                zones_names = [filter_region];
             } else {
-                target_zone_count = 1;
+                console.log('No Filters. Zones:', zones_names);
             }
-        } else {
-            // divide instances equally per zone.
-            // the first zone will get the redundant instances
-            target_zone_count = Math.floor(count / zones_names.length);
 
-            first_zone_extra_count = (count % zones_names.length);
-
-            if (target_zone_count > 400) {
-                target_zone_count = 400;
-                first_zone_extra_count = 0;
-                console.log('Cannot scale to over 400 instances per zone. will scale to 400');
-            }
-        }
-        //console.log('region_names:', zones_names);
-
-
-        console.log('Scale:', target_zone_count, 'per zone');
-        console.log('Scale:', first_zone_extra_count, 'extra in first zone');
-
-        var new_count = 0;
-        return P.all(_.map(zones_names, function(zone_name) {
-            //console.log('aa');
-            var instances = instances_per_zone['https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + zone_name] || [];
-            var zone_count = 0;
-            if (new_count < count) {
-                if (first_zone_extra_count > 0 && zone_name === zones_names[0]) {
-                    zone_count = target_zone_count + first_zone_extra_count;
+            //console.log('instances_per_zone',instances_per_zone);
+            var target_zone_count = 0;
+            var first_zone_extra_count = 0;
+            if (count < zones_names.length) {
+                // if number of instances is smaller than the number of zones,
+                // we will add one instance per zone until we have enough instances.
+                if (count === 0) {
+                    target_zone_count = 0;
                 } else {
-                    zone_count = target_zone_count;
+                    target_zone_count = 1;
                 }
-                new_count += zone_count;
+            } else {
+                // divide instances equally per zone.
+                // the first zone will get the redundant instances
+                target_zone_count = Math.floor(count / zones_names.length);
+
+                first_zone_extra_count = (count % zones_names.length);
+
+                if (target_zone_count > 400) {
+                    target_zone_count = 400;
+                    first_zone_extra_count = 0;
+                    console.log('Cannot scale to over 400 instances per zone. will scale to 400');
+                }
             }
+            //console.log('region_names:', zones_names);
 
-            return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
-        }));
-    })
-    .catch(function(err) {
-        console.log('####');
-        console.log('#### Cannot scale. Reason:', err.message, err.stack);
-        console.log('####');
 
-    });
+            console.log('Scale:', target_zone_count, 'per zone');
+            console.log('Scale:', first_zone_extra_count, 'extra in first zone');
+
+            var new_count = 0;
+            return P.all(_.map(zones_names, function(zone_name) {
+                //console.log('aa');
+                var zone_instances = instances_per_zone['https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + zone_name] || [];
+                var zone_count = 0;
+                if (new_count < count) {
+                    if (first_zone_extra_count > 0 && zone_name === zones_names[0]) {
+                        zone_count = target_zone_count + first_zone_extra_count;
+                    } else {
+                        zone_count = target_zone_count;
+                    }
+                    new_count += zone_count;
+                }
+
+                return scale_region(zone_name, zone_count, zone_instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
+            }));
+        })
+        .catch(function(err) {
+            console.log('####');
+            console.log('#### Cannot scale. Reason:', err.message, err.stack);
+            console.log('####');
+
+        });
 }
 
 /**
@@ -362,76 +362,76 @@ function describe_instances(params, filter) {
     var created_instance_data = [];
 
     return foreach_zone(function(current_zone) {
-        zones.push(current_zone.name);
-        var instancesListParams = {
-            auth: authClient,
-            project: NooBaaProject,
-            zone: current_zone.name,
-        };
-        if (params && params.filter) {
-            instancesListParams.filter = params.filter;
-        }
+            zones.push(current_zone.name);
+            var instancesListParams = {
+                auth: authClient,
+                project: NooBaaProject,
+                zone: current_zone.name,
+            };
+            if (params && params.filter) {
+                instancesListParams.filter = params.filter;
+            }
 
-        return P.nfcall(compute.instances.list, instancesListParams)
-            .then(function(instances_list_results) {
-                if (instances_list_results.items) {
-                    // var number_of_instances_in_zone = instances_list_results[0].items.length;
-                    created_instance_data = created_instance_data.concat(instances_list_results.items);
+            return P.nfcall(compute.instances.list, instancesListParams)
+                .then(function(instances_list_results) {
+                    if (instances_list_results.items) {
+                        // var number_of_instances_in_zone = instances_list_results[0].items.length;
+                        created_instance_data = created_instance_data.concat(instances_list_results.items);
+                    }
+
+                })
+                .catch(function(error) {
+                    console.log('ERROR1:' + JSON.stringify(error) + ':' + error.stack);
+                });
+        }).then(function(err, data) {
+            var instances = _.flatten(created_instance_data);
+            if (err) {
+                console.warn('got err', err);
+            }
+            // also put the regions list as a "secret" property of the array
+            return _.filter(instances, function(instance) {
+                instance.tags_map = _.mapValues(_.keyBy(instance.metadata.items, 'key'), 'value');
+
+                //console.log('filter instance:',instance.name,instance.tags_map.Name,instances.zones);
+                if (typeof filter !== 'undefined') {
+                    if (filter.filter_tags &&
+                        (typeof instance.tags_map.Name !== 'undefined')) {
+                        if ((instance.tags_map.Name.indexOf(filter.filter_tags) !== -1) ||
+                            instance.tags_map.Name !== argv.tag) {
+                            console.log('FILTERED exclude', instance.name, instance.tags_map.Name);
+                            return false;
+                        }
+                    } else if (filter.match &&
+                        (typeof instance.tags_map.Name !== 'undefined')) {
+                        if (instance.tags_map.Name.indexOf(filter.match) === -1) {
+                            console.log('FILTERED match', instance.name, instance.tags_map.Name);
+                            return false;
+                        }
+                    }
+                    if (typeof instance.tags_map.Name === 'undefined') {
+                        //assume empty tagged instances are manual and always ignore them
+                        return false;
+                    }
                 }
-
-            })
-            .catch(function(error) {
-                console.log('ERROR1:' + JSON.stringify(error) + ':' + error.stack);
+                return true;
             });
-    }).then(function(err, data) {
-        var instances = _.flatten(created_instance_data);
-        if (err) {
-            console.warn('got err', err);
-        }
-        // also put the regions list as a "secret" property of the array
-        return _.filter(instances, function(instance) {
-            instance.tags_map = _.mapValues(_.keyBy(instance.metadata.items, 'key'), 'value');
 
-            //console.log('filter instance:',instance.name,instance.tags_map.Name,instances.zones);
-            if (typeof filter !== 'undefined') {
-                if (filter.filter_tags &&
-                    (typeof instance.tags_map.Name !== 'undefined')) {
-                    if ((instance.tags_map.Name.indexOf(filter.filter_tags) !== -1) ||
-                        instance.tags_map.Name !== argv.tag) {
-                        console.log('FILTERED exclude', instance.name, instance.tags_map.Name);
-                        return false;
-                    }
-                } else if (filter.match &&
-                    (typeof instance.tags_map.Name !== 'undefined')) {
-                    if (instance.tags_map.Name.indexOf(filter.match) === -1) {
-                        console.log('FILTERED match', instance.name, instance.tags_map.Name);
-                        return false;
-                    }
+        })
+        .then(function(instances) {
+            instances.zones = zones;
+            return instances;
+        })
+        .catch(
+            function(error) {
+                if (error && error.errors && error.errors[0].reason === 'notFound') {
+                    console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', error);
+                    throw error;
+                } else {
+                    console.log('ERROR2:' + JSON.stringify(error) + ' ' + error.stack);
                 }
-                if (typeof instance.tags_map.Name === 'undefined') {
-                    //assume empty tagged instances are manual and always ignore them
-                    return false;
-                }
-            }
-            return true;
-        });
 
-    })
-    .then(function(instances) {
-        instances.zones = zones;
-        return instances;
-    })
-    .catch(
-        function(error) {
-            if (error && error.errors && error.errors[0].reason === 'notFound') {
-                console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', error);
-                throw error;
-            } else {
-                console.log('ERROR2:' + JSON.stringify(error) + ' ' + error.stack);
             }
-
-        }
-    );
+        );
 }
 
 /**

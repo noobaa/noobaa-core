@@ -50,7 +50,7 @@ class RpcNudpConnection extends RpcBaseConnection {
         this.nudp = new Nudp();
         this._init_nudp();
         return P.ninvoke(this.nudp, 'bind', port, '0.0.0.0')
-            .then(port => {
+            .then(out_port => {
                 // TODO emit event from native code?
                 return P.delay(1000);
             })

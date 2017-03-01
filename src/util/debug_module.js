@@ -370,7 +370,7 @@ InternalDebugLogger.prototype.log_internal = function(level) {
     if (self._file_path) {
         var winston_log = self._logs_by_file[self._file_path.name];
         if (!winston_log) {
-            let winston = require('winston');
+            let winston = require('winston'); // eslint-disable-line no-shadow
             //Define Transports
             winston_log = new(winston.Logger)({
                 levels: self._levels,
@@ -588,9 +588,9 @@ DebugLogger.prototype.set_process_name = function(name) {
     }
 };
 
-DebugLogger.prototype.set_log_to_file = function(file) {
-    if (file) {
-        int_dbg._file_path = path.parse(file);
+DebugLogger.prototype.set_log_to_file = function(log_file) {
+    if (log_file) {
+        int_dbg._file_path = path.parse(log_file);
     } else {
         int_dbg._file_path = undefined;
     }

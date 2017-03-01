@@ -304,9 +304,9 @@ function get_ip_address(instid) {
                         return P.fcall(function() {
                                 return describe_instance(instid);
                             })
-                            .then(function(res) {
-                                console.log('Recieved IP', res.PublicIpAddress);
-                                return res.PublicIpAddress;
+                            .then(function(res2) {
+                                console.log('Recieved IP', res2.PublicIpAddress);
+                                return res2.PublicIpAddress;
                             });
                     })
                     .then(null, function(error) {
@@ -400,11 +400,11 @@ function put_object(ip, source, bucket, key) {
                                 load_aws_config_env(); //back to EC2/S3
                                 wait_for_agents = false;
                                 return;
-                            }, function(err) {
-                                console.log('failed to upload. Will wait 10 seconds and retry. err', err.statusCode);
+                            }, function(err2) {
+                                console.log('failed to upload. Will wait 10 seconds and retry. err', err2.statusCode);
                                 var curr_time = moment();
                                 if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
-                                    console.error('failed to upload. cannot wait any more', err.statusCode);
+                                    console.error('failed to upload. cannot wait any more', err2.statusCode);
                                     load_aws_config_env(); //back to EC2/S3
                                     wait_for_agents = false;
                                 } else {
@@ -416,7 +416,7 @@ function put_object(ip, source, bucket, key) {
         });
 }
 
-function get_object(ip, path) {
+function get_object(ip, obj_path) {
     load_demo_config_env(); //switch to Demo system
 
     var rest_endpoint = 'http://' + ip + ':80/';
@@ -431,12 +431,12 @@ function get_object(ip, path) {
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
-    var file = path && fs.createWriteStream(path);
+    var file = obj_path && fs.createWriteStream(obj_path);
 
     var start_ts = Date.now();
     console.log('about to download object');
     return P.fcall(function() {
-            if (path) {
+            if (obj_path) {
                 return s3bucket.getObject(params).createReadStream()
                     .pipe(file);
             } else {
@@ -512,7 +512,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
 
         var new_count = 0;
         return P.all(_.map(region_names, function(region_name) {
-            var instances = instances_per_region[region_name] || [];
+            var region_instances = instances_per_region[region_name] || [];
             var region_count = 0;
             if (new_count < count) {
                 if (first_region_extra_count > 0 && region_name === region_names[0]) {
@@ -522,8 +522,8 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
                 }
                 new_count += region_count;
             }
-            return scale_region(region_name, region_count, instances, allow_terminate,
-                    is_docker_host, number_of_dockers, is_win, agent_conf);
+            return scale_region(region_name, region_count, region_instances, allow_terminate,
+                is_docker_host, number_of_dockers, is_win, agent_conf);
         }));
     });
 }
@@ -712,7 +712,7 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' +++ adding', count - instances.length);
                 return add_agent_region_instances(region_name, count - instances.length, is_docker_host,
-                        number_of_dockers, is_win, agent_conf);
+                    number_of_dockers, is_win, agent_conf);
             }
 
             // need to terminate
@@ -768,9 +768,9 @@ function create_security_group(region_name) {
                     Description: ssh_and_http_v2,
                     GroupName: ssh_and_http_v2
                 })
-                .then(null, function(err) {
-                    console.error('SecurityGroup: create failed', region_name, err);
-                    throw err;
+                .then(null, function(err2) {
+                    console.error('SecurityGroup: create failed', region_name, err2);
+                    throw err2;
                 });
         })
         .then(function(group_data) {

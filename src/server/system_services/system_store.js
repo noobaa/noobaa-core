@@ -200,10 +200,10 @@ class SystemStoreData {
                     $ne: null
                 }
             }))
-            .then(res => {
-                if (res) {
+            .then(find_res => {
+                if (find_res) {
                     return {
-                        record: res,
+                        record: find_res,
                         linkable: false
                     };
                 } else {

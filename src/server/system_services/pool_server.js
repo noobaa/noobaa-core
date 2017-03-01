@@ -327,7 +327,7 @@ function calc_pool_mode(pool_info) {
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
     const free_ratio = potential_for_noobaa.greater(0) ? free.multiply(100).divide(potential_for_noobaa) : size_utils.BigInteger.zero;
     const activity_count = data_activities
-        .reduce((sum, { count }) => sum + count, 0);
+        .reduce((sum, { val }) => sum + val, 0);
     const activity_ratio = (activity_count / count) * 100;
 
     return (count === 0 && 'HAS_NO_NODES') ||

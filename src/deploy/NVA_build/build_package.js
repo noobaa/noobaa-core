@@ -26,9 +26,9 @@ var git_command = '&& "C:\\Program Files (x86)\\Git\\bin\\git.exe" ';
 var current_version;
 var next_version;
 
-function advance_version(current_version, increment) {
-    var current_version_parts = current_version.toString().split('.');
-    var increment_version_parts = increment.toString().split('.');
+function advance_version(current_ver, inc) {
+    var current_version_parts = current_ver.toString().split('.');
+    var increment_version_parts = inc.toString().split('.');
     var output_version = '';
 
     var len = Math.min(current_version_parts.length, increment_version_parts.length);
@@ -66,7 +66,7 @@ function advance_version(current_version, increment) {
 
 
 //Assuming git config credential.helper store was called and password is not required anymore
-function create_branch(next_version) {
+function create_branch(next_ver) {
     var git_flags;
     var out;
 
@@ -74,7 +74,7 @@ function create_branch(next_version) {
     out = child_proc.execSync(cd_command + git_command + git_flags);
     process.stdout.write(out);
 
-    git_flags = 'checkout -b build_release_v' + next_version + ' ' + current_hash;
+    git_flags = 'checkout -b build_release_v' + next_ver + ' ' + current_hash;
     out = child_proc.execSync(cd_command + git_command + git_flags);
     process.stdout.write(out);
 }

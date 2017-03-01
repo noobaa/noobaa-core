@@ -579,16 +579,16 @@ function update_c2n_worklist(policy) {
               should be filled before the c2n list
             */
             var joint_worklist = work_list.n2c_added.concat(work_list.n2c_deleted);
-            if (!policy.additions_only) {
-                _.each(diff.uniq_b, function(bucket_obj) { //Appear in noobaa and not on cloud
+            if (policy.additions_only) {
+                dbg.log2('update_c2n_worklist not adding deletions');
+            } else {
+                _.each(diff.uniq_b, function(obj) { //Appear in noobaa and not on cloud
                     if (_.findIndex(joint_worklist, function(it) {
-                            return it.key === bucket_obj.key;
+                            return it.key === obj.key;
                         }) === -1) {
-                        work_list.c2n_deleted.push(bucket_obj);
+                        work_list.c2n_deleted.push(obj);
                     }
                 });
-            } else {
-                dbg.log2('update_c2n_worklist not adding deletions');
             }
             _.each(diff.uniq_a, function(cloud_obj) { //Appear in cloud and not on NooBaa
                 if (_.findIndex(joint_worklist, function(it) {
@@ -759,9 +759,9 @@ function sync_to_cloud_single_bucket(policy) {
                                 region: 'eu-central-1'
                             });
                             return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
-                                .catch(function(err) {
-                                    dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err, err.stack);
-                                    throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err);
+                                .catch(function(err2) {
+                                    dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err2, err2.stack);
+                                    throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err2);
                                 });
                         } else {
                             dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err, err.stack);

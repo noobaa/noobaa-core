@@ -140,6 +140,7 @@ function check_latest_version {
 }
 
 function extract_package {
+  EXTRACTION_PATH="/root/node_modules"
   #Clean previous extracted package
   rm -rf ${EXTRACTION_PATH}*
   #Create path and extract package

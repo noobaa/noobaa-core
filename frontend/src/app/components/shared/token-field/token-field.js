@@ -19,6 +19,11 @@ class TokenFieldViewModel extends BaseViewModel {
         this.cursor = ko.observable(this.tokens().length);
         this.selection = ko.observable(0);
         this.hasFocus = ko.observable(false);
+
+        this.scroll = ko.observable().extend({
+            notify: 'always'
+        });
+
         this.placeholder = ko.pureComputed(
             () => this.hasFocus() ? '' : placeholder
         );
@@ -39,7 +44,6 @@ class TokenFieldViewModel extends BaseViewModel {
 
     onMouseDown() {
         this.hasFocus(true);
-        return true;
     }
 
     onKeyPress(_, { which }) {
@@ -49,6 +53,7 @@ class TokenFieldViewModel extends BaseViewModel {
 
         this.cursor(this.cursor() + 1);
         this.text('');
+        this.scroll(1);
     }
 
     onKeyDown(_, { which }) {
@@ -68,12 +73,14 @@ class TokenFieldViewModel extends BaseViewModel {
 
         const { start, end } = this.selection();
         const list = splice(this.text(), start, end, text)
-            .split(tokenSeperator);
+            .split(tokenSeperator)
+            .filter(token => Boolean(token.trim()));
 
         if (list.length > 1) {
             this.text('');
             this.tokens.splice(this.cursor(), 1, ...list);
             this.cursor(this.tokens().length);
+            this.scroll(1);
         } else {
             return true;
         }

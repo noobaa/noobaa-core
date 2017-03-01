@@ -1,6 +1,7 @@
 <div class="input row multiline content-start token-field-wrapper" data-bind="
     css: { focus: hasFocus },
-    event: eventHandlers
+    event: eventHandlers,
+    scroll: scroll
 ">
     <!-- ko foreach: tokens -->
     <div class="row content-middle token" data-bind="
@@ -8,8 +9,7 @@
     ">
         <span class="greedy token-text" data-bind="
             text: $data,
-            event: { mousedown: () => true },
-            mousedownBubble: false
+            preventBubble: 'mousedown'
         "></span>
         <button class="icon-btn no-outline token-remove-btn" data-bind="
             click: () => $component.onRemoveToken($index())
@@ -22,7 +22,8 @@
         textInput: text,
         hasFocus: hasFocus,
         attr: { placeholder: placeholder },
-        selection: selection
+        selection: selection,
+        preventBubble: 'mousedown'
     "/>
 </div>
 

@@ -1761,22 +1761,22 @@ class NodesMonitor extends EventEmitter {
         let num_trained_pools = 0;
         for (const pool_data of pools_data_map.values()) {
             if (pool_data.pool_name === 'default_pool') continue;
-            dbg.log0('_suggest_pool_assign: add to data set',
+            dbg.log3('_suggest_pool_assign: add to data set',
                 pool_data.pool_name, pool_data.docs);
             data_set.add(pool_data.pool_name, pool_data.docs);
             num_trained_pools += 1;
         }
         if (num_trained_pools <= 0) {
-            dbg.log0('_suggest_pool_assign: no pools to suggest');
+            dbg.log3('_suggest_pool_assign: no pools to suggest');
             return;
         } else if (num_trained_pools === 1) {
             // the classifier requires at least two options to work
-            dbg.log0('_suggest_pool_assign: only one pool to suggest,',
+            dbg.log3('_suggest_pool_assign: only one pool to suggest,',
                 'too small for real suggestion');
             return;
         }
         classifier.train(data_set);
-        dbg.log0('_suggest_pool_assign: Trained:', classifier,
+        dbg.log3('_suggest_pool_assign: Trained:', classifier,
             'probabilities', JSON.stringify(classifier.probabilities));
 
         // for nodes in the default_pool use the classifier to suggest a pool
@@ -1784,9 +1784,9 @@ class NodesMonitor extends EventEmitter {
             if (pool_data.pool_name !== 'default_pool') continue;
             for (const doc of pool_data.docs) {
                 const item = this._map_node_id.get(doc.id);
-                dbg.log0('_suggest_pool_assign: classify start', item.node.name, doc);
+                dbg.log3('_suggest_pool_assign: classify start', item.node.name, doc);
                 const res = classifier.classify(doc);
-                dbg.log0('_suggest_pool_assign: classify result', item.node.name, res);
+                dbg.log3('_suggest_pool_assign: classify result', item.node.name, res);
                 if (res.category !== 'default_pool') {
                     item.suggested_pool = res.category;
                 } else if (res.secondCategory !== 'default_pool') {

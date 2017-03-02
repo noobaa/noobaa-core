@@ -34,7 +34,7 @@ const initialObjectState = deepFreeze({
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
+function onInitApplication() {
     return initialState;
 }
 
@@ -133,7 +133,7 @@ function _recalcStats(objects) {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    APPLICATION_INIT: onApplicationInit,
+    INIT_APPLICAITON: onInitApplication,
     OBJECT_UPLOAD_STARTED: onObjectUploadStarted,
     OBJECT_UPLOAD_PROGRESS: onObjectUploadProgress,
     OBJECT_UPLOAD_COMPLETED: onObjectUploadCompleted,

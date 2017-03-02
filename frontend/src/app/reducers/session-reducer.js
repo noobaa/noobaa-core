@@ -8,7 +8,7 @@ const initialState = null;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
+function onInitApplication() {
     return initialState;
 }
 
@@ -40,7 +40,7 @@ function _getSessionObject(account, system, role) {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    APPLICATION_INIT: onApplicationInit,
+    INIT_APPLICAITON: onInitApplication,
     SESSION_RESTORED: onSessionRestored,
     SIGNED_IN: onSignedIn,
     SIGN_OUT: onSignOut

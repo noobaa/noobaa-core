@@ -8,7 +8,7 @@ const initialState = null;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
+function onInitApplication() {
     return initialState;
 }
 
@@ -28,7 +28,7 @@ function onCloseActiveDrawer() {
 // Exported reducer function.
 // ------------------------------
 export default createReducer({
-    APPLICATION_INIT: onApplicationInit,
+    INIT_APPLICAITON: onInitApplication,
     OPEN_AUDIT_DRAWER: onOpenAuditDrawer,
     OPEN_ALERTS_DRAWER: onOpenAlertsDrawer,
     CLOSE_ACTIVE_DRAWER: onCloseActiveDrawer

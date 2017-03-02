@@ -83,7 +83,7 @@ const initialState = {
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
+function onInitApplication() {
     return initialState;
 }
 
@@ -237,7 +237,7 @@ function _generateFunctionCrumbs(params) {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    APPLICATION_INIT: onApplicationInit,
+    INIT_APPLICAITON: onInitApplication,
     // SESSION_RESTORED: onSessionRestored,
     // SIGNED_IN: onSignedIn,
     LOCATION_CHANGED: onLocationChanged

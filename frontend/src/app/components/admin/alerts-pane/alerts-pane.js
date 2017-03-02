@@ -35,11 +35,11 @@ class AlertsPaneViewModel extends StateListener {
         this.scroll.subscribe(() => this.onScroll());
     }
 
-    stateEventsFilter(state) {
+    stateSelector(state) {
         return [ state.alerts ];
     }
 
-    onState({ alerts }) {
+    onState(alerts ) {
         const { filter, loading, endOfList, list, loadError } = alerts;
         const { severity, read } = filter;
 

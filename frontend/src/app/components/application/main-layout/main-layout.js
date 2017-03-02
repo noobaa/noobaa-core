@@ -72,11 +72,11 @@ class MainLayoutViewModel extends StateListener {
         registerForAlerts();
     }
 
-    stateEventFilter(state) {
+    stateSelector(state) {
         return [ state.layout ];
     }
 
-    onState({ layout }) {
+    onState(layout) {
         const { breadcrumbs, area, panel } = layout;
 
         this.breadcrumbs(breadcrumbs);

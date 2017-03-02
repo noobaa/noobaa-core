@@ -14,11 +14,11 @@ class AppViewModel extends StateListener {
         // restoreSession();
     }
 
-    // stateEventsFilter(state) {
+    // stateSelector(state) {
     //     return [ state.layout ];
     // }
 
-    // onState({ layout }) {
+    // onState(layout) {
     //     this.layout(`${layout.name}-layout`);
     // }
 }

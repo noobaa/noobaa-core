@@ -3,7 +3,7 @@ import { deepFreeze, noop } from 'utils/core-utils';
 import appReducer from 'reducers/app-reducer';
 
 const state = actions
-    .startWith({ type: 'APPLICATION_INIT' })
+    .startWith({ type: 'INIT_APPLICAITON' })
     .tap(action => console.log('STATE ACTION DISPATCHED:', action))
     .scan((state, action) => deepFreeze(appReducer(state, action)), {})
     .tap(state => console.log('NEW STATE:', state))

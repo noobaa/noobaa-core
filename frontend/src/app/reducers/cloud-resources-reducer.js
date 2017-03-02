@@ -9,7 +9,7 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
+function onInitApplication() {
     return initialState;
 }
 
@@ -68,6 +68,6 @@ function _mapPoolsToBuckets(buckets, tiers) {
 // Exported reducer function.
 // ------------------------------
 export default createReducer({
-    APPLICATION_INIT: onApplicationInit,
+    INIT_APPLICAITON: onInitApplication,
     SYSTEM_INFO_FETCHED: onSystemInfoFetched
 });

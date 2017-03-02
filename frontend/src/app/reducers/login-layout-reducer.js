@@ -10,7 +10,7 @@ const initialState = {
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
+function onInitApplication() {
     return initialState;
 }
 
@@ -22,5 +22,5 @@ function onApplicationInit() {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    APPLICATION_INIT: onApplicationInit
+    INIT_APPLICAITON: onInitApplication
 });

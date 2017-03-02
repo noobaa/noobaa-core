@@ -9,7 +9,7 @@ const initialState = [];
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
+function onInitApplication() {
     return initialState;
 }
 
@@ -358,7 +358,7 @@ export default createReducer({
     // TODO REMOVE THIS ACITON
     MODAL_UPDATE: onModalUpdate,
 
-    APPLICATION_INIT: onApplicationInit,
+    INIT_APPLICAITON: onInitApplication,
     CLOSE_ACTIVE_MODAL: onCloseActiveModal,
     LOCK_ACTIVE_MODAL: onLockActiveModal,
     OPEN_INSTALL_NODES_MODAL: onOpenInstallNodesModal,

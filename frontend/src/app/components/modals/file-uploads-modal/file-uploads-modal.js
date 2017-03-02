@@ -41,11 +41,11 @@ class FileUploadsModalViewModel extends StateListener {
         ];
     }
 
-    stateEventsFilter(state) {
+    stateSelector(state) {
         return [ state.objectUploads ];
     }
 
-    onState({ objectUploads }) {
+    onState(objectUploads) {
         const { stats, objects } = objectUploads;
         const progressText = this._getCurrentUploadProgressText(stats);
 

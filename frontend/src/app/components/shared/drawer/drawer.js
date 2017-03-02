@@ -11,13 +11,17 @@ class DrawerViewModel extends StateListener {
         this.opened = ko.observable();
     }
 
-    onState(state) {
-        if (!this.opened() || state.drawer) {
-            this.component(state.drawer);
+    stateSelector(state) {
+        return [ state.drawer ];
+    }
+
+    onState(drawer) {
+        if (!this.opened() || drawer) {
+            this.component(drawer);
         }
 
         // Must be async in oreder to invoke the css transition.
-        runAsync(() => this.opened(Boolean(state.drawer)));
+        runAsync(() => this.opened(Boolean(drawer)));
     }
 
     onTransitionEnd() {

@@ -9,15 +9,6 @@ export default class StateListener {
         this[stateSub] = undefined;
         this[prevState] = undefined;
 
-        // Create a filter used filter out non relevet state events.
-        const stateFilter = (state) => {
-            const curr = this.stateEventsFilter(state);
-            const prev = this[prevState] && this.stateEventsFilter(this[prevState]);
-            return prev && curr.length > 0 ?
-                curr.some((item, i) => item !== prev[i]) :
-                true;
-        };
-
         // Check if the class override the onState before applying state
         // notifications.
         if (this.onState !== StateListener.prototype.onState) {
@@ -25,10 +16,14 @@ export default class StateListener {
             // adding the subscription.
             runAsync(() => {
                 this[stateSub] = state
-                    .filter(stateFilter)
+                    .map(state => this.stateSelector(state))
+                    .filter(curr => {
+                        const prev = this[prevState];
+                        return !prev || curr.some((item, i) => item !== prev[i]);
+                    })
                     .subscribe(
                         state => {
-                            this.onState(state, this[prevState]);
+                            this.onState(...state);
                             this[prevState] = state;
                         }
                     );
@@ -36,11 +31,12 @@ export default class StateListener {
         }
     }
 
-    stateEventsFilter(/*state*/) {
-        return [];
+    stateSelector(state) {
+        // By default select the whole state.
+        return [state];
     }
 
-    onState(/*state, prevState*/) {
+    onState(/*...selectedState*/) {
     }
 
     dispose() {

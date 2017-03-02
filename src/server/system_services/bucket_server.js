@@ -25,6 +25,7 @@ const node_allocator = require('../node_services/node_allocator');
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
 
+const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
     let now = Date.now();
@@ -772,6 +773,7 @@ function get_cloud_buckets(req) {
             let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
             let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE', system_store.data.buckets, system_store.data.pools);
             return P.ninvoke(blob_svc, 'listContainersSegmented', null, {})
+                .timeout(EXTERNAL_BUCKET_LIST_TO)
                 .then(data => data.entries.map(entry =>
                     _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
         } //else if AWS
@@ -785,9 +787,15 @@ function get_cloud_buckets(req) {
             }
         });
         return P.ninvoke(s3, "listBuckets")
+        .timeout(EXTERNAL_BUCKET_LIST_TO)
             .then(data => data.Buckets.map(bucket =>
                 _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)));
-    }).catch(function(err) {
+    })
+    .catch(P.TimeoutError, err => {
+        dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
+        throw err;
+    })
+    .catch(function(err) {
         dbg.error("get_cloud_buckets ERROR", err.stack || err);
         throw err;
     });

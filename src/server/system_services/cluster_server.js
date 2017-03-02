@@ -496,6 +496,7 @@ function redirect_to_cluster_master(req) {
 
 
 function update_time_config(req) {
+    dbg.log0('update_time_config called with', req.rpc_params);
     var time_config = req.rpc_params;
     var target_servers = [];
     let audit_desc = 'Server date and time successfully updated to: ';
@@ -547,6 +548,7 @@ function update_time_config(req) {
             });
         })
         .then(() => {
+            dbg.log0('caliing apply_updated_time_config for', _.map(target_servers, srv => srv.owner_address));
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_time_config(time_config, {
                     address: server_rpc.get_base_address(server.owner_address)

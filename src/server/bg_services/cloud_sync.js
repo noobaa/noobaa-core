@@ -16,6 +16,9 @@ const promise_utils = require('../../util/promise_utils');
 
 const HUGE_LIST_SIZE = 100000;
 
+http.globalAgent.keepAlive = true;
+https.globalAgent.keepAlive = true;
+
 class PolicyMap extends Map {
     static create() {
         return Object.setPrototypeOf(new Map(), new PolicyMap());

@@ -24,21 +24,25 @@ class UploadsIndicatorViewModel extends StateListener {
             }
         ];
 
+        this.lastUploadTime = ko.observable();
+
     }
 
-    stateEventsFilter(state) {
+    stateSelector(state) {
         return [ state.objectUploads ];
     }
 
-    onState({ objectUploads }, prevState) {
+    onState(objectUploads, /*prevState*/) {
         const { stats, lastUpload } = objectUploads;
         this.uploadCount(stats.uploading);
         this.uploadProgress(stats.batchLoaded / stats.batchSize);
 
-        const prevUploads = prevState && prevState.objectUploads;
-        if(!prevUploads || lastUpload.time > prevUploads.lastUpload.time) {
+        if (!this.lastUploadTime() || lastUpload.time > this.lastUploadTime()) {
             this.animatedCount(lastUpload.objectCount);
         }
+
+        // Save the last upload for the next state update.
+        this.lastUploadTime(lastUpload.time);
     }
 
     onClick() {

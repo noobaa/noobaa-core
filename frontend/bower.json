@@ -1,15 +1,15 @@
 {
   "name": "noobaa_management_console",
   "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
   "description": "",
   "main": "",
   "moduleType": [],
   "authors": [
     "Ohad Mitrani"
   ],
-  "license": "MIT",
   "homepage": "index.html",
-  "private": true,
   "dependencies": {
     "aws-sdk": "aws-sdk-js#2.2.48",
     "knockout": "3.4.1",

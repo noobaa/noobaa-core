@@ -23,7 +23,7 @@ require('../util/panic');
 var _ = require('lodash');
 var url = require('url');
 var http = require('http');
-var https = requirE('https');
+var https = require('https');
 var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var scrubber = require('./bg_services/scrubber');

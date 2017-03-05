@@ -22,6 +22,8 @@ require('../util/panic');
 
 var _ = require('lodash');
 var url = require('url');
+var http = require('http');
+var https = requirE('https');
 var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var scrubber = require('./bg_services/scrubber');
@@ -46,6 +48,10 @@ const MASTER_BG_WORKERS = [
 dbg.set_process_name('BGWorkers');
 mongo_client.instance().connect();
 register_rpc();
+
+//Set KeepAlive to all http/https agents in bg_workers
+http.globalAgent.keepAlive = true;
+https.globalAgent.keepAlive = true;
 
 
 function register_rpc() {

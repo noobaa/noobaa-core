@@ -57,6 +57,10 @@ system_store.once('load', account_server.ensure_support_account);
 dbg.set_process_name('WebServer');
 mongo_client.instance().connect();
 
+//Set KeepAlive to all http/https agents in webserver
+http.globalAgent.keepAlive = true;
+https.globalAgent.keepAlive = true;
+
 
 /////////
 // RPC //

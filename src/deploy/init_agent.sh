@@ -10,6 +10,6 @@ else
 	iptables -I INPUT -j ACCEPT
 	service iptables save
 	curl --insecure -L https://$env_name:8443/public/noobaa-setup >noobaa-setup
-	sudo chmod +x ./noobaa-setup
-	sudo ./noobaa-setup /S /config $agent_conf
+	chmod +x ./noobaa-setup
+	./noobaa-setup /S /config $agent_conf
 fi

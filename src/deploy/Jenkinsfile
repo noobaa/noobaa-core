@@ -11,7 +11,7 @@ def aging_time = '300' // run for 5 hours
 def start_killing_time = '30' // start killing after 30 minutes
 def service = 'azure'
 def resource = 'ds_during_nf_rg'
-def zone = 'eastus'
+def zone = 'westus2'
 def min_machines = '5' // minimum 3 machine
 def max_machines = '15' // maximum 10 machines
 //agentMatrix
@@ -96,6 +96,14 @@ node('node2') {
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
                 node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}'
+            """
+          },
+          "upgrades": {
+            echo 'Doing some upgrades!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/upgrade_test.js'
             """
           }
       )

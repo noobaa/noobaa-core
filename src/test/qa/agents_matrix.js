@@ -29,70 +29,13 @@ var agentConf = argv.agent_conf;
 //noobaa rpc
 var api = require('../../api');
 var rpc = api.new_rpc('wss://' + serverName + ':8443');
+rpc.disable_validation();
 var client = rpc.new_client({});
 
 
-var oses = [{
-    // Ubuntu 14 config
-    publisher: 'Canonical',
-    offer: 'UbuntuServer',
-    sku: '14.04.3-LTS',
-    osType: 'Linux'
-}, {
-    // Ubuntu 16 config
-    publisher: 'Canonical',
-    offer: 'UbuntuServer',
-    sku: '16.04.0-LTS',
-    osType: 'Linux'
-}, {
-    // Ubuntu 12 config
-    publisher: 'Canonical',
-    offer: 'UbuntuServer',
-    sku: '12.04.5-LTS',
-    osType: 'Linux'
-}, {
-    // Centos 6.8 config
-    publisher: 'OpenLogic',
-    offer: 'CentOS',
-    sku: '6.8',
-    osType: 'Linux'
-}, {
-    // Centos 7 config
-    publisher: 'OpenLogic',
-    offer: 'CentOS',
-    sku: '7.3',
-    osType: 'Linux'
-}, {
-    // RHEL 6.8
-    publisher: 'RedHat',
-    offer: 'RHEL',
-    sku: '6.8',
-    version: 'latest'
-}, {
-    // RHEL 7.2
-    publisher: 'RedHat',
-    offer: 'RHEL',
-    sku: '7.3',
-    version: 'latest'
-}, {
-    // Windows 2012R2 config
-    publisher: 'MicrosoftWindowsServer',
-    offer: 'WindowsServer',
-    sku: '2012-R2-Datacenter',
-    osType: 'Windows'
-}, {
-    // Windows 2008R2 config
-    publisher: 'MicrosoftWindowsServer',
-    offer: 'WindowsServer',
-    sku: '2008-R2-SP1',
-    osType: 'Windows'
-}, {
-    // Windows 2016 config
-    publisher: 'MicrosoftWindowsServer',
-    offer: 'WindowsServer',
-    sku: '2016-Datacenter',
-    osType: 'Windows'
-}];
+var oses = [
+    'ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2008R2', 'win2012R2', 'win2016'
+];
 
 let nodes = [];
 let errors = [];
@@ -100,6 +43,29 @@ var initial_node_number = 0;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
 return azf.authenticate()
+    .then(() => {
+        if (!argv.skipsetup) {
+            P.map(oses, osname => {
+                    var os = azf.getImagesfromOSname(osname);
+                    azf.deleteVirtualMachine(os.offer.substring(0, 7) + os.sku.substring(0, 4))
+                        .catch(err => console.log('VM not found - skipping...', err));
+                })
+                .then(() => P.resolve(client.node.list_nodes({
+                    query: {
+                        skip_cloud_nodes: true
+                    }
+                })))
+                .then(res => {
+                    console.warn('Num nodes before the test are ', res.total_count);
+                    initial_node_number = res.total_count;
+                })
+                .then(() => P.map(oses, osname => {
+                    var os = azf.getImagesfromOSname(osname);
+                    return azf.createAgent(osname, storageAccountName, vnetName,
+                        os, serverName, agentConf).catch(err => errors.push(err.message));
+                }));
+        }
+    })
     .then(() => P.fcall(function() {
         var auth_params = {
             email: 'demo@noobaa.com',
@@ -108,18 +74,6 @@ return azf.authenticate()
         };
         return client.create_auth_token(auth_params);
     }))
-    .then(() => P.resolve(client.node.list_nodes({
-        query: {
-            skip_cloud_nodes: true
-        }
-    })))
-    .then(res => {
-        console.warn('Num nodes before the test are ', res.total_count);
-        initial_node_number = res.total_count;
-    })
-    .then(() => P.map(oses, os => azf.createAgent(os.offer.substring(0, 7) + os.sku.substring(0, 4),
-        storageAccountName, vnetName, os, serverName, agentConf).catch(err => errors.push(err.message))))
-    .catch(err => errors.push(err.message))
     .then(() => console.warn('Will now wait for a minute for agents to come up...'))
     .delay(60000)
     .then(() => P.resolve(client.node.list_nodes({
@@ -160,7 +114,7 @@ return azf.authenticate()
     })
     .then(() => P.map(oses, os => azf.deleteVirtualMachineExtension(os.offer.substring(0, 7) + os.sku.substring(0, 4))
         .catch(err => errors.push(err.message))))
-    .then(() => P.map(oses, os => {
+    .then(() => P.map(oses, osname => {
         var extension = {
             publisher: 'Microsoft.OSTCExtensions',
             virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
@@ -176,6 +130,7 @@ return azf.authenticate()
             },
             location: location,
         };
+        var os = azf.getImagesfromOSname(osname);
         if (os.osType === 'Windows') {
             extension.publisher = 'Microsoft.Compute';
             extension.virtualMachineExtensionType = 'CustomScriptExtension';
@@ -188,8 +143,6 @@ return azf.authenticate()
         return azf.createVirtualMachineExtension(os.offer.substring(0, 7) + os.sku.substring(0, 4), extension)
             .catch(err => errors.push(err.message));
     }))
-    .then(() => P.map(oses, os => azf.deleteVirtualMachine(os.offer.substring(0, 7) + os.sku.substring(0, 4))
-        .catch(err => errors.push(err.message))))
     .then(() => rpc.disconnect_all())
     .then(() => {
         if (errors.length === 0) {

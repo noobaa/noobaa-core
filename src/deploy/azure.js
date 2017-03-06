@@ -24,74 +24,18 @@ var secret = process.env.APPLICATION_SECRET;
 var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 
 //Sample Config
-var location = argv.location || 'eastus';
-var resourceGroupName = argv.resource || 'capacity';
+var location = argv.location || 'westus2';
+var resourceGroupName = argv.resource || 'newcapacity';
 
 var storageAccountName = argv.storage || 'capacitystorage';
 var timestamp = (Math.floor(Date.now() / 1000));
 
-var vnetName = argv.vnet || 'capacity-vnet';
+var vnetName = argv.vnet || 'newcapacity-vnet';
 var serverName;
 var agentConf;
 
 var machineCount = 4;
 
-var os = {
-    // Ubuntu 14 config - default
-    publisher: 'Canonical',
-    offer: 'UbuntuServer',
-    sku: '14.04.5-LTS',
-    osType: 'Linux'
-};
-if (argv.os === 'ubuntu16') {
-    // Ubuntu 16 config
-    os.publisher = 'Canonical';
-    os.offer = 'UbuntuServer';
-    os.sku = '16.04.0-LTS';
-    os.osType = 'Linux';
-} else if (argv.os === 'centos6') {
-    // Centos 6.8 config
-    os.publisher = 'OpenLogic';
-    os.offer = 'CentOS';
-    os.sku = '6.8';
-    os.osType = 'Linux';
-} else if (argv.os === 'centos7') {
-    // Centos 6.8 config
-    os.publisher = 'OpenLogic';
-    os.offer = 'CentOS';
-    os.sku = '7.2';
-    os.osType = 'Linux';
-} else if (argv.os === 'redhat6') {
-    // RHEL 6.8 config
-    os.publisher = 'RedHat';
-    os.offer = 'RHEL';
-    os.sku = '6.8';
-    os.version = 'latest';
-} else if (argv.os === 'redhat7') {
-    // RHEL 7.2 config
-    os.publisher = 'RedHat';
-    os.offer = 'RHEL';
-    os.sku = '7.2';
-    os.version = 'latest';
-} else if (argv.os === 'win2012R2') {
-    // Windows 2012R2 config
-    os.publisher = 'MicrosoftWindowsServer';
-    os.offer = 'WindowsServer';
-    os.sku = '2012-R2-Datacenter';
-    os.osType = 'Windows';
-} else if (argv.os === 'win2008R2') {
-    // Windows 2008R2 config
-    os.publisher = 'MicrosoftWindowsServer';
-    os.offer = 'WindowsServer';
-    os.sku = '2008-R2-SP1';
-    os.osType = 'Windows';
-} else if (argv.os === 'win2016') {
-    // Windows 2016 config
-    os.publisher = 'MicrosoftWindowsServer';
-    os.offer = 'WindowsServer';
-    os.sku = '2016-Datacenter';
-    os.osType = 'Windows';
-}
 var azf;
 
 ///////////////////////////////////////
@@ -103,7 +47,11 @@ if (argv.help) {
     vmOperations();
 }
 
-function args_builder(count) {
+var oses = [
+    'ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2008R2', 'win2012R2', 'win2016'
+];
+
+function args_builder(count, os) {
     var vmNames = [];
     for (let i = 0; i < count; i++) {
         var vmName;
@@ -177,9 +125,18 @@ function vmOperations(operationCallback) {
             console.log('Machines with this prefix which are online', old_machines.length);
             var machines = [];
             if (old_machines.length < machineCount) {
-                machines = args_builder(machineCount - old_machines.length);
+                var os = azf.getImagesfromOSname(argv.os);
+                machines = args_builder(machineCount - old_machines.length, os);
                 console.log('adding ', (machineCount - old_machines.length), 'machines');
                 return P.map(machines, machine => azf.createAgent(machine, storageAccountName, vnetName, os, serverName, agentConf));
+            }
+            if (argv.addallimages) {
+                console.log('adding all prossible machine types');
+                return P.map(oses, osname => {
+                    var os = azf.getImagesfromOSname(osname);
+                    return azf.createAgent(prefix + osname.substring(0, 8), storageAccountName, vnetName,
+                        os, serverName, agentConf);
+                });
             }
             console.log('removing ', (old_machines.length - machineCount), 'machines');
             var todelete = old_machines.length - machineCount;

@@ -35,23 +35,78 @@ class AzureFunctions {
             });
     }
 
+    getImagesfromOSname(osname) {
+        var os = {
+            // Ubuntu 14 config - default
+            publisher: 'Canonical',
+            offer: 'UbuntuServer',
+            sku: '14.04.5-LTS',
+            osType: 'Linux'
+        };
+        if (osname === 'ubuntu16') {
+            // Ubuntu 16 config
+            os.publisher = 'Canonical';
+            os.offer = 'UbuntuServer';
+            os.sku = '16.04.0-LTS';
+            os.osType = 'Linux';
+        } else if (osname === 'centos6') {
+            // Centos 6.8 config
+            os.publisher = 'OpenLogic';
+            os.offer = 'CentOS';
+            os.sku = '6.8';
+            os.osType = 'Linux';
+        } else if (osname === 'centos7') {
+            // Centos 6.8 config
+            os.publisher = 'OpenLogic';
+            os.offer = 'CentOS';
+            os.sku = '7.2';
+            os.osType = 'Linux';
+        } else if (osname === 'redhat6') {
+            // RHEL 6.8 config
+            os.publisher = 'RedHat';
+            os.offer = 'RHEL';
+            os.sku = '6.8';
+            os.version = 'latest';
+        } else if (osname === 'redhat7') {
+            // RHEL 7.2 config
+            os.publisher = 'RedHat';
+            os.offer = 'RHEL';
+            os.sku = '7.2';
+            os.version = 'latest';
+        } else if (osname === 'win2012R2') {
+            // Windows 2012R2 config
+            os.publisher = 'MicrosoftWindowsServer';
+            os.offer = 'WindowsServer';
+            os.sku = '2012-R2-Datacenter';
+            os.osType = 'Windows';
+        } else if (osname === 'win2008R2') {
+            // Windows 2008R2 config
+            os.publisher = 'MicrosoftWindowsServer';
+            os.offer = 'WindowsServer';
+            os.sku = '2008-R2-SP1';
+            os.osType = 'Windows';
+        } else if (osname === 'win2016') {
+            // Windows 2016 config
+            os.publisher = 'MicrosoftWindowsServer';
+            os.offer = 'WindowsServer';
+            os.sku = '2016-Datacenter';
+            os.osType = 'Windows';
+        }
+        return os;
+    }
+
     getSubnetInfo(vnetName) {
         console.log('Getting subnet info for: ' + vnetName);
         return P.fromCallback(callback => this.networkClient.subnets.get(this.resourceGroupName, vnetName, 'default', callback));
     }
 
     createAgent(vmName, storage, vnet, os, server_name, agent_conf) {
-        //Get subscriptionId if not provided
-        // var nicInfo;
         var subnetInfo;
-
         return this.getSubnetInfo(vnet)
             .then(result => {
                 subnetInfo = result;
-                // return createPublicIPPromise(domainNameLabel, publicIPName);
                 return this.createNIC(subnetInfo, null, vmName + '_nic', vmName + '_ip');
             })
-            // .then(ipInfo => createNICPromise(subnetInfo, ipInfo, networkInterfaceName, ipConfigName))
             .then(nic => {
                 console.log('Created Network Interface!');
                 var image = {
@@ -160,7 +215,7 @@ class AzureFunctions {
                 adminPassword: adminPassword
             },
             hardwareProfile: {
-                vmSize: 'Standard_A2'
+                vmSize: 'Standard_A2_v2'
             },
             storageProfile: {
                 imageReference: imageReference,
@@ -183,7 +238,7 @@ class AzureFunctions {
             diagnosticsProfile: {
                 bootDiagnostics: {
                     enabled: true,
-                    storageUri: 'https://' + storageAccountName + '.blob.core.windows.net/'
+                    storageUri: 'https://wusdiagnostics.blob.core.windows.net/'
                 }
             }
         };
@@ -313,7 +368,6 @@ class AzureFunctions {
                     storageProfile: {
                         osDisk: {
                             name: machine_info.storageProfile.osDisk.name,
-                            // diskSizeGB: 1023,
                             caching: machine_info.storageProfile.osDisk.caching,
                             createOption: 'fromImage',
                             osType: machine_info.storageProfile.osDisk.osType,
@@ -418,18 +472,18 @@ class AzureFunctions {
     waitMachineState(machine, state) {
         var c_state;
         console.log('Waiting for machine state to be ' + state);
-        return promise_utils.pwhile(() => c_state !== state, () => {
-            return P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
-                    expand: 'instanceView',
-                }, callback))
-                .then(machine_info => {
-                    if (machine_info.instanceView.statuses[1]) {
-                        c_state = machine_info.instanceView.statuses[1].displayStatus;
-                    }
-                    console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
-                })
-                .delay(5000);
-        });
+        return promise_utils.pwhile(() => c_state !== state, () =>
+            P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
+                expand: 'instanceView',
+            }, callback))
+            .then(machine_info => {
+                if (machine_info.instanceView.statuses[1]) {
+                    c_state = machine_info.instanceView.statuses[1].displayStatus;
+                }
+                console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
+            })
+            .delay(5000)
+        );
     }
 
     createVirtualMachineExtension(vmName, extensionParameters) {

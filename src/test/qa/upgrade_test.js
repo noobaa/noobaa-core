@@ -181,10 +181,10 @@ return P.each(procedure, upgrade_procedure => {
                             .then(() => {
                                 var remoteExecuteClient = new cloudCD.RemoteExecute(connection);
                                 var ssh_script = path.join(__dirname, '/../../deploy/init_agent.sh');
-                                var args = machine_ip + ' ' + base64;
+                                var args2 = machine_ip + ' ' + base64;
                                 return P.fromCallback(callback => remoteExecuteClient.perform(linux_server, {
                                     script: ssh_script,
-                                    args: args
+                                    args: args2
                                 }, callback));
                             });
                     }));

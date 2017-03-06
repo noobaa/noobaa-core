@@ -271,8 +271,8 @@ function bundleApp(watch) {
     bundler
         .require(buildPath + '/style.json', { expose: 'style' })
         .transform(babelify, {
-            presets: ['es2015'],
             plugins: [
+                'transform-es2015-modules-commonjs',
                 'transform-async-to-generator',
                 'transform-object-rest-spread',
                 ['transform-runtime', { polyfill: false }]

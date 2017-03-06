@@ -16,9 +16,23 @@ export function closeActiveDrawer() {
 }
 
 // -------------------------------
+// Forms action dispatchers
+// -------------------------------
+export function initializeForm(form, values = {}) {
+    dispatch({ type: 'INIT_FORM', form, values });
+}
+
+export function updateForm(form, field, value) {
+    dispatch({ type: 'UPDATE_FORM', form, field, value });
+}
+
+export function disposeForm(form) {
+    dispatch({ type: 'DISPOSE_FORM', form });
+}
+
+// -------------------------------
 // Modal action dispatchers
 // -------------------------------
-
 export function updateModal(options) {
     dispatch({ type: 'MODAL_UPDATE', ...options });
 }

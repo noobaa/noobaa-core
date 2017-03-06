@@ -133,9 +133,9 @@ function vmOperations(operationCallback) {
             if (argv.addallimages) {
                 console.log('adding all prossible machine types');
                 return P.map(oses, osname => {
-                    var os = azf.getImagesfromOSname(osname);
+                    var os2 = azf.getImagesfromOSname(osname);
                     return azf.createAgent(prefix + osname.substring(0, 8), storageAccountName, vnetName,
-                        os, serverName, agentConf);
+                        os2, serverName, agentConf);
                 });
             }
             console.log('removing ', (old_machines.length - machineCount), 'machines');

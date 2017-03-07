@@ -515,7 +515,7 @@ export function loadServerInfo() {
         .then(
             reply => reply.has_accounts ?
                 { initialized: true } :
-                api.cluster_server.read_server_config().then(
+                api.cluster_server.read_server_config({ test_ph_connectivity: true }).then(
                     config => ({
                         initialized: false,
                         address: endpoint,

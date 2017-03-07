@@ -46,6 +46,9 @@ module.exports = {
                     },
                     dns_name: {
                         type: 'string'
+                    },
+                    proxy_address: {
+                        type: 'string'
                     }
                 },
             },
@@ -417,6 +420,9 @@ module.exports = {
                         type: 'string'
                     },
                     email: {
+                        type: 'string'
+                    },
+                    proxy_address: {
                         type: 'string'
                     }
                 }

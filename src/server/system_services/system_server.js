@@ -231,7 +231,7 @@ function create_system(req) {
                 system_info: _.omit(req.rpc_params, ['access_keys', 'password']),
                 command: 'perform_activation'
             };
-            return _communicate_license_server(params);
+            return _communicate_license_server(params, req.rpc_params.proxy_address);
         })
         .then(() => {
             // Attempt to resolve DNS name, if supplied
@@ -323,6 +323,17 @@ function create_system(req) {
                     }
                     return server_rpc.client.system.update_hostname({
                         hostname: req.rpc_params.dns_name
+                    }, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => {
+                    if (!req.rpc_params.proxy_address) {
+                        return;
+                    }
+
+                    return server_rpc.client.system.update_phone_home_config({
+                        proxy_address: req.rpc_params.proxy_address
                     }, {
                         auth_token: reply_token
                     });
@@ -762,6 +773,11 @@ function diagnose_node(req) {
 function update_n2n_config(req) {
     var n2n_config = req.rpc_params;
     dbg.log0('update_n2n_config', n2n_config);
+    if (n2n_config.tcp_permanent_passive) {
+        if (n2n_config.tcp_permanent_passive.min >= n2n_config.tcp_permanent_passive.max) {
+            throw new Error('Min port range cant be equal or higher to max');
+        }
+    }
     return system_store.make_changes({
             update: {
                 systems: [{
@@ -1020,7 +1036,7 @@ function validate_activation(req) {
                 command: 'validate_creation'
             });
             // Method is used both for license code validation with and without business email
-            return _communicate_license_server(params);
+            return _communicate_license_server(params, req.rpc_params.proxy_address);
         })
         .return({
             valid: true
@@ -1080,7 +1096,7 @@ function find_account_by_email(req) {
     return account;
 }
 
-function _communicate_license_server(params) {
+function _communicate_license_server(params, proxy_address) {
     if (DEV_MODE) return 'ok';
     const body = {
         code: params.code.trim(),
@@ -1091,7 +1107,7 @@ function _communicate_license_server(params) {
     if (params.command === 'perform_activation') {
         body.system_info = params.system_info || {};
     }
-    const options = {
+    let options = {
         url: config.PHONE_HOME_BASE_URL + '/' + params.command,
         method: 'POST',
         body: body,
@@ -1099,6 +1115,9 @@ function _communicate_license_server(params) {
         json: true,
         gzip: true,
     };
+    if (proxy_address) {
+        options.proxy = proxy_address;
+    }
     dbg.log0('Sending Post Request To Activation Server:', options);
     return P.fromCallback(callback => request(options, callback), {
             multiArgs: true

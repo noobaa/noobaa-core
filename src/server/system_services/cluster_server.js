@@ -1091,6 +1091,10 @@ function read_server_config(req) {
     let reply = {};
     let srvconf = {};
 
+    if (req.rpc_params.ph_proxy) {
+        srvconf.used_proxy = req.rpc_params.ph_proxy;
+    }
+
     return P.resolve()
         .then(function() {
             if (DEV_MODE) {
@@ -1110,9 +1114,17 @@ function read_server_config(req) {
                 });
         })
         .then(() => _attach_server_configuration(srvconf, reply.using_dhcp))
-        .then(() => (DEV_MODE ? 'CONNECTED' : phone_home_utils.verify_connection_to_phonehome()))
+        .then(() => (DEV_MODE ?
+            'CONNECTED' :
+            phone_home_utils.verify_connection_to_phonehome({
+                proxy: req.rpc_params.ph_proxy ? req.rpc_params.ph_proxy : undefined
+            }, req.rpc_params.test_ph_connectivity)))
         .then(function(connection_reply) {
-            reply.phone_home_connectivity_status = connection_reply;
+            if (connection_reply) {
+                reply.phone_home_connectivity_status = connection_reply;
+            } else {
+                reply.phone_home_connectivity_status = 'WAS_NOT_TESTED';
+            }
 
             if (srvconf.ntp) {
                 if (srvconf.ntp.timezone) {

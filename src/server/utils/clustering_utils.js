@@ -290,7 +290,7 @@ function _get_min_requirements() {
         return {
             ram_gb: 16,
             disk_gb: 120,
-            cpu_count: 4,
+            cpu_count: 8,
         };
 }
 

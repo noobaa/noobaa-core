@@ -6,30 +6,36 @@ const url = require('url');
 const dns = require('dns');
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
+const promise_utils = require('./promise_utils');
 const _ = require('lodash');
 const request = require('request');
 
 
-function verify_connection_to_phonehome(phone_home_options) {
+function verify_connection_to_phonehome(phone_home_options, limit_conn_test) {
+    let timeout_condition = _.isUndefined(limit_conn_test) ? false : !limit_conn_test;
     let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);
-    return P.all([
-        P.fromCallback(callback => dns.resolve(parsed_url.host, callback)).reflect(),
-        _get_request('https://google.com').reflect(),
-        _get_request(config.PHONE_HOME_BASE_URL + '/connectivity_test', phone_home_options).reflect()
-    ]).then(function(results) {
-        var reply_status;
-        let ph_dns_result = results[0];
-        let google_get_result = results[1];
-        let ph_get_result = results[2];
-        reply_status = _handle_ph_get(ph_get_result, google_get_result, ph_dns_result);
+    return promise_utils.conditional_timeout(timeout_condition, 5000,
+            P.all([
+                P.fromCallback(callback => dns.resolve(parsed_url.host, callback)).reflect(),
+                _get_request('https://google.com').reflect(),
+                _get_request(config.PHONE_HOME_BASE_URL + '/connectivity_test', phone_home_options).reflect()
+            ]))
+        .then(function(results) {
+            var reply_status;
+            let ph_dns_result = results[0];
+            let google_get_result = results[1];
+            let ph_get_result = results[2];
+            reply_status = _handle_ph_get(ph_get_result, google_get_result, ph_dns_result);
 
-        if (!reply_status) {
-            throw new Error('Could not _verify_connection_to_phonehome');
-        }
+            if (!reply_status) {
+                throw new Error('Could not _verify_connection_to_phonehome');
+            }
 
-        dbg.log0('_verify_connection_to_phonehome reply_status:', reply_status);
-        return reply_status;
-    });
+            dbg.log0('_verify_connection_to_phonehome reply_status:', reply_status);
+            return reply_status;
+        })
+        //If T/O was caught, we did not run long test but made a best effort, don't fail the operation
+        .catch(P.TimeoutError, () => _.noop());
 }
 
 

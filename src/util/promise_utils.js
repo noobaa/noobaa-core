@@ -364,6 +364,13 @@ function all_obj(obj, func) {
         .return(new_obj);
 }
 
+function conditional_timeout(cond, timeout, prom) {
+        if (cond) {
+                return prom.timeout(timeout);
+        }
+        return prom;
+}
+
 
 // EXPORTS
 exports.join = join;
@@ -381,3 +388,4 @@ exports.pwhile = pwhile;
 exports.auto = auto;
 exports.all_obj = all_obj;
 exports.fork = fork;
+exports.conditional_timeout = conditional_timeout;

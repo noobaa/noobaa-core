@@ -123,6 +123,17 @@ module.exports = {
 
         read_server_config: {
             method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    test_ph_connectivity: {
+                        type: 'boolean'
+                    },
+                    ph_proxy: {
+                        type: 'string'
+                    }
+                }
+            },
             reply: {
                 type: 'object',
                 required: ['using_dhcp', 'phone_home_connectivity_status'],
@@ -142,6 +153,9 @@ module.exports = {
                     using_dhcp: {
                         type: 'boolean'
                     },
+                    used_proxy: {
+                        type: 'string'
+                    },
                     phone_home_connectivity_status: {
                         enum: [
                             'CANNOT_REACH_DNS_SERVER',
@@ -149,7 +163,8 @@ module.exports = {
                             'CANNOT_CONNECT_INTERNET',
                             'CANNOT_CONNECT_PHONEHOME_SERVER',
                             'MALFORMED_RESPONSE',
-                            'CONNECTED'
+                            'CONNECTED',
+                            'WAS_NOT_TESTED'
                         ],
                         type: 'string',
                     },

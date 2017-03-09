@@ -72,7 +72,7 @@ class MainLayoutViewModel extends StateListener {
         registerForAlerts();
     }
 
-    stateSelector(state) {
+    selectState(state) {
         return [ state.layout ];
     }
 

@@ -28,7 +28,7 @@ class UploadsIndicatorViewModel extends StateListener {
 
     }
 
-    stateSelector(state) {
+    selectState(state) {
         return [ state.objectUploads ];
     }
 

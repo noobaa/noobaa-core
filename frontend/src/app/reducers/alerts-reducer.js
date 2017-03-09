@@ -61,7 +61,6 @@ function onAlertsFetchFailed(state, { error }) {
     } else {
         return { ...state, loading };
     }
-
 }
 
 function onAlertsUpdate(state, { query }) {

@@ -14,7 +14,7 @@ class AppViewModel extends StateListener {
         // restoreSession();
     }
 
-    // stateSelector(state) {
+    // selectState(state) {
     //     return [ state.layout ];
     // }
 

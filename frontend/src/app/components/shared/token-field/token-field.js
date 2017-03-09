@@ -1,32 +1,32 @@
 import template from './token-field.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { splice } from 'utils/string-utils';
+import { echo } from 'utils/core-utils';
 
 const enterKeyCode = 13;
 const backspaceKeyCode = 8;
 const tokenSeperator = '\n';
 
-class TokenFieldViewModel extends BaseViewModel {
+class TokenFieldViewModel {
     constructor({
-        tokens = ko.observableArray(),
+        tokens = ko.observable([]),
+        disabled = false,
         placeholder = 'Type to add tokens'
     }) {
-        super();
+        this.text = ko.observable();
+        this.disabled = disabled;
+        this.placeholder = ko.pureComputed(
+            () => this.hasFocus() ? '' : placeholder
+        );
 
-        this.tokens = tokens;
-        this.text = ko.observable('');
-        this.cursor = ko.observable(this.tokens().length);
+        this.list = ko.observableArray(tokens() ? Array.from(tokens) : []);
         this.selection = ko.observable(0);
         this.hasFocus = ko.observable(false);
+        this.hasFocus.subscribe(f => !f && this.onBlur());
 
         this.scroll = ko.observable().extend({
             notify: 'always'
         });
-
-        this.placeholder = ko.pureComputed(
-            () => this.hasFocus() ? '' : placeholder
-        );
 
         this.eventHandlers = {
             mousedown: this.onMouseDown,
@@ -35,10 +35,9 @@ class TokenFieldViewModel extends BaseViewModel {
             keydown: this.onKeyDown
         };
 
-        this.text.subscribe(
-            text => text ?
-                this.tokens.splice(this.cursor(), 1, text) :
-                this.tokens.splice(this.cursor(), 1)
+        this.tokens = tokens;
+        this.tokensSub = this.tokens.subscribe(
+            tokens => this.list(Array.from(tokens))
         );
     }
 
@@ -51,18 +50,23 @@ class TokenFieldViewModel extends BaseViewModel {
             return true;
         }
 
-        this.cursor(this.cursor() + 1);
+        this.list.push(this.text());
         this.text('');
         this.scroll(1);
     }
 
     onKeyDown(_, { which }) {
         if (which === backspaceKeyCode && !this.text()) {
-            this.cursor(this.cursor() - 1);
-            this.text(this.tokens()[this.cursor()]);
+            this.text(this.list.pop());
         } else {
             return true;
         }
+    }
+
+    onBlur() {
+        this.tokens(
+            Array.from(this.list()
+        );
     }
 
     onPaste(_, { clipboardData }) {
@@ -79,7 +83,6 @@ class TokenFieldViewModel extends BaseViewModel {
         if (list.length > 1) {
             this.text('');
             this.tokens.splice(this.cursor(), 1, ...list);
-            this.cursor(this.tokens().length);
             this.scroll(1);
         } else {
             return true;
@@ -87,12 +90,13 @@ class TokenFieldViewModel extends BaseViewModel {
     }
 
     onRemoveToken(index) {
-        this.tokens.splice(index, 1);
-        this.cursor(this.cursor() - 1);
+        this.list.splice(index, 1);
         this.hasFocus(true);
     }
 
-
+    dispose() {
+        this.tokensSub.dispose();
+    }
 }
 
 export default {

@@ -5,7 +5,8 @@ import appReducer from 'reducers/app-reducer';
 const state = actions
     .startWith({ type: 'INIT_APPLICAITON' })
     .tap(action => console.log('STATE ACTION DISPATCHED:', action))
-    .scan((state, action) => deepFreeze(appReducer(state, action)), {})
+    .scan((state, action) => appReducer(state, action), {})
+    .map(deepFreeze)
     .tap(state => console.log('NEW STATE:', state))
     .shareReplay(1);
 

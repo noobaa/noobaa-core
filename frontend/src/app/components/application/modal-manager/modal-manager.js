@@ -16,7 +16,7 @@ class ModalManagerViewModel extends StateListener {
         this.closeActiveModal = closeActiveModal;
     }
 
-    stateSelector(state) {
+    selectState(state) {
         return [ state.modals ];
     }
 

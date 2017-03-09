@@ -11,7 +11,7 @@ class DrawerViewModel extends StateListener {
         this.opened = ko.observable();
     }
 
-    stateSelector(state) {
+    selectState(state) {
         return [ state.drawer ];
     }
 

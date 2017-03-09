@@ -48,21 +48,14 @@ class InstallNodeWizardViewModel extends FormViewModel {
             });
 
         } else {
-            const { step, osType, excludeDrives,
-                excludedDrives, command } = form.fields;
+            this.copyValuesToProps(form.fields);
 
-            this.step(step.value);
-            this.osType(osType.value);
-            this.excludeDrives(excludeDrives.value);
-            this.excludedDrives(excludedDrives.value);
-            this.command(command.value);
-
-            if (osType.value === 'LINUX') {
+            if (this.osType() === 'LINUX') {
                 this.subject('mount');
                 this.tokensPlaceholder('Type mounts here (e.g: /mnt/mydata)');
                 this.userInstruction('Open a linux shell to a target  machine and run the following command');
 
-            } else if (osType.value === 'WINDOWS') {
+            } else if (this.osType() === 'WINDOWS') {
                 this.subject('drive');
                 this.tokensPlaceholder('Type drives here (e.g c:\\)');
                 this.userInstruction('Open an elevated Powershell (run as administrator) to a target machine and run the following command');
@@ -72,11 +65,10 @@ class InstallNodeWizardViewModel extends FormViewModel {
 
     onNext() {
         const { step, command , osType, excludeDrives, excludedDrives } = this;
+
         if (step() === 0 && !command()) {
-            fetchNodeInstallationCommand(
-                osType(),
-                excludeDrives() ? excludedDrives() : []
-            );
+            const drives = excludeDrives() ? excludedDrives() : [];
+            fetchNodeInstallationCommand(osType(), drives);
         }
 
         this.updateForm('step', step() + 1);

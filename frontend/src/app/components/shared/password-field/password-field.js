@@ -10,7 +10,7 @@ const iconMapping = deepFreeze({
         icon: 'eye',
         tooltip: 'Show password'
     },
-    input: {
+    text: {
         icon: 'no-eye',
         tooltip: 'Hide password'
     }
@@ -74,7 +74,7 @@ class PasswordFieldViewModel extends BaseViewModel {
     }
 
     toogleType() {
-        this.type(this.type() === 'password' ? 'input' : 'password');
+        this.type(this.type() === 'password' ? 'text' : 'password');
     }
 }
 

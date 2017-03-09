@@ -1,6 +1,7 @@
 import StateListener from 'state-listener';
 import { isString } from 'utils/core-utils';
 import { initializeForm, updateForm, disposeForm, resetForm } from 'dispatchers';
+import ko from 'knockout';
 
 const formNameSym = Symbol('formNameSym');
 const initializedSym = Symbol('initializedSym');
@@ -48,6 +49,16 @@ export default class FormViewModel extends StateListener {
 
     resetForm() {
         resetForm(this.formName);
+    }
+
+    copyValuesToProps(fields) {
+        for (const [key, { value }] of Object.entries(fields)) {
+            if (ko.isObservable(this[key])) {
+                this[key](value);
+            } else {
+                this[key] = value;
+            }
+        }
     }
 
     dispose() {

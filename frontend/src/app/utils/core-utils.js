@@ -213,7 +213,8 @@ export function assignWith(target, ...sources) {
 export function mapValues(obj, mapOp) {
     const res = {};
     for (const [ key, value ] of Object.entries(obj)) {
-        res[key] = mapOp(value, key);
+        const newValue = mapOp(value, key);
+        if (isDefined(newValue)) res[key] = newValue;
     }
     return res;
 }

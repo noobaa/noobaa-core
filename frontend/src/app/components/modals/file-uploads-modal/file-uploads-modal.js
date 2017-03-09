@@ -41,7 +41,7 @@ class FileUploadsModalViewModel extends StateListener {
         ];
     }
 
-    stateSelector(state) {
+    selectState(state) {
         return [ state.objectUploads ];
     }
 

@@ -15,7 +15,7 @@ class CommandBarViewModel extends StateListener {
         getUnreadAlertsCount();
     }
 
-    stateSelector(state) {
+    selectState(state) {
         return [ state.alerts ];
     }
 

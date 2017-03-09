@@ -1,0 +1,38 @@
+<stepper class="push-next" params="steps: steps, current: step">
+</stepper>
+
+<div class="pages greedy push-next" data-bind="
+    foreach: $componentTemplateNodes.filter(n => n.nodeType === 1)
+">
+    <div class="page column" data-bind="
+        css: { selected: $index() === $component.step() },
+        template: { nodes: [$data], data: $parents[1], }
+    "></div>
+</div>
+
+<div class="row align-end content-middle">
+    <button class="link alt-colors push-next" data-bind="
+        click: onCancel,
+        visible: isFirstStep
+    ">
+        Cancel
+    </button>
+    <button class="link alt-colors push-next" data-bind="
+        click: onPrev,
+        visible: !isFirstStep()
+    ">
+        Previous
+    </button>
+    <button class="btn" data-bind="
+        click: onNext,
+        visible: !isLastStep()
+    ">
+        Next
+    </button>
+    <button class="btn" data-bind="
+        click: onComplete,
+        visible: isLastStep(),
+        text: actionLabel
+    ">
+    </button>
+</div>

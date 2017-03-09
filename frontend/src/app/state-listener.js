@@ -16,7 +16,7 @@ export default class StateListener {
             // adding the subscription.
             runAsync(() => {
                 this[stateSub] = state
-                    .map(state => this.stateSelector(state))
+                    .map(state => this.selectState(state))
                     .filter(curr => {
                         const prev = this[prevState];
                         return !prev || curr.some((item, i) => item !== prev[i]);
@@ -31,7 +31,7 @@ export default class StateListener {
         }
     }
 
-    stateSelector(state) {
+    selectState(state) {
         // By default select the whole state.
         return [state];
     }

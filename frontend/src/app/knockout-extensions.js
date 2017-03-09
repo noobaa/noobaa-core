@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isUndefined, deepFreeze } from 'utils/core-utils';
+import { isObject, isUndefined, deepFreeze, noop } from 'utils/core-utils';
 
 ko.subscribable.fn.is = function(value) {
     return ko.pureComputed(
@@ -103,6 +103,10 @@ ko.group = function(...observables) {
     return ko.pureComputed(
         () => observables.map(obs => ko.unwrap(obs))
     );
+};
+
+ko.cmptd = function(read = noop, write = noop) {
+    return ko.pureComputed({ read, write });
 };
 
 

@@ -1,7 +1,6 @@
 import template from './token-field.html';
 import ko from 'knockout';
 import { splice } from 'utils/string-utils';
-import { echo } from 'utils/core-utils';
 
 const enterKeyCode = 13;
 const backspaceKeyCode = 8;
@@ -16,7 +15,7 @@ class TokenFieldViewModel {
         this.text = ko.observable();
         this.disabled = disabled;
         this.placeholder = ko.pureComputed(
-            () => this.hasFocus() ? '' : placeholder
+            () => this.hasFocus() ? '' : ko.unwrap(placeholder)
         );
 
         this.list = ko.observableArray(tokens() ? Array.from(tokens) : []);
@@ -65,7 +64,7 @@ class TokenFieldViewModel {
 
     onBlur() {
         this.tokens(
-            Array.from(this.list()
+            Array.from(this.list())
         );
     }
 

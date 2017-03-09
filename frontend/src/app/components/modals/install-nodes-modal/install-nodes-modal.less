@@ -1,4 +1,48 @@
 .install-nodes-modal {
+    .modal-heading {
+        margin-bottom: 0;
+    }
+
+    stepper {
+        margin: 0 -@gutter;
+        background-color: @color1;
+    }
+
+    .pages {
+        .row();
+        overflow: hidden;
+
+        > .page {
+            @duration: 500ms;
+
+            min-width: 100%;
+            visibility: hidden;
+            opacity: 0;
+            transition:
+                visibility 0ms linear @duration,
+                opacity @duration ease-in-out;
+
+            + .page {
+                margin-left: -100%;
+            }
+
+            &.selected {
+                opacity: 1;
+                z-index: 1;
+                visibility: visible;
+                transition: opacity @duration ease-in-out;
+            }
+        }
+    }
+
+    token-field {
+        margin-top: @gutter/2;
+    }
+
+    .remark {
+        line-height: 1.6;
+    }
+
     .config-box {
         word-wrap: break-word;
         word-break: break-all;

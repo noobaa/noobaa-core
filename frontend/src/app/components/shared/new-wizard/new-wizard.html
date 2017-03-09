@@ -1,7 +1,7 @@
 <stepper class="push-next" params="steps: steps, current: step">
 </stepper>
 
-<div class="pages greedy push-next" data-bind="
+<div class="pages greedy" data-bind="
     foreach: $componentTemplateNodes.filter(n => n.nodeType === 1)
 ">
     <div class="page column" data-bind="
@@ -18,13 +18,13 @@
         Cancel
     </button>
     <button class="link alt-colors push-next" data-bind="
-        click: onPrev,
+        click: onPrevInternal,
         visible: !isFirstStep()
     ">
         Previous
     </button>
     <button class="btn" data-bind="
-        click: onNext,
+        click: onNextInternal,
         visible: !isLastStep()
     ">
         Next

@@ -6,8 +6,7 @@ import alertsReducer from './alerts-reducer';
 import objectUploadsReducer from './object-uploads-reducer';
 import cloudResourcesReducer from './cloud-resources-reducer';
 import layoutReducer from './layout-reducer';
-import formsReducer from './forms-reducer';
-
+import formsReducer from './forms-reducer-with-extenders';
 
 export default combineReducers({
     session: sessionReducer,

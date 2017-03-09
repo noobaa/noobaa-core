@@ -308,6 +308,7 @@ module.exports = {
             enum: [
                 'HAS_NO_NODES',
                 'ALL_NODES_OFFLINE',
+                'NOT_ENOUGH_NODES',
                 'NOT_ENOUGH_HEALTHY_NODES',
                 'MANY_NODES_OFFLINE',
                 'NO_CAPACITY',

@@ -90,7 +90,7 @@ class P2PFormViewModel extends BaseViewModel {
                 this.portType() === 'single' ? this.rangeMin() : this.rangeMax()
             );
 
-            updateP2PTcpPorts(max, min);
+            updateP2PTcpPorts(min, max);
         }
     }
 }

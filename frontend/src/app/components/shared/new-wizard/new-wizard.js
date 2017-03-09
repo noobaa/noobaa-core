@@ -18,8 +18,8 @@ class NewWizardViewModel extends BaseViewModel {
         this.steps = steps;
         this.step = step;
         this.actionLabel = actionLabel;
-        this.onNext = onNext || this.onNext;
-        this.onPrev = onPrev || this.onPrev;
+        this.onNext = onNext || noop;
+        this.onPrev = onPrev || noop;
         this.onCancel = onCancel || noop;
         this.onComplete = onComplete || noop;
 
@@ -32,20 +32,20 @@ class NewWizardViewModel extends BaseViewModel {
         );
     }
 
-    onNext() {
+    onNextInternal() {
         if (this.isLastStep()) {
             return;
         }
 
-        this.step(this.step() + 1);
+        this.onNext(this.step() + 1);
     }
 
-    onPrev() {
+    onPrevInternal() {
         if (this.isFirstStep()) {
             return;
         }
 
-        this.step(this.step() - 1);
+        this.onPrev(this.step() - 1);
     }
 }
 

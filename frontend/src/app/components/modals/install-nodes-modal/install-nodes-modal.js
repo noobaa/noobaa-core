@@ -1,82 +1,85 @@
 import template from './install-nodes-modal.html';
-import BaseViewModel from 'components/base-view-model';
+import FormViewModel from 'components/form-view-model';
+import { deepFreeze } from 'utils/core-utils';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { lastSegment } from 'utils/string-utils';
-import {  encodeBase64 } from 'utils/browser-utils';
+import { fetchNodeInstallationCommand } from 'dispatchers';
 
-function getInstallationCommand(os, { pkg, conf, server }) {
-    switch(`${os}`) {
-        case 'linux':
-            return `wget ${server}:8080/public/${pkg} && chmod 755 ${pkg} && ./${pkg} /S /config ${conf}`;
+const steps = deepFreeze([
+    'Configure',
+    'Install'
+]);
 
-        case 'windows':
-            return `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server}:8080/public/${pkg} -Destination C:\\${pkg}; C:\\${pkg} /S /config ${conf}`;
+const osTypeOptions = deepFreeze([
+    {
+        value: 'LINUX',
+        label: 'linux'
+    },
+    {
+        value: 'WINDOWS',
+        label: 'windows'
     }
-}
+]);
 
-class InstallNodeWizardViewModel extends BaseViewModel {
+class InstallNodeWizardViewModel extends FormViewModel {
     constructor({ onClose }) {
-        super();
+        super('installNodes');
+
+        this.steps = steps;
+        this.osTypeOptions = osTypeOptions;
         this.onClose = onClose;
-        this.osTypeOptions = [ 'linux', 'windows' ];
-        this.selectedOsType = ko.observable(this.osTypeOptions[0]);
-
-        this.packageUrl = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return '';
-                }
-
-                const { linux_agent_installer, agent_installer } = systemInfo().web_links;
-                return this.selectedOsType() === 'linux' ?
-                    linux_agent_installer :
-                    agent_installer;
-            }
-        );
-
-        const agentConf = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return '';
-                }
-
-                const { access_key, secret_key } = systemInfo().owner.access_keys[0];
-                return encodeBase64({
-                    address: systemInfo().base_address,
-                    system: systemInfo().name,
-                    access_key: access_key,
-                    secret_key: secret_key,
-                    tier: 'nodes',
-                    root_path: './agent_storage/'
-                });
-            }
-        );
-
-        const serverAddress = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return '';
-                }
-
-                return systemInfo().dns_name ? systemInfo().dns_name : systemInfo().ip_address;
-            }
-        );
-
-        this.installationCommand = ko.pureComputed(
-            () => getInstallationCommand(
-                this.selectedOsType(),
-                {
-                    pkg: lastSegment(this.packageUrl(), '/'),
-                    conf: agentConf(),
-                    server: serverAddress()
-                }
-            )
-        );
+        this.step = ko.observable();
+        this.osType = ko.observable();
+        this.excludeDrives = ko.observable();
+        this.excludedDrives = ko.observable();
+        this.command = ko.observable();
+        this.subject = ko.observable();
+        this.tokensPlaceholder = ko.observable();
+        this.userInstruction = ko.observable();
     }
 
-    close() {
-        this.onClose();
+    onState(form) {
+        if (!form) {
+            this.initializeForm({
+                step: 0,
+                osType: 'LINUX',
+                excludeDrives: false,
+                excludedDrives: [],
+                command: ''
+            });
+
+        } else {
+            const { step, osType, excludeDrives,
+                excludedDrives, command } = form.fields;
+
+            this.step(step.value);
+            this.osType(osType.value);
+            this.excludeDrives(excludeDrives.value);
+            this.excludedDrives(excludedDrives.value);
+            this.command(command.value);
+
+            if (osType.value === 'LINUX') {
+                this.subject('mount');
+                this.tokensPlaceholder('Type mounts here (e.g: /mnt/mydata)');
+                this.userInstruction('Open a linux shell to a target  machine and run the following command');
+
+            } else if (osType.value === 'WINDOWS') {
+                this.subject('drive');
+                this.tokensPlaceholder('Type drives here (e.g c:\\)');
+                this.userInstruction('Open an elevated Powershell (run as administrator) to a target machine and run the following command');
+            }
+        }
+    }
+
+    onNext() {
+        const { step, command , osType, excludeDrives, excludedDrives } = this;
+        if (step() === 0 && !command()) {
+            fetchNodeInstallationCommand(
+                osType(),
+                excludeDrives() ? excludedDrives() : []
+            );
+        }
+
+        this.updateForm('step', step() + 1);
     }
 }
 

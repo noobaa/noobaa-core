@@ -1,31 +1,61 @@
-<h2 class="heading3">Network Installation</h3>
-<p class="push-next">
-    Use NooBaa's distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server.
-</p>
+<new-wizard class="column greedy" params="
+    steps: steps,
+    step: step(),
+    onCancel: () => onClose(),
+    onNext: next => onNext(next),
+    onPrev: prev => updateForm('step', prev),
+    onComplete: () => onClose()
+">
+    <section class="column greedy">
+        <h2 class="heading3">Select OS Type</h2>
+        <radio-group class="push-next" params="
+            options: osTypeOptions,
+            selected: ko.cmptd(osType, v => updateForm('osType', v)),
+            hasFocus: true
+        "></radio-group>
 
+        <h2 class="heading3">Choose drives for installation</h2>
+        <radio-btn params="
+            group: 'drives',
+            value: false,
+            selected: ko.cmptd(excludeDrives, v => updateForm('excludeDrives', v)),
+            label: 'Include all drives in installed nodes'
+        "></radio-btn>
+        <p class="push-next">
+            All drives in the following installation will participate as NooBaa's capacity
+        </p>
 
-<h2 class="heading3">Select OS Type</h3>
-<radio-group class="push-next" params="
-    options: osTypeOptions,
-    selected: selectedOsType,
-    hasFocus: true
-"></radio-group>
+        <radio-btn params="
+            group: 'drives',
+            value: true,
+            selected: ko.cmptd(excludeDrives, v => updateForm('excludeDrives', v)),
+            label: 'Exclude drives for this installation'
+        "></radio-btn>
+        <p>
+            Choose the drives you which to exclude from this installation:
+        </p>
+        <token-field class="column greedy" params="
+            tokens: ko.cmptd(excludedDrives, v => updateForm('excludedDrives', v)),
+            placeholder: tokensPlaceholder,
+            disabled: !excludeDrives()
+        "></token-field>
+        <p class="remark">
+            Type
+            <span data-bind="text: subject"></span>
+            names accurately, click enter after each drive name.
+        </p>
+    </section>
 
-<!-- ko if: selectedOsType() === 'linux' -->
-<p>Open a linux shell to a target  machine and run the following command</p>
-<!-- /ko -->
-
-<!-- ko if: selectedOsType() === 'windows' -->
-<p>Open an elevated Powershell (run as administrator) to a target machine and run the following command</p>
-<!-- /ko -->
-
-<div class="pad alt-bg config-box row push-both greedy">
-    <p class="text-tech greedy" data-bind="text: installationCommand"></p>
-
-    <copy-to-clipboard-button params="value: installationCommand">
-    </copy-to-clipboard-button>
-</div>
-
-<button class="btn align-end" data-bind="click: close">
-    Done
-</button>
+    <section class="column greedy">
+        <h2 class="heading3">Network Installation</h2>
+        <p class="push-next">
+            Use your distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server.
+        </p>
+        <p data-bind="text: userInstruction" class="push-next"></p>
+        <div class="pad alt-bg config-box row greedy push-next" data-bind="if: command">
+            <p class="text-tech greedy" data-bind="text: command"></p>
+            <copy-to-clipboard-button params="value: command">
+            </copy-to-clipboard-button>
+        </div>
+    </section>
+</new-wizard>

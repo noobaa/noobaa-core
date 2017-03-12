@@ -27,7 +27,6 @@ class AlertsPaneViewModel extends StateListener {
         this.severityFilter = ko.observable();
         this.unreadOnlyFilter = ko.observable();
         this.scroll = ko.observable();
-        this.i = 0;
 
         ko.group(this.severityFilter, this.unreadOnlyFilter)
             .subscribe(() => this.onFilter());

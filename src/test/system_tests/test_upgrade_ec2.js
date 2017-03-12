@@ -10,8 +10,7 @@ var ec2_deploy_agents = require('../../deploy/ec2_deploy_agents');
 var promise_utils = require('../../util/promise_utils');
 var ops = require('./basic_server_ops');
 
-var default_instance_type = 'm3.large';
-//var default_instance_type = 't2.micro'; //TODO:: NBNB change back
+var default_instance_type = 't2.micro';
 
 
 //TODO: on upload file, wait for systemOk ? (see next todo, maybe sleep too)

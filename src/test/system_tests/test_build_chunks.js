@@ -1,18 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-const _ = require('lodash');
+
 const P = require('../../util/promise');
 const api = require('../../api');
 const ops = require('./basic_server_ops');
-const promise_utils = require('../../util/promise_utils');
+const config = require('../../../config.js');
 const dotenv = require('../../util/dotenv');
-const fs = require('fs');
-const crypto = require('crypto');
-const util = require('util');
-const AWS = require('aws-sdk');
 const ObjectIO = require('../../api/object_io');
 const test_utils = require('./test_utils');
+const promise_utils = require('../../util/promise_utils');
+
+const _ = require('lodash');
+const fs = require('fs');
+const AWS = require('aws-sdk');
+const util = require('util');
+const crypto = require('crypto');
 
 dotenv.load();
 
@@ -22,7 +25,7 @@ let TEST_CTX = {
     default_bucket: 'files',
     object_key: '',
     timeout: 120,
-    discard_pool_name: 'default_pool',
+    discard_pool_name: config.NEW_SYSTEM_POOL_NAME,
     default_tier_name: 'test_tier',
     default_tier_policy_name: 'tiering1',
     cloud_pool_name: 'cloud-pool-aws'
@@ -566,13 +569,13 @@ function test_tear_down() {
         .then(system => {
             let pools_to_delete = [];
             _.each(system.pools, pool => {
-                if (pool.name !== 'default_pool') {
+                if (pool.name !== config.NEW_SYSTEM_POOL_NAME) {
                     pools_to_delete.push(client.node.list_nodes({
                             query: {
                                 pools: [pool.name]
                             }
                         })
-                        .then(node_list => pool.cloud_info || // making sure not to assign cloud pool nodes to default_pool
+                        .then(node_list => pool.cloud_info || // making sure not to assign cloud pool nodes to first.pool
                             client.pool.assign_nodes_to_pool({
                                 name: TEST_CTX.discard_pool_name,
                                 nodes: node_list.nodes.map(node_object => ({

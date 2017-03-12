@@ -2,12 +2,14 @@
 'use strict';
 
 var api = require('../../api');
-var rpc = api.new_rpc();
-var argv = require('minimist')(process.argv);
 var P = require('../../util/promise');
-var ops = require('./basic_server_ops');
-var assert = require('assert');
 var dotenv = require('../../util/dotenv');
+var ops = require('./basic_server_ops');
+var config = require('../../../config.js');
+var rpc = api.new_rpc();
+
+var argv = require('minimist')(process.argv);
+var assert = require('assert');
 var AWS = require('aws-sdk');
 var https = require('https');
 var fs = require('fs');
@@ -26,20 +28,23 @@ let full_access_user = {
     name: 'full_access',
     email: 'full_access@noobaa.com',
     password: 'master',
-    allowed_buckets: ['bucket1', 'bucket2']
+    allowed_buckets: ['bucket1', 'bucket2'],
+    default_pool: config.NEW_SYSTEM_POOL_NAME,
 };
 
 let bucket1_user = {
     name: 'bucket1_access',
     email: 'bucket1_access@noobaa.com',
     password: 'onlyb1',
-    allowed_buckets: ['bucket1']
+    allowed_buckets: ['bucket1'],
+    default_pool: config.NEW_SYSTEM_POOL_NAME,
 };
 
 let no_access_user = {
     name: 'no_access',
     email: 'no_access@noobaa.com',
     password: 'goaway',
+    default_pool: config.NEW_SYSTEM_POOL_NAME,
 };
 
 module.exports = {

@@ -19,13 +19,13 @@ db.getSiblingDB("nbcore").tiers.update({
 }, {
     $set: {
         pool: db.getSiblingDB("nbcore").pools.find({
-            name: 'default_pool'
+            name: 'first.pool'
         })[0]._id
     }
 });
 db.getSiblingDB("nbcore").pools.remove({
     name: {
-        $ne: 'default_pool'
+        $ne: 'first.pool'
     }
 });
 db.getSiblingDB("nbcore").tiers.remove({
@@ -60,11 +60,11 @@ db.getSiblingDB("nbcore").buckets.updateMany({}, {
     }
 });
 
-// We assign all of the nodes to the default_pool, because we've removed all of the pools
+// We assign all of the nodes to the first.pool, because we've removed all of the pools
 db.getSiblingDB("nbcore").nodes.update({}, {
     $set: {
         pool: db.getSiblingDB("nbcore").pools.find({
-            name: 'default_pool'
+            name: 'first.pool'
         })[0]._id
     },
     $unset: {

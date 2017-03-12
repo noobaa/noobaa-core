@@ -145,7 +145,7 @@ function new_system_defaults(name, owner_account_id) {
 
 function new_system_changes(name, owner_account) {
     return P.fcall(function() {
-        const default_pool_name = 'default_pool';
+        const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
         const default_bucket_name = 'files';
         const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
         var system = new_system_defaults(name, owner_account._id);
@@ -222,6 +222,7 @@ function create_system(req) {
     //Create the new system
     account._id = system_store.generate_id();
     let allowed_buckets;
+    let default_pool;
     let reply_token;
     let owner_secret = system_store.get_server_secret();
     //Create system
@@ -255,6 +256,7 @@ function create_system(req) {
                     if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
                         allowed_buckets.push(changes.insert.buckets[1]._id.toString());
                     }
+                    default_pool = changes.insert.pools[0]._id.toString();
 
                     if (cluster_info) {
                         changes.insert.clusters = [cluster_info];
@@ -270,9 +272,11 @@ function create_system(req) {
                         name: req.rpc_params.name,
                         email: req.rpc_params.email,
                         password: req.rpc_params.password,
+                        s3_access: true,
                         new_system_parameters: {
                             account_id: account._id.toString(),
                             allowed_buckets: allowed_buckets,
+                            default_pool: default_pool,
                             new_system_id: system_store.data.systems[0]._id.toString(),
                         },
                     });
@@ -496,7 +500,6 @@ function read_system(req) {
         response.dns_name = res.dns_name;
 
         response.accounts = accounts;
-
         return response;
     });
 }
@@ -710,7 +713,9 @@ function get_node_installation_string(req) {
             const server_ip = res.dns_name ? res.dns_name : res.ip_address;
             const linux_agent_installer = `noobaa-setup-${pkg.version}`;
             const agent_installer = `noobaa-setup-${pkg.version}.exe`;
-            const pool = req.rpc_params.pool ? req.system.pools_by_name[req.rpc_params.pool] : req.system.pools_by_name.default_pool; // NBNB change to default by account
+            const pool = req.rpc_params.pool ?
+                req.system.pools_by_name[req.rpc_params.pool] :
+                req.system.get_account_by_email(req.system.owner.email).default_pool;
             const exclude_drives = req.rpc_params.exclude_drives ? req.rpc_params.exclude_drives.sort() : [];
             const use_storage = req.rpc_params.roles ? req.rpc_params.roles.indexOf('STORAGE') > -1 : true;
             const use_s3 = req.rpc_params.roles ? req.rpc_params.roles.indexOf('S3') > -1 : false;

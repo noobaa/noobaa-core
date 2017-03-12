@@ -8,6 +8,7 @@ const path = require('path');
 const argv = require('minimist')(process.argv);
 
 const P = require('../../util/promise');
+const config = require('../../../config.js');
 const zip_utils = require('../../util/zip_utils');
 
 const LAMBDA_CONF = {
@@ -21,7 +22,7 @@ const LAMBDA_CONF = {
 const lambda = new AWS.Lambda(LAMBDA_CONF);
 
 const ROLE_ARN = 'arn:aws:iam::638243541865:role/lambda-test';
-const POOLS = argv.pools ? argv.pools.split(',') : ['default_pool'];
+const POOLS = argv.pools ? argv.pools.split(',') : [config.NEW_SYSTEM_POOL_NAME];
 
 const word_count_func = {
     FunctionName: 'word_count_func',

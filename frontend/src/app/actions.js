@@ -830,7 +830,9 @@ export function createAccount(email, password, S3AccessList) {
         email: email,
         password: password,
         must_change_password: true,
-        allowed_buckets: S3AccessList
+        s3_access: Boolean(S3AccessList),
+        allowed_buckets: S3AccessList,
+        default_pool: S3AccessList && config.defaultPoolName  // TODO: should be user selected
     })
         .then(
             () => {
@@ -1697,7 +1699,9 @@ export function updateAccountS3Access(email, allowedBuckets) {
 
     api.account.update_account_s3_access({
         email: email,
-        allowed_buckets: allowedBuckets
+        s3_access: Boolean(allowedBuckets),
+        allowed_buckets: allowedBuckets,
+        default_pool: allowedBuckets && config.defaultPoolName  // TODO: should be user selected
     })
         .then(
             () => notify(`${email} S3 permissions updated successfully`, 'success'),

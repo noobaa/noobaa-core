@@ -54,7 +54,7 @@ function create_func(req) {
         func.pools = _.map(req.params.config.pools, pool_name =>
             req.system.pools_by_name[pool_name]._id);
     } else {
-        func.pools = [req.system.pools_by_name.default_pool._id];
+        func.pools = [req.account.default_pool._id];
     }
     if (!func.pools.length) {
         throw new Error('No pools');

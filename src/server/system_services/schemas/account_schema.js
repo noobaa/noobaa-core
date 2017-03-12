@@ -53,6 +53,9 @@ module.exports = {
                 format: 'objectid'
             }
         },
+        default_pool: {
+            format: 'objectid'
+        },
         sync_credentials_cache: {
             type: 'array',
             items: {

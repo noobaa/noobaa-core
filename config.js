@@ -49,6 +49,7 @@ config.TIME_SKEW_MAX_SECONDS = 15 * 60;
 config.DEDUP_ENABLED = false;
 // Date was chosen as default NooBaa epoch date 2015
 config.NOOBAA_EPOCH = 1430006400000;
+config.NEW_SYSTEM_POOL_NAME = 'first.pool';
 
 ///////////////
 // IO CONFIG //

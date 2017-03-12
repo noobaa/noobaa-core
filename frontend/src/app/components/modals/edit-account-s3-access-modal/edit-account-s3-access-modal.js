@@ -49,7 +49,7 @@ class EditAccountS3AccessModalViewModel extends BaseViewModel {
     save() {
         updateAccountS3Access(
             ko.unwrap(this.accountEmail),
-            this.hasS3Access() ? this.selectedBuckets() : null
+            this.hasS3Access() ? this.selectedBuckets() : undefined
         );
         this.onClose();
     }

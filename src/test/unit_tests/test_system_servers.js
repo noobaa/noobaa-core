@@ -12,6 +12,7 @@ const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
 const account_server = require('../../server/system_services/account_server');
+const config = require('../../../config.js');
 
 const s3_auth = new S3Auth();
 
@@ -73,13 +74,12 @@ mocha.describe('system_servers', function() {
             .then(() => client.system.update_system({
                 name: SYS,
             }))
-            .then(() => {
-                return client.account.create_account({
-                    name: EMAIL1,
-                    email: EMAIL1,
-                    password: PASSWORD,
-                });
-            })
+            .then(() => client.account.create_account({
+                name: EMAIL1,
+                email: EMAIL1,
+                password: PASSWORD,
+                default_pool: config.NEW_SYSTEM_POOL_NAME
+            }))
             .then(() => client.system.read_system())
             .then(() => client.system.add_role({
                 email: EMAIL1,
@@ -182,21 +182,13 @@ mocha.describe('system_servers', function() {
             .then(() => client.pool.read_pool({
                 name: POOL,
             }))
-            .then(() => client.pool.update_pool({
-                name: POOL,
-                new_name: POOL + 1,
-            }))
             .then(() => client.pool.assign_nodes_to_pool({
-                name: POOL + 1,
+                name: POOL,
                 nodes: _.map(nodes_list.slice(3, 6),
                     node => _.pick(node, 'name')),
             }))
-            .then(() => client.pool.update_pool({
-                name: POOL + 1,
-                new_name: POOL,
-            }))
             .then(() => client.pool.assign_nodes_to_pool({
-                name: 'default_pool',
+                name: config.NEW_SYSTEM_POOL_NAME,
                 nodes: _.map([nodes_list[1], nodes_list[3], nodes_list[5]],
                     node => _.pick(node, 'name')),
             }))
@@ -366,7 +358,7 @@ mocha.describe('system_servers', function() {
                 })
             )
             .then(() => client.pool.assign_nodes_to_pool({
-                name: 'default_pool',
+                name: config.NEW_SYSTEM_POOL_NAME,
                 nodes: _.map(nodes_list, node => _.pick(node, 'name')),
             }))
             .then(() => coretest.clear_test_nodes())

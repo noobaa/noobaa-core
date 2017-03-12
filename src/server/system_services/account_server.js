@@ -59,14 +59,21 @@ function create_account(req) {
         .then(password_hash => {
             account.password = password_hash;
 
-            if (req.rpc_params.allowed_buckets) {
-                account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                    bucket => req.system.buckets_by_name[bucket]._id);
+            if (req.rpc_params.s3_access) {
+                if (req.rpc_params.allowed_buckets) {
+                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                        bucket => req.system.buckets_by_name[bucket]._id);
+                }
+
+                if (req.rpc_params.new_system_parameters) {
+                    account.allowed_buckets = _.map(req.rpc_params.new_system_parameters.allowed_buckets,
+                        bucket => mongo_utils.make_object_id(bucket));
+                    account.default_pool = mongo_utils.make_object_id(req.rpc_params.new_system_parameters.default_pool);
+                } else {
+                    account.default_pool = req.system.pools_by_name[req.rpc_params.default_pool]._id;
+                }
             }
-            if (req.rpc_params.new_system_parameters) {
-                account.allowed_buckets = _.map(req.rpc_params.new_system_parameters.allowed_buckets,
-                    bucket => mongo_utils.make_object_id(bucket));
-            }
+
             return {
                 insert: {
                     accounts: [account],
@@ -201,13 +208,21 @@ function update_account_s3_access(req) {
     const update = {
         _id: account._id
     };
-    if (req.rpc_params.allowed_buckets) {
+
+    //If s3_access is on, update allowed buckets and default_pool
+    if (req.rpc_params.s3_access) {
+        if (!req.rpc_params.allowed_buckets ||
+            !req.rpc_params.default_pool) {
+            throw new RpcError('Enabling S3 requires providing allowed_buckets/default_pool');
+        }
         update.allowed_buckets = req.rpc_params.allowed_buckets.map(
             bucket_name => system.buckets_by_name[bucket_name]._id
         );
+        update.default_pool = system.pools_by_name[req.rpc_params.default_pool]._id;
     } else {
         update.$unset = {
-            allowed_buckets: true
+            allowed_buckets: true,
+            default_pool: true
         };
     }
 
@@ -219,11 +234,12 @@ function update_account_s3_access(req) {
         .then(() => {
             let new_allowed_buckets = req.rpc_params.allowed_buckets;
             let origin_allowed_buckets = account.allowed_buckets && account.allowed_buckets.map(bucket => bucket.name);
+            let original_pool = system.pools_by_name[req.rpc_params.default_pool].name;
             let desc_string = [];
             let added_buckets = [];
             let removed_buckets = [];
             desc_string.push(`${account.email} S3 access was updated by ${req.account && req.account.email}`);
-            if (new_allowed_buckets) {
+            if (req.rpc_params.s3_access) {
                 added_buckets = _.difference(new_allowed_buckets, origin_allowed_buckets);
                 removed_buckets = _.difference(origin_allowed_buckets, new_allowed_buckets);
                 // Here we need a new toggle or something instead of just null
@@ -233,14 +249,18 @@ function update_account_s3_access(req) {
                 if (!origin_allowed_buckets) {
                     desc_string.push(`S3 permissions was changed to enabled`);
                 }
+
+                if (original_pool !== req.rpc_params.default_pool) {
+                    desc_string.push(`Default pool changed to`, req.rpc_params.default_pool ? req.rpc_params.default_pool : `None`);
+                }
+                if (added_buckets.length) {
+                    desc_string.push(`Added buckets: ${added_buckets}`);
+                }
+                if (removed_buckets.length) {
+                    desc_string.push(`Removed buckets: ${removed_buckets}`);
+                }
             } else {
                 desc_string.push(`S3 permissions was changed to disabled`);
-            }
-            if (added_buckets.length) {
-                desc_string.push(`Added buckets: ${added_buckets}`);
-            }
-            if (removed_buckets.length) {
-                desc_string.push(`Removed buckets: ${removed_buckets}`);
             }
             return Dispatcher.instance().activity({
                 event: 'account.s3_access_updated',
@@ -613,6 +633,7 @@ function get_account_info(account, include_connection_cache) {
     if (account.is_support) {
         info.is_support = true;
     }
+
     if (account.next_password_change) {
         info.next_password_change = account.next_password_change.getTime();
     }
@@ -622,6 +643,7 @@ function get_account_info(account, include_connection_cache) {
         info.allowed_buckets = (account.allowed_buckets || []).map(
             bucket => bucket.name
         );
+        info.default_pool = account.default_pool.name;
     }
 
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
@@ -679,7 +701,7 @@ function ensure_support_account() {
                         name: 'Support',
                         email: 'support@noobaa.com',
                         password: password,
-                        is_support: true
+                        is_support: true,
                     };
 
                     return system_store.make_changes({
@@ -721,6 +743,18 @@ function validate_create_account_params(req) {
 
     if (system_store.get_account_by_email(req.rpc_params.email)) {
         throw new RpcError('BAD_REQUEST', 'email address already registered');
+    }
+
+    if (req.rpc_params.s3_access) {
+        if (!req.rpc_params.new_system_parameters &&
+            (!req.rpc_params.allowed_buckets || !req.rpc_params.default_pool)) {
+            throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing allowed_buckets/default_pool');
+        }
+
+        if (req.rpc_params.new_system_parameters &&
+            (!req.rpc_params.new_system_parameters.allowed_buckets || !req.rpc_params.new_system_parameters.default_pool)) {
+            throw new RpcError('BAD_REQUEST', 'Creating new system with enabled S3 access for owner requires providing allowed_buckets/default_pool');
+        }
     }
 }
 

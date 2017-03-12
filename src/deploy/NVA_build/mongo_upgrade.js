@@ -31,6 +31,7 @@ function upgrade() {
     upgrade_cloud_agents();
     upgrade_tier_pools();
     upgrade_accounts();
+    update_default_pool();
     upgrade_pools();
     upgrade_buckets();
     upgrade_usage_stats();
@@ -598,6 +599,7 @@ function upgrade_accounts() {
 }
 
 function add_defaults_to_sync_credentials_cache() {
+    print('\n*** add_defaults_to_sync_credentials_cache ...');
     db.accounts.find().forEach(function(account) {
         var credentials = account.sync_credentials_cache;
         if (credentials) {
@@ -617,6 +619,24 @@ function add_defaults_to_sync_credentials_cache() {
             });
         }
     });
+}
+
+function update_default_pool() {
+    print('\n*** update_default_pool ...');
+    var default_pool = db.pools.find({ name: "default_pool" });
+    if (default_pool) {
+        db.accounts.find().forEach(function(account) {
+            if (!account.default_pool) {
+                db.accounts.update({
+                    _id: account._id
+                }, {
+                    $set: {
+                        default_pool: default_pool
+                    }
+                });
+            }
+        });
+    }
 }
 
 function upgrade_pools() {
@@ -652,6 +672,7 @@ function upgrade_usage_stats() {
 }
 
 function add_account_id_to_cloud_pools() {
+    print('\n*** add_account_id_to_cloud_pools ...');
     db.pools.find({
         cloud_pool_info: {
             $exists: true
@@ -671,6 +692,7 @@ function add_account_id_to_cloud_pools() {
 }
 
 function add_account_id_to_cloud_sync() {
+    print('\n*** add_account_id_to_cloud_sync ...');
     db.buckets.find({
         cloud_sync: {
             $exists: true
@@ -690,6 +712,7 @@ function add_account_id_to_cloud_sync() {
 }
 
 function add_credentials_to_missing_account_id(credentials) {
+    print('\n*** add_credentials_to_missing_account_id ...');
     if (credentials &&
         credentials.access_keys &&
         credentials.access_keys.access_key &&
@@ -720,6 +743,7 @@ function find_account_id_by_credentials(access_key) {
 }
 
 function fix_nodes_pool_to_object_id() {
+    print('\n*** fix_nodes_pool_to_object_id ...');
     // Type 2 is String ref: https://docs.mongodb.com/v3.0/reference/operator/query/type/
     db.nodes.find({
         pool: {

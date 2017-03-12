@@ -47,7 +47,7 @@ function new_pool_defaults(name, system_id) {
 function create_nodes_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
-    if (name !== 'default_pool' && nodes.length < config.NODES_MIN_COUNT) {
+    if (name !== config.NEW_SYSTEM_POOL_NAME && nodes.length < config.NODES_MIN_COUNT) {
         throw new RpcError('NOT ENOUGH NODES', 'cant create a pool with less than ' +
             config.NODES_MIN_COUNT + ' nodes');
     }
@@ -126,26 +126,6 @@ function create_cloud_pool(req) {
             });
         })
         .return();
-}
-
-
-
-function update_pool(req) {
-    var name = req.rpc_params.name;
-    var new_name = req.rpc_params.new_name;
-    if ((name === 'default_pool') !== (new_name === 'default_pool')) {
-        throw new RpcError('ILLEGAL POOL RENAME', 'cant change name of default pool');
-    }
-    var pool = find_pool_by_name(req);
-    dbg.log0('Update pool', name, 'to', new_name);
-    return system_store.make_changes({
-        update: {
-            pools: [{
-                _id: pool._id,
-                name: new_name
-            }]
-        }
-    }).return();
 }
 
 function list_pool_nodes(req) {
@@ -297,6 +277,16 @@ function get_associated_buckets_int(pool) {
     });
 }
 
+function get_associated_accounts(pool) {
+    var associated_accounts = _.filter(pool.system.accounts_by_email, function(account) {
+        return String(account.default_pool._id) === String(pool._id);
+    });
+
+    return _.map(associated_accounts, function(account) {
+        return account.name;
+    });
+}
+
 function find_pool_by_name(req) {
     var name = req.rpc_params.name;
     var pool = req.system.pools_by_name[name];
@@ -331,6 +321,14 @@ function get_pool_info(pool, nodes_aggregate_pool) {
         info.demo_pool = Boolean(pool.demo_pool);
         info.mode = calc_pool_mode(info);
     }
+
+    //Get associated accounts
+    info.associated_accounts = system_store.data.accounts
+        .filter(account => (account.default_pool && account.default_pool._id === pool._id))
+        .map(associated_account => ({
+            name: associated_account.email
+        }));
+
     return info;
 }
 
@@ -359,9 +357,8 @@ function calc_pool_mode(pool_info) {
 }
 
 function check_pool_deletion(pool, nodes_aggregate_pool) {
-
-    // Check if the default pool
-    if (pool.name === 'default_pool' || pool.name === config.DEMO_DEFAULTS.POOL_NAME) {
+    // Check if the demo pool
+    if (pool.name === config.DEMO_DEFAULTS.POOL_NAME) {
         return 'SYSTEM_ENTITY';
     }
 
@@ -376,6 +373,12 @@ function check_pool_deletion(pool, nodes_aggregate_pool) {
     //Verify pool is not used by any bucket/tier
     var buckets = get_associated_buckets_int(pool);
     if (buckets.length) {
+        return 'IN_USE';
+    }
+
+    //Verify pool is not defined as default for any account
+    var accounts = get_associated_accounts(pool);
+    if (accounts.length) {
         return 'IN_USE';
     }
 }
@@ -401,7 +404,6 @@ exports.new_pool_defaults = new_pool_defaults;
 exports.get_pool_info = get_pool_info;
 exports.create_nodes_pool = create_nodes_pool;
 exports.create_cloud_pool = create_cloud_pool;
-exports.update_pool = update_pool;
 exports.list_pool_nodes = list_pool_nodes;
 exports.read_pool = read_pool;
 exports.delete_pool = delete_pool;

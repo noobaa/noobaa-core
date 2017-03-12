@@ -2,6 +2,7 @@
 "use strict";
 
 var P = require('../../util/promise');
+var config = require('../../../config.js');
 var promise_utils = require('../../util/promise_utils');
 
 var CEPH_TEST = {
@@ -14,7 +15,8 @@ var CEPH_TEST = {
         name: 'cephalt',
         email: 'ceph.alt@noobaa.com',
         password: 'ceph',
-        allowed_buckets: []
+        allowed_buckets: [],
+        default_pool: config.NEW_SYSTEM_POOL_NAME
     },
 };
 

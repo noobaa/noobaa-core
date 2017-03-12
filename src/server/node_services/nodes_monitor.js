@@ -484,7 +484,8 @@ class NodesMonitor extends EventEmitter {
         const pool =
             agent_config.pool ||
             system.pools_by_name[pool_name] ||
-            system.pools_by_name.default_pool;
+            system_store.get_account_by_email(system.owner.email).default_pool; //This should not happen, but if it does, use owner's default
+
         if (pool.system !== system) {
             throw new Error('Node pool must belong to system');
         }
@@ -1767,15 +1768,13 @@ class NodesMonitor extends EventEmitter {
             pool_data.docs.push(new dclassify.Document(node_id, tokens));
         }
 
-        // take the data of all the pools without the default_pool
-        // and use it to train a classifier of nodes to pools
+        // take the data of all the pools and use it to train a classifier of nodes to pools
         const data_set = new dclassify.DataSet();
         const classifier = new dclassify.Classifier({
             applyInverse: true
         });
         let num_trained_pools = 0;
         for (const pool_data of pools_data_map.values()) {
-            if (pool_data.pool_name === 'default_pool') continue;
             dbg.log3('_suggest_pool_assign: add to data set',
                 pool_data.pool_name, pool_data.docs);
             data_set.add(pool_data.pool_name, pool_data.docs);
@@ -1794,21 +1793,6 @@ class NodesMonitor extends EventEmitter {
         dbg.log3('_suggest_pool_assign: Trained:', classifier,
             'probabilities', JSON.stringify(classifier.probabilities));
 
-        // for nodes in the default_pool use the classifier to suggest a pool
-        for (const pool_data of pools_data_map.values()) {
-            if (pool_data.pool_name !== 'default_pool') continue;
-            for (const doc of pool_data.docs) {
-                const item = this._map_node_id.get(doc.id);
-                dbg.log3('_suggest_pool_assign: classify start', item.node.name, doc);
-                const res = classifier.classify(doc);
-                dbg.log3('_suggest_pool_assign: classify result', item.node.name, res);
-                if (res.category !== 'default_pool') {
-                    item.suggested_pool = res.category;
-                } else if (res.secondCategory !== 'default_pool') {
-                    item.suggested_pool = res.secondCategory;
-                }
-            }
-        }
     }
 
     _classify_node_tokens(item) {

@@ -46,26 +46,6 @@ module.exports = {
             }
         },
 
-        update_pool: {
-            doc: 'Update Pool',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    new_name: {
-                        type: 'string',
-                    },
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         list_pool_nodes: {
             doc: 'List Pool Nodes',
             method: 'GET',
@@ -240,7 +220,7 @@ module.exports = {
 
         pool_extended_info: {
             type: 'object',
-            required: ['name', 'storage'],
+            required: ['name', 'storage', 'associated_accounts'],
             properties: {
                 name: {
                     type: 'string'
@@ -277,6 +257,18 @@ module.exports = {
                 },
                 mode: {
                     $ref: '#/definitions/pool_mode'
+                },
+                associated_accounts: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['name'],
+                        properties: {
+                            name: {
+                                type: 'string',
+                            },
+                        }
+                    }
                 }
             },
         },

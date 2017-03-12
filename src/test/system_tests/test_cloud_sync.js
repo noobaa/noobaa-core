@@ -1,16 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var api = require('../../api');
-var rpc = api.new_rpc();
-var target_rpc = api.new_rpc();
-var argv = require('minimist')(process.argv);
 var P = require('../../util/promise');
+var api = require('../../api');
 var ops = require('./basic_server_ops');
-var _ = require('lodash');
-var assert = require('assert');
-var promise_utils = require('../../util/promise_utils');
+var config = require('../../../config.js');
 var dotenv = require('../../util/dotenv');
+var target_rpc = api.new_rpc();
+var promise_utils = require('../../util/promise_utils');
+
+var _ = require('lodash');
+var argv = require('minimist')(process.argv);
+var assert = require('assert');
+
+var rpc = api.new_rpc();
 dotenv.load();
 
 // var dbg = require('../util/debug_module')(__filename);
@@ -576,7 +579,7 @@ function _params_by_name(input) {
     return {
         tier: 'tier-' + input.suffix,
         tiering_policy: 'tiering-' + input.suffix,
-        pools: input.pools || ['default_pool'],
+        pools: input.pools || [config.NEW_SYSTEM_POOL_NAME],
         data_placement: input.data_placement || 'SPREAD',
         bucket: 'bucket-' + input.suffix,
     };

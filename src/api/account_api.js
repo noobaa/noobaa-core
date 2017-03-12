@@ -19,7 +19,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password'],
+                required: ['name', 'email', 'password', 's3_access'],
                 properties: {
                     name: {
                         type: 'string',
@@ -33,11 +33,17 @@ module.exports = {
                     must_change_password: {
                         type: 'boolean',
                     },
+                    s3_access: {
+                        type: 'boolean'
+                    },
                     allowed_buckets: {
                         type: 'array',
                         items: {
                             type: 'string',
                         }
+                    },
+                    default_pool: {
+                        type: 'string',
                     },
                     //Special handling for the first account created with create_system
                     new_system_parameters: {
@@ -54,6 +60,9 @@ module.exports = {
                                 items: {
                                     type: 'string',
                                 }
+                            },
+                            default_pool: {
+                                type: 'string',
                             },
                         },
                     },
@@ -172,20 +181,22 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email', 'allowed_buckets'],
+                required: ['email', 's3_access'],
                 properties: {
                     email: {
                         type: 'string',
                     },
+                    s3_access: {
+                        type: 'boolean'
+                    },
                     allowed_buckets: {
-                        anyOf: [{
-                            type: 'null'
-                        }, {
-                            type: 'array',
-                            items: {
-                                type: 'string'
-                            }
-                        }]
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    default_pool: {
+                        type: 'string'
                     }
                 },
             },
@@ -360,6 +371,9 @@ module.exports = {
                     items: {
                         type: 'string'
                     }
+                },
+                default_pool: {
+                    type: 'string',
                 },
                 external_connections: {
                     type: 'object',

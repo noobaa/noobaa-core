@@ -83,14 +83,7 @@ class Dispatcher {
                 return P.resolve(self._resolve_activity_item(log_item, l))
                     .return(l);
             }))
-            .then(logs => {
-                if (query.since) {
-                    logs.reverse();
-                }
-                return {
-                    logs: logs
-                };
-            });
+            .then(logs => ({ logs }));
     }
 
     //Remote Syslog

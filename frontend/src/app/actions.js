@@ -705,7 +705,7 @@ export function loadAuditEntries(categories, count) {
         })
             .then(
                 ({ logs }) => {
-                    auditLog(logs.reverse());
+                    auditLog(logs);
                     auditLog.loadedCategories(categories);
                 }
             )
@@ -735,7 +735,7 @@ export function loadMoreAuditEntries(count) {
             limit: count
         })
             .then(
-                ({ logs }) => auditLog.push(...logs.reverse())
+                ({ logs }) => auditLog.push(...logs)
             )
             .done();
     }

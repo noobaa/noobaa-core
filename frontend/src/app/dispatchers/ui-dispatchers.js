@@ -110,3 +110,7 @@ export function openAssignNodesModal(poolName) {
 export function openUpdateSystemNameModal(name) {
     dispatch({ type: 'OPEN_UPDATE_SYSTEM_NAME_MODAL', name });
 }
+
+export function openUnableToActivateModal(reason) {
+    dispatch({ type: 'OPEN_UNABLE_TO_ACTIVATE_MODAL', reason });
+}

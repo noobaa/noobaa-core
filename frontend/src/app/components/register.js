@@ -22,7 +22,7 @@ export default function register(ko) {
     ko.components.register('create-system-form',                require('./login/create-system-form/create-system-form').default);
     ko.components.register('unsupported-form',                  require('./login/unsupported-form/unsupported-form').default);
     ko.components.register('unable-to-activate-modal',          require('./login/unable-to-activate-modal/unable-to-activate-modal').default);
-    ko.components.register('loading-server-information-from',   require('./login/loading-server-information-from/loading-server-information-from').default);
+    ko.components.register('internet-connectivity-problem-form',require('./login/internet-connectivity-problem-form/internet-connectivity-problem-form').default);
     ko.components.register('change-password-form',              require('./login/change-password-form/change-password-form').default);
     /** INJECT:login **/
 

@@ -273,6 +273,19 @@ function onOpenUpdateSystemNameModal(modals, { name }) {
     });
 }
 
+function onOpenUnableToActivateModal(modals, { reason }) {
+    return _openModal(modals, {
+        component: {
+            name: 'unable-to-activate-modal',
+            params: { reason }
+        },
+        options: {
+            size: 'small',
+            title: 'NooBaa\'s Activation Servers Unreachable'
+        }
+    });
+}
+
 function onUpgradeSystem(modals) {
     return _openModal(modals, {
         component: {
@@ -367,6 +380,7 @@ export default createReducer({
     OPEN_EDIT_SERVER_DETAILS_MODAL: onOpenEditServerDetailsModal,
     OPEN_ASSIGN_NODES_MODAL: onOpenAssignNOdesModal,
     OPEN_UPDATE_SYSTEM_NAME_MODAL: onOpenUpdateSystemNameModal,
+    OPEN_UNABLE_TO_ACTIVATE_MODAL: onOpenUnableToActivateModal,
     UPGRADE_SYSTEM: onUpgradeSystem,
     LOCATION_CHANGED: onLocationChanged,
     SYSTEM_INFO_FETCHED: onSystemInfoFetched

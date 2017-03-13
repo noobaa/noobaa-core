@@ -16,10 +16,10 @@ class LoginLayoutViewModel extends BaseViewModel {
                 }
 
                 if (!serverInfo()) {
-                    return 'loading-server-information-from';
+                    return 'internet-connectivity-problem-form';
                 }
 
-                let { initialized, config } = serverInfo();
+                const { initialized, config } = serverInfo();
                 if (initialized) {
                     if (!sessionInfo()) {
                         return 'signin-form';
@@ -29,7 +29,7 @@ class LoginLayoutViewModel extends BaseViewModel {
                     }
                 } else {
                     if (config.phone_home_connectivity_status !== 'CONNECTED') {
-                        return 'loading-server-information-from';
+                        return 'internet-connectivity-problem-form';
                     }
 
                     return 'create-system-form';

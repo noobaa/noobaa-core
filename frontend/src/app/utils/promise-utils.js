@@ -1,3 +1,5 @@
+export const all = Promise.all.bind(Promise);
+
 export function execInOrder(list, executer) {
     let result = Promise.resolve();
 
@@ -18,3 +20,4 @@ export function sleep(miliseconds, wakeValue) {
         )
     );
 }
+

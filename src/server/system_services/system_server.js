@@ -29,6 +29,7 @@ const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
+const auth_server = require('../common_services/auth_server');
 const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -709,28 +710,63 @@ function get_node_installation_string(req) {
             const server_ip = res.dns_name ? res.dns_name : res.ip_address;
             const linux_agent_installer = `noobaa-setup-${pkg.version}`;
             const agent_installer = `noobaa-setup-${pkg.version}.exe`;
-            const { access_key, secret_key } = system.owner.access_keys[0];
-            const agent_conf = {
-                address: system.base_address,
-                system: system.name,
-                access_key: access_key,
-                secret_key: secret_key,
-                tier: 'nodes',
-                root_path: './agent_storage/',
-                exclude_drives: req.rpc_params.exclude_drives ? req.rpc_params.exclude_drives : [],
-                roles: req.rpc_params.roles || ['STORAGE']
-            };
-            const base64_configuration = new Buffer(JSON.stringify(agent_conf)).toString('base64');
-            switch (req.rpc_params.os_type) {
-                case 'LINUX':
-                    return `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} /S /config ${base64_configuration}`;
+            const pool = req.rpc_params.pool ? req.system.pools_by_name[req.rpc_params.pool] : req.system.pools_by_name.default_pool; // NBNB change to default by account
+            const exclude_drives = req.rpc_params.exclude_drives ? req.rpc_params.exclude_drives.sort() : [];
+            const use_storage = req.rpc_params.roles ? req.rpc_params.roles.indexOf('STORAGE') > -1 : true;
+            const use_s3 = req.rpc_params.roles ? req.rpc_params.roles.indexOf('S3') > -1 : false;
 
-                case 'WINDOWS':
-                    return `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`;
+            const roles = req.rpc_params.roles || ['STORAGE'];
+            // try to find an existing configuration with the same settings
+            return P.resolve()
+                .then(() => {
+                    let cfg = system_store.data.agent_configs.find(conf =>
+                        pool._id === conf.pool._id &&
+                        use_storage === conf.use_storage && use_s3 === conf.use_s3 &&
+                        _.isEqual(exclude_drives, conf.exclude_drives));
+                    if (cfg) {
+                        // return the configuratio id if found
+                        dbg.log0(`found existing configuration with the required settings`);
+                        return cfg._id;
+                    }
+                    dbg.log0(`creating new installation string for pool_id:${pool._id} exclude_drives:${exclude_drives} roles:${roles}`);
+                    // create new configuration with the required settings
+                    let _id = system_store.generate_id();
+                    return system_store.make_changes({
+                        insert: {
+                            agent_configs: [{
+                                _id,
+                                name: 'config-' + Date.now(),
+                                system: system._id,
+                                pool: pool._id,
+                                exclude_drives,
+                                use_storage,
+                                use_s3
+                            }]
+                        }
+                    }).then(() => _id);
+                })
+                .then(conf_id => {
+                    const create_node_token = _get_create_node_token(system._id, req.account._id, conf_id);
+                    // TODO: remove system and root_path from agent_conf
+                    const agent_conf = {
+                        address: server_ip,
+                        system: system.name,
+                        root_path: './agent_storage/',
+                        create_node_token
+                    };
+                    const base64_configuration = new Buffer(JSON.stringify(agent_conf)).toString('base64');
+                    switch (req.rpc_params.os_type) {
+                        case 'LINUX':
+                            return `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} /S /config ${base64_configuration}`;
 
-                default:
-                    throw new Error(`INVALID_OS_TYPE: ${req.rpc_params.os_type} is not supported`);
-            }
+                        case 'WINDOWS':
+                            return `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`;
+
+                        default:
+                            throw new Error(`INVALID_OS_TYPE: ${req.rpc_params.os_type} is not supported`);
+                    }
+
+                });
         });
 }
 
@@ -957,6 +993,21 @@ function set_certificate(zip_file) {
                 desc: `New certificate was successfully set`
             });
         });
+}
+
+function _get_create_node_token(system_id, account_id, agent_config_id) {
+    dbg.log0('creating new create_auth_token for conf_id', agent_config_id);
+    let auth_parmas = {
+        system_id,
+        account_id,
+        role: 'create_node',
+        extra: {
+            agent_config_id
+        }
+    };
+    let token = auth_server.make_auth_token(auth_parmas);
+    dbg.log0(`created create_node_token: ${token}`);
+    return token;
 }
 
 function _move_and_insert_config_file_to_store(src, dest) {

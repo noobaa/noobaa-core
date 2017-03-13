@@ -13,6 +13,7 @@ const bucket_schema = require('./schemas/bucket_schema');
 const tieringpolicy_schema = require('./schemas/tiering_policy_schema');
 const tier_schema = require('./schemas/tier_schema');
 const pools_schema = require('./schemas/pool_schema');
+const agent_config_schema = require('./schemas/agent_config_schema');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
@@ -154,6 +155,18 @@ const COLLECTIONS = [{
             system: 1,
             name: 1,
             deleted: 1
+        },
+        options: {
+            unique: true,
+        }
+    }],
+}, {
+    name: 'agent_configs',
+    schema: agent_config_schema,
+    db_indexes: [{
+        fields: {
+            system: 1,
+            name: 1
         },
         options: {
             unique: true,

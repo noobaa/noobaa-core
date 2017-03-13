@@ -270,6 +270,9 @@ module.exports = {
                             type: 'string',
                             enum: ['STORAGE', 'S3']
                         }
+                    },
+                    pool: {
+                        type: 'string'
                     }
 
                 }

@@ -109,6 +109,16 @@ function exactLength(value, len) {
     return value.length === len;
 }
 
+function inRange(value, { min, max, inclusive = true }) {
+    if (min > max) {
+        throw new Error ('Max value must be bigger then min value');
+    }
+
+    return inclusive ?
+        (min <= value && value <= max) :
+        (min < value && value < max);
+}
+
 export default function register(ko) {
     Object.assign(ko.validation.rules, {
         notIn: {
@@ -168,6 +178,10 @@ export default function register(ko) {
         exactLength: {
             validator: exactLength,
             message: 'Must be exactly {0} characters'
+        },
+        inRange: {
+            validator: inRange,
+            message: ({ params }) => `Must be bewteen ${params.min} and ${params.max}`
         }
     });
 

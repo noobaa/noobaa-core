@@ -8,7 +8,7 @@ import JSZip from 'jszip';
 import { isDefined, last, makeArray, deepFreeze, flatMap, keyBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { aggregateStorage } from 'utils/storage-utils';
-import { sleep, execInOrder } from 'utils/promise-utils';
+import { all, sleep, execInOrder } from 'utils/promise-utils';
 import { getModeFilterFromState } from 'utils/ui-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
     toFormData } from 'utils/browser-utils';
@@ -507,25 +507,34 @@ export function signOut(shouldRefresh = true) {
 // -----------------------------------------------------
 // Information retrieval actions.
 // -----------------------------------------------------
-export function loadServerInfo() {
-    logAction('loadServerInfo');
+export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
+    logAction('loadServerInfo', { testPhonehomeConnectvity, phonehomeProxy });
 
-    model.serverInfo(null);
-    api.account.accounts_status()
-        .then(
-            reply => reply.has_accounts ?
-                { initialized: true } :
-                api.cluster_server.read_server_config({ test_ph_connectivity: true }).then(
-                    config => ({
-                        initialized: false,
-                        address: endpoint,
-                        // config: Object.assign(config, { phone_home_connectivity_status: 'CANNOT_REACH_DNS_SERVER'})
-                        config: config
-                    })
-                )
-        )
-        .then(model.serverInfo)
-        .done();
+    const { serverInfo } = model;
+    serverInfo(null);
+
+    const { has_accounts } = await api.account.accounts_status();
+    if (has_accounts) {
+        serverInfo({
+            initialized: true
+        });
+
+    } else {
+        // Guarantee a minimum time of at least 500ms before resuming execution.
+        const [ config ] = await all([
+            api.cluster_server.read_server_config({
+                test_ph_connectivity: testPhonehomeConnectvity,
+                ph_proxy: phonehomeProxy
+            }),
+            sleep(750)
+        ]);
+
+        serverInfo({
+            initialized: false,
+            address: endpoint,
+            config: config
+        });
+    }
 }
 
 // REFACTOR: This action was refactored into  dispatcher + state action.

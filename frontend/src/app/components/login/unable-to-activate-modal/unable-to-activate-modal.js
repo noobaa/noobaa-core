@@ -3,7 +3,6 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { support } from 'config';
 import { serverInfo } from 'model';
-import { loadServerInfo } from 'actions';
 
 class UnableToActivateModalViewModel extends BaseViewModel {
     constructor({ onClose, reason }) {

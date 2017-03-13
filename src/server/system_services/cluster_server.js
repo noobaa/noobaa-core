@@ -1088,58 +1088,57 @@ function _upload_package(pkg_path, ip) {
 
 
 function read_server_config(req) {
-    let reply = {};
+    const { test_ph_connectivity = false, ph_proxy } = req.rpc_params;
+    let using_dhcp = false;
     let srvconf = {};
-
-    if (req.rpc_params.ph_proxy) {
-        srvconf.used_proxy = req.rpc_params.ph_proxy;
-    }
 
     return P.resolve()
         .then(function() {
             if (DEV_MODE) {
-                reply.using_dhcp = false;
                 // Notice that we only return from the current promise and continue the chain
                 // Later in method _verify_connection_to_phonehome, we attach the connection status
                 return;
             }
+
             return fs_utils.find_line_in_file('/etc/sysconfig/network-scripts/ifcfg-eth0', 'BOOTPROTO="dhcp"')
-                .then(function(using_dhcp) {
-                    reply.using_dhcp = false;
+                .then(dhcp => {
                     // This is used in order to check that it's not commented
-                    if (using_dhcp && using_dhcp.split('#')[0].trim() === 'BOOTPROTO="dhcp"') {
-                        reply.using_dhcp = true;
+                    if (dhcp && dhcp.split('#')[0].trim() === 'BOOTPROTO="dhcp"') {
+                        using_dhcp = true;
                         dbg.log0('found configured DHCP');
                     }
                 });
         })
-        .then(() => _attach_server_configuration(srvconf, reply.using_dhcp))
-        .then(() => (DEV_MODE ?
-            'CONNECTED' :
-            phone_home_utils.verify_connection_to_phonehome({
-                proxy: req.rpc_params.ph_proxy ? req.rpc_params.ph_proxy : undefined
-            }, req.rpc_params.test_ph_connectivity)))
+        .then(() => _attach_server_configuration(srvconf, using_dhcp))
+        .then(() => {
+            if (DEV_MODE) {
+                return 'CONNECTED';
+            }
+
+            const proxy = ph_proxy && `http://${ph_proxy.address}:${ph_proxy.port}`;
+            return phone_home_utils.verify_connection_to_phonehome(
+                { proxy },
+                test_ph_connectivity
+            );
+        })
         .then(function(connection_reply) {
-            if (connection_reply) {
-                reply.phone_home_connectivity_status = connection_reply;
-            } else {
-                reply.phone_home_connectivity_status = 'WAS_NOT_TESTED';
-            }
+            const phone_home_connectivity_status =
+                (test_ph_connectivity && connection_reply) ||
+                (connection_reply !== 'CONNECTED' && 'WAS_NOT_TESTED') ||
+                'CONNECTED';
 
-            if (srvconf.ntp) {
-                if (srvconf.ntp.timezone) {
-                    reply.timezone = srvconf.ntp.timezone;
-                }
-                if (srvconf.ntp.server) {
-                    reply.ntp_server = srvconf.ntp.server;
-                }
-            }
+            const { dns_servers, ntp = {} } = srvconf;
+            const { timezone, ntp_server } = ntp;
+            const used_proxy = ph_proxy;
 
-            if (srvconf.dns_servers) {
-                reply.dns_servers = srvconf.dns_servers;
-            }
-
-            return reply;
+            return {
+                phone_home_connectivity_status,
+                using_dhcp,
+                dns_servers,
+                timezone,
+                ntp_server,
+                used_proxy
+            };
         });
 }
 

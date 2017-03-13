@@ -130,7 +130,15 @@ module.exports = {
                         type: 'boolean'
                     },
                     ph_proxy: {
-                        type: 'string'
+                        type: 'object',
+                        properties: {
+                            address: {
+                                type: 'string'
+                            },
+                            port: {
+                                type: 'number'
+                            }
+                        }
                     }
                 }
             },
@@ -154,7 +162,15 @@ module.exports = {
                         type: 'boolean'
                     },
                     used_proxy: {
-                        type: 'string'
+                        type: 'object',
+                        properties: {
+                            address: {
+                                type: 'string'
+                            },
+                            port: {
+                                type: 'number'
+                            }
+                        }
                     },
                     phone_home_connectivity_status: {
                         enum: [

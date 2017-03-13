@@ -10,7 +10,6 @@ const promise_utils = require('./promise_utils');
 const _ = require('lodash');
 const request = require('request');
 
-
 function verify_connection_to_phonehome(phone_home_options, limit_conn_test) {
     let timeout_condition = _.isUndefined(limit_conn_test) ? false : !limit_conn_test;
     let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);
@@ -35,7 +34,7 @@ function verify_connection_to_phonehome(phone_home_options, limit_conn_test) {
             return reply_status;
         })
         //If T/O was caught, we did not run long test but made a best effort, don't fail the operation
-        .catch(P.TimeoutError, () => _.noop());
+        .catch(P.TimeoutError, () => 'WAS_NOT_TESTED');
 }
 
 

@@ -4,10 +4,13 @@ import * as routes from 'routes';
 import * as actions from 'actions';
 import { locationChanged } from 'dispatchers';
 
+const { protocol } = location;
+
 export default function routing(page) {
     // General midlleware that saves the current route contexts.
     function saveContext(ctx, next) {
         ctx.query = parseQueryString(ctx.querystring);
+        ctx.protocol = protocol.substr(0, protocol.length - 1);
         routeContext(ctx);
         next();
     }

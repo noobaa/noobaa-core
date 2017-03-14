@@ -41,13 +41,31 @@ class BucketObjectsTableViewModel extends BaseViewModel {
             () => bucket() && bucket().name
         );
 
-        this.uploadDisabled = ko.pureComputed(
+        const notWritable = ko.pureComputed(
             () => !bucket() || !bucket().writable
         );
 
+        const httpsNoCert = ko.pureComputed(
+            () => routeContext().protocol === 'https' &&
+                (!systemInfo() || !systemInfo().has_ssl_cert)
+        );
+
+        this.uploadDisabled = ko.pureComputed(
+            () => notWritable() || httpsNoCert()
+        );
+
         this.uploadTooltip = ko.pureComputed(
-            () => this.uploadDisabled() &&
-                'Cannot upload, not enough healthy storage resources'
+            () => {
+                if (notWritable()) {
+                    return 'Cannot upload, not enough healthy storage resources';
+                }
+
+                if (httpsNoCert()) {
+                    return 'Cannot upload, a certificate must be installed in order to upload via https';
+                }
+
+                return '';
+            }
         );
 
         this.fileSelectorExpanded = ko.observable(false);

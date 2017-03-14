@@ -721,11 +721,11 @@ module.exports = {
                 min_requirements: {
                     type: 'object',
                     properties: {
-                        ram_gb: {
-                            type: 'integer',
+                        ram: {
+                            type: 'number',
                         },
-                        disk_gb: {
-                            type: 'integer',
+                        storage: {
+                            type: 'number',
                         },
                         cpu_count: {
                             type: 'integer'
@@ -754,8 +754,20 @@ module.exports = {
                 address: {
                     type: 'string'
                 },
-                memory_usage: {
-                    type: 'number'
+                memory: {
+                    type: 'object',
+                    required: ['total', 'free', 'used'],
+                    properties: {
+                        total: {
+                            type: 'number'
+                        },
+                        used: {
+                            type: 'number'
+                        },
+                        free: {
+                            type: 'number'
+                        }
+                    }
                 },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'

@@ -46,15 +46,17 @@ export default class ServerRowViewModel extends BaseViewModel {
                 const { status } = server();
                 if (status === 'CONNECTED') {
 
+                    const { version, cluster } = systemInfo();
                     const issues = Object.values(
-                        getServerIssues(server(), systemInfo().version)
+                        getServerIssues(server(), version, cluster.min_requirements)
                     );
                     if (issues.length > 0) {
                         return Object.assign(
                             {
                                 tooltip: {
                                     text: issues,
-                                    align: 'start'
+                                    align: 'start',
+                                    breakWords: false
                                 }
                             },
                             stateIconMapping['WARNING']
@@ -124,8 +126,9 @@ export default class ServerRowViewModel extends BaseViewModel {
                     return '---';
 
                 } else {
+                    const { total, used } = server().memory;
                     return {
-                        text: numeral(server().memory_usage).format('%'),
+                        text: numeral(used / total).format('%'),
                         tooltip: 'Avg. over the last minute'
                     };
                 }

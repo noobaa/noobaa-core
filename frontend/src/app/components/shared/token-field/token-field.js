@@ -12,7 +12,7 @@ class TokenFieldViewModel {
         disabled = false,
         placeholder = 'Type to add tokens'
     }) {
-        this.text = ko.observable();
+        this.text = ko.observable('');
         this.disabled = disabled;
         this.placeholder = ko.pureComputed(
             () => this.hasFocus() ? '' : ko.unwrap(placeholder)
@@ -81,7 +81,7 @@ class TokenFieldViewModel {
 
         if (list.length > 1) {
             this.text('');
-            this.tokens.splice(this.cursor(), 1, ...list);
+            this.list.push(...list);
             this.scroll(1);
         } else {
             return true;

@@ -1,4 +1,4 @@
-<section class="row pad alt-bg">
+<section class="row pad alt-bg content-middle">
     <div class="greedy push-next">
         <input type="search" placeholder="Filter by name, IP or tag" data-bind="
             textInput: filter
@@ -12,15 +12,13 @@
     </button>
 </section>
 
-<div data-bind="let: { vm: $component }">
-    <data-table class="server-data-table" params="
-        columns: columns,
-        rowFactory: rowFactory,
-        sorting: sorting,
-        data: servers,
-        emptyMessage: 'The current filter does not match any server'
-    "></data-table>
-</div>
+<data-table class="greedy server-data-table" params="
+    columns: columns,
+    rowFactory: rowFactory,
+    sorting: sorting,
+    data: servers,
+    emptyMessage: 'The current filter does not match any server'
+"></data-table>
 
 <!-- ko if:isAttachServerModalVisible -->
 <attach-server-modal params="onClose: () => hideAttachServerModal()">

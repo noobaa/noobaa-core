@@ -7,9 +7,10 @@ bucket-s3-access-list {
 
     .account-list {
         .list-no-style();
+        overflow-y: auto;
 
         > li {
-            padding: @gutter;
+            min-height: 44px;
 
             + li {
                 border-top: 1px solid @color15;

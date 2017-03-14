@@ -1,9 +1,13 @@
 multiselect {
     .column();
+    .alt-bg();
+    padding: @gutter/2 0;
     margin-bottom: 4px;
 
     .multiselect-options {
-        flex-grow: 1;
+        overflow-y: auto;
+        margin: 0 @gutter;
+        margin-right: @gutter/4;
     }
 
     .option {

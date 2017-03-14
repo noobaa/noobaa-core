@@ -85,7 +85,6 @@ pre {
 
 ::-webkit-scrollbar-thumb  {
     background-color: @color7;
-    transition: all 250ms;
     border: 2px solid @color3;
 }
 
@@ -313,6 +312,10 @@ body:not(.preview) .preview-only {
 
 .alt-bg {
     background-color: @color5;
+
+    &::-webkit-scrollbar-thumb, ::-webkit-scrollbar-thumb {
+        border-color: @color5;
+    }
 }
 
 .borders {

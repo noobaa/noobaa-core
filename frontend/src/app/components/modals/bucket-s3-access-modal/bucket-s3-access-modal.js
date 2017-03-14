@@ -14,12 +14,8 @@ class BucketS3AccessModalViewModel extends BaseViewModel {
 
         this.accounts = ko.pureComputed(
             () => (systemInfo() ? systemInfo().accounts : [])
-                .filter(
-                    account => Boolean(account.allowed_buckets)
-                )
-                .map(
-                    account => account.email
-                )
+                .filter(account => Boolean(account.allowed_buckets))
+                .map(account => account.email)
         );
 
         this.selectedAccounts = ko.observableWithDefault(

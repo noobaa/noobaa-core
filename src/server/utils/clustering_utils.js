@@ -13,8 +13,10 @@ const moment = require('moment');
 const system_store = require('../system_services/system_store').get_instance();
 const dbg = require('../../util/debug_module')(__filename);
 const P = require('../../util/promise');
+const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
+const { SERVER_MIN_REQUIREMENTS } = require('../../../config');
 
 function get_topology() {
     return system_store.get_local_cluster_info();
@@ -137,7 +139,11 @@ function get_cluster_info() {
     }
     _.each(system_store.data.clusters, cinfo => {
         let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
-        let memory_usage = 0;
+        const memory = {
+            total: 0,
+            used: 0,
+            free: 0
+        };
         let cpus = {
             count: 0,
             usage: 0
@@ -156,7 +162,11 @@ function get_cluster_info() {
             is_connected = 'CONNECTED';
         }
         if (cinfo.heartbeat) {
-            memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
+            const { totalmem, freemem } = cinfo.heartbeat.health.os_info;
+            memory.total = totalmem;
+            memory.used = totalmem - freemem;
+            memory.free = freemem;
+
             cpus.count = cinfo.heartbeat.health.os_info.cpus.length;
             cpus.usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
@@ -172,7 +182,7 @@ function get_cluster_info() {
             secret: cinfo.owner_secret,
             address: cinfo.owner_address,
             status: is_connected,
-            memory_usage: memory_usage,
+            memory: memory,
             storage: storage,
             cpus: cpus,
             location: location,
@@ -287,11 +297,12 @@ function send_master_update(is_master, master_address) {
 }
 
 function _get_min_requirements() {
-        return {
-            ram_gb: 16,
-            disk_gb: 120,
-            cpu_count: 8,
-        };
+    const { RAM_GB, STORAGE_GB, CPU_COUNT } = SERVER_MIN_REQUIREMENTS;
+    return {
+        ram: RAM_GB * size_utils.GIGABYTE,
+        storage: STORAGE_GB * size_utils.GIGABYTE,
+        cpu_count: CPU_COUNT,
+    };
 }
 
 

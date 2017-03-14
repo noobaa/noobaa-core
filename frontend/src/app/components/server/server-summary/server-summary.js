@@ -88,8 +88,9 @@ class ServerSummaryViewModel extends BaseViewModel {
                     };
                 }
 
+                const { version, cluster } = systemInfo();
                 const issues = Object.values(
-                    getServerIssues(this.server(), systemInfo().version)
+                    getServerIssues(this.server(), version, cluster.min_requirements)
                 );
                 if (issues.length === 1) {
                     return {
@@ -146,7 +147,14 @@ class ServerSummaryViewModel extends BaseViewModel {
         );
 
         const memoryUsage = ko.pureComputed(
-            () => this.isConnected() ? this.server().memory_usage : 0
+            () => {
+                if (!this.isConnected()){
+                    return 0;
+                }
+
+                const { total, used } = this.server().memory;
+                return used / total;
+            }
         );
 
         return [

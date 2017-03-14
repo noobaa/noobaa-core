@@ -180,6 +180,12 @@ config.DEMO_DEFAULTS = {
     BUCKET_NAME: 'demo-bucket'
 };
 
+config.SERVER_MIN_REQUIREMENTS = {
+    RAM_GB: 16,
+    STORAGE_GB: 120,
+    CPU_COUNT: 8
+};
+
 //////////////////////////////
 // ALERTING & EVENTS CONFIG //
 //////////////////////////////

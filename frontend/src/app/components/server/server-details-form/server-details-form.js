@@ -3,6 +3,7 @@ import BaseViewModel from 'components/base-view-model';
 import { systemInfo, serverTime } from 'model';
 import { deepFreeze, isDefined} from 'utils/core-utils';
 import { getServerIssues } from 'utils/cluster-utils';
+import { formatSize } from 'utils/size-utils';
 import { loadServerTime } from 'actions';
 import { timeLongFormat } from 'config';
 import ko from 'knockout';
@@ -22,6 +23,8 @@ const icons = deepFreeze({
         css: 'disabled'
     }
 });
+
+const requirementsMarker = '<sup class="error">*</sup>';
 
 class ServerDetailsFormViewModel extends BaseViewModel {
     constructor({ serverSecret }) {
@@ -58,7 +61,14 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         );
 
         this.issues = ko.pureComputed(
-            () => systemInfo() ? getServerIssues(this.server(), systemInfo().version) : {}
+            () => {
+                if (!systemInfo()) {
+                    return {};
+                }
+
+                const { version, cluster } = systemInfo();
+                return getServerIssues(this.server(), version, cluster.min_requirements);
+            }
         );
 
         this.clock = ko.observableWithDefault(
@@ -73,6 +83,49 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 1000
             ),
             clearInterval
+        );
+
+        const minRequirements = ko.pureComputed(
+            () => systemInfo() && systemInfo().cluster.min_requirements
+        );
+
+        this.notEnoughMemory = ko.pureComputed(
+            () => {
+                const { memory } = this.server() || {};
+                if (!memory) {
+                    return false;
+                }
+
+                return memory.total < minRequirements().ram;
+            }
+        );
+
+        this.notEnoughStorage = ko.pureComputed(
+            () => {
+                const { storage } = this.server() || {};
+                if (!storage) {
+                    return false;
+                }
+
+                return storage.total < minRequirements().storage;
+            }
+        );
+
+        this.notEnoughCpus = ko.pureComputed(
+            () => {
+                const { cpus } = this.server() || {};
+                if (!cpus) {
+                    return false;
+                }
+
+                return cpus.count < minRequirements().cpu_count;
+            }
+        );
+
+        this.isBelowMinRequirements = ko.pureComputed(
+            () => this.notEnoughMemory() ||
+                this.notEnoughStorage() ||
+                this.notEnoughCpus()
         );
 
         this.infoSheet = this.getInfoSheet();
@@ -92,30 +145,77 @@ class ServerDetailsFormViewModel extends BaseViewModel {
     }
 
     getInfoSheet() {
+        const address = ko.pureComputed(
+            () => this.server().address
+        );
+
+        const hostname = ko.pureComputed(
+            () => this.server().hostname
+        );
+
+        const locationTag = ko.pureComputed(
+            () => this.server().location
+        );
+
+        const isMaster = ko.pureComputed(
+            () => this.isMaster() ? 'yes' : 'no'
+        );
+
+        const totalMemory = ko.pureComputed(
+            () => {
+                const { memory } = this.server() || {};
+                return memory ?
+                    `${formatSize(memory.total)} ${this.notEnoughMemory() ? requirementsMarker : ''}` :
+                    '';
+            }
+        );
+
+        const totalStorage = ko.pureComputed(
+            () => {
+                const { storage } = this.server() || {};
+                return storage ?
+                    `${formatSize(storage.total)} ${this.notEnoughStorage() ? requirementsMarker : ''}` :
+                    '';
+            }
+        );
+
+        const cpusCount = ko.pureComputed(
+            () => {
+                const { cpus } = this.server() || {};
+                return cpus ?
+                    `${formatSize(cpus.count)} ${this.notEnoughCpus() ? requirementsMarker : ''}` :
+                    '';
+            }
+        );
+
         return [
             {
                 label: 'IP Address',
-                value: ko.pureComputed(
-                    () => this.server().address
-                )
+                value: address
             },
             {
                 label: 'Hostname',
-                value: ko.pureComputed(
-                    () => this.server().hostname
-                )
+                value: hostname
             },
             {
                 label: 'Location Tag',
-                value: ko.pureComputed(
-                    () => this.server().location
-                )
+                value: locationTag
             },
             {
                 label: 'Is Currently Master',
-                value: ko.pureComputed(
-                    () => this.isMaster() ? 'yes' : 'no'
-                )
+                value: isMaster
+            },
+            {
+                label: 'Total Memory',
+                value: totalMemory
+            },
+            {
+                label: 'Total Disk Size',
+                value: totalStorage
+            },
+            {
+                label: 'Number or CPUs',
+                value: cpusCount
             }
         ];
     }

@@ -11,7 +11,7 @@ function formatIssueMessage(subject, status, plural = false) {
     }
 }
 
-export function getServerIssues(server, systemVersion) {
+export function getServerIssues(server, systemVersion, minRequirements) {
     const { debug_level, services_status = {} } = server;
     const issues = {};
 
@@ -62,6 +62,13 @@ export function getServerIssues(server, systemVersion) {
         issues.clusterConnectivity = 'Cannot reach some cluster members';
     }
 
+    const { storage, memory, cpus } = server;
+    if (storage.total < minRequirements.storage ||
+        memory.total < minRequirements.ram ||
+        cpus.count < minRequirements.cpu_count) {
+        issues.minRequirements = 'Server specs are below minimum requirements';
+    }
+
     return issues;
 }
 
@@ -82,7 +89,7 @@ export function getClusterStatus(cluster, systemVersion) {
                     return false;
                 }
 
-                const issues = getServerIssues(server, systemVersion);
+                const issues = getServerIssues(server, systemVersion, cluster.min_requirements);
                 return Boolean(issues.version) ||
                     Boolean(issues.dns_servers) ||
                     Boolean(issues.dns_name_resolution) ||

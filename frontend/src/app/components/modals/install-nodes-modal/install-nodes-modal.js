@@ -52,12 +52,12 @@ class InstallNodeWizardViewModel extends FormViewModel {
 
             if (this.osType() === 'LINUX') {
                 this.subject('mount');
-                this.tokensPlaceholder('Type mounts here (e.g: /mnt/mydata)');
+                this.tokensPlaceholder('Type mounts here (e.g. /mnt/mydata)');
                 this.userInstruction('Open a linux shell to a target  machine and run the following command');
 
             } else if (this.osType() === 'WINDOWS') {
                 this.subject('drive');
-                this.tokensPlaceholder('Type drives here (e.g c:\\)');
+                this.tokensPlaceholder('Type drives here (e.g. c:\\)');
                 this.userInstruction('Open an elevated Powershell (run as administrator) to a target machine and run the following command');
             }
         }

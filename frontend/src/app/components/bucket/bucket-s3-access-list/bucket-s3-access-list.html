@@ -14,10 +14,9 @@
 </span>
 <!-- /ko -->
 
-<ul class="account-list column" data-bind="foreach: accessList">
-    <li class="row">
+<ul class="account-list column greedy" data-bind="foreach: accessList">
+    <li class="row content-middle hpad">
         <span class="greedy" data-bind="text: $data"></span>
-
         <button class="link" data-bind="click: $component.onConnectionDetails">
             Connection Details
         </button>

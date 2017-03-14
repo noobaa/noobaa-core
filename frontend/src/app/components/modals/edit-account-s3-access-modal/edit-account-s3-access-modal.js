@@ -18,9 +18,7 @@ class EditAccountS3AccessModalViewModel extends BaseViewModel {
         );
 
         this.buckets = ko.pureComputed(
-            () => systemInfo().buckets.map(
-                ({ name }) => name
-            )
+            () => systemInfo().buckets.map(bucket => bucket.name)
         );
 
         this.hasS3Access = ko.observableWithDefault(

@@ -91,13 +91,11 @@ class ServerTableViewModel extends BaseViewModel {
 
         this.servers = ko.pureComputed(
             () => {
-                let { sortBy, order } = this.sorting();
-                let compareOp = createCompareFunc(compareAccessors[sortBy], order);
+                const { sortBy, order } = this.sorting();
+                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
 
                 return systemInfo() && systemInfo().cluster.shards[0].servers
-                    .filter(
-                        server => matchFilter(server, this.filter())
-                    )
+                    .filter(server => matchFilter(server, this.filter()))
                     .sort(compareOp);
             }
         );

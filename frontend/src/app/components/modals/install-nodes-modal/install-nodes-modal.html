@@ -31,7 +31,7 @@
             selected: ko.cmptd(excludeDrives, v => updateForm('excludeDrives', v)),
             label: 'Exclude drives for this installation'
         "></radio-btn>
-        <p>
+        <p data-bind="css: { disabled: !excludeDrives() }">
             Choose the drives you which to exclude from this installation:
         </p>
         <token-field class="column greedy" params="
@@ -39,7 +39,7 @@
             placeholder: tokensPlaceholder,
             disabled: !excludeDrives()
         "></token-field>
-        <p class="remark">
+        <p class="remark" data-bind="css: { disabled: !excludeDrives() }">
             Type
             <span data-bind="text: subject"></span>
             names accurately, click enter after each drive name.

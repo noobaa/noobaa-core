@@ -5,7 +5,7 @@ var _ = require('lodash');
 
 var P = require('../../util/promise');
 // var dbg = require('../../util/debug_module')(__filename);
-var Agent = require('../../agent/agent');
+var createAgent = require('../../agent/agent');
 
 var agntCtlConfig = {
     use_local: true,
@@ -72,7 +72,7 @@ function create_agent(howmany) {
     let token = _.cloneDeep(agntCtlConfig.local_conf.auth);
     let create_node_token = _.cloneDeep(token);
     return _.times(count, i => {
-        var agent = new Agent({
+        var agent = createAgent({
             address: agntCtlConfig.local_conf.base_address,
             node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
             // passing token instead of storage_path to use memory storage

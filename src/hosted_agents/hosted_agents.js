@@ -11,7 +11,7 @@ const system_store = require('../server/system_services/system_store').get_insta
 const auth_server = require('../server/common_services/auth_server');
 const json_utils = require('../util/json_utils');
 const fs_utils = require('../util/fs_utils');
-const Agent = require('../agent/agent');
+const createAgent = require('../agent/agent');
 const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
 
@@ -147,7 +147,7 @@ class HostedAgents {
                     create_node_token_wrapper,
                 };
                 dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
-                const agent = new Agent(agent_params);
+                const agent = createAgent(agent_params);
                 this._started_agents[node_name] = {
                     agent,
                     cloud_pool
@@ -198,7 +198,7 @@ class HostedAgents {
         };
 
         dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
-        const agent = new Agent(agent_params);
+        const agent = createAgent(agent_params);
         this._started_agents[node_name] = { agent };
         return fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS)
             .then(() => token_wrapper.write(local_create_node_token))

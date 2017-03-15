@@ -581,6 +581,10 @@ DebugLogger.prototype.get_module_level = function(mod) {
     return int_dbg.get_level(mod);
 };
 
+DebugLogger.prototype.set_logger_name = function(name) {
+    this._name = name;
+};
+
 DebugLogger.prototype.set_process_name = function(name) {
     int_dbg._proc_name = name;
     if (!_.isUndefined(syslog)) {

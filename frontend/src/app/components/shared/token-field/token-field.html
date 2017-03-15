@@ -1,29 +1,27 @@
-<div class="input row multiline content-start token-field-wrapper" data-bind="
-    css: { focus: hasFocus },
-    event: eventHandlers,
-    scroll: scroll,
-    css: { disabled: disabled }
-">
+<div class="input row multiline content-start token-field-wrapper"
+    ko.css.focus="hasFocus"
+    ko.css.disabeld="disabled"
+    ko.event="eventHandlers"
+    ko.scroll="scroll"
+>
     <!-- ko foreach: list -->
     <div class="row content-middle token">
-        <span class="greedy token-text" data-bind="
-            text: $data,
-            preventBubble: 'mousedown'
-        "></span>
-        <button class="icon-btn no-outline token-remove-btn" data-bind="
-            click: () => $component.onRemoveToken($index())
-        ">
+        <span class="greedy token-text"
+            ko.preventBubble="'mousedown'"
+            ko.text="$data"
+        ></span>
+        <button class="icon-btn no-outline token-remove-btn"
+            ko.click="() => $component.onRemoveToken($index())">
             <svg-icon params="name: 'x'"></svg-icon>
         </button>
     </div>
     <!-- /ko -->
-    <input type="text" class="internal-input greedy" data-bind="
-        textInput: text,
-        hasFocus: hasFocus,
-        attr: { placeholder: placeholder },
-        selection: selection,
-        preventBubble: 'mousedown',
-        disable: disabled,
-    "/>
+    <input type="text" class="internal-input greedy"
+        ko.textInput="text"
+        ko.hasFocus="hasFocus"
+        ko.attr.placeholder="placeholder"
+        ko.selection="selection"
+        ko.preventBubble="'mousedown'"
+        ko.disable="disabled"
+    />
 </div>
-

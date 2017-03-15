@@ -57,6 +57,9 @@ module.exports = {
                     n2n_config: {
                         $ref: 'common_api#/definitions/n2n_config'
                     },
+                    enabled: {
+                        type: 'boolean'
+                    },
                     geolocation: {
                         type: 'string'
                     },
@@ -91,12 +94,17 @@ module.exports = {
                         }
                     },
 
-                    s3_info: {
+                    s3_agent_info: {
                         type: 'object',
                         properties: {
-                            enabled: 'boolean'
+                            port: {
+                                type: 'integer'
+                            },
+                            ssl_port: {
+                                type: 'integer'
+                            },
                         }
-                    }
+                    },
                 }
             },
         },
@@ -145,12 +153,10 @@ module.exports = {
             }
         },
 
-        // only supported by s3 agents
-        update_s3rver: {
+        update_node_service: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['enabled'],
                 properties: {
                     enabled: {
                         type: 'boolean'

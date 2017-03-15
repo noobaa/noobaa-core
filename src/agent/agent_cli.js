@@ -17,7 +17,7 @@ const child_process = require('child_process');
 const P = require('../util/promise');
 const api = require('../api');
 const dbg = require('../util/debug_module')(__filename);
-const Agent = require('./agent');
+const createAgent = require('./agent');
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
 const Semaphore = require('../util/semaphore');
@@ -249,7 +249,7 @@ AgentCLI.prototype.load = function() {
         //             // return storage nodes that will be created according to scale
         //             .then(() => storage_path_nodes);
         //     }
-        //     dbg.log0(`DZDZ: found started s3 node ${s3_started}. skipping creation`);
+        //     dbg.log0(`found started s3 node ${s3_started}. skipping creation`);
         //     // remover s3 node name from storage_path_nodes[0] so scale will be calculated according to storage nodes only.
         //     storage_path_nodes[0] = _.reject(storage_path_nodes[0], name => this._is_s3_agent(name));
         //     return storage_path_nodes;
@@ -517,7 +517,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             })
         };
 
-        agent = self.agents[node_name] = new Agent({
+        agent = self.agents[node_name] = createAgent({
             address: self.params.address,
             servers: self.params.servers,
             node_name: node_name,

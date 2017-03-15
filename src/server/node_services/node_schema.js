@@ -48,6 +48,9 @@ module.exports = {
         pool: {
             format: 'objectid'
         },
+        agent_config: {
+            format: 'objectid'
+        },
         peer_id: {
             // the identifier used for p2p signaling
             format: 'objectid'

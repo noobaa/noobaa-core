@@ -48,13 +48,14 @@ const AGENT_INFO_FIELDS = [
     'host_id',
     'base_address',
     'rpc_address',
+    'enabled',
     'geolocation',
     'storage',
     'drives',
     'os_info',
     'debug_level',
     'is_internal_agent',
-    's3_info'
+    's3_agent_info'
 ];
 const MONITOR_INFO_FIELDS = [
     'has_issues',
@@ -362,6 +363,9 @@ class NodesMonitor extends EventEmitter {
             .then(() => {
                 if (!item.node.decommissioning) {
                     item.node.decommissioning = Date.now();
+                    if (item.node.s3_agent_info) {
+                        item.node.decommissioned = item.node.decommissioning;
+                    }
                 }
                 this._set_need_update.add(item);
                 this._update_status(item);
@@ -377,6 +381,7 @@ class NodesMonitor extends EventEmitter {
                     desc: `${item.node.name} was deactivated by ${req.account && req.account.email}`,
                 });
             });
+
     }
 
     recommission_node(req) {
@@ -401,7 +406,9 @@ class NodesMonitor extends EventEmitter {
                     desc: `${item.node.name} was reactivated by ${req.account && req.account.email}`,
                 });
             });
+
     }
+
 
     delete_node(node_identity) {
         this._throw_if_not_started_and_loaded();
@@ -497,6 +504,7 @@ class NodesMonitor extends EventEmitter {
                 peer_id: NodesStore.instance().make_node_id(),
                 system: system._id,
                 pool: pool._id,
+                agent_config: agent_config._id,
                 heartbeat: Date.now(),
                 name: NO_NAME_PREFIX + Date.now().toString(36),
             },
@@ -672,6 +680,7 @@ class NodesMonitor extends EventEmitter {
             P.resolve()
             .then(() => dbg.log0('_run_node:', item.node.name))
             .then(() => this._get_agent_info(item))
+            .then(() => this._update_node_service(item))
             .then(() => this._update_create_node_token(item))
             .then(() => this._update_rpc_config(item))
             .then(() => this._test_nodes_validity(item))
@@ -718,31 +727,64 @@ class NodesMonitor extends EventEmitter {
                 item.agent_info = info;
                 const updates = _.pick(info, AGENT_INFO_FIELDS);
                 updates.heartbeat = Date.now();
-                // node name is set once before the node is created in nodes_store
-                // we take the name the agent sent as base, and add suffix if needed
-                // to prevent collisions.
-                if (item.node_from_store) {
-                    delete updates.name;
-                } else {
-                    this._map_node_name.delete(String(item.node.name));
-                    let base_name = updates.name || 'node';
-                    let counter = 1;
-                    while (this._map_node_name.has(updates.name)) {
-                        updates.name = base_name + '-' + counter;
-                        counter += 1;
-                    }
-                    this._map_node_name.set(String(updates.name), item);
-                    dbg.log0('_get_agent_info: set node name',
-                        item.node.name, 'to', updates.name);
-                }
-                _.extend(item.node, updates);
-                this._set_need_update.add(item);
-                item.create_node_token = info.create_node_token;
+                return P.resolve()
+                    .then(() => {
+                        // node name is set once before the node is created in nodes_store
+                        // we take the name the agent sent as base, and add suffix if needed
+                        // to prevent collisions.
+                        if (item.node_from_store) {
+                            delete updates.name;
+                        } else {
+                            this._map_node_name.delete(String(item.node.name));
+                            let base_name = updates.name || 'node';
+                            let counter = 1;
+                            while (this._map_node_name.has(updates.name)) {
+                                updates.name = base_name + '-' + counter;
+                                counter += 1;
+                            }
+                            this._map_node_name.set(String(updates.name), item);
+                            dbg.log0('_get_agent_info: set node name',
+                                item.node.name, 'to', updates.name);
+
+                            let agent_config = system_store.data.get_by_id(item.node.agent_config);
+                            let { use_s3, use_storage, exclude_drive } = agent_config || {
+                                use_s3: false,
+                                use_storage: true,
+                                exclude_drive: []
+                            };
+                            // on first call to get_agent_info enable\disable the node according to the configuration
+                            let should_start_service = (info.s3_agent_info && use_s3) ||
+                                (!info.s3_agent_info && use_storage && exclude_drive.indexOf(info.drives[0].mount) === -1);
+                            dbg.log0(`first call to get_agent_info. ${info.s3_agent_info ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
+                            if (!should_start_service) {
+                                item.node.decommissioning = item.node.decommissioned = Date.now();
+                            }
+                        }
+                    })
+                    .then(() => {
+                        _.extend(item.node, updates);
+                        this._set_need_update.add(item);
+                        item.create_node_token = info.create_node_token;
+                    });
             })
             .catch(err => {
                 dbg.error('got error in _get_agent_info:', err);
                 throw err;
             });
+    }
+
+    _update_node_service(item) {
+        let should_enable = !item.node.decommissioned;
+        if ((item.node.enabled && should_enable) || (!item.node.enabled && !should_enable)) {
+            // if agent service is as expected, do nothing.
+            return;
+        }
+        dbg.log0(`node service is not as expected. setting node service to ${should_enable ? 'enabled' : 'disabled'}`);
+        return this.client.agent.update_node_service({
+            enabled: should_enable
+        }, {
+            connection: item.connection
+        });
     }
 
     _update_create_node_token(item) {
@@ -770,7 +812,6 @@ class NodesMonitor extends EventEmitter {
             .timeout(AGENT_RESPONSE_TIMEOUT);
 
     }
-
 
     _update_rpc_config(item) {
         if (item.node.deleting || item.node.deleted) return;
@@ -1282,7 +1323,8 @@ class NodesMonitor extends EventEmitter {
             !item.io_detention &&
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
-            !item.node.deleted);
+            !item.node.deleted &&
+            !item.node.s3_agent_info);
     }
 
     _get_item_writable(item) {
@@ -1298,7 +1340,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted &&
-            !item.node.s3_info);
+            !item.node.s3_agent_info);
     }
 
     _get_item_accessibility(item) {
@@ -1355,7 +1397,7 @@ class NodesMonitor extends EventEmitter {
     _get_data_activity_reason(item) {
         if (!item.node_from_store) return '';
         if (item.node.deleted) return '';
-        if (item.node.s3_info) return '';
+        if (item.node.s3_agent_info) return '';
         if (item.node.deleting) return ACT_DELETING;
         if (item.node.decommissioned) return '';
         if (item.node.decommissioning) return ACT_DECOMMISSIONING;

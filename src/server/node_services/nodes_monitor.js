@@ -264,7 +264,7 @@ class NodesMonitor extends EventEmitter {
         // new node heartbeat
         // create the node and then update the heartbeat
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            let agent_config = extra.agent_config_id && system_store.data.get_by_id(extra.agent_config_id);
+            let agent_config = (extra.agent_config_id && system_store.data.get_by_id(extra.agent_config_id)) || {};
             this._add_new_node(req.connection, req.system._id, agent_config, req.rpc_params.pool_name);
             return reply;
         }

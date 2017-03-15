@@ -67,17 +67,17 @@ class DropdownViewModel extends BaseViewModel {
             }
         );
 
+        this.invalid = ko.pureComputed(
+            () => ko.unwrap(this.selected.isModified) &&
+                !ko.unwrap(this.selected.isValid)
+        );
+
         this.disabled = disabled;
         this.hasFocus = hasFocus;
         this.active = ko.observable(false);
         this.matchOperator = matchOperator;
         this.searchInput = '';
         this.lastInput = 0;
-    }
-
-    isInvalid() {
-        return ko.unwrap(this.selected.isModified) &&
-            !ko.unwrap(this.selected.isValid);
     }
 
     handleClick() {

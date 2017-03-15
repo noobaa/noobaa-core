@@ -2,15 +2,13 @@ import template from './server-dns-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo, nameResolutionState } from 'model';
-import { makeRange } from 'utils/core-utils';
 import { attemptResolveSystemName } from 'actions';
 import { inputThrottle } from 'config';
 import { openUpdateSystemNameModal } from 'dispatchers';
 
-const [ IP, DNS ] = makeRange(2);
 const addressOptions = [
-    { label: 'Use Server IP', value: IP },
-    { label: 'Use DNS Name (recommended)', value: DNS }
+    { label: 'Use Server IP', value: 'IP' },
+    { label: 'Use DNS Name (recommended)', value: 'DNS' }
 ];
 
 class ServerDNSFormViewModel extends BaseViewModel {
@@ -23,11 +21,15 @@ class ServerDNSFormViewModel extends BaseViewModel {
         this.addressOptions = addressOptions;
 
         this.addressType = ko.observableWithDefault(
-            () => systemInfo() && (!systemInfo().dns_name ? IP : DNS)
+            () => systemInfo() && (!systemInfo().dns_name ? 'IP' : 'DNS')
         );
 
-        this.usingIP = this.addressType.is(IP);
-        this.usingDNS = this.addressType.is(DNS);
+        this.usingIP = ko.pureComputed(
+            () => this.addressType() === 'IP'
+        );
+        this.usingDNS = ko.pureComputed(
+            () => this.addressType() === 'DNS'
+        );
 
         this.ipAddress = ko.pureComputed(
             ()=> systemInfo() && systemInfo().ip_address

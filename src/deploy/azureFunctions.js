@@ -403,13 +403,19 @@ class AzureFunctions {
         return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(this.resourceGroupName, vmName, callback))
             .then(() => P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(this.resourceGroupName, vmName + '_nic', callback)))
             .then(() => P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback)))
-            .then(() => P.fromCallback(callback => blobSvc.listBlobsSegmentedWithPrefix('datadisks', vmName, null, callback)))
-            .then(result => {
-                if (result && result.entries) {
-                    console.log('Deleting data disks', result.entries);
-                    return P.map(result.entries, blob => P.fromCallback(callback => blobSvc.deleteBlob('datadisks', blob.name, callback)));
-                }
-            });
+            .then(() => P.fromCallback(callback => blobSvc.doesContainerExist('datadisks', callback))
+                .then(result => {
+                    if (result.exists) {
+                        return P.fromCallback(callback => blobSvc.listBlobsSegmentedWithPrefix('datadisks', vmName, null, callback));
+                    }
+                })
+                .then(result => {
+                    if (result && result.entries) {
+                        console.log('Deleting data disks', result.entries);
+                        return P.map(result.entries, blob => P.fromCallback(callback => blobSvc.deleteBlob('datadisks', blob.name, callback)));
+                    }
+                })
+            );
     }
 
     listVirtualMachines(prefix, status) {

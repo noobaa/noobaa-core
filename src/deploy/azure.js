@@ -102,12 +102,12 @@ function vmOperations(operationCallback) {
     } else {
         serverName = argv.app;
     }
-    if (_.isUndefined(argv.scale)) {
+    if (_.isUndefined(argv.scale) && _.isUndefined(argv.addallimages)) {
 
         console.error('\n\n******************************************');
-        console.error('Please provide --scale (choose the number of agents you want to add)');
+        console.error('Please provide --scale (choose the number of agents you want to add) or --addallimages');
         console.error('******************************************\n\n');
-        throw new Error('MISSING --scale');
+        throw new Error('MISSING --scale/--addallimages');
     } else {
         machineCount = argv.scale;
     }
@@ -124,19 +124,21 @@ function vmOperations(operationCallback) {
         .then(old_machines => {
             console.log('Machines with this prefix which are online', old_machines.length);
             var machines = [];
-            if (old_machines.length < machineCount) {
-                var os = azf.getImagesfromOSname(argv.os);
-                machines = args_builder(machineCount - old_machines.length, os);
-                console.log('adding ', (machineCount - old_machines.length), 'machines');
-                return P.map(machines, machine => azf.createAgent(machine, storageAccountName, vnetName, os, serverName, agentConf));
-            }
             if (argv.addallimages) {
                 console.log('adding all prossible machine types');
                 return P.map(oses, osname => {
                     var os2 = azf.getImagesfromOSname(osname);
                     return azf.createAgent(prefix + osname.substring(0, 8), storageAccountName, vnetName,
-                        os2, serverName, agentConf);
+                            os2, serverName, agentConf)
+                        .catch(err => console.log('got error with agent', err));
                 });
+            }
+            if (old_machines.length < machineCount) {
+                var os = azf.getImagesfromOSname(argv.os);
+                machines = args_builder(machineCount - old_machines.length, os);
+                console.log('adding ', (machineCount - old_machines.length), 'machines');
+                return P.map(machines, machine => azf.createAgent(machine, storageAccountName, vnetName, os, serverName, agentConf)
+                    .catch(err => console.log('got error with agent', err)));
             }
             console.log('removing ', (old_machines.length - machineCount), 'machines');
             var todelete = old_machines.length - machineCount;
@@ -146,7 +148,8 @@ function vmOperations(operationCallback) {
                     console.log(old_machines[i]);
                     machines_to_del.push(old_machines[i]);
                 }
-                return P.map(machines_to_del, machine => azf.deleteVirtualMachine(machine));
+                return P.map(machines_to_del, machine => azf.deleteVirtualMachine(machine)
+                    .catch(err => console.log('got error with agent', err)));
             }
         })
         .catch(err => {

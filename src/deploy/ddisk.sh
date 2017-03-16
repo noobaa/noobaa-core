@@ -1,7 +1,4 @@
 #!/bin/bash
-agent_conf=$2
-env_name=$1
-/usr/local/noobaa/uninstall_noobaa_agent.sh
 filelines=`parted -l 2>&1 | grep /dev/sd | grep "unrecognised disk label" | cut -d: -f2 | cut -d' ' -f2`
 for line in $filelines ; do
     echo "Adding disk $line"
@@ -15,6 +12,4 @@ for line in $filelines ; do
     echo "$uuid $mountpath ext4   defaults,nofail   1   2" >> /etc/fstab
     mount $mountpath
 done
-curl --insecure -L https://$env_name:8443/public/noobaa-setup >noobaa-setup
-chmod +x ./noobaa-setup
-./noobaa-setup /S /config $agent_conf
+service noobaalocalservice restart

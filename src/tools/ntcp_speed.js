@@ -68,7 +68,7 @@ function run_sender(conn) {
     console.log('client connected');
     let send_speedometer = new Speedometer('Send Speed');
     let send = function() {
-        let buf = new Buffer(argv.size);
+        let buf = Buffer.allocUnsafe(argv.size);
         conn.write(buf, () => {
             send_speedometer.update(buf.length);
             setImmediate(send);

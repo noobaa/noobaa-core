@@ -49,7 +49,7 @@ function create_new_agents(target_ip, target_region) {
         secret_key: "abc"
     });
     new_conf = new_conf.replace('127.0.0.1', target_ip);
-    var base_conf = new Buffer(new_conf).toString('base64');
+    var base_conf = Buffer.from(new_conf).toString('base64');
     //console.log('base_conf',base_conf,'new_conf',new_conf);
     //return;
 

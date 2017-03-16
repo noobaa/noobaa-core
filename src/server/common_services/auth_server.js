@@ -39,109 +39,109 @@ function create_auth(req) {
     var target_account;
     var system;
 
-    return P.fcall(function() {
+    return P.resolve()
+        .then(() => {
 
-        // if email is not provided we skip finding target_account by email
-        // and use the current auth account as the authenticated_account
-        if (!email) return;
+            // if email is not provided we skip finding target_account by email
+            // and use the current auth account as the authenticated_account
+            if (!email) return;
 
-        // consider email not found the same as bad password to avoid phishing attacks.
-        target_account = system_store.get_account_by_email(email);
-        dbg.log0('credentials account not found', email, system_name);
-        if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials not found');
+            // consider email not found the same as bad password to avoid phishing attacks.
+            target_account = system_store.get_account_by_email(email);
+            dbg.log0('credentials account not found', email, system_name);
+            if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials not found');
 
-        // when password is not provided it means we want to give authorization
-        // by the currently authorized to another specific account instead of
-        // using credentials.
-        if (!password) return;
+            // when password is not provided it means we want to give authorization
+            // by the currently authorized to another specific account instead of
+            // using credentials.
+            if (!password) return;
 
-        // use bcrypt to verify password
-        return P.fromCallback(callback =>
-                bcrypt.compare(password, target_account.password, callback))
-            .then(function(match) {
-                dbg.log0('password mismatch', email, system_name);
-                if (!match) throw new RpcError('UNAUTHORIZED', 'credentials not found');
-                // authentication passed!
-                // so this account is the authenticated_account
-                authenticated_account = target_account;
-            });
+            return P.resolve()
+                .then(() => bcrypt.compare(password, target_account.password))
+                .then(match => {
+                    dbg.log0('password mismatch', email, system_name);
+                    if (!match) throw new RpcError('UNAUTHORIZED', 'credentials not found');
+                    // authentication passed!
+                    // so this account is the authenticated_account
+                    authenticated_account = target_account;
+                });
+        })
+        .then(() => {
 
-    }).then(function() {
+            // if both accounts were resolved (they can be the same account),
+            // then we can skip loading the current authorized account
+            if (!authenticated_account || !target_account) {
+                // find the current authorized account and assign
+                if (!req.auth || !req.auth.account_id) {
+                    dbg.log0('no account_id in auth and no credetials', email, system_name);
+                    throw new RpcError('UNAUTHORIZED', 'credentials not found');
+                }
 
-        // if both accounts were resolved (they can be the same account),
-        // then we can skip loading the current authorized account
-        if (!authenticated_account || !target_account) {
-            // find the current authorized account and assign
-            if (!req.auth || !req.auth.account_id) {
-                dbg.log0('no account_id in auth and no credetials', email, system_name);
+                var account_arg = system_store.data.get_by_id(req.auth.account_id);
+                target_account = target_account || account_arg;
+                authenticated_account = authenticated_account || account_arg;
+
+            }
+
+            // check the accounts are valid
+            if (!authenticated_account || authenticated_account.deleted) {
+                dbg.log0('authenticated account not found', email, system_name);
+                throw new RpcError('UNAUTHORIZED', 'credentials not found');
+            }
+            if (!target_account || target_account.deleted) {
+                dbg.log0('target account not found', email, system_name);
                 throw new RpcError('UNAUTHORIZED', 'credentials not found');
             }
 
-            var account_arg = system_store.data.get_by_id(req.auth.account_id);
-            target_account = target_account || account_arg;
-            authenticated_account = authenticated_account || account_arg;
+            // system is optional, and will not be included in the token if not provided
+            if (system_name) {
 
-        }
+                // find system by name
+                system = system_store.data.systems_by_name[system_name];
+                if (!system || system.deleted) throw new RpcError('UNAUTHORIZED', 'system not found');
 
-        // check the accounts are valid
-        if (!authenticated_account || authenticated_account.deleted) {
-            dbg.log0('authenticated account not found', email, system_name);
-            throw new RpcError('UNAUTHORIZED', 'credentials not found');
-        }
-        if (!target_account || target_account.deleted) {
-            dbg.log0('target account not found', email, system_name);
-            throw new RpcError('UNAUTHORIZED', 'credentials not found');
-        }
+                // find the role of authenticated_account in the system
+                var roles = system.roles_by_account &&
+                    system.roles_by_account[authenticated_account._id];
 
-        // system is optional, and will not be included in the token if not provided
-        if (system_name) {
-
-            // find system by name
-            system = system_store.data.systems_by_name[system_name];
-            if (!system || system.deleted) throw new RpcError('UNAUTHORIZED', 'system not found');
-
-            // find the role of authenticated_account in the system
-            var roles = system.roles_by_account &&
-                system.roles_by_account[authenticated_account._id];
-
-            // now approve the role -
-            if (
-                // support account  can do anything
-                authenticated_account.is_support ||
-                // system owner can do anything
-                String(system.owner) === String(authenticated_account._id) ||
-                // From some reason, which I couldn't find, system store is
-                // missing roles_by_account from time to time.
-                // In addition, it's not clear why do we need the line above,
-                // as system.owner is an object. I left it for case, I may not
-                //see right now.
-                String(system.owner._id) === String(authenticated_account._id) ||
-                // system admin can do anything
-                _.includes(roles, 'admin') ||
-                // non admin is not allowed to delegate roles to other accounts
-                (role_name && _.includes(roles, role_name) &&
-                    String(target_account._id) === String(authenticated_account._id))) {
-                // "system admin" can use any role
-                role_name = role_name || 'admin';
-            } else {
-                throw new RpcError('UNAUTHORIZED', 'account role not allowed');
+                // now approve the role -
+                if (
+                    // support account  can do anything
+                    authenticated_account.is_support ||
+                    // system owner can do anything
+                    String(system.owner) === String(authenticated_account._id) ||
+                    // From some reason, which I couldn't find, system store is
+                    // missing roles_by_account from time to time.
+                    // In addition, it's not clear why do we need the line above,
+                    // as system.owner is an object. I left it for case, I may not
+                    //see right now.
+                    String(system.owner._id) === String(authenticated_account._id) ||
+                    // system admin can do anything
+                    _.includes(roles, 'admin') ||
+                    // non admin is not allowed to delegate roles to other accounts
+                    (role_name && _.includes(roles, role_name) &&
+                        String(target_account._id) === String(authenticated_account._id))) {
+                    // "system admin" can use any role
+                    role_name = role_name || 'admin';
+                } else {
+                    throw new RpcError('UNAUTHORIZED', 'account role not allowed');
+                }
             }
-        }
 
-        let token = make_auth_token({
-            account_id: target_account._id,
-            system_id: system && system._id,
-            role: role_name,
-            extra: req.rpc_params.extra,
+            let token = make_auth_token({
+                account_id: target_account._id,
+                system_id: system && system._id,
+                role: role_name,
+                extra: req.rpc_params.extra,
+            });
+
+            let info = _get_auth_info(target_account, system, role_name, req.rpc_params.extra);
+
+            return {
+                token: token,
+                info: info
+            };
         });
-
-        let info = _get_auth_info(target_account, system, role_name, req.rpc_params.extra);
-
-        return {
-            token: token,
-            info: info
-        };
-    });
 }
 
 

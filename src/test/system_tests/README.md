@@ -37,7 +37,7 @@
 "use strict";
 
 var api = require('../../api');
-var dotenv = require('dotenv');
+var dotenv = require('../../util/dotenv');
 dotenv.load();
 
 var rpc = api.new_rpc();

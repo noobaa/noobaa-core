@@ -41,7 +41,7 @@ function tcp_simultaneous_open(local_port, remote_port, attempts) {
     });
     conn.on('connect', function() {
         console.log('\nCONNECTED!', conn.address());
-        conn.write(new Buffer('FIRST PLAIN MESSAGE'));
+        conn.write(Buffer.from('FIRST PLAIN MESSAGE'));
     });
 }
 
@@ -63,7 +63,7 @@ function tcp_normal_open(listen_port) {
 }
 
 function new_seq_buffer(seq) {
-    var buffer = new Buffer(4);
+    var buffer = Buffer.alloc(4);
     buffer.writeInt32BE(seq, 0);
     return buffer;
 }
@@ -133,10 +133,10 @@ function upgrade_to_tls(conn, is_server) {
 
     function once_connected() {
         console.log('TLS CONNECTED:', sconn.localPort, '->', sconn.remotePort);
-        sconn.write(new Buffer('first secure message from ' +
+        sconn.write(Buffer.from('first secure message from ' +
             (is_server ? 'server ' : 'client ') + (new Date())));
         looper = setInterval(function() {
-            sconn.write(new Buffer('another secure message from ' +
+            sconn.write(Buffer.from('another secure message from ' +
                 (is_server ? 'server ' : 'client ') + (new Date())));
         }, 1000);
     }

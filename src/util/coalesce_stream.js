@@ -22,7 +22,7 @@ function CoalesceStream(options) {
     this._obj = options.objectMode;
     this._max_length = options.max_length;
     this._max_wait_ms = options.max_wait_ms || 0;
-    this._pending = this._obj ? [] : new Buffer(0);
+    this._pending = this._obj ? [] : Buffer.alloc(0);
     this.flush_me = this._flush.bind(this);
 }
 
@@ -69,7 +69,7 @@ CoalesceStream.prototype._flush = function(callback) {
     // flush if something remains
     if (this._pending.length) {
         this.push(this._pending);
-        this._pending = this._obj ? [] : new Buffer(0);
+        this._pending = this._obj ? [] : Buffer.alloc(0);
     }
 
     // done

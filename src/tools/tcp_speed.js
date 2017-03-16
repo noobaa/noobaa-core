@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const fs = require('fs');
 const net = require('net');
 const tls = require('tls');
 const cluster = require('cluster');
 const Speedometer = require('../util/speedometer');
+const native_core = require('../util/native_core');
 
 const argv = require('minimist')(process.argv);
 argv.size = argv.size || 10;
@@ -57,10 +57,7 @@ function run_server(port, ssl) {
 
     let server;
     if (ssl) {
-        server = tls.createServer({
-            key: fs.readFileSync('guy-key.pem'),
-            cert: fs.readFileSync('guy-cert.pem'),
-        }, handle_conn);
+        server = tls.createServer(native_core.x509(), handle_conn);
     } else {
         server = net.createServer(handle_conn);
     }

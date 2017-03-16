@@ -1,12 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
-let fs = require('fs');
+
+let argv = require('minimist')(process.argv);
 let http = require('http');
 let https = require('https');
 let cluster = require('cluster');
 let crypto = require('crypto');
 let Speedometer = require('../util/speedometer');
-let argv = require('minimist')(process.argv);
+let native_core = require('../util/native_core');
+
 argv.size = argv.size || 16;
 argv.port = Number(argv.port) || 50505;
 argv.concur = argv.concur || 16;
@@ -55,10 +57,7 @@ function usage() {
 
 function run_server(port, ssl) {
     console.log('SERVER', port, 'size', argv.size, 'MB');
-    let server = ssl ? https.createServer({
-        key: fs.readFileSync('guy-key.pem'),
-        cert: fs.readFileSync('guy-cert.pem'),
-    }) : http.createServer();
+    let server = ssl ? https.createServer(native_core.x509()) : http.createServer();
     server.on('listening', () => console.log('listening on port', argv.port, '...'));
     server.on('error', err => {
         console.error('server error', err.message);

@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const uuid = require('node-uuid');
+const uuid = require('uuid/v4');
 const path = require('path');
 const util = require('util');
 const fs = require('fs');

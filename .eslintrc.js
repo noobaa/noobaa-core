@@ -29,6 +29,10 @@ module.exports = {
             ' Copyright (C) 2016 NooBaa '
         ]],
 
+        // not forcing how arrays should have new-line breaks
+        'array-element-newline': 'off',
+        'array-bracket-newline': 'off',
+
         // arrow function styling is not a real error but should be consistent
         'arrow-parens': ['error', 'as-needed'],
         'arrow-body-style': ['warn', 'as-needed'],
@@ -185,6 +189,8 @@ module.exports = {
         // TODO eslint no-mixed-operators should be error
         'no-mixed-operators': 'warn',
 
+        'no-multi-assign': 'warn',
+
         // empty lines are mostly harmless
         'no-multiple-empty-lines': ['error', {
             max: 20
@@ -275,8 +281,11 @@ module.exports = {
         // prefer using arrow functions for callbacks, but too much to fix
         'prefer-arrow-callback': 'off',
 
-        // prefer using const, but too much to fix
+        // we prefer using const, but too much to fix
         'prefer-const': 'off',
+
+        // we prefer using destructuring, but too much to fix
+        'prefer-destructuring': 'off',
 
         'prefer-spread': 'off',
         'prefer-reflect': 'off',

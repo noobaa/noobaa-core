@@ -257,7 +257,7 @@ function read_json_body(req, res, next) {
             }
             const content_sha256_hex = req.headers['x-amz-content-sha256'];
             req.content_sha256 =
-                content_sha256_hex ? new Buffer(content_sha256_hex, 'hex') :
+                content_sha256_hex ? Buffer.from(content_sha256_hex, 'hex') :
                 (crypto.createHash('sha256')
                     .update(data)
                     .digest());

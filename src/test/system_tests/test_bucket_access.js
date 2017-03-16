@@ -13,7 +13,7 @@ var assert = require('assert');
 var AWS = require('aws-sdk');
 var https = require('https');
 var fs = require('fs');
-var uuid = require('node-uuid');
+var uuid = require('uuid/v4');
 
 
 dotenv.load();

@@ -197,7 +197,7 @@ function reset_password {
 
     done
 
-    local bcrypt_sec=$(sudo /usr/local/bin/node /root/node_modules/noobaa-core/src/util/crypto_utils.js --bcrypt_password $answer_reset_password)
+    local bcrypt_sec=$(sudo /usr/local/bin/node /root/node_modules/noobaa-core/src/tools/bcrypt_cli.js "$answer_reset_password")
     /usr/bin/mongo nbcore --eval  "db.accounts.update({email:'${user_name}'},{\$set:{password:'${bcrypt_sec}'}})" --quiet
 
 

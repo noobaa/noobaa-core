@@ -1,3 +1,4 @@
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 const gulp = require('gulp');
@@ -10,12 +11,10 @@ const gulp_json_editor = require('gulp-json-editor');
 const _ = require('lodash');
 const argv = require('minimist')(process.argv);
 const path = require('path');
-const dotenv = require('dotenv');
+const dotenv = require('./src/util/dotenv');
 const event_stream = require('event-stream');
 
-const P = require('./src/util/promise');
 const pkg = require('./package.json');
-const fs_utils = require('./src/util/fs_utils');
 const promise_utils = require('./src/util/promise_utils');
 
 if (!process.env.PORT) {
@@ -23,8 +22,7 @@ if (!process.env.PORT) {
     dotenv.load();
 }
 
-const use_local_executable = Boolean(argv.local);
-const git_commit = argv.GIT_COMMIT && argv.GIT_COMMIT.substr(0, 7) || 'DEVONLY';
+const git_commit = (argv.GIT_COMMIT && argv.GIT_COMMIT.substr(0, 7)) || 'DEVONLY';
 const current_pkg_version = pkg.version + '-' + git_commit;
 console.log('current_pkg_version:', current_pkg_version);
 
@@ -38,16 +36,10 @@ const NVA_Package_sources = [
 function pack(dest, name) {
     var pkg_stream = gulp.src('package.json')
         .pipe(gulp_json_editor(function(json) {
-            var deps = _.omit(json.dependencies, function(val, key) {
-                return /^gulp/.test(key) ||
-                    /^jshint/.test(key) ||
-                    /^eslint/.test(key) ||
-                    _.contains([
-                        'mocha',
-                        'form-data',
-                        'istanbul'
-                    ], key);
-            });
+            var deps = _.omit(
+                json.dependencies,
+                (val, key) => (/gulp|jshint|eslint|mocha|istanbul/).test(key)
+            );
             return {
                 name: 'noobaa-NVA',
                 version: current_pkg_version,
@@ -55,14 +47,16 @@ function pack(dest, name) {
                 main: 'index.js',
                 dependencies: deps,
             };
-        })).on('error', gutil.log);
+        }))
+        .on('error', gutil.log);
 
     var src_stream = gulp.src(NVA_Package_sources, {
             base: 'src'
         })
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('src', p.dirname);
-        })).on('error', gutil.log);
+        }))
+        .on('error', gutil.log);
     // TODO bring back uglify .pipe(gulp_uglify());
 
     var node_modules_stream = gulp.src([
@@ -79,7 +73,8 @@ function pack(dest, name) {
         })
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('node_modules', p.dirname);
-        })).on('error', gutil.log);
+        }))
+        .on('error', gutil.log);
 
     var basejs_stream = gulp.src([
         'bower.json',
@@ -94,22 +89,26 @@ function pack(dest, name) {
     var agent_distro = gulp.src(['src/build/windows/noobaa_setup.exe'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('deployment', p.dirname);
-        })).on('error', gutil.log);
+        }))
+        .on('error', gutil.log);
 
     var build_stream = gulp.src(['build/public/**/*'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('build/public', p.dirname);
-        })).on('error', gutil.log);
+        }))
+        .on('error', gutil.log);
 
     var build_native_stream = gulp.src(['build/Release/**/*'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('build/Release', p.dirname);
-        })).on('error', gutil.log);
+        }))
+        .on('error', gutil.log);
 
     var build_fe_stream = gulp.src(['frontend/dist/**/*'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('frontend/dist', p.dirname);
-        })).on('error', gutil.log);
+        }))
+        .on('error', gutil.log);
 
     return event_stream
         .merge(

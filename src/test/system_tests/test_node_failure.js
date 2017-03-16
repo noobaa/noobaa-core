@@ -7,7 +7,7 @@ let api = require('../../api');
 let ops = require('./basic_server_ops');
 let promise_utils = require('../../util/promise_utils');
 var dotenv = require('../../util/dotenv');
-const uuid = require('node-uuid');
+const uuid = require('uuid/v4');
 dotenv.load();
 
 

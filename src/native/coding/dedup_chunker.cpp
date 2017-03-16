@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 #include "dedup_chunker.h"
 #include "../util/buf.h"
-#include "../util/crypto.h"
 
 namespace noobaa {
 

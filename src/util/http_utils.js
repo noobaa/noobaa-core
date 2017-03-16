@@ -2,10 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const fs = require('fs');
 const url = require('url');
-const pem = require('pem');
-const path = require('path');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
@@ -267,31 +264,6 @@ function get_unsecured_http_agent(endpoint) {
         new http.Agent();
 }
 
-function get_ssl_certificate() {
-    console.log('certificate location:', path.join('/etc', 'private_ssl_path', 'server.key'));
-    if (fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.key')) &&
-        fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.crt'))) {
-        console.log('Using local certificate');
-        var local_certificate = {
-            key: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.key')),
-            cert: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.crt'))
-        };
-        return local_certificate;
-    } else {
-
-        console.log('Generating self signed certificate');
-        return P.fromCallback(callback => pem.createCertificate({
-                days: 365 * 100,
-                selfSigned: true
-            }, callback))
-            .then(cert => ({
-                key: cert.serviceKey,
-                cert: cert.certificate
-            }));
-    }
-}
-
-
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
@@ -301,4 +273,3 @@ exports.normalize_http_ranges = normalize_http_ranges;
 exports.read_and_parse_body = read_and_parse_body;
 exports.send_reply = send_reply;
 exports.get_unsecured_http_agent = get_unsecured_http_agent;
-exports.get_ssl_certificate = get_ssl_certificate;

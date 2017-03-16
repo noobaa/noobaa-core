@@ -13,7 +13,6 @@ const child_process = require('child_process');
 const os = require('os');
 
 const P = require('../util/promise');
-const pem = require('../util/pem');
 const api = require('../api');
 const pkg = require('../../package.json');
 const DebugLogger = require('../util/debug_module');
@@ -24,6 +23,7 @@ const js_utils = require('../util/js_utils');
 const RpcError = require('../rpc/rpc_error');
 const url_utils = require('../util/url_utils');
 const time_utils = require('../util/time_utils');
+const native_core = require('../util/native_core');
 const FuncNode = require('./func_services/func_node');
 const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
@@ -305,18 +305,9 @@ class Agent {
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
-            })
-            .then(() => P.fromCallback(callback => pem.createCertificate({
-                days: 365 * 100,
-                selfSigned: true
-            }, callback)))
-            .then(pem_cert => {
-                this.ssl_cert = {
-                    key: pem_cert.serviceKey,
-                    cert: pem_cert.certificate
-                };
+                this.ssl_context = native_core().x509();
                 // update the n2n ssl to use my certificate
-                this.n2n_agent.set_ssl_context(this.ssl_cert);
+                this.n2n_agent.set_ssl_context(this.ssl_context);
             })
             .then(() => {
                 if (this.block_store) {
@@ -464,7 +455,7 @@ class Agent {
             }
             this.server = http_server;
         } else if (addr_url.protocol === 'wss:' || addr_url.protocol === 'https:') {
-            const https_server = https.createServer(this.ssl_cert)
+            const https_server = https.createServer(this.ssl_context)
                 .on('error', err => {
                     dbg.error('AGENT HTTPS SERVER ERROR', err.stack || err);
                     https_server.close();
@@ -487,7 +478,7 @@ class Agent {
             });
             this.server = tcp_server;
         } else if (addr_url.protocol === 'tls:') {
-            const tls_server = this.rpc.register_tcp_transport(addr_url.port, this.ssl_cert);
+            const tls_server = this.rpc.register_tcp_transport(addr_url.port, this.ssl_context);
             tls_server.on('close', () => {
                 dbg.warn('AGENT TLS SERVER CLOSED');
                 retry();

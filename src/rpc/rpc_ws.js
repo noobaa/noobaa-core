@@ -80,7 +80,7 @@ class RpcWsConnection extends RpcBaseConnection {
         ws.onclose = () => this.emit('error', stackless_error('WS CLOSED'));
         ws.onmessage = event => {
             try {
-                this.emit('message', [Buffer.from(event.data.buffer)]);
+                this.emit('message', [Buffer.from(event.data)]);
             } catch (err) {
                 dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err, event.data);
                 this.emit('error', err);

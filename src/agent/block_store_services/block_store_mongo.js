@@ -7,7 +7,7 @@ const mongo_client = require('../../util/mongo_client');
 const P = require('../../util/promise');
 // const RpcError = require('../../rpc/rpc_error');
 const dbg = require('../../util/debug_module')(__filename);
-const buffer_util = require('../../util/buffer_util');
+const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
 const GRID_FS_BUCKET_NAME_FILES = 'mongo_internal_agent.files';
@@ -93,7 +93,7 @@ class BlockStoreMongo extends BlockStoreBase {
     _read_block(block_md) {
         const block_name = this._block_key(block_md.id);
         return P.join(
-                buffer_util.read_stream_join(this._gridfs().openDownloadStreamByName(block_name)),
+                buffer_utils.read_stream_join(this._gridfs().openDownloadStreamByName(block_name)),
                 this.head_block(block_name)
             )
             .spread((block_buffer, block_metadata) => ({

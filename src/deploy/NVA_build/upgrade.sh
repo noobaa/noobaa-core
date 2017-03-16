@@ -105,7 +105,7 @@ function mongo_upgrade {
 
   #MongoDB nbcore upgrade
   local sec=$(cat /etc/noobaa_sec)
-  local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
+  local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/tools/bcrypt_cli.js "${sec}")
   local id=$(uuidgen | cut -f 1 -d'-')
   local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
   local client_subject=$(openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}')

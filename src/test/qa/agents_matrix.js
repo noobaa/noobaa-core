@@ -18,11 +18,11 @@ shasum.update(Date.now().toString());
 
 // Sample Config
 var argv = require('minimist')(process.argv);
-var location = argv.location || 'eastus';
+console.log(argv);
+var location = argv.location || 'westus2';
 var resourceGroupName = argv.resource;
 var storageAccountName = argv.storage;
 var vnetName = argv.vnet;
-
 var serverName = argv.server_ip;
 var agentConf = argv.agent_conf;
 
@@ -43,29 +43,6 @@ var initial_node_number = 0;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
 return azf.authenticate()
-    .then(() => {
-        if (!argv.skipsetup) {
-            P.map(oses, osname => {
-                    var os = azf.getImagesfromOSname(osname);
-                    azf.deleteVirtualMachine(os.offer.substring(0, 7) + os.sku.substring(0, 4))
-                        .catch(err => console.log('VM not found - skipping...', err));
-                })
-                .then(() => P.resolve(client.node.list_nodes({
-                    query: {
-                        skip_cloud_nodes: true
-                    }
-                })))
-                .then(res => {
-                    console.warn('Num nodes before the test are ', res.total_count);
-                    initial_node_number = res.total_count;
-                })
-                .then(() => P.map(oses, osname => {
-                    var os = azf.getImagesfromOSname(osname);
-                    return azf.createAgent(osname, storageAccountName, vnetName,
-                        os, serverName, agentConf).catch(err => errors.push(err.message));
-                }));
-        }
-    })
     .then(() => P.fcall(function() {
         var auth_params = {
             email: 'demo@noobaa.com',
@@ -74,24 +51,53 @@ return azf.authenticate()
         };
         return client.create_auth_token(auth_params);
     }))
-    .then(() => console.warn('Will now wait for a minute for agents to come up...'))
-    .delay(60000)
     .then(() => P.resolve(client.node.list_nodes({
         query: {
             skip_cloud_nodes: true
         }
     })))
     .then(res => {
-        if (res.total_count === (initial_node_number + oses.length)) {
-            console.warn('Num nodes after the test are ', res.total_count, '- as should - added', oses.length);
-        } else {
-            console.warn('Num nodes after the test are', res.total_count, '- something went wrong... suppose to add', oses.length);
-            errors.push('Num nodes after the test are ' + res.total_count + ' - something went wrong... suppose to add ' + oses.length);
+        console.warn('Num nodes before the test are ', res.total_count);
+        initial_node_number = res.total_count;
+        if (argv.skipsetup) {
+            _.each(res.nodes, function(n) {
+                nodes.push(n.name);
+            });
+            console.warn('Node names are', nodes);
         }
-        _.each(res.nodes, function(n) {
-            nodes.push(n.name);
-        });
-        console.warn('Node names are', nodes);
+    })
+    .then(() => {
+        if (!argv.skipsetup) {
+            P.map(oses, osname => {
+                    var os = azf.getImagesfromOSname(osname);
+                    azf.deleteVirtualMachine(os.offer.substring(0, 7) + os.sku.substring(0, 4))
+                        .catch(err => console.log('VM not found - skipping...', err));
+                })
+                .then(() => P.map(oses, osname => {
+                    var os = azf.getImagesfromOSname(osname);
+                    return azf.createAgent(osname, storageAccountName, vnetName,
+                        os, serverName, agentConf).catch(err => errors.push(err.message));
+                }))
+                .then(() => console.warn('Will now wait for a minute for agents to come up...'))
+                .delay(60000)
+                .then(() => P.resolve(client.node.list_nodes({
+                    query: {
+                        skip_cloud_nodes: true
+                    }
+                })))
+                .then(res => {
+                    if (res.total_count === (initial_node_number + oses.length)) {
+                        console.warn('Num nodes after the test are ', res.total_count, '- as should - added', oses.length);
+                    } else {
+                        console.warn('Num nodes after the test are', res.total_count, '- something went wrong... suppose to add', oses.length);
+                        errors.push('Num nodes after the test are ' + res.total_count + ' - something went wrong... suppose to add ' + oses.length);
+                    }
+                    _.each(res.nodes, function(n) {
+                        nodes.push(n.name);
+                    });
+                    console.warn('Node names are', nodes);
+                });
+        }
     })
     .then(() => s3ops.put_file_with_md5(serverName, 'files', '100MB_File', 100))
     .catch(err => errors.push(err.message))
@@ -112,9 +118,9 @@ return azf.authenticate()
             level: 5,
         }).catch(err => errors.push(err.message)));
     })
-    .then(() => P.map(oses, os => azf.deleteVirtualMachineExtension(os.offer.substring(0, 7) + os.sku.substring(0, 4))
-        .catch(err => errors.push(err.message))))
-    .then(() => P.map(oses, osname => {
+    .then(() => P.map(nodes, node_name => azf.deleteVirtualMachineExtension(node_name.substring(0, node_name.length - 9))
+        .catch(err => console.log(err.message))))
+    .then(() => P.map(nodes, node_name => {
         var extension = {
             publisher: 'Microsoft.OSTCExtensions',
             virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
@@ -130,7 +136,7 @@ return azf.authenticate()
             },
             location: location,
         };
-        var os = azf.getImagesfromOSname(osname);
+        var os = azf.getImagesfromOSname(node_name);
         if (os.osType === 'Windows') {
             extension.publisher = 'Microsoft.Compute';
             extension.virtualMachineExtensionType = 'CustomScriptExtension';
@@ -140,7 +146,7 @@ return azf.authenticate()
                 commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File remove_agent.ps1 '
             };
         }
-        return azf.createVirtualMachineExtension(os.offer.substring(0, 7) + os.sku.substring(0, 4), extension)
+        return azf.createVirtualMachineExtension(node_name.substring(0, node_name.length - 9), extension)
             .catch(err => errors.push(err.message));
     }))
     .then(() => rpc.disconnect_all())

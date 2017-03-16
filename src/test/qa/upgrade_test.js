@@ -14,15 +14,15 @@ var fs = require('fs');
 var argv = require('minimist')(process.argv);
 
 var provider = 'azure-v2';
-var subscription = "a3556050-2d88-42a4-a4e3-f0a2087edc60";
-var resourceGroup = argv.resource || "pkgcloud-test";
+var subscription = 'a3556050-2d88-42a4-a4e3-f0a2087edc60';
+var resourceGroup = argv.resource || 'qa-upgrade-test';
 
 var clientId = "199522b3-407d-45eb-b7fb-023d21ab6406";
 var secret = "1qaz2wsx";
 var domain = "noobaa.com";
 
 var location = argv.location || 'westus2';
-var storage = argv.storage || 'jenkinsnoobaastorage';
+var storage = argv.storage || 'qaupgrade';
 
 var service = {
     clientId: clientId,
@@ -37,7 +37,7 @@ var connection = {
     servicePrincipal: service
 };
 
-var vnet = argv.vnet || 'pkgcloud-vnet';
+var vnet = argv.vnet || 'qa-upgrade-vnet';
 var noobaa_server = {
     name: '',
     flavor: 'Standard_A2_v2',
@@ -51,7 +51,7 @@ var noobaa_server = {
     osType: 'Linux',
 };
 
-var linux_server = {
+var noobaa_agent = {
     name: '',
     flavor: 'Standard_A2_v2',
     username: 'notadmin',
@@ -68,14 +68,14 @@ var linux_server = {
     imageVersion: "latest"
 };
 
-var basic_tar_uri = 'https://jenkinsnoobaastorage.blob.core.windows.net/tar-files/';
+var basic_tar_uri = 'https://qaupgrade.blob.core.windows.net/tar-files/';
 var version_map_tar = {
     '0.8.0': 'noobaa-NVA-0.8.0-8ac4edc.tar.gz',
     '1.0.0': 'noobaa-NVA-1.0.0-92796da.tar.gz',
     '1.1.0': 'noobaa-NVA-1.1.0-35ea489.tar.gz',
 };
 
-var basic_vhd_uri = 'https://jenkinsnoobaastorage.blob.core.windows.net/vhd-images/';
+var basic_vhd_uri = 'https://qaupgrade.blob.core.windows.net/vhd-images/';
 var version_map_vhd = {
     '0.8.0': 'NooBaa-0.8.0-demo.vhd',
     '1.0.0': 'NooBaa-1.0.0-demo.vhd',
@@ -85,9 +85,9 @@ var destroyOption = {
     destroyNics: true,
     destroyPublicIP: true,
     destroyVnet: false,
-    destroyStorage: false,
+    destroyStorage: true,
     destroyFileOSDisk: true,
-    destroyFileDataDisk: true
+    destroyFileDataDisk: false
 };
 
 var procedure = [{
@@ -95,42 +95,44 @@ var procedure = [{
     "versions_list": ["1.1.0"]
 }];
 
-var test = './src/test/qa/agent_matrix.js';
+var test = './src/test/qa/agents_matrix.js';
 var args = [
-    '--location ' + location,
-    '--resource ' + resourceGroup,
-    '--storage ' + storage,
-    '--vnet' + vnet,
+    '--location', location,
+    '--resource', resourceGroup,
+    '--storage', storage,
+    '--vnet', vnet,
     '--skipsetup'
 ];
 
-// var json_file = require(argv.json_file);
-// var agents = ['agent1', 'agent2', 'agent3'];
 var oses = ['ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7'];
-
+var errors = false;
 var file_path;
 var azf = new AzureFunctions(clientId, domain, secret, subscription, resourceGroup, location); // just for using one method
 
+function clean_old_machines(machine_name) {
+    noobaa_server.name = machine_name;
+    var destroyVMClient = new cloudCD.DestroyVMAction(connection);
+    return P.fromCallback(callback => destroyVMClient.perform(noobaa_server, destroyOption, callback))
+        .catch(err => {
+            console.log('VM wasn\'t found', err.message);
+        })
+        .then(() => P.each(oses, os => {
+            console.log('Removing agents:', os);
+            var destroyVMagent = new cloudCD.DestroyVMAction(connection);
+            noobaa_agent.name = machine_name + os;
+            return P.fromCallback(callback => destroyVMagent.perform(noobaa_agent, destroyOption, callback))
+                .catch(err => {
+                    console.log('VM wasn\'t found', err.message);
+                });
+        }));
+}
+
 return P.each(procedure, upgrade_procedure => {
-        var machine_name = 'upgrade-base' + upgrade_procedure.base_version.replace(new RegExp('\\.', 'g'), '-');
-        var machine_ip; // the ip of the machine was just created
+        var machine_name = 'u' + upgrade_procedure.base_version.replace(new RegExp('\\.', 'g'), '-');
+        var machine_ip = 'upgrade-base0-8-0-vmdns.westus2.cloudapp.azure.com'; // the ip of the machine was just created
         var base64;
         console.log('Removing old running machine if exist');
-        noobaa_server.name = machine_name;
-        var destroyVMClient = new cloudCD.DestroyVMAction(connection);
-        return P.fromCallback(callback => destroyVMClient.perform(noobaa_server, destroyOption, callback))
-            .catch(err => {
-                console.log('VM wasn\'t found', err.message);
-            })
-            .then(() => P.each(oses, os => {
-                console.log('Removing agents:', os);
-                var destroyVMagent = new cloudCD.DestroyVMAction(connection);
-                linux_server.name = machine_name + os;
-                return P.fromCallback(callback => destroyVMagent.perform(linux_server, destroyOption, callback))
-                    .catch(err => {
-                        console.log('VM wasn\'t found', err.message);
-                    });
-            }))
+        return clean_old_machines(machine_name)
             .then(() => {
                 console.log('Creating new server of version ', upgrade_procedure.base_version);
                 var createVMClient = new cloudCD.CreateVMAction(connection);
@@ -169,20 +171,24 @@ return P.each(procedure, upgrade_procedure => {
                     .then(() => P.each(oses, osname => {
                         console.log('Adding agent', osname);
                         var createVMagent = new cloudCD.CreateVMAction(connection);
-                        linux_server.name = machine_name + osname;
-                        linux_server.storageOSDiskName = machine_name + osname + '-osdisk';
+                        noobaa_agent.name = (machine_name + osname).substring(0, 10);
+                        noobaa_agent.storageOSDiskName = machine_name + osname + '-osdisk';
                         var os = azf.getImagesfromOSname(osname);
-                        linux_server.imagePublisher = os.publisher;
-                        linux_server.imageOffer = os.offer;
-                        linux_server.imageSku = os.sku;
-                        linux_server.imageVersion = 'latest';
-                        return P.fromCallback(callback => createVMagent.perform(linux_server, callback))
+                        noobaa_agent.imagePublisher = os.publisher;
+                        noobaa_agent.imageOffer = os.offer;
+                        noobaa_agent.imageSku = os.sku;
+                        noobaa_agent.osType = os.osType;
+                        noobaa_agent.imageVersion = 'latest';
+                        return P.fromCallback(callback => createVMagent.perform(noobaa_agent, callback))
                             .delay(10000)
                             .then(() => {
                                 var remoteExecuteClient = new cloudCD.RemoteExecute(connection);
                                 var ssh_script = path.join(__dirname, '/../../deploy/init_agent.sh');
+                                if (os.osType === 'Windows') {
+                                    ssh_script = path.join(__dirname, '/../../deploy/init_agent.ps1');
+                                }
                                 var args2 = machine_ip + ' ' + base64;
-                                return P.fromCallback(callback => remoteExecuteClient.perform(linux_server, {
+                                return P.fromCallback(callback => remoteExecuteClient.perform(noobaa_agent, {
                                     script: ssh_script,
                                     args: args2
                                 }, callback));
@@ -192,7 +198,7 @@ return P.each(procedure, upgrade_procedure => {
             .delay(120000)
             .then(() => P.each(upgrade_procedure.versions_list, version => {
                 console.log('Upgrading to', version);
-                return s3ops.put_file_with_md5(machine_ip, 'files', '20MBFile-' + version, 20)
+                return s3ops.put_file_with_md5(machine_ip, 'files', '20MBFile-' + version, 5)
                     .then(filepath => {
                         file_path = filepath;
                         var file = fs.createWriteStream(version_map_tar[version]);
@@ -220,25 +226,24 @@ return P.each(procedure, upgrade_procedure => {
                     })
                     .then(() => {
                         console.log('Running the desired external test', test);
-                        args.push('--server_ip ' + machine_ip);
-                        return promise_utils.fork(test, args);
-                    })
-                    .then(() => {
-                        console.log('Upgrading was successful');
-                    })
-                    .catch(function(error) {
-                        console.warn('Upgrading failed with', error, error.stack);
+                        args = args.concat(['--server_ip', machine_ip]);
+                        return promise_utils.fork(test, args)
+                            .then(() => {
+                                console.log('Upgrading was successful');
+                                return clean_old_machines(machine_name);
+                            })
+                            .catch(err => {
+                                console.log('Upgrade failed', err.message);
+                                errors = true;
+                            });
                     });
-            }))
-            .catch(function(error) {
-                console.warn('Upgrading process failed with', error, error.stack);
-            });
+            }));
     })
     .then(() => {
+        if (errors) {
+            console.error(':( :( Errors during upgrades ): ):');
+            process.exit(1);
+        }
         console.log(':) :) :) Upgrades were all done successfully! (: (: (:');
         process.exit(0);
-    })
-    .catch(err => {
-        console.error(':( :( Errors during upgrades ): ):', err);
-        process.exit(1);
     });

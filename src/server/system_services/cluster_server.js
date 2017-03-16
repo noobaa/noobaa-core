@@ -961,9 +961,7 @@ function collect_server_diagnostics(req) {
         .then(out_path => {
             dbg.log1('Reading packed file');
             return fs.readFileAsync(`${INNER_PATH}${out_path}`)
-                .then(data => ({
-                    data: new Buffer(data),
-                }))
+                .then(data => ({ data }))
                 .catch(err => {
                     dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
                     throw new Error('Server Collect Diag Error on reading packges diag file');
@@ -982,7 +980,7 @@ function collect_server_diagnostics(req) {
         .catch(err => {
             dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
             return {
-                data: new Buffer(),
+                data: Buffer.alloc(0),
             };
         });
 }

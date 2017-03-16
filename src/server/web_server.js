@@ -108,24 +108,25 @@ var https_server;
 
 let webserver_started = 0;
 
-P.fcall(function() {
+P.resolve()
+    .then(() => {
         // we register the rpc before listening on the port
         // in order for the rpc services to be ready immediately
         // with the http services like /fe and /version
         server_rpc.rpc.register_ws_transport(http_server);
         return P.ninvoke(http_server, 'listen', http_port);
     })
-    .then(() => ssl_utils.get_ssl_certificate())
-    .then(function(cert) {
+    .then(() => ssl_utils.read_ssl_certificate())
+    .then(cert => {
         https_server = https.createServer(cert, app);
         server_rpc.rpc.register_ws_transport(https_server);
         return P.ninvoke(https_server, 'listen', https_port);
     })
-    .then(function() {
+    .then(() => {
         dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
         webserver_started = Date.now();
     })
-    .catch(function(err) {
+    .catch(err => {
         dbg.error('Web Server FAILED TO START', err.stack || err);
         process.exit(1);
     });
@@ -221,18 +222,21 @@ app.post('/upload_certificate',
             }
         })
     })
-    .single('upload_file'), (req, res) => system_server.set_certificate(req.file)
-    .then(() => {
-        res.status(200).send('SUCCESS');
-        if (os.type() === 'Linux') {
-            dbg.log0('Restarting server on certificate set');
-            return SupervisorCtl.restart(['s3rver', 'webserver']);
-        }
-    })
-    .catch(err => {
-        dbg.error('Was unable to set certificate', err);
-        res.status(500).send(err.message);
-    })
+    .single('upload_file'),
+    function(req, res) {
+        system_server.set_certificate(req.file)
+            .then(() => {
+                res.status(200).send('SUCCESS');
+                if (os.type() === 'Linux') {
+                    dbg.log0('Restarting server on certificate set');
+                    return SupervisorCtl.restart(['s3rver', 'webserver']);
+                }
+            })
+            .catch(err => {
+                dbg.error('Was unable to set certificate', err);
+                res.status(500).send(err.message);
+            });
+    }
 );
 
 app.post('/upload_package',

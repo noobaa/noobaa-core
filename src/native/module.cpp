@@ -27,7 +27,7 @@ NAN_METHOD(set_send_buffer_size) {
 
 NAN_MODULE_INIT(setup)
 {
-    Crypto::init();
+    Crypto::setup(target);
     ThreadPool::setup(target);
     DedupConfig::setup(target);
     DedupChunker::setup(target);

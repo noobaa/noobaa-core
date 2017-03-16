@@ -2,7 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const uuid = require('node-uuid');
+const uuid = require('uuid/v4');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 

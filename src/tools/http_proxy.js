@@ -4,7 +4,7 @@
 const url = require('url');
 const http = require('http');
 const https = require('https');
-const pem = require('../util/pem');
+const native_core = require('../util/native_core');
 
 // see https://en.wikipedia.org/wiki/URL_redirection#HTTP_status_codes_3xx
 const STATUS_CODES_3XX = {
@@ -30,24 +30,16 @@ function main() {
     if (argv.ssl || argv.ssl2) {
         argv.ssl = Number(argv.ssl) || 443;
         argv.ssl2 = Number(argv.ssl2) || 6443;
-        pem.createCertificate({
-            days: 365 * 100,
-            selfSigned: true
-        }, function(err, cert) {
-            if (err) throw err;
-            proxy_port(argv.ssl, 'https://' + argv.host + ':' + argv.ssl2, cert);
-        });
+        proxy_port(argv.ssl, 'https://' + argv.host + ':' + argv.ssl2);
     }
 }
 
-function proxy_port(port, address, cert) {
+function proxy_port(port, address) {
     const addr_url = url.parse(address);
-    const server = (addr_url.protocol === 'https:' ?
-            https.createServer({
-                key: cert.serviceKey,
-                cert: cert.certificate
-            }) : http.createServer())
-        .on('request', (req, res) => {
+    const server = addr_url.protocol === 'https:' ?
+        https.createServer(native_core().x509()) :
+        http.createServer();
+    server.on('request', (req, res) => {
             proxy_request(addr_url, req, res);
         })
         .on('error', err => {

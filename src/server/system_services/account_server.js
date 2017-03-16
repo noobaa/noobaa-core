@@ -10,8 +10,8 @@ const P = require('../../util/promise');
 const _ = require('lodash');
 const net = require('net');
 const AWS = require('aws-sdk');
-const bcrypt = P.promisifyAll(require('bcrypt'));
 const azure = require('azure-storage');
+const bcrypt = require('bcrypt');
 
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
@@ -795,12 +795,7 @@ function ensure_support_account() {
 }
 
 function bcrypt_password(password) {
-    if (!password) {
-        return P.resolve();
-    }
-
-    return bcrypt.genSaltAsync(10)
-        .then(salt => bcrypt.hashAsync(password, salt));
+    return P.resolve(password && bcrypt.hash(password, 10));
 }
 
 function is_support_or_admin_or_me(system, account, target_account) {
@@ -844,7 +839,7 @@ function generate_access_keys() {
 }
 
 function verify_authorized_account(req) {
-    return bcrypt.compareAsync(req.rpc_params.verification_password, req.account.password)
+    return bcrypt.compare(req.rpc_params.verification_password, req.account.password)
         .then(match => {
             if (!match) {
                 throw new RpcError('UNAUTHORIZED', 'Invalid verification password');

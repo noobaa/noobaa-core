@@ -47,8 +47,8 @@ class RpcRequest {
     }
 
     static encode_message(header, buffers) {
-        const length_buffer = new Buffer(4);
-        const header_buffer = new Buffer(JSON.stringify(header));
+        const length_buffer = Buffer.allocUnsafe(4);
+        const header_buffer = Buffer.from(JSON.stringify(header));
         length_buffer.writeUInt32BE(header_buffer.length, 0);
         const msg_buffers = buffers ? [
             length_buffer,

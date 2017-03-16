@@ -8,8 +8,8 @@ const events = require('events');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
-const pem = require('../util/pem');
 const url_utils = require('../util/url_utils');
+const native_core = require('../util/native_core');
 const RpcHttpConnection = require('./rpc_http');
 
 /**
@@ -46,21 +46,12 @@ class RpcHttpServer extends events.EventEmitter {
         const logging = options.logging;
         dbg.log0('HTTP SERVER:', 'port', port, 'secure', secure, 'logging', logging);
 
-        return P.resolve()
-            .then(() => (
-                secure ?
-                P.fromCallback(callback => pem.createCertificate({
-                    days: 365 * 100,
-                    selfSigned: true
-                }, callback))
-                .then(cert => https.createServer({
-                    key: cert.serviceKey,
-                    cert: cert.certificate
-                })) :
-                http.createServer()
-            ))
-            .then(server => this.install_on_server(server))
-            .then(server => P.fromCallback(callback => server.listen(port, callback)).return(server));
+        const server = secure ?
+            https.createServer(native_core().x509()) :
+            http.createServer();
+        this.install_on_server(server);
+        return P.fromCallback(callback => server.listen(port, callback))
+            .return(server);
     }
 
     /**

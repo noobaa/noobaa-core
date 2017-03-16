@@ -85,7 +85,7 @@ function run_server(options) {
                 port: process.env.ENDPOINT_PORT || 80,
                 ssl_port: process.env.ENDPOINT_SSL_PORT || 443,
             });
-            return options.certs || ssl_utils.get_ssl_certificate();
+            return options.certs || ssl_utils.read_ssl_certificate();
         })
         .then(certificate => {
             params.certificate = certificate;

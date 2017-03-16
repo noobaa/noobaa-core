@@ -11,9 +11,9 @@ const memwatch = null; //require('memwatch');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
-const pem = require('../util/pem');
 const RPC = require('./rpc');
 const RpcSchema = require('./rpc_schema');
+const native_core = require('../util/native_core');
 
 const MB = 1024 * 1024;
 
@@ -157,29 +157,15 @@ function start() {
             }
 
             if (proto === 'tcp:' || proto === 'tls:') {
-                return P.fromCallback(callback => pem.createCertificate({
-                        days: 365 * 100,
-                        selfSigned: true
-                    }, callback))
-                    .then(cert => rpc.register_tcp_transport(argv.addr.port,
-                        proto === 'tls:' && {
-                            key: cert.serviceKey,
-                            cert: cert.certificate
-                        }
-                    ));
+                return rpc.register_tcp_transport(argv.addr.port,
+                    proto === 'tls:' && native_core().x509()
+                );
             }
 
             if (proto === 'ntcp:' || proto === 'ntls:') {
-                return P.fromCallback(callback => pem.createCertificate({
-                        days: 365 * 100,
-                        selfSigned: true
-                    }, callback))
-                    .then(cert => rpc.register_ntcp_transport(argv.addr.port,
-                        proto === 'ntls:' && {
-                            key: cert.serviceKey,
-                            cert: cert.certificate
-                        }
-                    ));
+                return rpc.register_ntcp_transport(argv.addr.port,
+                    proto === 'ntls:' && native_core().x509()
+                );
             }
 
             // open http listening port for http based protocols

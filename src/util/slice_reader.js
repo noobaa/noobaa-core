@@ -31,7 +31,7 @@ function SliceReader(source, params) {
         self._fr = new params.FileReader();
         self._fr.onloadend = function(e) {
             var data = e.target.result;
-            var buf = new Buffer(new Uint8Array(data));
+            var buf = Buffer.from(data);
             if (!buf.length) {
                 self.push(null);
             } else {

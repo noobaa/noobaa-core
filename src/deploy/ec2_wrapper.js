@@ -796,7 +796,7 @@ function create_security_group(region_name) {
                                 CidrIp: '0.0.0.0/0'
                             }]
                         },
-                        /* more items */
+                        // more items
                     ]
                 })
                 .then(function(data) {

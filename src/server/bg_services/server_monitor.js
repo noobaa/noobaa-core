@@ -4,7 +4,6 @@
 const fs = require('fs');
 const net = require('net');
 const url = require('url');
-const path = require('path');
 const moment = require('moment');
 
 const _ = require('lodash');
@@ -13,6 +12,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const os_utils = require('../../util/os_utils');
 const fs_utils = require('../../util/fs_utils');
 const net_utils = require('../../util/net_utils');
+const ssl_utils = require('../../util/ssl_utils');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -101,25 +101,23 @@ function _verify_dns_cluster_config() {
 
 function _verify_server_certificate() {
     dbg.log2('Verifying certificate in relation to cluster config');
-    let dir = path.join('/etc', 'private_ssl_path');
-    let cert_file = path.join(dir, 'server.crt');
-    let key_file = path.join(dir, 'server.key');
     return P.join(
-            config_file_store.get(cert_file),
-            config_file_store.get(key_file),
-            fs.readFileAsync(cert_file, 'utf8')
+            config_file_store.get(ssl_utils.SERVER_SSL_CERT_PATH),
+            config_file_store.get(ssl_utils.SERVER_SSL_KEY_PATH),
+            fs.readFileAsync(ssl_utils.SERVER_SSL_CERT_PATH, 'utf8')
             .catch(err => dbg.warn('could not read crt file', (err && err.code) || err)),
-            fs.readFileAsync(key_file, 'utf8')
+            fs.readFileAsync(ssl_utils.SERVER_SSL_KEY_PATH, 'utf8')
             .catch(err => dbg.warn('could not read key file', (err && err.code) || err))
         )
         .spread((certificate, key, platform_cert, platform_key) => {
             if (!_are_platform_and_cluster_conf_equal(platform_cert, certificate && certificate.data) ||
                 !_are_platform_and_cluster_conf_equal(platform_key, key && key.data)) {
                 dbg.warn('platform certificate not synced to cluster. Resetting now');
-                return fs_utils.create_fresh_path(dir)
+                return fs_utils.create_fresh_path(ssl_utils.SERVER_SSL_DIR_PATH)
                     .then(() => P.join(
-                        certificate && certificate.data && fs.writeFileAsync(cert_file, certificate.data),
-                        key && key.data && fs.writeFileAsync(key_file, key.data)))
+                        certificate && certificate.data && fs.writeFileAsync(ssl_utils.SERVER_SSL_CERT_PATH, certificate.data),
+                        key && key.data && fs.writeFileAsync(ssl_utils.SERVER_SSL_KEY_PATH, key.data)
+                    ))
                     .then(() => os_utils.restart_services());
             }
         });

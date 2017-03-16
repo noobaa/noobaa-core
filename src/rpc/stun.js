@@ -141,7 +141,7 @@ function is_stun_packet(buffer) {
  */
 function new_packet(method_code, attrs, req_buffer) {
     var attrs_len = attrs ? encoded_attrs_len(attrs) : 0;
-    var buffer = new Buffer(stun.HEADER_LENGTH + attrs_len);
+    var buffer = Buffer.alloc(stun.HEADER_LENGTH + attrs_len);
     set_method_field(buffer, method_code);
     set_attrs_len_field(buffer, attrs_len);
     set_magic_and_tid_field(buffer, req_buffer);
@@ -455,7 +455,7 @@ function decode_attr_xor_mapped_addr(buffer, start, end) {
 
     // xor the address against magic key and tid
     var addr_buf = buffer.slice(start + 4, end);
-    var xor_buf = new Buffer(addr_buf.length);
+    var xor_buf = Buffer.allocUnsafe(addr_buf.length);
     var k = stun.XOR_KEY_OFFSET;
     for (var i = 0; i < xor_buf.length; ++i) {
         xor_buf[i] = addr_buf[i] ^ buffer[k++];

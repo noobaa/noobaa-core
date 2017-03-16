@@ -7,6 +7,7 @@ const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const fs = require('fs');
 const url = require('url');
+const tls = require('tls');
 const net = require('net');
 const dns = require('dns');
 const path = require('path');
@@ -25,6 +26,7 @@ const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const RpcError = require('../../rpc/rpc_error');
 const net_utils = require('../../util/net_utils');
+const zip_utils = require('../../util/zip_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -755,7 +757,7 @@ function get_node_installation_string(req) {
                         root_path: './agent_storage/',
                         create_node_token
                     };
-                    const base64_configuration = new Buffer(JSON.stringify(agent_conf)).toString('base64');
+                    const base64_configuration = Buffer.from(JSON.stringify(agent_conf)).toString('base64');
                     return {
                         LINUX: `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} /S /config ${base64_configuration}`,
                         WINDOWS: `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`
@@ -959,42 +961,40 @@ function configure_remote_syslog(req) {
 }
 
 function set_certificate(zip_file) {
-    const tmp_dir = '/tmp/ssl';
-    const dest_dir = '/etc/private_ssl_path';
     dbg.log0('upload_certificate');
-    return fs_utils.create_fresh_path(tmp_dir)
-        .then(() => promise_utils.exec(`/usr/bin/unzip '${zip_file.path}' -d ${tmp_dir}`))
-        .then(() => fs.readdirAsync(tmp_dir))
+    let key;
+    let cert;
+    return P.resolve()
+        .then(() => zip_utils.unzip_from_file(zip_file.path))
+        .then(zipfile => zip_utils.unzip_to_mem(zipfile, 'utf8'))
         .then(files => {
-            if (files.length === 1) {
-                return P.resolve()
-                    .then(() => fs.statAsync(path.join(tmp_dir, files[0])))
-                    .then(stats => {
-                        if (stats.isDirectory()) {
-                            throw new Error('zip files should not contain directories');
-                        }
-                        return files;
-                    });
+            let key_count = 0;
+            let cert_count = 0;
+            _.forEach(files, file => {
+                if (file.path.endsWith('.key')) {
+                    key = file.data;
+                    key_count += 1;
+                } else if (file.path.endsWith('.cert')) {
+                    cert = file.data;
+                    cert_count += 1;
+                }
+            });
+            if (key_count !== 1) throw new Error('Expected single .key file in zip but found ' + key_count);
+            if (cert_count !== 1) throw new Error('Expected single .cert file in zip but found ' + cert_count);
+
+            // check that these key and certificate are valid, matching and can be loaded before storing them
+            try {
+                tls.createSecureContext({ key, cert });
+            } catch (err) {
+                dbg.error('The provided certificate could not be loaded', err);
+                throw new Error('The provided certificate could not be loaded');
             }
-            return files;
         })
-        .then(files => {
-            const cert_file = _throw_if_not_single_item(files, '.cert');
-            const key_file = _throw_if_not_single_item(files, '.key');
-            return P.join(
-                    fs.readFileAsync(`${tmp_dir}/${cert_file}`),
-                    fs.readFileAsync(`${tmp_dir}/${key_file}`)
-                )
-                .spread(function(cert, key) {
-                    return ssl_utils.validate_cert_and_key_match(cert, key)
-                        .then(() => ssl_utils.test_certificate(cert, key));
-                })
-                .then(() => fs_utils.create_fresh_path(dest_dir))
-                .then(() => P.join(
-                    _move_and_insert_config_file_to_store(`${tmp_dir}/${cert_file}`, `${dest_dir}/server.crt`),
-                    _move_and_insert_config_file_to_store(`${tmp_dir}/${key_file}`, `${dest_dir}/server.key`)
-                ));
-        })
+        .then(() => fs_utils.create_fresh_path(ssl_utils.SERVER_SSL_DIR_PATH))
+        .then(() => P.join(
+            save_config_file(ssl_utils.SERVER_SSL_KEY_PATH, key),
+            save_config_file(ssl_utils.SERVER_SSL_CERT_PATH, cert)
+        ))
         .then(() => {
             Dispatcher.instance().activity({
                 system: system_store.data.systems[0]._id,
@@ -1003,6 +1003,12 @@ function set_certificate(zip_file) {
                 desc: `New certificate was successfully set`
             });
         });
+}
+
+function save_config_file(filename, data) {
+    return P.resolve()
+        .then(() => config_file_store.insert({ filename, data }))
+        .then(() => fs_utils.replace_file(filename, data));
 }
 
 function _get_create_node_token(system_id, account_id, agent_config_id) {
@@ -1018,23 +1024,6 @@ function _get_create_node_token(system_id, account_id, agent_config_id) {
     let token = auth_server.make_auth_token(auth_parmas);
     dbg.log0(`created create_node_token: ${token}`);
     return token;
-}
-
-function _move_and_insert_config_file_to_store(src, dest) {
-    return fs.readFileAsync(src, 'utf8')
-        .then(file_data => config_file_store.insert({
-            filename: dest,
-            data: file_data
-        }))
-        .then(() => fs.renameAsync(src, dest));
-}
-
-function _throw_if_not_single_item(arr, extension) {
-    const list = _.filter(arr, item => item.endsWith(extension));
-    if (list.length !== 1) {
-        throw new Error(`There should be exactly one ${extension} file in zip. Instead got ${list.length}`);
-    }
-    return list[0];
 }
 
 function update_hostname(req) {

@@ -7,9 +7,9 @@ const assert = require('assert');
 
 const P = require('../../util/promise');
 const RPC = require('../../rpc/rpc');
-const pem = require('../../util/pem');
 const RpcError = require('../../rpc/rpc_error');
 const RpcSchema = require('../../rpc/rpc_schema');
+const native_core = require('../../util/native_core');
 
 mocha.describe('RPC', function() {
 
@@ -351,14 +351,8 @@ mocha.describe('RPC', function() {
             allow_missing_methods: true
         });
         let tls_server;
-        return P.fromCallback(callback => pem.createCertificate({
-                days: 365 * 100,
-                selfSigned: true
-            }, callback))
-            .then(cert => rpc.register_tcp_transport(0, {
-                key: cert.serviceKey,
-                cert: cert.certificate
-            }))
+        return P.resolve()
+            .then(() => rpc.register_tcp_transport(0, native_core().x509()))
             .then(tls_server_arg => {
                 tls_server = tls_server_arg;
                 var tls_client = rpc.new_client({

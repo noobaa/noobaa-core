@@ -76,14 +76,14 @@ function unzip_to_func(zipfile, on_entry) {
         .readEntry()); // start reading entries
 }
 
-function unzip_to_buffers(zipfile) {
+function unzip_to_mem(zipfile, encoding) {
     const files = {};
     return unzip_to_func(zipfile, (entry, stream) =>
             buffer_utils.read_stream_join(stream)
             .then(buffer => {
                 files[entry.fileName] = {
                     path: entry.fileName,
-                    data: buffer,
+                    data: encoding ? buffer.toString(encoding) : buffer,
                 };
             }))
         .return(files);
@@ -114,5 +114,5 @@ exports.zip_to_file = zip_to_file;
 
 exports.unzip_from_buffer = unzip_from_buffer;
 exports.unzip_from_file = unzip_from_file;
-exports.unzip_to_buffers = unzip_to_buffers;
+exports.unzip_to_mem = unzip_to_mem;
 exports.unzip_to_dir = unzip_to_dir;

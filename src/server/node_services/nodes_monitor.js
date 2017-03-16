@@ -185,8 +185,6 @@ class NodesMonitor extends EventEmitter {
         this.n2n_agent = this.n2n_rpc.register_n2n_agent(this.n2n_client.node.n2n_signal);
         // Notice that this is a mock up address just to ensure n2n connection authorization
         this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
-        // get ssl certificates to send to s3 agents
-        this.ssl_certs_promise = ssl_utils.get_ssl_certificate();
     }
 
     start() {
@@ -197,6 +195,10 @@ class NodesMonitor extends EventEmitter {
         dbg.log0('starting nodes_monitor');
         this._started = true;
         return P.resolve()
+            .then(() => ssl_utils.read_ssl_certificate())
+            .then(ssl_certs => {
+                this.ssl_certs = ssl_certs;
+            })
             .then(() => this._load_from_store());
     }
 
@@ -941,18 +943,12 @@ class NodesMonitor extends EventEmitter {
         }
         dbg.log0(`node service is not as expected. setting node service to ${should_enable ? 'enabled' : 'disabled'}`);
 
-        return P.resolve()
-            .then(() => {
-                if (item.node.s3_agent) {
-                    return this.ssl_certs_promise;
-                }
-            })
-            .then(ssl_certs => this.client.agent.update_node_service({
-                enabled: should_enable,
-                ssl_certs
-            }, {
-                connection: item.connection
-            }));
+        return this.client.agent.update_node_service({
+            enabled: should_enable,
+            ssl_certs: item.node.s3_agent ? this.ssl_certs : undefined,
+        }, {
+            connection: item.connection
+        });
     }
 
     _update_create_node_token(item) {
@@ -1087,7 +1083,7 @@ class NodesMonitor extends EventEmitter {
         return this.n2n_client.agent.test_network_perf({
                 source: this.n2n_agent.rpc_address,
                 target: item.node.rpc_address,
-                data: new Buffer(1),
+                data: Buffer.alloc(1),
                 response_length: 1,
             }, {
                 address: item.node.rpc_address,

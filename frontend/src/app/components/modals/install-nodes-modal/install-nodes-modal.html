@@ -10,7 +10,7 @@
         <h2 class="heading3">Select OS Type</h2>
         <radio-group class="push-next" params="
             options: osTypeOptions,
-            selected: ko.cmptd(osType, v => updateForm('osType', v)),
+            selected: bindToFormField('osType'),
             hasFocus: true
         "></radio-group>
 
@@ -18,7 +18,7 @@
         <radio-btn params="
             group: 'drives',
             value: false,
-            selected: ko.cmptd(excludeDrives, v => updateForm('excludeDrives', v)),
+            selected: bindToFormField('excludeDrives'),
             label: 'Include all drives in installed nodes'
         "></radio-btn>
         <p class="push-next">
@@ -28,21 +28,19 @@
         <radio-btn params="
             group: 'drives',
             value: true,
-            selected: ko.cmptd(excludeDrives, v => updateForm('excludeDrives', v)),
+            selected: bindToFormField('excludeDrives'),
             label: 'Exclude drives for this installation'
         "></radio-btn>
-        <p data-bind="css: { disabled: !excludeDrives() }">
+        <p ko.css.disabled="!excludeDrives()">
             Choose the drives you which to exclude from this installation:
         </p>
         <token-field class="column greedy" params="
-            tokens: ko.cmptd(excludedDrives, v => updateForm('excludedDrives', v)),
+            tokens: bindToFormField('excludedDrives'),
             placeholder: tokensPlaceholder,
             disabled: !excludeDrives()
         "></token-field>
-        <p class="remark" data-bind="css: { disabled: !excludeDrives() }">
-            Type
-            <span data-bind="text: subject"></span>
-            names accurately, click enter after each drive name.
+        <p class="remark" ko.css.disabled="!excludeDrives()">
+            Type {{subject}} names accurately, click enter after each drive name.
         </p>
     </section>
 
@@ -51,9 +49,9 @@
         <p class="push-next">
             Use your distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server.
         </p>
-        <p data-bind="text: userInstruction" class="push-next"></p>
-        <div class="pad alt-bg config-box row greedy push-next" data-bind="if: command">
-            <p class="text-tech greedy" data-bind="text: command"></p>
+        <p ko.text="userInstruction" class="push-next"></p>
+        <div class="pad alt-bg config-box row greedy push-next" ko.if="command">
+            <p class="text-tech greedy" ko.text="command"></p>
             <copy-to-clipboard-button params="value: command">
             </copy-to-clipboard-button>
         </div>

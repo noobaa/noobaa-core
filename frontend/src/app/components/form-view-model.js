@@ -51,14 +51,21 @@ export default class FormViewModel extends StateListener {
         resetForm(this.formName);
     }
 
-    copyValuesToProps(fields) {
-        for (const [key, { value }] of Object.entries(fields)) {
+    copyFormValuesToProps(form) {
+        for (const [key, { value }] of Object.entries(form.fields)) {
             if (ko.isObservable(this[key])) {
                 this[key](value);
             } else {
                 this[key] = value;
             }
         }
+    }
+
+    bindToFormField(name) {
+        return ko.pureComputed({
+            read: this[name],
+            write: value => this.updateForm(name, value)
+        });
     }
 
     dispose() {

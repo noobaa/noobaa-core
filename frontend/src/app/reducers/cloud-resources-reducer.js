@@ -25,7 +25,7 @@ function onSystemInfoFetched(_, { info }) {
             type: cloud_info.endpoint_type,
             state: 'HEALTHY',
             target: cloud_info.target_bucket,
-            usage: storage.used,
+            storage: storage,
             usedBy: bucketsByPools[name] || [],
             undeletable
         })

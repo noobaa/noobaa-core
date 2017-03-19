@@ -26,6 +26,10 @@ export function updateForm(form, field, value) {
     dispatch({ type: 'UPDATE_FORM', form, field, value });
 }
 
+export function resetForm(form) {
+    dispatch({ type: 'REST_FORM', form });
+}
+
 export function disposeForm(form) {
     dispatch({ type: 'DISPOSE_FORM', form });
 }
@@ -43,88 +47,4 @@ export function closeActiveModal() {
 
 export function lockActiveModal() {
     dispatch({ type: 'LOCK_ACTIVE_MODAL' });
-}
-
-export function openInstallNodesModal() {
-    dispatch({ type: 'OPEN_INSTALL_NODES_MODAL' });
-}
-
-export function openUpgradedCapacityNofiticationModal() {
-    dispatch({ type: 'OPEN_UPGRADED_CAPACITY_NOFITICATION_MODAL' });
-}
-
-export function openAddCloudResrouceModal() {
-    dispatch({ type: 'OPEN_ADD_CLOUD_RESROUCE_MODAL' });
-}
-
-export function openAddCloudConnectionModal() {
-    dispatch({ type: 'OPEN_ADD_CLOUD_CONNECTION_MODAL' });
-}
-
-export function openSetCloudSyncModal(bucketName) {
-    dispatch({ type: 'OPEN_SET_CLOUD_SYNC_MODAL', bucketName });
-}
-
-export function openEditCloudSyncModal(bucketName) {
-    dispatch({ type: 'OPEN_EDIT_CLOUD_SYNC_MODAL', bucketName });
-}
-
-export function openS3AccessDetailsModal(email) {
-    dispatch({ type: 'OPEN_S3_ACCESS_DETAILS_MODAL', email });
-}
-
-export function openBucketS3AccessModal(bucketName) {
-    dispatch({ type: 'OPEN_BUCKET_S3_ACCESS_MODAL', bucketName });
-}
-
-export function openBucketPlacementPolicyModal(bucketName) {
-    dispatch({ type: 'OPEN_BUCKET_PLACEMENT_POLICY_MODAL', bucketName });
-}
-
-export function openFileUploadsModal() {
-    dispatch({ type: 'OPEN_FILE_UPLOADS_MODAL' });
-}
-
-export function openDeleteCurrentAccountWarningModal() {
-    dispatch({ type: 'OPEN_DELETE_CURRENT_ACCOUNT_WARNING_MODAL' });
-}
-
-export function openStartMaintenanceModal() {
-    dispatch({ type: 'OPEN_START_MAINTENANCE_MODAL' });
-}
-
-export function openObjectPreviewModal(objectUri) {
-    dispatch({ type: 'OPEN_OBJECT_PREVIEW_MODAL', objectUri });
-}
-
-export function openTestNodeModal(nodeRpcAddress) {
-    dispatch({ type: 'OPEN_TEST_NODE_MODAL', nodeRpcAddress });
-}
-
-export function openEditServerDNSSettingsModal(serverSecret) {
-    dispatch({ type: 'OPEN_EDIT_SERVER_DNS_SETTINGS_MODAL', serverSecret });
-}
-
-export function openEditServerTimeSettingsModal(serverSecret) {
-    dispatch({ type: 'OPEN_EDIT_SERVER_TIME_SETTINGS_MODAL', serverSecret });
-}
-
-export function openEditAccountS3AccessModal(accountEmail) {
-    dispatch({ type: 'OPEN_EDIT_ACCOUNT_S3_ACCESS_MODAL', accountEmail });
-}
-
-export function openEditServerDetailsModal(serverSecret) {
-    dispatch({ type: 'OPEN_EDIT_SERVER_DETAILS_MODAL', serverSecret });
-}
-
-export function openAssignNodesModal(poolName) {
-    dispatch({ type: 'OPEN_ASSIGN_NODES_MODAL', poolName });
-}
-
-export function openUpdateSystemNameModal(name) {
-    dispatch({ type: 'OPEN_UPDATE_SYSTEM_NAME_MODAL', name });
-}
-
-export function openUnableToActivateModal(reason) {
-    dispatch({ type: 'OPEN_UNABLE_TO_ACTIVATE_MODAL', reason });
 }

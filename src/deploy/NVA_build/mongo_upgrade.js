@@ -35,6 +35,7 @@ function upgrade() {
     upgrade_pools();
     upgrade_buckets();
     upgrade_usage_stats();
+    blocks_to_buckets_upgrade();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -758,4 +759,55 @@ function fix_nodes_pool_to_object_id() {
             }
         });
     });
+}
+
+
+function blocks_to_buckets_upgrade() {
+    var num_blocks = db.datablocks.count({});
+    var block_ids_by_bucket_ids = null;
+    const BLOCKS_PER_CYCLE = 100;
+
+    function find_bucket_id_for_block(block) {
+        var block_bucket = db.datachunks.find({
+                _id: block.chunk
+            }, {
+                bucket: 1
+            })
+            .toArray()[0];
+
+        if (block_ids_by_bucket_ids[block_bucket.bucket.valueOf()]) {
+            block_ids_by_bucket_ids[block_bucket.bucket.valueOf()].push(block._id);
+        } else {
+            block_ids_by_bucket_ids[block_bucket.bucket.valueOf()] = [block._id];
+        }
+    }
+
+    function update_blocks_bucket(bucket_id) {
+        db.datablocks.updateMany({
+            _id: {
+                $in: block_ids_by_bucket_ids[bucket_id]
+            }
+        }, {
+            $set: {
+                bucket: new ObjectId(bucket_id)
+            }
+        });
+    }
+
+    for (var pIndex = 0; pIndex < Math.ceil(num_blocks / BLOCKS_PER_CYCLE); pIndex++) {
+        block_ids_by_bucket_ids = {};
+        db.datablocks.find({
+                bucket: {
+                    $exists: false
+                }
+            }, {
+                _id: 1,
+                chunk: 1
+            })
+            .limit(BLOCKS_PER_CYCLE)
+            .forEach(find_bucket_id_for_block);
+
+        Object.keys(block_ids_by_bucket_ids)
+            .forEach(update_blocks_bucket);
+    }
 }

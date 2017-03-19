@@ -278,13 +278,11 @@ function get_associated_buckets_int(pool) {
 }
 
 function get_associated_accounts(pool) {
-    var associated_accounts = _.filter(pool.system.accounts_by_email, function(account) {
-        return String(account.default_pool._id) === String(pool._id);
-    });
-
-    return _.map(associated_accounts, function(account) {
-        return account.name;
-    });
+    return system_store.data.accounts
+        .filter(account => (account.default_pool && account.default_pool._id === pool._id))
+        .map(associated_account => ({
+            name: associated_account.email
+        }));
 }
 
 function find_pool_by_name(req) {
@@ -323,11 +321,7 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     }
 
     //Get associated accounts
-    info.associated_accounts = system_store.data.accounts
-        .filter(account => (account.default_pool && account.default_pool._id === pool._id))
-        .map(associated_account => ({
-            name: associated_account.email
-        }));
+    info.associated_accounts = get_associated_accounts(pool);
 
     return info;
 }

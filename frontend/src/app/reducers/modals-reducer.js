@@ -371,7 +371,7 @@ export default createReducer({
     OPEN_BUCKET_PLACEMENT_POLICY_MODAL: onOpenBucketPlacementPolicyModal,
     OPEN_FILE_UPLOADS_MODAL: onOpenFileUploadsModal,
     OPEN_DELETE_CURRENT_ACCOUNT_WARNING_MODAL: onOpenDeleteCurrentAccountWarningModal,
-    START_MAINTENANCE_MODAL: onOpenStartMaintenanceModal,
+    OPEN_START_MAINTENANCE_MODAL: onOpenStartMaintenanceModal,
     OPEN_OBJECT_PREVIEW_MODAL: onOpenObjectPreviewModal,
     OPEN_TEST_NODE_MODAL: onOpenTestNodeModal,
     OPEN_EDIT_SERVER_DNS_SETTINGS_MODAL: onOpenEditServerDNSSettingsModal,

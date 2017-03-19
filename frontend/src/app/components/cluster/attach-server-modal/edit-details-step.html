@@ -4,7 +4,7 @@
 
 <editor params="label: 'Server Name', insertValMessages: false">
     <div class="row content-middle">
-        <input class="hostname" data-bind="value: hostname"/>
+        <input type="text" class="hostname" data-bind="value: hostname"/>
         <span class="name-suffix" data-bind="text: nameSuffix"></span>
     </div>
     <span class="hint" data-bind="visible: hostname.isValid">
@@ -14,5 +14,5 @@
 </editor>
 
 <editor params="label: 'Location Tag'">
-    <input data-bind="value: location"/>
+    <input type="text" data-bind="value: location"/>
 </editor>

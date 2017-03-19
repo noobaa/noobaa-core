@@ -177,7 +177,7 @@ export function keyBy(arrayOrIter, keySelector, valueMapper = echo) {
     );
 }
 
-export function keyByProperty(array, keyName, valueMapper) {
+export function keyByProperty(array, keyName, valueMapper = echo) {
     return keyBy(
         array,
         item => item[keyName],

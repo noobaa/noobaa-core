@@ -31,3 +31,9 @@ export function reduceReducers(...reducers) {
         );
     };
 }
+
+export function filterActions(filter, reducer) {
+    return function(state, action) {
+        return filter(action) ? reducer(state, action) : state;
+    };
+}

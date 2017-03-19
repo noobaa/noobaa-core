@@ -1,12 +1,8 @@
 <div class="row alt-bg pad content-middle">
     <div class="greedy push-next">
-        <input type="search" placeholder="Filter by account name" data-bind="
-            textInput: filter
-        "/>
+        <input type="search" placeholder="Filter by account name" ko.textInput="filter"/>
     </div>
-    <button class="btn align-end" data-bind="
-        click: () => showCreateAccountModal()
-    ">
+    <button class="btn align-end" ko.click="onCreateAccount">
         Create Account
     </button>
 </div>
@@ -18,8 +14,3 @@
     sorting: sorting,
     emptyMessage: 'The current filter does not match any account'
 "></data-table>
-
-<!-- ko if: isCreateAccountModalVisible -->
-<create-account-modal params="onClose: () => hideCreateAccountModal()">
-</create-account-modal>
-<!-- /ko -->

@@ -1,18 +1,15 @@
 import template from './multiselect.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 
-class MultiSelectViewModel extends BaseViewModel {
+class MultiSelectViewModel {
     constructor({
         options = [],
-        selected = [],
+        selected = ko.observable(),
         disabled = false,
         insertValidationMessage = false
     }) {
-        super();
-
         this.options = ko.pureComputed(
-            () => ko.unwrap(options).map(
+            () => (ko.unwrap(options) || []).map(
                 option => typeof ko.unwrap(option) === 'object' ?
                     ko.unwrap(option) :
                     { value: ko.unwrap(option),  label: ko.unwrap(option).toString() }
@@ -20,8 +17,22 @@ class MultiSelectViewModel extends BaseViewModel {
         );
 
         this.selected = selected;
+        this.selectedInternal = ko.observableArray();
+
+        this.selectedSub = selected.subscribe(
+            selection => this.selectedInternal(Array.from(selection))
+        );
+
+        // this.selectedInternal.subscribe(
+        //     selection => this.selected(Array.from(selection))
+        // );
+
         this.disabled = disabled;
         this.insertValidationMessage = insertValidationMessage;
+    }
+
+    dispose() {
+        this.selectedSub.dispose();
     }
 }
 

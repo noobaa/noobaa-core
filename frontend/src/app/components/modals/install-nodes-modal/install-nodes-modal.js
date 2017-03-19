@@ -48,7 +48,7 @@ class InstallNodeWizardViewModel extends FormViewModel {
             });
 
         } else {
-            this.copyValuesToProps(form.fields);
+            this.copyFormValuesToProps(form);
 
             if (this.osType() === 'LINUX') {
                 this.subject('mount');

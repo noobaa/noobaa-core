@@ -2,7 +2,11 @@ import { createReducer } from 'utils/reducer-utils';
 import{ updateField, resetField } from 'reducers/forms-reducer';
 import { mapValues } from 'utils/core-utils';
 
-function onUpdateForm(form, { field }) {
+function onUpdateForm(form, { form: formName, field }) {
+    if (formName !== 'installNodes') {
+        return form;
+    }
+
     // Ignore step changes.
     if (field === 'step') {
         return form;

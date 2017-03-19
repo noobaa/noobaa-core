@@ -90,7 +90,7 @@ export function openDeleteCurrentAccountWarningModal() {
 }
 
 export function openStartMaintenanceModal() {
-    dispatch({ type: 'START_MAINTENANCE_MODAL' });
+    dispatch({ type: 'OPEN_START_MAINTENANCE_MODAL' });
 }
 
 export function openObjectPreviewModal(objectUri) {

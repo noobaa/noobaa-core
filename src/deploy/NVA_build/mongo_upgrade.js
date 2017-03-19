@@ -631,7 +631,7 @@ function update_default_pool() {
                     _id: account._id
                 }, {
                     $set: {
-                        default_pool: default_pool
+                        default_pool: default_pool._id
                     }
                 });
             }

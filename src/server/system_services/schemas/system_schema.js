@@ -114,6 +114,16 @@ module.exports = {
             type: 'integer'
         },
 
+        mongo_upgrade: {
+            type: 'object',
+            // required: [],
+            properties: {
+                blocks_to_buckets: {
+                    type: 'boolean'
+                }
+            }
+        },
+
         //Last upgrade date
         upgrade_date: {
             format: 'idate'

@@ -133,6 +133,9 @@ function new_system_defaults(name, owner_account_id) {
             status: 'UNAVAILABLE',
             error: '',
         },
+        mongo_upgrade: {
+            blocks_to_buckets: false
+        },
         last_stats_report: 0,
         upgrade_date: Date.now(),
         freemium_cap: {

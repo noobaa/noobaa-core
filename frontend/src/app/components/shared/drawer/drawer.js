@@ -1,7 +1,7 @@
 import template from './drawer.html';
 import StateListener from 'state-listener';
 import ko from 'knockout';
-import { closeActiveDrawer } from 'dispatchers';
+import { closeDrawer } from 'dispatchers';
 import { runAsync } from 'utils/core-utils';
 
 class DrawerViewModel extends StateListener {
@@ -32,7 +32,7 @@ class DrawerViewModel extends StateListener {
     }
 
     close() {
-        closeActiveDrawer();
+        closeDrawer();
     }
 }
 

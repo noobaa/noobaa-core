@@ -12,16 +12,12 @@ function onInitApplication() {
     return initialState;
 }
 
-function onOpenAuditDrawer() {
-    return 'audit-pane';
+function onOpenDrawer(_, { component }) {
+    return component;
 }
 
-function onOpenAlertsDrawer() {
-    return 'alerts-pane';
-}
-
-function onCloseActiveDrawer() {
-    return null;
+function onCloseDrawer() {
+    return initialState;
 }
 
 // ------------------------------
@@ -29,7 +25,6 @@ function onCloseActiveDrawer() {
 // ------------------------------
 export default createReducer({
     INIT_APPLICAITON: onInitApplication,
-    OPEN_AUDIT_DRAWER: onOpenAuditDrawer,
-    OPEN_ALERTS_DRAWER: onOpenAlertsDrawer,
-    CLOSE_ACTIVE_DRAWER: onCloseActiveDrawer
+    OPEN_DRAWER: onOpenDrawer,
+    CLOSE_DRAWER: onCloseDrawer
 });

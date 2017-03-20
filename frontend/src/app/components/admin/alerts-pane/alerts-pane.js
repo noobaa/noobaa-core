@@ -38,7 +38,7 @@ class AlertsPaneViewModel extends StateListener {
         return [ state.alerts ];
     }
 
-    onState(alerts ) {
+    onState(alerts) {
         const { filter, loading, endOfList, list, loadError } = alerts;
         const { severity, read } = filter;
 

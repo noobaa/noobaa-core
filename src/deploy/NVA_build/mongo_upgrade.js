@@ -716,51 +716,70 @@ function fix_nodes_pool_to_object_id() {
 
 
 function blocks_to_buckets_upgrade() {
-    var num_blocks = db.datablocks.count({});
-    var block_ids_by_bucket_ids = null;
-    const BLOCKS_PER_CYCLE = 100;
+    const CHUNKS_PER_CYCLE = 1000;
+    const SYSTEM_MONGO_STATE = db.systems.findOne({}, {
+        mongo_upgrade: 1
+    });
 
-    function find_bucket_id_for_block(block) {
-        var block_bucket = db.datachunks.find({
-                _id: block.chunk
+    if (SYSTEM_MONGO_STATE &&
+        SYSTEM_MONGO_STATE.mongo_upgrade &&
+        SYSTEM_MONGO_STATE.mongo_upgrade.blocks_to_buckets) return;
+
+    var chunk_id_marker = update_blocks_of_chunks(
+        db.datachunks.find({}, {
+            _id: 1,
+            bucket: 1
+        }, {
+            sort: {
+                _id: 1
+            },
+            limit: CHUNKS_PER_CYCLE
+        }).toArray()
+    );
+
+    while (chunk_id_marker) {
+        chunk_id_marker = update_blocks_of_chunks(
+            db.datachunks.find({
+                _id: {
+                    $gt: chunk_id_marker
+                }
             }, {
+                _id: 1,
                 bucket: 1
-            })
-            .toArray()[0];
-
-        if (block_ids_by_bucket_ids[block_bucket.bucket.valueOf()]) {
-            block_ids_by_bucket_ids[block_bucket.bucket.valueOf()].push(block._id);
-        } else {
-            block_ids_by_bucket_ids[block_bucket.bucket.valueOf()] = [block._id];
-        }
+            }, {
+                sort: {
+                    _id: 1
+                },
+                limit: CHUNKS_PER_CYCLE
+            }).toArray()
+        );
     }
 
-    function update_blocks_bucket(bucket_id) {
+    db.systems.update({}, {
+        $set: {
+            "mongo_upgrade.blocks_to_buckets": true
+        }
+    });
+}
+
+function update_blocks_of_chunks(chunks) {
+    var chunks_by_bucket = {};
+    chunks.forEach(chunk => {
+        chunks_by_bucket[chunk.bucket.valueOf()] = chunks_by_bucket[chunk.bucket.valueOf()] || [];
+        chunks_by_bucket[chunk.bucket.valueOf()].push(chunk._id);
+    });
+
+    Object.keys(chunks_by_bucket).forEach(bucket_id => {
         db.datablocks.updateMany({
-            _id: {
-                $in: block_ids_by_bucket_ids[bucket_id]
+            chunk: {
+                $in: chunks_by_bucket[bucket_id]
             }
         }, {
             $set: {
                 bucket: new ObjectId(bucket_id)
             }
         });
-    }
+    });
 
-    for (var pIndex = 0; pIndex < Math.ceil(num_blocks / BLOCKS_PER_CYCLE); pIndex++) {
-        block_ids_by_bucket_ids = {};
-        db.datablocks.find({
-                bucket: {
-                    $exists: false
-                }
-            }, {
-                _id: 1,
-                chunk: 1
-            })
-            .limit(BLOCKS_PER_CYCLE)
-            .forEach(find_bucket_id_for_block);
-
-        Object.keys(block_ids_by_bucket_ids)
-            .forEach(update_blocks_bucket);
-    }
+    return chunks.length ? chunks[chunks.length - 1]._id : null;
 }

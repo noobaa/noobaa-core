@@ -1,4 +1,4 @@
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, pick } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { createReducer } from 'utils/reducer-utils';
 import * as routes from 'routes';
@@ -112,7 +112,10 @@ function onLocationChanged(state, { route, params } ) {
 function _generateOverviewCrumbs(params) {
     return [
         {
-            url: realizeUri(routes.system, params),
+            url: realizeUri(
+                routes.system,
+                pick(params, 'system')
+            ),
             label: 'Overview'
         }
     ];
@@ -121,7 +124,10 @@ function _generateOverviewCrumbs(params) {
 function _generateBucketsCrumbs(params) {
     return [
         {
-            url: realizeUri(routes.buckets, params),
+            url: realizeUri(
+                routes.buckets,
+                pick(params, 'system')
+            ),
             label: 'Buckets'
         }
     ];
@@ -131,7 +137,10 @@ function _generateBucketCrumbs(params) {
     return [
         ..._generateBucketsCrumbs(params),
         {
-            url: realizeUri(routes.bucket, params),
+            url: realizeUri(
+                routes.bucket,
+                pick(params, 'system', 'bucket')
+            ),
             label: params.bucket
         }
     ];
@@ -141,7 +150,10 @@ function _generateObjectCrumbs(params) {
     return [
         ..._generateBucketCrumbs(params),
         {
-            url: realizeUri(routes.object, params),
+            url: realizeUri(
+                routes.object,
+                pick(params, 'system', 'bucket', 'object')
+            ),
             label: params.object
         }
     ];
@@ -150,7 +162,10 @@ function _generateObjectCrumbs(params) {
 function _generateResourcesCrumb(params) {
     return [
         {
-            url: realizeUri(routes.pools, params),
+            url: realizeUri(
+                routes.pools,
+                pick(params, 'system')
+            ),
             label: 'Resources'
         }
     ];
@@ -160,7 +175,10 @@ function _generatePoolCrumbs(params) {
     return [
         ..._generateResourcesCrumb(params),
         {
-            url: realizeUri(routes.pool, params),
+            url: realizeUri(
+                routes.pool,
+                pick(params, 'system', 'pool')
+            ),
             label: params.pool
         }
     ];
@@ -170,7 +188,10 @@ function _generateNodeCrumbs(params) {
     return [
         ..._generatePoolCrumbs(params),
         {
-            url: realizeUri(routes.node, params),
+            url: realizeUri(
+                routes.node,
+                pick(params, 'system', 'pool', 'node')
+            ),
             label: params.node
         }
     ];
@@ -179,7 +200,10 @@ function _generateNodeCrumbs(params) {
 function _generateManagementCrumbs(params) {
     return [
         {
-            url: realizeUri(routes.management, params),
+            url: realizeUri(
+                routes.management,
+                pick(params, 'system')
+            ),
             label: 'System Management'
         }
     ];
@@ -189,7 +213,10 @@ function _generateAccountCrumbs(params) {
     return [
         ..._generateManagementCrumbs(params),
         {
-            url: realizeUri(routes.account, params),
+            url: realizeUri(
+                routes.account,
+                pick(params, 'system', 'account')
+            ),
             label: params.account
         }
     ];
@@ -198,7 +225,10 @@ function _generateAccountCrumbs(params) {
 function _generateClusterCrumbs(params) {
     return [
         {
-            url: realizeUri(routes.cluster, params),
+            url: realizeUri(
+                routes.cluster,
+                pick(params, 'system')
+            ),
             label: 'Cluster'
         }
     ];
@@ -208,7 +238,10 @@ function _generateServerCrumbs(params) {
     return [
         ..._generateClusterCrumbs(params),
         {
-            url: realizeUri(routes.server, params),
+            url: realizeUri(
+                routes.server,
+                pick(params, 'system', 'server')
+            ),
             label: params.server
         }
     ];
@@ -217,7 +250,10 @@ function _generateServerCrumbs(params) {
 function _generateFunctionsCrumbs(params) {
     return [
         {
-            url: realizeUri(routes.funcs, params),
+            url: realizeUri(
+                routes.funcs,
+                pick(params, 'system')
+            ),
             label: 'Functions'
         }
     ];
@@ -227,7 +263,10 @@ function _generateFunctionCrumbs(params) {
     return [
         ..._generateFunctionsCrumbs(params),
         {
-            url: realizeUri(routes.func, params),
+            url: realizeUri(
+                routes.func,
+                pick(params, 'system', 'func')
+            ),
             label: params.func
         }
     ];

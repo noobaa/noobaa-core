@@ -280,6 +280,10 @@ function post_upgrade {
       echo "${jwt}" >> ${CORE_DIR}/.env
   fi
 
+  if grep -q "DEV_MODE=true" /backup/.env; then
+      sed -i 's:DEV_MODE=false:DEV_MODE=true:'  ${CORE_DIR}/.env
+  fi
+
   #copy MONGO_RS_URL from previous .env
   if grep -q MONGO_RS_URL /backup/.env; then
       local mongo_url=$(grep MONGO_RS_URL /backup/.env)

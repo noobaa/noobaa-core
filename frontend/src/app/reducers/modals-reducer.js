@@ -292,7 +292,8 @@ function onUpgradeSystem(modals) {
             name: 'system-upgrade-modal'
         },
         options: {
-            size: 'xsmall'
+            size: 'xsmall',
+            backdropClose: false
         }
     });
 }

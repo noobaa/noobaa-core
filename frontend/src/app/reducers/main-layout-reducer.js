@@ -276,7 +276,7 @@ function _generateFunctionCrumbs(params) {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication,
+    INIT_APPLICATION: onInitApplication,
     // SESSION_RESTORED: onSessionRestored,
     // SIGNED_IN: onSignedIn,
     LOCATION_CHANGED: onLocationChanged

@@ -22,5 +22,5 @@ function onInitApplication() {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication
+    INIT_APPLICATION: onInitApplication
 });

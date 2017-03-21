@@ -40,7 +40,7 @@ function _getSessionObject(account, system, role) {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication,
+    INIT_APPLICATION: onInitApplication,
     SESSION_RESTORED: onSessionRestored,
     SIGNED_IN: onSignedIn,
     SIGN_OUT: onSignOut

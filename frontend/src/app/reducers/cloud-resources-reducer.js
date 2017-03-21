@@ -68,6 +68,6 @@ function _mapPoolsToBuckets(buckets, tiers) {
 // Exported reducer function.
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication,
+    INIT_APPLICATION: onInitApplication,
     SYSTEM_INFO_FETCHED: onSystemInfoFetched
 });

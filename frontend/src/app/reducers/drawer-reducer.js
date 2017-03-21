@@ -24,7 +24,7 @@ function onCloseDrawer() {
 // Exported reducer function.
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication,
+    INIT_APPLICATION: onInitApplication,
     OPEN_DRAWER: onOpenDrawer,
     CLOSE_DRAWER: onCloseDrawer
 });

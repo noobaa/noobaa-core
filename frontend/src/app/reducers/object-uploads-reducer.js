@@ -133,7 +133,7 @@ function _recalcStats(objects) {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication,
+    INIT_APPLICATION: onInitApplication,
     OBJECT_UPLOAD_STARTED: onObjectUploadStarted,
     OBJECT_UPLOAD_PROGRESS: onObjectUploadProgress,
     OBJECT_UPLOAD_COMPLETED: onObjectUploadCompleted,

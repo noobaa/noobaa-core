@@ -79,6 +79,7 @@ mocha.describe('system_servers', function() {
                 email: EMAIL1,
                 password: PASSWORD,
                 s3_access: true,
+                allowed_buckets: [],
                 default_pool: config.NEW_SYSTEM_POOL_NAME
             }))
             .then(() => client.system.read_system())

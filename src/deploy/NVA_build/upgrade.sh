@@ -40,7 +40,7 @@ function enable_autostart {
 function disable_supervisord {
   deploy_log "disable_supervisord"
   #services under supervisord
-  local services=$($SUPERCTL status | grep pid | sed 's:.*pid \(.*\),.*:\1:')
+  local services=$($SUPERCTL status | grep pid | sed 's:.*pid \(.*\), uptime.*:\1:')
   #disable the supervisord
   ${SUPERCTL} shutdown
   #kill services

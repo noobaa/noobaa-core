@@ -28,6 +28,7 @@ let full_access_user = {
     name: 'full_access',
     email: 'full_access@noobaa.com',
     password: 'master',
+    s3_access: true,
     allowed_buckets: ['bucket1', 'bucket2'],
     default_pool: config.NEW_SYSTEM_POOL_NAME,
 };
@@ -36,6 +37,7 @@ let bucket1_user = {
     name: 'bucket1_access',
     email: 'bucket1_access@noobaa.com',
     password: 'onlyb1',
+    s3_access: true,
     allowed_buckets: ['bucket1'],
     default_pool: config.NEW_SYSTEM_POOL_NAME,
 };
@@ -43,8 +45,8 @@ let bucket1_user = {
 let no_access_user = {
     name: 'no_access',
     email: 'no_access@noobaa.com',
+    s3_access: false,
     password: 'goaway',
-    default_pool: config.NEW_SYSTEM_POOL_NAME,
 };
 
 module.exports = {

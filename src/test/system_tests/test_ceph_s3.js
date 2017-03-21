@@ -16,6 +16,7 @@ var CEPH_TEST = {
         email: 'ceph.alt@noobaa.com',
         password: 'ceph',
         allowed_buckets: [],
+        s3_access: true,
         default_pool: config.NEW_SYSTEM_POOL_NAME
     },
 };

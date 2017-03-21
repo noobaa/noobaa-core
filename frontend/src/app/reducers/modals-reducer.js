@@ -113,7 +113,7 @@ function onSystemInfoFetched(modals, { info }) {
 // Exported reducer function.
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication,
+    INIT_APPLICATION: onInitApplication,
     OPEN_MODAL: onOpenModal,
     UPDATE_MODAL: onUpdateModal,
     LOCK_ACTIVE_MODAL: onLockActiveModal,

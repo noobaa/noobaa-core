@@ -116,7 +116,7 @@ function _matchs(item, { ids, severity, read }) {
 // Exported reducer function.
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication,
+    INIT_APPLICATION: onInitApplication,
     ALERTS_FETCH: onAlertsFetch,
     ALERTS_FETCHED: onAlertsFetched,
     ALERTS_FETCH_FAILED: onAlertsFetchFailed,

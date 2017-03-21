@@ -126,7 +126,7 @@ function _removeKey(obj, key) {
 // Exported reducer function
 // ------------------------------
 export default createReducer({
-    INIT_APPLICAITON: onInitApplication,
+    INIT_APPLICATION: onInitApplication,
     INIT_FORM: onInitForm,
     UPDATE_FORM: onUpdateForm,
     RESET_FORM: onResetForm,

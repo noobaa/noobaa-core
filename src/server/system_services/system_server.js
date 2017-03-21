@@ -41,6 +41,7 @@ const node_allocator = require('../node_services/node_allocator');
 const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
 const system_server_utils = require('../utils/system_server_utils');
+const api = require('../../api/api');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -715,7 +716,7 @@ function get_node_installation_string(req) {
             const agent_installer = `noobaa-setup-${pkg.version}.exe`;
             const pool = req.rpc_params.pool ?
                 req.system.pools_by_name[req.rpc_params.pool] :
-                req.system.get_account_by_email(req.system.owner.email).default_pool;
+                system_store.get_account_by_email(req.system.owner.email).default_pool;
             const exclude_drives = req.rpc_params.exclude_drives ? req.rpc_params.exclude_drives.sort() : [];
             const use_storage = req.rpc_params.roles ? req.rpc_params.roles.indexOf('STORAGE') > -1 : true;
             const use_s3 = req.rpc_params.roles ? req.rpc_params.roles.indexOf('S3') > -1 : false;
@@ -754,7 +755,7 @@ function get_node_installation_string(req) {
                     const create_node_token = _get_create_node_token(system._id, req.account._id, conf_id);
                     // TODO: remove system and root_path from agent_conf
                     const agent_conf = {
-                        address: server_ip,
+                        address: `wss://${server_ip}:${api.get_base_port()}`,
                         system: system.name,
                         root_path: './agent_storage/',
                         create_node_token

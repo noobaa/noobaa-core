@@ -32,6 +32,7 @@ function upgrade() {
     upgrade_buckets();
     upgrade_usage_stats();
     blocks_to_buckets_upgrade();
+    upgrade_object_mds_total_parts();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -522,6 +523,27 @@ function upgrade_object_mds() {
             },
             $unset: {
                 create_time: 1
+            }
+        });
+    });
+}
+
+function upgrade_object_mds_total_parts() {
+    db.objectmds.find({
+        num_parts: {
+            $exists: false
+        },
+        deleted: {
+            $exists: false
+        }
+    }).forEach(function(obj) {
+        db.objectmds.update({
+            _id: obj._id
+        }, {
+            $set: {
+                num_parts: db.objectparts.count({
+                    obj: obj._id
+                })
             }
         });
     });

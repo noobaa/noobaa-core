@@ -35,6 +35,7 @@ function upgrade() {
     upgrade_pools();
     upgrade_buckets();
     upgrade_usage_stats();
+    blocks_to_buckets_upgrade();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -758,4 +759,74 @@ function fix_nodes_pool_to_object_id() {
             }
         });
     });
+}
+
+
+function blocks_to_buckets_upgrade() {
+    const CHUNKS_PER_CYCLE = 1000;
+    const SYSTEM_MONGO_STATE = db.systems.findOne({}, {
+        mongo_upgrade: 1
+    });
+
+    if (SYSTEM_MONGO_STATE &&
+        SYSTEM_MONGO_STATE.mongo_upgrade &&
+        SYSTEM_MONGO_STATE.mongo_upgrade.blocks_to_buckets) return;
+
+    var chunk_id_marker = update_blocks_of_chunks(
+        db.datachunks.find({}, {
+            _id: 1,
+            bucket: 1
+        }, {
+            sort: {
+                _id: 1
+            },
+            limit: CHUNKS_PER_CYCLE
+        }).toArray()
+    );
+
+    while (chunk_id_marker) {
+        chunk_id_marker = update_blocks_of_chunks(
+            db.datachunks.find({
+                _id: {
+                    $gt: chunk_id_marker
+                }
+            }, {
+                _id: 1,
+                bucket: 1
+            }, {
+                sort: {
+                    _id: 1
+                },
+                limit: CHUNKS_PER_CYCLE
+            }).toArray()
+        );
+    }
+
+    db.systems.update({}, {
+        $set: {
+            "mongo_upgrade.blocks_to_buckets": true
+        }
+    });
+}
+
+function update_blocks_of_chunks(chunks) {
+    var chunks_by_bucket = {};
+    chunks.forEach(chunk => {
+        chunks_by_bucket[chunk.bucket.valueOf()] = chunks_by_bucket[chunk.bucket.valueOf()] || [];
+        chunks_by_bucket[chunk.bucket.valueOf()].push(chunk._id);
+    });
+
+    Object.keys(chunks_by_bucket).forEach(bucket_id => {
+        db.datablocks.updateMany({
+            chunk: {
+                $in: chunks_by_bucket[bucket_id]
+            }
+        }, {
+            $set: {
+                bucket: new ObjectId(bucket_id)
+            }
+        });
+    });
+
+    return chunks.length ? chunks[chunks.length - 1]._id : null;
 }

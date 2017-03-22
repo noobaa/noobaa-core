@@ -281,7 +281,8 @@ function post_upgrade {
   fi
 
   if grep -q "DEV_MODE=true" /backup/.env; then
-      sed -i 's:DEV_MODE=false:DEV_MODE=true:'  ${CORE_DIR}/.env
+      local devmode=$(grep "DEV_MODE=true" /backup/.env)
+      echo "${devmode}" >> ${CORE_DIR}/.env
   fi
 
   #copy MONGO_RS_URL from previous .env

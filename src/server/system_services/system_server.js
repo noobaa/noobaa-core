@@ -981,6 +981,19 @@ function set_certificate(zip_file) {
         .then(() => promise_utils.exec(`/usr/bin/unzip '${zip_file.path}' -d ${tmp_dir}`))
         .then(() => fs.readdirAsync(tmp_dir))
         .then(files => {
+            if (files.length === 1) {
+                return P.resolve()
+                    .then(() => fs.statAsync(path.join(tmp_dir, files[0])))
+                    .then(stats => {
+                        if (stats.isDirectory()) {
+                            throw new Error('zip files should not contain directories');
+                        }
+                        return files;
+                    });
+            }
+            return files;
+        })
+        .then(files => {
             const cert_file = _throw_if_not_single_item(files, '.cert');
             const key_file = _throw_if_not_single_item(files, '.key');
             return promise_utils.exec(`(/usr/bin/openssl x509 -noout -modulus -in ${cert_file} | /usr/bin/openssl md5 ; /usr/bin/openssl rsa -noout -modulus -in ${key_file} | /usr/bin/openssl md5) | uniq | wc -l`,

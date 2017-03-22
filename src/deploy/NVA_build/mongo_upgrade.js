@@ -646,7 +646,7 @@ function add_defaults_to_sync_credentials_cache() {
 
 function update_default_pool() {
     print('\n*** update_default_pool ...');
-    var default_pool = db.pools.find({ name: "default_pool" });
+    var default_pool = db.pools.findOne({ name: "default_pool" });
     if (default_pool) {
         db.accounts.find().forEach(function(account) {
             if (!account.default_pool) {

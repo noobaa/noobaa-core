@@ -1,17 +1,14 @@
 import template from './file-selector.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { noop } from 'utils/core-utils';
 
-class FileSelectorViewModel extends BaseViewModel {
+class FileSelectorViewModel {
     constructor({
         onFilesReady = noop,
         allowMultiSelect = false,
         filter = '',
         message = `Drag your file${allowMultiSelect ? 's' : ''} here`
     }) {
-        super();
-
         this.onFilesReady = onFilesReady;
         this.allowMultiSelect = allowMultiSelect;
         this.filter = filter;
@@ -19,31 +16,40 @@ class FileSelectorViewModel extends BaseViewModel {
         this.dragCounter = ko.observable(0);
     }
 
-    dragEnter() {
+    onDragEnter() {
         this.dragCounter(this.dragCounter() + 1);
         return false;
     }
 
-    dragLeave() {
+    onDragLeave() {
         this.dragCounter(this.dragCounter() - 1);
         return false;
     }
 
-    dragOver() {
+    onDragOver() {
         return false;
     }
 
-    drop(files) {
+    onDrop(_, { dataTransfer }) {
+        const files = dataTransfer.files;
         this.dragCounter(0);
         this.onFilesReady(
             ko.unwrap(this.allowMultiSelect) ? files : files[0]
         );
     }
 
-    select(files) {
+    onChange(_, { target }) {
+        const files = target.files;
         this.onFilesReady(
             ko.unwrap(this.allowMultiSelect) ? files : files[0]
         );
+    }
+
+    onClick(_, { target }) {
+        // Fixes the problem of traiying to select a file with the same name
+        // twice in a row.
+        target.value = '';
+        return true;
     }
 }
 

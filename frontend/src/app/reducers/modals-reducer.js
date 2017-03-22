@@ -101,12 +101,12 @@ function onOpenEditCloudSyncModal(modals, { bucketName }) {
     });
 }
 
-function onOpenS3AccessDetailsModal(modals, { accountEmail }) {
+function onOpenS3AccessDetailsModal(modals, { email }) {
     return _openModal(modals, {
         type: 'MODAL_OPEN',
         component: {
             name: 's3-access-details-modal',
-            params: { accountEmail }
+            params: { email }
         },
         options: {
             title: 'Connection Details',

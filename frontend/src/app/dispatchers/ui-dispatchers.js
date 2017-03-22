@@ -69,8 +69,8 @@ export function openEditCloudSyncModal(bucketName) {
     dispatch({ type: 'OPEN_EDIT_CLOUD_SYNC_MODAL', bucketName });
 }
 
-export function openS3AccessDetailsModal(accountEmail) {
-    dispatch({ type: 'OPEN_S3_ACCESS_DETAILS_MODAL', accountEmail });
+export function openS3AccessDetailsModal(email) {
+    dispatch({ type: 'OPEN_S3_ACCESS_DETAILS_MODAL', email });
 }
 
 export function openBucketS3AccessModal(bucketName) {

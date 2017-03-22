@@ -312,7 +312,14 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             target_bucket: pool.cloud_pool_info.target_bucket
         };
         info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);
-        info.mode = 'OPTIMAL';
+        let nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+        if (nodes.by_mode.OPTIMAL) {
+            info.mode = 'OPTIMAL';
+        } else if (nodes.by_mode.IO_ERRORS) {
+            info.mode = 'IO_ERRORS';
+        } else {
+             info.mode = 'ALL_NODES_OFFLINE';
+        }
     } else {
         info.nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);

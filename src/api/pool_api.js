@@ -306,6 +306,7 @@ module.exports = {
                 'NO_CAPACITY',
                 'LOW_CAPACITY',
                 'HIGH_DATA_ACTIVITY',
+                'IO_ERRORS',
                 'OPTIMAL'
             ]
         }

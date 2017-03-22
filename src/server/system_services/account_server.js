@@ -503,11 +503,23 @@ function add_external_connection(req) {
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
     info.secret_key = req.rpc_params.secret;
+
+    //Verify the exact connection does not exist
+    let conn = _.find(req.account.sync_credentials_cache, function(cred) {
+        return cred.endpoint === req.rpc_params.endpoint &&
+            cred.endpoint_type === req.rpc_params.endpoint_type &&
+            cred.access_key === req.rpc_params.identity;
+    });
+    if (conn) {
+        throw new RpcError('External Connection Already Exists');
+    }
+
     var updates = {
         _id: req.account._id,
         sync_credentials_cache: req.account.sync_credentials_cache || []
     };
     updates.sync_credentials_cache.push(info);
+
     return system_store.make_changes({
             update: {
                 accounts: [updates]

@@ -19,7 +19,10 @@ rm -f /var/log/*.log
 rm -f /var/log/*-*
 rm -f /var/log/noobaa*
 rm -f /tmp/supervisor/*
+rm -rf /etc/mongo_ssl/
+rm -f /usr/bin/mongors
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/node_modules/noobaa-core/.env
 supervisorctl reread
 supervisorctl reload
 rm -rf /root/node_modules/noobaa-core/agent_storage/

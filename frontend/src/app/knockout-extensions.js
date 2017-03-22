@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isUndefined, noop, deepFreeze, makeArray } from 'utils/core-utils';
+import { isObject, isUndefined, noop, deepFreeze } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 
 // -----------------------------------------
@@ -109,7 +109,6 @@ ko.subscribable.fn.debug = function(prefix) {
     );
 };
 
-
 // -----------------------------------------
 // Knockout validation specific extentions
 // -----------------------------------------
@@ -192,15 +191,25 @@ function preprocessElement(node) {
 
 function preprocessTextNode(node) {
     node.normalize();
-    const text = node.nodeValue.trim();
-    if (text.match(/\$\{[\s\S]*?\}/)) {
+    const before = node.nodeValue.trim();
+    const after = before.replace(/\{\{[\s\S]*?\}\}/g, match => {
+        const expr = match.substr(2, match.length - 4);
+        return `'+ko.unwrap(${expr})+'`;
+    });
+
+    if (after !== before) {
+        // Replace tabs and newlines with spaces because knokcout virtual elements
+        // has problem in parseing multiline expressions.
+        const expr = after.replace(/\s+/g, () => ' ');
+
         const parent = node.parentNode;
         const nodes = [
-            document.createComment(` ko text: ko.uw\`${text}\` `),
+            document.createComment(` ko text: '${expr}' `),
             document.createComment(' /ko ')
         ];
         parent.insertBefore(nodes[0], node);
         parent.replaceChild(nodes[1], node);
+
         return nodes;
     }
 }
@@ -231,25 +240,18 @@ ko.bindingHandlers[magicBindingName] = {
 };
 
 ko.getBindingHandler = function(name) {
-    const [ binding, key ] = name.split('.');
     let handler = bindingHandlers.get(name);
-    if (!handler) {
-        handler = origGetBindingHandler(binding);
-        handler = key ? subclassBindingHandler(key, handler) : handler;
-        bindingHandlers.set(name, handler);
-    }
-    return handler;
-};
+    if (handler) return handler;
 
-ko.uw = function(strings, ...values) {
-    return makeArray(strings.length + values.length, i => {
-        const j = Math.floor(i/2);
-        return i % 2 ? ko.unwrap(values[j]) : strings[j];
-    }).join('');
+    const [ binding, key ] = name.split('.');
+    handler = origGetBindingHandler(binding);
+    handler = key ? subclassBindingHandler(key, handler) : handler;
+    bindingHandlers.set(name, handler);
+
+    return handler;
 };
 
 // -----------------------------------------
 // Export knokcout object for dev purposes
 // -----------------------------------------
 global.ko = ko;
-

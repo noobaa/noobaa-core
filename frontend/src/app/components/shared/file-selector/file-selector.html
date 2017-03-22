@@ -1,22 +1,18 @@
-<div class="drop-area text-center" data-bind="
-        css: { dragover: !!dragCounter() },
-        event: {
-            dragenter: dragEnter,
-            dragleave: dragLeave,
-            dragover: () => false,
-            drop: (_, evt) => drop(evt.dataTransfer.files)
-        }
-    ">
-    <p class="drop-message paragraph">
-        <span data-bind="text: message"></span>
-        or
-    </p>
-
+<div class="drop-area text-center"
+    ko.css.dragover="!!dragCounter()"
+    ko.event.dragenter="onDragEnter"
+    ko.event.dragleave="onDragLeave"
+    ko.event.dragover="() => false"
+    ko.event.drop="onDrop"
+>
+    <p class="drop-message paragraph">{{message}} or</p>
     <label class="browse-btn btn alt-colors">
         Browse
-        <input class="hide" type="file" data-bind="
-            attr: { multiple: allowMultiSelect, accept: filter },
-            event: { change: (_, evt) => select(evt.target.files) }
-        "/>
+        <input type="file" class="hide"
+            ko.attr.multiple="allowMultiSelect"
+            ko.attr.accept="filter",
+            ko.event.change="onChange"
+            ko.event.click="onClick"
+        />
     </label>
 </div>

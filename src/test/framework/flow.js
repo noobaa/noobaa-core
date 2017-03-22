@@ -16,7 +16,8 @@ var steps = [
         }],
         env: {
             COVDIR: './report/cov/mocha',
-            PATH: process.env.PATH
+            PATH: process.env.PATH,
+            DEV_MODE: 'true'
         }
     }, {
         //Restore DB to defaults

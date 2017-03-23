@@ -747,11 +747,7 @@ class NodesMonitor extends EventEmitter {
                                 item.node.name, 'to', updates.name);
 
                             let agent_config = system_store.data.get_by_id(item.node.agent_config);
-                            let { use_s3, use_storage, exclude_drive } = agent_config || {
-                                use_s3: false,
-                                use_storage: true,
-                                exclude_drive: []
-                            };
+                            let { use_s3 = false, use_storage = true, exclude_drive = [] } = agent_config || {};
                             // on first call to get_agent_info enable\disable the node according to the configuration
                             let should_start_service = (info.s3_agent_info && use_s3) ||
                                 (!info.s3_agent_info && use_storage && exclude_drive.indexOf(info.drives[0].mount) === -1);

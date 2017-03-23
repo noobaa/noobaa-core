@@ -3,14 +3,18 @@
 # redirect the output log file to syslog (http://urbanautomaton.com/blog/2014/09/09/redirecting-bash-script-output-to-syslog)
 exec 1> >(logger -t UPGRADE -p local0.warn) 2>&1
 
+EXTRACTION_PATH="/tmp/test/"
+
+#TODO do we want to load base on /tmp/test? maybe load common_funcs differenetly
 if [ -d /tmp/test/ ]; then
-  EXTRACTION_PATH="/tmp/test/"
+  COMMON_FUNCS_PATH="/tmp/test/"
 else
-  EXTRACTION_PATH="/root/node_modules"
+  COMMON_FUNCS_PATH="/root/node_modules"
 fi
 
-. ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
-. ${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/common_funcs.sh
+
+. ${COMMON_FUNCS_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
+. ${COMMON_FUNCS_PATH}noobaa-core/src/deploy/NVA_build/common_funcs.sh
 
 PACKAGE_FILE_NAME="new_version.tar.gz"
 WRAPPER_FILE_NAME="upgrade_wrapper.sh"
@@ -140,7 +144,6 @@ function check_latest_version {
 }
 
 function extract_package {
-  EXTRACTION_PATH="/root/node_modules"
   #Clean previous extracted package
   rm -rf ${EXTRACTION_PATH}*
   #Create path and extract package
@@ -173,6 +176,7 @@ function extract_package {
   #   exit 1
   # fi
 }
+
 
 function do_upgrade {
   #Update packages before we stop services, minimize downtime, limit run time for yum update so it won't get stuck

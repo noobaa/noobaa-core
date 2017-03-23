@@ -82,7 +82,10 @@ module.exports = {
      * @param {String|Buffer} src - source to be parsed
      * @returns {Object}
      */
-    parse: function(src) {
+    parse: function(src_param) {
+        let src = src_param || fs.readFileSync('.env', {
+            encoding: 'utf8'
+        });
         var obj = {};
         var idx = 0;
 

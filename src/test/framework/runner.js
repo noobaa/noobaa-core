@@ -47,22 +47,22 @@ TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait, po
             },
             function() {
                 return P.ninvoke(request, 'get', {
-                    url: 'http://127.0.0.1:' + port,
-                    rejectUnauthorized: false,
-                })
-                .then(function() {
-                    console.log('server started after ' + wait_counter + ' seconds');
-                    isNotListening = false;
-                })
-                .catch(function(err) {
-                    console.log('waiting for server to start(2)');
-                    wait_counter += 1;
-                    if (wait_counter >= MAX_RETRIES) {
-                        console.Error('Too many retries after restart server', err);
-                        throw new Error('Too many retries');
-                    }
-                    return P.delay(1000);
-                });
+                        url: 'http://127.0.0.1:' + port,
+                        rejectUnauthorized: false,
+                    })
+                    .then(function() {
+                        console.log('server started after ' + wait_counter + ' seconds');
+                        isNotListening = false;
+                    })
+                    .catch(function(err) {
+                        console.log('waiting for server to start(2)');
+                        wait_counter += 1;
+                        if (wait_counter >= MAX_RETRIES) {
+                            console.Error('Too many retries after restart server', err);
+                            throw new Error('Too many retries');
+                        }
+                        return P.delay(1000);
+                    });
                 //one more delay for reconnection of other processes
             }).delay(2000)
         .then(function() {
@@ -92,6 +92,28 @@ TestRunner.prototype.restore_db_defaults = function() {
         .catch(function(err) {
             console.log('Failed restarting webserver', err);
             throw new Error('Failed restarting webserver');
+        });
+};
+
+TestRunner.prototype.clean_server_for_run = function() {
+    const logs_regexp = /noobaa\.log\...\.gz/;
+    const logs_path = '/var/log/';
+    return P.resolve(fs.readdirAsync(logs_path))
+        .then(files => {
+            const num_files = files.length;
+            let i = 0;
+            return promise_utils.pwhile(
+                function() {
+                    return i < num_files;
+                },
+                function() {
+                    i += 1;
+                    if (logs_regexp.test(files[i - 1])) {
+                        return fs.unlinkAsync(path.join(logs_path, files[i - 1]));
+                    }
+                    return P.resolve();
+                }
+            );
         });
 };
 

@@ -4,6 +4,10 @@
 var steps = [
     //Upgrade moved externally to be run from the jenkins prior to the framework run
     {
+        name: 'Clean Server for Run',
+        common: 'clean_server_for_run',
+    },
+    {
         //Run unit tests
         name: 'Unit Tests',
         action: 'npm',

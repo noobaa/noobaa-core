@@ -8,7 +8,7 @@
   "dependencies": {},
   "devDependencies": {
     "babel-core": "6.18.2",
-    "babel-eslint": "^6.0.4",
+    "babel-eslint": "7.2.1",
     "babel-plugin-transform-async-to-generator": "6.22.0",
     "babel-plugin-transform-object-rest-spread": "6.22.0",
     "babel-plugin-transform-runtime": "6.15.0",
@@ -17,7 +17,7 @@
     "bower": "^1.7.2",
     "browserify": "13.1.0",
     "del": "^2.0.2",
-    "eslint": "^2.11.1",
+    "eslint": "3.18.0",
     "gulp": "^3.9.0",
     "gulp-concat": "^2.6.0",
     "gulp-contains": "^1.1.0",

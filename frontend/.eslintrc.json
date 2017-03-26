@@ -30,6 +30,12 @@
             "error",
             "always"
         ],
+        "no-unused-vars": [
+            "error",
+            {
+                "ignoreRestSiblings": true
+            }
+        ],
         "no-console": 0
     }
 }

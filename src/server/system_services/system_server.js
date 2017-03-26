@@ -1079,6 +1079,7 @@ function update_hostname(req) {
                 });
         })
         .then(() => {
+            dbg.log0('attempt_dns_resolve returned updating base address');
             delete req.rpc_params.hostname;
             return update_base_address(req);
         });
@@ -1087,14 +1088,26 @@ function update_hostname(req) {
 
 
 function attempt_dns_resolve(req) {
+    dbg.log0('attempt_dns_resolve', req.rpc_params.dns_name);
     return P.promisify(dns.resolve)(req.rpc_params.dns_name)
         .return({
             valid: true
         })
-        .catch(err => ({
-            valid: false,
-            reason: err.code
-        }));
+        .timeout(30000)
+        .catch(P.TimeoutError, () => {
+            dbg.error('attempt_dns_resolve timedout');
+            return {
+                valid: false,
+                reason: 'TimeoutError'
+            };
+        })
+        .catch(err => {
+            dbg.error('attempt_dns_resolve failed', err);
+            return {
+                valid: false,
+                reason: err.code
+            };
+        });
 }
 
 

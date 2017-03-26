@@ -35,7 +35,7 @@ mocha.describe('object_io', function() {
 
     mocha.before(function() {
         const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(30000);
+        self.timeout(60000);
 
         return P.resolve()
             .then(() => client.system.create_system({
@@ -58,7 +58,7 @@ mocha.describe('object_io', function() {
 
     mocha.after(function() {
         const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(30000);
+        self.timeout(60000);
 
         return coretest.clear_test_nodes();
     });
@@ -66,7 +66,7 @@ mocha.describe('object_io', function() {
 
     mocha.it('works', function() {
         const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(30000);
+        self.timeout(60000);
 
         let key = KEY + Date.now();
         return P.resolve()
@@ -121,7 +121,7 @@ mocha.describe('object_io', function() {
 
         mocha.it('should write and read object data', function() {
             const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(30000);
+            self.timeout(60000);
 
             let key = KEY + Date.now();
             let size;
@@ -191,7 +191,7 @@ mocha.describe('object_io', function() {
 
         mocha.it('should list_multiparts', function() {
             const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(30000);
+            self.timeout(60000);
 
             let upload_id;
             let key = KEY + Date.now();

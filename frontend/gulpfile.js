@@ -169,7 +169,7 @@ gulp.task('install-deps', () => {
 gulp.task('lint-app' , () => {
     return gulp.src('src/app/**/*.js')
         .pipe($.eslint())
-        .pipe($.eslint.format('table'))
+        // .pipe($.eslint.format('table'))
         .pipe($.eslint.results(
             result => { lintErrors = result.errorCount; }
         ));

@@ -1,5 +1,4 @@
 import { isFunction } from 'utils/core-utils';
-import StateListener from 'state-listener';
 
 const disposeList = Symbol('disposeList');
 
@@ -14,9 +13,8 @@ function isValidationGroup(group) {
         isFunction (group.isAnyMessageShown);
 }
 
-export default class BaseViewModel extends StateListener {
+export default class BaseViewModel {
     constructor() {
-        super();
 
         this[disposeList] = [];
     }
@@ -47,7 +45,5 @@ export default class BaseViewModel extends StateListener {
         this[disposeList].forEach(
             disposer => disposer()
         );
-
-        super.dispose();
     }
 }

@@ -441,9 +441,6 @@ module.exports = {
                     xattr: {
                         $ref: '#/definitions/xattr',
                     },
-                    xattr_copy: {
-                        type: 'boolean'
-                    },
                     overwrite_if: {
                         // conditions on target key if exists
                         $ref: '#/definitions/md_conditions',
@@ -587,6 +584,9 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
+                    conditions: {
+                        $ref: '#/definitions/md_conditions',
+                    },
                     adminfo: {
                         type: 'object',
                         properties: {
@@ -598,7 +598,30 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '#/definitions/object_info'
+                type: 'object',
+                required: ['object_info'],
+                properties: {
+                    object_info: {
+                        $ref: '#/definitions/object_info'
+                    },
+                    md_conditions_res: {
+                        type: 'object',
+                        properties: {
+                            IF_MODIFIED_SINCE: {
+                                type: 'boolean'
+                            },
+                            IF_UNMODIFIED_SINCE: {
+                                type: 'boolean'
+                            },
+                            IF_MATCH_ETAG: {
+                                type: 'boolean'
+                            },
+                            IF_NONE_MATCH_ETAG: {
+                                type: 'boolean'
+                            }
+                        }
+                    }
+                }
             },
             auth: {
                 system: ['admin', 'user', 'viewer']
@@ -933,10 +956,10 @@ module.exports = {
                 if_unmodified_since: {
                     format: 'idate'
                 },
-                if_match_etag: {
+                if_match: {
                     type: 'string'
                 },
-                if_none_match_etag: {
+                if_none_match: {
                     type: 'string'
                 },
             }

@@ -1,12 +1,11 @@
 import template from './uploads-indicator.html';
-import StateListener from 'state-listener';
+import Observer from 'observer';
+import state$ from 'state';
 import ko from 'knockout';
 import style from 'style';
 import { openFileUploadsModal } from 'dispatchers';
-// import numeral from 'numeral';
-// import moment from 'moment';
 
-class UploadsIndicatorViewModel extends StateListener {
+class UploadsIndicatorViewModel extends Observer {
     constructor() {
         super();
 
@@ -26,13 +25,10 @@ class UploadsIndicatorViewModel extends StateListener {
 
         this.lastUploadTime = ko.observable();
 
+        this.observe(state$.get('objectUploads'), this.onUploads);
     }
 
-    selectState(state) {
-        return [ state.objectUploads ];
-    }
-
-    onState(objectUploads, /*prevState*/) {
+    onUploads(objectUploads) {
         const { stats, lastUpload } = objectUploads;
         this.uploadCount(stats.uploading);
         this.uploadProgress(stats.batchLoaded / stats.batchSize);

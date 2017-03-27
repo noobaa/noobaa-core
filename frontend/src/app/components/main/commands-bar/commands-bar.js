@@ -1,27 +1,23 @@
 import template from './commands-bar.html';
-import StateListener from 'state-listener';
+import Observer from 'observer';
+import state$ from 'state';
 import ko from 'knockout';
 import { refresh } from 'actions';
 import { openAuditDrawer, openAlertsDrawer, getUnreadAlertsCount } from 'dispatchers';
 import { sleep } from 'utils/promise-utils';
 
-class CommandBarViewModel extends StateListener {
+class CommandBarViewModel extends Observer {
     constructor() {
         super();
 
         this.isRefreshSpinning = ko.observable(false);
         this.unreadAlertsCount = ko.observable();
 
+        this.observe(state$.get('alerts.unreadCount'), this.unreadAlertsCount);
+
         getUnreadAlertsCount();
     }
 
-    selectState(state) {
-        return [ state.alerts ];
-    }
-
-    onState(alerts) {
-        this.unreadAlertsCount(alerts.unreadCount);
-    }
 
     refresh() {
         refresh();

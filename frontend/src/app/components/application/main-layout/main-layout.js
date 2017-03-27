@@ -1,5 +1,6 @@
 import template from './main-layout.html';
-import StateListener from 'state-listener';
+import Observer from 'observer';
+import state$ from 'state';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
@@ -55,7 +56,7 @@ const navItems = deepFreeze([
     }
 ]);
 
-class MainLayoutViewModel extends StateListener {
+class MainLayoutViewModel extends Observer {
     constructor() {
         super();
 
@@ -69,14 +70,12 @@ class MainLayoutViewModel extends StateListener {
         this.area = ko.observable();
         this.panel = ko.observable('');
 
+        this.observe(state$.get('layout'), this.onLayout);
+
         registerForAlerts();
     }
 
-    selectState(state) {
-        return [ state.layout ];
-    }
-
-    onState(layout) {
+    onLayout(layout) {
         const { breadcrumbs, area, panel } = layout;
 
         this.breadcrumbs(breadcrumbs);

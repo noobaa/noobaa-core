@@ -1,18 +1,14 @@
-import StateListener from 'state-listener';
-import { isString } from 'utils/core-utils';
-import { initializeForm, updateForm, disposeForm, resetForm } from 'dispatchers';
+import Observer from 'observer';
+import { state$ } from 'state';
+import { isString, mapValues } from 'utils/core-utils';
+import * as actions from 'dispatchers';
 import ko from 'knockout';
 
-const formNameSym = Symbol('formNameSym');
-const initializedSym = Symbol('initializedSym');
+const nameSym = Symbol('nameSym');
 
-export default class FormViewModel extends StateListener {
+export default class FormViewModal extends Observer {
     get formName() {
-        return this[formNameSym];
-    }
-
-    get initialized() {
-        return this[initializedSym];
+        return this[nameSym];
     }
 
     constructor(formName) {
@@ -21,58 +17,85 @@ export default class FormViewModel extends StateListener {
         }
 
         super();
-        this[formNameSym] = formName;
-        this[initializedSym] = false;
+        this[nameSym] = formName;
+        this.initialized = ko.observable();
+        this.validated = ko.observable();
+        this.valid = ko.observable();
+
+        this.observe(state$.get('forms', formName), this.onForm);
     }
 
-    selectForm({ forms }) {
-        return forms[this.formName];
+    onForm(form) {
+        if (!form) return;
+        const { fields, validated, errors } = form;
+
+        // Copy global state.
+        this.initialized(true);
+        this.validated(validated);
+        this.valid(Object.keys(errors).length === 0);
+
+        // Copy fields state.
+        for (const [name, field] of Object.entries(fields)) {
+            const { value, touched, dirty } = field;
+            const obs = this[name];
+
+            obs(value);
+            obs.touched(touched);
+            obs.dirty(dirty);
+            obs.error(errors[name]);
+        }
+
+        // Validate the form if not validated
+        if (form && !form.validated) {
+            const values = mapValues(fields, field => field.value);
+            const { errors, warnings } = this.validate(values);
+            actions.setFormValidity(this.formName, errors, warnings);
+        }
     }
 
-    selectState(state) {
-        return [ this.selectForm(state) ];
+    // Override this in derived class with form validation logic.
+    validate(/* formValues */) {
+        return {};
     }
 
-    updateForm(field, value) {
-        updateForm(this.formName, field, value);
-    }
 
-    initializeForm(values = {}) {
-        if (this[initializedSym]) {
+    initialize(values) {
+        if (this.initialized.peek()) {
             console.warn('Form already initialized, ignoring');
             return;
         }
 
-        initializeForm(this.formName, values);
-        this[initializedSym] = true;
-    }
-
-    resetForm() {
-        resetForm(this.formName);
-    }
-
-    copyFormValuesToProps(form) {
-        for (const [key, { value }] of Object.entries(form.fields)) {
-            if (ko.isObservable(this[key])) {
-                this[key](value);
-            } else {
-                this[key] = value;
-            }
+        for (const name of Object.keys(values)) {
+            const field = this[name] = ko.observable();
+            field.touched = ko.observable();
+            field.dirty = ko.observable();
+            field.error = ko.observable();
         }
+
+        actions.initializeForm(this.formName, values);
     }
 
-    bindToFormField(name) {
-        return ko.pureComputed({
-            read: this[name],
-            write: value => this.updateForm(name, value)
-        });
+    update(field, value) {
+        actions.updateForm(this.formName, field, value);
+    }
+
+    reset() {
+        actions.resetForm(this.formName);
+    }
+
+    touchAll() {
+        actions.touchForm(this.formName);
     }
 
     dispose() {
-        // super.dispose() must be called first in order to dispose of
-        // the state subscription before initiating the dispose from
-        // action.
         super.dispose();
-        disposeForm(this.formName);
+        actions.disposeForm(this.formName);
+    }
+
+    bindToField(fieldName) {
+        return ko.pureComputed({
+            read: this[fieldName],
+            write: val => this.update(fieldName, val)
+        });
     }
 }

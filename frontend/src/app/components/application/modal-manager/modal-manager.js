@@ -1,11 +1,12 @@
 import template from './modal-manager.html';
-import StateListener from 'state-listener';
+import Observer from 'observer';
+import state$ from 'state';
 import Modal from './modal';
 import ko from 'knockout';
 import { last } from 'utils/core-utils';
 import { closeActiveModal } from 'dispatchers';
 
-class ModalManagerViewModel extends StateListener {
+class ModalManagerViewModel extends Observer {
     constructor() {
         super();
 
@@ -14,13 +15,11 @@ class ModalManagerViewModel extends StateListener {
 
         // bind the closeTopmost modal the manager.
         this.closeActiveModal = closeActiveModal;
+
+        this.observe(state$.get('modals'), this.onModals);
     }
 
-    selectState(state) {
-        return [ state.modals ];
-    }
-
-    onState(modals) {
+    onModals(modals) {
         this.modals(
             modals.map(
                 (modalState, i) => {

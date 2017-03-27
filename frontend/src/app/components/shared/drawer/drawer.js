@@ -1,21 +1,20 @@
 import template from './drawer.html';
-import StateListener from 'state-listener';
+import Observer from 'observer';
+import state$ from 'state';
 import ko from 'knockout';
 import { closeDrawer } from 'dispatchers';
 import { runAsync } from 'utils/core-utils';
 
-class DrawerViewModel extends StateListener {
+class DrawerViewModel extends Observer {
     constructor() {
         super();
         this.component = ko.observable();
         this.opened = ko.observable();
+
+        this.observe(state$.get('drawer'), this.onDrawer);
     }
 
-    selectState(state) {
-        return [ state.drawer ];
-    }
-
-    onState(drawer) {
+    onDrawer(drawer) {
         if (!this.opened() || drawer) {
             this.component(drawer);
         }

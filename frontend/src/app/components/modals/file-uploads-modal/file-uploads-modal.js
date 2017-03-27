@@ -1,5 +1,6 @@
 import template from './file-uploads-modal.html';
-import StateListener from 'state-listener';
+import Observer from 'observer';
+import state$ from 'state';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
@@ -16,7 +17,7 @@ const columns = deepFreeze([
     'progress'
 ]);
 
-class FileUploadsModalViewModel extends StateListener {
+class FileUploadsModalViewModel extends Observer {
     constructor({ onClose }) {
         super();
 
@@ -39,13 +40,11 @@ class FileUploadsModalViewModel extends StateListener {
                 color: style['color7']
             }
         ];
+
+        this.observe(state$.get('objectUploads'), this.onUploads);
     }
 
-    selectState(state) {
-        return [ state.objectUploads ];
-    }
-
-    onState(objectUploads) {
+    onUploads(objectUploads) {
         const { stats, objects } = objectUploads;
         const progressText = this._getCurrentUploadProgressText(stats);
 

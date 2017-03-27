@@ -1,6 +1,7 @@
 import template from './alerts-pane.html';
-import StateListener from 'state-listener';
+import Observer from 'observer';
 import AlertRowViewModel from './alert-row';
+import state$ from 'state';
 import ko from 'knockout';
 import { fetchAlerts, updateAlerts, dropAlertsState } from 'dispatchers';
 import { deepFreeze, last } from 'utils/core-utils';
@@ -13,7 +14,7 @@ const severityOptions = deepFreeze([
     { label: 'minor', value: 'INFO' }
 ]);
 
-class AlertsPaneViewModel extends StateListener {
+class AlertsPaneViewModel extends Observer {
     constructor({ onClose }) {
         super();
 
@@ -32,13 +33,11 @@ class AlertsPaneViewModel extends StateListener {
             .subscribe(() => this.onFilter());
 
         this.scroll.subscribe(() => this.onScroll());
+
+        this.observe(state$.get('alerts'), this.onAlerts);
     }
 
-    selectState(state) {
-        return [ state.alerts ];
-    }
-
-    onState(alerts) {
+    onAlerts(alerts) {
         const { filter, loading, endOfList, list, loadError } = alerts;
         const { severity, read } = filter;
 

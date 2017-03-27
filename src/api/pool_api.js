@@ -261,13 +261,7 @@ module.exports = {
                 associated_accounts: {
                     type: 'array',
                     items: {
-                        type: 'object',
-                        required: ['name'],
-                        properties: {
-                            name: {
-                                type: 'string',
-                            },
-                        }
+                        type: 'string',
                     }
                 }
             },

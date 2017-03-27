@@ -1,8 +1,17 @@
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deletePool } from 'actions';
+import { deepFreeze } from 'utils/core-utils';
 import { getPoolStateIcon, getPoolCapacityBarValues,
     countNodesByState } from 'utils/ui-utils';
+
+const undeletableReasons = deepFreeze({
+    DEMO_POOL: 'Demo pools cannot be deleted',
+    SYSTEM_ENTITY: 'Cannot delete system defined default pool',
+    NOT_EMPTY: 'Cannot delete a pool which contains nodes',
+    IN_USE: 'Cannot delete a pool that is assigned to a bucket policy',
+    DEFAULT_RESOURCE: 'Cannot delete a pool that is used as a default resource by an account'
+});
 
 export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool, deleteGroup, poolsToBuckets) {
@@ -92,22 +101,11 @@ export default class PoolRowViewModel extends BaseViewModel {
                         return;
                     }
 
-                    if (isDemoPool()) {
-                        return 'Demo pools cannot be deleted';
-                    }
-
-                    const { undeletable } = pool();
-                    if (undeletable === 'SYSTEM_ENTITY') {
-                        return 'Cannot delete system defined default pool';
-                    }
-
-                    if (undeletable === 'NOT_EMPTY') {
-                        return 'Cannot delete a pool which contains nodes';
-                    }
-
-                    if (undeletable === 'IN_USE') {
-                        return 'Cannot delete a pool that is assigned to a bucket policy';
-                    }
+                    return undeletableReasons[
+                        (isDemoPool() && 'DEMO_POOL') ||
+                        pool().undeletable ||
+                        ''
+                    ];
                 }
             ),
             onDelete: () => deletePool(pool().name)

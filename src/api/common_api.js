@@ -230,7 +230,7 @@ module.exports = {
         },
 
         undeletable_enum: {
-            enum: ['SYSTEM_ENTITY', 'NOT_EMPTY', 'IN_USE'],
+            enum: ['SYSTEM_ENTITY', 'NOT_EMPTY', 'IN_USE', 'DEFAULT_RESOURCE'],
             type: 'string',
         },
 

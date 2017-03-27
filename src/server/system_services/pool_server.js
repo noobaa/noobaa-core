@@ -280,9 +280,7 @@ function get_associated_buckets_int(pool) {
 function get_associated_accounts(pool) {
     return system_store.data.accounts
         .filter(account => (account.default_pool && account.default_pool._id === pool._id))
-        .map(associated_account => ({
-            name: associated_account.email
-        }));
+        .map(associated_account => associated_account.email)
 }
 
 function find_pool_by_name(req) {
@@ -380,7 +378,7 @@ function check_pool_deletion(pool, nodes_aggregate_pool) {
     //Verify pool is not defined as default for any account
     var accounts = get_associated_accounts(pool);
     if (accounts.length) {
-        return 'IN_USE';
+        return 'DEFAULT_RESOURCE';
     }
 }
 

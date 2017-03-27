@@ -71,6 +71,10 @@ export default class AccountRowViewModel extends BaseViewModel {
                 ''
         );
 
+        this.defaultResource = ko.pureComputed(
+            () => (account() && account().default_pool) || '(not set)'
+        );
+
         this.deleteButton = {
             subject: 'account',
             group: deleteGroup,

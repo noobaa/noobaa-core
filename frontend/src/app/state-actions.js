@@ -1,12 +1,12 @@
 import Rx from 'rx';
 import { deepFreeze } from 'utils/core-utils';
 
-export const actions = new Rx.Subject();
+export const action$ = new Rx.Subject();
 
 export function dispatch(action) {
     if (!action.type) {
-        throw TypeError('Action missing a type');
+        throw TypeError('Invalid actions, missing a type property');
     }
 
-    actions.onNext(deepFreeze(action));
+    action$.onNext(deepFreeze(action));
 }

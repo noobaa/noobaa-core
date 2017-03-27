@@ -1,4 +1,6 @@
-export const all = Promise.all.bind(Promise);
+export function all(...args) {
+    return Promise.all(args);
+}
 
 export function execInOrder(list, executer) {
     let result = Promise.resolve();

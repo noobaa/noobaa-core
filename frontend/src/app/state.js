@@ -1,8 +1,21 @@
-import { actions } from 'state-actions';
-import { deepFreeze, noop } from 'utils/core-utils';
+import { action$ } from 'state-actions';
+import { deepFreeze, noop, get, equal } from 'utils/core-utils';
 import appReducer from 'reducers/app-reducer';
+import { Observable } from 'rx';
 
-const state = actions
+Observable.prototype.get = function(...path) {
+    return this
+        .map(state => get(state, path.join('.')))
+        .distinctUntilChanged(undefined, equal);
+};
+
+Observable.prototype.getMany = function(...paths) {
+    return Observable.combineLatest(
+        ...paths.map(path => Array.isArray(path) ? this.get(...path) : this.get(path))
+    );
+};
+
+const state$ = action$
     .startWith({ type: 'INIT_APPLICATION' })
     .tap(action => console.log('STATE ACTION DISPATCHED:', action))
     .scan((state, action) => appReducer(state, action), {})
@@ -10,11 +23,10 @@ const state = actions
     .tap(state => console.log('NEW STATE:', state))
     .shareReplay(1);
 
-state.subscribe(
+state$.subscribe(
     noop,
     error => console.error('STATE STREAM ERROR:', error),
     () => console.error('STATE STREAM TERMINATED')
 );
 
-export default state;
-
+export default state$;

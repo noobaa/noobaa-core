@@ -253,5 +253,6 @@ export default function register(ko) {
     ko.components.register('token-field',               require('./shared/token-field/token-field').default);
     ko.components.register('new-wizard',                require('./shared/new-wizard/new-wizard').default);
 
+    ko.components.register('val-message', require('./shared/val-message/val-message').default);
     /** INJECT:shared **/
 }

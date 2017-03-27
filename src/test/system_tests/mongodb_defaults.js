@@ -8,43 +8,50 @@
  * usage: mongo nbcore mongodb_init.js
  *
  */
-db.getSiblingDB("nbcore").datablocks.remove({});
-db.getSiblingDB("nbcore").datachunks.remove({});
-db.getSiblingDB("nbcore").objectparts.remove({});
-db.getSiblingDB("nbcore").objectmds.remove({});
-db.getSiblingDB("nbcore").tiers.update({
+db.datablocks.remove({});
+db.datachunks.remove({});
+db.objectparts.remove({});
+db.objectmds.remove({});
+db.tiers.update({
     name: {
         $nin: [/files#.*/]
     }
 }, {
     $set: {
-        pool: db.getSiblingDB("nbcore").pools.find({
+        pool: db.pools.find({
             name: 'first.pool'
         })[0]._id
     }
 });
-db.getSiblingDB("nbcore").pools.remove({
+db.pools.remove({
     name: {
         $ne: 'first.pool'
     }
 });
-db.getSiblingDB("nbcore").tiers.remove({
+db.tiers.remove({
     name: {
         $nin: [/files#.*/]
     }
 });
-db.getSiblingDB("nbcore").tieringpolicies.remove({
+db.tieringpolicies.remove({
     name: {
         $nin: [/files#.*/]
     }
 });
-db.getSiblingDB("nbcore").buckets.remove({
+db.buckets.remove({
     name: {
         $ne: 'files'
     }
 });
+db.nodes.remove({
+    name: {
+        $regex: 'noobaa-internal.*'
+    }
+});
 
-db.getSiblingDB("nbcore").buckets.updateMany({}, {
+
+
+db.buckets.updateMany({}, {
     $unset: {
         cloud_sync: true
     },
@@ -61,9 +68,9 @@ db.getSiblingDB("nbcore").buckets.updateMany({}, {
 });
 
 // We assign all of the nodes to the first.pool, because we've removed all of the pools
-db.getSiblingDB("nbcore").nodes.update({}, {
+db.nodes.update({}, {
     $set: {
-        pool: db.getSiblingDB("nbcore").pools.find({
+        pool: db.pools.find({
             name: 'first.pool'
         })[0]._id
     },
@@ -74,34 +81,34 @@ db.getSiblingDB("nbcore").nodes.update({}, {
     multi: true
 });
 // Removing all accounts except Support and Owner
-db.getSiblingDB("nbcore").accounts.remove({
+db.accounts.remove({
     email: {
         $nin: ['demo@noobaa.com', 'support@noobaa.com']
     }
 });
 
 // Update owner allowed_buckets to files bucket only
-db.getSiblingDB("nbcore").accounts.update({
+db.accounts.update({
     email: 'demo@noobaa.com'
 }, {
     $set: {
-        allowed_buckets: [db.getSiblingDB("nbcore").buckets.find({
+        allowed_buckets: [db.buckets.find({
             name: 'files'
         })[0]._id]
     }
 });
 
 // Removing roles of the deleted accounts, except demo and support (which doesn't have a role)
-db.getSiblingDB("nbcore").roles.remove({
+db.roles.remove({
     account: {
-        $nin: [db.getSiblingDB("nbcore").accounts.find({
+        $nin: [db.accounts.find({
             email: 'demo@noobaa.com'
         })[0]._id]
     }
 });
 
 //clean cloud sync credential cache
-db.getSiblingDB("nbcore").accounts.updateMany({}, {
+db.accounts.updateMany({}, {
     $unset: {
         sync_credentials_cache: true
     }

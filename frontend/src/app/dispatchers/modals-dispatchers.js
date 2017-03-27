@@ -210,7 +210,7 @@ export function openEditAccountS3AccessModal(accountEmail) {
             params: { accountEmail }
         },
         options: {
-            title: 'Account S3 Access'
+            title: 'Edit Account S3 Access'
         }
     });
 }

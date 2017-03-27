@@ -764,17 +764,10 @@ function get_node_installation_string(req) {
                         create_node_token
                     };
                     const base64_configuration = new Buffer(JSON.stringify(agent_conf)).toString('base64');
-                    switch (req.rpc_params.os_type) {
-                        case 'LINUX':
-                            return `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} /S /config ${base64_configuration}`;
-
-                        case 'WINDOWS':
-                            return `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`;
-
-                        default:
-                            throw new Error(`INVALID_OS_TYPE: ${req.rpc_params.os_type} is not supported`);
-                    }
-
+                    return {
+                        linux: `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} /S /config ${base64_configuration}`,
+                        windows: `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`
+                    };
                 });
         });
 }

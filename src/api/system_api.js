@@ -260,10 +260,6 @@ module.exports = {
                             type: 'string'
                         }
                     },
-                    os_type: {
-                        type: 'string',
-                        enum: ['LINUX', 'WINDOWS']
-                    },
                     roles: {
                         type: 'array',
                         items: {
@@ -278,7 +274,15 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'string',
+                type: 'object',
+                properties: {
+                    linux: {
+                        type: 'string'
+                    },
+                    windows: {
+                        type: 'string'
+                    }
+                }
             },
             auth: {
                 system: 'admin',

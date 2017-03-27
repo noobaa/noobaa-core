@@ -15,7 +15,7 @@ import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
 
 // Action dispathers from refactored code.
 import { fetchSystemInfo } from 'dispatchers';
-import { actions as stateActions } from 'state-actions';
+import { action$ } from 'state-actions';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;
@@ -41,7 +41,7 @@ function logAction(action, payload) {
 // This code will be removed after all referneces to modal.systemInfo will
 // be refactored to use the state stream.
 // ----------------------------------------------------------------------
-// stateActions
+// action$
 //     .filter(action => action.type === 'SESSION_RESTORED')
 //     .map(action => {
 //         const { account, system } = action;
@@ -521,13 +521,13 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
 
     } else {
         // Guarantee a minimum time of at least 500ms before resuming execution.
-        const [ config ] = await all([
+        const [ config ] = await all(
             api.cluster_server.read_server_config({
                 test_ph_connectivity: testPhonehomeConnectvity,
                 ph_proxy: phonehomeProxy
             }),
             sleep(750)
-        ]);
+        );
 
         serverInfo({
             initialized: false,
@@ -545,7 +545,7 @@ export function loadSystemInfo() {
     logAction('loadSystemInfo');
     fetchSystemInfo();
 }
-stateActions
+action$
     .filter(action => action.type === 'SYSTEM_INFO_FETCHED')
     .map(action => Object.assign({}, action.info, { endpoint }))
     .subscribe(model.systemInfo);
@@ -821,33 +821,18 @@ export function createSystem(
         .done();
 }
 
-export function createAccount(email, password, S3AccessList) {
-    logAction('createAccount', { email, password: '****', S3AccessList });
+// REFACTOR: This action was refactored into  dispatcher + state action.
+// This code will be removed after all referneces to modal.systemInfo will
+// be refactored to use the state stream.
+// ----------------------------------------------------------------------
+action$
+    .filter(action => action.type === 'ACCOUNT_CREATED')
+    .subscribe(() => loadSystemInfo());
 
-    model.createAccountState('IN_PROGRESS');
-    api.account.create_account({
-        name: email.split('@')[0],
-        email: email,
-        password: password,
-        must_change_password: true,
-        s3_access: Boolean(S3AccessList),
-        allowed_buckets: S3AccessList,
-        default_pool: S3AccessList && config.defaultPoolName  // TODO: should be user selected
-    })
-        .then(
-            () => {
-                model.createAccountState('SUCCESS');
-                loadSystemInfo();
-            }
-        )
-        .catch(
-            () => {
-                model.createAccountState('ERROR');
-                notify(`Creating account ${email} failed`, 'error');
-            }
-        )
-        .done();
-}
+action$
+    .filter(action => action.type === 'ACCOUNT_CREATION_FAILED')
+    .subscribe(action => notify(`Creating account ${action.email} failed`, 'error'));
+// ----------------------------------------------------------------------
 
 export function deleteAccount(email) {
     logAction('deleteAccount', { email });

@@ -29,7 +29,8 @@ function onInitForm(forms, { form: formName, values }) {
         [formName]: {
             fields: fields,
             errors: {},
-            warnings: {}
+            warnings: {},
+            validated: false
         }
     };
 }
@@ -46,9 +47,20 @@ function onResetForm(forms, { form: formName }) {
     const form = !forms[formName];
     if (form) return forms;
 
+    return { ...forms, [formName]: resetForm(form) };
+}
+
+function onSetFormValidity(forms, { form, errors, warnings }) {
     return {
         ...forms,
-        [formName]: resetForm(form)
+        [form]: setFormValidity(forms[form], errors, warnings)
+    };
+}
+
+function onTouchForm(forms, { form }) {
+    return {
+        ...forms,
+        [form]: touchForm(forms[form])
     };
 }
 
@@ -72,10 +84,8 @@ export function updateField(form, name, value) {
 
     return {
         ...form,
-        fields: {
-            ...form.fields,
-            [name]: updatedField
-        }
+        fields: { ...form.fields, [name]: updatedField },
+        validated: false
     };
 }
 
@@ -92,16 +102,34 @@ export function resetField(form, name) {
 
     return {
         ...form,
-        fields: {
-            ...form.fields,
-            [name]: updatedField
-        }
+        fields: { ...form.fields, [name]: updatedField }
     };
 }
 
 export function resetForm(form) {
     const fields = mapValues(form.fields, _restFieldState);
-    return { ...form, fields };
+    return {
+        ...form, fields,
+        errors: {},
+        warnings: {}
+    };
+}
+
+export function setFormValidity(form, errors, warnings) {
+    return {
+        ...form,
+        fields: form.fields,
+        errors,
+        warnings,
+        validated: true
+    };
+}
+
+export function touchForm(form) {
+    return {
+        ...form,
+        fields: mapValues(form.fields, field => ({ ...field, touched: true }))
+    };
 }
 
 // --------------------------------------------
@@ -117,8 +145,7 @@ function _restFieldState(field) {
 }
 
 function _removeKey(obj, key) {
-    const { [key]: t, ...rest } = obj;
-    t === t;
+    const { [key]: _, ...rest } = obj;
     return rest;
 }
 
@@ -130,6 +157,8 @@ export default createReducer({
     INIT_FORM: onInitForm,
     UPDATE_FORM: onUpdateForm,
     RESET_FORM: onResetForm,
+    SET_FORM_VALIDITY: onSetFormValidity,
+    TOUCH_FORM: onTouchForm,
     DISPOSE_FORM: onDisposeForm
 });
 

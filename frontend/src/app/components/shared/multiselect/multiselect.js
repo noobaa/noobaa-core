@@ -19,10 +19,9 @@ class MultiSelectViewModel extends Observer {
             )
         );
 
-        this.selected = ko.observable(Array.from(ko.unwrap(selected)));
-        if (ko.isObservable(selected)) {
-            this.observe(selected, val => this.selected(Array.from(val)));
-        }
+        this.selected = ko.isObservable(selected) ?
+            selected :
+            ko.observableArray(selected);
 
         this.disabled = disabled;
         this.insertValidationMessage = insertValidationMessage;

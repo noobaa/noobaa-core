@@ -241,3 +241,20 @@ export function runAsync(callback) {
     // TODO: Replace with a postMessage implementation for better results.
     setTimeout(() => callback(), 0);
 }
+
+export function reverse(iterable) {
+    return Array.from(iterable).reverse();
+}
+
+export function get(val, selector) {
+    for (const part of selector.split('.')) {
+        if (isUndefined(val)) break;
+        val = val[part];
+    }
+    return val;
+}
+
+export function equal(a, b) {
+    return a === b;
+}
+

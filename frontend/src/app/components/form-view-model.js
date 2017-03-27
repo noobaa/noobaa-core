@@ -1,5 +1,5 @@
 import Observer from 'observer';
-import { state$ } from 'state';
+import state$ from 'state';
 import { isString, mapValues } from 'utils/core-utils';
 import * as actions from 'dispatchers';
 import ko from 'knockout';
@@ -39,7 +39,10 @@ export default class FormViewModal extends Observer {
             const { value, touched, dirty } = field;
             const obs = this[name];
 
-            obs(value);
+            // If the value is array we want to be able pass the array to
+            // existing widgets which make it impossible to be immutable
+            // so we clone it.
+            obs(Array.isArray(value) ? Array.from(value) : value);
             obs.touched(touched);
             obs.dirty(dirty);
             obs.error(errors[name]);

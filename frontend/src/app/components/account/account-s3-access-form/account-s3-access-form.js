@@ -44,6 +44,13 @@ class AccountS3AccessFormViewModel extends BaseViewModel {
                 label: 'Permitted buckets',
                 value: allowedBuckets,
                 disabled: this.isS3AccessDisabled
+            },
+            {
+                label: 'Default resource for S3 applications',
+                value: ko.pureComputed(
+                    () => account().default_pool || '(not set)'
+                ),
+                disabled: this.isS3AccessDisabled
             }
         ];
 

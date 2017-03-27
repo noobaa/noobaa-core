@@ -24,5 +24,7 @@ export default class UploadRowViewModel {
             tooltip: error,
             css: error ? 'error' : (completed ? 'success' : '')
         });
+
+        return this;
     }
 }

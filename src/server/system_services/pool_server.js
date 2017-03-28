@@ -279,8 +279,12 @@ function get_associated_buckets_int(pool) {
 
 function get_associated_accounts(pool) {
     return system_store.data.accounts
-        .filter(account => (account.default_pool && account.default_pool._id === pool._id))
-        .map(associated_account => associated_account.email)
+        .filter(account => (
+            !account.is_support &&
+            account.default_pool &&
+            account.default_pool._id === pool._id
+        ))
+        .map(associated_account => associated_account.email);
 }
 
 function find_pool_by_name(req) {

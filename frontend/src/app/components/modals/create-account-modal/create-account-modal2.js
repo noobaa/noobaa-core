@@ -35,7 +35,7 @@ class CreateAccountWizardViewModel extends FromViewModel {
         // Projected state.
         this.resources = ko.observable();
         this.buckets = ko.observable();
-        this.usedEmails = undefined;
+        this.accounts = undefined;
 
         // Used to lock the ui.
         this.lock = ko.observable();
@@ -54,8 +54,13 @@ class CreateAccountWizardViewModel extends FromViewModel {
         this.observe(state$.getMany('nodePools', 'cloudResources'), this.onResources);
     }
 
+    onState(state) {
+        super.onState(state);
+        this.buckets(Object.keys(state.buckets));
+    }
+
     onAccounts(accounts) {
-        this.usedEmails = Object.keys(accounts);
+        this.accounts = Object.keys(accounts);
 
         const account = accounts[this.email()];
         if (account) {
@@ -74,17 +79,15 @@ class CreateAccountWizardViewModel extends FromViewModel {
     }
 
     onResources(resources) {
-        this.resources(
-            flatMap(
-                resources,
-                resourceGroup => Object.values(resourceGroup).map(
-                    ({ type = 'NODES_POOL', name: value, storage }) => {
-                        const { total, free: available_free, unavailable_free } = storage;
-                        const free = sumSize(available_free, unavailable_free);
-                        const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
-                        return { ...storageTypes[type], value, remark };
-                    }
-                )
+        this.resources = flatMap(
+            resources,
+            resourceGroup => Object.values(resourceGroup).map(
+                ({ type = 'NODES_POOL', name: value, storage }) => {
+                    const { total, free: available_free, unavailable_free } = storage;
+                    const free = sumSize(available_free, unavailable_free);
+                    const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
+                    return { ...storageTypes[type], value, remark };
+                }
             )
         );
     }
@@ -99,7 +102,7 @@ class CreateAccountWizardViewModel extends FromViewModel {
         } else if (!isEmail(email)) {
             errors.email = 'Please enter a valid email address';
 
-        } else if (this.usedEmails.includes(email)) {
+        } else if (this.accounts.includes(email)) {
             errors.email = 'Email address already in use by another account';
         }
 

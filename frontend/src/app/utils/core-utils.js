@@ -258,3 +258,7 @@ export function equal(a, b) {
     return a === b;
 }
 
+export function equalItems(arr1, arr2) {
+    return arr1.length === arr2.length &&
+        arr1.every((item, i) => item === arr2[i]);
+}

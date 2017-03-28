@@ -1,0 +1,14 @@
+<div class="pad alt-bg">
+    <h2 class="heading3">
+        Accounts using this resources as default placement: {{accountCount}}
+    </h2>
+    <p>
+        New buckets created using an S3 application using the following accounts credentials will have a data placement policy containing this pool as a sole resource
+    </p>
+</div>
+
+<ul class="list-no-style column greedy pad" ko.foreach="accounts">
+    <li class="push-next">
+        <a class="link" ko.text="email" ko.attr.href="href"></a>
+    </li>
+</ul>

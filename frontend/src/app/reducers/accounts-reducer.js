@@ -37,6 +37,16 @@ function onCreateAccount(accounts, { name, email }) {
     };
 }
 
+function onAccountCreationFailed(accounts, { email }) {
+    return {
+        ...accounts,
+        [email]: {
+            ...accounts.email,
+            mode: 'CREATION_FAILURE'
+        }
+    };
+}
+
 // ------------------------------
 // Local util functions
 // ------------------------------
@@ -47,5 +57,6 @@ function onCreateAccount(accounts, { name, email }) {
 export default createReducer({
     INIT_APPLICATION: onInitApplication,
     SYSTEM_INFO_FETCHED: onSystemInfoFetched,
-    CREATE_ACCOUNT: onCreateAccount
+    CREATE_ACCOUNT: onCreateAccount,
+    ACCOUNT_CREATION_FAILED: onAccountCreationFailed
 });

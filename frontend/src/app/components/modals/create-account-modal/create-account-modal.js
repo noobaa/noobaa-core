@@ -65,12 +65,19 @@ class CreateAccountWizardViewModel extends FromViewModel {
 
         const account = accounts[this.email()];
         if (account) {
-            if (account.mode === 'IN_CREATION') {
-                lockActiveModal();
-                this.lock(true);
+            switch(account.mode) {
+                case 'IN_CREATION':
+                    lockActiveModal();
+                    this.lock(true);
+                    break;
 
-            } else {
-                replaceWithAccountCreatedModal(account.email, this.password);
+                case 'CREATION_FAILURE':
+                    this.onClose();
+                    break;
+
+                default:
+                    replaceWithAccountCreatedModal(account.email, this.password);
+                    break;
             }
         }
     }

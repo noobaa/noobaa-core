@@ -394,15 +394,18 @@ module.exports = {
             }
         },
 
-        attempt_dns_resolve: {
-            doc: 'Attempt to resolve a dns name',
+        attempt_server_resolve: {
+            doc: 'Attempt to resolve a server name + ping',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['dns_name'],
+                required: ['server_name'],
                 properties: {
-                    dns_name: {
+                    server_name: {
                         type: 'string'
+                    },
+                    ping: {
+                        type: 'boolean'
                     }
                 },
             },

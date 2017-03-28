@@ -1835,6 +1835,21 @@ export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpSer
         .done();
 }
 
+export function attemptResolveNTPServer(ntpServerAddress, serverSecret) {
+    logAction('attemptResolveNTPServer', { ntpServerAddress });
+
+    api.system.attempt_server_resolve({
+        server_name: ntpServerAddress        
+    })
+        .then(
+            reply => sleep(500, reply)
+        )
+        .then(
+            ({ valid, reason }) => model.ntpResolutionState({ name, valid, reason, serverSecret })
+        )
+        .done();
+}
+
 export function notify(message, severity = 'info') {
     logAction('notify', { message, severity });
 
@@ -1858,8 +1873,8 @@ export function validateActivation(code, email) {
 export function attemptResolveSystemName(name) {
     logAction('attemptResolveSystemName', { name });
 
-    api.system.attempt_dns_resolve({
-        dns_name: name
+    api.system.attempt_server_resolve({
+        server_name: name
     })
         .then(
             reply => sleep(500, reply)

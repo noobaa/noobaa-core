@@ -2,8 +2,9 @@ import template from './edit-server-time-settings-modal.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import moment from 'moment-timezone';
-import { systemInfo, serverTime } from 'model';
-import { loadServerTime, updateServerClock, updateServerNTPSettings } from 'actions';
+import { inputThrottle } from 'config';
+import { systemInfo, serverTime, ntpResolutionState } from 'model';
+import { loadServerTime, updateServerClock, updateServerNTPSettings, attemptResolveNTPServer } from 'actions';
 
 const configTypes =  Object.freeze([
     { label: 'Manual Time', value: 'MANUAL' },
@@ -64,6 +65,33 @@ class EditServerTimeSettingsModalViewModel extends BaseViewModel {
             .extend({
                 isIPOrDNSName: true,
                 required: { message: 'Please enter an NTP server address' }
+            })
+            .extend({
+                rateLimit: {
+                    timeout: inputThrottle,
+                    method: 'notifyWhenChangesStop'
+                }
+            })
+            .extend({
+                required: {
+                    onlyIf: () => this.usingNTP(),
+                    message: 'Please enter a NTP server Name / IP'
+                },
+                isDNSName: true,
+                validation: {
+                    async: true,
+                    onlyIf: () => this.usingNTP(),
+                    validator: (name, _, callback) => {
+                        attemptResolveNTPServer(name, this.serverSecret);
+
+                        ntpResolutionState.once(
+                            ({ valid, serverSecret }) => callback({
+                                isValid: valid && serverSecret === this.serverSecret,
+                                message: 'Could not resolve NTP server'
+                            })
+                        );
+                    }
+                }
             });
 
 

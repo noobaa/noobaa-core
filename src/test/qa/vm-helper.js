@@ -130,6 +130,7 @@ function downloadOVF(service, vmObj, nfcLease, host_ip, ova_name, description) {
                     var ovfDescParams = new vim.OvfCreateDescriptorParams();
                     ovfDescParams.ovfFiles = [ovf_file];
                     ovfDescParams.description = description;
+                    ovfDescParams.name = 'NooBaa';
                     console.log(description);
                     return vimPort.createDescriptor(ovfManager, vmObj, ovfDescParams);
                 })

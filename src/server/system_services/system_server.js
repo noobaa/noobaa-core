@@ -24,6 +24,7 @@ const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const RpcError = require('../../rpc/rpc_error');
+const net_utils = require('../../util/net_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -1061,8 +1062,7 @@ function update_hostname(req) {
         .then(() => {
             // This will test if we've received IP or DNS name
             // This check is essential because there is no point of resolving an IP using DNS Servers
-            const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-            if (!req.rpc_params.hostname || regExp.test(req.rpc_params.hostname)) {
+            if (!req.rpc_params.hostname || net_utils.is_hostname(req.rpc_params.hostname)) {
                 return;
             }
             // Use defaults to add dns_name property without altering the original request

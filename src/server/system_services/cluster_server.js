@@ -22,6 +22,7 @@ const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const RpcError = require('../../rpc/rpc_error');
+const net_utils = require('../../util/net_utils');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const server_rpc = require('../server_rpc');
 const cluster_hb = require('../bg_services/cluster_hb');
@@ -501,7 +502,17 @@ function update_time_config(req) {
     var target_servers = [];
     let audit_desc = 'Server date and time successfully updated to: ';
     let audit_hostname;
-    return P.fcall(function() {
+    return P.resolve()
+        .then(() => {
+            if (time_config.ntp_server) {
+                return net_utils.ping(time_config.ntp_server)
+                    .catch(err => {
+                        throw new RpcError(`Failed pinging ${time_config.ntp_server} with ${err}`);
+                    });
+            }
+            return P.resolve();
+        })
+        .then(() => {
             if (time_config.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[time_config.target_secret];
                 if (!cluster_server) {
@@ -1116,8 +1127,7 @@ function read_server_config(req) {
             }
 
             const proxy = ph_proxy && `http://${ph_proxy.address}:${ph_proxy.port}`;
-            return phone_home_utils.verify_connection_to_phonehome(
-                { proxy },
+            return phone_home_utils.verify_connection_to_phonehome({ proxy },
                 test_ph_connectivity
             );
         })

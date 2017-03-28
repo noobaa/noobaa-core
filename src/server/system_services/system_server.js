@@ -245,7 +245,11 @@ function create_system(req) {
             if (!req.rpc_params.dns_name) {
                 return;
             }
-            return attempt_dns_resolve(req)
+            return attempt_server_resolve(_.defaults({
+                    rpc_params: {
+                        server_name: req.rpc_params.dns_name
+                    }
+                }, req))
                 .then(result => {
                     if (!result.valid) {
                         throw new Error('Could not resolve ' + req.rpc_params.dns_name +
@@ -1066,9 +1070,9 @@ function update_hostname(req) {
                 return;
             }
             // Use defaults to add dns_name property without altering the original request
-            return attempt_dns_resolve(_.defaults({
+            return attempt_server_resolve(_.defaults({
                     rpc_params: {
-                        dns_name: req.rpc_params.hostname
+                        server_name: req.rpc_params.hostname
                     }
                 }, req))
                 .then(result => {
@@ -1079,7 +1083,7 @@ function update_hostname(req) {
                 });
         })
         .then(() => {
-            dbg.log0('attempt_dns_resolve returned updating base address');
+            dbg.log0('attempt_server_resolve returned updating base address');
             delete req.rpc_params.hostname;
             return update_base_address(req);
         });
@@ -1087,22 +1091,38 @@ function update_hostname(req) {
 
 
 
-function attempt_dns_resolve(req) {
-    dbg.log0('attempt_dns_resolve', req.rpc_params.dns_name);
-    return P.promisify(dns.resolve)(req.rpc_params.dns_name)
-        .return({
-            valid: true
-        })
+function attempt_server_resolve(req) {
+    dbg.log0('attempt_server_resolve', req.rpc_params.server_name);
+    return P.promisify(dns.resolve)(req.rpc_params.server_name)
         .timeout(30000)
+        .then(() => {
+            dbg.log('resolution passed, testing ping');
+            if (req.rpc_params.ping) {
+                return net_utils.ping(req.rpc_params.server_name)
+                    .catch(err => {
+                        dbg.error('ping failed', err);
+                        return {
+                            valid: false,
+                            reason: err.code
+                        };
+                    })
+                    .return({
+                        valid: true
+                    });
+            }
+            return {
+                valid: true
+            };
+        })
         .catch(P.TimeoutError, () => {
-            dbg.error('attempt_dns_resolve timedout');
+            dbg.error('resolve timedout');
             return {
                 valid: false,
                 reason: 'TimeoutError'
             };
         })
         .catch(err => {
-            dbg.error('attempt_dns_resolve failed', err);
+            dbg.error('resolve failed', err);
             return {
                 valid: false,
                 reason: err.code
@@ -1241,7 +1261,7 @@ exports.log_client_console = log_client_console;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
-exports.attempt_dns_resolve = attempt_dns_resolve;
+exports.attempt_server_resolve = attempt_server_resolve;
 exports.update_phone_home_config = update_phone_home_config;
 exports.phone_home_capacity_notified = phone_home_capacity_notified;
 exports.update_hostname = update_hostname;

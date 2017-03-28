@@ -20,6 +20,9 @@
             <input type="text" placeholder="IP or DNS name" data-bind="
                 value: ntpServer
             "/>
+            <svg-icon class="validating-indicator spin"
+                        data-bind="visible: ntpServer.isValidating"
+                        params="name: 'in-progress'"></svg-icon>
         </editor>
     </div>
 

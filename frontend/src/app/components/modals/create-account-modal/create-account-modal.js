@@ -1,154 +1,141 @@
 import template from './create-account-modal.html';
-import createScreenTemplate from './create-screen.html';
-import reviewScreenTemplate from './review-screen.html';
-import newAccountMessageTemplate from './new-account-message.html';
-import BaseViewModel from 'components/base-view-model';
-import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
-import { sleep } from 'utils/promise-utils';
+import FromViewModel from 'components/form-view-model';
+import { deepFreeze, flatMap } from 'utils/core-utils';
+import { sumSize, formatSize } from 'utils/size-utils';
 import { randomString } from 'utils/string-utils';
-import { systemInfo, createAccountState } from 'model';
-import { createAccount } from 'actions';
+import state$ from 'state';
+import { isEmail } from 'validations';
+import { createAccount, lockActiveModal, replaceWithAccountCreatedModal } from 'dispatchers';
+import ko from 'knockout';
 
-const modalScreenMapping = deepFreeze({
-    0: {
-        title: 'Create Account',
-        css: 'modal-medium'
+const storageTypes = deepFreeze({
+    AWS: {
+        icon: 'aws-s3-resource-dark',
+        selectedIcon: 'aws-s3-resource-colored'
     },
-    1: {
-        title: 'Account Created Successfully',
-        severity: 'success',
-        css: 'modal-small'
+    AZURE: {
+        icon: 'azure-resource-dark',
+        selectedIcon: 'azure-resource-colored'
+    },
+    S3_COMPATIBLE: {
+        icon: 'cloud-resource-dark',
+        selectedIcon: 'cloud-resource-colored'
+    },
+    NODES_POOL: {
+        icon: 'nodes-pool'
     }
 });
 
-class CreateAccountWizardViewModel extends BaseViewModel {
+class CreateAccountWizardViewModel extends FromViewModel {
     constructor({ onClose }) {
-        super();
+        super('createAccount');
 
         this.onClose = onClose;
-        this.createScreenTemplate = createScreenTemplate;
-        this.reviewScreenTemplate = reviewScreenTemplate;
-        this.newAccountMessageTemplate = newAccountMessageTemplate;
-        this.screen = ko.observable(0);
-        this.working = ko.observable(false);
-        this.modalInfo = ko.pureComputed(
-            () => modalScreenMapping[this.screen()]
-        );
 
-        const accounts = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().accounts : []).map(
-                account => account.email
-            )
-        );
-
-        this.emailAddress = ko.observable()
-            .extend({
-                required: {
-                    onlyIf: () => !this.working(),
-                    message: 'Please enter an email address'
-                },
-                email: {
-                    onlyIf: () => !this.working(),
-                    message: 'Please enter a valid email address'
-                },
-                notIn: {
-                    onlyIf: () => !this.working(),
-                    params: accounts,
-                    message: 'An account with the same email address already exists'
-                }
-            });
-
-        this.enableS3Access = ko.observable(false);
-
-        this.buckets = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().buckets : []).map(
-                ({ name }) => name
-            )
-        );
-
-        const selectedBuckets = ko.observableArray();
-        this.selectedBuckets = ko.pureComputed({
-            read: () => this.enableS3Access() ? selectedBuckets() : [],
-            write: selectedBuckets
-        });
-
+        // Projected state.
+        this.resources = ko.observable();
+        this.buckets = ko.observable();
+        this.accounts = undefined;
         this.password = randomString();
 
-        this.userMessage = ko.pureComputed(
-            () => {
-                const { accounts = [], endpoint, ssl_port } = systemInfo();
-                const account = accounts.find( account => account.email === this.emailAddress() );
-                const access_keys = account ? account.access_keys[0] : {};
+        // Used to lock the ui.
+        this.lock = ko.observable();
 
-                const data = {
-                    serverAddress: `https://${endpoint}:${ssl_port}`,
-                    username: this.emailAddress(),
-                    password: this.password,
-                    accessKey: this.enableS3Access() ? access_keys.access_key : '',
-                    secretKey: this.enableS3Access() ? access_keys.secret_key : ''
-                };
+        // Initalize the form
+        this.initialize({
+            email: '',
+            enableS3Access: false,
+            selectedBuckets: [],
+            selectedResource: undefined
+        });
 
-                return ko.renderToString(newAccountMessageTemplate, data);
+        // Observe state.
+        this.observe(state$.get('buckets'), this.onBuckets);
+        this.observe(state$.get('accounts'), this.onAccounts);
+        this.observe(state$.getMany('nodePools', 'cloudResources'), this.onResources);
+    }
+
+    onState(state) {
+        super.onState(state);
+        this.buckets(Object.keys(state.buckets));
+    }
+
+    onAccounts(accounts) {
+        this.accounts = Object.keys(accounts);
+
+        const account = accounts[this.email()];
+        if (account) {
+            if (account.mode === 'IN_CREATION') {
+                lockActiveModal();
+                this.lock(true);
+
+            } else {
+                replaceWithAccountCreatedModal(account.email, this.password);
             }
-        );
-
-        this.errors = ko.validation.group([
-            this.emailAddress
-        ]);
-
-        this.addToDisposeList(
-            createAccountState.subscribe(
-                status => {
-                    switch(status) {
-                        case 'IN_PROGRESS':
-                            this.working(true);
-                            break;
-
-                        case 'SUCCESS':
-                            sleep(500).then(
-                                () => {
-                                    this.working(false);
-                                    this.screen(1);
-                                }
-                            );
-                            break;
-
-                        case 'ERROR':
-                            this.onClose();
-                            break;
-                    }
-                }
-            )
-        );
-    }
-
-
-    selectAllBuckets() {
-        this.selectedBuckets(
-            Array.from(this.buckets())
-        );
-    }
-
-    clearAllBuckets() {
-        this.selectedBuckets([]);
-    }
-
-    create() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
-
-        } else {
-            createAccount(
-                this.emailAddress(),
-                this.password,
-                this.enableS3Access() ? this.selectedBuckets() : undefined
-            );
         }
     }
 
-    close() {
-        this.onClose();
+    onBuckets(buckets) {
+        this.buckets(Object.keys(buckets));
+    }
+
+    onResources(resources) {
+        this.resources = flatMap(
+            resources,
+            resourceGroup => Object.values(resourceGroup).map(
+                ({ type = 'NODES_POOL', name: value, storage }) => {
+                    const { total, free: available_free, unavailable_free } = storage;
+                    const free = sumSize(available_free, unavailable_free);
+                    const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
+                    return { ...storageTypes[type], value, remark };
+                }
+            )
+        );
+    }
+
+    validate({ email, enableS3Access, selectedResource }) {
+        let errors = {};
+
+        // Validate email address
+        if (!email) {
+            errors.email = 'Email address is required';
+
+        } else if (!isEmail(email)) {
+            errors.email = 'Please enter a valid email address';
+
+        } else if (this.accounts.includes(email)) {
+            errors.email = 'Email address already in use by another account';
+        }
+
+        // Validate selected resource
+        if (enableS3Access && !selectedResource) {
+            errors.selectedResource = 'Please select a default resource for the account';
+        }
+
+        return { errors };
+    }
+
+    onSelectAllBuckets() {
+        this.update('selectedBuckets', this.buckets());
+    }
+
+    onClearAllBuckets() {
+        this.update('selectedBuckets', []);
+    }
+
+    onCreate() {
+        if (!this.valid()) {
+            this.touchAll();
+            return;
+        }
+
+        createAccount(
+            this.email(),
+            this.password,
+            this.enableS3Access(),
+            this.selectedResource(),
+            this.selectedBuckets()
+        );
     }
 }
 

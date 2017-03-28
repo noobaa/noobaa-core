@@ -32,6 +32,9 @@ function serve_http(req, res) {
                 }
                 // fork and run main() in separate process
                 return promise_utils.fork(__filename, [
+                    '--rpms',
+                    '--dir', '/usr',
+                    '--dir', '/root',
                     '--out', LICENSE_INFO_JSON_PATH,
                     '--sort', 'path',
                     // '--verbose',
@@ -93,7 +96,11 @@ function main() {
 
     return P.resolve()
         .then(() => detector.init_templates())
-        .then(() => scanner.scan())
+        .then(() => argv.rpms && scanner.scan_rpms())
+        .then(() =>
+            (_.isArray(argv.dir) && P.map(argv.dir, dir => scanner.scan_dir(dir))) ||
+            (_.isString(argv.dir) && scanner.scan_dir(argv.dir))
+        )
         .then(() => {
             console.log(`completed scan, found ${info.licenses.length} licenses`);
             if (argv.sort) {
@@ -105,13 +112,72 @@ function main() {
                     return 0;
                 });
             }
-            const text = JSON.stringify(info, null, '  ');
+            const text = argv.csv ?
+                format_csv(info) :
+                JSON.stringify(info, null, '  ');
             if (!argv.out) {
                 process.stdout.write(text);
                 return;
             }
             return fs.writeFileAsync(argv.out, text);
         });
+}
+
+function format_csv(info) {
+    const lines = [];
+    const dups = new Map();
+    lines.push([
+        '(Q1) Open Source Name/ Version Number', '', '',
+        '(Q2) License - provide hyperlink',
+        '(Q2.1) Is it dual licensed? (Y/N) If yes, which one do you use?',
+        '(Q2.2) For AGPL, GPL or LGPL - must it be licensed under a particular version? (if yes, indicate version)',
+        '(Q3) Licensor - Complete Copyright Notice',
+        '(Q4) Link to Source',
+        '(Q5) Company Products',
+        '(Q6) Function/ Use with Product/Importance of the Open Source Material',
+        '(Q7) Interaction with Product (e.g., dynamically or statically linked)',
+        '(Q8) Modified? (Y/N)',
+        '(Q9) Distribution- Downloadable/Internally used/ SaaS (if distributed, specify if distributed in source code or object code form)',
+        '(Q10) Compiled Together? (specify if Company\'s Products compiled together with the Open Source Material)'
+    ].map(x => `"${x || ''}"`).join(',') + '\n');
+    info.licenses.forEach(l => {
+        if (l.name || l.url) {
+            var k = `${l.name}\0${l.version}\0${l.url}`;
+            if (dups.has(k)) return;
+            dups.set(k, l);
+        }
+        lines.push([
+            // Q1
+            l.name, l.version, l.path,
+            // (Q2) License - provide hyperlink
+            l.license,
+            // (Q2.1) Is it dual-licensed? (Y/N) If yes, which one do you use?
+            'N',
+            // (Q2.2) For AGPL, GPL or LGPL - must it be licensed under a particular version? (if yes, indicate version)
+            'N',
+            // (Q3) Licensor - Complete Copyright Notice
+            'Refer to project source',
+            // (Q4) Link to Source
+            l.url,
+            // (Q5) Company Products
+            `NooBaa ${info.version}`,
+            // (Q6) Function/ Use with Product/Importance of the Open Source Material
+            '',
+            // (Q7) Interaction with Product (e.g., dynamically or statically linked)
+            l.path.includes('/native/') && 'Static linking' ||
+            l.path.includes('/node_modules/') && 'No linking' ||
+            'Dynamic linking',
+            // (Q8) Modified? (Y/N)
+            'N',
+            //(Q9) Distribution- Downloadable/Internally used/ SaaS (if distributed, specify if distributed in source code or object code form)
+            l.path.includes('/node_modules/') && 'Downloadable - Distributed as source' ||
+            'Downloadable - Distributed as binary',
+            // (Q10) Compiled Together? (specify if Company's Products compiled together with the Open Source Material)
+            l.path.includes('/native/') && 'Y' ||
+            'N',
+        ].map(x => `"${x || ''}"`).join(',') + '\n');
+    });
+    return lines.join('');
 }
 
 if (require.main === module) main();

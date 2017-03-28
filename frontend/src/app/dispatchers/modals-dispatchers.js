@@ -281,3 +281,18 @@ export function openCreateAccountModal() {
         }
     });
 }
+
+export function replaceWithAccountCreatedModal(account, password) {
+    dispatch({
+        type: 'REPLACE_MODAL',
+        component: {
+            name:'account-created-modal',
+            params: { account, password }
+        },
+        options: {
+            title: 'Account Created Successfully',
+            severity: 'success',
+            size: 'small'
+        }
+    });
+}

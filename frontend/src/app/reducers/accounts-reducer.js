@@ -15,15 +15,18 @@ function onInitApplication() {
 
 function onSystemInfoFetched(_, { info }) {
     return keyByProperty(info.accounts, 'email', account => {
-        const {
-            name,
-            email,
-            has_s3_access: hasS3Access,
-            allowed_buckets: allowedBuckets,
-            default_pool: defaultResource
-         } = account;
-
-        return { name, email, hasS3Access, allowedBuckets, defaultResource };
+        const accessKeys = account.access_keys[0];
+        return {
+            name: account.name,
+            email: account.email,
+            hasS3Access: account.has_s3_access,
+            allowedBuckets: account.allowed_buckets,
+            defaultResource: account.default_pool,
+            accessKeys: {
+                accessKey: accessKeys.access_key,
+                secretKey: accessKeys.secret_key
+            }
+        };
     });
 }
 

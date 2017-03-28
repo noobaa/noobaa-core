@@ -50,6 +50,14 @@ function onUpdateModal(modals, action) {
     }
 }
 
+function onReplaceModal(modals, action) {
+    if (modals.length === 0) {
+        return modals;
+    }
+
+    return onOpenModal(modals.slice(0, -1), action);
+}
+
 function onLockActiveModal(modals) {
     const backdropClose = false;
     const closeButton = 'disabled';
@@ -116,6 +124,7 @@ export default createReducer({
     INIT_APPLICATION: onInitApplication,
     OPEN_MODAL: onOpenModal,
     UPDATE_MODAL: onUpdateModal,
+    REPLACE_MODAL: onReplaceModal,
     LOCK_ACTIVE_MODAL: onLockActiveModal,
     CLOSE_ACTIVE_MODAL: onCloseActiveModal,
     UPGRADE_SYSTEM: onUpgradeSystem,

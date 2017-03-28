@@ -5,7 +5,7 @@ import * as routes from 'routes';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 
-// TODO: Replace with data from the state$.
+// TODO: Replace with data from the state$ when available.
 import { routeContext } from 'model';
 
 class PoolAssociatedAccountsListViewModel extends Observer {

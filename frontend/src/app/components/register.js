@@ -70,7 +70,8 @@ export default function register(ko) {
     ko.components.register('assign-nodes-modal',                    require('./modals/assign-nodes-modal/assign-nodes-modal').default);
     ko.components.register('update-system-name-modal',              require('./modals/update-system-name-modal/update-system-name-modal').default);
     ko.components.register('system-upgrade-modal',                  require('./modals/system-upgrade-modal/system-upgrade-modal').default);
-    ko.components.register('create-account-modal',                  require('./modals/create-account-modal/create-account-modal2').default);
+    ko.components.register('create-account-modal',                  require('./modals/create-account-modal/create-account-modal').default);
+    ko.components.register('account-created-modal',                 require('./modals/account-created-modal/account-created-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------

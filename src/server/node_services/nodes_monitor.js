@@ -1239,7 +1239,11 @@ class NodesMonitor extends EventEmitter {
         let io_detention_recent_issues = 0;
 
         if (item.node.issues_report) {
-            dbg.log0('_update_status:', item.node.name, 'issues:', item.node.issues_report);
+            // only print to log if the node had issues in the last hour
+            let last_issue = item.node.issues_report[item.node.issues_report.length - 1];
+            if (now - last_issue.time < 60 * 60 * 1000) {
+                dbg.log0('_update_status:', item.node.name, 'issues:', item.node.issues_report);
+            }
             for (const issue of item.node.issues_report) {
                 // tampering is a trust issue, but maybe we need to refine this
                 // and only consider trust issue after 3 tampering strikes

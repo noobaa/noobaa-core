@@ -43,11 +43,20 @@ function onUpdateForm(forms, { form, field, value }) {
     };
 }
 
-function onResetForm(forms, { form: formName }) {
-    const form = !forms[formName];
-    if (form) return forms;
+function onResetForm(forms, { form }) {
+    if (!forms[form]) return forms;
+    return {
+        ...forms,
+        [form]: resetForm(forms[form])
+    };
+}
 
-    return { ...forms, [formName]: resetForm(form) };
+function onResetFormField(forms, { form, field }) {
+    if (!forms[form]) return forms;
+    return {
+        ...forms,
+        [form]: resetField(form, field)
+    };
 }
 
 function onSetFormValidity(forms, { form, errors, warnings }) {
@@ -157,6 +166,7 @@ export default createReducer({
     INIT_FORM: onInitForm,
     UPDATE_FORM: onUpdateForm,
     RESET_FORM: onResetForm,
+    RESET_FORM_FIELD: onResetFormField,
     SET_FORM_VALIDITY: onSetFormValidity,
     TOUCH_FORM: onTouchForm,
     DISPOSE_FORM: onDisposeForm

@@ -37,23 +37,6 @@ function logAction(action, payload) {
 // Applicaiton start action
 // -----------------------------------------------------
 
-// REFACTOR: This action was refactored into dispatcher + state action.
-// This code will be removed after all referneces to modal.systemInfo will
-// be refactored to use the state stream.
-// ----------------------------------------------------------------------
-// action$
-//     .filter(action => action.type === 'SESSION_RESTORED')
-//     .map(action => {
-//         const { account, system } = action;
-//         return {
-//             user: account.email,
-//             system: system.name,
-//             mustChangePassword: account.must_change_password
-//         };
-//     })
-//     .subscribe(model.sessionInfo);
-// ----------------------------------------------------------------------
-
 export function start() {
     logAction('start');
 
@@ -545,11 +528,6 @@ export function loadSystemInfo() {
     logAction('loadSystemInfo');
     fetchSystemInfo();
 }
-action$
-    .filter(action => action.type === 'SYSTEM_INFO_FETCHED')
-    .map(action => Object.assign({}, action.info, { endpoint }))
-    .subscribe(model.systemInfo);
-// ----------------------------------------------------------------------
 
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
     logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });
@@ -820,19 +798,6 @@ export function createSystem(
         )
         .done();
 }
-
-// REFACTOR: This action was refactored into  dispatcher + state action.
-// This code will be removed after all referneces to modal.systemInfo will
-// be refactored to use the state stream.
-// ----------------------------------------------------------------------
-action$
-    .filter(action => action.type === 'ACCOUNT_CREATED')
-    .subscribe(() => loadSystemInfo());
-
-action$
-    .filter(action => action.type === 'ACCOUNT_CREATION_FAILED')
-    .subscribe(action => notify(`Creating account ${action.email} failed`, 'error'));
-// ----------------------------------------------------------------------
 
 export function deleteAccount(email) {
     logAction('deleteAccount', { email });
@@ -2035,3 +2000,33 @@ function notifyUploadCompleted(uploaded, failed) {
         );
     }
 }
+
+// ----------------------------------------------------------------------
+// TODO: Bridge between old and new architectures. will be removed after
+// appropriate sections are moved to the new architecture.
+// ----------------------------------------------------------------------
+action$.subscribe(action => {
+    switch(action.type) {
+        case 'SYSTEM_INFO_FETCHED':
+            model.systemInfo({ ...action.info, endpoint });
+            break;
+
+        case 'ACCOUNT_CREATED':
+            loadSystemInfo();
+            break;
+
+        case 'ACCOUNT_CREATION_FAILED':
+            notify(`Creating account ${action.email} failed`, 'error');
+            break;
+
+        case 'ACCOUNT_S3_ACCESS_UPDATED':
+            notify(`${action.email} S3 access updated successfully`, 'success');
+            loadSystemInfo();
+            break;
+
+        case 'ACCOUNT_S3_ACCESS_UPDATE_FAILED':
+            notify(`Updating ${action.email} S3 access failed`, 'error');
+            break;
+    }
+});
+// ----------------------------------------------------------------------

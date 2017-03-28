@@ -246,8 +246,8 @@ export function reverse(iterable) {
     return Array.from(iterable).reverse();
 }
 
-export function get(val, selector) {
-    for (const part of selector.split('.')) {
+export function get(val, path) {
+    for (const part of path) {
         if (isUndefined(val)) break;
         val = val[part];
     }

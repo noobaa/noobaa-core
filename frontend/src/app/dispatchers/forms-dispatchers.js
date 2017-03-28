@@ -12,6 +12,10 @@ export function resetForm(form) {
     dispatch({ type: 'REST_FORM', form });
 }
 
+export function restFormField(form, field) {
+    dispatch({ type: 'REST_FORM_FIELD', form, field });
+}
+
 export function setFormValidity(form, errors = {}, warnings = {}) {
     dispatch({ type: 'SET_FORM_VALIDITY', form, errors, warnings });
 }

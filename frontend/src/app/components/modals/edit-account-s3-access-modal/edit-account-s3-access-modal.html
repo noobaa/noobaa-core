@@ -1,27 +1,33 @@
- <h2 class="heading3">Allow S3 access for this user</h2>
-<toggle-switch class="push-next" params="
-    value: hasS3Access,
-    onLabel: 'Enabled',
-    offLabel: 'Disabled'
-"></toggle-switch>
+<editor params="label: 'S3 Access'">
+    <toggle-switch params="
+        value: bindToField('enableS3Access'),
+        onLabel: 'Enabled',
+        offLabel: 'Disabled'
+    "></toggle-switch>
+</editor>
 
-<div class="row content-middle push-prev">
-    <h2 class="heading3 greedy push-next" data-bind="
-        css: { disabled: !hasS3Access() }
-    ">
+<editor params="label: 'S3 default placement', disabled: !enableS3Access()">
+    <dropdown params="
+        options: resources,
+        selected: bindToField('selectedResource'),
+        disabled: !enableS3Access(),
+        placeholder: 'Choose pool...'
+    "></dropdown>
+     <val-message params="field: selectedResource"></val-message>
+</editor>
+
+
+<div class="row content-middle push-prev push-next-half">
+    <p class="greedy push-next" ko.css.disabled="!enableS3Access">
         Edit S3 access permissions for buckets
-    </h2>
+    </p>
 
     <div>
-        <button class="link alt-colors" data-bind="
-            click: selectAllBuckets, enable: hasS3Access
-        ">
+        <button class="link alt-colors" ko.click="selectAllBuckets" ko.enable="enableS3Access">
             Select all
         </button>
         |
-        <button class="link alt-colors" data-bind="
-            click: clearAllBuckets, enable: hasS3Access
-        ">
+        <button class="link alt-colors" ko.click="clearAllBuckets" ko.enable="enableS3Access">
             Clear
         </button>
     </div>
@@ -29,11 +35,11 @@
 
 <multiselect class="push-next greedy" params="
     options: buckets,
-    selected: selectedBuckets,
-    disabled: !hasS3Access()">
+    selected: bindToField('selectedBuckets'),
+    disabled: !enableS3Access()">
 </multiselect>
 
 <div class="row align-end content-middle">
-    <button class="link alt-colors push-next" data-bind="click: cancel">Cancel</button>
-    <button class="btn" data-bind="click: save">Save</button>
+    <button class="link alt-colors push-next" ko.click="cancel">Cancel</button>
+    <button class="btn" ko.click="save">Save</button>
 </div>

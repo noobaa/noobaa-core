@@ -3,22 +3,31 @@
     step: step(),
     onCancel: () => onClose(),
     onNext: next => onNext(next),
-    onPrev: prev => updateForm('step', prev),
+    onPrev: prev => onPrev(prev),
     onComplete: () => onClose()
 ">
     <section class="column greedy">
-        <h2 class="heading3">Select OS Type</h2>
-        <radio-group class="push-next" params="
-            options: osTypeOptions,
-            selected: bindToFormField('osType'),
-            hasFocus: true
-        "></radio-group>
+        <h2 class="heading3">Choose a pool to assign the installed nodes to:</h2>
+        <p class="push-next">
+            Each installed node has to be assigned to a nodes pool according to the administrator reflection on specific characteristics of these nodes. Node can be assigned later on.
+        </p>
 
-        <h2 class="heading3">Choose drives for installation</h2>
+        <editor params="label: 'Target Pool'">
+            <dropdown params="
+                options: pools,
+                selected: bindToField('targetPool'),
+                placeholder: 'Choose pool...'
+            "></dropdown>
+            <val-message params="field: targetPool"></val-message>
+        </editor>
+    </section>
+
+    <section class="column greedy">
+        <h2 class="heading3">Choose drives for installation:</h2>
         <radio-btn params="
             group: 'drives',
             value: false,
-            selected: bindToFormField('excludeDrives'),
+            selected: bindToField('excludeDrives'),
             label: 'Include all drives in installed nodes'
         "></radio-btn>
         <p class="push-next">
@@ -28,19 +37,19 @@
         <radio-btn params="
             group: 'drives',
             value: true,
-            selected: bindToFormField('excludeDrives'),
+            selected: bindToField('excludeDrives'),
             label: 'Exclude drives for this installation'
         "></radio-btn>
         <p ko.css.disabled="!excludeDrives()">
             Choose the drives you which to exclude from this installation:
         </p>
         <token-field class="column greedy" params="
-            tokens: bindToFormField('excludedDrives'),
-            placeholder: tokensPlaceholder,
+            tokens: bindToField('excludedDrives'),
+            placeholder: drivesInputPlaceholder,
             disabled: !excludeDrives()
         "></token-field>
         <p class="remark" ko.css.disabled="!excludeDrives()">
-            Type {{subject}} names accurately, click enter after each drive name.
+            Type drives names accurately, click enter after each drive name.
         </p>
     </section>
 
@@ -49,11 +58,28 @@
         <p class="push-next">
             Use your distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server.
         </p>
-        <p ko.text="userInstruction" class="push-next"></p>
-        <div class="pad alt-bg config-box row greedy push-next" ko.if="command">
-            <p class="text-tech greedy" ko.text="command"></p>
-            <copy-to-clipboard-button params="value: command">
-            </copy-to-clipboard-button>
+        <p class="push-next">
+            Use the following commnad in your distribution tool accurding to the OS type:
+        </p>
+
+        <div class="greedy tabs push-next">
+            <nav data-bind="foreach: osTypes">
+                <a ko.text="label"
+                    ko.css.selected="$parent.selectedOs.is(value)"
+                    ko.click="() => $parent.onTab(value)"
+                ></a>
+            </nav>
+
+            <div class="tabs-row alt-bg" data-bind="foreach: osTypes">
+                <div class="tab pad row config-box"
+                    ko.css.selected="$parent.selectedOs.is(value)"
+                    ko.let.command="$parent.commands()[value]"
+                >
+                    <p class="text-tech greedy" ko.text="command"></p>
+                    <copy-to-clipboard-button params="value: command">
+                    </copy-to-clipboard-button>
+                </div>
+            </div>
         </div>
     </section>
 </new-wizard>

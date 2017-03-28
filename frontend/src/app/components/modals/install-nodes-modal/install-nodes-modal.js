@@ -1,77 +1,95 @@
 import template from './install-nodes-modal.html';
 import FormViewModel from 'components/form-view-model';
+import state$ from 'state';
 import { deepFreeze } from 'utils/core-utils';
 import ko from 'knockout';
-import { fetchNodeInstallationCommand } from 'dispatchers';
+import { fetchNodeInstallationCommands } from 'dispatchers';
 
 const steps = deepFreeze([
-    'Configure',
+    'Assign',
+    'Select Drives',
     'Install'
 ]);
 
-const osTypeOptions = deepFreeze([
+const osTypes = deepFreeze([
     {
         value: 'LINUX',
-        label: 'linux'
+        label: 'Linux'
     },
     {
         value: 'WINDOWS',
-        label: 'windows'
+        label: 'Windows'
     }
 ]);
+
+const drivesInputPlaceholder =
+    `e.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
 
 class InstallNodeWizardViewModel extends FormViewModel {
     constructor({ onClose }) {
         super('installNodes');
 
         this.steps = steps;
-        this.osTypeOptions = osTypeOptions;
+        this.osTypes = osTypes;
+        this.drivesInputPlaceholder = drivesInputPlaceholder;
         this.onClose = onClose;
-        this.step = ko.observable();
-        this.osType = ko.observable();
-        this.excludeDrives = ko.observable();
-        this.excludedDrives = ko.observable();
-        this.command = ko.observable();
-        this.subject = ko.observable();
-        this.tokensPlaceholder = ko.observable();
-        this.userInstruction = ko.observable();
+        this.pools = ko.observable();
+
+        this.initialize({
+            step: 0,
+            targetPool: undefined,
+            excludeDrives: false,
+            excludedDrives: [],
+            selectedOs: 'LINUX',
+            commands: { LINUX: '', WINDOWS: '' }
+        });
+
+        this.observe(state$.get('nodePools'), this.onPools);
     }
 
-    onState(form) {
-        if (!form) {
-            this.initializeForm({
-                step: 0,
-                osType: 'LINUX',
-                excludeDrives: false,
-                excludedDrives: [],
-                command: ''
-            });
-
-        } else {
-            this.copyFormValuesToProps(form);
-
-            if (this.osType() === 'LINUX') {
-                this.subject('mount');
-                this.tokensPlaceholder('Type mounts here (e.g. /mnt/mydata)');
-                this.userInstruction('Open a linux shell to a target  machine and run the following command');
-
-            } else if (this.osType() === 'WINDOWS') {
-                this.subject('drive');
-                this.tokensPlaceholder('Type drives here (e.g. c:\\)');
-                this.userInstruction('Open an elevated Powershell (run as administrator) to a target machine and run the following command');
-            }
-        }
+    onPools(pools) {
+        this.pools(Object.keys(pools));
     }
 
-    onNext() {
-        const { step, command , osType, excludeDrives, excludedDrives } = this;
+    onForm(form) {
+        super.onForm(form);
+    }
 
-        if (step() === 0 && !command()) {
-            const drives = excludeDrives() ? excludedDrives() : [];
-            fetchNodeInstallationCommand(osType(), drives);
+    validate(form) {
+        let errors = {};
+
+        const { step, targetPool } = form;
+        if (step === 0 && !targetPool) {
+            errors.targetPool = 'Please select a nodes pool';
         }
 
-        this.updateForm('step', step() + 1);
+        return { errors };
+    }
+
+    onTab(os) {
+        this.update('selectedOs', os);
+    }
+
+    onNext(next) {
+        if (!this.valid()) {
+            this.touchAll();
+            return;
+        }
+
+        if (next === 2) {
+            const { targetPool, excludeDrives, excludedDrives } = this;
+            fetchNodeInstallationCommands(
+                targetPool(),
+                excludeDrives() ? excludedDrives() : []
+            );
+        }
+
+        this.update('step', next);
+    }
+
+    onPrev(prev) {
+        this.update('step', prev);
+        this.resetField('commands');
     }
 }
 

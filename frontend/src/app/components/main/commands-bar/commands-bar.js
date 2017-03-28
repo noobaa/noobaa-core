@@ -13,7 +13,7 @@ class CommandBarViewModel extends Observer {
         this.isRefreshSpinning = ko.observable(false);
         this.unreadAlertsCount = ko.observable();
 
-        this.observe(state$.get('alerts.unreadCount'), this.unreadAlertsCount);
+        this.observe(state$.get('alerts', 'unreadCount'), this.unreadAlertsCount);
 
         getUnreadAlertsCount();
     }

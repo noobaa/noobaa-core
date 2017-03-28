@@ -1,6 +1,6 @@
 <div class="input row multiline content-start token-field-wrapper"
     ko.css.focus="hasFocus"
-    ko.css.disabeld="disabled"
+    ko.css.disabled="disabled"
     ko.event="eventHandlers"
     ko.scroll="scroll"
 >
@@ -11,7 +11,9 @@
             ko.text="$data"
         ></span>
         <button class="icon-btn no-outline token-remove-btn"
-            ko.click="() => $component.onRemoveToken($index())">
+            ko.click="() => $component.onRemoveToken($index())"
+            ko.disable="$component.disabeld
+        ">
             <svg-icon params="name: 'x'"></svg-icon>
         </button>
     </div>

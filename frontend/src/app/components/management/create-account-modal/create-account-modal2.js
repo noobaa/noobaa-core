@@ -1,10 +1,12 @@
-import template from './edit-account-s3-access-modal.html';
-import FormViewModel from 'components/form-view-model';
-import state$ from 'state';
-import ko from 'knockout';
+import template from './create-account-modal2.html';
+import FromViewModel from 'components/form-view-model';
 import { deepFreeze, flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
-import { updateAccountS3Access } from 'dispatchers';
+import { randomString } from 'utils/string-utils';
+import state$ from 'state';
+import { isEmail } from 'validations';
+import { createAccount, lockActiveModal } from 'dispatchers';
+import ko from 'knockout';
 
 const storageTypes = deepFreeze({
     AWS: {
@@ -24,18 +26,47 @@ const storageTypes = deepFreeze({
     }
 });
 
-class EditAccountS3AccessModalViewModel extends FormViewModel {
-    constructor({ accountEmail, onClose }) {
-        super('editAccountS3Access');
+class CreateAccountWizardViewModel extends FromViewModel {
+    constructor({ onClose }) {
+        super('createAccount');
 
         this.onClose = onClose;
-        this.email = accountEmail;
-        this.buckets = ko.observable();
-        this.resources = ko.observable();
 
+        // Projected state.
+        this.resources = ko.observable();
+        this.buckets = ko.observable();
+        this.usedEmails = undefined;
+
+        // Used to lock the ui.
+        this.lock = ko.observable();
+
+        // Initalize the form
+        this.initialize({
+            email: '',
+            enableS3Access: false,
+            selectedBuckets: [],
+            selectedResource: undefined
+        });
+
+        // Observe state.
         this.observe(state$.get('buckets'), this.onBuckets);
+        this.observe(state$.get('accounts'), this.onAccounts);
         this.observe(state$.getMany('nodePools', 'cloudResources'), this.onResources);
-        this.observe(state$.get('accounts', accountEmail), this.onAccount);
+    }
+
+    onAccounts(accounts) {
+        this.usedEmails = Object.keys(accounts);
+
+        const account = accounts[this.email()];
+        if (account) {
+            if (account.mode === 'IN_CREATION') {
+                lockActiveModal();
+                this.lock(true);
+            } else {
+                this.onClose();
+                // this.replaceModal();
+            }
+        }
     }
 
     onBuckets(buckets) {
@@ -58,20 +89,19 @@ class EditAccountS3AccessModalViewModel extends FormViewModel {
         );
     }
 
-    onAccount(account) {
-        if (this.initialized()) {
-            return;
-        }
-
-        this.initialize({
-            enableS3Access: account.hasS3Access,
-            selectedBuckets: account.allowedBuckets || [],
-            selectedResource: account.defaultResource
-        });
-    }
-
-    validate({ enableS3Access, selectedResource }) {
+    validate({ email, enableS3Access, selectedResource }) {
         let errors = {};
+
+        // Validate email address
+        if (!email) {
+            errors.email = 'Email address is required';
+
+        } else if (!isEmail(email)) {
+            errors.email = 'Please enter a valid email address';
+
+        } else if (this.usedEmails.includes(email)) {
+            errors.email = 'Email address already in use by another account';
+        }
 
         // Validate selected resource
         if (enableS3Access && !selectedResource) {
@@ -81,36 +111,31 @@ class EditAccountS3AccessModalViewModel extends FormViewModel {
         return { errors };
     }
 
-    selectAllBuckets() {
+    onSelectAllBuckets() {
         this.update('selectedBuckets', this.buckets());
     }
 
-    clearAllBuckets() {
+    onClearAllBuckets() {
         this.update('selectedBuckets', []);
     }
 
-    save() {
+    onCreate() {
         if (!this.valid()) {
             this.touchAll();
             return;
         }
 
-        updateAccountS3Access(
-            this.email,
+        createAccount(
+            this.email(),
+            randomString(),
             this.enableS3Access(),
             this.selectedResource(),
             this.selectedBuckets()
         );
-
-        this.onClose();
-    }
-
-    cancel() {
-        this.onClose();
     }
 }
 
 export default {
-    viewModel: EditAccountS3AccessModalViewModel,
+    viewModel: CreateAccountWizardViewModel,
     template: template
 };

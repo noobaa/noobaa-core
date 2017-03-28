@@ -52,7 +52,10 @@
 
     &:focus, &.focus {
         outline: none;
-        border-color: @color14;
+
+        &:not(.disabled) {
+            border-color: @color14;
+        }
     }
 
     &.invalid {

@@ -11,11 +11,11 @@ var ssh2 = require('ssh2');
 var argv = require('minimist')(process.argv);
 
 var ssh_client = new ssh2.Client();
-var host_ip = argv.host || '10.25.12.94';
+var host_ip = argv.host || '10.25.12.86';
 var host_user = argv.host_user || 'root';
 var host_password = argv.host_password || 'roonoobaa';
 var vm_name = argv.guest || 'NooBaa-Community-Edition';
-var vm_ip = argv.guest_ip || '10.25.12.63';
+var vm_ip = argv.guest_ip || '10.25.12.92';
 var vm_user = argv.guest_user || 'noobaaroot';
 var vm_password = argv.guest_password || 'b2633625';
 var snap_name = argv.base_snapshot || '0.8 official after wizard';

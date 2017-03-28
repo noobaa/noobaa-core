@@ -102,17 +102,6 @@ class LicenseScanner extends events.EventEmitter {
         this._scanned_count = 0;
     }
 
-    scan() {
-        if (process.platform !== 'linux') {
-            return this.scan_dir('.');
-        }
-        return P.join(
-            this.scan_rpms(),
-            this.scan_dir('/usr'),
-            this.scan_dir('/root')
-        );
-    }
-
     scan_rpms() {
         return promise_utils.exec(
                 `rpm -qa --qf "%{NAME}|%{VERSION}|%{URL}|%{LICENSE}\n"`,

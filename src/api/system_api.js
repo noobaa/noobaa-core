@@ -252,7 +252,6 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['os_type'],
                 properties: {
                     exclude_drives: {
                         type: 'array',
@@ -276,10 +275,10 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    linux: {
+                    LINUX: {
                         type: 'string'
                     },
-                    windows: {
+                    WINDOWS: {
                         type: 'string'
                     }
                 }

@@ -86,6 +86,10 @@ export default class FormViewModal extends Observer {
         actions.resetForm(this.formName);
     }
 
+    resetField(field) {
+        actions.restFormField(this.formName, field);
+    }
+
     touchAll() {
         actions.touchForm(this.formName);
     }

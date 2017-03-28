@@ -5,7 +5,7 @@ import { Observable } from 'rx';
 
 Observable.prototype.get = function(...path) {
     return this
-        .map(state => get(state, path.join('.')))
+        .map(state => get(state, path))
         .distinctUntilChanged(undefined, equal);
 };
 

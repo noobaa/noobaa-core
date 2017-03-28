@@ -234,7 +234,8 @@ function update_account_s3_access(req) {
         .then(() => {
             let new_allowed_buckets = req.rpc_params.allowed_buckets;
             let origin_allowed_buckets = account.allowed_buckets && account.allowed_buckets.map(bucket => bucket.name);
-            let original_pool = system.pools_by_name[req.rpc_params.default_pool].name;
+            let pool = system.pools_by_name[req.rpc_params.default_pool];
+            let original_pool = pool && pool.name;
             let desc_string = [];
             let added_buckets = [];
             let removed_buckets = [];

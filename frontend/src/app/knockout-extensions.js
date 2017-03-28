@@ -71,10 +71,6 @@ ko.group = function(...observables) {
     );
 };
 
-ko.cmptd = function(read = noop, write = noop) {
-    return ko.pureComputed({ read, write });
-};
-
 // -----------------------------------------
 // Knockout subscribable extnesions
 // -----------------------------------------
@@ -107,6 +103,10 @@ ko.subscribable.fn.debug = function(prefix) {
     return this.subscribe(
         val => prefix ? console.debug(prefix, val) : console.debug(val)
     );
+};
+
+ko.subscribable.fn.is = function(value) {
+    return ko.pureComputed(() => this() === value);
 };
 
 // -----------------------------------------

@@ -2,18 +2,27 @@
 
 <div class="tabs greedy">
     <nav>
-        <a data-bind="
-            href: tabHref('nodes'),
-            css: tabCss('nodes')
-        ">
+        <a ko.href="tabHref('nodes')" ko.css="tabCss('nodes')">
             Nodes
+        </a>
+        <a ko.href="tabHref('associated-accounts')"
+            ko.css="tabCss('associated-accounts')">
+            Associated Accounts
         </a>
     </nav>
 
     <div class="tabs-row">
-        <pool-nodes-table class="tab greedy" data-bind="css: tabCss('nodes')" params="
+        <pool-nodes-table class="tab greedy" ko.css="tabCss('nodes')" params="
             pool: pool,
             nodeList: nodes
         "></pool-nodes-table>
+
+        <!-- ko if: pool -->
+        <pool-associated-accounts-list
+            class="tab greedy"
+            ko.css="tabCss('associated-accounts')"
+            params="poolName: pool().name"
+        ></pool-associated-accounts-list>
+        <!-- /ko -->
     </div>
 </div>

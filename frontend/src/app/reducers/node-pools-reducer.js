@@ -16,8 +16,15 @@ function onApplicationInit() {
 function onSystemInfoFetched(state, { info }) {
     const nodePools = info.pools.filter(pool => Boolean(pool.nodes));
     return keyByProperty(nodePools, 'name', pool => {
-        const { name, mode, storage } = pool;
-        return { name, mode, storage };
+        const {
+            name,
+            mode,
+            storage,
+            associated_accounts: associatedAccounts
+        } = pool;
+
+
+        return { name, mode, storage, associatedAccounts };
     });
 }
 

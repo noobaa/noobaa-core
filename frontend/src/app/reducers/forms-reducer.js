@@ -55,7 +55,7 @@ function onResetFormField(forms, { form, field }) {
     if (!forms[form]) return forms;
     return {
         ...forms,
-        [form]: resetField(form, field)
+        [form]: resetField(forms[form], field)
     };
 }
 

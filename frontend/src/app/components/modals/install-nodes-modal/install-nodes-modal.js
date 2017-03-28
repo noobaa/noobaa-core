@@ -51,10 +51,6 @@ class InstallNodeWizardViewModel extends FormViewModel {
         this.pools(Object.keys(pools));
     }
 
-    onForm(form) {
-        super.onForm(form);
-    }
-
     validate(form) {
         let errors = {};
 

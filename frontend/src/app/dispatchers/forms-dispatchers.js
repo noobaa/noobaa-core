@@ -9,11 +9,11 @@ export function updateForm(form, field, value) {
 }
 
 export function resetForm(form) {
-    dispatch({ type: 'REST_FORM', form });
+    dispatch({ type: 'RESET_FORM', form });
 }
 
 export function restFormField(form, field) {
-    dispatch({ type: 'REST_FORM_FIELD', form, field });
+    dispatch({ type: 'RESET_FORM_FIELD', form, field });
 }
 
 export function setFormValidity(form, errors = {}, warnings = {}) {

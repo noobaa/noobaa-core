@@ -70,6 +70,7 @@ export default function register(ko) {
     ko.components.register('assign-nodes-modal',                    require('./modals/assign-nodes-modal/assign-nodes-modal').default);
     ko.components.register('update-system-name-modal',              require('./modals/update-system-name-modal/update-system-name-modal').default);
     ko.components.register('system-upgrade-modal',                  require('./modals/system-upgrade-modal/system-upgrade-modal').default);
+    ko.components.register('create-account-modal',                  require('./modals/create-account-modal/create-account-modal2').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -124,6 +125,7 @@ export default function register(ko) {
     ko.components.register('pool-panel',            require('./pool/pool-panel/pool-panel').default);
     ko.components.register('pool-summary',          require('./pool/pool-summary/pool-summary').default);
     ko.components.register('pool-nodes-table',      require('./pool/pool-nodes-table/pool-nodes-table').default);
+    ko.components.register('pool-associated-accounts-list', require('./pool/pool-associated-accounts-list/pool-associated-accounts-list').default);
     /** INJECT:pool **/
 
     // -------------------------------
@@ -141,7 +143,6 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('management-panel',                      require('./management/management-panel/management-panel').default);
     ko.components.register('accounts-table',                        require('./management/accounts-table/accounts-table').default);
-    ko.components.register('create-account-modal',                 require('./management/create-account-modal/create-account-modal2').default);
     ko.components.register('p2p-form',                              require('./management/p2p-form/p2p-form').default);
     ko.components.register('server-dns-form',                       require('./management/server-dns-form/server-dns-form').default);
     ko.components.register('version-form',                          require('./management/version-form/version-form').default);

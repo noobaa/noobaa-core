@@ -50,6 +50,15 @@ function dns_resolve(target, options) {
         (options && options.rrtype) || 'A', callback));
 }
 
+function is_hostname(target) {
+    const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (regExp.test(target)) {
+        return true;
+    }
+
+    return false;
+}
+
 function _is_valid_ip(input) {
     let ip_regex = /^(([1-9]?\d|1\d\d|2[0-5][0-5]|2[0-4]\d)\.){3}([1-9]?\d|1\d\d|2[0-5][0-5]|2[0-4]\d)$/;
     return Boolean(ip_regex.exec(input));
@@ -57,3 +66,4 @@ function _is_valid_ip(input) {
 
 exports.ping = ping;
 exports.dns_resolve = dns_resolve;
+exports.is_hostname = is_hostname;

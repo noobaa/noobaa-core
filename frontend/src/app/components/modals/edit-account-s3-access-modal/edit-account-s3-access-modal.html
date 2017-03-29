@@ -11,7 +11,8 @@
         options: resources,
         selected: bindToField('selectedResource'),
         disabled: !enableS3Access(),
-        placeholder: 'Choose pool...'
+        placeholder: 'Choose pool...',
+        invalid: selectedResource.touched() && selectedResource.error()
     "></dropdown>
      <val-message params="field: selectedResource"></val-message>
 </editor>

@@ -4,7 +4,6 @@
     "infinitScrollPageSize": 25,
     "timeShortFormat": "DD MMM YYYY hh:mm:ss",
     "timeLongFormat": "DD MMM YYYY HH:mm:ss ([GMT]Z)",
-    "defaultPoolName": "first.pool", //TODO need to think / move to server side
     "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",
     "defaultIconFile": "icons.svg",

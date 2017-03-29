@@ -1644,23 +1644,6 @@ export function updateBucketS3Access(bucketName, allowedAccounts) {
         .done();
 }
 
-export function updateAccountS3Access(email, allowedBuckets) {
-    logAction('updateAccountS3Permissions', { email, allowedBuckets });
-
-    api.account.update_account_s3_access({
-        email: email,
-        s3_access: Boolean(allowedBuckets),
-        allowed_buckets: allowedBuckets,
-        default_pool: allowedBuckets && config.defaultPoolName  // TODO: should be user selected
-    })
-        .then(
-            () => notify(`${email} S3 permissions updated successfully`, 'success'),
-            () => notify(`Updating ${email} S3 permissions failed`, 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
 export function enterMaintenanceMode(duration) {
     logAction('enterMaintenanceMode', { duration });
 

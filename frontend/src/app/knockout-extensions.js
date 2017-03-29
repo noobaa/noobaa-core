@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isUndefined, noop, deepFreeze } from 'utils/core-utils';
+import { isObject, isUndefined, deepFreeze } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 
 // -----------------------------------------

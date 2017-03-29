@@ -1,6 +1,6 @@
 #!groovy​
 def branch = 'master'
-def package_location = 'http://146.148.16.59:8080'+'/job/mdserver/lastSuccessfulBuild/'
+def package_location = $JENKINS_URL + '/job/mdserver/lastSuccessfulBuild/'
 //dataset
 def noobaa_ip = '40.121.83.180'
 def values = noobaa_ip.tokenize('.')

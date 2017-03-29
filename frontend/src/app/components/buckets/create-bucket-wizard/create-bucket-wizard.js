@@ -6,7 +6,6 @@ import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import { systemInfo } from 'model';
 import { createBucket } from 'actions';
-import { defaultPoolName } from 'config';
 import { deepFreeze, keyByProperty } from 'utils/core-utils';
 
 const steps = deepFreeze([

@@ -27,6 +27,7 @@ const storageTypes = deepFreeze({
 });
 
 class CreateAccountWizardViewModel extends FromViewModel {
+
     constructor({ onClose }) {
         super('createAccount');
 
@@ -53,11 +54,6 @@ class CreateAccountWizardViewModel extends FromViewModel {
         this.observe(state$.get('buckets'), this.onBuckets);
         this.observe(state$.get('accounts'), this.onAccounts);
         this.observe(state$.getMany('nodePools', 'cloudResources'), this.onResources);
-    }
-
-    onState(state) {
-        super.onState(state);
-        this.buckets(Object.keys(state.buckets));
     }
 
     onAccounts(accounts) {

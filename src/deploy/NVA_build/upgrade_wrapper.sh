@@ -397,10 +397,21 @@ function post_upgrade {
   rm -f /tmp/*.tar.gz
   rm -rf /tmp/v*
 
-
   setup_mongo_ssl
 
+  if [ -d /usr/lib/node_modules/ ];
+    rm -rf /usr/lib/node_modules/
+  fi
+  if [ -d /usr/local/lib/node_modules/ ];
+    rm -rf /usr/local/lib/node_modules/
+  fi
+  if [ -d /usr/src/node-v0.10.33/ ];
+    rm -rf /usr/src/node-v0.10.33/
+  fi
 
+  #/usr/lib/node_modules/
+  #/usr/local/lib/node_modules/
+  #/usr/src/node-v0.10.33/
 }
 
 #Log file name supplied

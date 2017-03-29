@@ -138,13 +138,14 @@ function complete_object_upload(req) {
         })
         .then(() => MDStore.instance().update_object_by_id(obj._id, set_updates, unset_updates))
         .then(() => {
+            const bucket = system_store.data.get_by_id(obj.bucket);
             Dispatcher.instance().activity({
                 system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: obj._id,
                 actor: req.account && req.account._id,
-                desc: `${obj.key} was uploaded by ${req.account && req.account.email}`,
+                desc: `${obj.key} was uploaded by ${req.account && req.account.email} into bucket ${bucket.name}`,
             });
             system_store.make_changes_in_background({
                 update: {

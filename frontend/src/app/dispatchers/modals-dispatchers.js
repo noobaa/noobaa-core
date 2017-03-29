@@ -72,12 +72,12 @@ export function openEditCloudSyncModal(bucketName) {
     });
 }
 
-export function openS3AccessDetailsModal(accountEmail) {
+export function openS3AccessDetailsModal(email) {
     dispatch({
         type: 'OPEN_MODAL',
         component: {
             name: 's3-access-details-modal',
-            params: { accountEmail }
+            params: { email }
         },
         options: {
             title: 'Connection Details',

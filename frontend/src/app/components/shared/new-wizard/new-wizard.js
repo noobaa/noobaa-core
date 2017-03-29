@@ -22,6 +22,7 @@ class NewWizardViewModel extends BaseViewModel {
         this.onPrev = onPrev || noop;
         this.onCancel = onCancel || noop;
         this.onComplete = onComplete || noop;
+        this.shake = ko.observable();
 
         this.isFirstStep = ko.pureComputed(
             () => this.step() === 0
@@ -37,7 +38,7 @@ class NewWizardViewModel extends BaseViewModel {
             return;
         }
 
-        this.onNext(this.step() + 1);
+        this.shake(this.onNext(this.step() + 1) === false);
     }
 
     onPrevInternal() {
@@ -46,6 +47,10 @@ class NewWizardViewModel extends BaseViewModel {
         }
 
         this.onPrev(this.step() - 1);
+    }
+
+    onCompleteInternal() {
+        this.shake(this.onComplete() === false);
     }
 }
 

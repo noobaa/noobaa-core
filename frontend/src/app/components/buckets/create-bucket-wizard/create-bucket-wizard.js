@@ -40,7 +40,7 @@ class CreateBucketWizardViewModel extends BaseViewModel {
             () => systemInfo() ? systemInfo().pools : []
         );
 
-        this.selectedPools = ko.observableArray([ defaultPoolName ])
+        this.selectedPools = ko.observableArray()
             .extend({
                 required: {
                     message: 'Please select at least one pool for the policy'
@@ -65,10 +65,16 @@ class CreateBucketWizardViewModel extends BaseViewModel {
 
                 const selectedPools = this.selectedPools();
                 const hasNodesPool = selectedPools.some(
-                    name => Boolean(poolsByName()[name].nodes)
+                    name => {
+                        const pool = poolsByName()[name];
+                        return Boolean(pool && pool.nodes);
+                    }
                 );
                 const hasCloudResource = selectedPools.some(
-                    name => Boolean(poolsByName()[name].cloud_info)
+                    name => {
+                        const pool = poolsByName()[name];
+                        return Boolean(pool && pool.cloud_info);
+                    }
                 );
 
                 return hasNodesPool && hasCloudResource;

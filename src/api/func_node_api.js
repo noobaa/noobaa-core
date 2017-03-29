@@ -97,7 +97,13 @@ module.exports = {
                     type: 'string'
                 },
                 auth_token: {
-                    type: 'string'
+                    oneOf: [{
+                        type: 'string'
+                    }, {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {},
+                    }]
                 },
             }
         }

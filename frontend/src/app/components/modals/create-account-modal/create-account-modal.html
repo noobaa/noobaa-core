@@ -1,5 +1,10 @@
 <editor params="label: 'Email Address'">
-    <input type="text" ko.value="bindToField('email')" ko.disable="lock" />
+    <input type="text"
+        ko.value="bindToField('email')"
+        ko.disable="lock"
+        ko.css.invalid="email.touched() && email.error()"
+    />
+
     <val-message params="field: email"></val-message>
 </editor>
 
@@ -17,7 +22,8 @@
         options: resources,
         selected: bindToField('selectedResource'),
         disabled: !enableS3Access() || lock(),
-        placeholder: 'Choose pool...'
+        placeholder: 'Choose pool...',
+        invalid: selectedResource.touched() && selectedResource.error()
     "></dropdown>
      <val-message params="field: selectedResource"></val-message>
 </editor>

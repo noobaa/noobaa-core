@@ -16,7 +16,8 @@
             <dropdown params="
                 options: pools,
                 selected: bindToField('targetPool'),
-                placeholder: 'Choose pool...'
+                placeholder: 'Choose pool...',
+                invalid: targetPool.touched() && targetPool.error()
             "></dropdown>
             <val-message params="field: targetPool"></val-message>
         </editor>

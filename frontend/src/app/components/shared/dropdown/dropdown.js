@@ -17,7 +17,8 @@ class DropdownViewModel extends BaseViewModel {
         placeholder = 'Choose...',
         disabled = false,
         matchOperator = matchByPrefix,
-        hasFocus = false
+        hasFocus = false,
+        invalid
     }) {
         super();
 
@@ -67,7 +68,7 @@ class DropdownViewModel extends BaseViewModel {
             }
         );
 
-        this.invalid = ko.pureComputed(
+        this.invalid = isDefined(invalid) ? invalid : ko.pureComputed(
             () => ko.unwrap(this.selected.isModified) &&
                 !ko.unwrap(this.selected.isValid)
         );

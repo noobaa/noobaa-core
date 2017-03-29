@@ -1,6 +1,6 @@
 import template from './account-created-modal.html';
 import accountDetailsMessageTempalte from './account-details-message.html';
-import Observer from 'Observer';
+import Observer from 'observer';
 import state$ from 'state';
 import ko from 'knockout';
 

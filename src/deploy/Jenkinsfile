@@ -10,24 +10,24 @@ def aging_time = '300' // run for 5 hours
 //machinekiller
 def start_killing_time = '30' // start killing after 30 minutes
 def service = 'azure'
-def resource = 'ds_during_nf_rg'
+def resource = 'pipeline-dataset'
 def zone = 'westus2'
 def min_machines = '5' // minimum 3 machine
 def max_machines = '15' // maximum 10 machines
 //agentMatrix
-def azureName = 'agentsServer'
-def serverName = '137.116.115.76'
-def agentConf = 'eyJhZGRyZXNzIjoid3NzOi8vMTcyLjE3LjIuNDo4NDQzIiwic3lzdGVtIjoiZGVtbyIsImFjY2Vzc19rZXkiOiIxMjMiLCJzZWNyZXRfa2V5IjoiYWJjIiwidGllciI6Im5vZGVzIiwicm9vdF9wYXRoIjoiLi9hZ2VudF9zdG9yYWdlLyJ9'
-def agentsResource = 'agents_matrix_rg'
-def agentsVnet = 'agents_matrix_rg-vnet'
-def agentsStorage = 'jackystorage'
-def serverImage = 'https://jackystorage.blob.core.windows.net/system/Microsoft.Compute/Images/images/snapshot-osDisk.24726a50-bd7f-4e5a-ab08-d4a21754788a.vhd'
+def azureName = 'agent-matrix-server'
+def serverName = '52.183.88.148'
+def agentConf = 'eyJhZGRyZXNzIjoid3NzOi8vMTAuMC4wLjQ6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJhY2Nlc3Nfa2V5IjoiMTIzIiwic2VjcmV0X2tleSI6ImFiYyIsInRpZXIiOiJub2RlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8ifQ=='
+def agentsResource = 'pipeline-agents'
+def agentsVnet = 'agents-vnet'
+def agentsStorage = 'jenkinsnoobaastorage'
+def serverImage = 'https://jenkinsnoobaastorage.blob.core.windows.net/vhd-images/NooBaa-1.0.0-demo.vhd'
 //systemConfig
-def nodeLocalIP = '10.1.0.5'
-def serverLocalIP = '10.1.0.6'
+def nodeLocalIP = '10.0.0.21'
+def serverLocalIP = '10.0.0.5'
 
 
-node('node2') {
+node('jenkins-slave1-centos') {
     stage('Get code from GIT') {
         echo 'Checkouting from git!'
         checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
@@ -54,11 +54,11 @@ node('node2') {
               # cp -R /root/node_modules/noobaa-core/build $WORKSPACE
               # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
               fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
-              node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $noobaa_ip
+              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $noobaa_ip
               node $WORKSPACE/src/deploy/azureSnapshots.js --resource $agentsResource --source $azureName --image $serverImage
               sleep 1m
-              node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $serverName
-              node $WORKSPACE/src/test/system_tests/sanity_build_test.js --upgrade_pack \$fname --target_ip $serverLocalIP
+              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $serverName
+              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $serverLocalIP
       """
     }
     stage('Tests') {

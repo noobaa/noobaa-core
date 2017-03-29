@@ -1,22 +1,27 @@
 export default function register(ko) {
+    function registerHandler(name, handler) {
+        ko.bindingHandlers[name] = handler;
+        ko.bindingHandlers[name.toLowerCase()] = handler;
+    }
+
     // Extending existing handlers
-    ko.bindingHandlers.template        = require('./template-ex').default;
+    registerHandler('template', require('./template-ex').default);
 
     // Registering new handlers
-    ko.bindingHandlers.let              = require('./let').default;
-    ko.bindingHandlers.visibility       = require('./visibility').default;
-    ko.bindingHandlers.href             = require('./href').default;
-    ko.bindingHandlers.scroll           = require('./scroll').default;
-    ko.bindingHandlers.canvas           = require('./canvas').default;
-    ko.bindingHandlers.transition       = require('./transition').default;
-    ko.bindingHandlers.animation        = require('./animation').default;
-    ko.bindingHandlers.expand           = require('./expand').default;
-    ko.bindingHandlers.tooltip          = require('./tooltip').default;
-    ko.bindingHandlers.scrollTo         = require('./scroll-to').default;
-    ko.bindingHandlers.hover            = require('./hover').default;
-    ko.bindingHandlers.shakeOnClick     = require('./shake-on-click').default;
-    ko.bindingHandlers.childEvent       = require('./child-event').default;
-    ko.bindingHandlers.globalEvent      = require('./global-event').default;
-    ko.bindingHandlers.selection        = require('./selection').default;
-    ko.bindingHandlers.preventBubble    = require('./prevent-bubble').default;
+    registerHandler('let',              require('./let').default);
+    registerHandler('visibility',       require('./visibility').default);
+    registerHandler('href',             require('./href').default);
+    registerHandler('scroll',           require('./scroll').default);
+    registerHandler('canvas',           require('./canvas').default);
+    registerHandler('transition',       require('./transition').default);
+    registerHandler('animation',        require('./animation').default);
+    registerHandler('expand',           require('./expand').default);
+    registerHandler('tooltip',          require('./tooltip').default);
+    registerHandler('scrollTo',         require('./scroll-to').default);
+    registerHandler('hover',            require('./hover').default);
+    registerHandler('shakeOnClick',     require('./shake-on-click').default);
+    registerHandler('childEvent',       require('./child-event').default);
+    registerHandler('globalEvent',      require('./global-event').default);
+    registerHandler('selection',        require('./selection').default);
+    registerHandler('preventBubble',    require('./prevent-bubble').default);
 }

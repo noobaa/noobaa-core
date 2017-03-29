@@ -69,7 +69,7 @@ class InstallNodeWizardViewModel extends FormViewModel {
     onNext(next) {
         if (!this.valid()) {
             this.touchAll();
-            return;
+            return false;
         }
 
         if (next === 2) {

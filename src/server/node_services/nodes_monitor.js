@@ -750,7 +750,7 @@ class NodesMonitor extends EventEmitter {
                             let { use_s3 = false, use_storage = true, exclude_drive = [] } = agent_config;
                             // on first call to get_agent_info enable\disable the node according to the configuration
                             let should_start_service = (info.s3_agent_info && use_s3) ||
-                                (!info.s3_agent_info && use_storage && exclude_drive.indexOf(info.drives[0].mount) === -1);
+                                (!info.s3_agent_info && use_storage && this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drive));
                             dbg.log0(`first call to get_agent_info. ${info.s3_agent_info ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
                             if (!should_start_service) {
                                 item.node.decommissioning = item.node.decommissioned = Date.now();
@@ -1209,6 +1209,21 @@ class NodesMonitor extends EventEmitter {
         return !current_clustering || // no cluster info => treat as master
             !current_clustering.is_clusterized || // not clusterized => treat as master
             system_store.is_cluster_master; // clusterized and is master
+    }
+
+    _should_include_drives(mount, os_info, exclude_drives) {
+        if (os_info.ostype === 'Windows_NT') {
+            let win_drives = exclude_drives.map(drv => {
+                if (drv.length === 1) {
+                    return drv + ':';
+                } else if (drv[drv.length - 1] === '\\') {
+                    return drv.slice(0, drv.length - 1);
+                }
+                return drv;
+            });
+            return win_drives.indexOf(mount) === -1;
+        }
+        return exclude_drives.indexOf(mount) === -1;
     }
 
 

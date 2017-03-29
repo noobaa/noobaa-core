@@ -1,38 +1,40 @@
 <stepper class="push-next" params="steps: steps, current: step">
 </stepper>
 
-<div class="pages greedy" data-bind="
-    foreach: $componentTemplateNodes.filter(n => n.nodeType === 1)
-">
-    <div class="page column" data-bind="
-        css: { selected: $index() === $component.step() },
-        template: { nodes: [$data], data: $parents[1], }
-    "></div>
+<div class="pages greedy"
+    ko.foreach="$componentTemplateNodes.filter(n => n.nodeType === 1)"
+>
+    <div class="page column"
+        ko.css.selected="$index() === $component.step()"
+        ko.template="{ nodes: [$data], data: $parents[1] }"
+    ></div>
 </div>
 
 <div class="row align-end content-middle">
-    <button class="link alt-colors push-next" data-bind="
-        click: onCancel,
-        visible: isFirstStep
+    <button class="link alt-colors push-next"
+        ko.click="onCancel"
+        ko.visible="isFirstStep"
     ">
         Cancel
     </button>
-    <button class="link alt-colors push-next" data-bind="
-        click: onPrevInternal,
-        visible: !isFirstStep()
+    <button class="link alt-colors push-next"
+        ko.click="onPrevInternal"
+        ko.visible="!isFirstStep()"
     ">
         Previous
     </button>
-    <button class="btn" data-bind="
-        click: onNextInternal,
-        visible: !isLastStep()
-    ">
+    <button class="btn"
+        ko.click="onNextInternal"
+        ko.shakeOnClick="shake"
+        ko.visible="!isLastStep()"
+    >
         Next
     </button>
-    <button class="btn" data-bind="
-        click: onComplete,
-        visible: isLastStep(),
-        text: actionLabel
-    ">
+    <button class="btn"
+        ko.click="onComplete"
+        ko.visible="isLastStep()"
+        ko.shakeOnClick="shake"
+        ko.text="actionLabel"
+    >
     </button>
 </div>

@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const ip_module = require('ip');
 
 const P = require('../../util/promise');
+const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
 const url_utils = require('../../util/url_utils');
@@ -236,6 +237,7 @@ function invoke_func(req) {
                 code_sha256: func.code_sha256,
                 event: req.params.event,
                 aws_config: _make_aws_config(req),
+                rpc_options: _make_rpc_options(req),
             }, {
                 address: node.rpc_address
             });
@@ -282,6 +284,15 @@ function _get_func_info(func) {
     return {
         config,
         code_location
+    };
+}
+
+function _make_rpc_options(req) {
+    // TODO copied from base_address calc from system_server, better define once
+    const base_address = req.system.base_address || api.get_base_address(ip_module.address());
+    return {
+        address: base_address,
+        auth_token: req.auth_token,
     };
 }
 

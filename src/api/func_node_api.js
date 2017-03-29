@@ -41,6 +41,9 @@ module.exports = {
                     aws_config: {
                         $ref: '#/definitions/aws_config'
                     },
+                    rpc_options: {
+                        $ref: '#/definitions/rpc_options'
+                    },
                 },
             },
             reply: {
@@ -82,6 +85,18 @@ module.exports = {
                     type: 'string'
                 },
                 secretAccessKey: {
+                    type: 'string'
+                },
+            }
+        },
+
+        rpc_options: {
+            type: 'object',
+            properties: {
+                address: {
+                    type: 'string'
+                },
+                auth_token: {
                     type: 'string'
                 },
             }

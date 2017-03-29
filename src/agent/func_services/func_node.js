@@ -59,6 +59,7 @@ class FuncNode {
                     config: func.config,
                     event: req.params.event,
                     aws_config: req.params.aws_config,
+                    rpc_options: req.params.rpc_options,
                 };
                 dbg.log1('invoke_func: send message', msg);
                 proc.send(msg);

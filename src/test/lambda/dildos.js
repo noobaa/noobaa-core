@@ -75,6 +75,23 @@ const sync_func = {
     }
 };
 
+const create_account_func = {
+    FunctionName: 'create_account',
+    Description: 'Create User Account',
+    Runtime: 'nodejs6',
+    Handler: 'create_account_func.handler',
+    Role: ROLE_ARN,
+    MemorySize: 128,
+    VpcConfig: {
+        SubnetIds: POOLS
+    },
+    Files: {
+        'create_account_func.js': {
+            path: path.join(__dirname, 'create_account_func.js')
+        },
+    }
+};
+
 const WC_EVENT = {
     text: 'a',
     // random: 20,
@@ -96,7 +113,8 @@ function main() {
     if (argv.install) return install();
     if (argv.test) return test();
     if (argv.dildos) return dildos();
-    console.log('Usage: --show|--install|--test|--dildos');
+    if (argv.clear) return clear();
+    console.log('Usage: --show|--install|--test|--dildos|--clear');
 }
 
 function show() {
@@ -124,10 +142,14 @@ function install() {
     if (argv.install === 'sync') {
         return install_func(sync_func);
     }
+    if (argv.install === 'account') {
+        return install_func(create_account_func);
+    }
     return P.resolve()
         .then(() => install_func(word_count_func))
         .then(() => install_func(dos_func))
-        .then(() => install_func(sync_func));
+        .then(() => install_func(sync_func))
+        .then(() => install_func(create_account_func));
 }
 
 function install_func(fn) {
@@ -142,6 +164,18 @@ function install_func(fn) {
             }))
         .then(() => P.fromCallback(callback => lambda.createFunction(fn, callback)))
         .then(() => console.log('created.'));
+}
+
+function clear() {
+    return P.fromCallback(callback => lambda.listFunctions({}, callback))
+        .then(res => P.each(res.Functions,
+            f => P.fromCallback(callback => lambda.deleteFunction({
+                FunctionName: f.FunctionName,
+            }, callback))
+            .catch(err => {
+                console.log('Delete function if exist:', err.message);
+            })
+        ));
 }
 
 function prepare_func(fn) {

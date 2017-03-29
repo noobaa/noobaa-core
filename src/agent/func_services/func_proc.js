@@ -46,6 +46,14 @@ try {
             getRemainingTimeInMillis: () => 60 * 1000, // TODO calculate timeout
         };
 
+        if (msg.rpc_options) {
+            const api = require('../../api'); // eslint-disable-line global-require
+            const rpc = api.new_rpc(msg.rpc_options.address);
+            const client = rpc.new_client();
+            client.options = msg.rpc_options;
+            context.rpc_client = client;
+        }
+
         const callback = (err, reply) => {
             if (err) {
                 console.log('func_proc: callback', err);

@@ -122,7 +122,7 @@ class ClusterSummaryViewModel extends BaseViewModel {
         this.faultToleranceText = ko.pureComputed(
             () => isHighlyAvailable() ?
                 stringifyAmount('server', faultTolerance()) :
-                'Not enough conncted servers'
+                'Not enough connected servers'
         );
 
         this.faultToleranceTooltip = faultToleranceTooltip;

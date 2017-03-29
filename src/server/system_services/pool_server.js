@@ -279,8 +279,7 @@ function get_associated_buckets_int(pool) {
 
 function get_associated_accounts(pool) {
     return system_store.data.accounts
-        .filter(account => (
-            !account.is_support &&
+        .filter(account => (!account.is_support &&
             account.default_pool &&
             account.default_pool._id === pool._id
         ))
@@ -319,8 +318,10 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             info.mode = 'OPTIMAL';
         } else if (nodes.by_mode.IO_ERRORS) {
             info.mode = 'IO_ERRORS';
+        } else if (nodes.by_mode.INITALIZING) {
+            info.mode = 'INITALIZING';
         } else {
-             info.mode = 'ALL_NODES_OFFLINE';
+            info.mode = 'ALL_NODES_OFFLINE';
         }
     } else {
         info.nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);

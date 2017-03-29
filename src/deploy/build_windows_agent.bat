@@ -55,7 +55,7 @@ sed -i 's/%current_version_line%/\"version\": \"%current_package_version%-%GIT_C
 
 REM
 REM remove irrelevant packages
-type package.json  | findstr /v npm-run-all | findstr /v forever-service | findstr /v istanbul | findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v eslint | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v eslint| findstr /v nodetime| findstr /v newrelic| findstr /v vsphere > package.json_s
+type package.json  | findstr /v npm-run-all | findstr /v forever-service | findstr /v istanbul | findstr /v mongoose | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v eslint | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v eslint| findstr /v nodetime| findstr /v newrelic| findstr /v vsphere > package.json_s
 
 del /Q package.json
 rename package.json_s package.json

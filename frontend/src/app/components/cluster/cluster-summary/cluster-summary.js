@@ -143,7 +143,7 @@ class ClusterSummaryViewModel extends BaseViewModel {
 
         this.chartValues = [
             {
-                label: 'Conected:',
+                label: 'Connected:',
                 color: style['color12'],
                 value: connected
             },

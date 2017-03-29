@@ -114,8 +114,7 @@ function create_cloud_pool(req) {
         }, {
             auth_token: req.auth_token
         }))
-        .then(() => {
-            // TODO: should we add different event for cloud pool?
+        .then(() => {            
             Dispatcher.instance().activity({
                 event: 'resource.cloud_create',
                 level: 'info',

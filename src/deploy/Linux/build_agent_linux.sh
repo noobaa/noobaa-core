@@ -85,7 +85,6 @@ if [ "$CLEAN" = true ] ; then
     sed -i '/newrelic/d' package.json
     sed -i '/istanbul/d' package.json
     sed -i '/npm-run-all/d' package.json
-    sed -i '/heapdump/d' package.json
     sed -i '/selectize/d' package.json
     sed -i '/jsonwebtoken/d' package.json
     sed -i '/googleapis/d' package.json

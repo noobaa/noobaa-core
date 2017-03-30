@@ -299,15 +299,13 @@ class NodesMonitor extends EventEmitter {
     migrate_nodes_to_pool(req) {
         this._throw_if_not_started_and_loaded();
         const nodes_identities = req.rpc_params.nodes;
-        const pool_id = req.rpc_params.pool_id;
+        const to_pool = system_store.data.get_by_id(req.rpc_params.pool_id);
         const description = [];
 
         return P.resolve()
             .then(() => {
-
-                const to_pool = system_store.data.get_by_id(pool_id);
                 if (!to_pool) {
-                    throw new RpcError('BAD_REQUEST', 'No such pool ' + pool_id);
+                    throw new RpcError('BAD_REQUEST', 'No such pool ' + to_pool._id);
                 }
                 if (to_pool.cloud_pool_info) {
                     throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
@@ -349,7 +347,7 @@ class NodesMonitor extends EventEmitter {
                     level: 'info',
                     system: req.system._id,
                     actor: req.account && req.account._id,
-                    pool: pool_id,
+                    pool: to_pool._id,
                     desc: description.join('\n'),
                 });
             });

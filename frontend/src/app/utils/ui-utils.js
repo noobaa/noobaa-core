@@ -138,7 +138,35 @@ export function getPoolStateIcon(pool) {
     return isFunction(state) ? state(pool) : state;
 }
 
-const resourceTypeStateMapping = deepFreeze({
+const resourceStateIconMapping = deepFreeze({
+    OPTIMAL: {
+        tooltip: 'Healthy',
+        css: 'success',
+        name: 'healthy',
+    },
+    IO_ERRORS: { 
+        tooltip: 'Resource has Read/Write problems',
+        css: 'error',
+        name: 'problem',
+    },
+    INITALIZING: {
+        tooltip: 'Initializing',
+        css: 'warning',
+        name: 'working',
+    },
+    ALL_NODES_OFFLINE: {
+        tooltip: 'Offline',
+        css: 'error',
+        name: 'problem',
+    },
+});
+
+export function getResourceStateIcon(resource) {
+    const state = resourceStateIconMapping[resource.mode];
+    return isFunction(state) ? state(resource) : state;
+}
+
+const resourceTypeIconMapping = deepFreeze({
     AWS: {
         name: 'aws-s3-resource',
         tooltip: 'AWS S3 resource'
@@ -161,7 +189,7 @@ const resourceTypeStateMapping = deepFreeze({
 });
 
 export function getResourceTypeIcon(resource) {
-    return resourceTypeStateMapping[
+    return resourceTypeIconMapping[
         resource.nodes ? 'NODES_POOL' : resource.cloud_info.endpoint_type
     ];
 }

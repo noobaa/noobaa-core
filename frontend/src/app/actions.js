@@ -1491,7 +1491,7 @@ export function setNodeDebugLevel(node, level) {
 }
 
 export function setServerDebugLevel(secret, hostname, level){
-    logAction('setServerDebugLevel', { secret, name, level });
+    logAction('setServerDebugLevel', { secret, hostname, level });
 
     const name = `${hostname}-${secret}`;
     api.cluster_server.set_debug_level({

@@ -24,12 +24,11 @@ class ChangePasswordModalViewModel extends BaseViewModel {
 
         this.newPassword = ko.observable()
             .extend({
-                required: { message: 'Please enter a new password' },
-                minLength: 5,
-                includesUppercase: true,
-                includesLowercase: true,
-                includesDigit: true
-
+                required: true,
+                minLength: { message: 'At least 5 characters.' },
+                includesUppercase: { message: 'At least one uppercase letter' },
+                includesLowercase: { message: 'At least one lowercase letter' },
+                includesDigit: { message: 'At least one digit' }
             });
 
         this.newPasswordValidations = ko.pureComputed(

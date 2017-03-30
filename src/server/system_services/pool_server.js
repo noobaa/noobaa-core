@@ -344,7 +344,7 @@ function calc_pool_mode(pool_info) {
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
     const free_ratio = potential_for_noobaa.greater(0) ? free.multiply(100).divide(potential_for_noobaa) : size_utils.BigInteger.zero;
     const activity_count = data_activities
-        .reduce((sum, { val }) => sum + val, 0);
+        .reduce((sum, val) => sum + val.count, 0);
     const activity_ratio = (activity_count / count) * 100;
 
     return (count === 0 && 'HAS_NO_NODES') ||
@@ -352,10 +352,10 @@ function calc_pool_mode(pool_info) {
         (count < 3 && 'NOT_ENOUGH_NODES') ||
         (nodes.by_mode.OPTIMAL < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
         (offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
+        (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
         (free < LOW_CAPACITY_HARD_LIMIT && 'LOW_CAPACITY') ||
         (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
-        (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
         'OPTIMAL';
 }
 

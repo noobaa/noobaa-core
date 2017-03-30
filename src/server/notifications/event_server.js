@@ -42,7 +42,7 @@ function export_activity_log(req) {
                     let entity_type = entry.event.split('.')[0];
                     let account = entry.actor ? entry.actor.email : '';
                     let entity = entry[entity_type];
-                    let description = entry.desc.join(' ');
+                    let description = entry.desc ? entry.desc.join(' ') : '';
                     let entity_name = '';
                     if (entity) {
                         entity_name = entity_type === 'obj' ? entity.key : entity.name;

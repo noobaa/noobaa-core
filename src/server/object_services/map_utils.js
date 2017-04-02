@@ -205,6 +205,7 @@ function get_chunk_status(chunk, tiering, additional_params) {
 
     let chunk_status = {
         allocations: [],
+        extra_allocations: [],
         deletions: [],
         accessible: false,
     };
@@ -226,6 +227,7 @@ function get_chunk_status(chunk, tiering, additional_params) {
         let status_result = _get_mirror_chunk_status(chunk, tier, mirror_status,
             mirror.spread_pools, additional_params);
         chunk_status.allocations = _.concat(chunk_status.allocations, status_result.allocations);
+        chunk_status.extra_allocations = _.concat(chunk_status.extra_allocations, status_result.extra_allocations);
         chunk_status.deletions = _.concat(chunk_status.deletions, status_result.deletions);
         // These two are used in order to delete all unused blocks by the policy
         // Which actually means blocks that are not relevant to the tier policy anymore
@@ -249,6 +251,7 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools, addi
     const tier_pools_by_name = _.keyBy(mirror_pools, 'name');
 
     let allocations = [];
+    let extra_allocations = []; // used for special replicas
     let deletions = [];
     let chunk_accessible = true;
 
@@ -355,7 +358,7 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools, addi
 
             // There is no point in special replicas when save in cloud
             if (!is_cloud_allocation) {
-                _.times(num_missing - min_replicas, () => allocations.push(_.defaults(_.clone(alloc), {
+                _.times(num_missing - min_replicas, () => extra_allocations.push(_.defaults(_.clone(alloc), {
                     special_replica: true
                 })));
             }
@@ -388,6 +391,7 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools, addi
 
     return {
         allocations: allocations,
+        extra_allocations: extra_allocations,
         deletions: deletions,
         accessible: chunk_accessible,
         unused_blocks: unused_blocks,

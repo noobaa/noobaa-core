@@ -43,7 +43,7 @@ function select_prefered_mirrors(tier, tiering_pools_status) {
         let pool_weight = 0;
         _.forEach(mirror.spread_pools, spread_pool => {
             // Checking if the pool is writable
-            if (!_.get(tiering_pools_status, `${spread_pool.name}.valid_for_allocation`, false)) {
+            if (!_.get(tiering_pools_status, `${spread_pool._id}.valid_for_allocation`, false)) {
                 pool_weight += WEIGHTS.non_writable_pool;
             }
 
@@ -90,10 +90,10 @@ function select_pool_type(spread_pools, tiering_pools_status) {
 
     // Checking if there are any valid on premise pools
     mirror_status.regular_pools_valid = _.some(mirror_status.regular_pools,
-        pool => _.get(tiering_pools_status, `${pool.name}.valid_for_allocation`, false));
+        pool => _.get(tiering_pools_status, `${pool._id}.valid_for_allocation`, false));
     // Checking if there are any valid cloud pools
     mirror_status.cloud_pools_valid = _.some(mirror_status.cloud_pools,
-        pool => _.get(tiering_pools_status, `${pool.name}.valid_for_allocation`, false));
+        pool => _.get(tiering_pools_status, `${pool._id}.valid_for_allocation`, false));
 
     // Checking what type of a pool we've selected above
     if (_.get(selected_pool_type, 'cloud_pool_info', false)) {

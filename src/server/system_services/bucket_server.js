@@ -848,7 +848,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         let num_valid_nodes = 0;
         let has_valid_pool = false;
         _.compact((mirror_object.spread_pools || []).map(pool =>
-                tiering_pools_status[pool.name]))
+                tiering_pools_status[pool._id]))
             .forEach(pool_status => {
                 num_valid_nodes += pool_status.num_nodes || 0;
                 has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;

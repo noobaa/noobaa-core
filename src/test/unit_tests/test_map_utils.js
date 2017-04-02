@@ -34,7 +34,7 @@ mocha.describe('map_utils', function() {
             pools = _.concat(pools);
             let tiering_pools_status = {};
             _.forEach(pools, pool => {
-                tiering_pools_status[pool.name] = {
+                tiering_pools_status[pool._id] = {
                     valid_for_allocation: true,
                     num_nodes: config.NODES_MIN_COUNT
                 };

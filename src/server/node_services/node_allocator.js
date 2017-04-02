@@ -85,7 +85,7 @@ function get_tiering_pools_status(tiering) {
 
 
 function _get_tiering_pools_status(pools) {
-    let pools_status_by_name = {};
+    let pools_status_by_id = {};
     _.each(pools, pool => {
         let valid_for_allocation = true;
         let alloc_group = alloc_group_by_pool[String(pool._id)];
@@ -97,12 +97,12 @@ function _get_tiering_pools_status(pools) {
         } else if (num_nodes < config.NODES_MIN_COUNT) {
             valid_for_allocation = false;
         }
-        pools_status_by_name[pool.name] = {
+        pools_status_by_id[pool._id] = {
             valid_for_allocation,
             num_nodes
         };
     });
-    return pools_status_by_name;
+    return pools_status_by_id;
 }
 
 

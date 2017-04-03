@@ -143,30 +143,7 @@ function package_build_task() {
     var DEST = 'build/public';
     var NAME = 'noobaa-NVA';
 
-    //Remove previously build package
-    return promise_utils.exec('rm -f ' + DEST + '/' + NAME + '*.tar.gz')
-        .then(function(res) { //build agent distribution setup
-            if (!use_local_executable) {
-                gutil.log('before downloading setup and rest');
-                return P.resolve()
-                    .then(() => fs_utils.create_path(DEST))
-                    .then(function() {
-                        return promise_utils.exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version);
-                    })
-                    .then(function() {
-                        return promise_utils.exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe');
-                    })
-                    .then(function() {
-                        return promise_utils.exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe');
-                    })
-                    .then(function() {
-                        return promise_utils.exec('chmod 777 build/public/noobaa-setup*');
-                    }).catch(function(err) {
-                        gutil.log('Failed to download packages. Aborting due to ' + err.message + "     " + err.stack);
-                        throw new Error('Failed to download packages. Aborting due to ' + err.message + "     " + err.stack);
-                    });
-            }
-        })
+    return promise_utils.exec('chmod 777 build/public/noobaa-setup*')
         .then(function() {
             gutil.log('before downloading nvm and node package');
             return promise_utils.exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());

@@ -1,8 +1,7 @@
 #!groovy​
 def branch = 'master'
-def package_location = $JENKINS_URL + '/job/mdserver/lastSuccessfulBuild/'
 //dataset
-def noobaa_ip = '40.121.83.180'
+def noobaa_ip = '52.183.88.20'
 def values = noobaa_ip.tokenize('.')
 def prefix = values[2]+'-'+values[3]
 def dataset_size = '10240' // 10GB of dataset
@@ -30,7 +29,7 @@ def serverLocalIP = '10.0.0.5'
 node('jenkins-slave1-centos') {
     stage('Get code from GIT') {
         echo 'Checkouting from git!'
-        checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bb9a113a-8e3d-49b7-abd7-7ae1fb4d452b', url: 'https://github.com/noobaa/noobaa-core']]])
+        checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '7df4e257-eb85-4243-9dc3-568d6127f752', url: 'https://tamireran@github.com/noobaa/noobaa-core']]])
     }
     stage('Installing NPM packages') {
         echo 'Installing all needed npm packages!'
@@ -50,7 +49,7 @@ node('jenkins-slave1-centos') {
       sh script: """
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
-              curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L $package_location/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
+              curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/mdserver/lastSuccessfulBuild/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
               # cp -R /root/node_modules/noobaa-core/build $WORKSPACE
               # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
               fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')

@@ -46,7 +46,7 @@ class MapBuilder {
             .then(() => system_store.refresh())
             .then(() => P.join(
                 MDStore.instance().load_blocks_for_chunks(this.chunks),
-                MDStore.instance().load_parts_objects_for_chunks(this.chunks)
+                P.resolve(MDStore.instance().load_parts_objects_for_chunks(this.chunks))
                 .then(res => this.prepare_and_fix_chunks(res))
             ))
             .then(() => this.refresh_alloc())

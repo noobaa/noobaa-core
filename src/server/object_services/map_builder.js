@@ -134,6 +134,11 @@ class MapBuilder {
             chunk.status = map_utils.get_chunk_status(chunk, chunk.bucket.tiering, {
                 tiering_pools_status: tiering_pools_status
             });
+            // first allocate the basic allocations of the chunk.
+            // if there are no allocations, then try to allocate extra_allocations for special replicas
+            chunk.current_cycle_allocations = chunk.status.allocations.length ?
+                chunk.status.allocations :
+                chunk.status.extra_allocations;
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (chunk.status.accessible &&
@@ -150,7 +155,7 @@ class MapBuilder {
             if (!chunk.status) return;
             const avoid_nodes = chunk.blocks.map(block => String(block.node._id));
             const allocated_hosts = chunk.blocks.map(block => block.node.host_id);
-            _.each(chunk.status.allocations, alloc => {
+            _.each(chunk.current_cycle_allocations, alloc => {
                 const f = alloc.fragment;
                 // We send an additional flag in order to allocate
                 // replicas of content tiering feature on the best read latency nodes
@@ -193,7 +198,7 @@ class MapBuilder {
     replicate_blocks() {
         return P.all(_.map(this.chunks, chunk => {
             if (!chunk.status) return;
-            return P.all(_.map(chunk.status.allocations, alloc => {
+            return P.all(_.map(chunk.current_cycle_allocations, alloc => {
                 const block = alloc.block;
                 if (!block) {
                     // block that failed to allocate - skip replicate.

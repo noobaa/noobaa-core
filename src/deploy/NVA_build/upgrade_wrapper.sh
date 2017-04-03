@@ -399,13 +399,13 @@ function post_upgrade {
 
   setup_mongo_ssl
 
-  if [ -d /usr/lib/node_modules/ ];
+  if [ -d /usr/lib/node_modules/ ]; then
     rm -rf /usr/lib/node_modules/
   fi
-  if [ -d /usr/local/lib/node_modules/ ];
+  if [ -d /usr/local/lib/node_modules/ ]; then
     rm -rf /usr/local/lib/node_modules/
   fi
-  if [ -d /usr/src/node-v0.10.33/ ];
+  if [ -d /usr/src/node-v0.10.33/ ]; then
     rm -rf /usr/src/node-v0.10.33/
   fi
 

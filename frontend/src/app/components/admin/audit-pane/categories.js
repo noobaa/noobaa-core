@@ -20,6 +20,16 @@ export default {
             recommission: {
                 message: 'Node Reactivated',
                 entityId: ({ node }) => node && node.name
+            },
+
+            connected: {
+                message: 'Node Connected',
+                entityId: ({ node }) => node && node.name
+            },
+
+            disconnected: {
+                message: 'Node Disconnected',
+                entityId: ({ node }) => node && node.name
             }
         }
     },

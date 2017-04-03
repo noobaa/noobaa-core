@@ -7,8 +7,8 @@ var ops = require('./basic_server_ops');
 var argv = require('minimist')(process.argv);
 
 function show_usage() {
-    console.error('usage: node sanity_build_test.js <--upgrade_pack path_to_upgrade_pack> <--target_ip ip>');
-    console.error('   example: node sanity_build_test.js --target_ip 127.0.0.1 --upgrade_pack ../build/public/noobaa-NVA.tar.gz');
+    console.error('usage: node upgradeonly.js <--upgrade_pack path_to_upgrade_pack> <--target_ip ip>');
+    console.error('   example: node upgradeonly.js --target_ip 127.0.0.1 --upgrade_pack ../build/public/noobaa-NVA.tar.gz');
     console.error(' upgrade_pack -\t\tPath to upgrade pack to use in the upgrade process');
     console.error('\n');
 }

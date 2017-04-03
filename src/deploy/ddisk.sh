@@ -7,7 +7,7 @@ for line in $filelines ; do
     mkfs -t ext4 -E lazy_itable_init $partition
     uuid=`blkid $partition -o export | grep UUID | grep -v PART`
     mountname=`echo $partition | cut -d/ -f3`
-    mountpath="/mnt/noobaa/"$mountname
+    mountpath="/"$mountname
     mkdir -p $mountpath
     echo "$uuid $mountpath ext4   defaults,nofail   1   2" >> /etc/fstab
     mount $mountpath

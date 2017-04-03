@@ -72,7 +72,8 @@ class FuncNode {
         const code_sha256 = req.params.code_sha256;
         const version_dir = path.join(this.functions_path, name, version);
         const func_json_path = path.join(version_dir, 'func.json');
-        const code_dir = path.join(version_dir, code_sha256);
+        // replacing the base64 encoded sha256 from using / to - in order to use as folder name
+        const code_dir = path.join(version_dir, code_sha256.replace(/\//g, '-'));
         return this.loading_serial.surround(() => P.resolve()
             .then(() => fs.statAsync(code_dir))
             .then(() => fs.readFileAsync(func_json_path))
@@ -99,7 +100,7 @@ class FuncNode {
                     .then(() => zip_utils.unzip_from_buffer(func.code.zipfile))
                     .then(zipfile => zip_utils.unzip_to_dir(zipfile, loading_dir))
                     .then(() => fs_utils.create_fresh_path(version_dir))
-                    .then(() => fs_utils.create_fresh_path(code_dir))
+                    .then(() => fs_utils.folder_delete(code_dir))
                     .then(() => fs.writeFileAsync(
                         func_json_path,
                         JSON.stringify(func)))

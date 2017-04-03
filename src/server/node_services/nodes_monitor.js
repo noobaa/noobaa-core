@@ -370,14 +370,7 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => this._update_nodes_store('force'))
             .then(() => {
-                Dispatcher.instance().activity({
-                    level: 'info',
-                    event: 'node.decommission',
-                    system: item.node.system,
-                    node: item.node._id,
-                    actor: req.account && req.account._id,
-                    desc: `${item.node.name} was deactivated by ${req.account && req.account.email}`,
-                });
+                this._dispatch_node_event(item, 'decommission', `${item.node.name} was deactivated by ${req.account && req.account.email}`);
             });
 
     }
@@ -395,14 +388,7 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => this._update_nodes_store('force'))
             .then(() => {
-                Dispatcher.instance().activity({
-                    level: 'info',
-                    event: 'node.recommission',
-                    system: item.node.system,
-                    node: item.node._id,
-                    actor: req.account && req.account._id,
-                    desc: `${item.node.name} was reactivated by ${req.account && req.account.email}`,
-                });
+                this._dispatch_node_event(item, 'recommission', `${item.node.name} was reactivated by ${req.account && req.account.email}`);
             });
 
     }
@@ -1114,14 +1100,7 @@ class NodesMonitor extends EventEmitter {
                         this._update_status(item);
                         if (item.node.is_cloud_node) continue;
                         if (item.node.is_internal_node) continue;
-                        Dispatcher.instance().activity({
-                            level: 'info',
-                            event: 'node.create',
-                            system: item.node.system,
-                            node: item.node._id,
-                            // actor: item.account && item.account._id,
-                            desc: `${item.node.name} was added`,
-                        });
+                        this._dispatch_node_event(item, 'create', `${item.node.name} was added`);
                     }
                 }
             })
@@ -1236,8 +1215,7 @@ class NodesMonitor extends EventEmitter {
         dbg.log3('_update_status:', item.node.name);
 
         const now = Date.now();
-        item.online = Boolean(item.connection) &&
-            now < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME;
+        item.online = this._get_connection_status(item);
 
         // if we still have a connection, but considered offline, close the connection
         if (!item.online && item.connection) {
@@ -1294,6 +1272,33 @@ class NodesMonitor extends EventEmitter {
         item.mode = this._get_item_mode(item);
 
         this._update_data_activity(item);
+    }
+
+    _dispatch_node_event(item, event, description) {
+        Dispatcher.instance().activity({
+            level: 'info',
+            event: 'node.' + event,
+            system: item.node.system,
+            node: item.node._id,
+            desc: description,
+        });
+
+    }
+
+    _get_connection_status(item) {
+        let is_node_online = Boolean(item.connection) && (Date.now() < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME);
+        // for first run of the node don't send the event.
+        // prevents blast of events if node_monitor is restarted and all nodes reconnects again.
+        if (!_.isUndefined(item.online)) {
+            if (!_.isUndefined(item.online) && !is_node_online && item.online) {
+                dbg.warn(`node ${item.node.name} became offline`);
+                this._dispatch_node_event(item, 'disconnected', `${item.node.name} is offline`);
+            } else if (!_.isUndefined(item.online) && is_node_online && !item.online) {
+                dbg.warn(`node ${item.node.name} is back online`);
+                this._dispatch_node_event(item, 'connected', `${item.node.name} is online`);
+            }
+        }
+        return is_node_online;
     }
 
     _get_item_storage_full(item) {

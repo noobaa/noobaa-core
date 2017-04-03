@@ -1,0 +1,14 @@
+<div class="pad alt-bg">
+    <h2 class="heading3">
+        Buckets using this pool in their placement policy: {{bucketCount}}
+    </h2>
+    <p>
+        The following buckets are using this pool as part of their placement policy
+    </p>
+</div>
+
+<ul class="list-no-style column greedy pad" ko.foreach="buckets">
+    <li class="push-next">
+        <a class="link" ko.text="name" ko.attr.href="href"></a>
+    </li>
+</ul>

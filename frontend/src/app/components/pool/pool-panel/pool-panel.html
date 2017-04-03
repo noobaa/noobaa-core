@@ -9,6 +9,10 @@
             ko.css="tabCss('associated-accounts')">
             Associated Accounts
         </a>
+        <a ko.href="tabHref('associated-buckets')"
+            ko.css="tabCss('associated-buckets')">
+            Associated Buckets
+        </a>
     </nav>
 
     <div class="tabs-row">
@@ -23,6 +27,12 @@
             ko.css="tabCss('associated-accounts')"
             params="poolName: pool().name"
         ></pool-associated-accounts-list>
+ 
+        <pool-associated-buckets-list
+            class="tab greedy"
+            ko.css="tabCss('associated-buckets')"
+            params="poolName: pool().name"
+        ></pool-associated-buckets-list>
         <!-- /ko -->
     </div>
 </div>

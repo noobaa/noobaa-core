@@ -544,8 +544,7 @@ class MDStore {
         return this._parts.col().find({
                 chunk: {
                     $in: mongo_utils.uniq_ids(chunks, '_id')
-                },
-                deleted: null,
+                }
             })
             .toArray()
             .then(res_parts => {
@@ -553,8 +552,7 @@ class MDStore {
                 return this._objects.col().find({
                         _id: {
                             $in: mongo_utils.uniq_ids(res_parts, 'obj')
-                        },
-                        deleted: null,
+                        }
                     })
                     .toArray();
             })

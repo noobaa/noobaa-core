@@ -226,6 +226,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.tiering_policy.create_policy({
                 name: TIERING_POLICY,
                 tiers: [{
+                    is_spillover: false,
                     order: 0,
                     tier: TIER
                 }]
@@ -236,9 +237,11 @@ mocha.describe('system_servers', function() {
             .then(() => client.tiering_policy.update_policy({
                     name: TIERING_POLICY,
                     tiers: [{
+                        is_spillover: false,
                         order: 0,
                         tier: TIER
                     }, {
+                        is_spillover: false,
                         order: 1,
                         tier: TIER
                     }]

@@ -521,8 +521,7 @@ function read_object_md(req) {
             });
 
             return map_reader.read_object_mappings({
-                    obj: obj,
-                    adminfo: true
+                    obj: obj
                 })
                 .then(parts => {
                     info.total_parts_count = parts.length;

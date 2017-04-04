@@ -125,6 +125,9 @@ module.exports = {
                             tier: {
                                 type: 'string',
                             },
+                            is_spillover: {
+                                type: 'boolean'
+                            }
                         }
                     }
                 }

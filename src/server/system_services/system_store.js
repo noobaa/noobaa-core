@@ -340,6 +340,8 @@ class SystemStore extends EventEmitter {
 
     constructor() {
         super();
+        // // TODO: This is currently used as a cache, maybe will be moved in the future
+        // this.valid_for_alloc_by_tier = {};
         this.is_cluster_master = false;
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;

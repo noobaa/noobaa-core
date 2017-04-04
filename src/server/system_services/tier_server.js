@@ -93,10 +93,10 @@ function read_tier(req) {
 
     return P.join(
             nodes_client.instance().aggregate_nodes_by_pool(_.compact(pool_names), req.system._id),
-            nodes_client.instance().aggregate_data_free_by_tier([tier.name], req.system._id)
+            nodes_client.instance().aggregate_data_free_by_tier([String(tier._id)], req.system._id)
         )
         .spread(function(nodes_aggregate_pool, available_to_upload) {
-            return get_tier_info(tier, nodes_aggregate_pool, available_to_upload[tier.name]);
+            return get_tier_info(tier, nodes_aggregate_pool, available_to_upload[String(tier._id)]);
         });
 }
 
@@ -218,6 +218,7 @@ function create_policy(req) {
             return {
                 order: t.order,
                 tier: req.system.tiers_by_name[t.tier]._id,
+                is_spillover: t.is_spillover
             };
         }));
     dbg.log0('Creating tiering policy', policy);
@@ -256,7 +257,7 @@ function read_policy(req) {
     return P.join(
             nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
             nodes_client.instance().aggregate_data_free_by_tier(
-                policy.tiers.map(tiers_object => tiers_object.tier.name), req.system._id)
+                policy.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id)
         )
         .spread(function(nodes_aggregate_pool, aggregate_data_free_by_tier) {
             return get_tiering_policy_info(policy, nodes_aggregate_pool, aggregate_data_free_by_tier);
@@ -364,8 +365,8 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
 
     info.data = _.pick(_.defaults(
         size_utils.reduce_storage(size_utils.reduce_minimum, aggregate_data_free_for_tier), {
-        free: 0,
-    }), 'free');
+            free: 0,
+        }), 'free');
 
     return info;
 }
@@ -378,13 +379,14 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate
         if (tiers_storage) {
             var tier_info = get_tier_info(tier_and_order.tier,
                 nodes_aggregate_pool,
-                aggregate_data_free_by_tier[tier_and_order.tier.name]);
+                aggregate_data_free_by_tier[String(tier_and_order.tier._id)]);
             tiers_storage.push(tier_info.storage);
             tiers_data.push(tier_info.data);
         }
         return {
             order: tier_and_order.order,
-            tier: tier_and_order.tier.name
+            tier: tier_and_order.tier.name,
+            is_spillover: tier_and_order.is_spillover
         };
     });
     if (tiers_storage) {

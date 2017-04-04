@@ -130,15 +130,19 @@ class MapBuilder {
         _.each(this.chunks, chunk => {
             if (chunk.had_errors) return;
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
-            const tiering_pools_status = node_allocator.get_tiering_pools_status(chunk.bucket.tiering);
-            chunk.status = map_utils.get_chunk_status(chunk, chunk.bucket.tiering, {
-                tiering_pools_status: tiering_pools_status
-            });
+
+            chunk.status = map_utils.get_chunk_status(
+                chunk,
+                chunk.bucket.tiering, {
+                    tiering_status: node_allocator.get_tiering_status(chunk.bucket.tiering)
+                });
+
             // first allocate the basic allocations of the chunk.
             // if there are no allocations, then try to allocate extra_allocations for special replicas
             chunk.current_cycle_allocations = chunk.status.allocations.length ?
                 chunk.status.allocations :
                 chunk.status.extra_allocations;
+
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (chunk.status.accessible &&

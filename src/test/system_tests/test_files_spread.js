@@ -72,6 +72,7 @@ function run_test() {
             client.tiering_policy.create_policy({
                 name: 'tiering1',
                 tiers: [{
+                    is_spillover: false,
                     order: 0,
                     tier: 'tier1'
                 }]

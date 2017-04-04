@@ -160,7 +160,8 @@ function new_system_changes(name, owner_account) {
         }]);
         var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
             tier: tier._id,
-            order: 0
+            order: 0,
+            is_spillover: false
         }]);
         var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
 
@@ -176,30 +177,6 @@ function new_system_changes(name, owner_account) {
             actor: owner_account._id,
             desc: `${name} was created by ${owner_account && owner_account.email}`,
         });
-
-
-        if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
-            const demo_pool_name = config.DEMO_DEFAULTS.POOL_NAME;
-            const demo_bucket_name = config.DEMO_DEFAULTS.BUCKET_NAME;
-            const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
-            let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
-            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [{
-                spread_pools: [demo_pool._id]
-            }]);
-            var demo_policy = tier_server.new_policy_defaults(demo_bucket_with_suffix, system._id, [{
-                tier: demo_tier._id,
-                order: 0
-            }]);
-            var demo_bucket = bucket_server.new_bucket_defaults(demo_bucket_name, system._id, demo_policy._id);
-
-            demo_bucket.demo_bucket = true;
-            demo_pool.demo_pool = true;
-
-            bucket_insert.push(demo_bucket);
-            tieringpolicies_insert.push(demo_policy);
-            tiers_insert.push(demo_tier);
-            pools_insert.push(demo_pool);
-        }
 
         return {
             insert: {
@@ -262,9 +239,6 @@ function create_system(req) {
                     cluster_server.new_cluster_info())
                 .spread(function(changes, cluster_info) {
                     allowed_buckets = [changes.insert.buckets[0]._id.toString()];
-                    if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
-                        allowed_buckets.push(changes.insert.buckets[1]._id.toString());
-                    }
                     default_pool = changes.insert.pools[0]._id.toString();
 
                     if (cluster_info) {
@@ -292,21 +266,7 @@ function create_system(req) {
                 })
                 .then(response => {
                     reply_token = response.token;
-                    //If internal agents enabled, create them
-                    if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
-                        return;
-                    }
-                    return server_rpc.client.hosted_agents.create_agent({
-                        name: req.rpc_params.name,
-                        demo: true,
-                        access_keys: req.rpc_params.access_keys,
-                        scale: config.NUM_DEMO_NODES,
-                        storage_limit: config.DEMO_NODES_STORAGE_LIMIT,
-                    }, {
-                        auth_token: reply_token
-                    });
-                })
-                .then(() => {
+
                     //Time config, if supplied
                     if (!req.rpc_params.time_config) {
                         return;
@@ -396,7 +356,7 @@ function read_system(req) {
             .catch(() => false),
 
         aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
-            _.map(system.tiers_by_name, tier => tier.name),
+            _.map(system.tiers_by_name, tier => String(tier._id)),
             system._id),
 
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket =>
@@ -479,7 +439,7 @@ function read_system(req) {
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier,
                     nodes_aggregate_pool_with_cloud,
-                    aggregate_data_free_by_tier[tier.name])),
+                    aggregate_data_free_by_tier[String(tier._id)])),
             storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
             }, nodes_aggregate_pool_with_cloud.storage, SYS_STORAGE_DEFAULTS)),

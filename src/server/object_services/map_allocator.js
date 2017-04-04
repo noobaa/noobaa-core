@@ -29,13 +29,12 @@ class MapAllocator {
     }
 
     run() {
-        this.check_parts();
         let millistamp = time_utils.millistamp();
         dbg.log1('MapAllocator: start');
-        return P.join(
-                this.find_dups(),
-                node_allocator.refresh_tiering_alloc(this.bucket.tiering)
-            )
+        return P.resolve()
+            .then(() => node_allocator.refresh_tiering_alloc(this.bucket.tiering))
+            .then(() => this.check_parts())
+            .then(tiering_status => this.find_dups(tiering_status))
             .then(() => this.allocate_blocks())
             .then(() => {
                 dbg.log0('MapAllocator: DONE. parts', this.parts.length,
@@ -51,6 +50,7 @@ class MapAllocator {
     }
 
     check_parts() {
+        const tiering_status = node_allocator.get_tiering_status(this.bucket.tiering);
         _.each(this.parts, part => {
             // checking that parts size does not exceed the max
             // which allows the read path to limit range scanning
@@ -58,10 +58,18 @@ class MapAllocator {
                 throw new Error('MapAllocator: PART TOO BIG ' +
                     range_utils.human_range(part));
             }
+
+            part.chunk.status = map_utils.get_chunk_status(
+                part.chunk,
+                this.bucket.tiering, {
+                    async_mirror: true,
+                    tiering_status: tiering_status
+                });
         });
+        return tiering_status;
     }
 
-    find_dups() {
+    find_dups(tiering_status) {
         if (!config.DEDUP_ENABLED) return;
         let digest_list = _.uniq(_.map(this.parts, part => part.chunk.digest_b64));
         dbg.log3('MapAllocator.find_dups', digest_list.length);
@@ -71,7 +79,8 @@ class MapAllocator {
                     let dup_chunks = chunks_by_digest[part.chunk.digest_b64];
                     _.each(dup_chunks, dup_chunk => {
                         map_utils.set_chunk_frags_from_blocks(dup_chunk, dup_chunk.blocks);
-                        if (map_utils.is_chunk_good(dup_chunk, this.bucket.tiering)) {
+                        if (map_utils.is_chunk_good_for_dedup(dup_chunk,
+                                this.bucket.tiering, tiering_status)) {
                             // we set the part's chunk_dedup to the chunk id
                             // so that the client will send it back to finalize
                             part.chunk_dedup = String(dup_chunk._id);
@@ -87,13 +96,9 @@ class MapAllocator {
     allocate_blocks() {
         _.each(this.parts, part => {
             if (part.chunk_dedup) return; // already found dup
-            let tiering_pools_status = node_allocator.get_tiering_pools_status(this.bucket.tiering);
-            let status = map_utils.get_chunk_status(
-                part.chunk,
-                this.bucket.tiering, {
-                    async_mirror: true,
-                    tiering_pools_status: tiering_pools_status
-                });
+
+            const status = part.chunk.status;
+
             var avoid_nodes = [];
             let allocated_hosts = [];
 
@@ -113,6 +118,10 @@ class MapAllocator {
                 avoid_nodes.push(String(node._id));
                 allocated_hosts.push(node.host_id);
             });
+
+            // This is done so we won't break the RPC Schema
+            // Since the parts are returned at the end of the map_allocator
+            delete part.chunk.status;
         });
     }
 

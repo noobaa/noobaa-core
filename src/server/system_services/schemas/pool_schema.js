@@ -22,11 +22,6 @@ module.exports = {
         name: {
             type: 'string'
         },
-
-        demo_pool: {
-            type: 'boolean'
-        },
-
         // cloud pool information - exist only for cloud pools
         cloud_pool_info: {
             type: 'object',

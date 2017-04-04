@@ -19,8 +19,6 @@ config.LONG_GONE_THRESHOLD = 3600000;
 config.SHORT_GONE_THRESHOLD = 300000;
 config.LONG_BUILD_THRESHOLD = 300000;
 config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
-config.DEMO_NODES_STORAGE_LIMIT = 500 * 1024 * 1024;
-config.NUM_DEMO_NODES = 3;
 config.NODE_IO_DETENTION_THRESHOLD = 60000;
 config.NODE_IO_DETENTION_RECENT_ISSUES = 5;
 // Picked two because minimum of nodes per pool is three
@@ -83,6 +81,10 @@ config.REBUILD_NODE_CONCURRENCY = 3;
 config.REBUILD_NODE_OFFLINE_GRACE = 5 * 60000;
 config.REBUILD_NODE_BATCH_SIZE = 10;
 config.REBUILD_NODE_BATCH_DELAY = 50;
+
+// TODO: JEN Temporary using the same number but later on they will be different cellings
+config.MIN_TIER_FREE_THRESHOLD = 100 * 1024 * 1024;
+config.MAX_TIER_FREE_THRESHOLD = 100 * 1024 * 1024;
 
 config.SCRUBBER_ENABLED = true;
 config.SCRUBBER_BATCH_SIZE = 10;
@@ -175,11 +177,6 @@ config.SUPERVISOR_DEFAULTS = {
     DIRECTORY: '/root/node_modules/noobaa-core'
 };
 
-
-config.DEMO_DEFAULTS = {
-    POOL_NAME: 'demo-pool',
-    BUCKET_NAME: 'demo-bucket'
-};
 
 config.SERVER_MIN_REQUIREMENTS = {
     RAM_GB: 16,

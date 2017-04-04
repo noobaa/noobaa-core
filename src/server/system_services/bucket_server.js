@@ -88,7 +88,8 @@ function create_bucket(req) {
         tiering_policy = tier_server.new_policy_defaults(
             bucket_with_suffix, req.system._id, [{
                 tier: tier._id,
-                order: 0
+                order: 0,
+                is_spillover: false
             }]);
         changes.insert.tieringpolicies = [tiering_policy];
         changes.insert.tiers = [tier];
@@ -154,7 +155,7 @@ function read_bucket(req) {
     return P.join(
             nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
             nodes_client.instance().aggregate_data_free_by_tier(
-                bucket.tiering.tiers.map(tiers_object => tiers_object.tier.name), req.system._id),
+                bucket.tiering.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id),
             MDStore.instance().count_objects_of_bucket(bucket._id),
             get_cloud_sync(req, bucket),
             node_allocator.refresh_tiering_alloc(bucket.tiering)
@@ -281,7 +282,6 @@ function delete_bucket(req) {
     var bucket = find_bucket(req);
     // TODO before deleting tier and tiering_policy need to check they are not in use
     let tiering_policy = bucket.tiering;
-    let tier = tiering_policy.tiers[0].tier;
     if (_.map(req.system.buckets_by_name).length === 1) {
         throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
     }
@@ -303,7 +303,7 @@ function delete_bucket(req) {
                 remove: {
                     buckets: [bucket._id],
                     tieringpolicies: [tiering_policy._id],
-                    tiers: [tier._id]
+                    tiers: _.map(tiering_policy.tiers, tier_and_order => tier_and_order.tier._id)
                 }
             });
         })
@@ -767,40 +767,40 @@ function get_bucket_lifecycle_configuration_rules(req) {
 function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
     return P.fcall(function() {
-        var connection = cloud_utils.find_cloud_connection(
-            req.account,
-            req.rpc_params.connection
-        );
-        if (connection.endpoint_type === 'AZURE') {
-            let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
-            let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE', system_store.data.buckets, system_store.data.pools);
-            return P.fromCallback(callback => blob_svc.listContainersSegmented(null, {maxResults: 100}, callback))
+            var connection = cloud_utils.find_cloud_connection(
+                req.account,
+                req.rpc_params.connection
+            );
+            if (connection.endpoint_type === 'AZURE') {
+                let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
+                let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE', system_store.data.buckets, system_store.data.pools);
+                return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
+                    .timeout(EXTERNAL_BUCKET_LIST_TO)
+                    .then(data => data.entries.map(entry =>
+                        _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
+            } //else if AWS
+            let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AWS', system_store.data.buckets, system_store.data.pools);
+            var s3 = new AWS.S3({
+                endpoint: connection.endpoint,
+                accessKeyId: connection.access_key,
+                secretAccessKey: connection.secret_key,
+                httpOptions: {
+                    agent: http_utils.get_unsecured_http_agent(connection.endpoint)
+                }
+            });
+            return P.ninvoke(s3, "listBuckets")
                 .timeout(EXTERNAL_BUCKET_LIST_TO)
-                .then(data => data.entries.map(entry =>
-                    _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
-        } //else if AWS
-        let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AWS', system_store.data.buckets, system_store.data.pools);
-        var s3 = new AWS.S3({
-            endpoint: connection.endpoint,
-            accessKeyId: connection.access_key,
-            secretAccessKey: connection.secret_key,
-            httpOptions: {
-                agent: http_utils.get_unsecured_http_agent(connection.endpoint)
-            }
+                .then(data => data.Buckets.map(bucket =>
+                    _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)));
+        })
+        .catch(P.TimeoutError, err => {
+            dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
+            throw err;
+        })
+        .catch(function(err) {
+            dbg.error("get_cloud_buckets ERROR", err.stack || err);
+            throw err;
         });
-        return P.ninvoke(s3, "listBuckets")
-        .timeout(EXTERNAL_BUCKET_LIST_TO)
-            .then(data => data.Buckets.map(bucket =>
-                _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)));
-    })
-    .catch(P.TimeoutError, err => {
-        dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
-        throw err;
-    })
-    .catch(function(err) {
-        dbg.error("get_cloud_buckets ERROR", err.stack || err);
-        throw err;
-    });
 
 }
 
@@ -836,24 +836,25 @@ function find_bucket(req) {
 
 function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
-    var tier_of_bucket;
     if (bucket.tiering) {
         // We always have tiering so this if is irrelevant
-        tier_of_bucket = bucket.tiering.tiers[0].tier;
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool, aggregate_data_free_by_tier);
     }
 
-    const tiering_pools_status = node_allocator.get_tiering_pools_status(bucket.tiering);
-    info.writable = tier_of_bucket.mirrors.some(mirror_object => {
-        let num_valid_nodes = 0;
-        let has_valid_pool = false;
-        _.compact((mirror_object.spread_pools || []).map(pool =>
-                tiering_pools_status[pool._id]))
-            .forEach(pool_status => {
-                num_valid_nodes += pool_status.num_nodes || 0;
-                has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
-            });
-        return has_valid_pool || num_valid_nodes >= config.NODES_MIN_COUNT;
+    const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
+
+    _.each(bucket.tiering.tiers, tier_and_order => {
+        info.writable = info.writable || tier_and_order.tier.mirrors.some(mirror_object => {
+            let num_valid_nodes = 0;
+            let has_valid_pool = false;
+            _.compact((mirror_object.spread_pools || []).map(pool =>
+                    tiering_pools_status[tier_and_order.tier._id].pools[pool._id]))
+                .forEach(pool_status => {
+                    num_valid_nodes += pool_status.num_nodes || 0;
+                    has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
+                });
+            return has_valid_pool || num_valid_nodes >= config.NODES_MIN_COUNT;
+        });
     });
 
     const objects_aggregate = {

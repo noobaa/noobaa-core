@@ -774,7 +774,7 @@ function get_cloud_buckets(req) {
         if (connection.endpoint_type === 'AZURE') {
             let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
             let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE', system_store.data.buckets, system_store.data.pools);
-            return P.ninvoke(blob_svc, 'listContainersSegmented', null, {})
+            return P.fromCallback(callback => blob_svc.listContainersSegmented(null, {maxResults: 100}, callback))
                 .timeout(EXTERNAL_BUCKET_LIST_TO)
                 .then(data => data.entries.map(entry =>
                     _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));

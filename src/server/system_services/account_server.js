@@ -10,6 +10,7 @@ const P = require('../../util/promise');
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const bcrypt = P.promisifyAll(require('bcrypt'));
+const azure = require('azure-storage');
 
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
@@ -20,7 +21,8 @@ const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../../util/cloud_utils');
 const http_utils = require('../../util/http_utils');
-const azure = require('azure-storage');
+const dbg = require('../../util/debug_module')(__filename);
+
 
 const demo_access_keys = Object.freeze({
     access_key: '123',
@@ -563,7 +565,20 @@ function check_external_connection(req) {
                 secret_key: params.secret
             });
             let blob_svc = azure.createBlobService(conn_str);
-            return P.ninvoke(blob_svc, 'listContainersSegmented', null, {});
+            return P.fromCallback(callback => blob_svc.listContainersSegmented(null, callback))
+                .catch(err => {
+                    dbg.warn(`got error on listContainersSegmented with params`, params, ` error: ${err}`);
+                    err.ret = 'INVALID_CREDENTIALS';
+                    throw err;
+                })
+                .then(() =>
+                    P.fromCallback(callback => blob_svc.getServiceProperties(callback))
+                    .catch(err => {
+                        dbg.warn(`got error on getServiceProperties with params`, params, ` error: ${err}`);
+                        err.ret = 'NOT_SUPPORTED';
+                        throw err;
+                    })
+                );
         } else {
             var s3 = new AWS.S3({
                 endpoint: params.endpoint,
@@ -573,12 +588,19 @@ function check_external_connection(req) {
                     agent: http_utils.get_unsecured_http_agent(params.endpoint)
                 }
             });
-
-            return P.ninvoke(s3, "listBuckets");
+            return P.fromCallback(callback => s3.listBuckets(callback))
+                .catch(err => {
+                    dbg.warn(`got error on listBuckets with params`, params, ` error: ${err}`);
+                    err.ret = 'INVALID_CREDENTIALS';
+                    throw err;
+                });
         }
     }).then(
-        () => true,
-        () => false
+        () => 'SUCCESS',
+        err => {
+            dbg.warn('got error:', err);
+            return err.ret || 'INVALID_CREDENTIALS';
+        }
     );
 }
 

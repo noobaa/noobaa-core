@@ -314,7 +314,8 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'boolean'
+                type: 'string',
+                enum: ['SUCCESS', 'INVALID_CREDENTIALS', 'NOT_SUPPORTED']
             },
             auth: {
                 system: 'admin'

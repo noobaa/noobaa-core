@@ -518,6 +518,7 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
         .then(() => client.tiering_policy.create_policy({
             name: TEST_CTX.default_tier_policy_name,
             tiers: [{
+                is_spillover: false,
                 order: 0,
                 tier: TEST_CTX.default_tier_name
             }]

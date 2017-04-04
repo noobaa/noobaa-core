@@ -358,9 +358,9 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['tier_names'],
+                required: ['tier_ids'],
                 properties: {
-                    tier_names: {
+                    tier_ids: {
                         type: 'array',
                         items: {
                             type: 'string'
@@ -372,9 +372,9 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['tier_name', 'mirrors_storage'],
+                    required: ['tier_id', 'mirrors_storage'],
                     properties: {
-                        tier_name: {
+                        tier_id: {
                             type: 'string'
                         },
                         mirrors_storage: {

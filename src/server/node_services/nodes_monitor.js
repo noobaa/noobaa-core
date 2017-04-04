@@ -493,11 +493,11 @@ class NodesMonitor extends EventEmitter {
                 name: NO_NAME_PREFIX + Date.now().toString(36),
             },
         };
+
         if (pool.cloud_pool_info) {
             item.node.is_cloud_node = true;
-        } else if (pool.demo_pool) {
-            item.node.is_internal_node = true;
         }
+
         dbg.log0('_add_new_node', item.node);
         this._set_need_update.add(item);
         this._add_node_to_maps(item);

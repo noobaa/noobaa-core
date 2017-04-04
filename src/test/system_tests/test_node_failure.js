@@ -128,6 +128,7 @@ function create_test_bucket() {
             client.tiering_policy.create_policy({
                 name: 'tiering-' + TEST_CTX.bucket,
                 tiers: [{
+                    is_spillover: false,
                     order: 0,
                     tier: 'tier-' + TEST_CTX.bucket
                 }]

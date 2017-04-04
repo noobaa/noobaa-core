@@ -327,7 +327,6 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     } else {
         info.nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
-        info.demo_pool = Boolean(pool.demo_pool);
         info.mode = calc_pool_mode(info);
     }
 
@@ -362,11 +361,6 @@ function calc_pool_mode(pool_info) {
 }
 
 function check_pool_deletion(pool, nodes_aggregate_pool) {
-    // Check if the demo pool
-    if (pool.name === config.DEMO_DEFAULTS.POOL_NAME) {
-        return 'SYSTEM_ENTITY';
-    }
-
     // Check if there are nodes till associated to this pool
     const nodes_count = _.get(nodes_aggregate_pool, [
         'groups', String(pool._id), 'nodes', 'count'

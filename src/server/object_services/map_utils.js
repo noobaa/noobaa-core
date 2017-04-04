@@ -5,6 +5,8 @@ const _ = require('lodash');
 
 const dbg = require('../../util/debug_module')(__filename);
 const system_store = require('../system_services/system_store').get_instance();
+const config = require('../../../config');
+const size_utils = require('../../util/size_utils');
 
 const EMPTY_CONST_ARRAY = Object.freeze([]);
 const SPECIAL_CHUNK_CONTENT_TYPES = ['video/mp4', 'video/webm'];
@@ -29,7 +31,7 @@ function analyze_special_chunks(chunks, parts, objects) {
 }
 
 // This is used in order to select the best possible mirror for the upload allocation (first alloc)
-function select_prefered_mirrors(tier, tiering_pools_status) {
+function select_prefered_mirrors(tier, tiering_status) {
     // We will always prefer to allocate on working premise pools
     const WEIGHTS = {
         non_writable_pool: 10,
@@ -43,7 +45,9 @@ function select_prefered_mirrors(tier, tiering_pools_status) {
         let pool_weight = 0;
         _.forEach(mirror.spread_pools, spread_pool => {
             // Checking if the pool is writable
-            if (!_.get(tiering_pools_status, `${spread_pool._id}.valid_for_allocation`, false)) {
+
+            if (!_.get(tiering_status,
+                    `${tier._id}.pools.${spread_pool._id}.valid_for_allocation`, false)) {
                 pool_weight += WEIGHTS.non_writable_pool;
             }
 
@@ -67,7 +71,7 @@ function select_prefered_mirrors(tier, tiering_pools_status) {
 // This is mainly used in order to pick a type of allocation
 // For each chunk we randomize where we prefer to allocate (cloud or on premise)
 // This decision may be changed when we actually check the status of the blocks
-function select_pool_type(spread_pools, tiering_pools_status) {
+function select_pool_type(tier, spread_pools, tiering_status) {
     if (!_.get(spread_pools, 'length', 0)) {
         console.warn('select_pool_type:: There are no pools in current mirror');
     }
@@ -90,19 +94,19 @@ function select_pool_type(spread_pools, tiering_pools_status) {
 
     // Checking if there are any valid on premise pools
     mirror_status.regular_pools_valid = _.some(mirror_status.regular_pools,
-        pool => _.get(tiering_pools_status, `${pool._id}.valid_for_allocation`, false));
+        pool => _.get(tiering_status, `${tier._id}.pools.${pool._id}.valid_for_allocation`, false));
     // Checking if there are any valid cloud pools
     mirror_status.cloud_pools_valid = _.some(mirror_status.cloud_pools,
-        pool => _.get(tiering_pools_status, `${pool._id}.valid_for_allocation`, false));
+        pool => _.get(tiering_status, `${tier._id}.pools.${pool._id}.valid_for_allocation`, false));
 
     // Checking what type of a pool we've selected above
     if (_.get(selected_pool_type, 'cloud_pool_info', false)) {
         // In case that we don't have any valid pools from that type we return the other type
-        mirror_status.picked_pools = mirror_status.regular_pools_valid ?
-            mirror_status.regular_pools : mirror_status.cloud_pools;
-    } else {
         mirror_status.picked_pools = mirror_status.cloud_pools_valid ?
             mirror_status.cloud_pools : mirror_status.regular_pools;
+    } else {
+        mirror_status.picked_pools = mirror_status.regular_pools_valid ?
+            mirror_status.regular_pools : mirror_status.cloud_pools;
     }
 
     return mirror_status;
@@ -138,20 +142,16 @@ function _handle_under_policy_threshold(decision_params) {
             }
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.cloud_pools);
-        } else if (_.get(decision_params, 'additional_params.status_check', false)) {
-            // This is used when we only check the status without any actions
-            spill_status.allocations = _.concat(spill_status.allocations, ['dummy']);
         } else {
-            throw new Error('_handle_under_policy_threshold:: Cannot allocate without valid pools');
+            console.warn('_handle_under_policy_threshold:: Cannot allocate without valid pools');
+            spill_status.allocations = _.concat(spill_status.allocations, ['']);
         }
     } else if (_.get(decision_params.mirror_status, 'picked_pools.length', 0)) {
         spill_status.allocations = _.concat(spill_status.allocations,
             decision_params.mirror_status.picked_pools);
-    } else if (_.get(decision_params, 'additional_params.status_check', false)) {
-        // This is used when we only check the status without any actions
-        spill_status.allocations = _.concat(spill_status.allocations, ['dummy']);
     } else {
-        throw new Error('_handle_under_policy_threshold:: Cannot allocate without valid pools');
+        console.warn('_handle_under_policy_threshold:: Cannot allocate without valid pools');
+        spill_status.allocations = _.concat(spill_status.allocations, ['']);
     }
 
     return spill_status;
@@ -195,14 +195,35 @@ function _handle_over_policy_threshold(decision_params) {
 
 
 function get_chunk_status(chunk, tiering, additional_params) {
-    // TODO handle multi-tiering
-    if (tiering.tiers.length !== 1) {
-        throw new Error('analyze_chunk: ' +
-            'tiering policy must have exactly one tier and not ' +
-            tiering.tiers.length);
-    }
-    const tier = tiering.tiers[0].tier;
+    const tier_chunk_statuses = _.map(tiering.tiers, tier_and_order =>
+        ({
+            status: _get_chunk_status_in_tier(chunk, tier_and_order.tier, additional_params),
+            tier: tier_and_order.tier
+        })
+    );
 
+    const prefered_tier = get_tiering_prefered_tier(tiering,
+        additional_params, tier_chunk_statuses);
+
+    const status = {
+        allocations: [],
+        deletions: [],
+        accessible: false
+    };
+
+    _.each(tier_chunk_statuses, chunk_status => {
+        status.accessible = status.accessible || chunk_status.status.accessible;
+        if (String(chunk_status.tier._id) === String(prefered_tier._id)) {
+            status.allocations = chunk_status.status.allocations;
+            status.deletions = chunk_status.status.deletions;
+        }
+    });
+
+    return status;
+}
+
+
+function _get_chunk_status_in_tier(chunk, tier, additional_params) {
     let chunk_status = {
         allocations: [],
         extra_allocations: [],
@@ -212,7 +233,7 @@ function get_chunk_status(chunk, tiering, additional_params) {
 
     // When allocating we will pick the best mirror using weights algorithm
     const participating_mirrors = _.get(additional_params, 'async_mirror', false) ?
-        select_prefered_mirrors(tier, _.get(additional_params, 'tiering_pools_status', {})) :
+        select_prefered_mirrors(tier, _.get(additional_params, 'tiering_status', {})) :
         tier.mirrors || [];
 
     let used_blocks = [];
@@ -222,8 +243,8 @@ function get_chunk_status(chunk, tiering, additional_params) {
     _.each(participating_mirrors, mirror => {
         // Selecting the allocating pool for the current mirror
         // Notice that this is only relevant to the current chunk
-        let mirror_status = select_pool_type(mirror.spread_pools,
-            _.get(additional_params, 'tiering_pools_status', {}));
+        let mirror_status = select_pool_type(tier, mirror.spread_pools,
+            _.get(additional_params, 'tiering_status', {}));
         let status_result = _get_mirror_chunk_status(chunk, tier, mirror_status,
             mirror.spread_pools, additional_params);
         chunk_status.allocations = _.concat(chunk_status.allocations, status_result.allocations);
@@ -458,31 +479,25 @@ function is_block_accessible(block) {
     return Boolean(block.node.readable);
 }
 
-function is_chunk_good(chunk, tiering) {
-    let status = get_chunk_status(chunk, tiering, {
-        status_check: true
+function is_chunk_good_for_dedup(chunk, tiering, tiering_status) {
+    const status = get_chunk_status(chunk, tiering, {
+        tiering_status: tiering_status
     });
+
     return status.accessible && !status.allocations.length;
 }
 
-function is_chunk_accessible(chunk, tiering) {
-    let status = get_chunk_status(chunk, tiering, {
-        status_check: true
-    });
-    return status.accessible;
-}
 
-
-function get_part_info(part, adminfo) {
+function get_part_info(part, adminfo, tiering_status) {
     let p = _.pick(part,
         'start',
         'end',
         'chunk_offset');
-    p.chunk = get_chunk_info(part.chunk, adminfo);
+    p.chunk = get_chunk_info(part.chunk, adminfo, tiering_status);
     return p;
 }
 
-function get_chunk_info(chunk, adminfo) {
+function get_chunk_info(chunk, adminfo, tiering_status) {
     let c = _.pick(chunk,
         'size',
         'digest_type',
@@ -499,9 +514,11 @@ function get_chunk_info(chunk, adminfo) {
     if (adminfo) {
         c.adminfo = {};
         let bucket = system_store.data.get_by_id(chunk.bucket);
-        let status = get_chunk_status(chunk, bucket.tiering, {
-            status_check: true
+
+        const status = get_chunk_status(chunk, bucket.tiering, {
+            tiering_status: tiering_status
         });
+
         if (!status.accessible) {
             c.adminfo.health = 'unavailable';
         } else if (status.allocations.length) {
@@ -599,19 +616,114 @@ function block_access_sort(block1, block2) {
 }
 
 
+function get_tiering_prefered_tier(tiering, additional_params, tier_chunk_statuses) {
+    const tiering_status = _.get(additional_params, 'tiering_status', {});
+
+    const tiering_alloc = _.map(tiering.tiers, tier_and_order => {
+        const tier_status = _.get(tiering_status, `${tier_and_order.tier._id}`);
+        const chunk_in_tier_status = _.find(tier_chunk_statuses, tier_chunk_status =>
+            String(tier_and_order.tier._id) === String(tier_chunk_status.tier._id));
+        // We allow to upload to one mirror even if other mirrors don't have any space left
+        // That is why we are picking the maximum value of free from the mirrors of the tier
+        const available_to_upload = size_utils.json_to_bigint(
+            size_utils.reduce_maximum('free',
+                tier_status.mirrors_storage.map(storage => (storage.free || 0))
+            )
+        );
+
+        // TODO: JEN Temporary removed with the Threshold issues regarding where to save the last tier state
+        // system_store.valid_for_alloc_by_tier[tier_and_order.tier._id] =
+        //     available_to_upload &&
+        //     ((system_store.valid_for_alloc_by_tier[tier_and_order.tier._id] &&
+        //             available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD)) ||
+        //         (!system_store.valid_for_alloc_by_tier[tier_and_order.tier._id] &&
+        //             available_to_upload.greater(config.MAX_TIER_FREE_THRESHOLD)));
+
+        return {
+            order: tier_and_order.order,
+            tier: tier_and_order.tier,
+            is_valid_for_allocation: //system_store.valid_for_alloc_by_tier[tier_and_order.tier._id],
+                available_to_upload &&
+                available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD) &&
+                available_to_upload.greater(config.MAX_TIER_FREE_THRESHOLD),
+            is_spillover: tier_and_order.is_spillover,
+            is_chunk_good: chunk_in_tier_status.status.accessible &&
+                !chunk_in_tier_status.status.allocations.length
+        };
+    });
+
+    const prefered_tier = _get_prefered_tier(tiering_alloc);
+
+    return prefered_tier.tier;
+}
+
+/*
+                *** PREFERED TIER PICKING DECISION TABLE ***
+// NOTICE:
+// Prior to the decision table below, we do a sortBy using several properties
+// The sortBy massively affects the outcome regarding which tier will be chosen
+// The below table hints the sorted array which type we shall choose
+
+ST - Stands for SPILLOVER tier.
+NT - Stands for NORMAL tier which means not spill over.
+VC -  Stands for VALID chunk status on tier.
+NVC - Stands for NOT VALID chunk status on tier.
+VU -  Stands for tier which is VALID to upload (has free space).
+NVU - Stands for tier which is NOT VALID to upload (has no free space).
+
+TODO: Current algorithm was developed for two tiers maximum
+// It may behave differently for more complex cases
+
++-------------------------------+-------------------+------------------+------------------+-----------------+
+| Availability / Chunk Validity | NT: NVC - ST: NVC | NT: VC - ST: NVC | NT: NVC - ST: VC | NT: VC - ST: VC |
++-------------------------------+-------------------+------------------+------------------+-----------------+
+| NT:   VU                      |         NT        |        NT        |         NT       |        NT       |
+| ST:   VU                      |                   |                  |                  |                 |
++-------------------------------+-------------------+------------------+------------------+-----------------+
+| NT:   NVU                     |         NT        |        NT        |                  |        NT       |
+| ST:   NVU                     |                   |                  |         ST       |                 |
++-------------------------------+-------------------+------------------+------------------+-----------------+
+| NT:   NVU                     |                   |        NT        |                  |        NT       |
+| ST:   VU                      |         ST        |                  |         ST       |                 |
++-------------------------------+-------------------+------------------+------------------+-----------------+
+| NT:   VU                      |         NT        |        NT        |         NT       |        NT       |
+| ST:   NVU                     |                   |                  |                  |                 |
++-------------------------------+-------------------+------------------+------------------+-----------------+
+*/
+
+function _get_prefered_tier(tiering_alloc) {
+    // True comes after False in the sortBy method, so using "-" to reverse behavior
+    const tiering_alloc_sorted_by_order = _.sortBy(tiering_alloc, [
+        '-is_chunk_good',
+        '-is_valid_for_allocation',
+        'is_spillover',
+        'order'
+    ]);
+
+    const no_good_tier = _.every(tiering_alloc_sorted_by_order,
+        alloc => !alloc.is_chunk_good && !alloc.is_valid_for_allocation);
+    const best_regular = _.find(tiering_alloc_sorted_by_order,
+        alloc => !alloc.is_spillover && (alloc.is_valid_for_allocation || alloc.is_chunk_good || no_good_tier));
+    const best_spillover = _.find(tiering_alloc_sorted_by_order,
+        alloc => alloc.is_spillover);
+
+    return best_regular || best_spillover || tiering_alloc_sorted_by_order[0];
+}
+
+
 // EXPORTS
 exports.get_chunk_status = get_chunk_status;
 exports.set_chunk_frags_from_blocks = set_chunk_frags_from_blocks;
 exports.get_missing_frags_in_chunk = get_missing_frags_in_chunk;
 exports.is_block_good = is_block_good;
 exports.is_block_accessible = is_block_accessible;
-exports.is_chunk_good = is_chunk_good;
-exports.is_chunk_accessible = is_chunk_accessible;
+exports.is_chunk_good_for_dedup = is_chunk_good_for_dedup;
 exports.get_part_info = get_part_info;
 exports.get_chunk_info = get_chunk_info;
 exports.get_frag_info = get_frag_info;
 exports.get_block_info = get_block_info;
 exports.get_block_md = get_block_md;
 exports.get_frag_key = get_frag_key;
+exports.get_tiering_prefered_tier = get_tiering_prefered_tier;
 exports.sanitize_object_range = sanitize_object_range;
 exports.analyze_special_chunks = analyze_special_chunks;

@@ -9,6 +9,7 @@ const config = require('../../../config.js');
 const MDStore = require('./md_store').MDStore;
 const map_utils = require('./map_utils');
 const mongo_utils = require('../../util/mongo_utils');
+const node_allocator = require('../node_services/node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
 
 
@@ -99,11 +100,27 @@ function read_node_mappings(params) {
  */
 function read_parts_mappings(params) {
     const chunks = _.map(params.parts, 'chunk');
-    return P.resolve()
-        .then(() => MDStore.instance().load_blocks_for_chunks(chunks))
+    const chunks_buckets = _.uniq(_.map(chunks, chunk => String(chunk.bucket)));
+    const tiering_status_by_bucket_id = {};
+    return P.join(
+            MDStore.instance().load_blocks_for_chunks(chunks),
+            params.adminfo && P.map(chunks_buckets, bucket_id => {
+                const bucket = system_store.data.get_by_id(bucket_id);
+                if (!bucket) {
+                    console.error(`read_parts_mappings: Bucket ${bucket_id} does not exist`);
+                    return P.resolve();
+                }
+
+                return node_allocator.refresh_tiering_alloc(bucket.tiering)
+                    .then(() => {
+                        tiering_status_by_bucket_id[bucket_id] =
+                            node_allocator.get_tiering_status(bucket.tiering);
+                    });
+            })
+        )
         .then(() => _.map(params.parts, part => {
             map_utils.set_chunk_frags_from_blocks(part.chunk, part.chunk.blocks);
-            let part_info = map_utils.get_part_info(part, params.adminfo);
+            let part_info = map_utils.get_part_info(part, params.adminfo, tiering_status_by_bucket_id[part.chunk.bucket]);
             if (params.set_obj) {
                 part_info.obj = part.obj;
             }

@@ -72,16 +72,16 @@ class NodesClient {
     }
 
 
-    aggregate_data_free_by_tier(tier_names, system_id) {
+    aggregate_data_free_by_tier(tier_ids, system_id) {
         return server_rpc.client.node.aggregate_data_free_by_tier({
-            tier_names: tier_names,
-        }, {
-            auth_token: auth_server.make_auth_token({
-                system_id: system_id,
-                role: 'admin'
+                tier_ids: tier_ids,
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_id,
+                    role: 'admin'
+                })
             })
-        })
-        .then(res => _.mapValues(_.keyBy(res, 'tier_name'), 'mirrors_storage'));
+            .then(res => _.mapValues(_.keyBy(res, 'tier_id'), 'mirrors_storage'));
     }
 
 

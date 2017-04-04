@@ -65,6 +65,7 @@ function create_bucket(bucket_name) {
         .then(() => client.tiering_policy.create_policy({
             name: `${bucket_name}tiering`,
             tiers: [{
+                is_spillover: false,
                 order: 0,
                 tier: `${bucket_name}tier`
             }]

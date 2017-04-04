@@ -116,9 +116,6 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
 }
 
 
-// a map-reduce part for finding the minimum value
-// this function must be self contained to be able to send to mongo mapReduce()
-// so not using any functions or constants from above.
 function reduce_minimum(key, values) {
     var n_min = PETABYTE;
     var peta_min = 100000;
@@ -145,6 +142,35 @@ function reduce_minimum(key, values) {
         n: n_min,
         peta: peta_min,
     } : n_min;
+}
+
+
+function reduce_maximum(key, values) {
+    var n_max = 0;
+    var peta_max = 0;
+    values.forEach(function(v) {
+        var n = 0;
+        var peta = 0;
+        if (typeof(v) === 'number') {
+            n = v;
+        } else if (v) {
+            n = v.n;
+            peta = v.peta;
+        }
+        while (n >= PETABYTE) {
+            n -= PETABYTE;
+            peta += 1;
+        }
+
+        if (peta > peta_max || (peta === peta_max && n > n_max)) {
+            n_max = n;
+            peta_max = peta;
+        }
+    });
+    return peta_max ? {
+        n: n_max,
+        peta: peta_max,
+    } : n_max;
 }
 
 
@@ -247,6 +273,7 @@ exports.json_to_bigint = json_to_bigint;
 exports.to_bigint_storage = to_bigint_storage;
 exports.reduce_storage = reduce_storage;
 exports.reduce_minimum = reduce_minimum;
+exports.reduce_maximum = reduce_maximum;
 exports.reduce_sum = mongo_functions.reduce_sum;
 exports.human_size = human_size;
 exports.human_offset = human_offset;

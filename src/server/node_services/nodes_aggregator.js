@@ -8,34 +8,35 @@ const P = require('../../util/promise');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const size_utils = require('../../util/size_utils');
+const system_store = require('../system_services/system_store').get_instance();
 const BigInteger = size_utils.BigInteger;
 
 
 function aggregate_data_free_by_tier(req) {
     let available_by_tiers = [];
 
-    return P.each(req.rpc_params.tier_names, tier_name => {
-            return _aggregate_data_free_for_tier(tier_name, req.system)
+    return P.each(req.rpc_params.tier_ids, tier_id => {
+            return _aggregate_data_free_for_tier(tier_id, req.system)
                 .then(available_storage => {
                     available_by_tiers.push({
-                        tier_name: tier_name,
+                        tier_id: tier_id,
                         mirrors_storage: available_storage
                     });
                 })
                 .catch(err => {
-                    console.error(`Error getting available to upload of tier: ${tier_name}`, err);
+                    console.error(`Error getting available to upload of tier: ${tier_id}`, err);
                 });
         })
         .return(available_by_tiers);
 }
 
 
-function _aggregate_data_free_for_tier(tier_name, system) {
+function _aggregate_data_free_for_tier(tier_id, system) {
     let mirror_available_storage = [];
-    let tier = system.tiers_by_name[tier_name];
+    let tier = system_store.data.get_by_id(tier_id);
 
     if (!tier) {
-        let err = new Error(`Tier ${tier_name} was not found`);
+        let err = new Error(`Tier ${tier_id} was not found`);
         console.error(err);
         return P.reject(err);
     }

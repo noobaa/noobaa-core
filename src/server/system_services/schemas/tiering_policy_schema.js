@@ -35,6 +35,9 @@ module.exports = {
                     tier: {
                         format: 'objectid'
                     },
+                    is_spillover: {
+                        type: 'boolean'
+                    }
                 }
             }
         },

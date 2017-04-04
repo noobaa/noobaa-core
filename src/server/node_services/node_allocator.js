@@ -13,6 +13,7 @@ const ALLOC_REFRESH_MS = 10000;
 
 const alloc_group_by_pool = {};
 const alloc_group_by_pool_set = {};
+const alloc_group_by_tiering = {};
 
 
 function refresh_tiering_alloc(tiering) {
@@ -25,7 +26,10 @@ function refresh_tiering_alloc(tiering) {
             });
             return tier_pools;
         }));
-    return P.map(pools, refresh_pool_alloc);
+    return P.all([
+        P.map(pools, refresh_pool_alloc),
+        refresh_tiers_alloc(tiering)
+    ]);
 }
 
 function refresh_pool_alloc(pool) {
@@ -69,22 +73,60 @@ function refresh_pool_alloc(pool) {
 }
 
 
-function get_tiering_pools_status(tiering) {
-    let pools = _.flatten(_.map(tiering.tiers,
-        tier_and_order => {
-            let tier_pools = [];
-            // Inside the Tier, pools are unique and we don't need to filter afterwards
-            _.forEach(tier_and_order.tier.mirrors, mirror_object => {
-                tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
-            });
-            return tier_pools;
-        }));
+function refresh_tiers_alloc(tiering) {
+    var group =
+        alloc_group_by_tiering[tiering._id] =
+        alloc_group_by_tiering[tiering._id] || {
+            last_refresh: 0,
+            mirrors_storage_by_tier_id: {}
+        };
 
-    return _get_tiering_pools_status(pools);
+    dbg.log1('refresh_tier_alloc: checking tiering', tiering._id, 'group', group);
+
+    // cache the nodes for some time before refreshing
+    if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
+        return P.resolve();
+    }
+
+    if (group.promise) return group.promise;
+
+    group.promise = P.resolve()
+        .then(() => nodes_client.instance().aggregate_data_free_by_tier(
+            _.map(tiering.tiers, tier_and_order => String(tier_and_order.tier._id)),
+            _.sample(tiering.tiers).tier.system._id
+        ))
+        .then(res => {
+            group.last_refresh = Date.now();
+            group.promise = null;
+            group.mirrors_storage_by_tier_id = res;
+        }, err => {
+            group.promise = null;
+            throw err;
+        });
+
+    return group.promise;
 }
 
 
-function _get_tiering_pools_status(pools) {
+function get_tiering_status(tiering) {
+    let tiering_status_by_tier = {};
+    _.each(tiering.tiers, tier_and_order => {
+        let tier_pools = [];
+        // Inside the Tier, pools are unique and we don't need to filter afterwards
+        _.each(tier_and_order.tier.mirrors, mirror_object => {
+            tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
+        });
+
+        tiering_status_by_tier[tier_and_order.tier._id] = {
+            pools: _get_tier_pools_status(tier_pools),
+            mirrors_storage: _.get(alloc_group_by_tiering,
+                `${String(tiering._id)}.mirrors_storage_by_tier_id.${String(tier_and_order.tier._id)}`)
+        };
+    });
+    return tiering_status_by_tier;
+}
+
+function _get_tier_pools_status(pools) {
     let pools_status_by_id = {};
     _.each(pools, pool => {
         let valid_for_allocation = true;
@@ -209,7 +251,7 @@ function report_error_on_node_alloc(node_id) {
 
 
 // EXPORTS
-exports.get_tiering_pools_status = get_tiering_pools_status;
+exports.get_tiering_status = get_tiering_status;
 exports.refresh_tiering_alloc = refresh_tiering_alloc;
 exports.refresh_pool_alloc = refresh_pool_alloc;
 exports.allocate_node = allocate_node;

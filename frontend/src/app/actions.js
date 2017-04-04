@@ -1599,7 +1599,7 @@ export function checkCloudConnection(endpointType, endpoint, identity, secret) {
     };
 
     api.account.check_external_connection(connection)
-        .then(model.isCloudConnectionValid)
+        .then(val => model.isCloudConnectionValid(val === 'SUCCESS'))
         .done();
 }
 

@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { getPoolStateIcon, getResourceTypeIcon,
+import { getPoolStateIcon, getResourceTypeIcon, 
     getPoolCapacityBarValues } from 'utils/ui-utils';
 
 export default class PlacementRowViewModel {

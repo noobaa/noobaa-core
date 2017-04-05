@@ -313,7 +313,9 @@ function get_pool_info(pool, nodes_aggregate_pool) {
         };
         info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);
         let nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
-        if (nodes.by_mode.OPTIMAL) {
+        if (!p.nodes) {
+            info.mode = 'INITALIZING';
+        } else if (nodes.by_mode.OPTIMAL) {
             info.mode = 'OPTIMAL';
         } else if (nodes.by_mode.IO_ERRORS) {
             info.mode = 'IO_ERRORS';

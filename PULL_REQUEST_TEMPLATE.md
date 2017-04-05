@@ -1,7 +1,7 @@
 ### Explain the changes:
 - 
 
-### Issues (fixed #xxxx / opened technical debt #yyyy)
+### Issues (fixed #xxxx / opened technical debt #yyyy / partial fix to #zzzz)
 - 
 
 ### Reminders
@@ -14,4 +14,3 @@
 - Imagine the support call - Add diagnostics info, phonehome info, activity log events, external syslog
 - Upgrade from previous version - DB schema, server platform, agents install, new packages added to deploymet
 
-[For FE PRs use the template](https://github.com/noobaa/noobaa-core/blob/master/FE_PULL_REQUEST.md)

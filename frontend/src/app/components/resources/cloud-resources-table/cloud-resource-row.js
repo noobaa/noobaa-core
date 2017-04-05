@@ -2,7 +2,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { deleteCloudResource } from 'actions';
-import { getResourceTypeIcon, getResourceStateIcon } from 'utils/ui-utils';
+import { getResourceTypeIcon, getPoolStateIcon } from 'utils/ui-utils';
 
 const undeletableReasons = deepFreeze({
     IN_USE: 'Cannot delete a resource which is used in a bucket data placement policy'
@@ -18,7 +18,7 @@ export default class CloudResourceRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                const icon = getResourceStateIcon(resource());
+                const icon = getPoolStateIcon(resource());
                 return {
                     ...icon,
                     tooltip: { 

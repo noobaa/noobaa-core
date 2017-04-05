@@ -133,11 +133,6 @@ const poolStateIconMapping = deepFreeze({
     }
 });
 
-export function getPoolStateIcon(pool) {
-    const state = poolStateIconMapping[pool.mode];
-    return isFunction(state) ? state(pool) : state;
-}
-
 const resourceStateIconMapping = deepFreeze({
     OPTIMAL: {
         tooltip: 'Healthy',
@@ -158,12 +153,12 @@ const resourceStateIconMapping = deepFreeze({
         tooltip: 'Offline',
         css: 'error',
         name: 'problem',
-    },
+    }
 });
 
-export function getResourceStateIcon(resource) {
-    const state = resourceStateIconMapping[resource.mode];
-    return isFunction(state) ? state(resource) : state;
+export function getPoolStateIcon(pool) {
+    const state = pool.nodes ? poolStateIconMapping[pool.mode] : resourceStateIconMapping[pool.mode];
+    return isFunction(state) ? state(pool) : state;
 }
 
 const resourceTypeIconMapping = deepFreeze({

@@ -53,6 +53,7 @@ return azf.authenticate()
     }))
     .then(() => P.resolve(client.node.list_nodes({
         query: {
+            online: true,
             skip_cloud_nodes: true
         }
     })))
@@ -68,11 +69,11 @@ return azf.authenticate()
     })
     .then(() => {
         if (!argv.skipsetup) {
-            P.map(oses, osname => {
-                    var os = azf.getImagesfromOSname(osname);
-                    azf.deleteVirtualMachine(os.offer.substring(0, 7) + os.sku.substring(0, 4))
-                        .catch(err => console.log('VM not found - skipping...', err));
-                })
+            return P.map(oses, osname =>
+                    // var os = azf.getImagesfromOSname(osname);
+                    azf.deleteVirtualMachine(osname)
+                    .catch(err => console.log('VM not found - skipping...', err))
+                )
                 .then(() => P.map(oses, osname => {
                     var os = azf.getImagesfromOSname(osname);
                     return azf.createAgent(osname, storageAccountName, vnetName,
@@ -82,6 +83,7 @@ return azf.authenticate()
                 .delay(60000)
                 .then(() => P.resolve(client.node.list_nodes({
                     query: {
+                        online: true,
                         skip_cloud_nodes: true
                     }
                 })))
@@ -118,9 +120,9 @@ return azf.authenticate()
             level: 5,
         }).catch(err => errors.push(err.message)));
     })
-    .then(() => P.map(nodes, node_name => azf.deleteVirtualMachineExtension(node_name.substring(0, node_name.length - 9))
+    .then(() => P.map(oses, osname => azf.deleteVirtualMachineExtension(osname)
         .catch(err => console.log(err.message))))
-    .then(() => P.map(nodes, node_name => {
+    .then(() => P.map(oses, osname => {
         var extension = {
             publisher: 'Microsoft.OSTCExtensions',
             virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
@@ -136,7 +138,7 @@ return azf.authenticate()
             },
             location: location,
         };
-        var os = azf.getImagesfromOSname(node_name);
+        var os = azf.getImagesfromOSname(osname);
         if (os.osType === 'Windows') {
             extension.publisher = 'Microsoft.Compute';
             extension.virtualMachineExtensionType = 'CustomScriptExtension';
@@ -146,7 +148,7 @@ return azf.authenticate()
                 commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File remove_agent.ps1 '
             };
         }
-        return azf.createVirtualMachineExtension(node_name.substring(0, node_name.length - 9), extension)
+        return azf.createVirtualMachineExtension(osname, extension)
             .catch(err => errors.push(err.message));
     }))
     .then(() => rpc.disconnect_all())

@@ -16,7 +16,9 @@ def max_machines = '15' // maximum 10 machines
 //agentMatrix
 def azureName = 'agent-matrix-server'
 def serverName = '52.183.88.148'
-def agentConf = 'eyJhZGRyZXNzIjoid3NzOi8vMTAuMC4wLjQ6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJhY2Nlc3Nfa2V5IjoiMTIzIiwic2VjcmV0X2tleSI6ImFiYyIsInRpZXIiOiJub2RlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8ifQ=='
+def agentConf = 'eyJhZGRyZXNzIjoid3NzOi8vMTAuMC4wLjQ6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJyb290X3BhdGgiOiIuL2FnZW50X3N0b3JhZ2UvIiwiY3JlYXRlX25vZGVfdG9rZW4iOiJleUpoYkdjaU9pSklVekkxTmlJc0luUjVjQ0k2SWtwWFZDS' +
+                'jkuZXlKaFkyTnZkVzUwWDJsa0lqb2lOVGhoTkRJNFpHUmhNalJoTWpjMk9EQTNOVFJqWTJReElpd2ljM2x6ZEdWdFgybGtJam9pTlRoaE5ESTRaR1JoTWpSaE1qYzJPREEzTlRSalkyUXlJaXdpY205c1pTSTZJbU55WldGMFpWOXViMlJsSW' + 
+                'l3aVpYaDBjbUVpT25zaVlXZGxiblJmWTI5dVptbG5YMmxrSWpvaU5UaGxOakE1T0RZeU9EUTJNRGN6TWpjMFpEWTBaVE5pSW4wc0ltbGhkQ0k2TVRRNU1UUTNNRGN5Tm4wLkRibGtwY3R2ZlBhc2M0NnMyWmw4Y256enlvYzIxcGp0ZXZqcnZHRDJKNTAifQ=='
 def agentsResource = 'pipeline-agents'
 def agentsVnet = 'agents-vnet'
 def agentsStorage = 'jenkinsnoobaastorage'
@@ -76,7 +78,6 @@ node('jenkins-slave1-centos') {
             sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                cp /usr/local/noobaa/.env $WORKSPACE
                 sleep '${start_killing_time}'m
                 node $WORKSPACE/src/test/qa/machine_killer.js --service '${service}' --project '${resource}' --zone '${zone}' --prefix '${prefix}' --timeout \$((${aging_time}-${start_killing_time})) --min_machines '${min_machines}' --max_machines '${max_machines}'
             """
@@ -102,7 +103,7 @@ node('jenkins-slave1-centos') {
             sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/upgrade_test.js'
+                node $WORKSPACE/src/test/qa/upgrade_test.js
             """
           }
       )

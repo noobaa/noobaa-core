@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isUndefined, deepFreeze } from 'utils/core-utils';
+import { isObject, isUndefined, deepFreeze, isNumber } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 
 // -----------------------------------------
@@ -64,6 +64,7 @@ ko.group = function(...observables) {
     );
 };
 
+
 // -----------------------------------------
 // Knockout subscribable extnesions
 // -----------------------------------------
@@ -100,6 +101,54 @@ ko.subscribable.fn.debug = function(prefix) {
 
 ko.subscribable.fn.is = function(value) {
     return ko.pureComputed(() => this() === value);
+};
+
+ko.subscribable.fn.when = function(condition = Boolean) {
+    const val = this .peek();
+    if (condition(val)) {
+        return Promise.resolve(val);
+    } else {
+        return new Promise(resolve => {
+            const sub = this.subscribe(val => {
+                if(condition(val)) {
+                    sub.dispose();
+                    resolve(val);
+                }
+            });
+        });
+    }
+};
+
+ko.observable.fn.map = function(mapOp) {
+    let prevItems = [];
+    const projected = ko.pureComputed(
+        () => {
+            const current = this();
+            if (Array.isArray(current)) {
+                const prev = prevItems;
+                return (prevItems = current).map(
+                    (item, i) => (item === prev[i]) ? projected.peek()[i] : mapOp(item)
+                );
+
+            } else {
+                return prevItems = [];
+            }
+        }
+    );
+    return projected;
+};
+
+ko.observableArray.fn.get = function(i) {
+    return this()[i];
+};
+
+ko.observableArray.fn.peek = function(i) {
+    if (isNumber(i)) {
+        return ko.observable.fn.peek.call(this)[i];
+    } else {
+        return ko.observable.fn.peek.call(this);
+    }
+
 };
 
 // -----------------------------------------

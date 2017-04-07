@@ -27,7 +27,7 @@
             }
         }
     },
-    "notificaitons": {
+    "notifications": {
         "minTimeOnScreen": 3200,
         "charTimeContribution": 50
     },

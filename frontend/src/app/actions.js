@@ -1837,7 +1837,6 @@ export function notify(message, severity = 'info') {
     logAction('notify', { message, severity });
 
     dispatchers.showNotification(message, severity);
-    model.lastNotification({ message, severity });
 }
 
 export function validateActivation(code, email) {

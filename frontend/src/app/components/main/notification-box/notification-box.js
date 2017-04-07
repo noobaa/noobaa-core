@@ -39,12 +39,6 @@ class NotificationBarViewModel extends Observer {
     }
 
     onState(notif) {
-        // Mock a message.
-        notif = notif && {
-            ...notif,
-            message: `message number ${notif.id}`
-        };
-
         if (!notif) {
             this.visible(false);
             return;

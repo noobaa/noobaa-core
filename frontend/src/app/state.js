@@ -17,10 +17,10 @@ Observable.prototype.getMany = function(...paths) {
 
 const state$ = action$
     .startWith({ type: 'INIT_APPLICATION' })
-    .tap(action => console.log('STATE ACTION DISPATCHED:', action))
+    .tap(action => console.info('DISPATCHING:', action))
     .scan((state, action) => appReducer(state, action), {})
     .map(deepFreeze)
-    .tap(state => console.log('NEW STATE:', state))
+    .tap(state => console.info('NEW STATE:', state))
     .shareReplay(1);
 
 state$.subscribe(

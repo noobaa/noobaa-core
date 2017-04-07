@@ -38,22 +38,19 @@ class NotificationBarViewModel extends Observer {
         this.observe(state$.get('notifications', 'list', '0'), this.onState);
     }
 
-    onState(notif) {
-        if (!notif) {
+    onState(next) {
+        if (!next) {
             this.visible(false);
             return;
         }
 
-        const displayed = this.notifications.get(0);
-        if (!displayed || displayed.id < notif.id) {
-            const notifVM = {
-                ...severityMapping[notif.severity],
-                id: notif.id,
-                text: notif.message
-            };
-
-            this.notifications.push(notifVM);
-            this._digestNotification(notifVM);
+        const current = this.notifications.get(0);
+        if (!current || current.id < next.id) {
+            this._processNotification({
+                ...severityMapping[next.severity],
+                id: next.id,
+                text: next.message
+            });
             this.visible(true);
         }
     }
@@ -64,13 +61,17 @@ class NotificationBarViewModel extends Observer {
         }
     }
 
-    async _digestNotification(notifVM){
+    async _processNotification(notif){
+        this.notifications.push(notif);
+        this.visible(true);
+
         await all(
             sleep(minTimeOnScreen),
-            sleep(charTimeContribution * notifVM.text.length)
+            sleep(charTimeContribution * notif.text.length)
         );
         await this.hover.when(isFalsy);
-        hideNotification(notifVM.id);
+
+        hideNotification(notif.id);
     }
 }
 

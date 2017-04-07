@@ -10,7 +10,7 @@
     <bar params="values: uploadBarValues"></bar>
     <span class="anim shrink-in" data-bind="
         visible: animatedCount,
-        animation: { end: onUploadAnimationEnd },
+        event: { animationend: onUploadAnimationEnd },
         text: animatedCount
     "></span>
 </button>

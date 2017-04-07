@@ -48,7 +48,6 @@ function _deleteDeep(state, path, i) {
 
         } else {
             const { [key]: t, ...newState } = state;
-            t === t; // using '===' in order to suppress 'unused-var' lint error
             return newState;
         }
 

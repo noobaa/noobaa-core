@@ -44,6 +44,10 @@ export function isDefined(value) {
     return !isUndefined(value);
 }
 
+export function isFalsy(value) {
+    return !value;
+}
+
 export function pick(obj, ...keys) {
     return keys.reduce(
         (picked, key) => {
@@ -120,6 +124,10 @@ export function makeRange(start, end) {
     );
 }
 
+export function first(arr) {
+    return arr[0];
+}
+
 export function last(arr) {
     return arr[arr.length - 1];
 }
@@ -135,7 +143,7 @@ export function bitsToNumber(...bits) {
     );
 }
 
-export function flatMap(arr, predicate) {
+export function flatMap(arr, predicate = echo) {
     return arr.reduce(
         (result, item) => {
             let mappedValue = predicate(item);

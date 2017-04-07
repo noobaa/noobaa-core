@@ -10,6 +10,7 @@ import cloudResourcesReducer from './cloud-resources-reducer';
 import accountsReducer from './accounts-reducer';
 import objectUploadsReducer from './object-uploads-reducer';
 import alertsReducer from './alerts-reducer';
+import notificationsReducer from './notificaitons-reducer';
 
 export default combineReducers({
     session: sessionReducer,
@@ -22,5 +23,6 @@ export default combineReducers({
     nodePools: nodePoolsReducer,
     cloudResources: cloudResourcesReducer,
     accounts: accountsReducer,
-    objectUploads: objectUploadsReducer
+    objectUploads: objectUploadsReducer,
+    notifications: notificationsReducer
 });

@@ -14,7 +14,7 @@ import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
     toFormData } from 'utils/browser-utils';
 
 // Action dispathers from refactored code.
-import { fetchSystemInfo } from 'dispatchers';
+import * as dispatchers from 'dispatchers';
 import { action$ } from 'state-actions';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
@@ -526,7 +526,7 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
 // ----------------------------------------------------------------------
 export function loadSystemInfo() {
     logAction('loadSystemInfo');
-    fetchSystemInfo();
+    dispatchers.fetchSystemInfo();
 }
 
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
@@ -1836,6 +1836,7 @@ export function attemptResolveNTPServer(ntpServerAddress, serverSecret) {
 export function notify(message, severity = 'info') {
     logAction('notify', { message, severity });
 
+    dispatchers.showNotification(message, severity);
     model.lastNotification({ message, severity });
 }
 
@@ -2013,17 +2014,11 @@ action$.subscribe(action => {
             loadSystemInfo();
             break;
 
-        case 'ACCOUNT_CREATION_FAILED':
-            notify(`Creating account ${action.email} failed`, 'error');
-            break;
-
         case 'ACCOUNT_S3_ACCESS_UPDATED':
-            notify(`${action.email} S3 access updated successfully`, 'success');
             loadSystemInfo();
             break;
 
         case 'ACCOUNT_S3_ACCESS_UPDATE_FAILED':
-            notify(`Updating ${action.email} S3 access failed`, 'error');
             break;
     }
 });

@@ -13,7 +13,6 @@ export default function register(ko) {
     registerHandler('href',             require('./href').default);
     registerHandler('scroll',           require('./scroll').default);
     registerHandler('canvas',           require('./canvas').default);
-    registerHandler('animation',        require('./animation').default);
     registerHandler('expand',           require('./expand').default);
     registerHandler('tooltip',          require('./tooltip').default);
     registerHandler('scrollTo',         require('./scroll-to').default);

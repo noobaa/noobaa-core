@@ -1,12 +1,12 @@
-<div class="drawer-wrapper" data-bind="
-    visible: component,
-    if: component,
-    css: { opened: opened }
+<div class="drawer-wrapper"
+    ko.if="component"
+    ko.visible="component"
+    ko.css.opened="opened"
 ">
-    <div class="drawer-backdrop" data-bind="click: close"></div>
-    <div class="drawer-content" data-bind="
-        component: { name: component, params: { onClose: () => close() } },
-        css: component,
-        transition: { end: onTransitionEnd }
+    <div class="drawer-backdrop" ko.click="close"></div>
+    <div class="drawer-content"
+        ko.component="{ name: component, params: params }"
+        ko.css="component"
+        ko.event.transitionend="onTransitionEnd"
     "></div>
 </div>

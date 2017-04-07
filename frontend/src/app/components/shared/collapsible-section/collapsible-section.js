@@ -1,8 +1,5 @@
 import template from './collapsible-section.html';
 import BaseViewModel from 'components/base-view-model';
-import ko from 'knockout';
-//import { uiState } from 'model';
-//import { navigateTo } from 'actions';
 
 class CollapsibleSectionViewModel extends BaseViewModel {
     constructor(params, collapsedTemplate, expandedTemplate) {
@@ -12,13 +9,8 @@ class CollapsibleSectionViewModel extends BaseViewModel {
 
         this.title = title;
         this.intent = collapsed;
-        this.result = ko.observable(this.intent());
         this.collapsedTemplate = collapsedTemplate;
         this.expandedTemplate = expandedTemplate;
-    }
-
-    onTransitionEnd() {
-        this.result(this.intent());
     }
 }
 

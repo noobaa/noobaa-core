@@ -9,8 +9,8 @@ class DrawerViewModel extends Observer {
     constructor() {
         super();
         this.component = ko.observable();
+        this.params = { onClose: this.close.bind(this) };
         this.opened = ko.observable();
-
         this.observe(state$.get('drawer'), this.onDrawer);
     }
 

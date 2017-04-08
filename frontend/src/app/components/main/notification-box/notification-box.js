@@ -46,11 +46,7 @@ class NotificationBarViewModel extends Observer {
 
         const current = this.notifications.get(0);
         if (!current || current.id < next.id) {
-            this._processNotification({
-                ...severityMapping[next.severity],
-                id: next.id,
-                text: next.message
-            });
+            this._processNotification(next);
             this.visible(true);
         }
     }
@@ -61,17 +57,21 @@ class NotificationBarViewModel extends Observer {
         }
     }
 
-    async _processNotification(notif){
-        this.notifications.push(notif);
-        this.visible(true);
+    async _processNotification({ id, severity, message }){
+        this.notifications.push({
+            ...severityMapping[severity],
+            id: id,
+            text: message
+        });
 
         await all(
             sleep(minTimeOnScreen),
-            sleep(charTimeContribution * notif.text.length)
+            sleep(charTimeContribution * message.length)
         );
+
         await this.hover.when(isFalsy);
 
-        hideNotification(notif.id);
+        hideNotification(id);
     }
 }
 

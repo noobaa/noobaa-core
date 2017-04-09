@@ -364,45 +364,81 @@ function get_all_stats(req) {
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Systems');
             return get_systems_stats(req);
         })
+        .catch(err => {
+            dbg.warn('Error in collecting systems stats, skipping current stats collection', err.stack, err);
+            throw err;
+        })
         .then(systems_stats => {
             stats_payload.systems_stats = systems_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Nodes');
-            return get_nodes_stats(req);
+            return get_nodes_stats(req)
+                .catch(err => {
+                    dbg.warn('Error in collecting node stats, skipping', err.stack, err);
+                    return {};
+                });
         })
         .then(nodes_stats => {
             stats_payload.nodes_stats = nodes_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Pools');
-            return get_pool_stats(req);
+            return get_pool_stats(req)
+                .catch(err => {
+                    dbg.warn('Error in collecting pool stats, skipping', err.stack, err);
+                    return {};
+                });
         })
         .then(pools_stats => {
             stats_payload.pools_stats = pools_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Cloud Pool');
-            return get_cloud_pool_stats(req);
+            return get_cloud_pool_stats(req)
+                .catch(err => {
+                    dbg.warn('Error in collecting cloud pool stats, skipping', err.stack, err);
+                    return {};
+                });
         })
         .then(cloud_pool_stats => {
             stats_payload.cloud_pool_stats = cloud_pool_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Cloud Sync');
-            return get_cloud_sync_stats(req);
+            return get_cloud_sync_stats(req)
+                .catch(err => {
+                    dbg.warn('Error in collecting cloud sync stats, skipping', err.stack, err);
+                    return {};
+                });
         })
         .then(cloud_sync_stats => {
             stats_payload.cloud_sync_stats = cloud_sync_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Bucket Sizes');
-            return get_bucket_sizes_stats(req);
+            return get_bucket_sizes_stats(req)
+                .catch(err => {
+                    dbg.warn('Error in collecting bucket sizes stats, skipping', err.stack, err);
+                    return {};
+                });
         })
         .then(bucket_sizes_stats => {
             stats_payload.bucket_sizes_stats = bucket_sizes_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Object Usage');
-            return get_object_usage_stats(req);
+            return get_object_usage_stats(req)
+                .catch(err => {
+                    dbg.warn('Error in collecting node stats, skipping', err.stack, err);
+                    return {};
+                });
         })
         .then(object_usage_stats => {
             stats_payload.object_usage_stats = object_usage_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Tiers');
-            return get_tier_stats(req);
+            return get_tier_stats(req)
+                .catch(err => {
+                    dbg.warn('Error in collecting tier stats, skipping', err.stack, err);
+                    return {};
+                });
         })
         .then(tier_stats => {
             stats_payload.tier_stats = tier_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Ops (STUB)'); //TODO
-            return get_ops_stats(req);
+            return get_ops_stats(req)
+                .catch(err => {
+                    dbg.warn('Error in collecting ops stats, skipping', err.stack, err);
+                    return {};
+                });
         })
         .then(ops_stats => {
             stats_payload.ops_stats = ops_stats;
@@ -571,11 +607,7 @@ function get_empty_sync_histo() {
 }
 
 function background_worker() {
-    if (DEV_MODE) {
-        dbg.log('Central Statistics gathering disabled in DEV_MODE');
-        return;
-    }
-    dbg.log('Central Statistics gathering enabled');
+    dbg.log('Central Statistics gathering started');
     //Run the system statistics gatheting
     return P.fcall(() => {
             let system = system_store.data.systems[0];
@@ -588,7 +620,13 @@ function background_worker() {
                 })
             });
         })
-        .then(payload => send_stats_payload(payload))
+        .then(payload => {
+            if (DEV_MODE) {
+                dbg.log('Central Statistics payload send is disabled in DEV_MODE');
+                return P.resolve();
+            }
+            return send_stats_payload(payload);
+        })
         .catch(err => {
             failed_sent++;
             if (failed_sent > 5) {

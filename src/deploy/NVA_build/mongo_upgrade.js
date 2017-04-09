@@ -619,6 +619,47 @@ function remove_unnamed_nodes() {
 
 function upgrade_accounts() {
     add_defaults_to_sync_credentials_cache();
+    remove_unlinked_buckets_from_premissions();
+}
+
+function remove_unlinked_buckets_from_premissions() {
+    print('\n*** remove_unlinked_buckets_from_premissions ...');
+    const existing_buckets = db.buckets.find({
+            deleted: null
+        }, {
+            _id: 1
+        }).toArray()
+        .map(function(item) {
+            return String(item._id);
+        });
+
+    db.accounts.find({
+        deleted: null
+    }, {
+        _id: 1,
+        allowed_buckets: 1
+    }).forEach(function(account) {
+        if (account.allowed_buckets && account.allowed_buckets.length) {
+            const remove_buckets = account.allowed_buckets.filter(function(item) {
+                if (existing_buckets.indexOf(String(item)) > -1) {
+                    return false;
+                }
+                return true;
+            });
+
+            if (remove_buckets.length) {
+                db.accounts.update({
+                    _id: account._id
+                }, {
+                    $pull: {
+                        allowed_buckets: {
+                            $in: remove_buckets
+                        }
+                    }
+                });
+            }
+        }
+    });
 }
 
 function add_defaults_to_sync_credentials_cache() {

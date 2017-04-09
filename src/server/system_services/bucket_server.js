@@ -314,14 +314,16 @@ function delete_bucket(req) {
             auth_token: req.auth_token
         }))
         .then(res => {
-            const accounts_update = _.compact(_.map(system_store.data.accounts_by_email,
+            const accounts_update = _.compact(_.map(system_store.data.accounts,
                 account => {
                     if (!account.allowed_buckets) return;
                     return {
                         _id: account._id,
-                        allowed_buckets: _.compact(_.map(_.filter(account.allowed_buckets,
-                                allowed_bucket => String(allowed_bucket._id) !== String(bucket._id)),
-                            '_id'))
+                        $pull: {
+                            allowed_buckets: {
+                                $in: [bucket._id]
+                            }
+                        }
                     };
                 }));
 

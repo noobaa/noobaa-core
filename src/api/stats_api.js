@@ -167,13 +167,13 @@ module.exports = {
                                 type: 'string'
                             },
                             allocated_space: {
-                                type: 'integer'
+                                $ref: 'common_api#/definitions/bigint'
                             },
                             used_space: {
-                                type: 'integer'
+                                $ref: 'common_api#/definitions/bigint'
                             },
                             total_space: {
-                                type: 'integer'
+                                $ref: 'common_api#/definitions/bigint'
                             },
                             associated_nodes: {
                                 type: 'object',

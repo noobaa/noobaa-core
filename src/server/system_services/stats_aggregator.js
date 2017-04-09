@@ -447,7 +447,7 @@ function get_all_stats(req) {
         })
         .catch(err => {
             dbg.warn('SYSTEM_SERVER_STATS_AGGREGATOR:', 'ERROR', err.stack);
-            return {};
+            return stats_payload;
         });
 }
 

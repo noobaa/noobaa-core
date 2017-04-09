@@ -218,7 +218,7 @@ function create_policy(req) {
             return {
                 order: t.order,
                 tier: req.system.tiers_by_name[t.tier]._id,
-                is_spillover: t.is_spillover
+                is_spillover: t.is_spillover || false
             };
         }));
     dbg.log0('Creating tiering policy', policy);

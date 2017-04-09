@@ -314,8 +314,23 @@ function delete_bucket(req) {
             auth_token: req.auth_token
         }))
         .then(res => {
-            //TODO NEED TO INSERT CODE THAT DELETES BUCKET ID FROM ALL ACCOUNT PERMISSIONS;
-            return res;
+            const accounts_update = _.compact(_.map(system_store.data.accounts_by_email,
+                account => {
+                    if (!account.allowed_buckets) return;
+                    return {
+                        _id: account._id,
+                        allowed_buckets: _.compact(_.map(_.filter(account.allowed_buckets,
+                                allowed_bucket => String(allowed_bucket._id) !== String(bucket._id)),
+                            '_id'))
+                    };
+                }));
+
+            return system_store.make_changes({
+                    update: {
+                        accounts: accounts_update
+                    }
+                })
+                .return(res);
         })
         .return();
 }

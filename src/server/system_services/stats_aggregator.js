@@ -210,21 +210,25 @@ function get_nodes_stats(req) {
 }
 
 function get_ops_stats(req) {
-    return _.mapValues(ops_aggregation, val => val.get_string_data());
+    return P.resolve()
+        .then(() => _.mapValues(ops_aggregation, val => val.get_string_data()));
 }
 
 function get_bucket_sizes_stats(req) {
-    return system_store.data.buckets.map(bucket => {
-        let bins = bucket.storage_stats.objects_hist || [];
-        return {
-            master_label: 'Size',
-            bins: bins.map(bin => ({
-                label: bin.label,
-                count: bin.count,
-                avg: bin.count ? bin.aggregated_sum / bin.count : 0
-            }))
-        };
-    });
+    return P.resolve()
+        .then(() => {
+            return system_store.data.buckets.map(bucket => {
+                let bins = bucket.storage_stats.objects_hist || [];
+                return {
+                    master_label: 'Size',
+                    bins: bins.map(bin => ({
+                        label: bin.label,
+                        count: bin.count,
+                        avg: bin.count ? bin.aggregated_sum / bin.count : 0
+                    }))
+                };
+            });
+        });
 }
 
 function get_pool_stats(req) {
@@ -310,38 +314,44 @@ function get_object_usage_stats(req) {
 }
 
 function get_cloud_pool_stats(req) {
-    var cloud_pool_stats = _.cloneDeep(CLOUD_POOL_STATS_DEFAULTS);
-    //Per each system fill out the needed info
-    _.forEach(system_store.data.pools, pool => {
-        cloud_pool_stats.pool_count++;
-        if (pool.cloud_pool_info) {
-            cloud_pool_stats.cloud_pool_count++;
-            if (pool.cloud_pool_info.endpoint) {
-                if (pool.cloud_pool_info.endpoint.indexOf('amazonaws.com') > -1) {
-                    cloud_pool_stats.cloud_pool_target.amazon++;
-                } else {
-                    cloud_pool_stats.cloud_pool_target.other++;
+    return P.resolve()
+        .then(() => {
+            var cloud_pool_stats = _.cloneDeep(CLOUD_POOL_STATS_DEFAULTS);
+            //Per each system fill out the needed info
+            _.forEach(system_store.data.pools, pool => {
+                cloud_pool_stats.pool_count++;
+                if (pool.cloud_pool_info) {
+                    cloud_pool_stats.cloud_pool_count++;
+                    if (pool.cloud_pool_info.endpoint) {
+                        if (pool.cloud_pool_info.endpoint.indexOf('amazonaws.com') > -1) {
+                            cloud_pool_stats.cloud_pool_target.amazon++;
+                        } else {
+                            cloud_pool_stats.cloud_pool_target.other++;
+                        }
+                    }
                 }
-            }
-        }
-    });
+            });
 
-    return cloud_pool_stats;
+            return cloud_pool_stats;
+        });
 }
 
 function get_tier_stats(req) {
-    return _.map(system_store.data.tiers, tier => {
-        let pools = [];
-        _.forEach(tier.mirrors, mirror_object => {
-            pools = _.concat(pools, mirror_object.spread_pools);
-        });
-        pools = _.compact(pools);
+    return P.resolve()
+        .then(() => {
+            return _.map(system_store.data.tiers, tier => {
+                let pools = [];
+                _.forEach(tier.mirrors, mirror_object => {
+                    pools = _.concat(pools, mirror_object.spread_pools);
+                });
+                pools = _.compact(pools);
 
-        return {
-            pools_num: pools.length,
-            data_placement: tier.data_placement,
-        };
-    });
+                return {
+                    pools_num: pools.length,
+                    data_placement: tier.data_placement,
+                };
+            });
+        });
 }
 
 //Collect operations related stats and usage
@@ -447,7 +457,7 @@ function get_all_stats(req) {
         })
         .catch(err => {
             dbg.warn('SYSTEM_SERVER_STATS_AGGREGATOR:', 'ERROR', err.stack);
-            return stats_payload;
+            throw err;
         });
 }
 
@@ -606,21 +616,9 @@ function get_empty_sync_histo() {
     return empty_sync_histo;
 }
 
-function background_worker() {
-    dbg.log('Central Statistics gathering started');
-    //Run the system statistics gatheting
-    return P.fcall(() => {
-            let system = system_store.data.systems[0];
-            let support_account = _.find(system_store.data.accounts, account => account.is_support);
-            return server_rpc.client.stats.get_all_stats({}, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: system._id,
-                    role: 'admin',
-                    account_id: support_account._id
-                })
-            });
-        })
-        .then(payload => {
+function _handle_payload(payload) {
+    return P.resolve()
+        .then(() => {
             if (DEV_MODE) {
                 dbg.log('Central Statistics payload send is disabled in DEV_MODE');
                 return P.resolve();
@@ -679,6 +677,24 @@ function background_worker() {
             });
         })
         .then(() => dbg.log('Phone Home data was sent successfuly'))
+
+}
+
+function background_worker() {
+    dbg.log('Central Statistics gathering started');
+    //Run the system statistics gatheting
+    return P.fcall(() => {
+            let system = system_store.data.systems[0];
+            let support_account = _.find(system_store.data.accounts, account => account.is_support);
+            return server_rpc.client.stats.get_all_stats({}, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin',
+                    account_id: support_account._id
+                })
+            });
+        })
+        .then(payload => _handle_payload(payload))
         .catch(err => {
             dbg.warn('Phone Home data send failed', err.stack || err);
             return;

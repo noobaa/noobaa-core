@@ -10,12 +10,12 @@ const url = require('url');
 const os = require('os');
 const moment = require('moment');
 
-const system_store = require('../system_services/system_store').get_instance();
-const dbg = require('../../util/debug_module')(__filename);
 const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
+const system_store = require('../system_services/system_store').get_instance();
 const { SERVER_MIN_REQUIREMENTS } = require('../../../config');
 
 function get_topology() {
@@ -223,7 +223,7 @@ function get_cluster_info() {
     let cluster_info = {
         master_secret: system_store.get_server_secret(),
         shards: shards,
-        min_requirements: _get_min_requirements()
+        min_requirements: get_min_requirements()
     };
     return cluster_info;
 }
@@ -296,7 +296,7 @@ function send_master_update(is_master, master_address) {
         .return();
 }
 
-function _get_min_requirements() {
+function get_min_requirements() {
     const { RAM_GB, STORAGE_GB, CPU_COUNT } = SERVER_MIN_REQUIREMENTS;
     return {
         ram: RAM_GB * size_utils.GIGABYTE,
@@ -321,3 +321,4 @@ exports.get_cluster_info = get_cluster_info;
 exports.get_member_upgrade_status = get_member_upgrade_status;
 exports.get_potential_masters = get_potential_masters;
 exports.send_master_update = send_master_update;
+exports.get_min_requirements = get_min_requirements;

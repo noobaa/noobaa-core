@@ -4,24 +4,26 @@
 const fs = require('fs');
 const net = require('net');
 const url = require('url');
-const phone_home_utils = require('../../util/phone_home');
-const dbg = require('../../util/debug_module')(__filename);
-const P = require('../../util/promise');
-const _ = require('lodash');
 const path = require('path');
-const promise_utils = require('../../util/promise_utils');
+const moment = require('moment');
+
+const _ = require('lodash');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
 const os_utils = require('../../util/os_utils');
-const server_rpc = require('../server_rpc');
-const net_utils = require('../../util/net_utils');
-const system_store = require('../system_services/system_store').get_instance();
-const config_file_store = require('../system_services/config_file_store').instance();
 const fs_utils = require('../../util/fs_utils');
+const net_utils = require('../../util/net_utils');
+const server_rpc = require('../server_rpc');
+const system_store = require('../system_services/system_store').get_instance();
+const promise_utils = require('../../util/promise_utils');
+const phone_home_utils = require('../../util/phone_home');
+const config_file_store = require('../system_services/config_file_store').instance();
 
 let server_conf = {};
 let monitoring_status = {};
 
 function run() {
-    dbg.log0('MONITOR: BEGIN');
+    dbg.log0('SERVER_MONITOR: BEGIN');
     monitoring_status = {
         dns_status: "UNKNOWN",
         ph_status: "UNKNOWN",
@@ -41,7 +43,7 @@ function run() {
         .then(() => _check_internal_ips())
         .then(() => _check_disk_space())
         .then(() => {
-            dbg.log0('MONITOR: END. status:', monitoring_status);
+            dbg.log0('SERVER_MONITOR: END. status:', monitoring_status);
             return monitoring_status;
         });
 }
@@ -175,15 +177,24 @@ function _check_dns_and_phonehome() {
             switch (res) {
                 case "CONNECTED":
                     monitoring_status.dns_status = "OPERATIONAL";
-                    monitoring_status.ph_status = "OPERATIONAL";
+                    monitoring_status.ph_status = {
+                        status: "OPERATIONAL",
+                        test_time: moment().unix()
+                    };
                     break;
                 case "MALFORMED_RESPONSE":
                     monitoring_status.dns_status = "OPERATIONAL";
-                    monitoring_status.ph_status = "FAULTY";
+                    monitoring_status.ph_status = {
+                        status: "FAULTY",
+                        test_time: moment().unix()
+                    };
                     break;
                 case "CANNOT_CONNECT_PHONEHOME_SERVER":
                     monitoring_status.dns_status = "OPERATIONAL";
-                    monitoring_status.ph_status = "UNREACHABLE";
+                    monitoring_status.ph_status = {
+                        status: "UNREACHABLE",
+                        test_time: moment().unix()
+                    };
                     break;
                 case "CANNOT_CONNECT_INTERNET":
                     monitoring_status.internet_connectivity = "FAULTY";
@@ -224,9 +235,12 @@ function _check_remote_syslog() {
     if (_.isEmpty(system.remote_syslog_config)) return;
     monitoring_status.remote_syslog_status = "UNKNOWN";
     if (_.isEmpty(system.remote_syslog_config.address)) return;
+    monitoring_status.remote_syslog_status = {
+        test_time: moment().unix()
+    };
     return net_utils.ping(system.remote_syslog_config.address)
         .then(() => {
-            monitoring_status.remote_syslog_status = "OPERATIONAL";
+            monitoring_status.remote_syslog_status.status = "OPERATIONAL";            
         })
         .catch(err => {
             monitoring_status.remote_syslog_status = "UNREACHABLE";

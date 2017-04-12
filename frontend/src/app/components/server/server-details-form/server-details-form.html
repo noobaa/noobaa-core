@@ -85,9 +85,22 @@
                 css: icon().css,
                 tooltip: tooltip
             "></svg-icon>
-            <span class="label push-next highlight">Remote Syslog:</span>
-            <span data-bind="text: text, visible: $component.isConnected"></span>
-            <span data-bind="visible: !$component.isConnected()">Not Available</span>
+            <span class="label push-next highlight">Remote Syslog:</span>  
+            <!-- ko if: isConfigured -->
+            <span class="row" data-bind="visible: $component.isConnected">
+                <span class="push-next">Last Test:</span>
+                <span data-bind="text: lastRSyslogSync"></span>
+            </span>
+            <span class="push-both">|</span>
+            <span class="row" data-bind="visible: $component.isConnected">
+                <span class="push-next">Server Address:</span>
+                <span data-bind="text: text, visible: $component.isConnected"></span>
+                <span data-bind="visible: !$component.isConnected()">Not Available</span>
+            </span>
+            <!-- /ko -->
+            <!-- ko ifnot: isConfigured -->
+            <span>Not configured</span>
+             <!-- /ko -->
         </li>
 
         <li class="row push-next" data-bind="with: phoneHome">
@@ -95,7 +108,12 @@
                 css: icon().css,
                 tooltip: tooltip
             "></svg-icon>
-            <span class="label push-next highlight">Phone Home:</span>
+            <span class="label push-next highlight">Phone Home:</span>            
+            <span class="row" data-bind="visible: $component.isConnected">
+                <span class="push-next">Last Sync:</span>
+                <span data-bind="text: lastPhoneHomeSync"></span>
+            </span>
+            <span class="push-both">|</span>
             <span class="row" data-bind="visible: $component.isConnected">
                 <span class="push-next">Proxy:</span>
                 <span data-bind="text: proxy"></span>

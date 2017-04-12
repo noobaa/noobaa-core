@@ -28,7 +28,7 @@ export default class AlertRowViewModel {
 
     update({ id, alert, time, severity, read, updating }) {
         this.id(id);
-        this.text(`${alert} (${id})`);
+        this.text(alert);
         this.time(moment(time).format(timeShortFormat));
         this.read(read);
         this.css(`${read ? 'read' : 'unread'} ${severity.toLowerCase()}`);

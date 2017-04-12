@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 2300] */
+/* eslint max-lines: ['error', 2400] */
 'use strict';
 
 const _ = require('lodash');
@@ -145,6 +145,7 @@ const MODE_COMPARE_ORDER = [
     'MIGRATING',
     'DELETING',
     'DECOMMISSIONED',
+    'STORAGE_NOT_EXIST',
     'DELETED',
     'N2N_ERRORS',
     'GATEWAY_ERRORS',
@@ -659,7 +660,7 @@ class NodesMonitor extends EventEmitter {
     _run_node(item) {
         if (!this._started) return P.reject(new Error('monitor has not started'));
         item._run_node_serial = item._run_node_serial || new Semaphore(1);
-        if (item.node.deleting || item.node.deleted) return P.reject(new Error(`node ${item.node.name} is either deleting or deleted`));
+        if (item.node.deleted) return P.reject(new Error(`node ${item.node.name} is deleted`));
         return item._run_node_serial.surround(() =>
             P.resolve()
             .then(() => dbg.log0('_run_node:', item.node.name))
@@ -688,7 +689,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_agent_info(item) {
-        if (item.node.deleting || item.node.deleted) return;
+        if (item.node.deleted) return;
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
         let potential_masters = clustering_utils.get_potential_masters().map(addr => ({
@@ -748,12 +749,18 @@ class NodesMonitor extends EventEmitter {
                     });
             })
             .catch(err => {
+                if (item.node.deleting) {
+                    dbg.warn('got error in _get_agent_info on a deleting node, ignoring error. node name', item.node.name, err.message);
+                    return;
+                }
                 dbg.error('got error in _get_agent_info:', err);
                 throw err;
             });
     }
 
     _update_node_service(item) {
+        if (item.node.deleted) return;
+        if (!item.connection) return;
         let should_enable = !item.node.decommissioned;
         if ((item.node.enabled && should_enable) || (!item.node.enabled && !should_enable)) {
             // if agent service is as expected, do nothing.
@@ -768,7 +775,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _update_create_node_token(item) {
-        if (item.node.deleting || item.node.deleted) return;
+        if (item.node.deleted) return;
         if (!item.connection) return;
         if (!item.node_from_store) return;
         if (item.create_node_token) {
@@ -794,7 +801,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _update_rpc_config(item) {
-        if (item.node.deleting || item.node.deleted) return;
+        if (item.node.deleted) return;
         if (!item.connection) return;
         if (!item.agent_info) return;
         if (!item.node_from_store) return;
@@ -863,8 +870,19 @@ class NodesMonitor extends EventEmitter {
                     Date.now() - item.io_test_errors > config.NODE_IO_DETENTION_THRESHOLD) {
                     item.io_test_errors = 0;
                 }
+
+
+                if (item.storage_not_exist) {
+                    // storage test succeeds after the storage target (AWS bucket / azure container) was not available
+                    dbg.warn('agent storage is available again after agent reported it does not exist. ', item.node.name);
+                    delete item.storage_not_exist;
+                }
             })
-            .catch(() => {
+            .catch(err => {
+                if (err.rpc_code === 'STORAGE_NOT_EXIST' && !item.storage_not_exist) {
+                    dbg.error('got STORAGE_NOT_EXIST error from node', item.node.name, err.message);
+                    item.storage_not_exist = Date.now();
+                }
                 if (!item.io_test_errors) {
                     dbg.log0('_test_store_perf:: node has io_test_errors', item.node.name);
                     item.io_test_errors = Date.now();
@@ -950,7 +968,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _test_nodes_validity(item) {
-        if (item.node.deleting || item.node.deleted) return;
+        if (item.node.deleted) return;
         if (!item.node_from_store) return;
         dbg.log0('_test_nodes_validity::', item.node.name);
         return P.resolve()
@@ -1339,6 +1357,7 @@ class NodesMonitor extends EventEmitter {
             item.trusted &&
             item.node_from_store &&
             item.node.rpc_address &&
+            !item.storage_not_exist &&
             !item.io_detention &&
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
@@ -1352,6 +1371,7 @@ class NodesMonitor extends EventEmitter {
             item.trusted &&
             item.node_from_store &&
             item.node.rpc_address &&
+            !item.storage_not_exist &&
             !item.io_detention &&
             !item.storage_full &&
             !item.node.migrating_to_pool &&
@@ -1383,6 +1403,7 @@ class NodesMonitor extends EventEmitter {
             (!item.trusted && 'UNTRUSTED') ||
             (item.node.deleting && 'DELETING') ||
             (item.node.deleted && 'DELETED') ||
+            (item.storage_not_exist && 'STORAGE_NOT_EXIST') ||
             (item.node.decommissioned && 'DECOMMISSIONED') ||
             (item.node.decommissioning && 'DECOMMISSIONING') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
@@ -1471,6 +1492,7 @@ class NodesMonitor extends EventEmitter {
         }
 
         if (!act.stage.done) return;
+
 
         if (act.stage.name === STAGE_REBUILDING) {
             dbg.log0('_update_data_activity_stage: DONE REBUILDING',

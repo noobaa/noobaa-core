@@ -317,6 +317,12 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             info.mode = 'INITALIZING';
         } else if (nodes.by_mode.OPTIMAL) {
             info.mode = 'OPTIMAL';
+        } else if (nodes.by_mode.STORAGE_NOT_EXIST) {
+            if (pool.cloud_pool_info.endpoint_type === 'AWS') {
+                info.mode = 'BUCKET_NOT_EXIST';
+            } else {
+                info.mode = 'CONTAINER_NOT_EXIST';
+            }
         } else if (nodes.by_mode.IO_ERRORS) {
             info.mode = 'IO_ERRORS';
         } else if (nodes.by_mode.INITALIZING) {

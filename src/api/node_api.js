@@ -551,6 +551,7 @@ module.exports = {
                 'INITALIZING',
                 'DELETING',
                 'DELETED',
+                'STORAGE_NOT_EXIST',
                 'DECOMMISSIONED',
                 'DECOMMISSIONING',
                 'MIGRATING',
@@ -606,6 +607,9 @@ module.exports = {
                     type: 'integer'
                 },
                 OPTIMAL: {
+                    type: 'integer'
+                },
+                STORAGE_NOT_EXIST: {
                     type: 'integer'
                 },
             }

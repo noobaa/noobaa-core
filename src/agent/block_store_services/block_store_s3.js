@@ -8,6 +8,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const http_utils = require('../../util/http_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
+const RpcError = require('../../rpc/rpc_error');
 
 class BlockStoreS3 extends BlockStoreBase {
 
@@ -104,6 +105,9 @@ class BlockStoreS3 extends BlockStoreBase {
                     return this._read_block(block_md);
                 }
                 dbg.error('_read_block failed:', err, this.cloud_info);
+                if (err.code === 'NoSuchBucket') {
+                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+                }
                 throw err;
             });
     }
@@ -144,7 +148,15 @@ class BlockStoreS3 extends BlockStoreBase {
                     count: 1 - overwrite_count
                 };
                 return this._update_usage(usage);
+            })
+            .catch(err => {
+                dbg.error('_read_block failed:', err, this.cloud_info);
+                if (err.code === 'NoSuchBucket') {
+                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+                }
+                throw err;
             });
+
     }
 
     _write_usage_internal() {

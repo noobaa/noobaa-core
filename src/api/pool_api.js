@@ -298,6 +298,8 @@ module.exports = {
                 'LOW_CAPACITY',
                 'HIGH_DATA_ACTIVITY',
                 'IO_ERRORS',
+                'BUCKET_NOT_EXIST',
+                'CONTAINER_NOT_EXIST',
                 'INITALIZING',
                 'OPTIMAL'
             ]

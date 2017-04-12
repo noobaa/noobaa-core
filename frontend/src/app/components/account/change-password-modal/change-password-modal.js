@@ -17,10 +17,11 @@ class ChangePasswordModalViewModel extends BaseViewModel {
             .extend({
                 required: { message: 'Please enter your current password' },
                 validation: {
-                    validator: () => touched() || resetPasswordState() !== 'UNAUTHORIZED',
+                    validator: () => this.touched() || resetPasswordState() !== 'UNAUTHORIZED',
                     message: 'Please make sure your password is correct'
                 }
             });
+        this.touched = ko.touched(this.password);
 
         this.newPassword = ko.observable()
             .extend({
@@ -56,11 +57,9 @@ class ChangePasswordModalViewModel extends BaseViewModel {
                 isModified: this.newPassword.isModified
             });
 
-        const touched = ko.touched([this.password]);
         this.addToDisposeList(
             resetPasswordState.subscribe(
                 state => {
-                    touched.reset();
                     if (state === 'SUCCESS' || state == 'ERROR') {
                         this.onClose();
                     }
@@ -76,6 +75,7 @@ class ChangePasswordModalViewModel extends BaseViewModel {
             this.errors.showAllMessages();
 
         } else {
+            this.touched(false);
             resetAccountPassword(
                 this.password(),
                 ko.unwrap(this.email),

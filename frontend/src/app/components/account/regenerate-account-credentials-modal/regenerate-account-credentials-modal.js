@@ -14,18 +14,17 @@ class RegenerateAccountCredentialsModalViewModel extends BaseViewModel {
             .extend({
                 required: { message: 'Password is required for security purposes' },
                 validation: {
-                    validator: () => touched() || regenerateCredentialState() !== 'UNAUTHORIZED',
+                    validator: () => this.touched() || regenerateCredentialState() !== 'UNAUTHORIZED',
                     message: 'Please make sure your password is correct'
                 }
             });
+        this.touched = ko.touched(this.password);
 
         this.errors = ko.validation.group(this);
 
-        const touched = ko.touched([this.password]);
         this.addToDisposeList(
             regenerateCredentialState.subscribe(
                 state => {
-                    touched.reset();
                     if (state === 'SUCCESS' || state === 'ERROR') {
                         this.onClose();
                     }
@@ -38,6 +37,7 @@ class RegenerateAccountCredentialsModalViewModel extends BaseViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
+            this.touched(false);
             regenerateAccountCredentials(ko.unwrap(this.email), this.password());
         }
     }

@@ -676,7 +676,7 @@ function _handle_payload(payload) {
                 })
             });
         })
-        .then(() => dbg.log('Phone Home data was sent successfuly'))
+        .then(() => dbg.log('Phone Home data was sent successfuly'));
 
 }
 

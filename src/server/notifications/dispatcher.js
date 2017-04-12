@@ -9,6 +9,7 @@ const MDStore = require('../object_services/md_store').MDStore;
 const AlertsLogStore = require('./alerts_log_store').AlertsLogStore;
 const server_rpc = require('../server_rpc');
 const native_core = require('../../util/native_core')();
+const alerts_rules = require('./alerts_rules');
 const ActivityLogStore = require('../analytic_services/activity_log_store').ActivityLogStore;
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_client = require('../node_services/nodes_client');
@@ -94,21 +95,32 @@ class Dispatcher {
     }
 
     //Alerts
-    alert(sev, sysid, alert) {
+    alert(sev, sysid, alert, rule) {
         dbg.log3('Sending alert', alert);
-        return AlertsLogStore.instance().create({
-                system: sysid,
-                severity: sev,
-                alert: alert
+        return P.resolve()
+            .then(() => {
+                if (rule) {
+                    return rule(sev, sysid, alert);
+                }
+                return true;
             })
-            .then(res => {
-                this.send_syslog({
-                    description: alert
-                });
-                //TODO:: need to suppress alerts of the same kind
-                return server_rpc.client.redirector.publish_alerts({
-                    request_params: { ids: [res._id] }
-                });
+            .then(should_alert => {
+                if (should_alert) {
+                    return AlertsLogStore.instance().create({
+                            system: sysid,
+                            severity: sev,
+                            alert: alert
+                        })
+                        .then(res => {
+                            this.send_syslog({
+                                description: alert
+                            });
+                            return server_rpc.client.redirector.publish_alerts({
+                                request_params: { ids: [res._id] }
+                            });
+                        });
+                }
+                dbg.log3('Suppressed', alert);
             });
     }
 
@@ -209,3 +221,4 @@ class Dispatcher {
 exports.Dispatcher = Dispatcher;
 exports.instance = Dispatcher.instance;
 exports.NotificationTypes = NotificationTypes;
+exports.rules = alerts_rules;

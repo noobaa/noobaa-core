@@ -1,19 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const pkg = require('../../../package.json');
-const system_store = require('../system_services/system_store').get_instance();
-const os_utils = require('../../util/os_utils');
-const dbg = require('../../util/debug_module')(__filename);
-const MongoCtrl = require('../utils/mongo_ctrl');
 const P = require('../../util/promise');
+const pkg = require('../../../package.json');
+const dbg = require('../../util/debug_module')(__filename);
+const os_utils = require('../../util/os_utils');
+const MongoCtrl = require('../utils/mongo_ctrl');
+const Dispatcher = require('../notifications/dispatcher');
+const system_store = require('../system_services/system_store').get_instance();
 const server_monitor = require('./server_monitor');
+const clustering_utils = require('../utils/clustering_utils');
 
 exports.do_heartbeat = do_heartbeat;
 
-
 function do_heartbeat() {
     let current_clustering = system_store.get_local_cluster_info();
+    let server_below_min_req = false;
+    let server_name;
     if (current_clustering) {
         let heartbeat = {
             version: pkg.version,
@@ -53,6 +56,14 @@ function do_heartbeat() {
                     _id: current_clustering._id,
                     heartbeat: heartbeat
                 };
+                //Check if server is below minimum requirements
+                let min_requirements = clustering_utils.get_min_requirements();
+                if (info.storage.total < min_requirements.storage ||
+                    heartbeat.health.os_info.totalmem < min_requirements.ram ||
+                    heartbeat.health.os_info.cpus.length < min_requirements.cpu_count) {
+                    server_below_min_req = true;
+                    server_name = heartbeat.health.os_info.hostname;
+                }
                 dbg.log0('writing cluster server heartbeat to DB. heartbeat:', heartbeat);
                 return server_monitor.run()
                     .then(status => {
@@ -63,6 +74,16 @@ function do_heartbeat() {
                             }
                         });
                     });
+            })
+            .then(() => {
+                if (server_below_min_req) {
+                    let name = server_name + '-' + current_clustering.owner_secret;
+                    return Dispatcher.instance().alert('MAJOR',
+                        system_store.data.systems[0]._id,
+                        `Server ${name} configuration is below minimum requirements, consult server page for more information`,
+                        Dispatcher.rules.only_once);
+                }
+                return P.resolve();
             })
             .return();
     } else {

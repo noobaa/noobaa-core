@@ -66,6 +66,14 @@ class AlertsLogStore {
             .toArray();
     }
 
+    find_alert(sev, sysid, alert) {
+        return this._alertslogs.col().find({
+            system: sysid,
+            severity: sev,
+            alert: alert
+        })
+        .toArray();
+    }
 
 
     //Internals

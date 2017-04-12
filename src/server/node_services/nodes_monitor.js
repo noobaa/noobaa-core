@@ -372,6 +372,9 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._update_nodes_store('force'))
             .then(() => {
                 this._dispatch_node_event(item, 'decommission', `${item.node.name} was deactivated by ${req.account && req.account.email}`);
+            })
+            .then(() => {
+                Dispatcher.instance().alert('INFO', req.system._id, `Node ${item.node.name} was deactivated`);
             });
 
     }

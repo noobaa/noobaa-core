@@ -128,13 +128,14 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 this.notEnoughCpus()
         );
 
+        const timezone = ko.pureComputed(() => this.server().timezone);        
         this.infoSheet = this.getInfoSheet();
         this.version = this.getVersion();
-        this.serverTime = this.getServerTime();
+        this.serverTime = this.getServerTime(timezone);
         this.dnsServers = this.getDNSServers();
         this.dnsName = this.getDNSName();
-        this.remoteSyslog = this.getRemoteSyslog();
-        this.phoneHome = this.getPhoneHome();
+        this.remoteSyslog = this.getRemoteSyslog(timezone);
+        this.phoneHome = this.getPhoneHome(timezone);
 
         this.configurationHref = {
             route: 'management',
@@ -251,7 +252,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         return { icon, tooltip, text };
     }
 
-    getServerTime() {
+    getServerTime(timezone) {
         const icon = ko.pureComputed(
             () => {
                 if (!this.isConnected()) {
@@ -284,6 +285,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         ).extend({
             formatTime: {
                 format: timeLongFormat,
+                timezone,
                 notAvailableText: 'Not available'
             }
         });
@@ -373,11 +375,11 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         return { icon, tooltip, name };
     }
 
-    getRemoteSyslog() {
+    getRemoteSyslog(timezone) {
         const config = ko.pureComputed(
             () => (systemInfo() || {}).remote_syslog_config
         );
-
+        
         const icon = ko.pureComputed(
             () => {
                 if (!this.isConnected() || !config()) {
@@ -405,22 +407,36 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             }
         );
 
+        const isConfigured = ko.pureComputed(() => Boolean(config()));        
+        
         const text = ko.pureComputed(
             () => {
-                if (!config()) {
-                    return 'Not Configured';
+                if (config()) {
+                    const { protocol, address, port } = config();
+                    return `${protocol}://${address}:${port}`;
                 }
-
-                const { protocol, address, port } = config();
-                return `${protocol}://${address}:${port}`;
             }
 
         );
 
-        return { icon, tooltip, text };
+        const lastRSyslogSync = ko.pureComputed(
+            () => {
+                const { remote_syslog = {} } = this.server().services_status || {};
+                const { test_time } = remote_syslog;                
+                return test_time && test_time * 1000;
+            }
+        ).extend({
+            formatTime: {
+                format: timeLongFormat,
+                timezone,                
+                notAvailableText: 'Not Tested Yet'
+            }
+        });
+
+        return { icon, tooltip, isConfigured, text, lastRSyslogSync};
     }
 
-    getPhoneHome() {
+    getPhoneHome(timezone) {
         const icon = ko.pureComputed(
             () => {
                 if (!this.isConnected()) {
@@ -457,8 +473,22 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 return systemInfo().phone_home_config.proxy_address || 'Not Configured';
             }
         );
+        
+        const lastPhoneHomeSync = ko.pureComputed(
+            () => {
+                const { phonehome_server = {} } = this.server().services_status || {};
+                const { test_time } = phonehome_server;                
+                return test_time && test_time * 1000;
+            }
+        ).extend({
+            formatTime: {
+                format: timeLongFormat,
+                timezone,                
+                notAvailableText: 'Not Synced Yet'
+            }
+        });
 
-        return { icon, tooltip, proxy };
+        return { icon, tooltip, proxy, lastPhoneHomeSync };
     }
 
     onEditServerDetails() {

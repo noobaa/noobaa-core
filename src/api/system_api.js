@@ -828,7 +828,7 @@ module.exports = {
                     $ref: '#/definitions/service_status_enum'
                 },
                 phonehome_server: {
-                    $ref: '#/definitions/service_status_enum'
+                    $ref: '#/definitions/service_dated_status'
                 },
                 phonehome_proxy: {
                     $ref: '#/definitions/service_status_enum'
@@ -837,7 +837,7 @@ module.exports = {
                     $ref: '#/definitions/service_status_enum'
                 },
                 remote_syslog: {
-                    $ref: '#/definitions/service_status_enum'
+                    $ref: '#/definitions/service_dated_status'
                 },
                 cluster_communication: {
                     type: 'object',
@@ -868,6 +868,18 @@ module.exports = {
         service_status_enum: {
             type: 'string',
             enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+        },
+
+        service_dated_status: {
+            type: 'object',
+            properties: {
+                status: {
+                    $ref: '#/definitions/service_status_enum'
+                },
+                test_time: {
+                    format: 'idate'
+                },
+            }
         }
     }
 };

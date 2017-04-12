@@ -41,7 +41,7 @@ FrameStream.prototype.send_message = function(buffer_or_buffers, message_type_co
     if (msg_len > this._max_len) {
         throw new Error('message too big' + msg_len);
     }
-    var msg_header = new Buffer(this._header_len);
+    var msg_header = Buffer.allocUnsafe(this._header_len);
     msg_header.write(this._magic, 0, this._magic_len, 'ascii');
     msg_header.writeUInt16BE(this._send_seq, this._magic_len);
     msg_header.writeUInt16BE(message_type_code_16bit || 0, this._magic_len + 2);

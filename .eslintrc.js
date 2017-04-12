@@ -249,6 +249,7 @@ module.exports = {
         'no-warning-comments': 'warn',
 
         // the rule object-property-newline is better than object-curly-newline
+        'object-property-newline': 'off',
         'object-curly-newline': 'off',
 
         'object-curly-spacing': 'off',

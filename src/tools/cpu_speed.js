@@ -27,11 +27,11 @@ if (argv.forks > 1 && cluster.isMaster) {
 }
 
 function main() {
-    let speedometer = new Speedometer('CPU Speed');
+    const hasher = crypto.createHash(argv.hash);
+    const buf = crypto.randomBytes(1024 * 1024);
+    const speedometer = new Speedometer('CPU Speed');
     speedometer.enable_cluster();
-    let hasher = crypto.createHash(argv.hash);
-    let size = argv.size * 1024 * 1024;
-    let buf = new Buffer(1024 * 1024);
+    var size = argv.size * 1024 * 1024;
     console.log(`Crunching ${argv.size} MB with ${argv.hash}...`);
     run();
 

@@ -341,41 +341,43 @@ mocha.describe('system_servers', function() {
                     () => _.noop) // update bucket with 0 quota should fail
             )
             .then(() => {
+                if (config.SKIP_EXTERNAL_TESTS) return;
                 if (!process.env.AWS_ACCESS_KEY_ID ||
                     !process.env.AWS_SECRET_ACCESS_KEY) {
                     throw new Error('No valid AWS credentials in env - ' +
                         'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
                         'for testing account.add_external_connection()');
                 }
+                return P.resolve()
+                    .then(() => client.account.add_external_connection({
+                        name: CLOUD_SYNC_CONNECTION,
+                        endpoint: 'https://s3.amazonaws.com',
+                        endpoint_type: 'AWS',
+                        identity: process.env.AWS_ACCESS_KEY_ID,
+                        secret: process.env.AWS_SECRET_ACCESS_KEY
+                    }))
+                    .then(() => client.account.delete_external_connection({
+                        connection_name: CLOUD_SYNC_CONNECTION,
+                    }))
+                    .then(() => client.account.add_external_connection({
+                        name: CLOUD_SYNC_CONNECTION,
+                        endpoint: 'https://s3.amazonaws.com',
+                        endpoint_type: 'AWS',
+                        identity: process.env.AWS_ACCESS_KEY_ID,
+                        secret: process.env.AWS_SECRET_ACCESS_KEY
+                    }))
+                    .then(() => client.bucket.set_cloud_sync({
+                        name: BUCKET,
+                        connection: CLOUD_SYNC_CONNECTION,
+                        target_bucket: BUCKET,
+                        policy: {
+                            schedule_min: 11
+                        }
+                    }));
+                    // .then(() => client.bucket.get_cloud_buckets({
+                    //     connection: CLOUD_SYNC_CONNECTION
+                    // }))
             })
-            .then(() => client.account.add_external_connection({
-                name: CLOUD_SYNC_CONNECTION,
-                endpoint: 'https://s3.amazonaws.com',
-                endpoint_type: 'AWS',
-                identity: process.env.AWS_ACCESS_KEY_ID,
-                secret: process.env.AWS_SECRET_ACCESS_KEY
-            }))
-            .then(() => client.account.delete_external_connection({
-                connection_name: CLOUD_SYNC_CONNECTION,
-            }))
-            .then(() => client.account.add_external_connection({
-                name: CLOUD_SYNC_CONNECTION,
-                endpoint: 'https://s3.amazonaws.com',
-                endpoint_type: 'AWS',
-                identity: process.env.AWS_ACCESS_KEY_ID,
-                secret: process.env.AWS_SECRET_ACCESS_KEY
-            }))
-            .then(() => client.bucket.set_cloud_sync({
-                name: BUCKET,
-                connection: CLOUD_SYNC_CONNECTION,
-                target_bucket: BUCKET,
-                policy: {
-                    schedule_min: 11
-                }
-            }))
-            // .then(() => client.bucket.get_cloud_buckets({
-            //     connection: CLOUD_SYNC_CONNECTION
-            // }))
             .then(() => client.system.read_system())
             // .then(() => client.bucket.get_cloud_sync({
             //     name: BUCKET,

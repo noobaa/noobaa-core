@@ -271,8 +271,8 @@ function read_windows_drives() {
                                 mount: network_vol.RemotePath,
                                 drive_id: network_vol.LocalName,
                                 storage: {
-                                    total: parseInt(0, 10),
-                                    free: parseInt(0, 10),
+                                    total: 0,
+                                    free: 0,
                                 }
                             };
                         })));

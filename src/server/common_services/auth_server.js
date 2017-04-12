@@ -8,6 +8,7 @@ const bcrypt = require('bcrypt');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
+const net_utils = require('../../util/net_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const signature_utils = require('../../util/signature_utils');
 
@@ -178,8 +179,6 @@ function create_access_key_auth(req) {
         throw new RpcError('UNAUTHORIZED', 'signature error');
     }
 
-
-
     var account = _.find(system_store.data.accounts, function(acc) {
         if (acc.access_keys) {
             return acc.access_keys[0].access_key.toString() === access_key.toString();
@@ -322,6 +321,7 @@ function _authorize_signature_token(req) {
         system_id: system._id,
         account_id: account._id,
         role: role.role,
+        client_ip: auth_token_obj.client_ip,
     };
 
     const signature = signature_utils.signature(auth_token_obj, secret_key);
@@ -344,13 +344,6 @@ function _authorize_signature_token(req) {
  *
  */
 function _prepare_auth_request(req) {
-
-    // we allow to authorize once per connection -
-    // if the request did not send specific token, use the conn level token.
-    if (!req.auth_token) {
-        // TODO better save req.connection.auth parsed instead of reparsing the token again
-        req.auth_token = req.connection.auth_token;
-    }
 
     /**
      *
@@ -405,6 +398,15 @@ function _prepare_auth_request(req) {
                 throw new RpcError('UNAUTHORIZED', 'role not allowed in system');
             }
         }
+
+        // check ip restrictions on the account
+        if (req.account && req.account.allowed_ips) {
+            const client_ip = net_utils.unwrap_ipv6(req.auth.client_ip);
+            if (client_ip && !req.account.allowed_ips.includes(client_ip)) {
+                throw new RpcError('UNAUTHORIZED', 'Client IP not allowed ' + client_ip);
+            }
+        }
+
         dbg.log3('load auth system:', req.system);
     };
 

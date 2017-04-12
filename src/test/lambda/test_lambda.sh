@@ -20,7 +20,7 @@ ${AWS} lambda create-function \
     --function-name ${NAME} \
     --runtime nodejs4.3 \
     --handler ${NAME}.handler \
-    --role arn:aws:iam::638243541865:role/lambda-test \
+    --role arn:aws:iam::112233445566:role/lambda-test \
     --zip-file fileb://${NAME}.zip
 
 echo

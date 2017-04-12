@@ -21,7 +21,7 @@ const LAMBDA_CONF = {
 
 const lambda = new AWS.Lambda(LAMBDA_CONF);
 
-const ROLE_ARN = 'arn:aws:iam::638243541865:role/lambda-test';
+const ROLE_ARN = 'arn:aws:iam::112233445566:role/lambda-test';
 const POOLS = argv.pools ? argv.pools.split(',') : [config.NEW_SYSTEM_POOL_NAME];
 
 const word_count_func = {

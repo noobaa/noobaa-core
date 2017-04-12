@@ -38,12 +38,12 @@ config.CLOUD_AGENTS_N2N_PORT = 60100;
 // TODO: Should check what PORT we are interested in taking
 config.MONGO_AGENTS_N2N_PORT = 60100;
 
-///////////////
-// S3 CONFIG //
-///////////////
+/////////////////////
+// ENDPOINT CONFIG //
+/////////////////////
 
-config.S3_FORKS_ENABLED = true;
-config.TIME_SKEW_MAX_MILLIS = 15 * 60 * 1000;
+config.ENDPOINT_FORKS_ENABLED = true;
+config.AMZ_DATE_MAX_TIME_SKEW_MILLIS = 15 * 60 * 1000;
 
 ///////////////
 // MD CONFIG //
@@ -77,8 +77,6 @@ config.IO_READ_RANGE_CONCURRENCY = 32;
 
 config.IO_STREAM_SPLIT_SIZE = 32 * 1024 * 1024;
 config.IO_OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
-config.IO_HTTP_PART_ALIGN = 32 * 1024 * 1024;
-config.IO_HTTP_TRUNCATE_PART_SIZE = false;
 
 ////////////////////
 // REBUILD CONFIG //

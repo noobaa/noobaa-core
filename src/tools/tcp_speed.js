@@ -10,7 +10,7 @@ const Speedometer = require('../util/speedometer');
 const argv = require('minimist')(process.argv);
 argv.size = argv.size || 10;
 argv.concur = argv.concur || 16;
-argv.port = parseInt(argv.port, 10) || 50505;
+argv.port = Number(argv.port) || 50505;
 argv.noframe = argv.noframe || false;
 argv.forks = argv.forks || 1;
 

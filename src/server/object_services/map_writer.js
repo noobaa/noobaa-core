@@ -30,8 +30,8 @@ function finalize_object_parts(bucket, obj, parts) {
             upload_size = part.end;
         }
         let chunk_id;
-        if (part.chunk_dedup) {
-            chunk_id = MDStore.instance().make_md_id(part.chunk_dedup);
+        if (part.chunk_id) {
+            chunk_id = MDStore.instance().make_md_id(part.chunk_id);
         } else {
             chunk_id = MDStore.instance().make_md_id();
             _.each(part.chunk.frags, f => {

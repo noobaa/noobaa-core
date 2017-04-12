@@ -160,7 +160,7 @@ mocha.describe('signature_utils', function() {
                         'x-amz-content-sha256', sha256_header,
                         'calculated', sha256_data,
                         'assuming the header is right to allow tests without content...');
-                    req.content_sha256 = new Buffer(sha256_header, 'hex');
+                    req.content_sha256 = Buffer.from(sha256_header, 'hex');
                 }
                 const auth_token = signature_utils.authenticate_request(req);
                 const signature = signature_utils.signature(auth_token, SECRETS[auth_token.access_key]);

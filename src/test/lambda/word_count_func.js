@@ -56,8 +56,7 @@ function random_text(length) {
     var WORDSET = 'abcdefghijklmnopqrstuvwxyz';
     var CHARSET = WORDSET + ' '.repeat(0.2 * WORDSET.length) + '\n'.repeat(0.1 * WORDSET.length);
     var cipher = crypto.createCipheriv('aes-128-gcm', crypto.randomBytes(16), crypto.randomBytes(12));
-    var zero_buf = new Buffer(Math.min(1024, length));
-    zero_buf.fill(0);
+    var zero_buf = Buffer.alloc(Math.min(1024, length));
     while (length > 0) {
         var rand_buf = cipher.update(zero_buf);
         for (var i = 0; i < rand_buf.length; ++i) {

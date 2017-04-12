@@ -496,6 +496,7 @@ function get_part_info(part, adminfo, tiering_status) {
         'start',
         'end',
         'chunk_offset');
+    p.chunk_id = String(part.chunk._id);
     p.chunk = get_chunk_info(part.chunk, adminfo, tiering_status);
     return p;
 }

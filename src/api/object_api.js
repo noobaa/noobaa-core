@@ -249,11 +249,14 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['etag'],
+                required: ['etag', 'create_time'],
                 properties: {
                     etag: {
                         type: 'string'
-                    }
+                    },
+                    create_time: {
+                        format: 'idate'
+                    },
                 }
             },
             auth: {
@@ -634,7 +637,19 @@ module.exports = {
         delete_object: {
             method: 'DELETE',
             params: {
-                $ref: '#/definitions/object_path'
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    delete_if: {
+                        $ref: '#/definitions/md_conditions',
+                    },
+                }
             },
             auth: {
                 system: ['admin', 'user']
@@ -910,19 +925,6 @@ module.exports = {
 
     definitions: {
 
-        object_path: {
-            type: 'object',
-            required: ['bucket', 'key'],
-            properties: {
-                bucket: {
-                    type: 'string',
-                },
-                key: {
-                    type: 'string',
-                },
-            }
-        },
-
         // metadata if's - conditions to use metadata
         md_conditions: {
             type: 'object',
@@ -952,19 +954,20 @@ module.exports = {
         object_info: {
             type: 'object',
             required: [
+                'obj_id',
                 'bucket',
                 'key',
                 'size',
                 'content_type'
             ],
             properties: {
+                obj_id: {
+                    type: 'string'
+                },
                 bucket: {
                     type: 'string'
                 },
                 key: {
-                    type: 'string'
-                },
-                version_id: {
                     type: 'string'
                 },
                 size: {
@@ -1041,7 +1044,7 @@ module.exports = {
                 chunk: {
                     $ref: '#/definitions/chunk_info',
                 },
-                chunk_dedup: {
+                chunk_id: {
                     type: 'string',
                 },
             }

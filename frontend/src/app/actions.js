@@ -1822,7 +1822,7 @@ export function attemptResolveNTPServer(ntpServerAddress, serverSecret) {
     logAction('attemptResolveNTPServer', { ntpServerAddress });
 
     api.system.attempt_server_resolve({
-        server_name: ntpServerAddress        
+        server_name: ntpServerAddress
     })
         .then(
             reply => sleep(500, reply)

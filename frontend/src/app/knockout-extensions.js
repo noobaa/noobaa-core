@@ -30,9 +30,9 @@ ko.deepUnwrap = function(value) {
 
 ko.touched = function(root) {
     let initialized = false;
-    const trigger = ko.observable();
-    const obs = ko.pureComputed(
-        () => {
+    const trigger = ko.observable(false);
+    return ko.pureComputed({
+        read: () => {
             trigger();
 
             if (!initialized) {
@@ -42,19 +42,12 @@ ko.touched = function(root) {
             }
 
             return true;
+        },
+        write: () => {
+            initialized = false;
+            trigger.toggle();
         }
-    );
-
-    obs.reset = function() {
-        initialized = false;
-        trigger.valueHasMutated();
-    };
-
-    // Force observable to calculate inital value.
-    // (pureComputed does not calculate value until first subscription )
-    obs();
-
-    return obs;
+    });
 };
 
 ko.renderToString = function(template, data) {

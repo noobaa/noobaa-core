@@ -38,16 +38,16 @@ argv.wsize = _.isUndefined(argv.wsize) ? MB : argv.wsize;
 argv.rsize = argv.rsize || 0;
 argv.n2n = argv.n2n || false;
 argv.nconn = argv.nconn || 1;
-argv.closeconn = parseInt(argv.closeconn, 10) || 0;
+argv.closeconn = Number(argv.closeconn) || 0;
 argv.addr = url.parse(argv.addr || '');
 argv.addr.protocol = (argv.proto && argv.proto + ':') || argv.addr.protocol || 'ws:';
 argv.addr.hostname = argv.host || argv.addr.hostname || '127.0.0.1';
-argv.addr.port = parseInt(argv.port, 10) || argv.addr.port || 5656;
+argv.addr.port = Number(argv.port) || argv.addr.port || 5656;
 argv.novalidation = argv.novalidation || false;
 
 // retry delay in seconds on failures
 argv.retry = argv.retry || undefined;
-const retry_ms = 1000 * (parseInt(argv.retry, 10) || 0);
+const retry_ms = 1000 * (Number(argv.retry) || 0);
 const retry_func = argv.retry && (() => P.delay(retry_ms));
 
 let target_addresses;

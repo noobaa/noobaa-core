@@ -81,9 +81,8 @@ class MapAllocator {
                         map_utils.set_chunk_frags_from_blocks(dup_chunk, dup_chunk.blocks);
                         if (map_utils.is_chunk_good_for_dedup(dup_chunk,
                                 this.bucket.tiering, tiering_status)) {
-                            // we set the part's chunk_dedup to the chunk id
-                            // so that the client will send it back to finalize
-                            part.chunk_dedup = String(dup_chunk._id);
+                            // we set the part's chunk_id so that the client will send it back to finalize
+                            part.chunk_id = String(dup_chunk._id);
                             delete part.chunk;
                             // returning explicit false to break from _.each
                             return false;
@@ -95,10 +94,8 @@ class MapAllocator {
 
     allocate_blocks() {
         _.each(this.parts, part => {
-            if (part.chunk_dedup) return; // already found dup
-
+            if (part.chunk_id) return; // already found dup
             const status = part.chunk.status;
-
             var avoid_nodes = [];
             let allocated_hosts = [];
 

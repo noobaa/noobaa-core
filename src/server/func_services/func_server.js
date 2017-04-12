@@ -321,15 +321,15 @@ function _make_rpc_options(req) {
 
 function _make_aws_config(req) {
     // TODO copied from base_address calc from system_server, better define once
-    const s3_host =
+    const ep_host =
         req.system.base_address ?
         url_utils.quick_parse(req.system.base_address).hostname :
         ip_module.address();
-    const s3_port = parseInt(process.env.S3_PORT, 10) || 80;
+    const ep_port = parseInt(process.env.ENDPOINT_PORT, 10) || 80;
     const account_keys = req.account.access_keys[0];
     return {
         region: 'us-east-1',
-        endpoint: `http://${s3_host}:${s3_port}`,
+        endpoint: `http://${ep_host}:${ep_port}`,
         sslEnabled: false,
         s3ForcePathStyle: true,
         accessKeyId: account_keys.access_key,

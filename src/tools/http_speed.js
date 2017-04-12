@@ -8,7 +8,7 @@ let crypto = require('crypto');
 let Speedometer = require('../util/speedometer');
 let argv = require('minimist')(process.argv);
 argv.size = argv.size || 16;
-argv.port = parseInt(argv.port, 10) || 50505;
+argv.port = Number(argv.port) || 50505;
 argv.concur = argv.concur || 16;
 argv.forks = argv.forks || 1;
 
@@ -84,7 +84,7 @@ function run_sender(port, host, ssl) {
     send_speedometer.enable_cluster();
 
     function send() {
-        let buf = new Buffer(argv.size * 1024 * 1024);
+        let buf = Buffer.allocUnsafe(argv.size * 1024 * 1024);
         let req = (ssl ? https : http).request({
             agent: http_agent,
             port: port,

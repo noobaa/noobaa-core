@@ -88,7 +88,7 @@ class RpcHttpServer extends EventEmitter {
      *
      */
     start(options) {
-        const port = parseInt(options.port, 10);
+        const port = Number(options.port);
         const secure = options.protocol === 'https:' || options.protocol === 'wss:';
         const logging = options.logging;
         dbg.log0('HTTP SERVER:', 'port', port, 'secure', secure, 'logging', logging);

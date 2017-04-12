@@ -228,26 +228,6 @@ module.exports = {
             }
         },
 
-        validate_ip_permission: {
-            doc: 'Validate that ip allowed to access',
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['access_key', 'ip'],
-                properties: {
-                    access_key: {
-                        type: 'string',
-                    },
-                    ip: {
-                        type: 'string',
-                    }
-                },
-            },
-            auth: {
-                system: false
-            }
-        },
-
         delete_account: {
             doc: 'Delete a given account',
             method: 'DELETE',

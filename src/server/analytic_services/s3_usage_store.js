@@ -40,7 +40,7 @@ class S3UsageStore {
                     upsert: true,
                     returnNewDocument: true
                 }))
-                .then(res => this._usage.validate(res, 'warn'))
+                .then(res => this._usage.validate(res.value, 'warn'))
                 .return();
         }
     }

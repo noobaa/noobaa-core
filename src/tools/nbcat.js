@@ -10,8 +10,8 @@ dbg.set_level(5);
 
 var bkt = process.argv[2];
 var key = process.argv[3];
-var start = parseInt(process.argv[4], 10) || 0;
-var end = parseInt(process.argv[5], 10) || Infinity;
+var start = Number(process.argv[4]) || 0;
+var end = Number(process.argv[5]) || Infinity;
 var output = process.stdout;
 var rpc = api.new_rpc();
 var client = rpc.new_client();
@@ -52,7 +52,7 @@ if (!bkt) {
     });
 } else {
     init_api().then(function() {
-        return object_io.open_read_stream({
+        return object_io.create_read_stream({
                 client: client,
                 bucket: bkt,
                 key: key,

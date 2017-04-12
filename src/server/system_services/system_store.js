@@ -17,6 +17,7 @@ const agent_config_schema = require('./schemas/agent_config_schema');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
+const Semaphore = require('../../util/semaphore');
 const server_rpc = require('../server_rpc');
 const time_utils = require('../../util/time_utils');
 const size_utils = require('../../util/size_utils');
@@ -347,6 +348,7 @@ class SystemStore extends EventEmitter {
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
+        this._load_serial = new Semaphore(1);
         for (const col of COLLECTIONS) {
             mongo_client.instance().define_collection(col);
         }
@@ -386,37 +388,34 @@ class SystemStore extends EventEmitter {
     }
 
     load() {
-        if (this._load_promise) return this._load_promise;
-        dbg.log0('SystemStore: fetching ...');
-        let new_data = new SystemStoreData();
-        let millistamp = time_utils.millistamp();
-        this._load_promise = P.resolve()
-            .then(() => this._register_for_changes())
-            .then(() => this._read_data_from_db(new_data))
-            .then(() => os_utils.read_server_secret())
-            .then(secret => {
-                this._server_secret = secret;
-                dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
-                dbg.log1('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
-                dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
-                    depth: 4
-                }));
-                millistamp = time_utils.millistamp();
-                new_data.rebuild();
-                dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
-                this.data = new_data;
-                this.emit('load');
-                this.is_finished_initial_load = true;
-                return this.data;
-            })
-            .finally(() => {
-                this._load_promise = null;
-            })
-            .catch(err => {
-                dbg.error('SystemStore: load failed', err.stack || err);
-                throw err;
-            });
-        return this._load_promise;
+        return this._load_serial.surround(() => {
+            dbg.log0('SystemStore: loading ...');
+            let new_data = new SystemStoreData();
+            let millistamp = time_utils.millistamp();
+            return P.resolve()
+                .then(() => this._register_for_changes())
+                .then(() => this._read_data_from_db(new_data))
+                .then(() => os_utils.read_server_secret())
+                .then(secret => {
+                    this._server_secret = secret;
+                    dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
+                    dbg.log1('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
+                    dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
+                        depth: 4
+                    }));
+                    millistamp = time_utils.millistamp();
+                    new_data.rebuild();
+                    dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
+                    this.data = new_data;
+                    this.emit('load');
+                    this.is_finished_initial_load = true;
+                    return this.data;
+                })
+                .catch(err => {
+                    dbg.error('SystemStore: load failed', err.stack || err);
+                    throw err;
+                });
+        });
     }
 
 

@@ -281,7 +281,7 @@ if (require.main === module) {
 // Ideally we should check mongodb and bg as well
 function wait_for_s3_and_web(max_seconds_to_wait) {
     return P.all([
-            wait_for_server_to_start(max_seconds_to_wait, String(process.env.S3_PORT || 80)),
+            wait_for_server_to_start(max_seconds_to_wait, String(process.env.ENDPOINT_PORT || 80)),
             wait_for_server_to_start(max_seconds_to_wait, String(process.env.PORT) || 8080),
             wait_for_mongodb_to_start(max_seconds_to_wait)
         ])

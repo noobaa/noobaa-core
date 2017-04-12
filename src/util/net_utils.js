@@ -1,12 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const net_ping = require('net-ping');
 const _ = require('lodash');
-const dbg = require('./debug_module')(__filename);
 const url = require('url');
+const net = require('net');
 const dns = require('dns');
+const net_ping = require('net-ping');
+
 const P = require('./promise');
+const dbg = require('./debug_module')(__filename);
 const os_utils = require('./os_utils');
 const promise_utils = require('./promise_utils');
 
@@ -25,7 +27,7 @@ function ping(target, options) {
     return P.resolve()
         .then(() => {
             let candidate_ip = url.parse(target).hostname || target;
-            if (is_valid_ip(candidate_ip)) {
+            if (net.isIP(candidate_ip)) {
                 return _ping_ip(session, candidate_ip);
             }
             return dns_resolve(target)
@@ -87,12 +89,14 @@ function is_hostname(target) {
     return false;
 }
 
-function is_valid_ip(input) {
-    let ip_regex = /^(([1-9]?\d|1\d\d|2[0-5][0-5]|2[0-4]\d)\.){3}([1-9]?\d|1\d\d|2[0-5][0-5]|2[0-4]\d)$/;
-    return Boolean(ip_regex.exec(input));
+function unwrap_ipv6(ip) {
+    if (net.isIPv6(ip)) {
+        if (ip.startsWith('::ffff:')) return ip.slice('::ffff:'.length);
+    }
+    return ip;
 }
 
 exports.ping = ping;
-exports.is_valid_ip = is_valid_ip;
 exports.dns_resolve = dns_resolve;
 exports.is_hostname = is_hostname;
+exports.unwrap_ipv6 = unwrap_ipv6;

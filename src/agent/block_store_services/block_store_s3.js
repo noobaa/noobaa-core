@@ -126,10 +126,10 @@ class BlockStoreS3 extends BlockStoreBase {
                 overwrite_size = Number(head.ContentLength);
                 let md_size = head.Metadata.noobaa_block_md ? head.Metadata.noobaa_block_md.length : 0;
                 overwrite_size += md_size;
-                console.warn('block already found in cloud, will overwrite. id =', block_md.id);
+                dbg.warn('block already found in cloud, will overwrite. id =', block_md.id);
                 overwrite_count = 1;
             }, err => {
-                console.warn('_write_block reiceved', err);
+                dbg.log1('_write_block: will write block', err.message);
             })
             .then(() => {
                 dbg.log3('writing block id to cloud: ', params.Key);
@@ -229,7 +229,7 @@ class BlockStoreS3 extends BlockStoreBase {
                         usage.size += deleted_size;
                         usage.count += 1;
                     }, err => {
-                        console.warn('_get_blocks_usage recieved', err);
+                        dbg.warn('_get_blocks_usage:', err);
                     });
             }, {
                 // limit concurrency to 10
@@ -244,11 +244,11 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     _encode_block_md(block_md) {
-        return new Buffer(JSON.stringify(block_md)).toString('base64');
+        return Buffer.from(JSON.stringify(block_md)).toString('base64');
     }
 
     _decode_block_md(noobaa_block_md) {
-        return JSON.parse(new Buffer(noobaa_block_md, 'base64'));
+        return JSON.parse(Buffer.from(noobaa_block_md, 'base64'));
     }
 
     _try_change_region(err) {

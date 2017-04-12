@@ -27,7 +27,7 @@ const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
-    /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
+    /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 
 const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
@@ -141,18 +141,18 @@ function create_bucket(req) {
     // Grant the account a full access for the newly created bucket.
     changes.update.accounts = [{
         _id: req.account._id,
-        allowed_buckets: req.account.allowed_buckets
-            .map(bkt => bkt._id)
-            .concat(bucket._id),
+        $push: {
+            allowed_buckets: bucket._id,
+        }
     }];
 
-    if (req.account && req.account.email !== _.get(req, 'system.owner.email', '')) {
-        // Grant the owner a full access for the newly created bucket.
+    // Grant the owner a full access for the newly created bucket.
+    if (req.account !== req.system.owner) {
         changes.update.accounts.push({
             _id: req.system.owner._id,
-            allowed_buckets: req.system.owner.allowed_buckets
-                .map(bkt => bkt._id)
-                .concat(bucket._id),
+            $push: {
+                allowed_buckets: bucket._id,
+            }
         });
     }
 
@@ -318,37 +318,30 @@ function update_bucket_s3_access(req) {
     const added_accounts = [];
     const removed_accounts = [];
     const updates = [];
-    system_store.data.accounts.forEach(
-        account => {
-            if (!account.allowed_buckets) {
-                return;
-            }
+    system_store.data.accounts.forEach(account => {
+        if (!account.allowed_buckets) return;
 
-            if (!account.allowed_buckets.includes(bucket) &&
-                allowed_accounts.includes(account)) {
+        const is_allowed = account.allowed_buckets.includes(bucket);
+        const should_be_allowed = allowed_accounts.includes(account);
 
-                added_accounts.push(account);
-                updates.push({
-                    _id: account._id,
-                    allowed_buckets: account.allowed_buckets
-                        .concat(bucket)
-                        .map(bucket2 => bucket2._id)
-                });
-            }
-
-            if (account.allowed_buckets.includes(bucket) &&
-                !allowed_accounts.includes(account)) {
-
-                removed_accounts.push(account);
-                updates.push({
-                    _id: account._id,
-                    allowed_buckets: account.allowed_buckets
-                        .filter(bucket2 => bucket2._id !== bucket._id)
-                        .map(bucket2 => bucket2._id)
-                });
-            }
+        if (!is_allowed && should_be_allowed) {
+            added_accounts.push(account);
+            updates.push({
+                _id: account._id,
+                $push: {
+                    allowed_buckets: bucket._id
+                }
+            });
+        } else if (is_allowed && !should_be_allowed) {
+            removed_accounts.push(account);
+            updates.push({
+                _id: account._id,
+                $pullAll: {
+                    allowed_buckets: [bucket._id]
+                }
+            });
         }
-    );
+    });
 
     return system_store.make_changes({
             update: {
@@ -433,10 +426,8 @@ function delete_bucket(req) {
                     if (!account.allowed_buckets) return;
                     return {
                         _id: account._id,
-                        $pull: {
-                            allowed_buckets: {
-                                $in: [bucket._id]
-                            }
+                        $pullAll: {
+                            allowed_buckets: [bucket._id]
                         }
                     };
                 }));

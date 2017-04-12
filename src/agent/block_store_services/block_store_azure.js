@@ -87,10 +87,10 @@ class BlockStoreAzure extends BlockStoreBase {
                 const md_size = info.metadata.noobaa_block_md ?
                     info.metadata.noobaa_block_md.length : 0;
                 overwrite_size += md_size;
-                console.warn('block already found in cloud, will overwrite. id =', block_md.id);
+                dbg.warn('block already found in cloud, will overwrite. id =', block_md.id);
                 overwrite_count = 1;
-            }, () => {
-                // noop when missing
+            }, err => {
+                dbg.log1('_write_block: will write block', err.message);
             })
             .then(() => dbg.log3('writing block id to cloud: ', block_key))
             .then(() => P.fromCallback(callback =>
@@ -226,11 +226,11 @@ class BlockStoreAzure extends BlockStoreBase {
     }
 
     _encode_block_md(block_md) {
-        return new Buffer(JSON.stringify(block_md)).toString('base64');
+        return Buffer.from(JSON.stringify(block_md)).toString('base64');
     }
 
     _decode_block_md(noobaa_block_md) {
-        return JSON.parse(new Buffer(noobaa_block_md, 'base64'));
+        return JSON.parse(Buffer.from(noobaa_block_md, 'base64'));
     }
 
 }

@@ -8,10 +8,10 @@
 const P = require('../../util/promise');
 
 const _ = require('lodash');
+const net = require('net');
 const AWS = require('aws-sdk');
 const bcrypt = P.promisifyAll(require('bcrypt'));
 const azure = require('azure-storage');
-const net_utils = require('../../util/net_utils');
 
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
@@ -299,7 +299,7 @@ function update_account_ip_access(req) {
     };
 
     if (req.rpc_params.ips) {
-        if (!_.every(req.rpc_params.ips, ip => net_utils.is_valid_ip(ip))) {
+        if (!_.every(req.rpc_params.ips, ip => net.isIP(ip))) {
             throw new RpcError('INVALID', 'All list must be valid IP');
         }
         update.allowed_ips = req.rpc_params.ips;
@@ -315,25 +315,6 @@ function update_account_ip_access(req) {
             }
         })
         .return();
-}
-
-function validate_ip_permission(req) {
-    const account = _.find(system_store.data.accounts, function(acc) {
-        if (acc.access_keys) {
-            return acc.access_keys[0].access_key.toString() === req.rpc_params.access_key.toString();
-        } else {
-            return false;
-        }
-    });
-
-    if (!account) {
-        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account access_key: ' + req.rpc_params.access_key);
-    }
-
-    if (account.allowed_ips &&
-        account.allowed_ips.indexOf(req.rpc_params.ip) === -1) {
-        throw new RpcError('NO_SUCH_IP_ALLOWED', 'No such ip allowed: ' + req.rpc_params.ip);
-    }
 }
 
 /**
@@ -902,7 +883,6 @@ function _list_connection_usage(account, credentials) {
 exports.create_account = create_account;
 exports.read_account = read_account;
 exports.update_account_ip_access = update_account_ip_access;
-exports.validate_ip_permission = validate_ip_permission;
 exports.update_account = update_account;
 exports.reset_password = reset_password;
 exports.delete_account = delete_account;

@@ -60,10 +60,24 @@ Recording HTTP:
         const tun_args = tun.split(':');
         const source = tun_args[0];
         const target = tun_args[1];
+        const source_ssl = source.endsWith('s');
+        const target_ssl = target.endsWith('s');
+        const source_port = Number(source.replace(/s$/, ''));
+        const target_port = Number(target.replace(/s$/, ''));
+        if (!Number.isInteger(source_port) || source_port <= 0 || source_port >= 64 * 1024 ||
+            !Number.isInteger(target_port) || target_port <= 0 || target_port >= 64 * 1024) {
+            console.error('Invalid port numbers');
+            console.error('source_port:', source_port, 'parsed from:', source);
+            console.error('target_port:', target_port, 'parsed from:', target);
+            console.error('Use --help.');
+            process.exit(1);
+        }
         const name = `[${tun}]`;
         tunnel_port({
-            source,
-            target,
+            source_ssl,
+            source_port,
+            target_ssl,
+            target_port,
             hostname,
             name,
             record_http,
@@ -72,14 +86,14 @@ Recording HTTP:
 }
 
 function tunnel_port({
-    source,
-    target,
+    source_ssl,
+    source_port,
+    target_ssl,
+    target_port,
     hostname,
     name,
     record_http
 }) {
-    const source_port = parseInt(source, 10);
-    const source_ssl = source.endsWith('s');
     const server = source_ssl ? tls.createServer({
         key: ssl_key(),
         cert: ssl_cert(),
@@ -88,7 +102,8 @@ function tunnel_port({
         .on(source_ssl ? 'secureConnection' : 'connection', conn =>
             tunnel_connection({
                 conn,
-                target,
+                target_ssl,
+                target_port,
                 hostname,
                 name,
                 record_http,
@@ -100,13 +115,12 @@ function tunnel_port({
 
 function tunnel_connection({
     conn,
-    target,
+    target_ssl,
+    target_port,
     hostname,
     name,
     record_http
 }) {
-    const target_port = parseInt(target, 10);
-    const target_ssl = target.endsWith('s');
     const conn_name = human_addr(conn.remoteAddress + ':' + conn.remotePort);
     const target_conn = target_ssl ?
         tls.connect({

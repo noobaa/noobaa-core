@@ -1,20 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-
-module.exports = {
-    self_bind: self_bind,
-    array_push_all: array_push_all,
-    array_push_keep_latest: array_push_keep_latest,
-    named_array_push: named_array_push,
-    append_buffer_or_array: append_buffer_or_array,
-    deep_freeze: deep_freeze,
-    make_object: make_object,
-    default_value: default_value,
-    sort_compare_by: sort_compare_by,
-};
-
+const _ = require('lodash');
 
 /**
  *
@@ -148,3 +135,27 @@ function sort_compare_by(key_getter, order) {
         return 0;
     };
 }
+
+/**
+ * Loading object properties into a new object inside a constructor
+ * to allow v8 make this object as efficient as possible.
+ */
+class PackedObject {
+    constructor(obj) {
+        const keys = Object.keys(obj);
+        for (var i = 0; i < keys.length; ++i) {
+            this[keys[i]] = obj[keys[i]];
+        }
+    }
+}
+
+exports.self_bind = self_bind;
+exports.array_push_all = array_push_all;
+exports.array_push_keep_latest = array_push_keep_latest;
+exports.named_array_push = named_array_push;
+exports.append_buffer_or_array = append_buffer_or_array;
+exports.deep_freeze = deep_freeze;
+exports.make_object = make_object;
+exports.default_value = default_value;
+exports.sort_compare_by = sort_compare_by;
+exports.PackedObject = PackedObject;

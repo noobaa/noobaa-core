@@ -24,12 +24,12 @@ function main() {
     // eslint-disable-next-line global-require
     const argv = require('minimist')(process.argv);
     argv.host = argv.host || '127.0.0.1';
-    argv.port = parseInt(argv.port, 10) || 80;
-    argv.port2 = parseInt(argv.port2, 10) || 6001;
+    argv.port = Number(argv.port) || 80;
+    argv.port2 = Number(argv.port2) || 6001;
     proxy_port(argv.port, 'http://' + argv.host + ':' + argv.port2);
     if (argv.ssl || argv.ssl2) {
-        argv.ssl = parseInt(argv.ssl, 10) || 443;
-        argv.ssl2 = parseInt(argv.ssl2, 10) || 6443;
+        argv.ssl = Number(argv.ssl) || 443;
+        argv.ssl2 = Number(argv.ssl2) || 6443;
         pem.createCertificate({
             days: 365 * 100,
             selfSigned: true

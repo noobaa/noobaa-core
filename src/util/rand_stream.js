@@ -64,8 +64,7 @@ class RandStream extends stream.Readable {
             this.cipher = crypto.createCipheriv('aes-128-gcm',
                 crypto.randomBytes(16), crypto.randomBytes(12));
             if (!this.zero_buffer) {
-                this.zero_buffer = new Buffer(this.chunk_size);
-                this.zero_buffer.fill(0);
+                this.zero_buffer = Buffer.alloc(this.chunk_size);
             }
         }
         const zero_bytes = size >= this.zero_buffer.length ?

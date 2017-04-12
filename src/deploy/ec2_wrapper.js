@@ -587,7 +587,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
                     }],
                     KeyName: KEY_PAIR_PARAMS.KeyName,
                     SecurityGroups: ['ssh_and_http_v2'],
-                    UserData: new Buffer(run_script).toString('base64'),
+                    UserData: Buffer.from(run_script).toString('base64'),
                 })
                 .then(function(res) { //Tag Instances
                     return P.all(_.map(res.Instances, function(instance) {

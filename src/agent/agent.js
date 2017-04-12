@@ -402,7 +402,7 @@ function CreateAgent(agent_params) {
                     });
                 })
                 .catch(err => {
-                    dbg.error('heartbeat failed', err);
+                    dbg.error('heartbeat failed', err.stack || err.message);
                     if (err.rpc_code === 'DUPLICATE') {
                         dbg.error('This agent appears to be duplicated.',
                             'exiting and starting new agent', err);
@@ -870,7 +870,7 @@ function CreateAgent(agent_params) {
             }
 
             return {
-                data: new Buffer(res_len)
+                data: Buffer.allocUnsafe(res_len)
             };
         }
 
@@ -903,7 +903,7 @@ function CreateAgent(agent_params) {
                 return this.client.agent.test_network_perf({
                         source: source,
                         target: target,
-                        data: new Buffer(req_len),
+                        data: Buffer.allocUnsafe(req_len),
                         response_length: res_len,
                     }, {
                         address: target,
@@ -939,9 +939,7 @@ function CreateAgent(agent_params) {
                 .then(() => {
                     dbg.log1('Reading packed file');
                     return fs.readFileAsync(inner_path)
-                        .then(data => ({
-                            data: new Buffer(data),
-                        }))
+                        .then(data => ({ data }))
                         .catch(err => {
                             dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
                             throw new Error('Agent Collect Diag Error on reading packges diag file');
@@ -950,7 +948,7 @@ function CreateAgent(agent_params) {
                 .catch(err => {
                     dbg.error('DIAGNOSTICS FAILED', err.stack || err);
                     return {
-                        data: new Buffer(),
+                        data: Buffer.allocUnsafe(0),
                     };
                 });
         }

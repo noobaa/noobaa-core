@@ -55,7 +55,7 @@ function create_object_upload(req) {
     if (req.rpc_params.xattr) info.xattr = req.rpc_params.xattr;
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
-    if (req.rpc_params.sha256_b64 >= 0) info.sha256_b64 = req.rpc_params.sha256_b64;
+    if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
     return MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key)
         .then(existing_obj => {
             // check if the conditions for overwrite are met, throws if not
@@ -295,7 +295,8 @@ function complete_multipart(req) {
         })
         .then(() => MDStore.instance().update_multipart_by_id(multipart_id, set_updates))
         .then(() => ({
-            etag: Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex')
+            etag: Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex'),
+            create_time: multipart_id.getTimestamp().getTime(),
         }));
 }
 
@@ -567,6 +568,7 @@ function delete_object(req) {
     return MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key)
         .then(obj_arg => {
             obj = obj_arg;
+            check_md_conditions(req, req.rpc_params.delete_if, obj);
             return map_deleter.delete_object(obj);
         })
         .then(() => {
@@ -793,9 +795,8 @@ function read_s3_usage_report(req) {
 function get_object_info(md) {
     var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr', 'key', 'cloud_synced');
     var bucket = system_store.data.get_by_id(md.bucket);
-
     info.bucket = bucket.name;
-    info.version_id = String(md._id);
+    info.obj_id = String(md._id);
     info.size = info.size || 0;
     info.content_type = info.content_type || 'application/octet-stream';
     info.etag = info.etag || '';
@@ -882,29 +883,31 @@ function check_object_upload_mode(req, obj) {
 }
 
 function check_md_conditions(req, conditions, obj) {
-    if (!conditions) {
-        return;
-    }
-    if (conditions.if_modified_since) {
-        if (!obj ||
-            conditions.if_modified_since < obj._id.getTimestamp().getTime()) {
-            throw new RpcError('IF_MODIFIED_SINCE');
-        }
-    }
-    if (conditions.if_unmodified_since) {
-        if (!obj ||
-            conditions.if_unmodified_since > obj._id.getTimestamp().getTime()) {
-            throw new RpcError('IF_UNMODIFIED_SINCE');
-        }
-    }
+    if (!conditions) return;
+    // See http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html#req-header-consideration-1
+    // See https://tools.ietf.org/html/rfc7232 (HTTP Conditional Requests)
+    let matched = false;
+    let unmatched = false;
     if (conditions.if_match_etag) {
         if (!(obj && http_utils.match_etag(conditions.if_match_etag, obj.etag))) {
             throw new RpcError('IF_MATCH_ETAG');
         }
+        matched = true;
     }
     if (conditions.if_none_match_etag) {
         if (obj && http_utils.match_etag(conditions.if_none_match_etag, obj.etag)) {
             throw new RpcError('IF_NONE_MATCH_ETAG');
+        }
+        unmatched = true;
+    }
+    if (conditions.if_modified_since) {
+        if (!unmatched && (!obj || conditions.if_modified_since < obj._id.getTimestamp().getTime())) {
+            throw new RpcError('IF_MODIFIED_SINCE');
+        }
+    }
+    if (conditions.if_unmodified_since) {
+        if (!matched && (!obj || conditions.if_unmodified_since > obj._id.getTimestamp().getTime())) {
+            throw new RpcError('IF_UNMODIFIED_SINCE');
         }
     }
 }

@@ -156,7 +156,11 @@ class ObjectIO {
                 params.upload_id = create_reply.upload_id;
                 complete_params.upload_id = create_reply.upload_id;
             })
-            .then(() => this._upload_stream(params))
+            .then(() => (
+                params.copy_source ?
+                this._upload_copy(params) :
+                this._upload_stream(params)
+            ))
             .then(upload_info => _.assign(complete_params, upload_info))
             .then(() => dbg.log0('upload_object: complete upload', complete_params))
             .then(() => params.client.object.complete_object_upload(complete_params))
@@ -199,7 +203,11 @@ class ObjectIO {
                 params.multipart_id = multipart_reply.multipart_id;
                 complete_params.multipart_id = multipart_reply.multipart_id;
             })
-            .then(() => this._upload_stream(params))
+            .then(() => (
+                params.copy_source ?
+                this._upload_copy(params) :
+                this._upload_stream(params)
+            ))
             .then(upload_info => _.assign(complete_params, upload_info))
             .then(() => dbg.log0('upload_multipart: complete upload', complete_params))
             .then(() => params.client.object.complete_multipart(complete_params))
@@ -209,6 +217,46 @@ class ObjectIO {
                 throw err;
             });
     }
+
+    _upload_copy(params) {
+        if (params.copy_source.bucket !== params.bucket) {
+            // TODO S3 source_if
+            params.source_stream = this.create_read_stream({
+                client: params.client,
+                bucket: params.copy_source.bucket,
+                key: params.copy_source.key,
+            });
+            return this._upload_stream(params);
+        }
+
+        // copy mappings
+        var mappings;
+        return params.client.object.read_object_mappings({
+                bucket: params.copy_source.bucket,
+                key: params.copy_source.key,
+            })
+            .then(res => {
+                mappings = res;
+            })
+            .then(() => params.client.object.finalize_object_parts({
+                bucket: params.bucket,
+                key: params.key,
+                upload_id: params.upload_id,
+                // sending part.chunk_id so no need for part.chunk info
+                parts: _.map(mappings.parts, p => _.omit(p, 'chunk')),
+            }))
+            .then(() => {
+                const upload_info = {
+                    size: mappings.object_md.size,
+                    num_parts: mappings.parts.length,
+                    // TODO S3 COPY etag, md5_b64, sha256_b64 require handling for multipart and in general
+                    md5_b64: Buffer.from(mappings.object_md.etag, 'hex').toString('base64'),
+                    sha256_b64: '',
+                };
+                return upload_info;
+            });
+    }
+
 
     /**
      *
@@ -242,6 +290,13 @@ class ObjectIO {
             size: 0,
             num_parts: 0,
         };
+
+        params.source_stream.on('readable', () =>
+            dbg.log0('UPLOAD:', params.desc,
+                'streaming to', params.bucket, params.key,
+                'readable', upload_info.size
+            )
+        );
 
         return new Pipeline()
             .pipe(params.source_stream)
@@ -471,7 +526,7 @@ class ObjectIO {
         if (!part.millistamp) {
             part.millistamp = time_utils.millistamp();
         }
-        if (part.alloc_part.chunk_dedup) {
+        if (part.alloc_part.chunk_id) {
             dbg.log0('UPLOAD:', part.desc, 'CHUNK DEDUP');
             // nullify the chunk in order to release all the buffer's memory
             // while it's waiting in the finalize queue
@@ -654,7 +709,7 @@ class ObjectIO {
     read_entire_object(params) {
         return new P((resolve, reject) => {
             const buffers = [];
-            this.open_read_stream(params)
+            this.create_read_stream(params)
                 .on('data', buffer => {
                     dbg.log0('read data', buffer.length);
                     buffers.push(buffer);
@@ -678,7 +733,7 @@ class ObjectIO {
      * see ObjectReader.
      *
      */
-    open_read_stream(params, watermark) {
+    create_read_stream(params, watermark) {
         const reader = new stream.Readable({
             // highWaterMark Number - The maximum number of bytes to store
             // in the internal buffer before ceasing to read
@@ -692,12 +747,26 @@ class ObjectIO {
             // instead of a Buffer of size n. Default=false
             objectMode: false,
         });
-        let pos = Number(params.start) || 0;
+        var pos = Number(params.start) || 0;
         const end = _.isUndefined(params.end) ? Infinity : Number(params.end);
+
+        // close() is setting a flag to enforce immediate close
+        // and avoid more reads made by buffering
+        // which can cause many MB of unneeded reads
+        reader.close = () => {
+            reader.closed = true;
+        };
+
         // implement the stream's Readable._read() function
         reader._read = requested_size => {
-            P.fcall(() => {
-                    let requested_end = Math.min(end, pos + requested_size);
+            if (reader.closed) {
+                dbg.log1('reader closed', size_utils.human_offset(pos));
+                reader.push(null);
+                return;
+            }
+            P.resolve()
+                .then(() => {
+                    const requested_end = Math.min(end, pos + requested_size);
                     return this.read_object({
                         client: params.client,
                         bucket: params.bucket,
@@ -798,7 +867,7 @@ class ObjectIO {
                     key: params.key
                 })
                 .then(object_md => {
-                    let validated = object_md.version_id === data.object_md.version_id &&
+                    let validated = object_md.obj_id === data.object_md.obj_id &&
                         object_md.etag === data.object_md.etag &&
                         object_md.size === data.object_md.size &&
                         object_md.create_time === data.object_md.create_time;
@@ -1019,130 +1088,6 @@ class ObjectIO {
         }
     }
 
-
-    // HTTP FLOW //////////////////////////////////////////////////////////////////
-
-
-
-    /**
-     *
-     * SERVE_HTTP_STREAM
-     *
-     * @param req: express request object
-     * @param res: express response object
-     * @param params (Object):
-     *  - bucket (String)
-     *  - key (String)
-     */
-    serve_http_stream(req, res, params, object_md) {
-        // range-parser returns:
-        //      undefined (no range)
-        //      -2 (invalid syntax)
-        //      -1 (unsatisfiable)
-        //      array (ranges with type)
-        let range = req.range(object_md.size);
-
-        // return http 400 Bad Request
-        if (range === -2) {
-            dbg.log1('+++ serve_http_stream: bad range request',
-                req.get('range'), object_md);
-            return 400;
-        }
-
-        // return http 416 Requested Range Not Satisfiable
-        if (range && (
-                range === -1 ||
-                range.type !== 'bytes' ||
-                range.length !== 1)) {
-            dbg.warn('+++ serve_http_stream: invalid range',
-                range, req.get('range'), object_md);
-            // let the client know of the relevant range
-            res.setHeader('Content-Range', 'bytes */' + object_md.size);
-            return 416;
-        }
-
-        let read_stream;
-        let read_closer = reason => (
-            () => {
-                dbg.log0('+++ serve_http_stream:', reason);
-                if (read_stream) {
-                    read_stream.pause();
-                    read_stream.unpipe(res);
-                    read_stream = null;
-                }
-                if (reason === 'request ended') {
-                    dbg.log('res end after req ended');
-                    res.status(200).end();
-                }
-            }
-        );
-
-        // on disconnects close the read stream
-        req.on('close', read_closer('request closed'));
-        req.on('end', read_closer('request ended'));
-        res.on('close', read_closer('response closed'));
-        res.on('end', read_closer('response ended'));
-
-        if (!range) {
-            dbg.log1('+++ serve_http_stream: send all');
-            read_stream = this.open_read_stream(params, config.IO_HTTP_PART_ALIGN);
-            read_stream.pipe(res);
-            return 200;
-        }
-
-        // return http 206 Partial Content
-        let start = range[0].start;
-        let end = range[0].end + 1; // use exclusive end
-
-        // [disabled] truncate a single http request to limited size.
-        // the idea was to make the browser fetch the next part of content
-        // more quickly and only once it gets to play it, but it actually seems
-        // to prevent it from properly keeping a video buffer, so disabled it.
-        if (this.HTTP_TRUNCATE_PART_SIZE) {
-            if (end > start + config.IO_HTTP_PART_ALIGN) {
-                end = start + config.IO_HTTP_PART_ALIGN;
-            }
-            // snap end to the alignment boundary, to make next requests aligned
-            end = range_utils.truncate_range_end_to_boundary(
-                start, end, config.IO_HTTP_PART_ALIGN);
-        }
-
-        dbg.log1('+++ serve_http_stream: send range',
-            range_utils.human_range({
-                start: start,
-                end: end
-            }), range);
-        res.setHeader('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + object_md.size);
-        res.setHeader('Content-Length', end - start);
-        // res.header('Cache-Control', 'max-age=0' || 'no-cache');
-        read_stream = this.open_read_stream(_.extend({
-            start: start,
-            end: end,
-        }, params), config.IO_HTTP_PART_ALIGN);
-        read_stream.pipe(res);
-
-        // when starting to stream also prefrech the last part of the file
-        // since some video encodings put a chunk of video metadata in the end
-        // and it is often requested once doing a video time seek.
-        // see https://trac.ffmpeg.org/wiki/Encode/H.264#faststartforwebvideo
-        if (start === 0) {
-            dbg.log1('+++ serve_http_stream: prefetch end of file');
-            let eof_len = 100;
-            this.open_read_stream(_.extend({
-                    start: object_md.size > eof_len ? (object_md.size - eof_len) : 0,
-                    end: object_md.size,
-                }, params), eof_len)
-                .pipe(new stream.Writable({
-                    // a writable sink that ignores the data
-                    // just to pump the data through the cache
-                    write: function(chunk, encoding, next) {
-                        next();
-                    }
-                }));
-        }
-
-        return 206;
-    }
 }
 
 

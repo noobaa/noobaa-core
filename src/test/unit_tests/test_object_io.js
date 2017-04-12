@@ -135,7 +135,7 @@ mocha.describe('object_io', function() {
                         chance.integer(CHANCE_PART_OFFSET);
                     // randomize a buffer
                     console.log('random object size', size);
-                    data = new Buffer(size);
+                    data = Buffer.allocUnsafe(size);
                     for (let i = 0; i < size; i++) {
                         data[i] = chance.integer(CHANCE_BYTE);
                     }
@@ -197,7 +197,7 @@ mocha.describe('object_io', function() {
             let key = KEY + Date.now();
             let part_size = 1024;
             let num_parts = 10;
-            let data = new Buffer(num_parts * part_size);
+            let data = Buffer.allocUnsafe(num_parts * part_size);
             for (let i = 0; i < data.length; i++) {
                 data[i] = chance.integer(CHANCE_BYTE);
             }

@@ -8,6 +8,7 @@ const stream = require('stream');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
+const RpcError = require('../../rpc/rpc_error');
 
 class BlockStoreAzure extends BlockStoreBase {
 
@@ -62,6 +63,9 @@ class BlockStoreAzure extends BlockStoreBase {
             .catch(err => {
                 dbg.error('BlockStoreAzure _read_block failed:',
                     this.container_name, block_key, err);
+                if (err.code === 'ContainerNotFound') {
+                    throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
+                }
                 throw err;
             });
     }
@@ -107,6 +111,14 @@ class BlockStoreAzure extends BlockStoreBase {
                     count: 1 - overwrite_count
                 };
                 return this._update_usage(usage);
+            })
+            .catch(err => {
+                dbg.error('BlockStoreAzure _write_block failed:',
+                    this.container_name, block_key, err);
+                if (err.code === 'ContainerNotFound') {
+                    throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
+                }
+                throw err;
             });
     }
 

@@ -144,6 +144,16 @@ const resourceStateIconMapping = deepFreeze({
         css: 'error',
         name: 'problem',
     },
+    BUCKET_NOT_EXIST: { 
+        tooltip: 'Target AWS bucket does not exist',
+        css: 'error',
+        name: 'problem',
+    },
+    CONTAINER_NOT_EXIST: { 
+        tooltip: 'Target Azure container does not exist',
+        css: 'error',
+        name: 'problem',
+    },
     INITALIZING: {
         tooltip: 'Initializing',
         css: 'warning',
@@ -305,6 +315,8 @@ export function getModeFilterFromState(state) {
                 'N2N_ERRORS',
                 'GATEWAY_ERRORS',
                 'IO_ERRORS',
+                'BUCKET_NOT_EXIST',
+                'CONTAINER_NOT_EXIST',
                 'UNTRUSTED',
                 'INITALIZING'
             ];

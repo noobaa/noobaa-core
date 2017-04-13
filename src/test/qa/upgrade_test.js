@@ -37,6 +37,7 @@ var connection = {
     servicePrincipal: service
 };
 
+var timestamp = (Math.floor(Date.now() / 1000));
 var vnet = argv.vnet || 'qa-upgrade-vnet';
 var noobaa_server = {
     name: '',
@@ -44,7 +45,7 @@ var noobaa_server = {
     username: 'notadmin',
     password: 'Passw0rd123!',
 
-    storageOSDiskName: 'osdisk-noobaa',
+    storageOSDiskName: 'osdisk-noobaa' + timestamp,
     storageAccountName: storage,
 
     vnetName: vnet,
@@ -57,7 +58,7 @@ var noobaa_agent = {
     username: 'notadmin',
     password: 'Passw0rd123!',
 
-    storageOSDiskName: 'osdisk-linux',
+    storageOSDiskName: 'osdisk-linux' + timestamp,
     storageAccountName: storage,
 
     vnetName: vnet,
@@ -85,7 +86,7 @@ var destroyOption = {
     destroyNics: true,
     destroyPublicIP: true,
     destroyVnet: false,
-    destroyStorage: true,
+    destroyStorage: false,
     destroyFileOSDisk: true,
     destroyFileDataDisk: false
 };
@@ -116,10 +117,11 @@ function clean_old_machines(machine_name) {
         .catch(err => {
             console.log('VM wasn\'t found', err.message);
         })
-        .then(() => P.each(oses, os => {
-            console.log('Removing agents:', os);
+        .then(() => P.each(oses, osname => {
+            console.log('Removing agents:', osname);
             var destroyVMagent = new cloudCD.DestroyVMAction(connection);
-            noobaa_agent.name = machine_name + os;
+            var os = azf.getImagesfromOSname(osname);
+            noobaa_agent.name = (machine_name + os.offer.substring(0, 1) + os.sku.substring(0, 4)).replace(new RegExp('\\.', 'g'), '-').toLowerCase();
             return P.fromCallback(callback => destroyVMagent.perform(noobaa_agent, destroyOption, callback))
                 .catch(err => {
                     console.log('VM wasn\'t found', err.message);
@@ -136,7 +138,7 @@ return P.each(procedure, upgrade_procedure => {
             .then(() => {
                 console.log('Creating new server of version ', upgrade_procedure.base_version);
                 var createVMClient = new cloudCD.CreateVMAction(connection);
-                noobaa_server.storageOSDiskName = machine_name + '-osdisk';
+                noobaa_server.storageOSDiskName = machine_name + '-osdisk' + timestamp;
                 var uri = basic_vhd_uri + version_map_vhd[upgrade_procedure.base_version];
                 noobaa_server.imageSourceUri = uri;
                 return P.fromCallback(callback => createVMClient.perform(noobaa_server, callback));
@@ -171,9 +173,9 @@ return P.each(procedure, upgrade_procedure => {
                     .then(() => P.each(oses, osname => {
                         console.log('Adding agent', osname);
                         var createVMagent = new cloudCD.CreateVMAction(connection);
-                        noobaa_agent.name = (machine_name + osname).substring(0, 10);
-                        noobaa_agent.storageOSDiskName = machine_name + osname + '-osdisk';
                         var os = azf.getImagesfromOSname(osname);
+                        noobaa_agent.name = (machine_name + os.offer.substring(0, 1) + os.sku.substring(0, 4)).replace(new RegExp('\\.', 'g'), '-').toLowerCase();
+                        noobaa_agent.storageOSDiskName = machine_name + osname + '-osdisk' + timestamp;
                         noobaa_agent.imagePublisher = os.publisher;
                         noobaa_agent.imageOffer = os.offer;
                         noobaa_agent.imageSku = os.sku;

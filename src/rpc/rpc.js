@@ -223,6 +223,9 @@ RPC.prototype._request = function(api, method_api, params, options) {
                 self._request_logger('RPC REQUEST', req.srv, params, '==>', reply);
             }
 
+            // if failed without getting a response (connect/send) we fill times for printing
+            if (!req.took_srv) req._set_times(0);
+
             dbg.log1(`RPC._request: DONE srv ${
                 req.srv
             } reqid ${

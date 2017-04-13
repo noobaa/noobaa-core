@@ -37,6 +37,7 @@ function upgrade() {
     upgrade_usage_stats();
     blocks_to_buckets_upgrade();
     upgrade_object_mds_total_parts();
+    upgrade_server_hb();
     // cluster upgrade: mark that upgrade is completed for this server
     mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
@@ -892,4 +893,14 @@ function update_blocks_of_chunks(chunks) {
     });
 
     return chunks.length ? chunks[chunks.length - 1]._id : null;
+}
+
+function upgrade_server_hb() {
+    print('\n*** fix_nodes_pool_to_object_id ...');
+    db.clusters.updateMany({}, {
+        $unset: {
+            services_status: 1,
+            __v: 1
+        }
+    });
 }

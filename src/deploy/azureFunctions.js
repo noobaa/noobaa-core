@@ -49,6 +49,12 @@ class AzureFunctions {
             os.offer = 'UbuntuServer';
             os.sku = '16.04.0-LTS';
             os.osType = 'Linux';
+        } else if (osname === 'ubuntu12') {
+            // Ubuntu 16 config
+            os.publisher = 'Canonical';
+            os.offer = 'UbuntuServer';
+            os.sku = '12.04.5-LTS';
+            os.osType = 'Linux';
         } else if (osname === 'centos6') {
             // Centos 6.8 config
             os.publisher = 'OpenLogic';

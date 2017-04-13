@@ -42,7 +42,7 @@ node('jenkins-slave1-centos') {
               nvm use 6.9.5
               cd $WORKSPACE
               npm install
-              npm install azure
+              npm install azure cloud-cd
         """
         // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
     }

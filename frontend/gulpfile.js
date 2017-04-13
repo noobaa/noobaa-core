@@ -22,7 +22,6 @@ let  buildErrors = 0;
 let lintErrors = 0;
 
 const libs = [
-    // Using a local build of knockout until the release of 3.4.2/3.5, see issue #2270
     { name: 'knockout',             path: './src/lib/knockout/dist/knockout.debug.js' },
     { name: 'knockout-projections', path: './src/lib/knockout-projections/dist/knockout-projections.min.js' },
     { name: 'knockout-validation',  path: './src/lib/knockout-validation/dist/knockout.validation.js' },

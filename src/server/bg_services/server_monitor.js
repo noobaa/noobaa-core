@@ -240,7 +240,7 @@ function _check_remote_syslog() {
     };
     return net_utils.ping(system.remote_syslog_config.address)
         .then(() => {
-            monitoring_status.remote_syslog_status.status = "OPERATIONAL";            
+            monitoring_status.remote_syslog_status.status = "OPERATIONAL";
         })
         .catch(err => {
             monitoring_status.remote_syslog_status = "UNREACHABLE";

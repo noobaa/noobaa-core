@@ -45,6 +45,32 @@ module.exports = {
             },
         },
 
+        update_member_of_cluster: {
+            doc: 'Update member of the cluster',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['old_address', 'new_address', 'shard', 'hostname'],
+                properties: {
+                    old_address: {
+                        type: 'string',
+                    },
+                    new_address: {
+                        type: 'string',
+                    },
+                    shard: {
+                        type: 'string'
+                    },
+                    hostname: {
+                        type: 'string'
+                    }
+                },
+            },
+            auth: {
+                system: 'admin'
+            },
+        },
+
         update_time_config: {
             method: 'POST',
             params: {

@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint max-lines: ['error', 2000] */
 'use strict';
 
 const DEV_MODE = (process.env.DEV_MODE === 'true');
@@ -85,7 +86,7 @@ function add_member_to_cluster(req) {
     let my_address;
     let first_server = !is_clusterized;
 
-    return _validate_add_member_request(req)
+    return _validate_member_request(req)
         .catch(err => {
             throw err;
         })
@@ -395,7 +396,9 @@ function join_to_cluster(req) {
             var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'ntp');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             //Mongo servers are up, update entire cluster with the new topology
-            return _publish_to_cluster('news_updated_topology', topology_to_send);
+            return _publish_to_cluster('news_updated_topology', {
+                new_topology: topology_to_send
+            });
         })
         // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
         .then(() => cluster_hb.do_heartbeat())
@@ -404,6 +407,93 @@ function join_to_cluster(req) {
         // restart bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
         .then(() => _restart_services())
         .then(() => MongoCtrl.add_mongo_monitor_program())
+        .return();
+}
+
+// Currently only updates server's IP
+// This function runs only at the master of cluster
+function update_member_of_cluster(req) {
+    const topology = cutil.get_topology();
+    const is_clusterized = topology.is_clusterized;
+
+    // Shouldn't do anything if there is not cluster
+    if (!(is_clusterized && system_store.is_cluster_master)) {
+        dbg.log0(`update_member_of_cluster: is_clusterized:${is_clusterized}, 
+            is_master:${system_store.is_cluster_master}`);
+        return P.resolve();
+    }
+
+    return _validate_member_request(_.defaults(req, {
+            rpc_params: {
+                address: req.rpc_params.new_address,
+                new_hostname: req.rpc_params.hostname
+            }
+        }))
+        .then(() => _check_candidate_version(_.defaults(req, {
+            rpc_params: {
+                address: req.rpc_params.new_address
+            }
+        })))
+        .then(version_check_res => {
+            if (version_check_res.result !== 'OKAY') throw new Error('Verify member version check returned', version_check_res);
+        })
+        .then(() => {
+            let shard_index = cutil.find_shard_index(req.rpc_params.shard);
+            let server_idx = _.findIndex(topology.shards[shard_index].servers,
+                server => server.address === req.rpc_params.old_address);
+            if (server_idx === -1) {
+                throw new Error(`could not find address:${req.rpc_params.old_address} in shard`);
+            }
+
+            let new_shard = topology.shards[shard_index];
+            new_shard.servers[server_idx] = {
+                address: req.rpc_params.new_address
+            };
+
+            let new_rs_params = {
+                name: req.rpc_params.shard,
+                IPs: cutil.extract_servers_ip(
+                    new_shard.servers
+                ),
+                cluster_id: topology.cluster_id
+            };
+            // Publish change of replicaset to all servers in cluster
+            // Only the master will update the rs config and .env mongo connection string
+            // All of the other will only update .env mongo connection string
+            return _publish_to_cluster('news_replicaset_servers', new_rs_params);
+        })
+        // Update current topology of the server
+        .then(() => _update_cluster_info(topology))
+        .then(() => {
+            var topology_to_send = _.omit(topology, 'dns_servers', 'ntp');
+            dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
+            // Mongo servers are up, update entire cluster with the new topology
+            // Notice that we send additional parameters which will be used for the changed server
+            // Server that had his IP changed needs to change the owner_address property in his cluster record
+            // To use the new IP, in addition to changes in the shard servers
+            return _publish_to_cluster('news_updated_topology', {
+                new_topology: topology_to_send,
+                cluster_member_edit: {
+                    old_address: req.rpc_params.old_address,
+                    new_address: req.rpc_params.new_address
+                }
+            });
+        })
+        // TODO: solve in a better way
+        // added this delay, otherwise the next system_store.load doesn't catch the new servers HB
+        .delay(1000)
+        .then(function() {
+            dbg.log0('Edited member', req.rpc_params.old_address, 'of cluster. New topology',
+                cutil.pretty_topology(cutil.get_topology()));
+            // reload system_store to update after edited member HB
+            return system_store.load();
+        })
+        // ugly but works. perform first heartbeat after server was edited, so UI will present updated data
+        .then(() => cluster_hb.do_heartbeat())
+        .catch(function(err) {
+            console.error('Failed edit of member to cluster', req.rpc_params, 'with', err);
+            throw new Error('Failed edit of member to cluster');
+        })
         .return();
 }
 
@@ -445,15 +535,24 @@ function news_replicaset_servers(req) {
 
 function news_updated_topology(req) {
     dbg.log0('Recieved news: news_updated_topology', cutil.pretty_topology(req.rpc_params));
-    //Verify we recieved news on the cluster we are joined to
-    cutil.verify_cluster_id(req.rpc_params.cluster_id);
-
-    dbg.log0('updating topolgy to the new published topology:', req.rpc_params);
-    //Update our view of the topology
-    return P.resolve(_update_cluster_info({
+    const params = {
         is_clusterized: true,
-        shards: req.rpc_params.shards
-    }));
+        shards: req.rpc_params.new_topology.shards
+    };
+    //Verify we recieved news on the cluster we are joined to
+    cutil.verify_cluster_id(req.rpc_params.new_topology.cluster_id);
+
+    if (req.rpc_params.cluster_member_edit) {
+        const current_clustering = system_store.get_local_cluster_info();
+        if (String(current_clustering.owner_address) ===
+            String(req.rpc_params.cluster_member_edit.old_address)) {
+            params.owner_address = req.rpc_params.cluster_member_edit.new_address;
+        }
+    }
+
+    dbg.log0('updating topology to the new published topology:', req.rpc_params.new_topology);
+    //Update our view of the topology
+    return P.resolve(_update_cluster_info(params));
 }
 
 
@@ -1217,7 +1316,7 @@ function set_hostname_internal(req) {
 //Internals Cluster Control
 //
 
-function _validate_add_member_request(req) {
+function _validate_member_request(req) {
     if (!os_utils.is_supervised_env()) {
         console.warn('Environment is not a supervised one, currently not allowing clustering operations');
         throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
@@ -1489,7 +1588,7 @@ function _publish_to_cluster(apiname, req_params) {
     });
 
     dbg.log0('Sending cluster news:', apiname, 'to:', servers, 'with:', req_params);
-    return P.each(servers, function(server) {
+    return P.map(servers, function(server) {
         return server_rpc.client.cluster_internal[apiname](req_params, {
             address: server_rpc.get_base_address(server),
             timeout: 60000 //60s
@@ -1517,7 +1616,7 @@ function _update_rs_if_needed(IPs, name, is_config) {
                 }
             });
     }
-    return;
+    return P.resolve();
 }
 
 
@@ -1634,3 +1733,4 @@ exports.verify_join_conditions = verify_join_conditions;
 exports.update_server_conf = update_server_conf;
 exports.set_hostname_internal = set_hostname_internal;
 exports.get_version = get_version;
+exports.update_member_of_cluster = update_member_of_cluster;

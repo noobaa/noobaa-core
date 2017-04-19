@@ -51,26 +51,9 @@ return azf.authenticate()
         };
         return client.create_auth_token(auth_params);
     }))
-    .then(() => P.resolve(client.node.list_nodes({
-        query: {
-            online: true,
-            skip_cloud_nodes: true
-        }
-    })))
-    .then(res => {
-        console.warn('Num nodes before the test are ', res.total_count);
-        initial_node_number = res.total_count;
-        if (argv.skipsetup) {
-            _.each(res.nodes, function(n) {
-                nodes.push(n.name);
-            });
-            console.warn('Node names are', nodes);
-        }
-    })
     .then(() => {
         if (!argv.skipsetup) {
             return P.map(oses, osname =>
-                    // var os = azf.getImagesfromOSname(osname);
                     azf.deleteVirtualMachine(osname)
                     .catch(err => console.log('VM not found - skipping...', err))
                 )
@@ -100,6 +83,20 @@ return azf.authenticate()
                     console.warn('Node names are', nodes);
                 });
         }
+        return P.resolve(client.node.list_nodes({
+            query: {
+                online: true,
+                skip_cloud_nodes: true
+            }
+        })).then(res => {
+            initial_node_number = res.total_count;
+            console.warn('Num nodes before the test are ', res.total_count);
+            initial_node_number = res.total_count;
+            _.each(res.nodes, function(n) {
+                nodes.push(n.name);
+            });
+            console.warn('Node names are', nodes);
+        });
     })
     .then(() => s3ops.put_file_with_md5(serverName, 'files', '100MB_File', 100))
     .catch(err => errors.push(err.message))
@@ -120,41 +117,61 @@ return azf.authenticate()
             level: 5,
         }).catch(err => errors.push(err.message)));
     })
-    .then(() => P.map(oses, osname => azf.deleteVirtualMachineExtension(osname)
-        .catch(err => console.log(err.message))))
-    .then(() => P.map(oses, osname => {
-        var extension = {
-            publisher: 'Microsoft.OSTCExtensions',
-            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
-            typeHandlerVersion: '1.5',
-            autoUpgradeMinorVersion: true,
-            settings: {
-                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/remove_agent.sh"],
-                commandToExecute: 'bash remove_agent.sh '
-            },
-            protectedSettings: {
-                storageAccountName: "pluginsstorage",
-                storageAccountKey: "bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=="
-            },
-            location: location,
-        };
-        var os = azf.getImagesfromOSname(osname);
-        if (os.osType === 'Windows') {
-            extension.publisher = 'Microsoft.Compute';
-            extension.virtualMachineExtensionType = 'CustomScriptExtension';
-            extension.typeHandlerVersion = '1.7';
-            extension.settings = {
-                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/remove_agent.ps1"],
-                commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File remove_agent.ps1 '
-            };
+    .then(() => {
+        if (!argv.skipsetup) {
+            return P.map(oses, osname => azf.deleteVirtualMachineExtension(osname).catch(err => console.log(err.message)))
+                .then(() => P.map(oses, osname => {
+                    var extension = {
+                        publisher: 'Microsoft.OSTCExtensions',
+                        virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
+                        typeHandlerVersion: '1.5',
+                        autoUpgradeMinorVersion: true,
+                        settings: {
+                            fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/remove_agent.sh"],
+                            commandToExecute: 'bash remove_agent.sh '
+                        },
+                        protectedSettings: {
+                            storageAccountName: "pluginsstorage",
+                            storageAccountKey: "bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=="
+                        },
+                        location: location,
+                    };
+                    var os = azf.getImagesfromOSname(osname);
+                    if (os.osType === 'Windows') {
+                        extension.publisher = 'Microsoft.Compute';
+                        extension.virtualMachineExtensionType = 'CustomScriptExtension';
+                        extension.typeHandlerVersion = '1.7';
+                        extension.settings = {
+                            fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/remove_agent.ps1"],
+                            commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File remove_agent.ps1 '
+                        };
+                    }
+                    return azf.createVirtualMachineExtension(osname, extension).catch(err => errors.push(err.message));
+                }))
+                .delay(60000)
+                .then(() => P.resolve(client.node.list_nodes({
+                    query: {
+                        online: true,
+                        skip_cloud_nodes: true
+                    }
+                })))
+                .then(res => {
+                    if (res.total_count === initial_node_number) {
+                        console.warn('Num nodes after the test are ', res.total_count, '- the same as before - good');
+                    } else {
+                        console.warn('Num nodes after the test are', res.total_count, '- something went wrong... suppose to go back to initial size', initial_node_number);
+                        errors.push('Num nodes after the test are ' + res.total_count + ' - something went wrong... suppose to go back to initial size ' + initial_node_number);
+                    }
+                });
         }
-        return azf.createVirtualMachineExtension(osname, extension)
-            .catch(err => errors.push(err.message));
-    }))
+    })
     .then(() => rpc.disconnect_all())
     .then(() => {
         if (errors.length === 0) {
             console.log('All is good :) - exiting...');
+            if (!argv.skipsetup) {
+                return P.map(oses, osname => azf.deleteVirtualMachine(osname));
+            }
             process.exit(0);
         } else {
             console.log('Got the following errors in test:');

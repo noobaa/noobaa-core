@@ -144,7 +144,11 @@ function downloadOVF(service, vmObj, nfcLease, host_ip, ova_name, description) {
                 })
                 .then(() => {
                     console.log('Taring into OVA file:', ovaFileName);
-                    promise_utils.exec('tar -cvf ' + ovaFileName + ' ' + ovfFileName + ' ' + mfFileName + ' ' + diskFileName);
+                    return promise_utils.exec('tar -cvf ' + ovaFileName + ' ' + ovfFileName + ' ' + mfFileName + ' ' + diskFileName);
+                })
+                .then(() => {
+                    console.log('Removing extra files:', ovfFileName, mfFileName, diskFileName);
+                    return promise_utils.exec('rm -rf ' + ovfFileName + ' ' + mfFileName + ' ' + diskFileName);
                 });
         });
 }

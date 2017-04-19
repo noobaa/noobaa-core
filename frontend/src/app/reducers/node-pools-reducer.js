@@ -23,7 +23,7 @@ function onSystemInfoFetched(state, { info }) {
             storage,
             associated_accounts: associatedAccounts,            
         } = pool;        
-        const associatedBuckets = bucketMapping[pool.name];
+        const associatedBuckets = bucketMapping[pool.name] || [];
 
         return { name, mode, storage, associatedAccounts, associatedBuckets };
     });

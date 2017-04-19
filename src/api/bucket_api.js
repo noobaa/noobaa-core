@@ -273,35 +273,6 @@ module.exports = {
             }
         },
 
-        // TODO Removed by request of Ohad, because seems like we won't be using it
-        /*generate_bucket_access: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['access_key', 'secret_key'],
-                properties: {
-                    access_key: {
-                        type: 'string',
-                    },
-                    secret_key: {
-                        type: 'string',
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },*/
-
         get_cloud_buckets: {
             method: 'GET',
             params: {

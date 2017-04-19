@@ -110,7 +110,7 @@ function mongo_upgrade {
   local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
   local client_subject=$(openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}')
   deploy_log "starting mongo data upgrade ${bcrypt_sec} ${id} ${ip}"
-  ${MONGO_SHELL} --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', param_ip='${ip}', param_client_subject='${client_subject}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+  ${CORE_DIR}/src/deploy/mongo_upgrade/mongo_upgrade.sh --param_secret ${sec} --param_bcrypt_secret ${bcrypt_sec} --param_ip ${ip} --param_client_subject ${client_subject}  
   local rc=$?
   if [ $rc -ne 0 ]; then
       deploy_log "FAILED mongo data upgrade!"

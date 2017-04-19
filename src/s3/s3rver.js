@@ -27,6 +27,7 @@ const api = require('../api');
 const config = require('../../config');
 
 const s3_rest = require('./s3_rest');
+const azure_rest = require('./azure_rest');
 const S3Controller = require('./s3_controller');
 const lambda_rest = require('../lambda/lambda_rest');
 const LambdaController = require('../lambda/lambda_controller');
@@ -45,7 +46,9 @@ function start_all() {
             cluster.fork();
         });
     } else {
+        let azure = Boolean(argv.azure);
         run_server({
+            azure,
             s3: true,
             lambda: true
         });
@@ -109,7 +112,12 @@ function run_server(options) {
             }
             if (options && options.s3) {
                 dbg.log0('starting s3 controller');
-                app.use(s3_rest(new S3Controller(rpc)));
+                let s3_controller = new S3Controller(rpc);
+                if (options.azure) {
+                    dbg.log0('using Azure rest API');
+                    app.use(azure_rest(s3_controller));
+                }
+                app.use(s3_rest(s3_controller));
             }
         })
         .then(() => dbg.log0('Starting HTTP', params.port))

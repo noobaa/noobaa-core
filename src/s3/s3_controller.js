@@ -113,7 +113,6 @@ class S3Controller {
             });
     }
 
-
     ///////////////////////////
     // OPERATIONS ON BUCKETS //
     ///////////////////////////
@@ -879,6 +878,178 @@ class S3Controller {
                 }))
             }));
     }
+
+    ////////////////////////////
+    // TEMP - AZURE FUNCTIONS //
+    ////////////////////////////
+
+
+    put_container(req, res) {
+        if (req.query.comp === 'lease') {
+            // break if this is a lease request.
+            // for now 200 will be returned fir any lease request.
+            // if needed we can fake it to return the expected success codes:
+            // Acquire: A successful operation returns status code 201 (Created).
+            // Renew: A successful operation returns status code 200 (OK).
+            // Change: A successful operation returns status code 200 (OK).
+            // Release: A successful operation returns status code 200 (OK).
+            // Break: A successful operation returns status code 202 (Accepted).
+            // https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
+            return;
+        }
+        this.usage_report.s3_usage_info.put_bucket += 1;
+        return req.rpc_client.bucket.create_bucket({
+                name: req.params.container
+            })
+            .then(() => {
+                res.created = true;
+            })
+            .return();
+    }
+
+
+
+    list_containers(req) {
+        let { prefix, marker, maxresults } = req.query;
+        return req.rpc_client.bucket.list_buckets()
+            .then(reply => {
+                let date = (new Date()).toUTCString();
+                return {
+                    EnumerationResults: {
+                        Prefix: prefix,
+                        Marker: marker,
+                        MaxResults: maxresults,
+                        Containers: _.map(reply.buckets, bucket => {
+                            let Properties = {
+                                LeaseStatus: 'unlocked',
+                                LeaseState: 'available',
+                                Etag: '"1"',
+                            };
+                            Properties['Last-Modified'] = date;
+                            return {
+                                Container: {
+                                    Name: bucket.name,
+                                    Properties
+                                }
+                            };
+                        })
+                    }
+                };
+            });
+    }
+
+    get_container(req, res) {
+        if (req.query.comp === 'acl') {
+            return {
+                SignedIdentifiers: {}
+            };
+
+        }
+        let params = {
+            bucket: req.params.container,
+            upload_mode: false,
+        };
+        if ('prefix' in req.query) {
+            params.prefix = req.query.prefix;
+        }
+        if ('delimiter' in req.query) {
+            params.delimiter = req.query.delimiter;
+        }
+        if ('marker' in req.query) {
+            params.key_marker = req.query.marker;
+        }
+
+        let max_keys_received = Number(req.query.maxresults || 1000);
+        if (!_.isInteger(max_keys_received) || max_keys_received < 0) {
+            throw new S3Error(S3Error.InvalidArgument);
+        }
+        params.limit = Math.min(max_keys_received, 1000);
+
+        return req.rpc_client.object.list_objects_s3(params)
+            .then(reply => ({
+                container: req.params.container,
+                EnumerationResults: {
+                    Prefix: req.query.prefix,
+                    Marker: req.query.marker,
+                    MaxResults: req.query.maxresults,
+                    Delimiter: req.query.delimiter,
+                    Blobs: reply.objects.map(obj => {
+                        let Properties = {};
+                        Properties['Last-Modified'] = (new Date(obj.info.create_time)).toUTCString();
+                        Properties.ETag = obj.info.etag;
+                        Properties['Content-Length'] = obj.info.size;
+                        Properties['Content-Type'] = obj.info.content_type;
+                        Properties['Content-Encoding'] = {};
+                        Properties['Content-Language'] = {};
+                        Properties['Content-MD5'] = {};
+                        Properties['Cache-Control'] = {};
+                        Properties['Content-Disposition'] = {};
+                        Properties.BlobType = 'BlockBlob';
+                        Properties.LeaseStatus = 'unlocked';
+                        Properties.LeaseState = 'available';
+                        Properties.ServerEncrypted = false;
+                        return {
+                            Blob: {
+                                Name: obj.key,
+                                Properties
+                            }
+                        };
+                    }),
+                },
+            }));
+    }
+
+
+    get_container_properties(req, res) {
+        return req.rpc_client.bucket.read_bucket({
+                name: req.params.container
+            })
+            .then(bucket_info => {
+                res.setHeader('x-ms-lease-status', 'unlocked');
+                res.setHeader('x-ms-lease-state', 'available');
+            });
+    }
+
+
+    put_blob(req, res) {
+        this.usage_report.s3_usage_info.put_object += 1;
+        let params = {
+            client: req.rpc_client,
+            bucket: req.params.bucket,
+            key: req.params.key,
+            content_type: req.headers['content-type'],
+            xattr: get_request_xattr(req),
+            source_stream: req,
+        };
+        if (req.content_length >= 0) params.size = req.content_length;
+        if (req.content_md5) params.md5_b64 = req.content_md5.toString('base64');
+        if (req.content_sha256) params.sha256_b64 = req.content_sha256.toString('base64');
+        this._set_md_conditions(req, params, 'overwrite_if');
+        return this.object_io.upload_object(params)
+            .then(reply => {
+                res.setHeader('ETag', '"' + reply.etag + '"');
+                res.created = true;
+            });
+    }
+
+    get_blob_properties(req, res) {
+        return req.rpc_client.object.read_object_md(this._object_path(req))
+            .then(object_md => {
+                req.object_md = object_md;
+                res.setHeader('ETag', '"' + object_md.etag + '"');
+                res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
+                res.setHeader('Content-Type', object_md.content_type);
+                res.setHeader('Content-Length', object_md.size);
+                res.setHeader('Accept-Ranges', 'bytes');
+                set_response_xattr(res, object_md.xattr);
+                if (this._check_md_conditions(req, res, object_md) === false) {
+                    // _check_md_conditions already responded
+                    return false;
+                }
+            });
+    }
+
+
 
 
     /////////////

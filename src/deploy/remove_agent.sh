@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sudo /usr/local/noobaa/uninstall_noobaa_agent.sh
+/usr/local/noobaa/uninstall_noobaa_agent.sh
 if [ -f "/usr/local/noobaa" ];
 then
 	echo “NooBaa Directory still exist!”

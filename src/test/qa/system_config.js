@@ -304,7 +304,7 @@ P.fcall(function() {
     })
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
-        var syslog_status = result.cluster.shards[0].servers[0].services_status.remote_syslog;
+        var syslog_status = result.cluster.shards[0].servers[0].services_status.remote_syslog.status;
         if (syslog_status === 'OPERATIONAL') {
             console.log('The service monitor see the syslog status as OPERATIONAL - as should');
         } else {
@@ -358,7 +358,7 @@ P.fcall(function() {
     })
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
-        var syslog_status = result.cluster.shards[0].servers[0].services_status.remote_syslog;
+        var syslog_status = result.cluster.shards[0].servers[0].services_status.remote_syslog.status;
         if (syslog_status === 'OPERATIONAL') {
             console.log('The service monitor see the syslog status as OPERATIONAL - as should');
         } else {
@@ -376,4 +376,8 @@ P.fcall(function() {
             console.log('Test passed with no errors :) - exiting...');
             process.exit(0);
         }
+    })
+    .catch(err => {
+        console.log('Major error during test :( - exiting...', err);
+        process.exit(1);
     });

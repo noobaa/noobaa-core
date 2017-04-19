@@ -11,14 +11,14 @@ var ssh2 = require('ssh2');
 var argv = require('minimist')(process.argv);
 
 var ssh_client = new ssh2.Client();
-var host_ip = argv.host || '10.25.12.86';
+var host_ip = argv.host || '10.25.12.80';
 var host_user = argv.host_user || 'root';
 var host_password = argv.host_password || 'roonoobaa';
-var vm_name = argv.guest || 'NooBaa-Community-Edition';
-var vm_ip = argv.guest_ip || '10.25.12.102';
+var vm_name = argv.guest || 'NooBaa-1.2.4';
+var vm_ip = argv.guest_ip || '10.25.12.70';
 var vm_user = argv.guest_user || 'noobaaroot';
-var vm_password = argv.guest_password || 'b2633625';
-var snap_name = argv.base_snapshot || '0.8 official after wizard';
+var vm_password = argv.guest_password || 'f1fc4fa2';
+var snap_name = argv.base_snapshot || 'NooBaa-Basic';
 var upgrade_file = argv.upgrade_package;
 var full_build = get_build_number(upgrade_file);
 var mainversion = full_build.split('-')[0];
@@ -122,11 +122,12 @@ vsphere.vimService(host_ip)
     .then(() => ssh_connect(ssh_client, {
         host: vm_ip,
         username: vm_user,
-        password: vm_password
+        password: vm_password,
+        keepaliveInterval: 10000
     }))
     .then(() => ssh_exec(
         ssh_client,
-        'sudo bash /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh', {
+        'sudo bash -x /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh', {
             pty: true
         }))
     .then(() => ssh_client.end())

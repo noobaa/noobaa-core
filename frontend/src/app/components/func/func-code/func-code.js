@@ -1,27 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './func-code.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import { formatSize } from 'utils/size-utils';
 
-class FuncCodeViewModel extends BaseViewModel {
+class FuncCodeViewModel extends Observer {
     constructor({ func }) {
         super();
 
-        this.files = ko.pureComputed(
-            () => func().codeFiles.map(
-                (file, i) => ({
-                    path: file.path,
-                    formatted_size: formatSize(file.size),
-                    expanded: ko.observable(i === 0),
-                    content: file.content
-                })
-            )
-        );
+        this.files = ko.observable();
 
+        if (func()) this.onFiles(func());
+        this.observe(func, this.onFiles);
     }
 
+    onFiles(func) {
+        this.files(func.codeFiles.map(
+            (file, i) => ({
+                title: `${file.path} (${formatSize(file.size)})`,
+                isCollapsed: ko.observable(i > 0),
+                content: ko.observable(file.content)
+            })
+        ));
+    }
+
+    onSave() {
+    }
 }
 
 export default {

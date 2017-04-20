@@ -26,7 +26,11 @@ function viewModelFactory(params, info) {
     );
 
 
-    return new CollapsibleSectionViewModel(params, collapsedTemplate, expandedTemplate);
+    return new CollapsibleSectionViewModel(
+        params,
+        collapsedTemplate ? [collapsedTemplate] : [],
+        expandedTemplate ? [expandedTemplate] : []
+    );
 }
 
 export default {

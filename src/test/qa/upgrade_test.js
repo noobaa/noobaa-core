@@ -146,6 +146,9 @@ return P.each(procedure, upgrade_procedure => {
             .then(machine => {
                 console.log('The server created is', machine.hostname);
                 machine_ip = machine.hostname;
+                return P.delay(10000);
+            })
+            .then(() => {
                 var rpc = api.new_rpc('wss://' + machine_ip + ':8443');
                 rpc.disable_validation();
                 var client = rpc.new_client({});
@@ -195,51 +198,52 @@ return P.each(procedure, upgrade_procedure => {
                                     args: args2
                                 }, callback));
                             });
-                    }));
-            })
-            .delay(120000)
-            .then(() => P.each(upgrade_procedure.versions_list, version => {
-                console.log('Upgrading to', version);
-                return s3ops.put_file_with_md5(machine_ip, 'files', '20MBFile-' + version, 5)
-                    .then(filepath => {
-                        file_path = filepath;
-                        var file = fs.createWriteStream(version_map_tar[version]);
-                        return new P((resolve, reject) => {
-                            request.get({
-                                    url: basic_tar_uri + version_map_tar[version],
-                                    rejectUnauthorized: false
-                                })
-                                .pipe(file)
-                                .on('error', reject)
-                                .on('finish', resolve);
-                        });
-                    })
-                    .then(() => {
-                        ops.disable_rpc_validation();
-                        return P.resolve(ops.upload_and_upgrade(machine_ip, version_map_tar[version]));
-                    })
-                    .then(() => {
-                        console.log('Upgrade successful, waiting on agents to upgrade');
-                        return P.resolve(ops.wait_on_agents_upgrade(machine_ip));
-                    })
-                    .then(() => {
-                        console.log('Verifying download of 20MB file', file_path);
-                        return s3ops.get_file_check_md5(machine_ip, 'files', '20MBFile-' + version);
-                    })
-                    .then(() => {
-                        console.log('Running the desired external test', test);
-                        args = args.concat(['--server_ip', machine_ip]);
-                        return promise_utils.fork(test, args)
-                            .then(() => {
-                                console.log('Upgrading was successful');
-                                return clean_old_machines(machine_name);
+                    }))
+                    .delay(120000)
+                    .then(() => P.each(upgrade_procedure.versions_list, version => {
+                        console.log('Upgrading to', version);
+                        return s3ops.put_file_with_md5(machine_ip, 'files', '20MBFile-' + version, 5)
+                            .then(filepath => {
+                                file_path = filepath;
+                                var file = fs.createWriteStream(version_map_tar[version]);
+                                return new P((resolve, reject) => {
+                                    request.get({
+                                            url: basic_tar_uri + version_map_tar[version],
+                                            rejectUnauthorized: false
+                                        })
+                                        .pipe(file)
+                                        .on('error', reject)
+                                        .on('finish', resolve);
+                                });
                             })
-                            .catch(err => {
-                                console.log('Upgrade failed', err.message);
-                                errors = true;
+                            .then(() => rpc.disconnect_all())
+                            .then(() => {
+                                ops.disable_rpc_validation();
+                                return P.resolve(ops.upload_and_upgrade(machine_ip, version_map_tar[version]));
+                            })
+                            .then(() => {
+                                console.log('Upgrade successful, waiting on agents to upgrade');
+                                return P.resolve(ops.wait_on_agents_upgrade(machine_ip));
+                            })
+                            .then(() => {
+                                console.log('Verifying download of 20MB file', file_path);
+                                return s3ops.get_file_check_md5(machine_ip, 'files', '20MBFile-' + version);
+                            })
+                            .then(() => {
+                                console.log('Running the desired external test', test);
+                                args = args.concat(['--server_ip', machine_ip]);
+                                return promise_utils.fork(test, args)
+                                    .then(() => {
+                                        console.log('Upgrading was successful');
+                                        return clean_old_machines(machine_name);
+                                    })
+                                    .catch(err => {
+                                        console.log('Upgrade failed', err.message);
+                                        errors = true;
+                                    });
                             });
-                    });
-            }));
+                    }));
+            });
     })
     .then(() => {
         if (errors) {

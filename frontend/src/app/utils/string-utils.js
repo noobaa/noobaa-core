@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { makeArray } from './core-utils';
 
 export const digits = '123456789';

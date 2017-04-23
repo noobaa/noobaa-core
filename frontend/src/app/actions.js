@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import * as model from 'model';
 import page from 'page';
 import api from 'services/api';

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './delete-current-account-warning-modal.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';

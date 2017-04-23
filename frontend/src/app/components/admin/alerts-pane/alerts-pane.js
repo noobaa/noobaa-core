@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './alerts-pane.html';
 import Observer from 'observer';
 import AlertRowViewModel from './alert-row';

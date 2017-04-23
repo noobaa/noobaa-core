@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './timezone-chooser.html';
 import BaseViewModel from 'components/base-view-model';
 import moment from 'moment-timezone';

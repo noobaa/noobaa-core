@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './cluster-panel.html';
 import BaseViewModel from 'components/base-view-model';
 import { uiState } from 'model';

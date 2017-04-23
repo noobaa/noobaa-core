@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './regenerate-account-credentials-modal.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';

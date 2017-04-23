@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import { isDefined, isObject, isString, deepFreeze } from 'utils/core-utils';
 

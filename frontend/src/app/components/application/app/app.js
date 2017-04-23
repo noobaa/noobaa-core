@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './app.html';
 import ko from 'knockout';
 import BaseViewModel from 'components/base-view-model';

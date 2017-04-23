@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 /*global Buffer process */
 
 'use strict';
@@ -226,7 +228,7 @@ gulp.task('watch-assets', ['copy'], () => {
             'src/preload.js',
             'src/assets/**/*'
         ],
-        function(vinyl) {
+        vinyl => {
             // Copy the file that changed.
             gulp.src(vinyl.path, { base: 'src' })
                 .pipe(gulp.dest(buildPath));
@@ -279,21 +281,17 @@ function bundleApp(watch) {
         .transform(stringify({ minify: uglify }))
         .add('src/app/main');
 
-    libs.forEach(
-        lib => bundler.external(lib.name)
-    );
+    libs.forEach(lib => bundler.external(lib.name));
     bundler.external('nb-api');
 
-    let bundle = function() {
-        return bundler.bundle()
-            .on('error', errorHandler)
-            .pipe(sourceStream('app.js'))
-            .pipe(buffer())
-            .pipe($.sourcemaps.init({ loadMaps: true }))
-                .pipe($.if(uglify, $.uglify()))
-            .pipe($.sourcemaps.write('./'))
-            .pipe(gulp.dest(buildPath));
-    };
+    let bundle = () => bundler.bundle()
+        .on('error', errorHandler)
+        .pipe(sourceStream('app.js'))
+        .pipe(buffer())
+        .pipe($.sourcemaps.init({ loadMaps: true }))
+            .pipe($.if(uglify, $.uglify()))
+        .pipe($.sourcemaps.write('./'))
+        .pipe(gulp.dest(buildPath));
 
     if (watch) {
         bundler.on('update', () => bundle());
@@ -324,7 +322,7 @@ function letsToLessClass() {
 }
 
 function cssClassToJson() {
-    return through.obj(function(file, encoding, callback) {
+    return through.obj(function (file, encoding, callback) {
         let contents = file.contents.toString('utf-8');
         let regExp = /([A-Za-z0-9\-]+)\s*:\s*(.+?)\s*;/g;
         let output = {};

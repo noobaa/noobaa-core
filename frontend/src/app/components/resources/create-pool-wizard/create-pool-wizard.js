@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './create-pool-wizard.html';
 import chooseNameStepTemplate from './choose-name-step.html';
 import assignNodesStepTemplate from './assign-nodes-step.html';

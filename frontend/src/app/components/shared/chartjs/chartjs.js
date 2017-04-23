@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import './chartjs-binding';
 import template from './chartjs.html';
 import BaseViewModel from 'components/base-view-model';

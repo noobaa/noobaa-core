@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './pool-summary.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';

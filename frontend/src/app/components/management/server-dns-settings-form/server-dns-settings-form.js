@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './server-dns-settings-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ServerRow from './server-row';

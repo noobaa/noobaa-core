@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './[[name]]-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';

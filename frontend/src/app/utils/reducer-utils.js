@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { echo, mapValues } from 'utils/core-utils';
 
 // Join action handlers into a single reducer.

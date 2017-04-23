@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import mainLayoutReducer from './main-layout-reducer';
 // import loginLayoutReducer from './login-layout-reducer';
 // import { deepFreeze, noop } from 'utils/core-utils';

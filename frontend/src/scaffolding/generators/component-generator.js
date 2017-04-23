@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 /* global __dirname */
 'use strict';
 const Path = require('path');

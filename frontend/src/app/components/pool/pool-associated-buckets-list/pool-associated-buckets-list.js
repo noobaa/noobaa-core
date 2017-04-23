@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './pool-associated-buckets-list.html';
 import Observer from 'observer';
 import state$ from 'state';

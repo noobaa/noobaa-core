@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './modal-manager.html';
 import Observer from 'observer';
 import state$ from 'state';

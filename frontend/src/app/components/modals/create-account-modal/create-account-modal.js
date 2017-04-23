@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './create-account-modal.html';
 import FromViewModel from 'components/form-view-model';
 import { deepFreeze, flatMap } from 'utils/core-utils';

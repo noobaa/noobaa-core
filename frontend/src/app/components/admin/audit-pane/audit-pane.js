@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './audit-pane.html';
 import AuditRowViewModel from './audit-row';
 import BaseViewModel from 'components/base-view-model';

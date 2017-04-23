@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { deepFreeze, pick } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { createReducer } from 'utils/reducer-utils';

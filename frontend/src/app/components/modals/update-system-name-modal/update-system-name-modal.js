@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './update-system-name-modal.html';
 import BaseViewModel from 'components/base-view-model';
 import { updateHostname } from 'actions';

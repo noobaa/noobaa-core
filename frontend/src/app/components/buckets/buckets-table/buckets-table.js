@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
 import BaseViewModel from 'components/base-view-model';

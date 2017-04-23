@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './server-details-form.html';
 import BaseViewModel from 'components/base-view-model';
 import { systemInfo, serverTime } from 'model';

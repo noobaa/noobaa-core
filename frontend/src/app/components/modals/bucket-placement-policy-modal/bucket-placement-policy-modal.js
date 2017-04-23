@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './bucket-placement-policy-modal.html';
 import editScreenTemplate from './edit-screen.html';
 import warningScreenTemplate from './warn-screen.html';

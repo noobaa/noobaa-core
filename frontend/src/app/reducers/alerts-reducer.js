@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { mergeBy, isUndefined, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 

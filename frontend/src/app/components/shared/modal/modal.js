@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './modal.html';
 import BaseViewModel from 'components/base-view-model';
 import { deepFreeze, noop } from 'utils/core-utils';

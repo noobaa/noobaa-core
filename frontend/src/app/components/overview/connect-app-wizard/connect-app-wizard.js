@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './connect-app-wizard.html';
 import selectConnectionSlideTemplate from './select-connection.html';
 import selectAccountSlideTemplate from './select-account.html';

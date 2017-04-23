@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './reset-password-modal.html';
 import passwordResetMessageTemplate from './password-reset-message.html';
 import BaseViewModel from 'components/base-view-model';

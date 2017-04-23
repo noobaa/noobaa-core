@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 export default function register(ko) {
     function registerHandler(name, handler) {
         ko.bindingHandlers[name] = handler;

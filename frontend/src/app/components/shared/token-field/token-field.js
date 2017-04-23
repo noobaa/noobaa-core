@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './token-field.html';
 import ko from 'knockout';
 import { splice } from 'utils/string-utils';

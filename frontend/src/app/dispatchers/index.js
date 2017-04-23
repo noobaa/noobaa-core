@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 export * from './ui-dispatchers';
 export * from './common-dispatchers';
 export * from './modals-dispatchers';

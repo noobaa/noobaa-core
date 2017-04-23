@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { isDefined } from 'utils/core-utils';
 
 export function getDeep(state, path) {

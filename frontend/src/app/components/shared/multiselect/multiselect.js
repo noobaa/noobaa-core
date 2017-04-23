@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './multiselect.html';
 import Observer from 'observer';
 import ko from 'knockout';

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 export function all(...args) {
     return Promise.all(args);
 }

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { createReducer } from 'utils/reducer-utils';
 import{ updateField } from 'reducers/forms-reducer';
 import { mapValues, equalItems } from 'utils/core-utils';

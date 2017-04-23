@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import numeral from 'numeral';
 import { isNumber } from 'utils/core-utils';

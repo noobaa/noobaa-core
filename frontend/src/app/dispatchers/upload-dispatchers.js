@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { randomString } from 'utils/string-utils';
 import { dispatch } from 'state-actions';
 import AWS from 'services/aws';

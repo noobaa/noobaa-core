@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './funcs-table.html';
 import FuncRowViewModel from './func-row';
 import BaseViewModel from 'components/base-view-model';

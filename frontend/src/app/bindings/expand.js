@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { runAsync } from 'utils/core-utils';
 import ko from 'knockout';
 

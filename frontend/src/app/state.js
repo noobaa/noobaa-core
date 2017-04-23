@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { action$ } from 'state-actions';
 import { deepFreeze, noop, get, equal } from 'utils/core-utils';
 import appReducer from 'reducers/app-reducer';

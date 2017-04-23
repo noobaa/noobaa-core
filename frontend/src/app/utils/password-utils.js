@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { last, clamp } from './core-utils';
 import { symbols, letters, isDigit, isLetter,
     isUpperCase, isLowerCase } from './string-utils';

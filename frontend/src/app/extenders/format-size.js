@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import { formatSize as format } from 'utils/size-utils';
 import { isObject,  isUndefined } from 'utils/core-utils';

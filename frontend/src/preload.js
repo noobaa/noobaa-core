@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 /* ------------------------------------------------------
 IMPORTANT: Do not import anything that is included in
 the main app bundle doing so may invalidate the entire

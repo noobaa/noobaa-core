@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { dispatch } from 'state-actions';
 import api from 'services/api';
 import { all, sleep } from 'utils/promise-utils';

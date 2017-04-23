@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './account-created-modal.html';
 import accountDetailsMessageTempalte from './account-details-message.html';
 import Observer from 'observer';

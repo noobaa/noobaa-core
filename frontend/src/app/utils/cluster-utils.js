@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 function formatIssueMessage(subject, status, plural = false) {
     switch (status) {
         case 'FAULTY':

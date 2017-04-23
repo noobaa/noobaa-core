@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './login-layout.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';

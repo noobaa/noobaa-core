@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import moment from 'moment-timezone';
 import { isNumber, isString } from 'utils/core-utils';

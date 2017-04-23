@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import { isObject, isUndefined, deepFreeze, isNumber } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
@@ -206,10 +208,16 @@ const magicBindingName = '@';
 const magicBindings = new Map();
 const bindingHandlers = new Map();
 const origGetBindingHandler = ko.getBindingHandler;
+const copyrightsIdentifiers = deepFreeze([
+    'copyright',
+    'noobaa'
+]);
 const preprocessByNodeType = deepFreeze({
     1: preprocessElement,
-    3: preprocessTextNode
+    3: preprocessTextNode,
+    8: preprocessComment
 });
+
 
 function preprocessElement(node) {
     const { attributes, dataset } = node;
@@ -253,6 +261,13 @@ function preprocessTextNode(node) {
         parent.replaceChild(nodes[1], node);
 
         return nodes;
+    }
+}
+
+function preprocessComment(comment) {
+    const text = comment.nodeValue.toLowerCase();
+    if (copyrightsIdentifiers.every(identifier => text.includes(identifier))) {
+        comment.parentNode.removeChild(comment);
     }
 }
 

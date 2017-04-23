@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 
 const { domData, domNodeDisposal } = ko.utils;

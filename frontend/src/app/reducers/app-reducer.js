@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { combineReducers } from 'utils/reducer-utils';
 import sessionReducer from './session-reducer';
 import drawerReducer from './drawer-reducer';

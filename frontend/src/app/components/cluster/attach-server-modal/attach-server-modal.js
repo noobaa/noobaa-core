@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './attach-server-modal.html';
 import configureServerStepTemplate from './configure-server-step.html';
 import editDetailsStepTemplate from './edit-details-step.html';

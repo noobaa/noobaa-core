@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import Observer from 'observer';
 import state$ from 'state';
 import { isString, mapValues } from 'utils/core-utils';

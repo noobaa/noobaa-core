@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './pool-nodes-table.html';
 import NodeRowViewModel from './node-row';
 import BaseViewModel from 'components/base-view-model';

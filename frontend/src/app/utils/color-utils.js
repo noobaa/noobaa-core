@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { isDefined } from './core-utils';
 import { pad } from './string-utils';
 

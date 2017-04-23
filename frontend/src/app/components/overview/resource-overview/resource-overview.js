@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './resource-overview.html';
 import BaseViewModel from 'components/base-view-model';
 import style from 'style';

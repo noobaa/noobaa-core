@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './side-nav.html';
 import ko from 'knockout';
 

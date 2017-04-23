@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 // Register the components with knockout component container.
 export default function register(ko) {
 

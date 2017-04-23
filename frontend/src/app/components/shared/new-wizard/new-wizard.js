@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './new-wizard.html';
 import BaseViewModel from 'components/base-view-model';
 import { noop } from 'utils/core-utils';

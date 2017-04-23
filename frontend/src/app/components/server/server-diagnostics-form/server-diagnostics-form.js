@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './server-diagnostics-form.html';
 import BaseViewModel from 'components/base-view-model';
 import TestResultRowViewModel from './test-result-row';

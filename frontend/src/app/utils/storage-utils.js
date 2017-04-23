@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { mapValues, keyBy, echo } from './core-utils';
 import { bigInteger, toBigInteger, fromBigInteger,
     interpolateSizes } from './size-utils';

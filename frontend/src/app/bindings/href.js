@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import * as routes from 'routes';
 import { routeContext } from 'model';

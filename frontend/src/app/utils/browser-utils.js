@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { isUndefined, runAsync } from './core-utils';
 import { toCammelCase, toDashedCase } from './string-utils';
 import { sleep } from './promise-utils';

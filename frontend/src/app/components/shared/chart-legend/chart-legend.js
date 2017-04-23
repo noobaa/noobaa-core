@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './chart-legend.html';
 import BaseViewModel from 'components/base-view-model';
 import { echo, deepFreeze, isFunction } from 'utils/core-utils';

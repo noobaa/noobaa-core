@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 const subscriptionsSym = Symbol('subscriptions');
 
 export default class Observer {

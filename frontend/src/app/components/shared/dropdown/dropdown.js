@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './dropdown.html';
 import { randomString } from 'utils/string-utils';
 import BaseViewModel from 'components/base-view-model';

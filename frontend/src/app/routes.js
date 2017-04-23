@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 const root = '/fe';
 
 export const asset          = `${root}/assets/:asset`;

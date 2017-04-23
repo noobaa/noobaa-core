@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { createReducer } from 'utils/reducer-utils';
 import { keyByProperty } from 'utils/core-utils';
 

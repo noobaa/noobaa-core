@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { isFunction } from 'utils/core-utils';
 
 const disposeList = Symbol('disposeList');

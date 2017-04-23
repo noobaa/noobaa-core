@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './edit-account-s3-access-modal.html';
 import FormViewModel from 'components/form-view-model';
 import state$ from 'state';

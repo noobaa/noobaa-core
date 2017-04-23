@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { parseQueryString } from 'utils/browser-utils';
 import { sessionInfo, routeContext } from 'model';
 import * as routes from 'routes';

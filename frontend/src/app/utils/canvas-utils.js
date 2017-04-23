@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 export function drawLine(ctx, x1, y1, x2, y2) {
     ctx.beginPath();
     ctx.moveTo(x1, y1);

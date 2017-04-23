@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './pool-selection-table.html';
 import BaseViewModel from 'components/base-view-model';
 import PoolRowViewModel from './pool-row';

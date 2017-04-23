@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './object-parts-list.html';
 import ObjectPartRowViewModel from './object-part-row';
 import BaseViewModel from 'components/base-view-model';

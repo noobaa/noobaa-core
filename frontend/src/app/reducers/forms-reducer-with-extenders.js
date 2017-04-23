@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { combineReducers, reduceReducers } from 'utils/reducer-utils';
 import formsReducer from './forms-reducer';
 import installNodesFormReducer from './install-nodes-form-reducer';

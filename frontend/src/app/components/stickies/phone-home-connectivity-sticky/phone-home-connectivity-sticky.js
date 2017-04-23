@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './phone-home-connectivity-sticky.html';
 import BaseViewModel from 'components/base-view-model';
 import { systemInfo } from 'model';

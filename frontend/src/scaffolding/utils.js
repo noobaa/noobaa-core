@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 'use strict';
 const fs = require('fs');
 const gulp = require('gulp');

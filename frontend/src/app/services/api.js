@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { new_rpc_default_only } from 'nb-api';
 import * as notifications from './notifications';
 

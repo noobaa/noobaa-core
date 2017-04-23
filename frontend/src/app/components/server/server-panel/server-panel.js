@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import template from './server-panel.html';
 import BaseViewModel from 'components/base-view-model';
 import { routeContext, uiState } from 'model';

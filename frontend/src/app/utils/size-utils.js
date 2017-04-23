@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import bigInteger from 'big-integer';
 import { deepFreeze } from './core-utils';
 

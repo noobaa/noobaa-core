@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { RESTORE_LAST_SESSION, SIGN_IN, SIGN_OUT } from 'action-types';
+import { RESTORE_LAST_SESSION, SIGN_IN, SIGN_OUT } from 'action-types';
 
 // ------------------------------
 // Initial State

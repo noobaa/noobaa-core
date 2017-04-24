@@ -2,7 +2,7 @@
 
 import { deepFreeze } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { OBJECT_UPLOAD_STARTED, OBJECT_UPLOAD_PROGRESS, OBJECT_UPLOAD_COMPLETED, OBJECT_UPLOAD_FAIELD,
+import { START_OBJECT_UPLOAD, UPDATE_OBJECT_UPLOAD, COMPLETE_OBJECT_UPLOAD, FAIL_OBJECT_UPLOAD,
     CLEAR_COPLETED_OBJECT_UPLOADES } from 'action-types';
 
 // ------------------------------
@@ -133,9 +133,9 @@ function _recalcStats(objects) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [OBJECT_UPLOAD_STARTED]: onObjectUploadStarted,
-    [OBJECT_UPLOAD_PROGRESS]: onObjectUploadProgress,
-    [OBJECT_UPLOAD_COMPLETED]: onObjectUploadCompleted,
-    [OBJECT_UPLOAD_FAIELD]: onObjectUploadFailed,
+    [START_OBJECT_UPLOAD]: onObjectUploadStarted,
+    [UPDATE_OBJECT_UPLOAD]: onObjectUploadProgress,
+    [COMPLETE_OBJECT_UPLOAD]: onObjectUploadCompleted,
+    [FAIL_OBJECT_UPLOAD]: onObjectUploadFailed,
     [CLEAR_COPLETED_OBJECT_UPLOADES]: onClearCompletedObjectUploads
 });

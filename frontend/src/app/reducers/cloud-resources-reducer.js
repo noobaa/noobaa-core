@@ -2,6 +2,7 @@
 
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { SYSTEM_INFO_FETCHED } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -11,9 +12,6 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
 
 function onSystemInfoFetched(_, { info }) {
     const resources = info.pools.filter(_isPoolCloudResoruce);
@@ -69,7 +67,6 @@ function _mapPoolsToBuckets(buckets, tiers) {
 // ------------------------------
 // Exported reducer function.
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication,
-    SYSTEM_INFO_FETCHED: onSystemInfoFetched
+export default createReducer(initialState, {
+    [SYSTEM_INFO_FETCHED]: onSystemInfoFetched
 });

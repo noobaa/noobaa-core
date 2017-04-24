@@ -2,6 +2,7 @@
 
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { SYSTEM_INFO_FETCHED } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -11,20 +12,16 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
-    return initialState;
-}
-
 function onSystemInfoFetched(state, { info }) {
     const nodePools = info.pools.filter(pool => Boolean(pool.nodes));
-    const bucketMapping = _mapPoolsToBuckets(info.buckets, info.tiers);    
+    const bucketMapping = _mapPoolsToBuckets(info.buckets, info.tiers);
     return keyByProperty(nodePools, 'name', pool => {
         const {
             name,
             mode,
             storage,
-            associated_accounts: associatedAccounts,            
-        } = pool;        
+            associated_accounts: associatedAccounts,
+        } = pool;
         const associatedBuckets = bucketMapping[pool.name] || [];
 
         return { name, mode, storage, associatedAccounts, associatedBuckets };
@@ -60,7 +57,6 @@ function _mapPoolsToBuckets(buckets, tiers) {
 // ------------------------------
 // Exported reducer function
 // ------------------------------
-export default createReducer({
-    APPLICATION_INIT: onApplicationInit,
-    SYSTEM_INFO_FETCHED: onSystemInfoFetched
+export default createReducer(initialState, {
+    [SYSTEM_INFO_FETCHED]: onSystemInfoFetched
 });

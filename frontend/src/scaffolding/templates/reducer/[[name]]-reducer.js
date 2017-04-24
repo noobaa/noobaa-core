@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
+//import { ACTION_TYPE } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -10,9 +11,10 @@ const initialState = null;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
+
+// An example of an action handler
+// function onActionType() {
+// }
 
 // ------------------------------
 // Local util functions
@@ -21,6 +23,6 @@ function onInitApplication() {
 // ------------------------------
 // Exported reducer function
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication
+export default createReducer(initialState, {
+//  [ACTION_TYPE]: onActionType
 });

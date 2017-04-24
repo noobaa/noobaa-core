@@ -3,8 +3,8 @@
 import { echo, mapValues } from 'utils/core-utils';
 
 // Join action handlers into a single reducer.
-export function createReducer(handlers) {
-    return function(state, action) {
+export function createReducer(initialState, handlers) {
+    return function(state = initialState, action) {
         return (handlers[action.type] || echo)(state, action);
     };
 }
@@ -31,6 +31,14 @@ export function reduceReducers(...reducers) {
             },
             state
         );
+    };
+}
+
+// Select a reducer based on a selector. The selector should return a boolean
+// for left/right selection.
+export function selectReducer(selector, leftReducer = echo, rightReducer = echo) {
+    return function(state, action) {
+        return (selector(state, action) ? leftReducer : rightReducer)(state, action);
     };
 }
 

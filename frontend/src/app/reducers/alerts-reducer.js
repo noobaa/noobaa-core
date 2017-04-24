@@ -2,6 +2,9 @@
 
 import { mergeBy, isUndefined, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { ALERTS_FETCH, ALERTS_FETCHED, ALERTS_FETCH_FAILED,
+    ALERTS_UPDATE, ALERTS_UPDATED, ALERTS_UPDATE_FAILED,
+    ALERTS_UPDATE_UNREAD_COUNT, ALERTS_DROP_STATE } from 'action-types';
 
 // ------------------------------
 // Initial state
@@ -18,9 +21,6 @@ const initialState = {
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
 
 function onAlertsFetch(state, { query }) {
     const loading = state.loading + 1;
@@ -117,14 +117,13 @@ function _matchs(item, { ids, severity, read }) {
 // ------------------------------
 // Exported reducer function.
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication,
-    ALERTS_FETCH: onAlertsFetch,
-    ALERTS_FETCHED: onAlertsFetched,
-    ALERTS_FETCH_FAILED: onAlertsFetchFailed,
-    ALERTS_UPDATE: onAlertsUpdate,
-    ALERTS_UPDATED: onAlertsUpdated,
-    ALERTS_UPDATE_FAILED: onAlertsUpdateFailed,
-    ALERTS_UPDATE_UNREAD_COUNT: onAlertsUpdateUnreadCount,
-    ALERTS_DROP_STATE: onAlertsDropState
+export default createReducer(initialState, {
+    [ALERTS_FETCH]: onAlertsFetch,
+    [ALERTS_FETCHED]: onAlertsFetched,
+    [ALERTS_FETCH_FAILED]: onAlertsFetchFailed,
+    [ALERTS_UPDATE]: onAlertsUpdate,
+    [ALERTS_UPDATED]: onAlertsUpdated,
+    [ALERTS_UPDATE_FAILED]: onAlertsUpdateFailed,
+    [ALERTS_UPDATE_UNREAD_COUNT]: onAlertsUpdateUnreadCount,
+    [ALERTS_DROP_STATE]: onAlertsDropState
 });

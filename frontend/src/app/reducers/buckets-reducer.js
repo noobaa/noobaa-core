@@ -2,6 +2,7 @@
 
 import { keyByProperty } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { SYSTEM_INFO_FETCHED } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -11,10 +12,6 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onApplicationInit() {
-    return initialState;
-}
-
 function onSystemInfoFetched(state, { info }) {
     return keyByProperty(info.buckets, 'name', bucket => {
         const { name, storage } = bucket;
@@ -33,7 +30,6 @@ function _clacBucketMode({ writable }) {
 // ------------------------------
 // Exported reducer function
 // ------------------------------
-export default createReducer({
-    APPLICATION_INIT: onApplicationInit,
-    SYSTEM_INFO_FETCHED: onSystemInfoFetched
+export default createReducer(initialState, {
+    [SYSTEM_INFO_FETCHED]: onSystemInfoFetched
 });

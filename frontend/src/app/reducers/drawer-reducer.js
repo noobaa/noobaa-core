@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
+import { OPEN_DRAWER, CLOSE_DRAWER } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -10,9 +11,6 @@ const initialState = null;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
 
 function onOpenDrawer(_, { component }) {
     return component;
@@ -25,8 +23,8 @@ function onCloseDrawer() {
 // ------------------------------
 // Exported reducer function.
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication,
-    OPEN_DRAWER: onOpenDrawer,
-    CLOSE_DRAWER: onCloseDrawer
+
+export default createReducer(initialState, {
+    [OPEN_DRAWER]: onOpenDrawer,
+    [CLOSE_DRAWER]: onCloseDrawer
 });

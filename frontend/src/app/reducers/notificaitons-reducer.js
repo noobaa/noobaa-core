@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { HIDE_NOTIFICATION, ACCOUNT_CREATION_FAILED, ACCOUNT_S3_ACCESS_UPDATED,
+import { HIDE_NOTIFICATION, ACCOUNT_CREATION_FAILED, ACCOUNT_S3_ACCESS_UPDATED,
     ACCOUNT_S3_ACCESS_UPDATE_FAILED, SHOW_NOTIFICATION } from 'action-types';
 
 // ------------------------------

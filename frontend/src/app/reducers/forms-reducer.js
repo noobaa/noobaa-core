@@ -2,6 +2,8 @@
 
 import { mapValues } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { INIT_FORM, UPDATE_FORM, RESET_FORM, RESET_FORM_FIELD,
+    SET_FORM_VALIDITY, TOUCH_FORM, DISPOSE_FORM } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -11,9 +13,6 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
 
 function onInitForm(forms, { form: formName, values }) {
     const fields = mapValues(
@@ -163,14 +162,13 @@ function _removeKey(obj, key) {
 // ------------------------------
 // Exported reducer function
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication,
-    INIT_FORM: onInitForm,
-    UPDATE_FORM: onUpdateForm,
-    RESET_FORM: onResetForm,
-    RESET_FORM_FIELD: onResetFormField,
-    SET_FORM_VALIDITY: onSetFormValidity,
-    TOUCH_FORM: onTouchForm,
-    DISPOSE_FORM: onDisposeForm
+export default createReducer(initialState, {
+    [INIT_FORM]: onInitForm,
+    [UPDATE_FORM]: onUpdateForm,
+    [RESET_FORM]: onResetForm,
+    [RESET_FORM_FIELD]: onResetFormField,
+    [SET_FORM_VALIDITY]: onSetFormValidity,
+    [TOUCH_FORM]: onTouchForm,
+    [DISPOSE_FORM]: onDisposeForm
 });
 

@@ -3,6 +3,9 @@
 import { createReducer } from 'utils/reducer-utils';
 import{ updateField } from 'reducers/forms-reducer';
 import { mapValues, equalItems } from 'utils/core-utils';
+import { NODE_INSTALLATION_COMMANDS_FETCHED } from 'action-types';
+
+const initialState = {};
 
 function onInstallationCommandsFetched(form, { targetPool, excludedDrives, commands }) {
     // Validate that the command is relevant to the current form state.
@@ -18,6 +21,6 @@ function onInstallationCommandsFetched(form, { targetPool, excludedDrives, comma
     return updateField(form, 'commands', commands);
 }
 
-export default createReducer({
-    NODE_INSTALLATION_COMMANDS_FETCHED: onInstallationCommandsFetched
+export default createReducer(initialState, {
+    [NODE_INSTALLATION_COMMANDS_FETCHED]: onInstallationCommandsFetched
 });

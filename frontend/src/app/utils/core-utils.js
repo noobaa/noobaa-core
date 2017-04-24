@@ -178,8 +178,8 @@ export function keyBy(arrayOrIter, keySelector, valueMapper = echo) {
         Array.from(arrayOrIter);
 
     return array.reduce(
-        (map, item) => {
-            const key = keySelector(item);
+        (map, item, i) => {
+            const key = keySelector(item, i);
             map[key] = valueMapper(item, map[key]);
             return map;
         },
@@ -264,11 +264,7 @@ export function get(val, path) {
     return val;
 }
 
-export function equal(a, b) {
-    return a === b;
-}
-
 export function equalItems(arr1, arr2) {
     return arr1.length === arr2.length &&
-        arr1.every((item, i) => item === arr2[i]);
+        arr1.every((item, i) => Object.is(item, arr2[i]));
 }

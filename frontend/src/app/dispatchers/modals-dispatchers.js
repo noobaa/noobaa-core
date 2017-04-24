@@ -1,22 +1,23 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { dispatch } from 'state-actions';
+import { UPDATE_MODAL, LOCK_ACTIVE_MODAL, CLOSE_ACTIVE_MODAL, OPEN_MODAL, REPLACE_MODAL } from 'action-types';
 
 export function updateModal(options) {
-    dispatch({ type: 'UPDATE_MODAL', ...options });
+    dispatch({ type: UPDATE_MODAL, ...options });
 }
 
 export function lockActiveModal() {
-    dispatch({ type: 'LOCK_ACTIVE_MODAL' });
+    dispatch({ type: LOCK_ACTIVE_MODAL });
 }
 
 export function closeActiveModal() {
-    dispatch({ type: 'CLOSE_ACTIVE_MODAL' });
+    dispatch({ type: CLOSE_ACTIVE_MODAL });
 }
 
 export function openInstallNodesModal() {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: 'install-nodes-modal',
         options: {
             title: 'Install Nodes',
@@ -27,7 +28,7 @@ export function openInstallNodesModal() {
 
 export function openAddCloudResrouceModal() {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: 'add-cloud-resource-modal',
         options: {
             title: 'Add Cloud Resource',
@@ -38,7 +39,7 @@ export function openAddCloudResrouceModal() {
 
 export function openAddCloudConnectionModal() {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: 'add-cloud-connection-modal',
         options: {
             title: 'Add Cloud Connection',
@@ -49,7 +50,7 @@ export function openAddCloudConnectionModal() {
 
 export function openSetCloudSyncModal(bucketName) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'set-cloud-sync-modal',
             params: { bucketName }
@@ -63,7 +64,7 @@ export function openSetCloudSyncModal(bucketName) {
 
 export function openEditCloudSyncModal(bucketName) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'edit-cloud-sync-modal',
             params: { bucketName }
@@ -76,7 +77,7 @@ export function openEditCloudSyncModal(bucketName) {
 
 export function openS3AccessDetailsModal(email) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 's3-access-details-modal',
             params: { email }
@@ -90,7 +91,7 @@ export function openS3AccessDetailsModal(email) {
 
 export function openBucketS3AccessModal(bucketName) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'bucket-s3-access-modal',
             params: { bucketName }
@@ -103,7 +104,7 @@ export function openBucketS3AccessModal(bucketName) {
 
 export function openBucketPlacementPolicyModal(bucketName) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'bucket-placement-policy-modal',
             params: { bucketName }
@@ -117,7 +118,7 @@ export function openBucketPlacementPolicyModal(bucketName) {
 
 export function openFileUploadsModal() {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: 'file-uploads-modal',
         options: {
             title: 'File Uploads',
@@ -128,7 +129,7 @@ export function openFileUploadsModal() {
 
 export function openDeleteCurrentAccountWarningModal() {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: 'delete-current-account-warning-modal',
         options: {
             title: 'Deleting Current Account',
@@ -140,7 +141,7 @@ export function openDeleteCurrentAccountWarningModal() {
 
 export function openStartMaintenanceModal() {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: 'start-maintenance-modal',
         options: {
             title: 'Maintenance Mode',
@@ -151,7 +152,7 @@ export function openStartMaintenanceModal() {
 
 export function openObjectPreviewModal(objectUri) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'object-preview-modal',
             params: { objectUri }
@@ -164,7 +165,7 @@ export function openObjectPreviewModal(objectUri) {
 
 export function openTestNodeModal(nodeRpcAddress) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'test-node-modal',
             params: { nodeRpcAddress }
@@ -180,7 +181,7 @@ export function openTestNodeModal(nodeRpcAddress) {
 
 export function openEditServerDNSSettingsModal(serverSecret) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'edit-server-dns-settings-modal',
             params: { serverSecret }
@@ -194,7 +195,7 @@ export function openEditServerDNSSettingsModal(serverSecret) {
 
 export function openEditServerTimeSettingsModal(serverSecret) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'edit-server-time-settings-modal',
             params: { serverSecret }
@@ -207,7 +208,7 @@ export function openEditServerTimeSettingsModal(serverSecret) {
 
 export function openEditAccountS3AccessModal(accountEmail) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'edit-account-s3-access-modal',
             params: { accountEmail }
@@ -220,7 +221,7 @@ export function openEditAccountS3AccessModal(accountEmail) {
 
 export function openEditServerDetailsModal(serverSecret) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'edit-server-details-modal',
             params: { serverSecret }
@@ -234,7 +235,7 @@ export function openEditServerDetailsModal(serverSecret) {
 
 export function openAssignNodesModal(poolName) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'assign-nodes-modal',
             params: { poolName }
@@ -248,7 +249,7 @@ export function openAssignNodesModal(poolName) {
 
 export function openUpdateSystemNameModal(name) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'update-system-name-modal',
             params: { name }
@@ -262,7 +263,7 @@ export function openUpdateSystemNameModal(name) {
 
 export function openUnableToActivateModal(reason) {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: {
             name: 'unable-to-activate-modal',
             params: { reason }
@@ -276,7 +277,7 @@ export function openUnableToActivateModal(reason) {
 
 export function openCreateAccountModal() {
     dispatch({
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         component: 'create-account-modal',
         options: {
             size: 'medium',
@@ -287,7 +288,7 @@ export function openCreateAccountModal() {
 
 export function replaceWithAccountCreatedModal(account, password) {
     dispatch({
-        type: 'REPLACE_MODAL',
+        type: REPLACE_MODAL,
         component: {
             name:'account-created-modal',
             params: { account, password }

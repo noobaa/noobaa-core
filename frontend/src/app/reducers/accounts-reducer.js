@@ -2,6 +2,7 @@
 
 import { createReducer } from 'utils/reducer-utils';
 import { keyByProperty } from 'utils/core-utils';
+import { SYSTEM_INFO_FETCHED, CREATE_ACCOUNT, ACCOUNT_CREATION_FAILED } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -11,9 +12,6 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
 
 function onSystemInfoFetched(_, { info }) {
     return keyByProperty(info.accounts, 'email', account => {
@@ -56,9 +54,8 @@ function onAccountCreationFailed(accounts, { email }) {
 // ------------------------------
 // Exported reducer function
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication,
-    SYSTEM_INFO_FETCHED: onSystemInfoFetched,
-    CREATE_ACCOUNT: onCreateAccount,
-    ACCOUNT_CREATION_FAILED: onAccountCreationFailed
+export default createReducer(initialState, {
+    [SYSTEM_INFO_FETCHED]: onSystemInfoFetched,
+    [CREATE_ACCOUNT]: onCreateAccount,
+    [ACCOUNT_CREATION_FAILED]: onAccountCreationFailed
 });

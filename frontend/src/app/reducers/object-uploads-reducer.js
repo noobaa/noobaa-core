@@ -2,6 +2,8 @@
 
 import { deepFreeze } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { OBJECT_UPLOAD_STARTED, OBJECT_UPLOAD_PROGRESS, OBJECT_UPLOAD_COMPLETED, OBJECT_UPLOAD_FAIELD,
+    CLEAR_COPLETED_OBJECT_UPLOADES } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -36,10 +38,6 @@ const initialObjectState = deepFreeze({
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
-
 function onObjectUploadStarted(uploads, { time, objects }) {
     const newObjects = objects.map(
         ({ id, bucket, file }) => ({
@@ -134,11 +132,10 @@ function _recalcStats(objects) {
 // ------------------------------
 // Exported reducer function
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication,
-    OBJECT_UPLOAD_STARTED: onObjectUploadStarted,
-    OBJECT_UPLOAD_PROGRESS: onObjectUploadProgress,
-    OBJECT_UPLOAD_COMPLETED: onObjectUploadCompleted,
-    OBJECT_UPLOAD_FAIELD: onObjectUploadFailed,
-    CLEAR_COPLETED_OBJECT_UPLOADES: onClearCompletedObjectUploads
+export default createReducer(initialState, {
+    [OBJECT_UPLOAD_STARTED]: onObjectUploadStarted,
+    [OBJECT_UPLOAD_PROGRESS]: onObjectUploadProgress,
+    [OBJECT_UPLOAD_COMPLETED]: onObjectUploadCompleted,
+    [OBJECT_UPLOAD_FAIELD]: onObjectUploadFailed,
+    [CLEAR_COPLETED_OBJECT_UPLOADES]: onClearCompletedObjectUploads
 });

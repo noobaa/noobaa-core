@@ -4,6 +4,8 @@ import { randomString } from 'utils/string-utils';
 import { dispatch } from 'state-actions';
 import AWS from 'services/aws';
 import { deepFreeze } from 'utils/core-utils';
+import { OBJECT_UPLOAD_STARTED, OBJECT_UPLOAD_FAIELD, OBJECT_UPLOAD_COMPLETED,
+    OBJECT_UPLOAD_PROGRESS, CLEAR_COMPLETED_OBJECT_UPLOADES } from 'action-types';
 
 const s3UploadOptions = deepFreeze({
     partSize: 64 * 1024 * 1024,
@@ -18,7 +20,7 @@ export function uploadObjects(bucket, files, accessKey, secretKey) {
         file
     }));
 
-    dispatch({ type: 'OBJECT_UPLOAD_STARTED', time, objects });
+    dispatch({ type: OBJECT_UPLOAD_STARTED, time, objects });
 
     const s3 = createS3Client(global.location.hostname, accessKey, secretKey);
     for (const { id, bucket, file } of objects) {
@@ -32,18 +34,18 @@ export function uploadObjects(bucket, files, accessKey, secretKey) {
             },
             s3UploadOptions,
             error => error ?
-                dispatch({ type: 'OBJECT_UPLOAD_FAIELD', id, error }) :
-                dispatch({ type: 'OBJECT_UPLOAD_COMPLETED', id })
+                dispatch({ type: OBJECT_UPLOAD_FAIELD, id, error }) :
+                dispatch({ type: OBJECT_UPLOAD_COMPLETED, id })
         )
         .on(
             'httpUploadProgress',
-            ({ loaded }) => dispatch({ type: 'OBJECT_UPLOAD_PROGRESS', id, loaded })
+            ({ loaded }) => dispatch({ type: OBJECT_UPLOAD_PROGRESS, id, loaded })
         );
     }
 }
 
 export function clearCompletedObjectUploads() {
-    dispatch({ type: 'CLEAR_COPLETED_OBJECT_UPLOADES' });
+    dispatch({ type: CLEAR_COMPLETED_OBJECT_UPLOADES });
 }
 
 function createS3Client(endpoint, accessKey, secretKey) {

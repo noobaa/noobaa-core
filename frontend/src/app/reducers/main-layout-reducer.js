@@ -4,6 +4,7 @@ import { deepFreeze, pick } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { createReducer } from 'utils/reducer-utils';
 import * as routes from 'routes';
+import { CHANGE_LOCATION } from 'action-types';
 
 const routeMapping = deepFreeze({
     [routes.system]: {
@@ -85,19 +86,8 @@ const initialState = {
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
-
-// function onSignedIn() {
-//     return initialState;
-// }
-
-// function onSessionRestored() {
-//     return initialState;
-// }
-
-function onLocationChanged(state, { route, params } ) {
+function onChangeLocation(state, { location } ) {
+    const { route, params } = location;
     const { panel, area, crumbsGenerator } = routeMapping[route] || {};
     if (panel) {
         const breadcrumbs = crumbsGenerator(params);
@@ -277,9 +267,6 @@ function _generateFunctionCrumbs(params) {
 // ------------------------------
 // Exported reducer function
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication,
-    // SESSION_RESTORED: onSessionRestored,
-    // SIGNED_IN: onSignedIn,
-    LOCATION_CHANGED: onLocationChanged
+export default createReducer(initialState, {
+    [CHANGE_LOCATION]: onChangeLocation
 });

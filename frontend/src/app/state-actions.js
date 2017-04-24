@@ -7,7 +7,7 @@ export const action$ = new Rx.Subject();
 
 export function dispatch(action) {
     if (!action.type) {
-        throw TypeError('Invalid actions, missing a type property');
+        throw TypeError('Invalid action, missing a type property');
     }
 
     action$.onNext(deepFreeze(action));

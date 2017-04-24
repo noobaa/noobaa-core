@@ -2,6 +2,8 @@
 
 import { createReducer } from 'utils/reducer-utils';
 import { pick, last } from 'utils/core-utils';
+import { OPEN_MODAL, UPDATE_MODAL, REPLACE_MODAL, LOCK_ACTIVE_MODAL, CLOSE_ACTIVE_MODAL,
+    UPGRADE_SYSTEM, CHANGE_LOCATION, SYSTEM_INFO_FETCHED } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -11,10 +13,6 @@ const initialState = [];
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication() {
-    return initialState;
-}
-
 function onOpenModal(modals, { component = 'empty', options = {} }) {
     const { name = component, params = {} } = component;
     const {
@@ -57,7 +55,7 @@ function onReplaceModal(modals, action) {
         return modals;
     }
 
-    return onOpenModal(modals.slice(0, -1), action);
+    return _openModal(modals.slice(0, -1), action);
 }
 
 function onLockActiveModal(modals) {
@@ -74,7 +72,7 @@ function onCloseActiveModal(modals) {
 }
 
 function onUpgradeSystem(modals) {
-    return onOpenModal(modals, {
+    return _openModal(modals, {
         component: {
             name: 'system-upgrade-modal'
         },
@@ -85,17 +83,18 @@ function onUpgradeSystem(modals) {
     });
 }
 
-function onLocationChanged(modals, { query }) {
-    if (query.afterupgrade) {
-        return onOpenModal(modals, {
+function onChangeLocation(modals, { location }) {
+    const { afterupgrade, welcome } = location.query;
+    if (afterupgrade) {
+        return _openModal(modals, {
             component: 'after-upgrade-modal',
             options: {
                 size: 'xsmall'
             }
         });
 
-    } else if (query.welcome) {
-        return onOpenModal(modals, {
+    } else if (welcome) {
+        return _openModal(modals, {
             component: 'welcome-modal',
             options: {
                 size: 'custom',
@@ -110,7 +109,7 @@ function onLocationChanged(modals, { query }) {
 
 function onSystemInfoFetched(modals, { info }) {
     if (info.phone_home_config.upgraded_cap_notification) {
-        return onOpenModal(modals, {
+        return _openModal(modals, {
             component: 'upgraded-capacity-notification-modal'
         });
 
@@ -120,16 +119,35 @@ function onSystemInfoFetched(modals, { info }) {
 }
 
 // ------------------------------
+// Local util functions
+// ------------------------------
+function _openModal(modals, { component = 'empty', options = {} }) {
+    const { name = component, params = {} } = component;
+    const {
+        title = '',
+        size = 'small',
+        severity = '',
+        closeButton = 'visible',
+        backdropClose = true
+    } = options;
+
+    return [
+        ...modals,
+        { component: { name, params }, title, size, severity,
+            backdropClose, closeButton }
+    ];
+}
+
+// ------------------------------
 // Exported reducer function.
 // ------------------------------
-export default createReducer({
-    INIT_APPLICATION: onInitApplication,
-    OPEN_MODAL: onOpenModal,
-    UPDATE_MODAL: onUpdateModal,
-    REPLACE_MODAL: onReplaceModal,
-    LOCK_ACTIVE_MODAL: onLockActiveModal,
-    CLOSE_ACTIVE_MODAL: onCloseActiveModal,
-    UPGRADE_SYSTEM: onUpgradeSystem,
-    LOCATION_CHANGED: onLocationChanged,
-    SYSTEM_INFO_FETCHED: onSystemInfoFetched
+export default createReducer(initialState, {
+    [OPEN_MODAL]: onOpenModal,
+    [UPDATE_MODAL]: onUpdateModal,
+    [REPLACE_MODAL]: onReplaceModal,
+    [LOCK_ACTIVE_MODAL]: onLockActiveModal,
+    [CLOSE_ACTIVE_MODAL]: onCloseActiveModal,
+    [UPGRADE_SYSTEM]: onUpgradeSystem,
+    [CHANGE_LOCATION]: onChangeLocation,
+    [SYSTEM_INFO_FETCHED]: onSystemInfoFetched
 });

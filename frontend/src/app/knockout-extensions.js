@@ -268,6 +268,7 @@ function preprocessComment(comment) {
     const text = comment.nodeValue.toLowerCase();
     if (copyrightsIdentifiers.every(identifier => text.includes(identifier))) {
         comment.parentNode.removeChild(comment);
+        return [];
     }
 }
 

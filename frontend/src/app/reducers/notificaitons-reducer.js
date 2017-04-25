@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { HIDE_NOTIFICATION, ACCOUNT_CREATION_FAILED, ACCOUNT_S3_ACCESS_UPDATED,
-    ACCOUNT_S3_ACCESS_UPDATE_FAILED, SHOW_NOTIFICATION } from 'action-types';
+import { HIDE_NOTIFICATION, FAIL_CREATE_ACCOUNT, COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
+    FAIL_ACCOUNT_S3_ACCESS_UPDATE, SHOW_NOTIFICATION } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -23,7 +23,7 @@ function onHideNotification(notifications, { id }) {
     return { ...notifications, list: newlist };
 }
 
-function onAccountCreationFailed(notifications, { email }) {
+function onFailCreateAccount(notifications, { email }) {
     _queueNotification(
         notifications,
         `Creating account ${email} failed`,
@@ -31,7 +31,7 @@ function onAccountCreationFailed(notifications, { email }) {
     );
 }
 
-function onAccountS3Updated(notifications, { email }) {
+function onCompleteUpdateAccountS3Access(notifications, { email }) {
     _queueNotification(
         notifications,
         `${email} S3 access updated successfully`,
@@ -39,7 +39,7 @@ function onAccountS3Updated(notifications, { email }) {
     );
 }
 
-function onAccountS3UpdateFailed(notifications, { email }) {
+function onFailUpdateAccountS3Access(notifications, { email }) {
     _queueNotification(
         notifications,
         `Updating ${email} S3 access failed`,
@@ -72,8 +72,8 @@ function _queueNotification(notifications, severity, message) {
 // ------------------------------
 export default createReducer(initialState, {
     [HIDE_NOTIFICATION]: onHideNotification,
-    [ACCOUNT_CREATION_FAILED]: onAccountCreationFailed,
-    [ACCOUNT_S3_ACCESS_UPDATED]: onAccountS3Updated,
-    [ACCOUNT_S3_ACCESS_UPDATE_FAILED]: onAccountS3UpdateFailed,
+    [FAIL_CREATE_ACCOUNT]: onFailCreateAccount,
+    [COMPLETE_UPDATE_ACCOUNT_S3_ACCESS]: onCompleteUpdateAccountS3Access,
+    [FAIL_ACCOUNT_S3_ACCESS_UPDATE]: onFailUpdateAccountS3Access,
     [SHOW_NOTIFICATION]: onShowNotification
 });

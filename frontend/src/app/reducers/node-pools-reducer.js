@@ -2,7 +2,7 @@
 
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { SYSTEM_INFO_FETCHED } from 'action-types';
+import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -12,7 +12,7 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onSystemInfoFetched(state, { info }) {
+function onCompleteFetchSystemInfo(state, { info }) {
     const nodePools = info.pools.filter(pool => Boolean(pool.nodes));
     const bucketMapping = _mapPoolsToBuckets(info.buckets, info.tiers);
     return keyByProperty(nodePools, 'name', pool => {
@@ -58,5 +58,5 @@ function _mapPoolsToBuckets(buckets, tiers) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [SYSTEM_INFO_FETCHED]: onSystemInfoFetched
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
 });

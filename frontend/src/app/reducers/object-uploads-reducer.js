@@ -38,7 +38,7 @@ const initialObjectState = deepFreeze({
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onObjectUploadStarted(uploads, { time, objects }) {
+function onStartObjectUpload(uploads, { time, objects }) {
     const newObjects = objects.map(
         ({ id, bucket, file }) => ({
             ...initialObjectState,
@@ -58,7 +58,7 @@ function onObjectUploadStarted(uploads, { time, objects }) {
     return { ...uploads, objects, lastUpload, stats };
 }
 
-function onObjectUploadProgress(uploads, { id, loaded }) {
+function onUpdateObjectUpload(uploads, { id, loaded }) {
     const objects = uploads.objects.map(
         obj => obj.id === id ? { ...obj, loaded } : obj
     );
@@ -66,11 +66,11 @@ function onObjectUploadProgress(uploads, { id, loaded }) {
     return { ...uploads, objects, stats };
 }
 
-function onObjectUploadCompleted(uploads, action) {
+function onCompleteObjectUpload(uploads, action) {
     return _completeUpload(uploads, action);
 }
 
-function onObjectUploadFailed(uploads, action) {
+function onFailObjectUpload(uploads, action) {
     return _completeUpload(uploads, action);
 }
 
@@ -133,9 +133,9 @@ function _recalcStats(objects) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [START_OBJECT_UPLOAD]: onObjectUploadStarted,
-    [UPDATE_OBJECT_UPLOAD]: onObjectUploadProgress,
-    [COMPLETE_OBJECT_UPLOAD]: onObjectUploadCompleted,
-    [FAIL_OBJECT_UPLOAD]: onObjectUploadFailed,
+    [START_OBJECT_UPLOAD]: onStartObjectUpload,
+    [UPDATE_OBJECT_UPLOAD]: onUpdateObjectUpload,
+    [COMPLETE_OBJECT_UPLOAD]: onCompleteObjectUpload,
+    [FAIL_OBJECT_UPLOAD]: onFailObjectUpload,
     [CLEAR_COPLETED_OBJECT_UPLOADES]: onClearCompletedObjectUploads
 });

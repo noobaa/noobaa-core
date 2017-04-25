@@ -2,9 +2,9 @@
 
 import { mergeBy, isUndefined, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { ALERTS_FETCH, ALERTS_FETCHED, ALERTS_FETCH_FAILED,
-    ALERTS_UPDATE, ALERTS_UPDATED, ALERTS_UPDATE_FAILED,
-    ALERTS_UPDATE_UNREAD_COUNT, ALERTS_DROP_STATE } from 'action-types';
+import { START_FETCH_ALERTS, COMPLETE_FETCH_ALERTS, FAIL_FETCH_ALERTS,
+    START_UPDATE_ALERTS, COMPLETE_UPDATE_ALERTS, FAIL_UPDATE_ALERTS,
+    UPDATE_ALERTS_UNREAD_COUNT, DROP_ALERTS } from 'action-types';
 
 // ------------------------------
 // Initial state
@@ -22,7 +22,7 @@ const initialState = {
 // Action Handlers
 // ------------------------------
 
-function onAlertsFetch(state, { query }) {
+function onStartFetchAlerts(state, { query }) {
     const loading = state.loading + 1;
     const loadError = null;
     const { severity, read } = query;
@@ -40,7 +40,7 @@ function onAlertsFetch(state, { query }) {
     }
 }
 
-function onAlertsFetched(state, { requested, list }) {
+function onCompleteFetchAlerts(state, { requested, list }) {
     const loading = state.loading - 1;
     if (loading === 0) {
         const endOfList = list.length < requested;
@@ -54,7 +54,7 @@ function onAlertsFetched(state, { requested, list }) {
     }
 }
 
-function onAlertsFetchFailed(state, { error }) {
+function onFailFetchAlerts(state, { error }) {
     const loading = state.loading - 1;
 
     if (loading === 0) {
@@ -65,7 +65,7 @@ function onAlertsFetchFailed(state, { error }) {
     }
 }
 
-function onAlertsUpdate(state, { query }) {
+function onStartUpdateAlerts(state, { query }) {
     const list = state.list.map(
         item => _matchs(item, query) ?
             { ...item, updating: true } :
@@ -75,7 +75,7 @@ function onAlertsUpdate(state, { query }) {
     return { ...state, list };
 }
 
-function onAlertsUpdated(state, { query, read }) {
+function onCompleteUpdateAlerts(state, { query, read }) {
     const list = state.list.map(
         item => _matchs(item, query) ?
             { ...item, updating: false, read: read } :
@@ -85,7 +85,7 @@ function onAlertsUpdated(state, { query, read }) {
     return { ...state, list };
 }
 
-function onAlertsUpdateFailed(state, { query }) {
+function onFailUpdateAlerts(state, { query }) {
     const list = state.list.map(
         item => _matchs(item, query) ?
             { ...item, updating: false } :
@@ -95,11 +95,11 @@ function onAlertsUpdateFailed(state, { query }) {
     return { ...state, list };
 }
 
-function onAlertsUpdateUnreadCount(state, { count }) {
+function onUpdateAlertsUreadCount(state, { count }) {
     return { ...state, unreadCount: count };
 }
 
-function onAlertsDropState(state) {
+function onDropAlerts(state) {
     const { unreadCount } = state;
     return { ...initialState, unreadCount };
 }
@@ -118,12 +118,12 @@ function _matchs(item, { ids, severity, read }) {
 // Exported reducer function.
 // ------------------------------
 export default createReducer(initialState, {
-    [ALERTS_FETCH]: onAlertsFetch,
-    [ALERTS_FETCHED]: onAlertsFetched,
-    [ALERTS_FETCH_FAILED]: onAlertsFetchFailed,
-    [ALERTS_UPDATE]: onAlertsUpdate,
-    [ALERTS_UPDATED]: onAlertsUpdated,
-    [ALERTS_UPDATE_FAILED]: onAlertsUpdateFailed,
-    [ALERTS_UPDATE_UNREAD_COUNT]: onAlertsUpdateUnreadCount,
-    [ALERTS_DROP_STATE]: onAlertsDropState
+    [START_FETCH_ALERTS]: onStartFetchAlerts,
+    [COMPLETE_FETCH_ALERTS]: onCompleteFetchAlerts,
+    [FAIL_FETCH_ALERTS]: onFailFetchAlerts,
+    [START_UPDATE_ALERTS]: onStartUpdateAlerts,
+    [COMPLETE_UPDATE_ALERTS]: onCompleteUpdateAlerts,
+    [FAIL_UPDATE_ALERTS]: onFailUpdateAlerts,
+    [UPDATE_ALERTS_UNREAD_COUNT]: onUpdateAlertsUreadCount,
+    [DROP_ALERTS]: onDropAlerts
 });

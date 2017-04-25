@@ -7,6 +7,7 @@ const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const dns = require('dns');
 const fs = require('fs');
+const os = require('os');
 const moment = require('moment');
 const url = require('url');
 const net = require('net');
@@ -1204,7 +1205,7 @@ function read_server_config(req) {
 
     return P.resolve()
         .then(function() {
-            if (DEV_MODE) {
+            if (DEV_MODE || os.type() === 'Darwin') {
                 // Notice that we only return from the current promise and continue the chain
                 // Later in method _verify_connection_to_phonehome, we attach the connection status
                 return;

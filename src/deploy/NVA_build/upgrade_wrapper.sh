@@ -126,7 +126,7 @@ function upgrade_mongo_version {
 	sed -i 's:exclude=mongodb-org.*::' /etc/yum.conf
 
   deploy_log "stopping mongo"
-	${SUPERCTL} stop mongodb
+	${SUPERCTL} stop mongo_wrapper
 
 	#Upgrade to 3.4
 	deploy_log "Upgrade MongoDB to 3.4"
@@ -312,8 +312,10 @@ function post_upgrade {
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
   #if noobaa supervisor.conf is pre hosted_agents
-  local FOUND=$(grep "bg_workers_starter" /etc/noobaa_supervisor.conf | wc -l)
-  if [ ${FOUND} -eq 1 ]; then
+  local BG=$(grep "bg_workers_starter" /etc/noobaa_supervisor.conf | wc -l)
+  #if noobaa supervisor.conf is pre mongo_wrapper
+  local MONGO_DB=$(grep "mongodb" /etc/noobaa_supervisor.conf | wc -l)
+  if [ ${BG} -eq 1 ] || [ ${MONGO_DB} -eq 1 ]; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
 

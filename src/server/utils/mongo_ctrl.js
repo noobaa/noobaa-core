@@ -177,9 +177,10 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
 
     let program_obj = {};
     let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_server ? '' : 'rs');
-    program_obj.name = 'mongors-' + name;
-    program_obj.command = 'mongod ' +
-        '--replSet ' + name +
+    program_obj.name = 'mongo_wrapper';
+    program_obj.command = '/root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_wrapper.sh' +
+        ' mongod' +
+        ' --replSet ' + name +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
         ' --dbpath ' + dbpath +
         ' --sslMode requireSSL --clusterAuthMode x509 --sslAllowInvalidHostnames' +
@@ -188,6 +189,9 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
         ' --sslClusterFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH;
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
+    program_obj.stopsignal = 'KILL';
+    program_obj.killasgroup = 'true';
+    program_obj.stopasgroup = 'true';
     program_obj.autostart = 'true';
     program_obj.priority = '1';
 
@@ -298,7 +302,7 @@ MongoCtrl.prototype._add_new_config_program = function() {
 };
 
 MongoCtrl.prototype._remove_single_mongo_program = function() {
-    return P.resolve(SupervisorCtl.remove_program('mongodb'));
+    return P.resolve(SupervisorCtl.remove_program('mongo_wrapper'));
 };
 
 MongoCtrl.prototype._refresh_services_list = function() {

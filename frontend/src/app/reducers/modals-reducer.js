@@ -3,7 +3,7 @@
 import { createReducer } from 'utils/reducer-utils';
 import { pick, last } from 'utils/core-utils';
 import { OPEN_MODAL, UPDATE_MODAL, REPLACE_MODAL, LOCK_ACTIVE_MODAL, CLOSE_ACTIVE_MODAL,
-    UPGRADE_SYSTEM, CHANGE_LOCATION, SYSTEM_INFO_FETCHED } from 'action-types';
+    START_UPGRADE_SYSTEM, CHANGE_LOCATION, COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -71,7 +71,7 @@ function onCloseActiveModal(modals) {
     return modals.slice(0, -1);
 }
 
-function onUpgradeSystem(modals) {
+function onStartUpgradeSystem(modals) {
     return _openModal(modals, {
         component: {
             name: 'system-upgrade-modal'
@@ -107,7 +107,7 @@ function onChangeLocation(modals, { location }) {
     }
 }
 
-function onSystemInfoFetched(modals, { info }) {
+function onCompleteFetchSystemInfo(modals, { info }) {
     if (info.phone_home_config.upgraded_cap_notification) {
         return _openModal(modals, {
             component: 'upgraded-capacity-notification-modal'
@@ -147,7 +147,7 @@ export default createReducer(initialState, {
     [REPLACE_MODAL]: onReplaceModal,
     [LOCK_ACTIVE_MODAL]: onLockActiveModal,
     [CLOSE_ACTIVE_MODAL]: onCloseActiveModal,
-    [UPGRADE_SYSTEM]: onUpgradeSystem,
+    [START_UPGRADE_SYSTEM]: onStartUpgradeSystem,
     [CHANGE_LOCATION]: onChangeLocation,
-    [SYSTEM_INFO_FETCHED]: onSystemInfoFetched
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
 });

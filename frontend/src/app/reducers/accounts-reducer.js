@@ -2,7 +2,7 @@
 
 import { createReducer } from 'utils/reducer-utils';
 import { keyByProperty } from 'utils/core-utils';
-import { SYSTEM_INFO_FETCHED, CREATE_ACCOUNT, ACCOUNT_CREATION_FAILED } from 'action-types';
+import { COMPLETE_FETCH_SYSTEM_INFO, START_CREATE_ACCOUNT, FAIL_CREATE_ACCOUNT } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -13,7 +13,7 @@ const initialState = {};
 // Action Handlers
 // ------------------------------
 
-function onSystemInfoFetched(_, { info }) {
+function onCompleteFetchSystemInfo(_, { info }) {
     return keyByProperty(info.accounts, 'email', account => {
         const accessKeys = account.access_keys[0];
         return {
@@ -30,14 +30,14 @@ function onSystemInfoFetched(_, { info }) {
     });
 }
 
-function onCreateAccount(accounts, { name, email }) {
+function onStartCreateAccount(accounts, { name, email }) {
     return {
         ...accounts,
         [email]: { name, email, mode: 'IN_CREATION' }
     };
 }
 
-function onAccountCreationFailed(accounts, { email }) {
+function onFailCreateAccount(accounts, { email }) {
     return {
         ...accounts,
         [email]: {
@@ -55,7 +55,7 @@ function onAccountCreationFailed(accounts, { email }) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [SYSTEM_INFO_FETCHED]: onSystemInfoFetched,
-    [CREATE_ACCOUNT]: onCreateAccount,
-    [ACCOUNT_CREATION_FAILED]: onAccountCreationFailed
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
+    [START_CREATE_ACCOUNT]: onStartCreateAccount,
+    [FAIL_CREATE_ACCOUNT]: onFailCreateAccount
 });

@@ -123,9 +123,10 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
                     mongo_progs.push({
                         type: 'config',
                     });
-                } else if (prog.name.indexOf('mongodb') > 0) {
+                    // This should be for both cluster and single mongo
+                } else if (prog.name.indexOf('mongo_wrapper') > 0) {
                     mongo_progs.push({
-                        type: 'mongo_single',
+                        type: 'mongodb',
                     });
                 }
             });

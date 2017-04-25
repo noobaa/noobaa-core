@@ -10,7 +10,7 @@ if [ ! -d /etc/mongo_ssl/ ]; then
   chmod +x /usr/bin/mongors
 fi
 
-if grep -q MONGO_SSL_USER /root/node_modules/noobaa-core/.env; then
+if ! grep -q MONGO_SSL_USER /root/node_modules/noobaa-core/.env; then
   client_subject=`openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}'`
   echo "MONGO_SSL_USER=${client_subject}" >> /root/node_modules/noobaa-core/.env
 fi

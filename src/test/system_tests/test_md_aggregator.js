@@ -303,7 +303,7 @@ function wait_for_mongodb_to_start(max_seconds_to_wait) {
                 return isNotListening;
             },
             function() {
-                return promise_utils.exec('supervisorctl status mongodb', false, true)
+                return promise_utils.exec('supervisorctl status mongo_wrapper', false, true)
                     .then(function(res) {
                         if (String(res).indexOf('RUNNING') > -1) {
                             console.log('mongodb started after ' + wait_counter + ' seconds');

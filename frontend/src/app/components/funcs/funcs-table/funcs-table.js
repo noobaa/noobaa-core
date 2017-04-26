@@ -51,14 +51,6 @@ class FuncsTableViewModel extends BaseViewModel {
     newFuncRow(func) {
         return new FuncRowViewModel(func);
     }
-
-    showCreateFuncWizard() {
-        this.isCreateFuncWizardVisible(true);
-    }
-
-    hideCreateFuncWizard() {
-        this.isCreateFuncWizardVisible(false);
-    }
 }
 
 export default {

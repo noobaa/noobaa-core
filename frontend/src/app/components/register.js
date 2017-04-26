@@ -97,12 +97,12 @@ export default function register(ko) {
     // -------------------------------
     // Bucket
     // -------------------------------
-    ko.components.register('bucket-panel',                          require('./bucket/bucket-panel/bucket-panel').default);
-    ko.components.register('bucket-summary',                        require('./bucket/bucket-summary/bucket-summary').default);
-    ko.components.register('bucket-objects-table',                  require('./bucket/bucket-objects-table/bucket-objects-table').default);
-    ko.components.register('bucket-data-placement-form',            require('./bucket/bucket-data-placement-form/bucket-data-placement-form').default);
-    ko.components.register('bucket-cloud-sync-form',                require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
-    ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list').default);
+    ko.components.register('bucket-panel',                  require('./bucket/bucket-panel/bucket-panel').default);
+    ko.components.register('bucket-summary',                require('./bucket/bucket-summary/bucket-summary').default);
+    ko.components.register('bucket-objects-table',          require('./bucket/bucket-objects-table/bucket-objects-table').default);
+    ko.components.register('bucket-data-placement-form',    require('./bucket/bucket-data-placement-form/bucket-data-placement-form').default);
+    ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
+    ko.components.register('bucket-s3-access-list',         require('./bucket/bucket-s3-access-list/bucket-s3-access-list').default);
     /** INJECT:bucket **/
 
     // -------------------------------
@@ -116,20 +116,20 @@ export default function register(ko) {
     // -------------------------------
     // resources
     // -------------------------------
-    ko.components.register('resources-panel',                   require('./resources/resources-panel/resources-panel').default);
-    ko.components.register('pools-table',                       require('./resources/pools-table/pools-table').default);
-    ko.components.register('create-pool-wizard',                require('./resources/create-pool-wizard/create-pool-wizard').default);
-    ko.components.register('cloud-resources-table',             require('./resources/cloud-resources-table/cloud-resources-table').default);
+    ko.components.register('resources-panel',       require('./resources/resources-panel/resources-panel').default);
+    ko.components.register('pools-table',           require('./resources/pools-table/pools-table').default);
+    ko.components.register('create-pool-wizard',    require('./resources/create-pool-wizard/create-pool-wizard').default);
+    ko.components.register('cloud-resources-table', require('./resources/cloud-resources-table/cloud-resources-table').default);
     /** INJECT:resources **/
 
     // -------------------------------
     // Pool
     // -------------------------------
-    ko.components.register('pool-panel',            require('./pool/pool-panel/pool-panel').default);
-    ko.components.register('pool-summary',          require('./pool/pool-summary/pool-summary').default);
-    ko.components.register('pool-nodes-table',      require('./pool/pool-nodes-table/pool-nodes-table').default);
+    ko.components.register('pool-panel',                    require('./pool/pool-panel/pool-panel').default);
+    ko.components.register('pool-summary',                  require('./pool/pool-summary/pool-summary').default);
+    ko.components.register('pool-nodes-table',              require('./pool/pool-nodes-table/pool-nodes-table').default);
     ko.components.register('pool-associated-accounts-list', require('./pool/pool-associated-accounts-list/pool-associated-accounts-list').default);
-    ko.components.register('pool-associated-buckets-list', require('./pool/pool-associated-buckets-list/pool-associated-buckets-list').default);
+    ko.components.register('pool-associated-buckets-list',  require('./pool/pool-associated-buckets-list/pool-associated-buckets-list').default);
     /** INJECT:pool **/
 
     // -------------------------------
@@ -145,18 +145,18 @@ export default function register(ko) {
     // -------------------------------
     // Management
     // -------------------------------
-    ko.components.register('management-panel',                      require('./management/management-panel/management-panel').default);
-    ko.components.register('accounts-table',                        require('./management/accounts-table/accounts-table').default);
-    ko.components.register('p2p-form',                              require('./management/p2p-form/p2p-form').default);
-    ko.components.register('server-dns-form',                       require('./management/server-dns-form/server-dns-form').default);
-    ko.components.register('version-form',                          require('./management/version-form/version-form').default);
-    ko.components.register('diagnostics-form',                      require('./management/diagnostics-form/diagnostics-form').default);
-    ko.components.register('maintenance-form'   ,                   require('./management/maintenance-form/maintenance-form').default);
-    ko.components.register('phone-home-form',                       require('./management/phone-home-form/phone-home-form').default);
-    ko.components.register('remote-syslog-form',                    require('./management/remote-syslog-form/remote-syslog-form').default);
-    ko.components.register('server-ssl-form',                       require('./management/server-ssl-form/server-ssl-form').default);
-    ko.components.register('server-time-form',                      require('./management/server-time-form/server-time-form').default);
-    ko.components.register('server-dns-settings-form',              require('./management/server-dns-settings-form/server-dns-settings-form').default);
+    ko.components.register('management-panel',          require('./management/management-panel/management-panel').default);
+    ko.components.register('accounts-table',            require('./management/accounts-table/accounts-table').default);
+    ko.components.register('p2p-form',                  require('./management/p2p-form/p2p-form').default);
+    ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form').default);
+    ko.components.register('version-form',              require('./management/version-form/version-form').default);
+    ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form').default);
+    ko.components.register('maintenance-form'   ,       require('./management/maintenance-form/maintenance-form').default);
+    ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form').default);
+    ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form').default);
+    ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form').default);
+    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form').default);
+    ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form').default);
     /** INJECT:management **/
 
     // -------------------------------
@@ -198,19 +198,18 @@ export default function register(ko) {
     // -------------------------------
     // Func
     // -------------------------------
-    ko.components.register('func-panel', require('./func/func-panel/func-panel').default);
-    ko.components.register('func-summary', require('./func/func-summary/func-summary').default);
-    ko.components.register('func-code', require('./func/func-code/func-code').default);
-    ko.components.register('func-invoke', require('./func/func-invoke/func-invoke').default);
-    ko.components.register('func-config', require('./func/func-config/func-config').default);
-    ko.components.register('func-triggers', require('./func/func-triggers/func-triggers').default);
-    ko.components.register('func-monitoring', require('./func/func-monitoring/func-monitoring').default);
+    ko.components.register('func-panel',        require('./func/func-panel/func-panel').default);
+    ko.components.register('func-summary',      require('./func/func-summary/func-summary').default);
+    ko.components.register('func-code',         require('./func/func-code/func-code').default);
+    ko.components.register('func-invoke',       require('./func/func-invoke/func-invoke').default);
+    ko.components.register('func-config',       require('./func/func-config/func-config').default);
+    ko.components.register('func-monitoring',   require('./func/func-monitoring/func-monitoring').default);
     /** INJECT:func **/
 
     // -------------------------------
     // Admin
     // -------------------------------
-    ko.components.register('audit-pane',         require('./admin/audit-pane/audit-pane').default);
+    ko.components.register('audit-pane',  require('./admin/audit-pane/audit-pane').default);
     ko.components.register('alerts-pane', require('./admin/alerts-pane/alerts-pane').default);
     /** INJECT:admin **/
 
@@ -257,7 +256,6 @@ export default function register(ko) {
     ko.components.register('side-nav',                  require('./shared/side-nav/side-nav').default);
     ko.components.register('token-field',               require('./shared/token-field/token-field').default);
     ko.components.register('new-wizard',                require('./shared/new-wizard/new-wizard').default);
-
-    ko.components.register('val-message', require('./shared/val-message/val-message').default);
+    ko.components.register('val-message',               require('./shared/val-message/val-message').default);
     /** INJECT:shared **/
 }

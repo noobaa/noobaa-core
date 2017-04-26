@@ -2,10 +2,7 @@
 
 <div class="column pad alt-bg">
     <div class="align-end" data-bind="tooltip: createFuncToolTip">
-        <button class="btn" data-bind="
-            click: () => showCreateFuncWizard(),
-            disable: true
-        ">
+        <button class="btn" data-bind="disable: true">
             Create Function
         </button>
     </div>
@@ -18,8 +15,3 @@
     emptyMessage: 'No restless functions configured'
 ">
 </data-table>
-
-<!-- ko if: isCreateFuncWizardVisible -->
-<create-func-wizard params="onClose: () => hideCreateFuncWizard()">
-</create-func-wizard>
-<!-- /ko -->

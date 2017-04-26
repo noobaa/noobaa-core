@@ -1,6 +1,5 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: ready -->
 <func-summary class="push-next" params="func: func"></func-summary>
 
 <div class="tabs greedy">
@@ -16,10 +15,6 @@
         <a data-bind="href: tabHref('config'), css: tabCss('config')">
             Configuration
         </a>
-
-        <!--<a data-bind="href: tabHref('triggers'), css: tabCss('triggers')">
-            Triggers
-        </a> -->
 
         <a data-bind="href: tabHref('invoke'), css: tabCss('invoke')">
             Invoke
@@ -43,11 +38,6 @@
             data-bind="css: tabCss('config')">
         </func-config>
 
-        <!-- <func-triggers class="tab"
-            params="func: func"
-            data-bind="css: tabCss('triggers')">
-        </func-triggers> -->
-
         <func-invoke class="tab"
             params="func: func"
             data-bind="css: tabCss('invoke')">
@@ -55,4 +45,3 @@
 
     </div>
 </div>
-<!-- /ko -->

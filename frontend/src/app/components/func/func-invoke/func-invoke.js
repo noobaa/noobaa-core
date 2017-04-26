@@ -9,17 +9,18 @@ class FuncInvokeViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 
-        this.func = ko.pureComputed(
-            () => func()
+        this.name = ko.pureComputed(
+            () => func() ? func().name : ''
+        );
+
+        this.version = ko.pureComputed(
+            () => func() ? func().version : ''
         );
 
         this.event = ko.observable()
-            .extend({
-                isJSON: true
-            });
+            .extend({ isJSON: true });
 
         this.errors = ko.validation.group(this);
-
     }
 
     invoke() {
@@ -28,8 +29,7 @@ class FuncInvokeViewModel extends BaseViewModel {
             return;
         }
 
-        let { name, version } = this.func().config;
-        invokeFunc(name, version, this.event());
+        invokeFunc(this.name(), this.version(), this.event());
     }
 
 }

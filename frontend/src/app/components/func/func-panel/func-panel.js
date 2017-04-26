@@ -11,10 +11,6 @@ class FuncPanelViewModel extends BaseViewModel {
 
         this.func = funcInfo;
 
-        this.ready = ko.pureComputed(
-            () => funcInfo() && funcInfo().config.name === routeContext().params.func
-        );
-
         this.selectedTab = ko.pureComputed(
             () => uiState().tab
         );

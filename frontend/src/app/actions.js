@@ -14,6 +14,7 @@ import { all, sleep, execInOrder } from 'utils/promise-utils';
 import { getModeFilterFromState } from 'utils/ui-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
     toFormData } from 'utils/browser-utils';
+import { Buffer } from 'buffer';
 
 // Action dispathers from refactored code.
 import * as dispatchers from 'dispatchers';
@@ -304,119 +305,130 @@ export function showFunc() {
     loadFunc(func);
 }
 
-export function loadFuncs() {
+export async function loadFuncs() {
     logAction('loadFuncs');
 
-    api.func.list_funcs({})
-        .then(
-            reply => model.funcList(
-                deepFreeze(reply.functions)
-            )
-        )
-        .done();
+    const { functions } = await api.func.list_funcs({});
+    model.funcList(functions.map(func => {
+        const { name, version, ...config } = func.config;
+        return { name, version, config };
+    }));
 }
 
-export function loadFunc(name) {
-    logAction('loadFunc');
+export async function loadFunc(name, version = '$LATEST') {
+    logAction('loadFunc', { name, version });
 
-    api.func.read_func({
-        name: name,
-        version: '$LATEST',
+    const reply = await api.func.read_func({
+        name,
+        version,
         read_code: true,
         read_stats: true
-    })
-        .then(reply => {
-            reply.codeFiles = [];
-            const code_zip_data = reply.code && reply.code.zipfile;
-            if (!code_zip_data) {
-                return reply;
-            }
-            // we nullify the buffer since we can't freeze it
-            // and don't need it after reading the zip entries
-            reply.code.zipfile = null;
-            return JSZip.loadAsync(code_zip_data)
-                .then(zip => {
-                    const promises = [];
-                    zip.forEach((relativePath, file) => {
-                        const codeFile = {
-                            path: relativePath,
-                            size: file._data.uncompressedSize, // hacky
-                            dir: file.dir,
-                            content: null
-                        };
-                        reply.codeFiles.push(codeFile);
-                        // only reading files in package root
-                        if (relativePath.includes('/')) return;
-                        promises.push(file.async('string')
-                            .then(content => {
-                                codeFile.content = content;
-                            })
-                        );
-                    });
-                    return Promise.all(promises)
-                        .then(() => reply);
-                });
-        })
-        .then(reply => model.funcInfo(
-            deepFreeze(reply)
-        ))
-        .done();
+    });
+
+    let codeFiles = [];
+    const { zipfile } = reply.code || {};
+    if (zipfile) {
+        const zip = await JSZip.loadAsync(zipfile);
+
+        // Convert the result of iterating the zip file into an array of Promises.
+        const promises = [];
+        zip.forEach((relativePath, file) => promises.push(
+            // Create a promise that resolves to an object with file metadata and string content.
+            (async () => {
+                const content = !relativePath.includes('/') ?
+                    await file.async('string') :
+                    '';
+
+                return {
+                    path: relativePath,
+                    size: file._data.uncompressedSize, // hacky
+                    dir: file.dir,
+                    content: content
+                };
+            })()
+        ));
+        codeFiles = await all(...promises);
+    }
+
+    const { name: _, version: __, ...config } = reply.config;
+    const stats = reply.stats;
+    model.funcInfo({ name, version, config, codeFiles, stats });
 }
 
-export function invokeFunc(name, version, event) {
+export async function invokeFunc(name, version, event = '') {
     logAction('invokeFunc', { name, version, event });
 
     try {
-        event = JSON.parse(event);
-    } catch(err) {
-        event = String(event || '');
+        const eventObj = JSON.parse(String(event));
+        const { result, error } = await api.func.invoke_func({
+            name: name,
+            version: version,
+            event: eventObj
+        });
+
+        error ?
+            notify(`Func ${name} invoked but returned error: ${error.message}`, 'warning') :
+            notify(`Func ${name} invoked successfully result: ${JSON.stringify(result)}`, 'success');
+
+    } catch (error) {
+        notify(`Func ${name} invocation failed`, 'error');
     }
-
-    api.func.invoke_func({
-        name: name,
-        version: version,
-        event: event
-    })
-        .then(
-            res => {
-                if (res.error) {
-                    notify(`Func ${name} invoked but returned error: ${res.error.message}`, 'warning');
-                } else {
-                    notify(`Func ${name} invoked successfully result: ${JSON.stringify(res.result)}`, 'success');
-                }
-            },
-            () => notify(`Func ${name} invocation failed`, 'error')
-        )
-        .done();
 }
 
-export function updateFunc(config) {
-    logAction('updateFunc', { config });
+export async function updateFuncConfig(name, version, config) {
+    logAction('updateFuncConfig', { name, version, config });
 
-    api.func.update_func({
-        config: config
-    })
-        .then(
-            () => notify(`Func ${config.name} updated successfully`, 'success'),
-            () => notify(`Func ${config.name} update failed`, 'error')
-        )
-        .then(() => loadFunc(config.name))
-        .done();
+    try {
+        await api.func_update_func({
+            config: { name, version, ...config }
+        });
+        notify(`Func ${config.name} updated successfully`, 'success');
+        loadFunc(config.name);
+
+    } catch (error) {
+        notify(`Func ${config.name} update failed`, 'error');
+    }
 }
 
-export function deleteFunc(name, version) {
+export async function updateFuncCode(name, version, patches) {
+    logAction('updateFuncCode', { name, version,});
+
+    try {
+        const { code = {} } = await api.func.read_func({
+            name,
+            version,
+            read_code: true,
+        });
+
+        if (code.zipfile) {
+            const zip = await JSZip.loadAsync(code.zipfile);
+            await all(patches.map(({ path, content }) => zip.file(path, content)));
+            const zipfile = Buffer.from(await zip.generateAsync({ type: 'uint8array'}));
+
+            await api.func.update_func({
+                config: { name, version },
+                code: { zipfile }
+            });
+        }
+
+        notify(`Func ${config.name} code updated successfully`, 'success');
+
+    } catch (error) {
+        notify(`Func ${config.name} code update failed`, 'error');
+    }
+}
+
+export async function deleteFunc(name, version) {
     logAction('deleteFunc', { name, version });
 
-    api.func.delete_func({
-        name: name,
-        version: version
-    })
-        .then(
-            () => notify(`Func ${name} deleted successfully`, 'success'),
-            () => notify(`Func ${name} deletion failed`, 'error')
-        )
-        .then(loadFuncs)
-        .done();
+    try {
+        await api.func.delete_func({ name, version });
+        notify(`Func ${name} deleted successfully`, 'success'),
+        await loadFuncs();
+
+    } catch (error) {
+        notify(`Func ${name} deletion failed`, 'error');
+    }
 }
 
 export function handleUnknownRoute() {

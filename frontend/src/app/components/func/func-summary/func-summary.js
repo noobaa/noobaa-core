@@ -9,11 +9,15 @@ class FuncSummaryViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 
-        this.dataReady = ko.pureComputed(
-            () => !!func()
+        this.name = ko.pureComputed(
+            () => func() ? func().name : ''
         );
 
-        let config = ko.pureComputed(
+        this.version = ko.pureComputed(
+            () => func() ? func().version : ''
+        );
+
+        const config = ko.pureComputed(
             () => func() ? func().config : {}
         );
 
@@ -23,14 +27,6 @@ class FuncSummaryViewModel extends BaseViewModel {
                 css: 'success',
                 icon: 'healthy'
             })
-        );
-
-        this.name = ko.pureComputed(
-            () => config().name
-        );
-
-        this.version = ko.pureComputed(
-            () => config().version
         );
 
         this.description = ko.pureComputed(

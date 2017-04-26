@@ -10,10 +10,6 @@ export default class FuncRowViewModel extends BaseViewModel {
     constructor(func) {
         super();
 
-        let config = ko.pureComputed(
-            () => func() ? func().config : {}
-        );
-
         this.state = ko.pureComputed(
             () => ({
                 name: 'healthy',
@@ -23,21 +19,18 @@ export default class FuncRowViewModel extends BaseViewModel {
         );
 
         this.name = ko.pureComputed(
-            () => {
-                let { name } = config();
-                if (!name) {
-                    return '';
-                }
-
-                return {
-                    text: name,
-                    href: { route: 'func', params: { func: name } }
-                };
-            }
+            () => ({
+                text: func().name,
+                href: { route: 'func', params: { func: func().name } }
+            })
         );
 
         this.version = ko.pureComputed(
-            () => config().version || '$LATEST'
+            () => func().version
+        );
+
+        const config = ko.pureComputed(
+            () => func() ? func().config : {}
         );
 
         this.description = ko.pureComputed(

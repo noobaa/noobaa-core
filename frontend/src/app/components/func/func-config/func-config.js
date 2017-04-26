@@ -4,7 +4,7 @@ import template from './func-config.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
-import { updateFunc } from 'actions';
+import { updateFuncConfig } from 'actions';
 
 const runtimeOptions = deepFreeze([
     {
@@ -35,16 +35,20 @@ class FuncConfigViewModel extends BaseViewModel {
         this.runtimeOptions = runtimeOptions;
         this.memorySizeOptions = memorySizeOptions;
 
-        let config = ko.pureComputed(
-            () => func().config || {}
+        this.name = ko.pureComputed(
+            () => func() ? func().name : ''
+        );
+
+        this.version = ko.pureComputed(
+            () => func() ? func().version : ''
+        );
+
+        const config = ko.pureComputed(
+            () => func() ? func().config : {}
         );
 
         this.runtime = ko.observableWithDefault(
             () => config().runtime
-        );
-
-        this.handler = ko.observableWithDefault(
-            () => config().handler
         );
 
         this.handler = ko.observableWithDefault(
@@ -61,21 +65,18 @@ class FuncConfigViewModel extends BaseViewModel {
         this.description = ko.observableWithDefault(
             () => config().description
         );
-
     }
 
     applyChanges() {
-        let { name, version } = this.func().config;
-
-        updateFunc({
-            name: name,
-            version: version,
+        const config = {
             runtime: this.runtime(),
             handler: this.handler(),
             memory_size: this.memorySize(),
             timeout: parseInt(this.timeout(), 10),
             description: this.description()
-        });
+        };
+
+        updateFuncConfig(this.name(), this.version(), config);
     }
 
 }

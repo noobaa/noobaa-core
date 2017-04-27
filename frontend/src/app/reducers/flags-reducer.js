@@ -9,8 +9,8 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onInitApplication(_, { flags }) {
-    return flags;
+function onInitApplication(_, { payload }) {
+    return payload.flags;
 }
 
 

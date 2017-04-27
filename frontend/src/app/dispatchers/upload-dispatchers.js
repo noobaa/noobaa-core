@@ -20,7 +20,10 @@ export function uploadObjects(bucket, files, accessKey, secretKey) {
         file
     }));
 
-    dispatch({ type: START_OBJECT_UPLOAD, time, objects });
+    dispatch({
+        type: START_OBJECT_UPLOAD,
+        payload: { time, objects }
+    });
 
     const s3 = createS3Client(global.location.hostname, accessKey, secretKey);
     for (const { id, bucket, file } of objects) {
@@ -34,12 +37,21 @@ export function uploadObjects(bucket, files, accessKey, secretKey) {
             },
             s3UploadOptions,
             error => error ?
-                dispatch({ type: FAIL_OBJECT_UPLOAD, id, error }) :
-                dispatch({ type: COMPLETE_OBJECT_UPLOAD, id })
+                dispatch({
+                    type: FAIL_OBJECT_UPLOAD,
+                    payload: { id, error }
+                }) :
+                dispatch({
+                    type: COMPLETE_OBJECT_UPLOAD,
+                    payload: { id }
+                })
         )
         .on(
             'httpUploadProgress',
-            ({ loaded }) => dispatch({ type: UPDATE_OBJECT_UPLOAD, id, loaded })
+            ({ loaded }) => dispatch({
+                type: UPDATE_OBJECT_UPLOAD,
+                payload: { id, loaded }
+            })
         );
     }
 }

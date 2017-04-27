@@ -7,7 +7,8 @@ import { COMPLETE_FETCH_NODE_INSTALLATION_COMMANDS } from 'action-types';
 
 const initialState = {};
 
-function onCompleteFetchInstallationCommands(form, { targetPool, excludedDrives, commands }) {
+function onCompleteFetchInstallationCommands(form, { payload }) {
+    const { targetPool, excludedDrives, commands } = payload;
     // Validate that the command is relevant to the current form state.
     const fields = mapValues(form.fields, field => field.value);
     if (

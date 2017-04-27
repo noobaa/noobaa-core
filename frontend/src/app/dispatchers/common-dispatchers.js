@@ -21,7 +21,10 @@ export async function initApplication(browser, flags, token) {
         }
     }
 
-    dispatch({ type: INIT_APPLICATION, browser, flags, session });
+    dispatch({
+        type: INIT_APPLICATION,
+        payload: { browser, flags, session }
+    });
 }
 
 export async function signIn(email, password, /*keepSessionAlive = false*/) {
@@ -33,7 +36,10 @@ export async function signIn(email, password, /*keepSessionAlive = false*/) {
 
     } catch (error) {
         if (error.rpc_code !== 'UNAUTHORIZED') {
-            dispatch({ type: SIGN_IN_FAILED, email, error });
+            dispatch({
+                type: SIGN_IN_FAILED,
+                payload: { email, error }
+            });
         }
     }
 }
@@ -44,6 +50,9 @@ export function signOut() {
 }
 
 export function changeLocation(location) {
-    dispatch({ type: CHANGE_LOCATION, location });
+    dispatch({
+        type: CHANGE_LOCATION,
+        paylaod: location
+    });
 }
 

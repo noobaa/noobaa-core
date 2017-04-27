@@ -3,7 +3,7 @@
 import { deepFreeze } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { START_OBJECT_UPLOAD, UPDATE_OBJECT_UPLOAD, COMPLETE_OBJECT_UPLOAD, FAIL_OBJECT_UPLOAD,
-    CLEAR_COPLETED_OBJECT_UPLOADES } from 'action-types';
+    CLEAR_COMPLETED_OBJECT_UPLOADES } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -38,7 +38,8 @@ const initialObjectState = deepFreeze({
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onStartObjectUpload(uploads, { time, objects }) {
+function onStartObjectUpload(uploads, { payload }) {
+    let { time, objects } = payload;
     const newObjects = objects.map(
         ({ id, bucket, file }) => ({
             ...initialObjectState,
@@ -58,7 +59,8 @@ function onStartObjectUpload(uploads, { time, objects }) {
     return { ...uploads, objects, lastUpload, stats };
 }
 
-function onUpdateObjectUpload(uploads, { id, loaded }) {
+function onUpdateObjectUpload(uploads, { payload }) {
+    const { id, loaded } = payload;
     const objects = uploads.objects.map(
         obj => obj.id === id ? { ...obj, loaded } : obj
     );
@@ -66,12 +68,12 @@ function onUpdateObjectUpload(uploads, { id, loaded }) {
     return { ...uploads, objects, stats };
 }
 
-function onCompleteObjectUpload(uploads, action) {
-    return _completeUpload(uploads, action);
+function onCompleteObjectUpload(uploads, { payload }) {
+    return _completeUpload(uploads, payload);
 }
 
-function onFailObjectUpload(uploads, action) {
-    return _completeUpload(uploads, action);
+function onFailObjectUpload(uploads, { payload }) {
+    return _completeUpload(uploads, payload);
 }
 
 function onClearCompletedObjectUploads(uploads) {
@@ -137,5 +139,5 @@ export default createReducer(initialState, {
     [UPDATE_OBJECT_UPLOAD]: onUpdateObjectUpload,
     [COMPLETE_OBJECT_UPLOAD]: onCompleteObjectUpload,
     [FAIL_OBJECT_UPLOAD]: onFailObjectUpload,
-    [CLEAR_COPLETED_OBJECT_UPLOADES]: onClearCompletedObjectUploads
+    [CLEAR_COMPLETED_OBJECT_UPLOADES]: onClearCompletedObjectUploads
 });

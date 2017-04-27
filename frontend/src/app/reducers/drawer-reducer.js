@@ -12,8 +12,8 @@ const initialState = null;
 // Action Handlers
 // ------------------------------
 
-function onOpenDrawer(_, { component }) {
-    return component;
+function onOpenDrawer(_, { payload }) {
+    return payload.pane;
 }
 
 function onCloseDrawer() {

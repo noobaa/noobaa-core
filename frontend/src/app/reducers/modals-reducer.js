@@ -13,7 +13,8 @@ const initialState = [];
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onOpenModal(modals, { component = 'empty', options = {} }) {
+function onOpenModal(modals, { payload }) {
+    const { component = 'empty', options = {} } = payload;
     const { name = component, params = {} } = component;
     const {
         title = '',
@@ -30,10 +31,10 @@ function onOpenModal(modals, { component = 'empty', options = {} }) {
     ];
 }
 
-function onUpdateModal(modals, action) {
+function onUpdateModal(modals, { payload }) {
     if (modals.length > 0) {
         const update = pick(
-            action,
+            payload,
             'title',
             'size',
             'severity',
@@ -50,12 +51,12 @@ function onUpdateModal(modals, action) {
     }
 }
 
-function onReplaceModal(modals, action) {
+function onReplaceModal(modals, { payload }) {
     if (modals.length === 0) {
         return modals;
     }
 
-    return _openModal(modals.slice(0, -1), action);
+    return _openModal(modals.slice(0, -1), payload);
 }
 
 function onLockActiveModal(modals) {
@@ -83,7 +84,7 @@ function onStartUpgradeSystem(modals) {
     });
 }
 
-function onChangeLocation(modals, { location }) {
+function onChangeLocation(modals, { payload: location }) {
     const { afterupgrade, welcome } = location.query;
     if (afterupgrade) {
         return _openModal(modals, {
@@ -107,8 +108,8 @@ function onChangeLocation(modals, { location }) {
     }
 }
 
-function onCompleteFetchSystemInfo(modals, { info }) {
-    if (info.phone_home_config.upgraded_cap_notification) {
+function onCompleteFetchSystemInfo(modals, { payload }) {
+    if (payload.phone_home_config.upgraded_cap_notification) {
         return _openModal(modals, {
             component: 'upgraded-capacity-notification-modal'
         });

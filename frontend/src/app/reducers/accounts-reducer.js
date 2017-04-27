@@ -13,8 +13,8 @@ const initialState = {};
 // Action Handlers
 // ------------------------------
 
-function onCompleteFetchSystemInfo(_, { info }) {
-    return keyByProperty(info.accounts, 'email', account => {
+function onCompleteFetchSystemInfo(_, { payload }) {
+    return keyByProperty(payload.accounts, 'email', account => {
         const accessKeys = account.access_keys[0];
         return {
             name: account.name,
@@ -30,14 +30,16 @@ function onCompleteFetchSystemInfo(_, { info }) {
     });
 }
 
-function onStartCreateAccount(accounts, { name, email }) {
+function onStartCreateAccount(accounts, { payload }) {
+    const { name, email } = payload;
     return {
         ...accounts,
         [email]: { name, email, mode: 'IN_CREATION' }
     };
 }
 
-function onFailCreateAccount(accounts, { email }) {
+function onFailCreateAccount(accounts, { payload }) {
+    const { email } = payload;
     return {
         ...accounts,
         [email]: {

@@ -12,9 +12,10 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onCompleteFetchSystemInfo(state, { info }) {
-    const nodePools = info.pools.filter(pool => Boolean(pool.nodes));
-    const bucketMapping = _mapPoolsToBuckets(info.buckets, info.tiers);
+function onCompleteFetchSystemInfo(state, { payload }) {
+    const { pools, buckets, tiers } = payload;
+    const nodePools = pools.filter(pool => Boolean(pool.nodes));
+    const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
     return keyByProperty(nodePools, 'name', pool => {
         const {
             name,

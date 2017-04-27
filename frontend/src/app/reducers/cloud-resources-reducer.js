@@ -13,9 +13,10 @@ const initialState = {};
 // Action Handlers
 // ------------------------------
 
-function onCompleteFetchSystemInfo(_, { info }) {
-    const resources = info.pools.filter(_isPoolCloudResoruce);
-    const bucketsByPools = _mapPoolsToBuckets(info.buckets, info.tiers);
+function onCompleteFetchSystemInfo(_, { payload }) {
+    const { pools, buckets, tiers } = payload;
+    const resources = pools.filter(_isPoolCloudResoruce);
+    const bucketsByPools = _mapPoolsToBuckets(buckets, tiers);
 
     return keyByProperty(
         resources,

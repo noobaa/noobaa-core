@@ -111,7 +111,7 @@ function enable_autostart {
 
 
 function upgrade_mongo_version {
-	local ver=$(mongo --version | grep 3.4 | wc -l)
+	local ver=$(mongo --version | grep "version v3.4.4" | wc -l)
 	if [ ${ver} -ne 0 ]; then
 		return
 	fi
@@ -133,11 +133,11 @@ function upgrade_mongo_version {
   rm -f /etc/yum.repos.d/mongodb-org-*
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.4.repo
 	 yum install -y \
-		mongodb-org-3.4.2 \
-		mongodb-org-server-3.4.2 \
-		mongodb-org-shell-3.4.2 \
-		mongodb-org-mongos-3.4.2 \
-		mongodb-org-tools-3.4.2
+		mongodb-org-3.4.4 \
+		mongodb-org-server-3.4.4 \
+		mongodb-org-shell-3.4.4 \
+		mongodb-org-mongos-3.4.4 \
+		mongodb-org-tools-3.4.4
 
 	#disable mongo upgrades
 	echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf

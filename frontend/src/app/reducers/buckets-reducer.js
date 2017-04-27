@@ -12,8 +12,8 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onCompleteFetchSystemInfo(state, { info }) {
-    return keyByProperty(info.buckets, 'name', bucket => {
+function onCompleteFetchSystemInfo(state, { payload }) {
+    return keyByProperty(payload.buckets, 'name', bucket => {
         const { name, storage } = bucket;
         const mode = _clacBucketMode(bucket);
         return { name, mode, storage };

@@ -15,10 +15,16 @@ export async function fetchSystemInfo() {
 
     try {
         const info = await api.system.read_system();
-        dispatch({ type: COMPLETE_FETCH_SYSTEM_INFO, info });
+        dispatch({
+            type: COMPLETE_FETCH_SYSTEM_INFO,
+            payload: info
+        });
 
     } catch (error) {
-        dispatch({ type: FAIL_FETCH_SYSTEM_INFO, error });
+        dispatch({
+            type: FAIL_FETCH_SYSTEM_INFO,
+            payload: { error }
+        });
     }
 }
 
@@ -33,11 +39,14 @@ export async function fetchNodeInstallationCommands(targetPool, excludedDrives) 
 
         dispatch({
             type: COMPLETE_FETCH_NODE_INSTALLATION_COMMANDS,
-            targetPool, excludedDrives, commands
+            payload: { targetPool, excludedDrives, commands }
         });
 
     } catch (error) {
-        dispatch({ type: FAIL_FETCH_NODE_INSTALLATION_COMMANDS, error });
+        dispatch({
+            type: FAIL_FETCH_NODE_INSTALLATION_COMMANDS,
+            paylaod: { error }
+        });
     }
 }
 
@@ -49,7 +58,7 @@ export async function upgradeSystem() {
 export async function createAccount(email, password, s3Access, defaultResource, allowedBuckets) {
     dispatch({
         type: START_CREATE_ACCOUNT,
-        email, password, s3Access, defaultResource, allowedBuckets
+        payload: { email, password, s3Access, defaultResource, allowedBuckets }
     });
 
     try {
@@ -66,17 +75,23 @@ export async function createAccount(email, password, s3Access, defaultResource, 
             sleep(750)
         );
 
-        dispatch({ type: COMPLETE_CREATE_ACCOUNT, email });
+        dispatch({
+            type: COMPLETE_CREATE_ACCOUNT,
+            payload: { email }
+        });
 
     } catch (error) {
-        dispatch({ type: FAIL_CREATE_ACCOUNT, email, error });
+        dispatch({
+            type: FAIL_CREATE_ACCOUNT,
+            payload: { email, error }
+        });
     }
 }
 
 export async function updateAccountS3Access(email, s3Access, defaultResource, allowedBuckets) {
     dispatch({
         type: START_UPDATE_ACCOUNT_S3_ACCESS,
-        email, s3Access, defaultResource, allowedBuckets
+        payload: { email, s3Access, defaultResource, allowedBuckets }
     });
 
     try {
@@ -87,9 +102,15 @@ export async function updateAccountS3Access(email, s3Access, defaultResource, al
             allowed_buckets: s3Access ? allowedBuckets : undefined
         });
 
-        dispatch({ type: COMPLETE_UPDATE_ACCOUNT_S3_ACCESS, email });
+        dispatch({
+            type: COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
+            payload: { email }
+        });
 
     } catch (error) {
-        dispatch({ type: FAIL_UPDATE_ACCOUNT_S3_ACCESS, email, error });
+        dispatch({
+            type: FAIL_UPDATE_ACCOUNT_S3_ACCESS,
+            payload: { email, error }
+        });
     }
 }

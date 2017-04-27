@@ -7,11 +7,17 @@ import { OPEN_DRAWER, CLOSE_DRAWER, HIDE_NOTIFICATION, SHOW_NOTIFICATION } from 
 // Drawer action dispatchers
 // -------------------------------
 export function openAuditDrawer() {
-    dispatch({ type: OPEN_DRAWER, component: 'audit-pane' });
+    dispatch({
+        type: OPEN_DRAWER,
+        payload: { pane: 'audit-pane' }
+    });
 }
 
 export function openAlertsDrawer() {
-    dispatch({ type: OPEN_DRAWER, component: 'alerts-pane' });
+    dispatch({
+        type: OPEN_DRAWER,
+        payload: { pane: 'alerts-pane' }
+    });
 }
 
 export function closeDrawer() {
@@ -22,7 +28,10 @@ export function closeDrawer() {
 // Notificaitons action dispatchers
 // -------------------------------
 export function hideNotification(id) {
-    dispatch({ type: HIDE_NOTIFICATION, id });
+    dispatch({
+        type: HIDE_NOTIFICATION,
+        payload: { id }
+    });
 }
 
 // --------------------------------------------------------------------
@@ -30,7 +39,10 @@ export function hideNotification(id) {
 // that sender is an old architecture action
 // --------------------------------------------------------------------
 export function showNotification(message, severity = 'info') {
-    dispatch({ type: SHOW_NOTIFICATION, message, severity });
+    dispatch({
+        type: SHOW_NOTIFICATION,
+        payload: { message, severity }
+    });
 }
 
 

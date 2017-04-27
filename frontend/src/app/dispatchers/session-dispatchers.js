@@ -10,15 +10,24 @@ export async function restoreSession() {
         localStorage.getItem('sessionToken');
 
     try {
-        dispatch({ type: RESOTRING_SESSION, authToken });
+        dispatch({
+            type: RESOTRING_SESSION,
+            payload: { authToken }
+        });
 
         api.options.auth_token = authToken;
         const { account, system, role } = await api.auth.read_auth();
 
-        dispatch({ type: SESSION_RESTORED, account, system, role });
+        dispatch({
+            type: SESSION_RESTORED,
+            payload: { account, system, role }
+        });
 
     } catch(error) {
-        dispatch({ type: RESOTREING_SESSION_FAILED, authToken, error });
+        dispatch({
+            type: RESOTREING_SESSION_FAILED,
+            payload: { authToken, error }
+        });
     }
 }
 
@@ -28,7 +37,10 @@ export function signOut() {
 
 export async function signIn(email, password /*, keepSessionAlive = false*/) {
     try {
-        dispatch({ type: SIGNING_IN, email });
+        dispatch({
+            type: SIGNING_IN,
+            payload: { email }
+        });
 
         await api.create_auth_token({ email, password });
         const systems = api.system.list_systems();
@@ -40,9 +52,15 @@ export async function signIn(email, password /*, keepSessionAlive = false*/) {
             });
             // const longLived = keepSessionAlive;
 
-            dispatch({ type: SIGNED_IN, ...info });
+            dispatch({
+                type: SIGNED_IN,
+                payload: info
+            });
         }
     } catch (error) {
-        dispatch({ type: SIGN_IN_FAILED, email, error });
+        dispatch({
+            type: SIGN_IN_FAILED,
+            payload: { email, error }
+        });
     }
 }

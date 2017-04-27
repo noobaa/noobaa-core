@@ -86,8 +86,8 @@ const initialState = {
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onChangeLocation(state, { location } ) {
-    const { route, params } = location;
+function onChangeLocation(state, { payload } ) {
+    const { route, params } = payload;
     const { panel, area, crumbsGenerator } = routeMapping[route] || {};
     if (panel) {
         const breadcrumbs = crumbsGenerator(params);

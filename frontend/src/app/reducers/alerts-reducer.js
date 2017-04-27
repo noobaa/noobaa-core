@@ -22,7 +22,8 @@ const initialState = {
 // Action Handlers
 // ------------------------------
 
-function onStartFetchAlerts(state, { query }) {
+function onStartFetchAlerts(state, { payload }) {
+    const { query } = payload;
     const loading = state.loading + 1;
     const loadError = null;
     const { severity, read } = query;
@@ -40,7 +41,8 @@ function onStartFetchAlerts(state, { query }) {
     }
 }
 
-function onCompleteFetchAlerts(state, { requested, list }) {
+function onCompleteFetchAlerts(state, { payload }) {
+    let { requested, list } = payload;
     const loading = state.loading - 1;
     if (loading === 0) {
         const endOfList = list.length < requested;
@@ -54,18 +56,20 @@ function onCompleteFetchAlerts(state, { requested, list }) {
     }
 }
 
-function onFailFetchAlerts(state, { error }) {
+function onFailFetchAlerts(state, { payload }) {
     const loading = state.loading - 1;
 
     if (loading === 0) {
-        return { ...state, loading, loadError: error };
+        const { error: loadError } = payload;
+        return { ...state, loading, loadError };
 
     } else {
         return { ...state, loading };
     }
 }
 
-function onStartUpdateAlerts(state, { query }) {
+function onStartUpdateAlerts(state, { payload }) {
+    const { query } = payload;
     const list = state.list.map(
         item => _matchs(item, query) ?
             { ...item, updating: true } :
@@ -75,7 +79,8 @@ function onStartUpdateAlerts(state, { query }) {
     return { ...state, list };
 }
 
-function onCompleteUpdateAlerts(state, { query, read }) {
+function onCompleteUpdateAlerts(state, { payload }) {
+    const { query, read } = payload;
     const list = state.list.map(
         item => _matchs(item, query) ?
             { ...item, updating: false, read: read } :
@@ -85,7 +90,8 @@ function onCompleteUpdateAlerts(state, { query, read }) {
     return { ...state, list };
 }
 
-function onFailUpdateAlerts(state, { query }) {
+function onFailUpdateAlerts(state, { payload }) {
+    const { query } = payload;
     const list = state.list.map(
         item => _matchs(item, query) ?
             { ...item, updating: false } :
@@ -95,8 +101,9 @@ function onFailUpdateAlerts(state, { query }) {
     return { ...state, list };
 }
 
-function onUpdateAlertsUreadCount(state, { count }) {
-    return { ...state, unreadCount: count };
+function onUpdateAlertsUreadCount(state, { payload }) {
+    const { count: unreadCount } = payload;
+    return { ...state, unreadCount };
 }
 
 function onDropAlerts(state) {

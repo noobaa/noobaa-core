@@ -14,7 +14,8 @@ const initialState = {};
 // Action Handlers
 // ------------------------------
 
-function onInitForm(forms, { form: formName, values }) {
+function onInitForm(forms, { payload }) {
+    const { form: formName, values } = payload;
     const fields = mapValues(
         values,
         value => ({
@@ -36,7 +37,8 @@ function onInitForm(forms, { form: formName, values }) {
     };
 }
 
-function onUpdateForm(forms, { form, field, value }) {
+function onUpdateForm(forms, { payload }) {
+    const { form, field, value } = payload;
     if (!forms[form]) return forms;
     return {
         ...forms,
@@ -44,7 +46,8 @@ function onUpdateForm(forms, { form, field, value }) {
     };
 }
 
-function onResetForm(forms, { form }) {
+function onResetForm(forms, { payload }) {
+    const { form } = payload;
     if (!forms[form]) return forms;
     return {
         ...forms,
@@ -52,7 +55,8 @@ function onResetForm(forms, { form }) {
     };
 }
 
-function onResetFormField(forms, { form, field }) {
+function onResetFormField(forms, { payload }) {
+    const { form, field } = payload;
     if (!forms[form]) return forms;
     return {
         ...forms,
@@ -60,22 +64,24 @@ function onResetFormField(forms, { form, field }) {
     };
 }
 
-function onSetFormValidity(forms, { form, errors, warnings }) {
+function onSetFormValidity(forms, { payload }) {
+    const { form, errors, warnings } = payload;
     return {
         ...forms,
         [form]: setFormValidity(forms[form], errors, warnings)
     };
 }
 
-function onTouchForm(forms, { form }) {
+function onTouchForm(forms, { payload }) {
+    const { form } = payload;
     return {
         ...forms,
         [form]: touchForm(forms[form])
     };
 }
 
-function onDisposeForm(forms, { form }) {
-    return _removeKey(forms, form);
+function onDisposeForm(forms, { payload }) {
+    return _removeKey(forms, payload.form);
 }
 
 // --------------------------------------------

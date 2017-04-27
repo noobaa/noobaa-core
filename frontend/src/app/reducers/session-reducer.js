@@ -11,12 +11,12 @@ const initialState = null;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onRestoreLastSession(_, action) {
-    return _getUserSession(action);
+function onRestoreLastSession(_, { payload }) {
+    return _getUserSession(payload);
 }
 
-function onSignIn(_, action) {
-    return _getUserSession(action);
+function onSignIn(_, { payload }) {
+    return _getUserSession(payload);
 }
 
 function onSignOut() {

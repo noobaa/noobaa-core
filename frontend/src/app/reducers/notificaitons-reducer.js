@@ -2,7 +2,7 @@
 
 import { createReducer } from 'utils/reducer-utils';
 import { HIDE_NOTIFICATION, FAIL_CREATE_ACCOUNT, COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
-    FAIL_ACCOUNT_S3_ACCESS_UPDATE, SHOW_NOTIFICATION } from 'action-types';
+    FAIL_UPDATE_ACCOUNT_S3_ACCESS, SHOW_NOTIFICATION } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -16,33 +16,33 @@ const initialState = {
 // Action Handlers
 // ------------------------------
 
-function onHideNotification(notifications, { id }) {
+function onHideNotification(notifications, { payload}) {
     const newlist = notifications.list
-        .filter(notification => notification.id != id);
+        .filter(notification => notification.id != payload.id);
 
     return { ...notifications, list: newlist };
 }
 
-function onFailCreateAccount(notifications, { email }) {
+function onFailCreateAccount(notifications, { payload }) {
     _queueNotification(
         notifications,
-        `Creating account ${email} failed`,
+        `Creating account ${payload.email} failed`,
         'error'
     );
 }
 
-function onCompleteUpdateAccountS3Access(notifications, { email }) {
+function onCompleteUpdateAccountS3Access(notifications, { payload }) {
     _queueNotification(
         notifications,
-        `${email} S3 access updated successfully`,
+        `${payload.email} S3 access updated successfully`,
         'success'
     );
 }
 
-function onFailUpdateAccountS3Access(notifications, { email }) {
+function onFailUpdateAccountS3Access(notifications, { payload }) {
     _queueNotification(
         notifications,
-        `Updating ${email} S3 access failed`,
+        `Updating ${payload.email} S3 access failed`,
         'error'
     );
 }
@@ -51,7 +51,8 @@ function onFailUpdateAccountS3Access(notifications, { email }) {
 // REFACTOR: this is used for backword compatability where
 // that sender is an old architecture action
 // --------------------------------------------------------------------
-function onShowNotification(notifications, { severity, message }) {
+function onShowNotification(notifications, { payload }) {
+    const { severity, message } = payload;
     return _queueNotification(notifications, severity, message);
 }
 
@@ -74,6 +75,6 @@ export default createReducer(initialState, {
     [HIDE_NOTIFICATION]: onHideNotification,
     [FAIL_CREATE_ACCOUNT]: onFailCreateAccount,
     [COMPLETE_UPDATE_ACCOUNT_S3_ACCESS]: onCompleteUpdateAccountS3Access,
-    [FAIL_ACCOUNT_S3_ACCESS_UPDATE]: onFailUpdateAccountS3Access,
+    [FAIL_UPDATE_ACCOUNT_S3_ACCESS]: onFailUpdateAccountS3Access,
     [SHOW_NOTIFICATION]: onShowNotification
 });

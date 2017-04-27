@@ -1,8 +1,8 @@
 noobaa-core
 ===========
 
-MDServer [![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=MDserver)](http://146.148.16.59:8080/job/MDserver/)
-Vitaly [![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=vitaly)](http://146.148.16.59:8080/job/vitaly/)
+MDServer [![Build Status](http://13.66.231.72:8080/buildStatus/icon?job=MDserver)](http://13.66.231.72:8080/job/MDserver/)
+Vitaly [![Build Status](http://13.66.231.72:8080/buildStatus/icon?job=vitaly)](http://13.66.231.72:8080/job/vitaly/)
 
 
 ###Utils Table of Contents:

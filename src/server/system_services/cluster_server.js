@@ -725,7 +725,8 @@ function update_dns_servers(req) {
 
             let updates = _.map(target_servers, server => ({
                 _id: server._id,
-                dns_servers: dns_servers_config.dns_servers
+                dns_servers: dns_servers_config.dns_servers,
+                search_domains: dns_servers_config.search_domain
             }));
             return system_store.make_changes({
                 update: {
@@ -756,7 +757,7 @@ function update_dns_servers(req) {
 
 function apply_updated_dns_servers(req) {
     return P.fcall(function() {
-            return os_utils.set_dns_server(req.rpc_params.dns_servers);
+            return os_utils.set_dns_server(req.rpc_params.dns_servers, req.rpc_params.search_domain);
         })
         .then(() => {
             return os_utils.restart_services();
@@ -1235,7 +1236,7 @@ function read_server_config(req) {
                 (connection_reply !== 'CONNECTED' && 'WAS_NOT_TESTED') ||
                 'CONNECTED';
 
-            const { dns_servers, ntp = {} } = srvconf;
+            const { dns_servers, search_domains, ntp = {} } = srvconf;
             const { timezone, ntp_server } = ntp;
             const used_proxy = ph_proxy;
 
@@ -1243,6 +1244,7 @@ function read_server_config(req) {
                 phone_home_connectivity_status,
                 using_dhcp,
                 dns_servers,
+                search_domains,
                 timezone,
                 ntp_server,
                 used_proxy
@@ -1620,6 +1622,7 @@ function _update_rs_if_needed(IPs, name, is_config) {
 
 
 function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
+    const SEARCH_DOMAIN_CONFIG = '#NooBaa Configured Search';
     if (!fs.existsSync('/etc/ntp.conf') || !fs.existsSync('/etc/resolv.conf')) {
         cluster_server.ntp = {
             timezone: os_utils.get_time_config().timezone
@@ -1630,9 +1633,10 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
             os_utils.get_time_config(),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'),
+            fs_utils.find_all_lines_in_file('/etc/resolv.conf', SEARCH_DOMAIN_CONFIG),
             dhcp_dns_servers && dns.getServers()
         )
-        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line, dhcp_dns) {
+        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line, search_domains, dhcp_dns) {
             cluster_server.ntp = {
                 timezone: time_config.timezone
             };
@@ -1641,7 +1645,7 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
                 dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
             }
 
-            var dns_servers = [];
+            let dns_servers = [];
             if (primary_dns_line && primary_dns_line.split(' ')[0] === 'nameserver') {
                 let pri_dns = primary_dns_line.split(' ')[1];
                 dns_servers.push(pri_dns);
@@ -1660,6 +1664,16 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
             if (dhcp_dns_servers && dhcp_dns) {
                 // We only support up to 2 DNS servers so we slice the first two
                 cluster_server.dns_servers = dhcp_dns.slice(0, 2);
+            }
+
+            let domains = [];
+            if (search_domains) {
+                domains = search_domains.slice('search'.length, -SEARCH_DOMAIN_CONFIG.length).split(' ');
+                dbg.log0('found configured search domain in resolv.conf:', domains);
+            }
+
+            if (domains) {
+                cluster_server.search_domains = domains;
             }
 
             return cluster_server;

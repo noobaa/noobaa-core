@@ -36,7 +36,12 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
             () => server() ? server().dns_servers : []
         );
 
+        this.serachDomains = ko.observableWithDefault(
+            () => (server() ? server().search_domains : []).join(',')
+        );
+
         this.warning = ko.pureComputed(
+
             () => {
                 if (!server()) {
                     return '';
@@ -48,8 +53,8 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
         );
 
         this.primaryDNS = ko.observableWithDefault(
-            () => dnsServers()[0]
-        )
+                () => dnsServers()[0]
+            )
             .extend({
                 required: {
                     onlyIf: () => this.secondaryDNS(),
@@ -59,8 +64,8 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
             });
 
         this.secondaryDNS = ko.observableWithDefault(
-            () => dnsServers()[1]
-        )
+                () => dnsServers()[1]
+            )
             .extend({ isIP: true });
 
         this.updating = ko.observable(false);
@@ -73,7 +78,8 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
 
         } else {
             updateServerDNSSettings(
-                this.serverSecret, this.primaryDNS(), this.secondaryDNS()
+                this.serverSecret, this.primaryDNS(), this.secondaryDNS(),
+                this.searchDomains() ? this.searchDomains().split(',') : []
             );
 
             lockActiveModal();

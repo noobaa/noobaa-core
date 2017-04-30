@@ -413,23 +413,35 @@ function set_ntp(server, timez) {
 }
 
 function get_dns_servers() {
+    let dns_config = {
+        dns_servers: [],
+        search_domains: []
+    };
+
     if (os.type() === 'Linux') {
         return promise_utils.exec("cat /etc/resolv.conf | grep NooBaa", true, true)
             .then(cmd_res => {
                 let conf_lines = cmd_res.split(/\n/);
-                return conf_lines.map(line => {
+                dns_config.dns_servers = conf_lines.map(line => {
                         let regex_res = (/nameserver (.*) #NooBaa/).exec(line);
                         return regex_res && regex_res[1];
                     })
                     .filter(regex_group => !_.isEmpty(regex_group));
+
+                dns_config.search_domains = conf_lines.map(line => {
+                        let regex_res = (/search (.*) #NooBaa/).exec(line);
+                        return regex_res && regex_res[1];
+                    })
+                    .filter(regex_group => !_.isEmpty(regex_group));
+                return dns_config;
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return P.resolve([]);
+        return P.resolve(dns_config);
     }
     throw new Error('DNS not supported on non-Linux platforms');
 }
 
-function set_dns_server(servers) {
+function set_dns_server(servers, search_domains) {
     if (os.type() === 'Linux') {
         var commands_to_exec = [];
         if (servers[0]) {
@@ -444,6 +456,11 @@ function set_dns_server(servers) {
                 servers[1] + " #NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
         } else {
             commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/#NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
+        }
+
+        if (search_domains) {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/search " +
+                search_domains + " #NooBaa Configured Search/' /etc/resolv.conf");
         }
 
         return P.each(commands_to_exec, function(command) {

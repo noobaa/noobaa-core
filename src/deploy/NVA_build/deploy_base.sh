@@ -57,6 +57,7 @@ function install_platform {
     echo "#NooBaa Configured NTP Server"     >> /etc/ntp.conf
     echo "#NooBaa Configured Primary DNS Server" >> /etc/resolv.conf
     echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
+    echo "#NooBaa Configured Search" >> /etc/resolv.conf
     sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
     ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 

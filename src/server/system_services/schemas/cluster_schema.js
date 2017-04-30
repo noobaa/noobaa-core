@@ -88,9 +88,17 @@ module.exports = {
             },
         },
 
+        search_domains: {
+            type: 'array',
+            items: {
+                type: 'string'
+            },
+        },
+
         debug_level: {
             type: 'integer'
         },
+
         //Upgrade proccess
         upgrade: {
             type: 'object',

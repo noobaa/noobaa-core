@@ -2,6 +2,8 @@
 'use strict';
 
 // const _ = require('lodash');
+const stream = require('stream');
+const crypto = require('crypto');
 const mongodb = require('mongodb');
 
 const P = require('../../util/promise');
@@ -49,9 +51,6 @@ class FuncStore {
     }
 
     create_func(func) {
-        if (!func._id) {
-            func._id = this.make_func_id();
-        }
         return P.resolve()
             .then(() => this._funcs.validate(func))
             .then(() => this._funcs.col().insertOne(func))
@@ -117,14 +116,28 @@ class FuncStore {
         const name = params.name;
         const version = params.version;
         const code_stream = params.code_stream;
+        const sha256 = crypto.createHash('sha256');
+        var size = 0;
         return new P((resolve, reject) => {
             const upload_stream = this._code_gridfs().openUploadStream(
                 this.code_filename(system, name, version));
             code_stream
                 .once('error', reject)
+                .pipe(new stream.Transform({
+                    transform(buf, encoding, callback) {
+                        size += buf.length;
+                        sha256.update(buf);
+                        callback(null, buf);
+                    }
+                }))
+                .once('error', reject)
                 .pipe(upload_stream)
                 .once('error', reject)
-                .once('finish', () => resolve(upload_stream.id));
+                .once('finish', () => resolve({
+                    id: upload_stream.id,
+                    sha256: sha256.digest('base64'),
+                    size: size,
+                }));
         });
     }
 

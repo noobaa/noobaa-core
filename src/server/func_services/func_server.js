@@ -3,13 +3,11 @@
 
 const _ = require('lodash');
 const stream = require('stream');
-const crypto = require('crypto');
 const ip_module = require('ip');
 
 const P = require('../../util/promise');
 const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
-const RpcError = require('../../rpc/rpc_error');
 const url_utils = require('../../util/url_utils');
 const server_rpc = require('../server_rpc');
 const func_store = require('./func_store');
@@ -41,15 +39,14 @@ const FUNC_CONFIG_FIELDS_IMMUTABLE = [
 function create_func(req) {
     const func_config = req.params.config;
     const func_code = req.params.code;
-    const code_sha256 = crypto.createHash('sha256');
     const func = _.defaults(
         _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE),
         FUNC_CONFIG_DEFAULTS);
+    func._id = func_store.instance().make_func_id();
     func.system = req.system._id;
     func.name = func_config.name;
     func.version = '$LATEST';
     func.last_modified = new Date();
-    func.code_size = 0;
     func.resource_name = `arn:noobaa:lambda:region:${func.system}:function:${func.name}:${func.version}`;
     if (req.params.config.pools) {
         func.pools = _.map(req.params.config.pools, pool_name =>
@@ -63,33 +60,24 @@ function create_func(req) {
 
     return P.resolve()
         .then(() => {
-            if (func_code.zipfile) {
-                return new stream.Readable({
-                    read(size) {
-                        this.push(func_code.zipfile);
-                        this.push(null);
-                    }
-                });
-            } else if (func_code.s3_key) {
-                // TODO func_code.s3_key
-            }
-            throw new Error('Unsupported code');
+            if (!func_code.zipfile) throw new Error('Unsupported code');
+            return new stream.Readable({
+                read(size) {
+                    this.push(func_code.zipfile);
+                    this.push(null);
+                }
+            });
         })
         .then(code_stream => func_store.instance().create_code_gridfs({
             system: func.system,
             name: func.name,
             version: func.version,
-            code_stream: code_stream.pipe(new stream.Transform({
-                transform(buf, encoding, callback) {
-                    func.code_size += buf.length;
-                    code_sha256.update(buf);
-                    callback(null, buf);
-                }
-            }))
+            code_stream,
         }))
-        .then(gridfs_id => {
-            func.code_sha256 = code_sha256.digest('base64');
-            func.code_gridfs_id = gridfs_id;
+        .then(res => {
+            func.code_gridfs_id = res.id;
+            func.code_sha256 = res.sha256;
+            func.code_size = res.size;
         })
         .then(() => func_store.instance().create_func(func))
         .then(() => _load_func(req))
@@ -103,11 +91,34 @@ function update_func(req) {
         config_updates.pools = _.map(func_config.pools, pool_name =>
             req.system.pools_by_name[pool_name]._id);
     }
-    if (req.params.code) {
-        // TODO update_func: missing handling for code update
-        throw new RpcError('TODO', 'Update function code is not yet implemented');
-    }
     return _load_func(req)
+        .then(() => {
+            const func = req.func;
+            const func_code = req.params.code;
+            if (!func_code) return;
+            return P.resolve()
+                .then(() => func_store.instance().delete_code_gridfs(func.code_gridfs_id))
+                .then(() => {
+                    if (!func_code.zipfile) throw new Error('Unsupported code');
+                    return new stream.Readable({
+                        read(size) {
+                            this.push(func_code.zipfile);
+                            this.push(null);
+                        }
+                    });
+                })
+                .then(code_stream => func_store.instance().create_code_gridfs({
+                    system: func.system,
+                    name: func.name,
+                    version: func.version,
+                    code_stream,
+                }))
+                .then(res => {
+                    config_updates.code_gridfs_id = res.id;
+                    config_updates.code_sha256 = res.sha256;
+                    config_updates.code_size = res.size;
+                });
+        })
         .then(() => func_store.instance().update_func(
             req.func._id,
             config_updates

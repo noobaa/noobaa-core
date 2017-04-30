@@ -393,6 +393,11 @@ function post_upgrade {
 			echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
 	fi
 
+  local noobaa_dns=$(grep 'NooBaa Configured Search' /etc/resolv.conf | wc -l)
+	if [ ${noobaa_dns} -eq 0 ]; then #was not configured yet
+			echo "#NooBaa Configured Search" >> /etc/resolv.conf			
+	fi
+
 	#Upgrade mongo to 3.2 if needed
 	upgrade_mongo_version
 

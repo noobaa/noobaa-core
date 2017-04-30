@@ -1768,12 +1768,13 @@ export function updateServerDetails(serverSecret, hostname, location) {
         .done();
 }
 
-export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
-    logAction('updateServerDNSSettings', { serverSecret, primaryDNS, secondaryDNS });
+export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, searchDomains) {
+    logAction('updateServerDNSSettings', { serverSecret, primaryDNS, secondaryDNS , searchDomains});
 
     api.cluster_server.update_dns_servers({
         target_secret: serverSecret,
-        dns_servers: [primaryDNS, secondaryDNS].filter(isDefined)
+        dns_servers: [primaryDNS, secondaryDNS].filter(isDefined),
+        search_domain: searchDomains
     })
         .then(
             () => sleep(config.serverRestartWaitInterval)

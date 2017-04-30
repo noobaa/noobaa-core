@@ -153,6 +153,17 @@ function find_line_in_file(file_name, line_sub_string) {
         });
 }
 
+// returns all lines in the file that contains the substring
+function find_all_lines_in_file(file_name, line_sub_string) {
+    return fs.readFileAsync(file_name, 'utf8')
+        .then(data => {
+            return data.split('\n')
+                .filter(function(line) {
+                    return line.indexOf(line_sub_string) > -1;
+                });
+        });
+}
+
 function get_last_line_in_file(file_name) {
     return fs.readFileAsync(file_name, 'utf8')
         .then(data => {
@@ -295,6 +306,7 @@ exports.file_must_exist = file_must_exist;
 exports.disk_usage = disk_usage;
 exports.read_dir_recursive = read_dir_recursive;
 exports.find_line_in_file = find_line_in_file;
+exports.find_all_lines_in_file = find_all_lines_in_file;
 exports.get_last_line_in_file = get_last_line_in_file;
 exports.create_path = create_path;
 exports.create_fresh_path = create_fresh_path;

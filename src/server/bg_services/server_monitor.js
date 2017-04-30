@@ -79,11 +79,14 @@ function _verify_ntp_cluster_config() {
 
 function _verify_dns_cluster_config() {
     dbg.log2('Verifying dns configuration in relation to cluster config');
-    let cluster_conf = server_conf.dns_servers;
+    let cluster_conf = {
+        dns_servers: server_conf.dns_servers,
+        search_domains: server_conf.search_domains
+    };
     return os_utils.get_dns_servers()
-        .then(platform_dns_servers => {
-            if (!_are_platform_and_cluster_conf_equal(platform_dns_servers, cluster_conf)) {
-                dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_servers, 'cluster_conf:', cluster_conf);
+        .then(platform_dns_config => {
+            if (!_are_platform_and_cluster_conf_equal(platform_dns_config, cluster_conf)) {
+                dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_config, 'cluster_conf:', cluster_conf);
                 return os_utils.set_dns_server(cluster_conf)
                     .then(() => os_utils.restart_services());
             }

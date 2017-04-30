@@ -186,7 +186,8 @@ export function openEditServerDNSSettingsModal(serverSecret) {
             params: { serverSecret }
         },
         options: {
-            title: 'Edit Server DNS Settings'
+            title: 'Edit Server DNS Settings',
+            size: 'medium'
         }
     });
 }

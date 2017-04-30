@@ -362,6 +362,12 @@ module.exports = {
                         type: 'string'
                     },
                 },
+                search_domain: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
+                }
             },
         }
     },

@@ -8,6 +8,7 @@ const ip_module = require('ip');
 const P = require('../../util/promise');
 const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
+const FuncNode = require('../../agent/func_services/func_node');
 const url_utils = require('../../util/url_utils');
 const server_rpc = require('../server_rpc');
 const func_store = require('./func_store');
@@ -231,6 +232,11 @@ function list_func_versions(req) {
         }));
 }
 
+const server_func_node = new FuncNode({
+    rpc_client: server_rpc.client,
+    storage_path: '/tmp/',
+});
+
 function invoke_func(req) {
     const time = new Date();
     return _load_func(req)
@@ -239,9 +245,7 @@ function invoke_func(req) {
         .then(() => {
             const func = req.func;
             const node = node_allocator.allocate_node(func.pools);
-            if (!node) throw new Error('invoke_func: no nodes for allocation');
-            dbg.log1('invoke_func allocate_node', node.name, node.pool);
-            return server_rpc.client.func_node.invoke_func({
+            const params = {
                 name: func.name,
                 version: func.version,
                 code_size: func.code_size,
@@ -249,7 +253,15 @@ function invoke_func(req) {
                 event: req.params.event,
                 aws_config: _make_aws_config(req),
                 rpc_options: _make_rpc_options(req),
-            }, {
+            };
+            if (!node) {
+                dbg.log0('invoking on server', func.name, req.params.event);
+                return server_func_node.invoke_func({ params });
+            }
+            dbg.log0('invoking on node',
+                func.name, req.params.event,
+                node.name, node.pool);
+            return server_rpc.client.func_node.invoke_func(params, {
                 address: node.rpc_address
             });
         })

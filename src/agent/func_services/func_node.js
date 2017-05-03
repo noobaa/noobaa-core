@@ -88,7 +88,7 @@ class FuncNode {
                         name: name,
                         version: version,
                         read_code: true
-                    }))
+                    }, req.params.rpc_options))
                     .then(res => {
                         func = res;
                         if (code_sha256 !== func.config.code_sha256 ||

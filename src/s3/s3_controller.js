@@ -885,6 +885,43 @@ class S3Controller {
     ////////////////////////////
 
 
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
+     * (aka read object)
+     */
+    get_blob(req, res) {
+        if (req.query.comp === 'blocklist') {
+            // fail bocklist requests
+            throw new AzureError(AzureError.InternalError);
+        }
+
+        return this.head_object(req, res)
+            .then(should_handle => {
+                if (should_handle === false) {
+                    // head_object already responded
+                    return false;
+                }
+                let object_md = req.object_md;
+                let params = this._object_path(req);
+                params.client = req.rpc_client;
+                let code = this.object_io.serve_http_stream(req, res, params, object_md);
+                switch (code) {
+                    case 400:
+                        throw new S3Error(S3Error.InvalidArgument);
+                    case 416:
+                        throw new S3Error(S3Error.InvalidRange);
+                    case 200:
+                        res.status(200);
+                        return false; // let the caller know we are handling the response
+                    case 206:
+                        res.status(206);
+                        return false; // let the caller know we are handling the response
+                    default:
+                        throw new AzureError(AzureError.InternalError);
+                }
+            });
+    }
+
     put_container(req, res) {
         if (req.query.comp === 'lease') {
             // break if this is a lease request.
@@ -1075,6 +1112,10 @@ class S3Controller {
                 res.setHeader('Content-Type', object_md.content_type);
                 res.setHeader('Content-Length', object_md.size);
                 res.setHeader('Accept-Ranges', 'bytes');
+                res.setHeader('x-ms-lease-status', 'unlocked');
+                res.setHeader('x-ms-lease-state', 'available');
+                res.setHeader('x-ms-blob-type', 'BlockBlob');
+                res.setHeader('x-ms-server-encrypted', false);
                 set_response_xattr(res, object_md.xattr);
                 if (this._check_md_conditions(req, res, object_md) === false) {
                     // _check_md_conditions already responded

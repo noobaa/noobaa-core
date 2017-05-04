@@ -49,7 +49,7 @@ function azure_rest(controller) {
     // app.post('/:bucket', prepare_post_bucket_req, s3_handler('post_bucket', ['delete']));
     // app.delete('/:bucket', s3_handler('delete_bucket', BUCKET_QUERIES));
     app.head('/:bucket/:key(*)', azure_handler('get_blob_properties'));
-    app.get('/:bucket/:key(*)', azure_handler('get_object'));
+    app.get('/:bucket/:key(*)', azure_handler('get_blob'));
     app.put('/:bucket/:key(*)', azure_handler('put_blob'));
     // app.post('/:bucket/:key(*)', prepare_post_object_req, s3_handler('post_object', ['uploadId', 'uploads']));
     // app.delete('/:bucket/:key(*)', s3_handler('delete_object', ['uploadId']));

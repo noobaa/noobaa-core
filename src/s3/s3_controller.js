@@ -973,28 +973,37 @@ class S3Controller {
                     Marker: req.query.marker,
                     MaxResults: req.query.maxresults,
                     Delimiter: req.query.delimiter,
-                    Blobs: reply.objects.map(obj => {
-                        let Properties = {};
-                        Properties['Last-Modified'] = (new Date(obj.info.create_time)).toUTCString();
-                        Properties.ETag = obj.info.etag;
-                        Properties['Content-Length'] = obj.info.size;
-                        Properties['Content-Type'] = obj.info.content_type;
-                        Properties['Content-Encoding'] = {};
-                        Properties['Content-Language'] = {};
-                        Properties['Content-MD5'] = {};
-                        Properties['Cache-Control'] = {};
-                        Properties['Content-Disposition'] = {};
-                        Properties.BlobType = 'BlockBlob';
-                        Properties.LeaseStatus = 'unlocked';
-                        Properties.LeaseState = 'available';
-                        Properties.ServerEncrypted = false;
-                        return {
-                            Blob: {
-                                Name: obj.key,
-                                Properties
-                            }
-                        };
-                    }),
+                    Blobs: _.concat(
+                        reply.objects.map(obj => {
+                            let Properties = {};
+                            Properties['Last-Modified'] = (new Date(obj.info.create_time)).toUTCString();
+                            Properties.ETag = obj.info.etag;
+                            Properties['Content-Length'] = obj.info.size;
+                            Properties['Content-Type'] = obj.info.content_type;
+                            Properties['Content-Encoding'] = {};
+                            Properties['Content-Language'] = {};
+                            Properties['Content-MD5'] = {};
+                            Properties['Cache-Control'] = {};
+                            Properties['Content-Disposition'] = {};
+                            Properties.BlobType = 'BlockBlob';
+                            Properties.LeaseStatus = 'unlocked';
+                            Properties.LeaseState = 'available';
+                            Properties.ServerEncrypted = false;
+                            return {
+                                Blob: {
+                                    Name: obj.key,
+                                    Properties
+                                }
+                            };
+                        }),
+                        reply.common_prefixes.map(prefix => {
+                            return {
+                                BlobPrefix: {
+                                    Name: prefix
+                                }
+                            };
+                        })
+                    ),
                 },
             }));
     }

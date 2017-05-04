@@ -7,6 +7,7 @@ const uuid = require('node-uuid');
 const dbg = require('../util/debug_module')(__filename);
 const ObjectIO = require('../api/object_io');
 const S3Error = require('./s3_errors').S3Error;
+const AzureError = require('./azure_errors').AzureError;
 const http_utils = require('../util/http_utils');
 const time_utils = require('../util/time_utils');
 
@@ -1021,6 +1022,10 @@ class S3Controller {
 
 
     put_blob(req, res) {
+        if (req.query.comp === 'block') {
+            // fail the operation for block upload (multipart)
+            throw new AzureError(AzureError.InternalError);
+        }
         this.usage_report.s3_usage_info.put_object += 1;
         let params = {
             client: req.rpc_client,

@@ -1017,7 +1017,7 @@ class S3Controller {
             client: req.rpc_client,
             bucket: req.params.bucket,
             key: req.params.key,
-            content_type: req.headers['content-type'],
+            content_type: req.headers['x-ms-blob-content-type'],
             xattr: get_request_xattr(req),
             source_stream: req,
         };

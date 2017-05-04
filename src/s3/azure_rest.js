@@ -9,7 +9,7 @@ const uuid = require('node-uuid');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 // const config = require('../../config');
-const S3Error = require('./s3_errors').S3Error;
+const AzureError = require('./azure_errors').AzureError;
 const xml_utils = require('../util/xml_utils');
 const auth_server = require('../server/common_services/auth_server');
 const system_store = require('../server/system_services/system_store').get_instance();
@@ -19,6 +19,11 @@ const system_store = require('../server/system_services/system_store').get_insta
 
 const AZURE_XML_ATTRS = Object.freeze({
     ServiceEndpoint: 'http://azure.noobaa/'
+});
+
+
+const RPC_ERRORS_TO_AZURE = Object.freeze({
+    BUCKET_ALREADY_EXISTS: AzureError.ContainerAlreadyExists,
 });
 
 
@@ -81,7 +86,7 @@ function azure_rest(controller) {
         let func = controller[func_name];
         if (!func) {
             dbg.error('AZURE TODO (NotImplemented)', func_name, req.method, req.originalUrl);
-            next(new S3Error(S3Error.NotImplemented));
+            next(new AzureError(AzureError.NotImplemented));
             return;
         }
         P.fcall(() => func.call(controller, req, res))
@@ -136,7 +141,7 @@ function azure_rest(controller) {
             .then(() => next())
             .catch(err => {
                 dbg.error('authenticate_azure_request: ERROR', err.stack || err);
-                next(new S3Error(S3Error.SignatureDoesNotMatch));
+                next(new AzureError(AzureError.InternalError));
             });
     }
 
@@ -145,8 +150,8 @@ function azure_rest(controller) {
      */
     function handle_common_azure_errors(err, req, res, next) {
         if (!err) {
-            dbg.log0('S3 InvalidURI.', req.method, req.originalUrl);
-            err = new S3Error(S3Error.InvalidURI);
+            dbg.log0('Azure InvalidURI.', req.method, req.originalUrl);
+            err = new AzureError(AzureError.InternalError);
         }
         if (err.message === 'S3_REQUEST') {
             return next();
@@ -154,11 +159,17 @@ function azure_rest(controller) {
         if (err.rpc_code === 'NO_SUCH_BUCKET') {
             res.status(404).send('The specified container does not exist.');
         }
+        let azure_err =
+            ((err instanceof AzureError) && err) ||
+            new AzureError(RPC_ERRORS_TO_AZURE[err.rpc_code] || AzureError.InternalError);
+        let reply = azure_err.reply();
+        dbg.error('AZURE ERROR', reply,
+            req.method, req.originalUrl,
+            JSON.stringify(req.headers),
+            err.stack || err);
+        // This doesn't need to affect response if we fail to register
+        res.status(azure_err.http_code).send(reply);
     }
-
-
-
-
 }
 
 

@@ -1018,6 +1018,11 @@ class S3Controller {
                 res.setHeader('x-ms-lease-status', 'unlocked');
                 res.setHeader('x-ms-lease-state', 'available');
             });
+        // .catch(err => {
+        //     if (err.rpc_code === 'NO_SUCH_BUCKET') {
+        //         throw new AzureError(AzureError.InternalError);
+        //     }
+        // });
     }
 
 
@@ -1026,6 +1031,21 @@ class S3Controller {
             // fail the operation for block upload (multipart)
             throw new AzureError(AzureError.InternalError);
         }
+
+        if (!_.isEmpty(req.query) ||
+            req.headers['x-ms-copy-source']) {
+            // break if this is a lease request.
+            // for now 200 will be returned fir any lease request.
+            // if needed we can fake it to return the expected success codes:
+            // Acquire: A successful operation returns status code 201 (Created).
+            // Renew: A successful operation returns status code 200 (OK).
+            // Change: A successful operation returns status code 200 (OK).
+            // Release: A successful operation returns status code 200 (OK).
+            // Break: A successful operation returns status code 202 (Accepted).
+            // https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
+            return;
+        }
+
         this.usage_report.s3_usage_info.put_object += 1;
         let params = {
             client: req.rpc_client,

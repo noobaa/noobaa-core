@@ -891,8 +891,29 @@ class S3Controller {
      */
     get_blob(req, res) {
         if (req.query.comp === 'blocklist') {
-            // fail bocklist requests
-            throw new AzureError(AzureError.InternalError);
+            return req.rpc_client.object.read_object_md(this._object_path(req))
+                .then(object_md => {
+                    const block_size = 32 * 1024 * 1024;
+                    let num_blocks = Math.floor(object_md.size / block_size);
+                    let last_block_size = object_md.size % block_size;
+                    if (last_block_size) num_blocks += 1;
+                    return {
+                        BlockList: {
+                            CommittedBlocks: _.times(num_blocks, i => {
+                                let Name = 'BlockId' + i;
+                                let Size = i < num_blocks - 1 ? block_size : last_block_size;
+                                return {
+                                    Block: {
+                                        Name,
+                                        Size
+                                    }
+                                };
+                            })
+                        }
+                    };
+                });
+            // // fail bocklist requests
+            // throw new AzureError(AzureError.InternalError);
         }
 
         return this.head_object(req, res)

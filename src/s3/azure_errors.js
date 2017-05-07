@@ -36,6 +36,10 @@ const errors_defs = [{
     message: 'The specified container already exists.',
     http_code: 409,
 }, {
+    code: 'ContainerNotFound',
+    message: 'The specified container does not exist.',
+    http_code: 404,
+}, {
     code: 'NotImplemented',
     message: 'functionality not implemented.',
     http_code: 501,

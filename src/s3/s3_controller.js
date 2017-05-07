@@ -1075,12 +1075,12 @@ class S3Controller {
             .then(bucket_info => {
                 res.setHeader('x-ms-lease-status', 'unlocked');
                 res.setHeader('x-ms-lease-state', 'available');
+            })
+            .catch(err => {
+                if (err.rpc_code === 'NO_SUCH_BUCKET') {
+                    throw new AzureError(AzureError.ContainerNotFound);
+                }
             });
-        // .catch(err => {
-        //     if (err.rpc_code === 'NO_SUCH_BUCKET') {
-        //         throw new AzureError(AzureError.InternalError);
-        //     }
-        // });
     }
 
 

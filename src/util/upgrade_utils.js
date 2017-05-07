@@ -1,9 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var fs = require('fs');
-var dbg = require('./debug_module')(__filename);
-var spawn = require('child_process').spawn;
+const fs = require('fs');
+const dbg = require('./debug_module')(__filename);
+const spawn = require('child_process').spawn;
+const fs_utils = require('./fs_utils');
 
 function pre_upgrade(upgrade_file) {
     dbg.log0('UPGRADE:', 'pre_upgrade called with upgrade_file =', upgrade_file);
@@ -30,6 +31,8 @@ function do_upgrade(upgrade_file, is_clusterized) {
     var stdout = fs.openSync(fname, 'a');
     var stderr = fs.openSync(fname, 'a');
     let cluster_str = is_clusterized ? 'cluster' : '';
+    // remove /tmp/test/ before calling upgrade.sh
+    fs_utils.folder_delete('/tmp/test/');
     dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file, 'fsuffix', fsuffix, cluster_str);
     spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh',
         'from_file', upgrade_file,

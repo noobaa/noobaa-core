@@ -198,6 +198,7 @@ class NodesMonitor extends EventEmitter {
     stop() {
         dbg.log0('stoping nodes_monitor');
         this._started = false;
+        this._close_all_nodes_connections();
         this._clear();
     }
 
@@ -565,6 +566,13 @@ class NodesMonitor extends EventEmitter {
         if (!item) throw new RpcError('NODE_NOT_FOUND', node_id);
         this._set_connection(item, conn);
     }
+
+    _close_all_nodes_connections() {
+        for (const item of this._map_node_id.values()) {
+            this._close_node_connection(item);
+        }
+    }
+
 
     _close_node_connection(item) {
         if (!item.connection) return;

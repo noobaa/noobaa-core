@@ -411,10 +411,10 @@ export async function updateFuncCode(name, version, patches) {
             });
         }
 
-        notify(`Func ${config.name} code updated successfully`, 'success');
+        notify(`Func ${name} code updated successfully`, 'success');
 
     } catch (error) {
-        notify(`Func ${config.name} code update failed`, 'error');
+        notify(`Func ${name} code update failed`, 'error');
     }
 }
 

@@ -3,7 +3,7 @@
 import template from './func-panel.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { funcInfo, uiState, routeContext } from 'model';
+import { funcInfo, uiState } from 'model';
 
 class FuncPanelViewModel extends BaseViewModel {
     constructor() {

@@ -1774,7 +1774,7 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, 
     api.cluster_server.update_dns_servers({
         target_secret: serverSecret,
         dns_servers: [primaryDNS, secondaryDNS].filter(isDefined),
-        search_domain: searchDomains
+        search_domains: searchDomains
     })
         .then(
             () => sleep(config.serverRestartWaitInterval)

@@ -8,7 +8,7 @@ const url = require('url');
 const dns = require('dns');
 const P = require('./promise');
 const os_utils = require('./os_utils');
-const promise_utils = require('promise_utils');
+const promise_utils = require('./promise_utils');
 
 const DEFAULT_PING_OPTIONS = {
     timeout: 5000,
@@ -47,31 +47,35 @@ function _ping_ip(session, ip) {
 }
 
 function dns_resolve(target, options) {
-    let resolved_successfully = false;
-    let current = -1;
     const modified_target = url.parse(target).hostname || target;
     return os_utils.get_dns_servers()
-        .then(dns_config =>
-            promise_utils.pwhile(
-                () => !resolved_successfully && current < dns_config.search_domains.length,
-                () => {
-                    current += 1;
-                    return P.fromCallback(callback => dns.resolve(modified_target + '.' + dns_config.search_domains[current],
-                            (options && options.rrtype) || 'A', callback))
-                        .then(() => {
-                            dbg.log3('Resolved DNS name successfuly with', modified_target + '.' + dns_config.search_domains[current]);
-                            resolved_successfully = true;
+        .then(dns_config => {
+            if (dns_config.search_domains.length) {
+                let resolved_successfully = false;
+                let current = -1;
+                return promise_utils.pwhile(
+                        () => !resolved_successfully && current < dns_config.search_domains.length,
+                        () => {
+                            current += 1;
+                            return P.fromCallback(callback => dns.resolve(modified_target + '.' + dns_config.search_domains[current],
+                                    (options && options.rrtype) || 'A', callback))
+                                .then(() => {
+                                    dbg.log3('Resolved DNS name successfuly with', modified_target + '.' + dns_config.search_domains[current]);
+                                    resolved_successfully = true;
+                                })
+                                .catch(_.noop);
                         })
-                        .catch(_.noop);
-                })
-            .then(() => {
-                if (resolved_successfully) {
-                    return P.resolve();
-                }
-                return P.fromCallback(callback => dns.resolve(modified_target,
-                    (options && options.rrtype) || 'A', callback));
-            })
-        );
+                    .then(() => {
+                        if (resolved_successfully) {
+                            return P.resolve();
+                        }
+                        return P.fromCallback(callback => dns.resolve(modified_target,
+                            (options && options.rrtype) || 'A', callback));
+                    });
+            }
+            return P.fromCallback(callback => dns.resolve(modified_target,
+                (options && options.rrtype) || 'A', callback));
+        });
 }
 
 function is_hostname(target) {

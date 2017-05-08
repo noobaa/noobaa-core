@@ -393,8 +393,8 @@ function post_upgrade {
 			echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
 	fi
 
-  local noobaa_dns=$(grep 'NooBaa Configured Search' /etc/resolv.conf | wc -l)
-	if [ ${noobaa_dns} -eq 0 ]; then #was not configured yet
+  local noobaa_search=$(grep 'NooBaa Configured Search' /etc/resolv.conf | wc -l)
+	if [ ${noobaa_search} -eq 0 ]; then #was not configured yet
 			echo "#NooBaa Configured Search" >> /etc/resolv.conf			
 	fi
 

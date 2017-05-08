@@ -892,7 +892,7 @@ function _set_debug_level_internal(req, level) {
 
 function diagnose_system(req) {
     var target_servers = [];
-    const TMP_WORK_DIR = `/tmp/diag`;
+    const TMP_WORK_DIR = `/tmp/cluster_diag`;
     const INNER_PATH = `${process.cwd()}/build`;
     const OUT_PATH = '/public/' + req.system.name + '_cluster_diagnostics.tgz';
     const WORKING_PATH = `${INNER_PATH}${OUT_PATH}`;
@@ -915,21 +915,19 @@ function diagnose_system(req) {
     });
 
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
-        .then(() => {
-            return P.each(target_servers, function(server) {
-                return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
-                        address: server_rpc.get_base_address(server.owner_address),
-                        auth_token: req.auth_token
-                    })
-                    .then(res_data => {
-                        var server_hostname = (server.heartbeat && server.heartbeat.health.os_info.hostname) || 'unknown';
-                        // Should never exist since above we delete the root folder
-                        return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
-                            .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`,
-                                res_data.data));
-                    });
-            });
-        })
+        .then(() => P.map(target_servers, function(server) {
+            return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
+                    address: server_rpc.get_base_address(server.owner_address),
+                    auth_token: req.auth_token
+                })
+                .then(res_data => {
+                    var server_hostname = (server.heartbeat && server.heartbeat.health.os_info.hostname) || 'unknown';
+                    // Should never exist since above we delete the root folder
+                    return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
+                        .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`,
+                            res_data.data));
+                });
+        }))
         .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
         .then(() => diag.pack_diagnostics(WORKING_PATH))
         .then(() => (OUT_PATH));

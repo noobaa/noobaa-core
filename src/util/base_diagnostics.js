@@ -17,22 +17,16 @@ const fs_utils = require('../util/fs_utils');
 const TMP_WORK_DIR = get_tmp_workdir();
 
 
-function prepare_diag_dir(is_clusterized) {
+function prepare_diag_dir() {
     return P.fcall(function() {
-            if (!is_clusterized) {
-                return fs_utils.folder_delete(TMP_WORK_DIR);
-            }
-            return;
+            return fs_utils.folder_delete(TMP_WORK_DIR);
         })
         .then(function() {
             return fs_utils.file_delete(process.cwd() + '/build/public/diagnose.tgz');
         })
         .then(function() {
-            if (!is_clusterized) {
-                console.log('creating ', TMP_WORK_DIR);
-                return fs_utils.create_path(TMP_WORK_DIR);
-            }
-            return;
+            console.log('creating ', TMP_WORK_DIR);
+            return fs_utils.create_path(TMP_WORK_DIR);
         });
 }
 
@@ -57,7 +51,6 @@ function collect_basic_diagnostics(limit_logs_size) {
         .then(() => 'ok')
         .catch(err => {
             console.error('Error in collecting basic diagnostics', err);
-            throw new Error('Error in collecting basic diagnostics ' + err);
         });
 }
 

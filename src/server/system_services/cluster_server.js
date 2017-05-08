@@ -726,7 +726,7 @@ function update_dns_servers(req) {
             let updates = _.map(target_servers, server => ({
                 _id: server._id,
                 dns_servers: dns_servers_config.dns_servers,
-                search_domains: dns_servers_config.search_domain
+                search_domains: dns_servers_config.search_domains
             }));
             return system_store.make_changes({
                 update: {
@@ -757,7 +757,7 @@ function update_dns_servers(req) {
 
 function apply_updated_dns_servers(req) {
     return P.fcall(function() {
-            return os_utils.set_dns_server(req.rpc_params.dns_servers, req.rpc_params.search_domain);
+            return os_utils.set_dns_server(req.rpc_params.dns_servers, req.rpc_params.search_domains);
         })
         .then(() => {
             return os_utils.restart_services();
@@ -1633,7 +1633,7 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
             os_utils.get_time_config(),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'),
-            fs_utils.find_all_lines_in_file('/etc/resolv.conf', SEARCH_DOMAIN_CONFIG),
+            fs_utils.find_line_in_file('/etc/resolv.conf', SEARCH_DOMAIN_CONFIG),
             dhcp_dns_servers && dns.getServers()
         )
         .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line, search_domains, dhcp_dns) {
@@ -1667,12 +1667,12 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
             }
 
             let domains = [];
-            if (search_domains) {
+            if (search_domains && search_domains.split(' ')[0] === 'search') {
                 domains = search_domains.slice('search'.length, -SEARCH_DOMAIN_CONFIG.length).split(' ');
                 dbg.log0('found configured search domain in resolv.conf:', domains);
             }
 
-            if (domains) {
+            if (domains.length) {
                 cluster_server.search_domains = domains;
             }
 

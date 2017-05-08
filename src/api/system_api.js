@@ -808,7 +808,7 @@ module.exports = {
                         type: 'string'
                     },
                 },
-                search_domain: {
+                search_domains: {
                     type: 'array',
                     items: {
                         type: 'string'

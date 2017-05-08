@@ -190,7 +190,7 @@ function get_cluster_info() {
             ntp_server: cinfo.ntp && cinfo.ntp.server,
             timezone: cinfo.ntp && cinfo.ntp.timezone,
             dns_servers: cinfo.dns_servers || [],
-            search_domain: cinfo.search_domains || [],
+            search_domains: cinfo.search_domains || [],
             time_epoch: time_epoch
         };
 

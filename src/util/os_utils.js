@@ -458,9 +458,11 @@ function set_dns_server(servers, search_domains) {
             commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/#NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
         }
 
-        if (search_domains) {
+        if (search_domains.length) {
             commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/search " +
                 search_domains + " #NooBaa Configured Search/' /etc/resolv.conf");
+        } else {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/resolv.conf");
         }
 
         return P.each(commands_to_exec, function(command) {

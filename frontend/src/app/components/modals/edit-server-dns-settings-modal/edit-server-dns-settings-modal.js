@@ -36,7 +36,7 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
             () => server() ? server().dns_servers : []
         );
 
-        this.serachDomains = ko.observableWithDefault(
+        this.searchDomains = ko.observableWithDefault(
             () => (server() ? server().search_domains : []).join(',')
         );
 
@@ -77,10 +77,8 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
             this.errors.showAllMessages();
 
         } else {
-            updateServerDNSSettings(
-                this.serverSecret, this.primaryDNS(), this.secondaryDNS(),
-                this.searchDomains() ? this.searchDomains().split(',') : []
-            );
+            const sdomains = (this.searchDomains() ? this.searchDomains().split(',') : []).map(d => d.trim());
+            updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), sdomains);
 
             lockActiveModal();
             this.updating(true);

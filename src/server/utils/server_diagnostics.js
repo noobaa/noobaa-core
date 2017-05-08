@@ -16,8 +16,7 @@ const SHORT_EXEC_TIMEOUT = 5 * 1000;
 
 //TODO: Add temp collection dir as param
 function collect_server_diagnostics(req) {
-    let local_cluster = system_store.get_local_cluster_info();
-    return base_diagnostics.prepare_diag_dir(local_cluster && local_cluster.is_clusterized)
+    return base_diagnostics.prepare_diag_dir()
         .then(() => base_diagnostics.collect_basic_diagnostics())
         .then(() => {
 

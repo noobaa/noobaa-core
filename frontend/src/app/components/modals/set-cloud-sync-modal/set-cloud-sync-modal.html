@@ -24,14 +24,18 @@
         <div class="val-msg" ko.validationMessage="targetBucket"></div>
     </editor>
 
-    <h2 class="heading3 push-both">
+    <h2 class="heading3 push-prev">
         Configure policy
     </h2>
-    <div class="direction-line text-left push-next hpad" ko.css.disabled="!targetBucket()">
+    <div class="direction-line" ko.css.disabled="!targetBucket()">
         Source:
         <span ko.text="bucketName"></span>
-        <svg-icon class="icon-small left" params="name: leftSymbol"></svg-icon>
-        <svg-icon class="icon-small right" params="name: rightSymbol"></svg-icon>
+        <svg-icon
+            class="icon-small left"
+            params="name: leftSymbol">
+        </svg-icon><svg-icon
+            class="icon-small right"
+            params="name: rightSymbol"></svg-icon>
         </span>
         Target:
         <span ko.text="targetBucketName"></span>
@@ -41,7 +45,7 @@
         label: 'Sync Bucket Every',
         disabled: !targetBucket(),
         insertValMessages: false
-    " class="push-prev">
+    ">
             <div class="row">
                 <input class="push-next" type="Number"  min="1"
                     ko.value="frequency"

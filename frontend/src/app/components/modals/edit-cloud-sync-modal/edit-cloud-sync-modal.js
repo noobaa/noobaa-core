@@ -26,18 +26,21 @@ const frequencyUnitOptions = deepFreeze([
 const directions = deepFreeze([
     {
         value: 3,
-        label: 'Bi directional',
-        symbol: '<-->'
+        label: 'Bi-Direcitonal',
+        leftSymbol: 'arrow-left',
+        rightSymbol: 'arrow-right'
     },
     {
         value: 1,
-        label: 'Source to target',
-        symbol: '--->'
+        label: 'Source to Target',
+        leftSymbol: 'arrow-line',
+        rightSymbol: 'arrow-right'
     },
     {
         value: 2,
-        label: 'Target to source',
-        symbol: '<---'
+        label: 'Target to Source',
+        leftSymbol: 'arrow-left',
+        rightSymbol: 'arrow-line'
     }
 ]);
 
@@ -94,13 +97,20 @@ class EditCloudSyncModalViewModel extends BaseViewModel {
             () => policy() && bitsToNumber(policy().c2n_enabled, policy().n2c_enabled)
         );
 
-        this.directionSymbol = ko.pureComputed(
+        this.directionOption = ko.pureComputed(
             () => this.direction() && directions
                 .find(
                     dir => dir.value === this.direction()
                 )
-                .symbol
         );
+
+        this.leftSymbol = ko.pureComputed(
+            () => this.directionOption().leftSymbol
+        )
+
+        this.rightSymbol = ko.pureComputed(
+            () => this.directionOption().rightSymbol
+        )
 
         this.directionOptions = directions;
 

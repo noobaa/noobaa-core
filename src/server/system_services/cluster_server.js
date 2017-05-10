@@ -517,7 +517,7 @@ function news_config_servers(req) {
                         cutil.get_topology().config_servers
                     ));
 
-                    //TODO:: NBNB Update connection string for our mongo connections, currently only seems needed for
+                    //TODO:: Update connection string for our mongo connections, currently only seems needed for
                     //Replica sets =>
                     //Need to close current connections and re-open (bg_worker, all webservers)
                     //probably best to use publish_to_cluster
@@ -898,6 +898,7 @@ function diagnose_system(req) {
     const OUT_PATH = '/public/' + req.system.name + '_cluster_diagnostics.tgz';
     const WORKING_PATH = `${INNER_PATH}${OUT_PATH}`;
     if (req.rpc_params.target_secret) {
+
         let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
         if (!cluster_server) {
             throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
@@ -905,6 +906,12 @@ function diagnose_system(req) {
         target_servers.push(cluster_server);
     } else {
         _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
+    }
+
+    //In cases of a single server, address might not be publicly available and so using it might fail
+    //This case does not happen when clusterized, but as a WA for a single server, use localhost (see #2803)
+    if (!system_store.get_local_cluster_info().is_clusterized) {
+        target_servers[0].owner_address = '127.0.0.1';
     }
 
     Dispatcher.instance().activity({
@@ -916,7 +923,7 @@ function diagnose_system(req) {
     });
 
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
-        .then(() => P.map(target_servers, function(server) {
+        .then(() => P.map(target_servers, function(server) {            
             return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
                     address: server_rpc.get_base_address(server.owner_address),
                     auth_token: req.auth_token

@@ -11,7 +11,7 @@
             options: connectionOptions,
             selected: connection
         "></dropdown>
-        <div class="val-msg" data-bind="validationMessage: connection"></div>
+        <div class="val-msg" ko.validationMessage="validationMessage: connection"></div>
     </editor>
 
      <editor params="label: 'Target Bucket', disabled: !targetBucketsOptions()">
@@ -21,12 +21,21 @@
             options: targetBucketsOptions,
             selected: targetBucket
         "></dropdown>
-        <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
+        <div class="val-msg" ko.validationMessage="targetBucket"></div>
     </editor>
 
-    <h2 class="heading3 push-prev">
+    <h2 class="heading3 push-both">
         Configure policy
     </h2>
+    <div class="status-line text-center push-next alt-bg-dark">
+        Source:
+        <span ko.text="bucketName"></span>
+        <svg-icon class="icon-small" params="name: leftSymbol"></svg-icon>
+        <svg-icon class="icon-small" params="name: rightSymbol"></svg-icon>
+        </span>
+        Target:
+        <span ko.text="targetBucketName"></span>
+    </div>
 
     <editor params="
         label: 'Sync Bucket Every',
@@ -34,18 +43,16 @@
         insertValMessages: false
     ">
             <div class="row">
-                <input class="push-next" type="Number"  min="1" data-bind="
-                    value: frequency,
-                    enable: targetBucket
-                "/>
-
+                <input class="push-next" type="Number"  min="1"
+                    ko.value="frequency"
+                    ko.enable="targetBucket"/>
                 <dropdown class="freq-unit" params="
                     selected: frequencyUnit,
                     options: frequencyUnitOptions,
                     disabled: !targetBucket()
                 "></dropdown>
             </div>
-            <span class="val-msg" data-bind="validationMessage: frequency"></span>
+            <span class="val-msg" ko.validationMessage="frequency"></span>
     </editor>
 
     <editor params="
@@ -68,13 +75,12 @@
 </section>
 
 <div class="row content-middle align-end">
-    <button class="link alt-colors push-next" data-bind="click: cancel">
+    <button class="link alt-colors push-next" ko.click="cancel">
         Cancel
     </button>
-    <button class="btn" data-bind="
-        click: save,
-        shakeOnClick: errors().length
-    ">
+    <button class="btn"
+        ko.click="save"
+        ko.shakeOnClick="errors().length">
         Save
     </button>
 </div>

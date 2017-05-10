@@ -1,27 +1,26 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="column greedy">
-    <div class="status-line text-center push-next">
+    <div class="status-line text-center push-next alt-bg-dark">
         Source:
-        <span data-bind="text: sourceBucket"></span>
-        <span class="dir-symbol" data-bind="text: directionSymbol"></span>
+        <span ko.text="sourceBucket"></span>
+        <svg-icon class="icon-small" params="name: leftSymbol"></svg-icon>
+        <svg-icon class="icon-small" params="name: rightSymbol"></svg-icon>
         Target:
-        <span data-bind="text: targetBucket"></span>
+        <span ko.text="targetBucket"></span>
     </div>
 
 
     <editor params="label: 'Sync Bucket Every', insertValMessages: false">
         <div class="row">
-            <input class="push-next" type="Number"  min="1" data-bind="
-                value: frequency
-            "/>
+            <input class="push-next" type="Number"  min="1" ko.value="frequency"/>
 
             <dropdown class="freq-unit" params="
                 selected: frequencyUnit,
                 options: frequencyUnitOptions
             "></dropdown>
         </div>
-        <sapn class="val-msg" data-bind="validationMessage: frequency"></sapn>
+        <sapn class="val-msg" ko.validationMessage="frequency"></sapn>
     </editor>
 
     <editor params="label: 'Sync Type', insertValMessages: false">
@@ -39,13 +38,10 @@
 </section>
 
 <div class="row content-middle align-end push-prev">
-    <button class="link alt-colors push-next" data-bind="click: cancel">
+    <button class="link alt-colors push-next" ko.click="cancel">
         Cancel
     </button>
-    <button class="btn" data-bind="
-        click: save,
-        shakeOnClick: errors().length
-    ">
+    <button class="btn" ko.click="save" ko.shakeOnClick="errors().length">
         Save
     </button>
 </div>

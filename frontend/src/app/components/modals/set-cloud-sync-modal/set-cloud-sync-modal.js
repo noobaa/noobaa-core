@@ -29,15 +29,21 @@ const frequencyUnitOptions = deepFreeze([
 const directionOptions = deepFreeze([
     {
         value: 3,
-        label: 'Bi-Direcitonal'
+        label: 'Bi-Direcitonal',
+        leftSymbol: 'arrow-left',
+        rightSymbol: 'arrow-right'
     },
     {
         value: 1,
-        label: 'Source to Target'
+        label: 'Source to Target',
+        leftSymbol: 'arrow-line',
+        rightSymbol: 'arrow-right'
     },
     {
         value: 2,
-        label: 'Target to Source'
+        label: 'Target to Source',
+        leftSymbol: 'arrow-left',
+        rightSymbol: 'arrow-line'
     }
 ]);
 
@@ -151,6 +157,26 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
                     message: 'Please select a bucket from the list'
                 }
             });
+
+        this.directionOption = ko.pureComputed(
+            () => this.direction() && directionOptions
+                .find(
+                    dir => dir.value === this.direction()
+                )
+        );
+
+        this.leftSymbol = ko.pureComputed(
+            () => this.directionOption().leftSymbol
+        )
+
+        this.rightSymbol = ko.pureComputed(
+            () => this.directionOption().rightSymbol
+        )
+
+        this.targetBucketName = ko.pureComputed(() => {
+            console.log('this.targetBucket', this.targetBucket);
+            return this.targetBucket() ? this.targetBucket() : 'Not configured';
+        });
 
         this.direction = ko.observable(3);
         this.directionOptions = directionOptions;

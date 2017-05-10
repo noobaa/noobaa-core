@@ -1108,7 +1108,7 @@ export function uploadFiles(bucketName, files) {
 export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
-    const regexp = /=>(\w{3}):\/\/([0-9.]+):(\d+)/;
+    const regexp = /=>(\w{3}):\/\/\[?([.:0-9a-fA-F]+)\]?:(\d+)$/;
     const { nodeTestInfo } = model;
 
     nodeTestInfo({

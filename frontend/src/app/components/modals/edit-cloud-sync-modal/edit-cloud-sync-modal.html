@@ -4,13 +4,15 @@
     <div class="direction-line text-center push-next alt-bg-dark">
         Source:
         <span ko.text="sourceBucket"></span>
-        <svg-icon class="icon-small left" params="name: leftSymbol"></svg-icon>
-        <svg-icon class="icon-small right" params="name: rightSymbol"></svg-icon>
+        <svg-icon
+             class="icon-small left"
+             params="name: leftSymbol">
+        </svg-icon><svg-icon
+             class="icon-small right"
+             params="name: rightSymbol"></svg-icon>
         Target:
         <span ko.text="targetBucket"></span>
     </div>
-
-
     <editor params="label: 'Sync Bucket Every', insertValMessages: false">
         <div class="row">
             <input class="push-next" type="Number"  min="1" ko.value="frequency"/>

@@ -2,32 +2,13 @@
 
 import template from './server-diagnostics-form.html';
 import BaseViewModel from 'components/base-view-model';
-import TestResultRowViewModel from './test-result-row';
 import ko from 'knockout';
 import { systemInfo, collectDiagnosticsState } from 'model';
-import { deepFreeze, keyByProperty } from 'utils/core-utils';
 import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
-
-const columns = deepFreeze([
-    {
-        name: 'result',
-        type: 'icon'
-    },
-    {
-        name: 'address',
-        label: 'IP Address'
-    },
-    {
-        name: 'name',
-        label: 'Server Name'
-    }
-]);
 
 class ServerDiagnosticsFormViewModel extends BaseViewModel {
     constructor({ serverSecret }) {
         super();
-
-        this.columns = columns;
 
         const servers = ko.pureComputed(
             () => systemInfo() ? systemInfo().cluster.shards[0].servers : []
@@ -36,23 +17,6 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
         this.server = ko.pureComputed(
             () => servers().find(
                 ({ secret }) => secret === ko.unwrap(serverSecret)
-            )
-        );
-
-        this.testResults = ko.pureComputed(
-            () => {
-                if (!this.server()) {
-                    return {};
-                }
-
-                const { results = [] } = this.server().services_status.cluster_communication;
-                return keyByProperty(results, 'secret', ({ status }) => status);
-            }
-        );
-
-        this.otherServers = ko.pureComputed(
-            () => servers().filter(
-                ({ secret }) => secret !== ko.unwrap(serverSecret)
             )
         );
 
@@ -101,10 +65,6 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
     downloadDiagnosticPack() {
         const { secret, hostname } = this.server();
         downloadServerDiagnosticPack(secret, hostname);
-    }
-
-    createServerRow(server) {
-        return new TestResultRowViewModel(server, this.testResults);
     }
 }
 

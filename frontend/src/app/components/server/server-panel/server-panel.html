@@ -12,10 +12,16 @@
             Services &amp; Infromation
         </a>
         <a class="selected" data-bind="
+            href: tabHref('communication'),
+            css: tabCss('communication')
+        ">
+            Internal Cluster Communication
+        </a>
+        <a class="selected" data-bind="
             href: tabHref('diagnostics'),
             css: tabCss('diagnostics')
         ">
-            Communication &amp; Diagnostics
+            Diagnostics
         </a>
     </nav>
 
@@ -26,10 +32,16 @@
             data-bind="css: tabCss('details')
         "></server-details-form>
 
-        <server-diagnostics-form
+        <server-communication-form
             class="tab"
             params="serverSecret: serverSecret"
-            data-bind="css: tabCss('diagnostics')
+            data-bind="css: tabCss('communication')
+        "></server-communication-form>
+
+        <server-diagnostics-form
+                class="tab"
+                params="serverSecret: serverSecret"
+                data-bind="css: tabCss('diagnostics')
         "></server-diagnostics-form>
     </div>
 </div>

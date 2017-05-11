@@ -88,9 +88,6 @@ AgentCLI.prototype.init = function() {
         .then(function(agent_conf) {
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
             _.defaults(self.params, agent_conf);
-            if (!self.params.host_id) {
-                self.params.host_id = uuid();
-            }
         })
         .then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.', err);
@@ -101,15 +98,20 @@ AgentCLI.prototype.init = function() {
                 access_key: '123',
                 secret_key: 'abc',
                 system: 'demo',
-                bucket: 'first.bucket',
-                host_id: uuid()
+                bucket: 'first.bucket'
             });
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
 
-            return os_utils.get_disk_mount_points();
+            if (!self.params.host_id) {
+                self.params.host_id = uuid();
+                return self.agent_conf.update({
+                    host_id: self.params.host_id
+                });
+            }
         })
+        .then(() => os_utils.get_disk_mount_points())
         .then(function(mount_points) {
             self.params.root_path = mount_points[0].mount;
 
@@ -262,24 +264,26 @@ AgentCLI.prototype.load = function(added_storage_paths) {
                     });
                 });
         }))
-        // .then(storage_path_nodes => {
-        //     // if no s3 agent exist for root storage path, run one
-        //     let s3_started = _.find(storage_path_nodes[0], name => this._is_s3_agent(name));
-        //     if (!s3_started) {
-        //         // create path for s3 agent. it will be used if agent_conf contains s3 role
-        //         dbg.log0(`creating s3 storage_path in ${self.params.all_storage_paths[0]}`);
-        //         return self.create_node_helper(self.params.all_storage_paths[0], {
-        //                 use_host_id: true,
-        //                 is_s3_agent: true
-        //             })
-        //             // return storage nodes that will be created according to scale
-        //             .then(() => storage_path_nodes);
-        //     }
-        //     dbg.log0(`found started s3 node ${s3_started}. skipping creation`);
-        //     // remover s3 node name from storage_path_nodes[0] so scale will be calculated according to storage nodes only.
-        //     storage_path_nodes[0] = _.reject(storage_path_nodes[0], name => this._is_s3_agent(name));
-        //     return storage_path_nodes;
-        // })
+        .then(storage_path_nodes => {
+            if (this.params.run_s3) {
+                // if no s3 agent exist for root storage path, run one
+                let s3_started = _.find(storage_path_nodes[0], name => this._is_s3_agent(name));
+                if (!s3_started) {
+                    // create path for s3 agent. it will be used if agent_conf contains s3 role
+                    dbg.log0(`creating s3 storage_path in ${self.params.all_storage_paths[0]}`);
+                    return self.create_node_helper(self.params.all_storage_paths[0], {
+                            use_host_id: true,
+                            is_s3_agent: true
+                        })
+                        // return storage nodes that will be created according to scale
+                        .then(() => storage_path_nodes);
+                }
+                dbg.log0(`found started s3 node ${s3_started}. skipping creation`);
+                // remover s3 node name from storage_path_nodes[0] so scale will be calculated according to storage nodes only.
+                storage_path_nodes[0] = _.reject(storage_path_nodes[0], name => this._is_s3_agent(name));
+            }
+            return storage_path_nodes;
+        })
         .then(storage_path_nodes => {
             var nodes_scale = parseInt(self.params.scale, 10) || 0;
             var number_of_new_paths = 0;

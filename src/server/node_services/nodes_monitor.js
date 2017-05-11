@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 2400] */
+/* eslint max-lines: ['error', 2600] */
 'use strict';
 
 const _ = require('lodash');
@@ -10,6 +10,7 @@ const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../../util/promise');
+const http_utils = require('../../util/http_utils');
 const api = require('../../api');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -42,10 +43,8 @@ const AGENT_TEST_CONNECTION_TIMEOUT = 10 * 1000;
 const NO_NAME_PREFIX = 'a-node-has-no-name-';
 
 const AGENT_INFO_FIELDS = [
-    'name',
     'version',
     'ip',
-    'host_id',
     'base_address',
     'rpc_address',
     'enabled',
@@ -55,7 +54,8 @@ const AGENT_INFO_FIELDS = [
     'os_info',
     'debug_level',
     'is_internal_agent',
-    's3_agent_info'
+    's3_agent',
+    'host_name',
 ];
 const MONITOR_INFO_FIELDS = [
     'has_issues',
@@ -182,6 +182,8 @@ class NodesMonitor extends EventEmitter {
         this.n2n_agent = this.n2n_rpc.register_n2n_agent(this.n2n_client.node.n2n_signal);
         // Notice that this is a mock up address just to ensure n2n connection authorization
         this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
+        // get ssl certificates to send to s3 agents
+        this.ssl_certs_promise = http_utils.get_ssl_certificate();
     }
 
     start() {
@@ -298,6 +300,24 @@ class NodesMonitor extends EventEmitter {
         return this._get_node_info(item);
     }
 
+    /**
+     * read_host returns information about all nodes in one host
+     */
+    read_host(host_name) {
+        this._throw_if_not_started_and_loaded();
+
+        let host_item = this._map_node_name.get(host_name);
+        if (!host_item) {
+            throw new RpcError('BAD_REQUEST', 'No such host ' + host_name);
+        }
+        let host_nodes = this._map_host_id.get(host_item.node.host_id);
+        if (!host_nodes) {
+            throw new RpcError('BAD_REQUEST', 'No such host ' + host_name);
+        }
+
+        return this._get_host_info(this._consolidate_host(host_nodes));
+    }
+
     migrate_nodes_to_pool(req) {
         this._throw_if_not_started_and_loaded();
         const nodes_identities = req.rpc_params.nodes;
@@ -359,18 +379,15 @@ class NodesMonitor extends EventEmitter {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(req.rpc_params, 'allow_offline');
 
+        if (item.node.decommissioned || item.node.decommissioning) {
+            return;
+        }
+
         return P.resolve()
             .then(() => {
-                if (!item.node.decommissioning) {
-                    item.node.decommissioning = Date.now();
-                    if (item.node.s3_agent_info) {
-                        item.node.decommissioned = item.node.decommissioning;
-                    }
-                }
-                this._set_need_update.add(item);
-                this._update_status(item);
+                this._set_decommission(item);
+                return this._update_nodes_store('force');
             })
-            .then(() => this._update_nodes_store('force'))
             .then(() => {
                 this._dispatch_node_event(item, 'decommission', `${item.node.name} was deactivated by ${req.account && req.account.email}`);
             })
@@ -384,18 +401,34 @@ class NodesMonitor extends EventEmitter {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(req.rpc_params, 'allow_offline');
 
+        if (!item.node.decommissioned && !item.node.decommissioning) {
+            return;
+        }
+
         return P.resolve()
             .then(() => {
-                delete item.node.decommissioning;
-                delete item.node.decommissioned;
-                this._set_need_update.add(item);
-                this._update_status(item);
+                this._clear_decommission(item);
+                return this._update_nodes_store('force');
             })
-            .then(() => this._update_nodes_store('force'))
             .then(() => {
                 this._dispatch_node_event(item, 'recommission', `${item.node.name} was reactivated by ${req.account && req.account.email}`);
             });
 
+    }
+
+    update_nodes_services(req) {
+        this._throw_if_not_started_and_loaded();
+        return P.map(req.rpc_params.updates, update => {
+                const item = this._get_node(update.node, 'allow_offline');
+                if (update.enabled) {
+                    if (!item.node.decommissioned && !item.node.decommissioning) return;
+                    this._clear_decommission(item);
+                } else {
+                    if (item.node.decommissioned || item.node.decommissioning) return;
+                    this._set_decommission(item);
+                }
+            })
+            .then(() => this._update_nodes_store('force'));
     }
 
 
@@ -427,6 +460,7 @@ class NodesMonitor extends EventEmitter {
         this._map_node_id = new Map();
         this._map_peer_id = new Map();
         this._map_node_name = new Map();
+        this._map_host_id = new Map();
         this._set_need_update = new Set();
         this._set_need_rebuild = new Set();
         this._set_need_rebuild_iter = null;
@@ -472,6 +506,9 @@ class NodesMonitor extends EventEmitter {
         };
         dbg.log0('_add_existing_node', item.node.name);
         this._add_node_to_maps(item);
+        if (node.host_id) {
+            this._add_node_to_hosts_map(node.host_id, item);
+        }
         this._set_node_defaults(item);
     }
 
@@ -534,6 +571,14 @@ class NodesMonitor extends EventEmitter {
         this._map_node_id.set(node_id, item);
         this._map_peer_id.set(peer_id, item);
         this._map_node_name.set(name, item);
+    }
+
+    _add_node_to_hosts_map(host_id, item) {
+        let host_nodes = this._map_host_id.get(host_id);
+        if (!host_nodes) {
+            this._map_host_id.set(host_id, host_nodes = []);
+        }
+        host_nodes.push(item);
     }
 
     _remove_node_from_maps(item) {
@@ -699,6 +744,26 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._run_node(item));
     }
 
+
+    _set_decommission(item) {
+        if (!item.node.decommissioning) {
+            item.node.decommissioning = Date.now();
+            if (item.node.s3_agent) {
+                item.node.decommissioned = item.node.decommissioning;
+            }
+        }
+        this._set_need_update.add(item);
+        this._update_status(item);
+    }
+
+    _clear_decommission(item) {
+        delete item.node.decommissioning;
+        delete item.node.decommissioned;
+        this._set_need_update.add(item);
+        this._update_status(item);
+    }
+
+
     _get_agent_info(item) {
         if (item.node.deleted) return;
         if (!item.connection) return;
@@ -729,8 +794,12 @@ class NodesMonitor extends EventEmitter {
                         // we take the name the agent sent as base, and add suffix if needed
                         // to prevent collisions.
                         if (item.node_from_store) {
-                            delete updates.name;
+                            if (info.host_id !== item.node.host_id) {
+                                dbg.error(`inconsistent host_id sent by agent. original is ${item.node.host_id} now received ${info.host_id}`);
+                            }
                         } else {
+                            updates.name = info.name;
+                            updates.host_id = info.host_id;
                             this._map_node_name.delete(String(item.node.name));
                             let base_name = updates.name || 'node';
                             let counter = 1;
@@ -742,12 +811,14 @@ class NodesMonitor extends EventEmitter {
                             dbg.log0('_get_agent_info: set node name',
                                 item.node.name, 'to', updates.name);
 
+                            this._add_node_to_hosts_map(updates.host_id, item);
+
                             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
                             let { use_s3 = false, use_storage = true, exclude_drive = [] } = agent_config;
                             // on first call to get_agent_info enable\disable the node according to the configuration
-                            let should_start_service = (info.s3_agent_info && use_s3) ||
-                                (!info.s3_agent_info && use_storage && this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drive));
-                            dbg.log0(`first call to get_agent_info. ${info.s3_agent_info ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
+                            let should_start_service = (info.s3_agent && use_s3) ||
+                                (!info.s3_agent && use_storage && this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drive));
+                            dbg.log0(`first call to get_agent_info. ${info.s3_agent ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
                             if (!should_start_service) {
                                 item.node.decommissioning = item.node.decommissioned = Date.now();
                             }
@@ -778,11 +849,21 @@ class NodesMonitor extends EventEmitter {
             return;
         }
         dbg.log0(`node service is not as expected. setting node service to ${should_enable ? 'enabled' : 'disabled'}`);
-        return this.client.agent.update_node_service({
-            enabled: should_enable
-        }, {
-            connection: item.connection
-        });
+
+        return P.resolve()
+            .then(() => {
+                if (item.node.s3_agent) {
+                    return this.ssl_certs_promise;
+                }
+            })
+            .then(ssl_certs => {
+                return this.client.agent.update_node_service({
+                    enabled: should_enable,
+                    ssl_certs
+                }, {
+                    connection: item.connection
+                });
+            });
     }
 
     _update_create_node_token(item) {
@@ -1373,7 +1454,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted &&
-            !item.node.s3_agent_info);
+            !item.node.s3_agent);
     }
 
     _get_item_writable(item) {
@@ -1390,7 +1471,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted &&
-            !item.node.s3_agent_info);
+            !item.node.s3_agent);
     }
 
     _get_item_accessibility(item) {
@@ -1422,8 +1503,8 @@ class NodesMonitor extends EventEmitter {
             (item.gateway_errors && 'GATEWAY_ERRORS') ||
             (item.io_test_errors && 'IO_ERRORS') ||
             (item.io_reported_errors && 'IO_ERRORS') ||
-            (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
-            (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
+            ((!item.node.s3_agent && free.lesserOrEquals(MB)) && 'NO_CAPACITY') ||
+            ((!item.node.s3_agent && free_ratio.lesserOrEquals(20)) && 'LOW_CAPACITY') ||
             'OPTIMAL';
     }
 
@@ -1448,7 +1529,7 @@ class NodesMonitor extends EventEmitter {
     _get_data_activity_reason(item) {
         if (!item.node_from_store) return '';
         if (item.node.deleted) return '';
-        if (item.node.s3_agent_info) return '';
+        if (item.node.s3_agent) return '';
         if (item.node.deleting) return ACT_DELETING;
         if (item.node.decommissioned) return '';
         if (item.node.decommissioning) return ACT_DECOMMISSIONING;
@@ -1712,6 +1793,135 @@ class NodesMonitor extends EventEmitter {
             by_mode: mode_counters
         };
 
+        const filter_item_func = this._get_filter_item_func(query);
+
+        const items = query.nodes ?
+            new Set(_.map(query.nodes, node_identity =>
+                this._get_node(node_identity, 'allow_offline', 'allow_missing'))) :
+            this._map_node_id.values();
+        for (const item of items) {
+            if (!item) continue;
+            // skip new nodes
+            if (!item.node_from_store) continue;
+            // update the status of every node we go over
+            this._update_status(item);
+            if (!filter_item_func(item)) continue;
+
+            // the filter_count count nodes that passed all filters besides
+            // the online and mode filter this is used for the frontend to show
+            // the counts by mode event when actually showing the filtered list
+            // of nodes.
+            filter_counts.count += 1;
+            mode_counters[item.mode] = (mode_counters[item.mode] || 0) + 1;
+            if (item.online) filter_counts.online += 1;
+
+            // after counting, we can finally filter by
+            if (!_.isUndefined(query.has_issues) &&
+                query.has_issues !== Boolean(item.has_issues)) continue;
+            if (!_.isUndefined(query.online) &&
+                query.online !== Boolean(item.online)) continue;
+            if (!_.isUndefined(query.mode) &&
+                !query.mode.includes(item.mode)) continue;
+
+            dbg.log1('list_nodes: adding node', item.node.name);
+            list.push(item);
+        }
+        return {
+            list,
+            filter_counts
+        };
+    }
+
+
+
+    _filter_hosts(query) {
+        const list = [];
+        const mode_counters = {};
+        const filter_counts = {
+            count: 0,
+            online: 0,
+            by_mode: mode_counters
+        };
+
+        const filter_item_func = this._get_filter_item_func(query);
+
+        const hosts = this._map_host_id.values();
+        for (const host of hosts) {
+            if (!host) continue;
+            // skip new hosts
+            if (host.every(item => !item.node_from_store)) continue;
+            // update the status of every node we go over
+            const item = this._consolidate_host(host);
+            if (!filter_item_func(item)) continue;
+
+            // the filter_count count nodes that passed all filters besides
+            // the online and mode filter this is used for the frontend to show
+            // the counts by mode event when actually showing the filtered list
+            // of nodes.
+            filter_counts.count += 1;
+            mode_counters[item.mode] = (mode_counters[item.mode] || 0) + 1;
+            if (item.online) filter_counts.online += 1;
+
+            // after counting, we can finally filter by
+            if (!_.isUndefined(query.has_issues) &&
+                query.has_issues !== Boolean(item.has_issues)) continue;
+            if (!_.isUndefined(query.online) &&
+                query.online !== Boolean(item.online)) continue;
+            if (!_.isUndefined(query.mode) &&
+                !query.mode.includes(item.mode)) continue;
+
+            dbg.log1('list_nodes: adding node', item.node.name);
+            list.push(item);
+        }
+        return {
+            list,
+            filter_counts
+        };
+    }
+
+    _consolidate_host(host_nodes) {
+        host_nodes.forEach(item => this._update_status(item));
+        const [s3_nodes, storage_nodes] = _.partition(host_nodes, item => item.node.s3_agent);
+        // for now we take the first storage node, and use it as the host_item, with some modifications
+        // TODO: once we have better understanding of what the host status should be
+        // as a result of the status of the nodes we need to change it.
+        let root_item = storage_nodes.find(item => item.node.drives[0].mount === '/' || item.node.drives[0].mount.toLowerCase() === 'c:');
+        if (!root_item) {
+            // if for some reason root node not found, take the first one.
+            dbg.log0(`could not find node for root path, taking the first in the list. drives = ${storage_nodes.map(item => item.node.drives[0])}`);
+            root_item = storage_nodes[0];
+        }
+        let host_item = _.cloneDeep(root_item);
+        host_item.s3_nodes = s3_nodes;
+        host_item.storage_nodes = storage_nodes;
+
+        // fix some of the fields:
+        // host is online if at least one node is online
+        host_item.online = host_nodes.some(item => item.online);
+        // host is considered decommisioned if all nodes are decomissioned
+        host_item.node.decommissioned = host_nodes.every(item => item.node.decommissioned);
+        // host is never decomissioning
+        host_item.node.decommissioning = null;
+        if (host_nodes.every(item => !item.node.rpc_address)) {
+            host_item.node.rpc_address = null;
+        }
+        host_item.trusted = host_nodes.every(item => item.trusted);
+        host_item.migrating_to_pool = host_nodes.some(item => item.node.migrating_to_pool);
+        host_item.n2n_errors = host_nodes.some(item => item.n2n_errors);
+        host_item.gateway_errors = host_nodes.some(item => item.gateway_errors);
+        host_item.io_test_errors = host_nodes.some(item => item.io_test_errors);
+        host_item.io_reported_errors = host_nodes.some(item => item.io_reported_errors);
+        host_item.has_issues = host_nodes.some(item => item.has_issues);
+        let host_aggragate = this._aggregate_nodes_list(host_nodes);
+        host_item.node.storage = host_aggragate.storage;
+        _.flatMap(host_nodes, item => host_item.node.drives);
+
+        host_item.mode = this._get_item_mode(host_item);
+
+        return host_item;
+    }
+
+    _get_filter_item_func(query) {
         // we are generating a function that will implement most of the query
         // so that we can run it on every node item, and minimize the compare work.
         let code = '';
@@ -1765,44 +1975,9 @@ class NodesMonitor extends EventEmitter {
         }
         code += `return true; `;
         // eslint-disable-next-line no-new-func
-        const filter_item_func = new Function('item', code);
-
-        const items = query.nodes ?
-            new Set(_.map(query.nodes, node_identity =>
-                this._get_node(node_identity, 'allow_offline', 'allow_missing'))) :
-            this._map_node_id.values();
-        for (const item of items) {
-            if (!item) continue;
-            // skip new nodes
-            if (!item.node_from_store) continue;
-            // update the status of every node we go over
-            this._update_status(item);
-            if (!filter_item_func(item)) continue;
-
-            // the filter_count count nodes that passed all filters besides
-            // the online and mode filter this is used for the frontend to show
-            // the counts by mode event when actually showing the filtered list
-            // of nodes.
-            filter_counts.count += 1;
-            mode_counters[item.mode] = (mode_counters[item.mode] || 0) + 1;
-            if (item.online) filter_counts.online += 1;
-
-            // after counting, we can finally filter by
-            if (!_.isUndefined(query.has_issues) &&
-                query.has_issues !== Boolean(item.has_issues)) continue;
-            if (!_.isUndefined(query.online) &&
-                query.online !== Boolean(item.online)) continue;
-            if (!_.isUndefined(query.mode) &&
-                !query.mode.includes(item.mode)) continue;
-
-            dbg.log1('list_nodes: adding node', item.node.name);
-            list.push(item);
-        }
-        return {
-            list,
-            filter_counts
-        };
+        return new Function('item', code);
     }
+
 
     _sort_nodes_list(list, options) {
         if (!options || !options.sort) return;
@@ -1945,6 +2120,25 @@ class NodesMonitor extends EventEmitter {
         };
     }
 
+
+    list_hosts(query, options) {
+        dbg.log2('list_hosts: query', query);
+        this._throw_if_not_started_and_loaded();
+        const filter_res = this._filter_hosts(query);
+        const list = filter_res.list;
+        this._sort_nodes_list(list, options);
+        const res_list = options && options.pagination ?
+            this._paginate_nodes_list(list, options) : list;
+        dbg.log2('list_hosts', res_list.length, '/', list.length);
+
+        return {
+            total_count: list.length,
+            filter_counts: filter_res.filter_counts,
+            hosts: _.map(res_list, item =>
+                this._get_host_info(item)),
+        };
+    }
+
     _aggregate_nodes_list(list) {
         let count = 0;
         let online = 0;
@@ -2018,6 +2212,38 @@ class NodesMonitor extends EventEmitter {
             }
         }
         return res;
+    }
+
+    _get_host_info(nodes) {
+        let info = {
+            s3_nodes_info: nodes.s3_nodes.map(item => {
+                this._update_status(item);
+                return this._get_node_info(item);
+            }),
+            storage_nodes_info: nodes.storage_nodes.map(item => {
+                this._update_status(item);
+                return this._get_node_info(item);
+            })
+        };
+
+        const s3_node_modes = [
+            'OFFLINE',
+            'UNTRUSTED',
+            'INITALIZING',
+            'DECOMMISSIONED',
+            'N2N_ERRORS',
+            'GATEWAY_ERRORS',
+            'OPTIMAL',
+            'HTTP_SRV_ERRORS',
+        ];
+        info.s3_nodes_info.forEach(node => {
+            if (s3_node_modes.indexOf(node.mode) === -1) {
+                node.mode = 'HTTP_SRV_ERRORS';
+            }
+        });
+
+        info.host_info = this._get_node_info(nodes);
+        return info;
     }
 
     _get_node_info(item, fields) {

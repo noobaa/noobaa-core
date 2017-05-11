@@ -48,6 +48,9 @@ module.exports = {
                     host_id: {
                         type: 'string'
                     },
+                    host_name: {
+                        type: 'string'
+                    },
                     base_address: {
                         type: 'string'
                     },
@@ -94,16 +97,8 @@ module.exports = {
                         }
                     },
 
-                    s3_agent_info: {
-                        type: 'object',
-                        properties: {
-                            port: {
-                                type: 'integer'
-                            },
-                            ssl_port: {
-                                type: 'integer'
-                            },
-                        }
+                    s3_agent: {
+                        type: 'boolean'
                     },
                 }
             },
@@ -157,9 +152,22 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
+                required: ['enabled'],
                 properties: {
                     enabled: {
                         type: 'boolean'
+                    },
+                    ssl_certs: {
+                        type: 'object',
+                        required: ['key', 'cert'],
+                        properties: {
+                            key: {
+                                type: 'string'
+                            },
+                            cert: {
+                                type: 'string'
+                            },
+                        }
                     }
                 }
             }

@@ -15,6 +15,7 @@ api_schema.register_api(require('./account_api'));
 api_schema.register_api(require('./system_api'));
 api_schema.register_api(require('./tier_api'));
 api_schema.register_api(require('./node_api'));
+api_schema.register_api(require('./host_api'));
 api_schema.register_api(require('./bucket_api'));
 api_schema.register_api(require('./events_api'));
 api_schema.register_api(require('./object_api'));
@@ -103,7 +104,8 @@ function new_rpc(base_address) {
             func_api: 'md',
             cloud_sync_api: 'bg',
             hosted_agents_api: 'hosted_agents',
-            node_api: 'master'
+            node_api: 'master',
+            host_api: 'master'
         }
     });
     return rpc;

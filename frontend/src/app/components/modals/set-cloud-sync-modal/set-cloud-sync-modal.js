@@ -167,11 +167,11 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
 
         this.leftSymbol = ko.pureComputed(
             () => this.directionOption().leftSymbol
-        )
+        );
 
         this.rightSymbol = ko.pureComputed(
             () => this.directionOption().rightSymbol
-        )
+        );
 
         this.targetBucketName = ko.pureComputed(() => {
             console.log('this.targetBucket', this.targetBucket);

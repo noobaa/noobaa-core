@@ -49,7 +49,7 @@ export default class AuditRowViewModel extends BaseViewModel {
         );
 
         this.entity = ko.pureComputed(
-            () => eventInfo() ? eventInfo().entityId(entry()) : ''
+            () => (eventInfo() && eventInfo().entityId(entry())) ||  ''
         );
 
         this.description = ko.pureComputed(

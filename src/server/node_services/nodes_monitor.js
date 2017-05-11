@@ -413,7 +413,10 @@ class NodesMonitor extends EventEmitter {
                 return this._update_nodes_store('force');
             })
             .then(() => {
-                this._dispatch_node_event(item, 'decommission', `${item.node.name} was deactivated by ${req.account && req.account.email}`);
+                this._dispatch_node_event(item, 'decommission',
+                    `${item.node.name} was deactivated by ${req.account && req.account.email}`,
+                    req.account && req.account.email
+                );
             })
             .then(() => {
                 Dispatcher.instance().alert('INFO', req.system._id, `Node ${item.node.name} was deactivated`);
@@ -435,7 +438,10 @@ class NodesMonitor extends EventEmitter {
                 return this._update_nodes_store('force');
             })
             .then(() => {
-                this._dispatch_node_event(item, 'recommission', `${item.node.name} was reactivated by ${req.account && req.account.email}`);
+                this._dispatch_node_event(item, 'recommission',
+                    `${item.node.name} was reactivated by ${req.account && req.account.email}`,
+                    req.account && req.account.email
+                );
             });
 
     }
@@ -1436,11 +1442,12 @@ class NodesMonitor extends EventEmitter {
         this._update_data_activity(item);
     }
 
-    _dispatch_node_event(item, event, description) {
+    _dispatch_node_event(item, event, description, actor) {
         Dispatcher.instance().activity({
             level: 'info',
             event: 'node.' + event,
             system: item.node.system,
+            actor: actor,
             node: item.node._id,
             desc: description,
         });

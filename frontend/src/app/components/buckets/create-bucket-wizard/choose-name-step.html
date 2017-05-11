@@ -3,15 +3,16 @@
 <div class="push-next greedy">
     <editor params="label: 'Bucket Name'">
         <div class="push-next">
-            <input type="text" placeholder="Type here" data-bind="
-                value: bucketName,
-                hasFocus: $inActiveStep
-            "/>
+            <input type="text" placeholder="Type here"
+                   ko.value="bucketName"
+                   ko.hasFocus="$inActiveStep"/>
         </div>
-        <ul class="bullet-list remark push-prev">
-            <li>3-63 characters</li>
-            <li>Only lowercase letters, numbers, periods and hyphens</li>
-            <li>Starts and ends with a lowercase letter or number</li>
+        <ul class="bullet-list remark push-prev validation-list"
+            ko.foreach="bucketNameValidations">
+            <li ko.text="message"
+                ko.css.error="$parent.bucketNameTouched() && !isValid"
+                ko.css.success="$parent.bucketNameTouched() && isValid">
+            </li>
         </ul>
     </editor>
 </div>

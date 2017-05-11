@@ -8,10 +8,10 @@
     onComplete: () => createBucket(),
     onClose: onClose
 ">
-    <section class="column greedy" data-bind="
-        template: { html: chooseNameStepTemplate }
+    <section class="column greedy"
+             ko.template="{ html: chooseNameStepTemplate }
     "></section>
-    <section class="column greedy" data-bind="
-        template: { html: setPolicyStepTemplate }
+    <section class="column greedy"
+             ko.template="{ html: setPolicyStepTemplate }
     "></section>
 </wizard>

@@ -359,3 +359,24 @@ body:not(.preview) .preview-only {
     not supported by any browser */
 }
 
+.validation-list {
+    .list-no-style();
+
+    > li {
+        &::before {
+            content: '\2022';
+            margin-right: 1em;
+        }
+
+        &.success::before {
+            content: '\2713';
+            margin-right: 1em;
+        }
+
+        &.error::before {
+            content: '\2715';
+            margin-right: 1em;
+        }
+    }
+}
+

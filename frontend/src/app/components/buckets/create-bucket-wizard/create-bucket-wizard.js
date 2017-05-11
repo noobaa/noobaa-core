@@ -35,6 +35,17 @@ class CreateBucketWizardViewModel extends BaseViewModel {
                 validation: nameValidationRules('bucket', existingBucketNames)
             });
 
+        this.bucketNameTouched = ko.touched(this.bucketName);
+        this.bucketNameValidations = ko.pureComputed(
+            () => ko.validation.fullValidationState(this.bucketName)()
+                .map(
+                    validator => ({
+                        message: validator.message,
+                        isValid: validator.isValid
+                    })
+                )
+        );
+
         this.placementType = ko.observable('SPREAD');
 
         this.pools = ko.pureComputed(

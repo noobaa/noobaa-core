@@ -18,11 +18,10 @@ const https = require('https');
 const express = require('express');
 const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
-const path = require('path');
 
 const P = require('../util/promise');
+const http_utils = require('../util/http_utils');
 const dbg = require('../util/debug_module')(__filename);
-const pem = require('../util/pem');
 const api = require('../api');
 const config = require('../../config');
 
@@ -47,11 +46,30 @@ function start_all() {
         });
     } else {
         let azure = Boolean(argv.azure);
-        run_server({
-            azure,
-            s3: true,
-            lambda: true
-        });
+        if (argv.s3_agent) {
+            // for s3 agents, wait to get ssl certificates before running the server
+            if (!process.send) {
+                dbg.error('process.send function is undefiend. this process was probably not forked with ipc.');
+                process.exit(1);
+            }
+            process.send('STARTED');
+            dbg.log0(`waiting for ssl certificates`);
+            process.on('message', certs => {
+                dbg.log0(`got ssl certificates. running s3rver`);
+                run_server({
+                    azure,
+                    s3: true,
+                    lambda: true,
+                    certs
+                });
+            });
+        } else {
+            run_server({
+                azure,
+                s3: true,
+                lambda: true
+            });
+        }
     }
 }
 
@@ -72,23 +90,7 @@ function run_server(options) {
                 port: process.env.S3_PORT || 80,
                 ssl_port: process.env.S3_SSL_PORT || 443,
             });
-            dbg.log0('certificate location:', path.join('/etc', 'private_ssl_path', 'server.key'));
-            if (fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.key')) &&
-                fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.crt'))) {
-                dbg.log0('Using local certificate');
-                var local_certificate = {
-                    serviceKey: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.key')),
-                    certificate: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.crt'))
-                };
-                return local_certificate;
-            } else {
-
-                dbg.log0('Generating self signed certificate');
-                return P.fromCallback(callback => pem.createCertificate({
-                    days: 365 * 100,
-                    selfSigned: true
-                }, callback));
-            }
+            return options.certs || http_utils.get_ssl_certificate();
         })
         .then(certificate => {
             params.certificate = certificate;
@@ -123,10 +125,7 @@ function run_server(options) {
         .then(() => dbg.log0('Starting HTTP', params.port))
         .then(() => listen_http(params.port, http.createServer(app)))
         .then(() => dbg.log0('Starting HTTPS', params.ssl_port))
-        .then(() => listen_http(params.ssl_port, https.createServer({
-            key: params.certificate.serviceKey,
-            cert: params.certificate.certificate
-        }, app)))
+        .then(() => listen_http(params.ssl_port, https.createServer(params.certificate, app)))
         .catch(err => {
             dbg.log0('S3RVER FAILED TO START', err.stack || err);
             process.exit();

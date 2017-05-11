@@ -15,6 +15,7 @@ const express_body_parser = require('body-parser');
 const express_morgan_logger = require('morgan');
 const express_method_override = require('method-override');
 const child_process = require('child_process');
+const os = require('os');
 
 const P = require('../util/promise');
 const pem = require('../util/pem');
@@ -67,6 +68,7 @@ function CreateAgent(agent_params) {
             this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
             dbg.log0(`this.base_address=${this.base_address}`);
             this.host_id = params.host_id;
+            this.host_name = os.hostname();
 
             this.agent_conf = params.agent_conf || new json_utils.JsonObjectWrapper();
 
@@ -595,7 +597,7 @@ function CreateAgent(agent_params) {
 
         update_node_service(req) {
             if (req.rpc_params.enabled) {
-                return this._enable_service();
+                return this._enable_service(req.rpc_params.ssl_certs);
             } else {
                 return this._disable_service();
             }
@@ -614,7 +616,7 @@ function CreateAgent(agent_params) {
             }
         }
 
-        _enable_service() {
+        _enable_service(ssl_certs) {
             dbg.log0(`got _enable_service`);
             this.enabled = true;
             if (this.s3_info) {
@@ -625,8 +627,16 @@ function CreateAgent(agent_params) {
 
 
                     // run node process, inherit stdio and connect ipc channel for communication.
-                    this.s3_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', [], {
+                    this.s3_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', ['--s3_agent'], {
                         stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+                    });
+
+                    this.s3_info.s3rver_process.on('message', message => {
+                        if (message === 'STARTED') {
+                            this.s3_info.s3rver_process.send(ssl_certs);
+                        } else {
+                            dbg.error('got unknown message from s3rver - ', message);
+                        }
                     });
 
                     this.s3_info.s3rver_process.on('error', err => {
@@ -637,15 +647,9 @@ function CreateAgent(agent_params) {
                         dbg.warn(`s3rver process exited with code=${code} signal=${signal}`);
                         this.s3_info.s3rver_process = null;
                         if (this.enabled) {
-                            this._start_s3rver();
+                            this._enable_service();
                         }
                     });
-                    // this.s3_info.s3rver_process.on('message', message => {
-                    //     dbg.log0('got message from s3rver:', message);
-                    //     if (message.error && message.error.fatal) {
-                    //         this.s3_info.fatal_error = message.error;
-                    //     }
-                    // });
                 } catch (err) {
                     dbg.error('got error when spawning s3rver:', err);
                 }
@@ -665,6 +669,7 @@ function CreateAgent(agent_params) {
                 name: this.node_name || '',
                 ip: ip,
                 host_id: this.host_id,
+                host_name: this.host_name,
                 rpc_address: this.rpc_address || '',
                 base_address: this.base_address,
                 n2n_config: this.n2n_agent.get_plain_n2n_config(),
@@ -676,10 +681,7 @@ function CreateAgent(agent_params) {
                 reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
             }
 
-            reply.s3_agent_info = this.s3_info && {
-                port: this.s3_info.port,
-                ssl_port: this.s3_info.ssl_port
-            };
+            reply.s3_agent = Boolean(this.s3_info);
 
             this._test_server_connection();
 

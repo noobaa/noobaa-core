@@ -166,7 +166,7 @@ module.exports = {
         'no-continue': 'off',
 
         // avoid redundant 'else' when using return statements in all cases
-        'no-else-return': 'warn',
+        'no-else-return': 'off',
 
         // for empty functions we expect at least a comment why it's there
         'no-empty-function': 'error',

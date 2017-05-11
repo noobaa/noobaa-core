@@ -104,6 +104,8 @@ class ServerRpc {
         let options = this.get_server_options();
         rpc.register_service(schema.node_api,
             require('./node_services/node_server'), options);
+        rpc.register_service(schema.host_api,
+            require('./node_services/host_server'), options);
     }
 
     register_object_services() {

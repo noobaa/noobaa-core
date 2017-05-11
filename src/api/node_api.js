@@ -561,6 +561,7 @@ module.exports = {
                 'LOW_CAPACITY',
                 'NO_CAPACITY',
                 'OPTIMAL',
+                'HTTP_SRV_ERRORS',
             ]
         },
 

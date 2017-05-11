@@ -5,11 +5,11 @@
         <h2 class="greedy heading3  push-next">
             Server Diagnostics
         </h2>
-        <button class="btn push-next" data-bind="
-            disable: !isConnected(),
-            click: toggleDebugLevel,
-            text: toggleDebugModeButtonLabel
-        "></button>
+        <button class="btn push-next"
+                ko.disable="!isConnected()"
+                ko.click="toggleDebugLevel"
+                ko.text="toggleDebugModeButtonLabel">
+        </button>
         <working-button params="
             working: isCollectingDiagnostics,
             workingLabel: 'Collecting Data...',
@@ -19,20 +19,4 @@
         </working-button>
     </div>
     <property-sheet class="pad push-next" params="properties: debugModeSheet"></property-sheet>
-</section>
-
-<section class="column">
-    <div class="column pad alt-bg push-next">
-        <h2 class="heading3">Internal Cluster Communication</h2>
-        <p>Testing communication between this server and other members of the cluster</p>
-    </div>
-    <div class="pad column">
-        <p class="push-next">Communication tests run automaticly every single minute</p>
-        <data-table class="communication-table alt-bg" params="
-            columns: columns,
-            data: otherServers,
-            rowFactory: server => createServerRow(server),
-            emptyMessage: 'No additional servers in the cluster'
-        "></data-table>
-    </div>
 </section>

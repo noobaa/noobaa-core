@@ -186,6 +186,7 @@ export default function register(ko) {
     ko.components.register('server-summary',            require('./server/server-summary/server-summary').default);
     ko.components.register('server-details-form',       require('./server/server-details-form/server-details-form').default);
     ko.components.register('server-diagnostics-form',   require('./server/server-diagnostics-form/server-diagnostics-form').default);
+    ko.components.register('server-communication-form', require('./server/server-communication-form/server-communication-form').default);
     /** INJECT:server **/
 
     // -------------------------------

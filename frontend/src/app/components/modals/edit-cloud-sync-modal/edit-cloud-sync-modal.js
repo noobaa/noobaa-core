@@ -106,11 +106,11 @@ class EditCloudSyncModalViewModel extends BaseViewModel {
 
         this.leftSymbol = ko.pureComputed(
             () => this.directionOption().leftSymbol
-        )
+        );
 
         this.rightSymbol = ko.pureComputed(
             () => this.directionOption().rightSymbol
-        )
+        );
 
         this.directionOptions = directions;
 

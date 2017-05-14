@@ -2018,21 +2018,21 @@ function notifyUploadCompleted(uploaded, failed) {
 // TODO: Bridge between old and new architectures. will be removed after
 // appropriate sections are moved to the new architecture.
 // ----------------------------------------------------------------------
+import { COMPLETE_FETCH_SYSTEM_INFO, COMPLETE_CREATE_ACCOUNT,
+    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS } from 'action-types';
+
 action$.subscribe(action => {
     switch(action.type) {
-        case 'SYSTEM_INFO_FETCHED':
-            model.systemInfo({ ...action.info, endpoint });
+        case COMPLETE_FETCH_SYSTEM_INFO:
+            model.systemInfo({ ...action.payload, endpoint });
             break;
 
-        case 'ACCOUNT_CREATED':
+        case COMPLETE_CREATE_ACCOUNT:
             loadSystemInfo();
             break;
 
-        case 'ACCOUNT_S3_ACCESS_UPDATED':
+        case COMPLETE_UPDATE_ACCOUNT_S3_ACCESS:
             loadSystemInfo();
-            break;
-
-        case 'ACCOUNT_S3_ACCESS_UPDATE_FAILED':
             break;
     }
 });

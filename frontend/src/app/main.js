@@ -4,6 +4,7 @@ import ko from 'knockout';
 import 'knockout-projections';
 import 'knockout-validation';
 import 'knockout-extensions';
+import 'rx-extentions';
 import registerExtenders from 'extenders/register';
 import registerValidationRules from 'validations';
 import registerBindings from 'bindings/register';

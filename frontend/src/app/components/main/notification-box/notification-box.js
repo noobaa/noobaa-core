@@ -2,7 +2,7 @@
 
 import template from './notification-box.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import { hideNotification } from 'dispatchers';
 import ko from 'knockout';
 import { deepFreeze, isFalsy } from 'utils/core-utils';

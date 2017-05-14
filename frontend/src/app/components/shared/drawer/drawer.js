@@ -2,7 +2,7 @@
 
 import template from './drawer.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import ko from 'knockout';
 import { closeDrawer } from 'dispatchers';
 import { runAsync } from 'utils/core-utils';

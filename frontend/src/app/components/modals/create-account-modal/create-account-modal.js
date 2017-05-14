@@ -5,7 +5,7 @@ import FromViewModel from 'components/form-view-model';
 import { deepFreeze, flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { randomString } from 'utils/string-utils';
-import state$ from 'state';
+import { state$ } from 'state';
 import { isEmail } from 'validations';
 import { createAccount, lockActiveModal, replaceWithAccountCreatedModal } from 'dispatchers';
 import ko from 'knockout';

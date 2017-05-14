@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state-actions';
+import { dispatch } from 'state';
 import api from 'services/api';
 import {
     START_FETCH_ALERTS, COMPLETE_FETCH_ALERTS, FAIL_FETCH_ALERTS,

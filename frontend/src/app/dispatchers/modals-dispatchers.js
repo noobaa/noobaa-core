@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state-actions';
+import { dispatch } from 'state';
 import { UPDATE_MODAL, LOCK_ACTIVE_MODAL, CLOSE_ACTIVE_MODAL, OPEN_MODAL, REPLACE_MODAL } from 'action-types';
 
 export function updateModal(options) {

@@ -3,7 +3,7 @@
 import template from './alerts-pane.html';
 import Observer from 'observer';
 import AlertRowViewModel from './alert-row';
-import state$ from 'state';
+import { state$ } from 'state';
 import ko from 'knockout';
 import { fetchAlerts, updateAlerts, dropAlertsState } from 'dispatchers';
 import { deepFreeze, last } from 'utils/core-utils';

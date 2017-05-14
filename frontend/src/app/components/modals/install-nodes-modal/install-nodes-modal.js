@@ -2,7 +2,7 @@
 
 import template from './install-nodes-modal.html';
 import FormViewModel from 'components/form-view-model';
-import state$ from 'state';
+import { state$ } from 'state';
 import { deepFreeze } from 'utils/core-utils';
 import ko from 'knockout';
 import { fetchNodeInstallationCommands } from 'dispatchers';

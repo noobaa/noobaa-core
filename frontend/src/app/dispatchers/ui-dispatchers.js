@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state-actions';
+import { dispatch } from 'state';
 import { OPEN_DRAWER, CLOSE_DRAWER, HIDE_NOTIFICATION, SHOW_NOTIFICATION } from 'action-types';
 
 // -------------------------------

@@ -2,7 +2,7 @@
 
 import template from './commands-bar.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import ko from 'knockout';
 import { refresh } from 'actions';
 import { openAuditDrawer, openAlertsDrawer, getUnreadAlertsCount } from 'dispatchers';

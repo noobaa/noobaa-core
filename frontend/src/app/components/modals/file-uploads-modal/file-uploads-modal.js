@@ -2,7 +2,7 @@
 
 import template from './file-uploads-modal.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';

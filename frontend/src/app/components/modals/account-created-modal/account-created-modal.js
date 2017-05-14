@@ -3,7 +3,7 @@
 import template from './account-created-modal.html';
 import accountDetailsMessageTempalte from './account-details-message.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import ko from 'knockout';
 
 // TODO: Replace with data from the state$ when available.

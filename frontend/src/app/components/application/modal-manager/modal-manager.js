@@ -2,7 +2,7 @@
 
 import template from './modal-manager.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import Modal from './modal';
 import ko from 'knockout';
 import { last } from 'utils/core-utils';

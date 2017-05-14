@@ -2,7 +2,7 @@
 
 import template from './pool-associated-buckets-list.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import * as routes from 'routes';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
@@ -14,7 +14,7 @@ class PoolAssociatedBucketsListViewModel extends Observer {
     constructor({ poolName }) {
         super();
 
-        this.buckets = ko.observable();        
+        this.buckets = ko.observable();
         this.bucketCount = ko.observable();
 
         this.observe(

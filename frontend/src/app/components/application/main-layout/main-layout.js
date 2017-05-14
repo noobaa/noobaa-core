@@ -2,7 +2,7 @@
 
 import template from './main-layout.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';

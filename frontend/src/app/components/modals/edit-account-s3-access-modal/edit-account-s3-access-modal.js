@@ -2,7 +2,7 @@
 
 import template from './edit-account-s3-access-modal.html';
 import FormViewModel from 'components/form-view-model';
-import state$ from 'state';
+import { state$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze, flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';

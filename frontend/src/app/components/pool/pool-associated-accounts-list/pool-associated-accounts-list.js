@@ -2,7 +2,7 @@
 
 import template from './pool-associated-accounts-list.html';
 import Observer from 'observer';
-import state$ from 'state';
+import { state$ } from 'state';
 import * as routes from 'routes';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';

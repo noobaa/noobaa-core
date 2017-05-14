@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { randomString } from 'utils/string-utils';
-import { dispatch } from 'state-actions';
+import { dispatch } from 'state';
 import AWS from 'services/aws';
 import { deepFreeze } from 'utils/core-utils';
 import { START_OBJECT_UPLOAD, FAIL_OBJECT_UPLOAD, COMPLETE_OBJECT_UPLOAD,

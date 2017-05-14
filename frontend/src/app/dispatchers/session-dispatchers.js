@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state-actions';
+import { dispatch } from 'state';
 import api from 'services/api';
 import { RESOTRING_SESSION, SESSION_RESTORED, RESOTREING_SESSION_FAILED,
     SIGN_OUT, SIGNING_IN, SIGN_IN_FAILED, SIGNED_IN } from 'action-types';

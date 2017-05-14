@@ -18,7 +18,7 @@ import { Buffer } from 'buffer';
 
 // Action dispathers from refactored code.
 import * as dispatchers from 'dispatchers';
-import { action$ } from 'state-actions';
+import { action$ } from 'state';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;

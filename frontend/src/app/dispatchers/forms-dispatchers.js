@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state-actions';
+import { dispatch } from 'state';
 import { INIT_FORM, UPDATE_FORM, RESET_FORM, RESET_FORM_FIELD, SET_FORM_VALIDITY,
     TOUCH_FORM, DISPOSE_FORM } from 'action-types';
 

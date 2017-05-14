@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state-actions';
+import { dispatch } from 'state';
 import api from 'services/api';
 import { INIT_APPLICATION, CHANGE_LOCATION, SIGN_IN, SIGN_IN_FAILED, SIGN_OUT } from 'action-types';
 

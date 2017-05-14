@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state-actions';
+import { dispatch } from 'state';
 import api from 'services/api';
 import { all, sleep } from 'utils/promise-utils';
 import { START_FETCH_SYSTEM_INFO, COMPLETE_FETCH_SYSTEM_INFO, FAIL_FETCH_SYSTEM_INFO,

@@ -4,7 +4,7 @@ import { combineReducers } from 'utils/reducer-utils';
 import sessionReducer from './session-reducer';
 import drawerReducer from './drawer-reducer';
 import modalsReducer from './modals-reducer';
-import layoutReducer from './layout-reducer';
+import layoutReducer from './main-layout-reducer';
 import formsReducer from './forms-reducer-with-extenders';
 import bucketsReducer from './buckets-reducer';
 import nodePoolsReducer from './node-pools-reducer';

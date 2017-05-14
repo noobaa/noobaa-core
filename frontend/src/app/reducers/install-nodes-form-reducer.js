@@ -5,7 +5,7 @@ import{ updateField } from 'reducers/forms-reducer';
 import { mapValues, equalItems } from 'utils/core-utils';
 import { COMPLETE_FETCH_NODE_INSTALLATION_COMMANDS } from 'action-types';
 
-const initialState = {};
+const initialState = undefined;
 
 function onCompleteFetchInstallationCommands(form, { payload }) {
     const { targetPool, excludedDrives, commands } = payload;

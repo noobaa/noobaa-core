@@ -4,7 +4,7 @@ import { parseQueryString } from 'utils/browser-utils';
 import { sessionInfo, routeContext } from 'model';
 import * as routes from 'routes';
 import * as actions from 'actions';
-import { locationChanged } from 'dispatchers';
+import { changeLocation } from 'dispatchers';
 
 const { protocol } = location;
 
@@ -34,8 +34,7 @@ export default function routing(page) {
 
     function registerRouteHandler(route, handler) {
         page(route, ctx => {
-            const { path, params, query } = ctx;
-            locationChanged(path, route, params, query);
+            changeLocation({ ...ctx, route });
 
             // TODO REFACTOR.
             handler(ctx);

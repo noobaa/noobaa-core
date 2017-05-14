@@ -52,7 +52,7 @@ export function signOut() {
 export function changeLocation(location) {
     dispatch({
         type: CHANGE_LOCATION,
-        paylaod: location
+        payload: location
     });
 }
 

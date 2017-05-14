@@ -77,6 +77,9 @@ export default class FormViewModal extends Observer {
             field.error = ko.observable();
         }
 
+
+        console.warn(this.formName, values);
+
         actions.initializeForm(this.formName, values);
     }
 

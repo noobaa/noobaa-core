@@ -1,4 +1,4 @@
-import { get } from 'utils/core-utils';
+import { get, equalItems, ensureArray } from 'utils/core-utils';
 import { Observable } from 'rx';
 
 Observable.prototype.get = function(...path) {
@@ -8,7 +8,8 @@ Observable.prototype.get = function(...path) {
 };
 
 Observable.prototype.getMany = function(...paths) {
-    return Observable.combineLatest(
-        ...paths.map(path => Array.isArray(path) ? this.get(...path) : this.get(path))
-    );
+    return this
+        .map(state => paths.map(path => get(state, ensureArray(path))))
+        .distinctUntilChanged(undefined, equalItems);
 };
+

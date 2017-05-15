@@ -10,72 +10,61 @@
         </div>
     </div>
 
-    <div class="steps double-pad alt-bg column" data-bind="css: `step${step()}`">
+    <div class="steps double-pad alt-bg column" ko.css="`step${step()}`">
         <stepper class="push-next" params="steps: steps, current: step" ></stepper>
 
         <div class="row pages">
-            <div class="page column" data-bind="css: { selected: step() === 0 }">
+            <div class="page column" ko.css.selected="step() === 0">
                 <p class="heading3">Create your owner account</p>
 
                 <editor params="label: 'Activation code'">
                     <input type="text" placeholder="your activation code"
-                        data-bind="value: activationCode">
+                        ko.value="activationCode">
 
                     <svg-icon class="validating-indicator spin"
-                        data-bind="visible: activationCode.isValidating"
+                        ko.visible="activationCode.isValidating"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
                 <editor params="label: 'Email address'">
                     <input type="text" placeholder="your email address"
-                        data-bind="value: email">
+                        ko.value="email">
 
                     <svg-icon class="validating-indicator spin"
-                        data-bind="visible: email.isValidating"
+                        ko.visible="email.isValidating"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
                 <editor class="push-next" params="label: 'Password'">
-                    <password-field data-bind="
-                        validationOptions: { insertMessages: false }
-                    " params="
-                        value: password,
-                        placeholder: 'enter password',
-                        strengthCalc: calcPasswordStrength
+                    <password-field ko.validationOptions="{ insertMessages: false }"
+                        params="
+                            value: password,
+                            placeholder: 'enter password',
+                            strengthCalc: calcPasswordStrength
                     "></password-field>
 
-                    <input type="hidden"  data-bind="value: isPasswordValid" />
+                    <input type="hidden" ko.value="isPasswordValid" />
                 </editor>
-
-                <ul class="bullet-list remark" data-bind="
-                    foreach: passwordValidations
-                ">
-                    <li data-bind="
-                        text: message,
-                        css: { success: isValid }
-                    "></li>
-                </ul>
+                <validation-rules params="field: password"></validation-rules>
             </div>
 
-            <div class="page column" data-bind="css: { selected: step() === 1 }">
+            <div class="page column" ko.css.selected="step() === 1">
                 <p class="heading3">
                     Hi
-                    <span data-bind="text: name"></span>
+                    <span ko.text="name"></span>
                     , let's cofigure your system
                 </p>
 
                 <editor params="label: 'NooBaa System name'">
-                    <input type="text" placeholder="name your system"
-                        data-bind="value: systemName">
+                    <input type="text" placeholder="name your system" ko.value="systemName">
                 </editor>
 
                 <editor class="preview-only" params="label: 'Server DNS name'">
-                    <input type="text" data-bind="value: serverDNSName">
+                    <input type="text" ko.value="serverDNSName">
 
                     <svg-icon class="validating-indicator spin"
-                        data-bind="visible: serverDNSName.isValidating"
+                        ko.visible="serverDNSName.isValidating"
                         params="name: 'in-progress'"></svg-icon>
-
                     <p class="hint">optional</p>
                 </editor>
 
@@ -87,24 +76,15 @@
         </div>
 
         <div class="row content-middle align-end push-prev">
-            <button class="link alt-colors push-next" data-bind="
-                visible: isPrevVisible,
-                click: prev
-            ">
+            <button class="link alt-colors push-next" ko.visible="isPrevVisible" ko.click="prev">
                 Previous
             </button>
 
-            <button class="btn " data-bind="
-                visible: isNextVisible,
-                click: next
-            ">
+            <button class="btn " ko.visible="isNextVisible" ko.click="next">
                 Next
             </button>
 
-            <button class="btn" data-bind="
-                visible: isCreateSystemVisible,
-                click: createSystem
-            ">Create system</button>
+            <button class="btn" ko.visible="isCreateSystemVisible" ko.click="createSystem">Create system</button>
         </div>
     </div>
 </section>

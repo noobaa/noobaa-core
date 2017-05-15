@@ -23,17 +23,17 @@ export default function ruleset(entityName, existing, onlyIf = () => true) {
         },
         {
             onlyIf: onlyIf,
-            validator: name => /^[a-z0-9].*[a-z0-9]$/.test(name),
+            validator: name => name && (/^[a-z0-9]$/.test(name) || /^[a-z0-9].*[a-z0-9]$/.test(name)),
             message: 'Starts and ends with a lowercase letter or number'
         },
         {
             onlyIf: onlyIf,
-            validator: name => !/^\d+\.\d+\.\d+\.\d+$/.test(name),
+            validator: name => name && !/^\d+\.\d+\.\d+\.\d+$/.test(name),
             message: 'Avoid the form of an IP address'
         },
         {
             onlyIf: onlyIf,
-            validator: name => !ko.unwrap(existing).includes(name),
+            validator: name => name && !ko.unwrap(existing).includes(name),
             message: 'Globally unique name'
         }
     ];

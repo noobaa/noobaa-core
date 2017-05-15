@@ -9,7 +9,7 @@
             options: connectionOptions,
             selected: connection
         "></dropdown>
-        <div class="val-msg" data-bind="validationMessage: connection"></div>
+        <div class="val-msg" ko.validationMessage="connection"></div>
     </editor>
 
     <editor params="
@@ -22,35 +22,28 @@
             options: targetBucketsOptions,
             selected: targetBucket
         "></dropdown>
-        <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
+        <div class="val-msg" ko.validationMessage="targetBucket"></div>
     </editor>
 
     <editor class="push-next" params="
         label: 'Resource Name',
         disabled: !targetBucket()
     ">
-        <div class="push-next">
-            <input type="text" placeholder="Choose Name" data-bind="
-                enable: targetBucket,
-                textInput: resourceName
-            "/>
+        <div class="push-next-half">
+            <input class="no-validation-highlight" type="text"
+                   placeholder="Choose Name"
+                   ko.enable="targetBucket"
+                   ko.textInput="resourceName"/>
         </div>
-        <ul class="bullet-list remark push-prev">
-            <li>3-63 characters</li>
-            <li>Only lowercase letters, numbers, periods and hyphens</li>
-            <li>Starts and ends with a lowercase letter or number</li>
-        </ul>
+        <validation-rules params="field: resourceName"></validation-rules>
     </editor>
 </section>
 
 <div class="row align-end push-prev">
-    <button class="link push-next" data-bind="click: cancel">
+    <button class="link push-next" ko.click="cancel">
         Cancel
     </button>
-    <button class="btn" data-bind="
-        click: add,
-        shakeOnClick: errors().length
-    ">
+    <button class="btn" ko.click="add" ko.shakeOnClick="errors().length">
         Add
     </button>
 </div>

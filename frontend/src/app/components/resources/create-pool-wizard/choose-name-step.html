@@ -1,16 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <editor params="label: 'Pool Name'">
-    <div class="push-next">
-        <input type="text" placeholder="Type here" data-bind="
-            value: poolName,
-            hasFocus: $inActiveStep
-        "/>
+    <div class="push-next-half">
+        <input class="no-validation-highlight" type="text" placeholder="Type here"
+               ko.textInput="poolName"
+               ko.hasFocus="$inActiveStep"/>
     </div>
-
-    <ul class="bullet-list remark push-prev">
-        <li>3-63 characters</li>
-        <li>Only lowercase letters, numbers, periods and hyphens</li>
-        <li>Starts and ends with a lowercase letter or number</li>
-    </ul>
+    <validation-rules params="field: poolName"></validation-rules>
 </editor>

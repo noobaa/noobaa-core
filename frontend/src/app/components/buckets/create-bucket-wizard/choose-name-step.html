@@ -1,19 +1,13 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="push-next greedy">
-    <editor params="label: 'Bucket Name'">
-        <div class="push-next">
-            <input type="text" placeholder="Type here"
-                   ko.value="bucketName"
-                   ko.hasFocus="$inActiveStep"/>
+    <editor params="label: 'Bucket Name', validationRules: true, field: bucketName">
+        <div class="push-next-half">
+            <input class="no-validation-highlight" type="text" placeholder="Type here"
+                   ko.textInput="bucketName"
+                   ko.hasFocus="$inActiveStep" />
         </div>
-        <ul class="bullet-list remark push-prev validation-list"
-            ko.foreach="bucketNameValidations">
-            <li ko.text="message"
-                ko.css.error="$parent.bucketNameTouched() && !isValid"
-                ko.css.success="$parent.bucketNameTouched() && isValid">
-            </li>
-        </ul>
+        <validation-rules params="field: bucketName"></validation-rules>
     </editor>
 </div>
 <p class="remark">

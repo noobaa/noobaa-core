@@ -923,7 +923,7 @@ function diagnose_system(req) {
     });
 
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
-        .then(() => P.map(target_servers, function(server) {            
+        .then(() => P.map(target_servers, function(server) {
             return server_rpc.client.cluster_internal.collect_server_diagnostics({}, {
                     address: server_rpc.get_base_address(server.owner_address),
                     auth_token: req.auth_token

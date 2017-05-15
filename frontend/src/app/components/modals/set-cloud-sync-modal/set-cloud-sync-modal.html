@@ -27,11 +27,11 @@
     <h2 class="heading3 push-both">
         Configure policy
     </h2>
-    <div class="direction-line text-center push-next alt-bg-dark">
+    <div class="direction-line text-left push-next hpad" ko.css.disabled="!targetBucket()">
         Source:
         <span ko.text="bucketName"></span>
-        <svg-icon class="icon-extra-small left" params="name: leftSymbol"></svg-icon>
-        <svg-icon class="icon-extra-small right" params="name: rightSymbol"></svg-icon>
+        <svg-icon class="icon-small left" params="name: leftSymbol"></svg-icon>
+        <svg-icon class="icon-small right" params="name: rightSymbol"></svg-icon>
         </span>
         Target:
         <span ko.text="targetBucketName"></span>

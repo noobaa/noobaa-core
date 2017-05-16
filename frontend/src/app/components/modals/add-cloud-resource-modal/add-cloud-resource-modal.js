@@ -24,6 +24,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
         this.onClose = onClose;
+        this.isValidated = ko.observable(false);
 
         const cloudConnections = ko.pureComputed(
             () => {
@@ -167,7 +168,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
     add() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-
+            this.isValidated(true);
         } else {
             createCloudResource(this.resourceName(), this.connection().name, this.targetBucket());
             this.onClose();

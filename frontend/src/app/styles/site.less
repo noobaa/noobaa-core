@@ -359,38 +359,16 @@ body:not(.preview) .preview-only {
     not supported by any browser */
 }
 
-.validation-list {
-    .list-no-style();
-
-    > li {
-        &::before {
-            content: '\2022';
-            text-align: center;
-            display: inline-block;
-            width: 5px;
-            margin-right: 1em;
-        }
-
-        &.success::before {
-            content: '\2713';
-        }
-
-        &.error::before {
-            content: '\2715';
-        }
-    }
-}
-
-input.no-validation-highlight {
-    &.invalid {
+input {
+    &.no-validation-highlight.invalid {
         border: 1px solid @color7;
     }
 
-    &.invalid:focus {
+    &.no-validation-highlight.invalid:focus {
         border: 1px solid @color14;
     }
 
-    & + .val-msg {
+    &.hide-validation-msg + .val-msg {
         display: none;
     }
 }

@@ -21,10 +21,10 @@ class ChangePasswordFormViewModel extends BaseViewModel {
             });
 
         this.touched = ko.touched(this.password);
+        this.isValidated = ko.observable(false);
 
         this.newPassword = ko.observable()
             .extend({
-                required: true,
                 minLength: {
                     params: 5,
                     message: 'Use at least 5 characters'
@@ -35,16 +35,6 @@ class ChangePasswordFormViewModel extends BaseViewModel {
             });
 
         this.calcPasswordStrength = calcPasswordStrength;
-
-        this.isNewPasswordValid = ko.pureComputed(
-            () => Boolean(this.newPassword()) && this.newPassword.isValid()
-        ).extend({
-            equal: {
-                params: true,
-                message: 'Please enter a valid new password'
-            },
-            isModified: this.newPassword.isModified
-        });
 
         this.newPasswordValidations = ko.pureComputed(
             () => ko.validation.fullValidationState(this.newPassword)()
@@ -69,6 +59,7 @@ class ChangePasswordFormViewModel extends BaseViewModel {
     change() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
+            this.isValidated(true);
 
         } else {
             this.touched(false);

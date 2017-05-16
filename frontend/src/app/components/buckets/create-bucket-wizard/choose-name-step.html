@@ -3,11 +3,12 @@
 <div class="push-next greedy">
     <editor params="label: 'Bucket Name', validationRules: true, field: bucketName">
         <div class="push-next-half">
-            <input class="no-validation-highlight" type="text" placeholder="Type here"
+            <input class="hide-validation-msg" type="text" placeholder="Type here"
+                   ko.css="{'no-validation-highlight': !isValidated()}"
                    ko.textInput="bucketName"
                    ko.hasFocus="$inActiveStep" />
         </div>
-        <validation-rules params="field: bucketName"></validation-rules>
+        <validation-rules-list params="field: bucketName, highlightErrors: isValidated"></validation-rules-list>
     </editor>
 </div>
 <p class="remark">

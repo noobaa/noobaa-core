@@ -12,7 +12,7 @@ fi
 while [[ $# -gt 1 ]]; do
     key="$1"
     case $key in
-        ---param_secret)
+        --param_secret)
             param_secret="$2"
             shift
             ;;
@@ -36,12 +36,12 @@ while [[ $# -gt 1 ]]; do
 done
 
 #Ordered Array of scripts to run
-UPGRADE_SCRIPTS=('./mongo_upgrade_15.js' )
+UPGRADE_SCRIPTS=('mongo_upgrade_15.js')
 
 upgrade_failed=0
 for script in "${UPGRADE_SCRIPTS[@]}"; do 
     deploy_log "Running Mongo Upgrade Script ${script}"
-    ${MONGO_SHELL} --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', param_ip='${ip}', param_client_subject='${client_subject}'" ${CORE_DIR}/src/deploy/mongo_upgrade/mongo_upgrade.js
+    ${MONGO_SHELL} --eval "var param_secret='${param_secret}', param_bcrypt_secret='${param_bcrypt_secret}', param_ip='${param_ip}', param_client_subject='${param_client_subject}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}
     rc=$?
     if [ $rc -ne 0 ]; then
         upgrade_failed=1

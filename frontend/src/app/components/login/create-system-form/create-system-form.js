@@ -23,6 +23,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
         // ---------------------
         this.steps = ['account details', 'system config'];
         this.step = ko.observable(0);
+        this.isValidated = ko.observable(false);
 
         let serverConfig = ko.pureComputed(
             () => serverInfo() ? serverInfo().config : {}
@@ -78,22 +79,14 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
         this.password = ko.observable()
             .extend({
-                required: { message: 'Please enter a password' },
-                minLength: 5,
+                minLength: {
+                    params: 5,
+                    message: 'Use at least 5 characters'
+                },
                 includesUppercase: true,
                 includesLowercase: true,
-                includesDigit: true
+                includesDigit: true,
             });
-
-        this.isPasswordValid = ko.pureComputed(
-            () => this.password() && this.password.isValid()
-        ).extend({
-            equal: {
-                params: true,
-                message: 'Please enter a valid password'
-            },
-            isModified: this.password.isModified
-        });
 
         this.passwordValidations = ko.pureComputed(
             () => ko.validation.fullValidationState(this.password)()
@@ -192,6 +185,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
         if (validating || errors().length > 0) {
             errors.showAllMessages();
+            this.isValidated(true);
             return false;
         } else {
             return true;

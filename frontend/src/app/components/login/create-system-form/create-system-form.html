@@ -36,16 +36,16 @@
                 </editor>
 
                 <editor class="push-next" params="label: 'Password'">
-                    <password-field ko.validationOptions="{ insertMessages: false }"
+                    <password-field class="push-next-half hide-validation-msg"
+                        ko.css="{'no-validation-highlight': !isValidated()}"
+                        ko.validationOptions="{ insertMessages: false }"
                         params="
                             value: password,
                             placeholder: 'enter password',
                             strengthCalc: calcPasswordStrength
                     "></password-field>
-
-                    <input type="hidden" ko.value="isPasswordValid" />
+                    <validation-rules-list params="field: password, highlightErrors: isValidated"></validation-rules-list>
                 </editor>
-                <validation-rules params="field: password"></validation-rules>
             </div>
 
             <div class="page column" ko.css.selected="step() === 1">

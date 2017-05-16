@@ -2,9 +2,10 @@
 
 <editor params="label: 'Pool Name'">
     <div class="push-next-half">
-        <input class="no-validation-highlight" type="text" placeholder="Type here"
+        <input class="hide-validation-msg" type="text" placeholder="Type here"
+               ko.css="{'no-validation-highlight': !isValidated()}"
                ko.textInput="poolName"
                ko.hasFocus="$inActiveStep"/>
     </div>
-    <validation-rules params="field: poolName"></validation-rules>
+    <validation-rules-list params="field: poolName, highlightErrors: isValidated"></validation-rules-list>
 </editor>

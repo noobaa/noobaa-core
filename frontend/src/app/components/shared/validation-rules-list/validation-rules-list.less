@@ -1,0 +1,29 @@
+/* Copyright (C) 2016 NooBaa */
+
+validation-rules-list {
+    display: block;
+
+    ul {
+        .list-no-style();
+        .bullet-list();
+        padding-left: 0;
+
+        > li {
+            &::before {
+                content: '\2022';
+                text-align: center;
+                display: inline-block;
+                width: 5px;
+                margin-right: 1em;
+            }
+
+            &.success::before {
+                content: '\2713';
+            }
+
+            &.error::before {
+                content: '\2715';
+            }
+        }
+    }
+}

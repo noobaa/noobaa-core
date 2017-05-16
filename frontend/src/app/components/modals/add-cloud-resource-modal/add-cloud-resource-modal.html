@@ -30,12 +30,12 @@
         disabled: !targetBucket()
     ">
         <div class="push-next-half">
-            <input class="no-validation-highlight" type="text"
-                   placeholder="Choose Name"
+            <input class="hide-validation-msg" type="text" placeholder="Choose Name"
+                   ko.css="{'no-validation-highlight': !isValidated()}"
                    ko.enable="targetBucket"
                    ko.textInput="resourceName"/>
         </div>
-        <validation-rules params="field: resourceName"></validation-rules>
+        <validation-rules-list params="field: resourceName, highlightErrors: isValidated"></validation-rules-list>
     </editor>
 </section>
 

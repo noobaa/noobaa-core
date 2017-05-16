@@ -45,4 +45,16 @@
     .remark {
         margin-top: auto;
     }
+
+    .hide-validation-msg input + .val-msg {
+        display: none;
+    }
+
+    .no-validation-highlight input.invalid {
+        border: 1px solid @color7;
+    }
+
+    .no-validation-highlight input.invalid:focus {
+        border: 1px solid @color14;
+    }
 }

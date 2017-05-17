@@ -252,7 +252,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
             dbg.error(`RPC._request: response ERROR srv ${
                 req.srv
             } params ${
-                JSON.stringify(params)
+                util.inspect(params, true, null, true)
             } reqid ${
                 req.reqid
             } took [${

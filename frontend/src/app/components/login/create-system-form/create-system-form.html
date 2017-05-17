@@ -18,7 +18,7 @@
                 <p class="heading3">Create your owner account</p>
 
                 <editor params="label: 'Activation code'">
-                    <input type="text" placeholder="your activation code"
+                    <input type="text" placeholder="Your activation code"
                         ko.value="activationCode">
 
                     <svg-icon class="validating-indicator spin"
@@ -27,7 +27,7 @@
                 </editor>
 
                 <editor params="label: 'Email address'">
-                    <input type="text" placeholder="your email address"
+                    <input type="text" placeholder="Your email address"
                         ko.value="email">
 
                     <svg-icon class="validating-indicator spin"
@@ -43,7 +43,7 @@
                         ko.css="{ 'no-validation-highlight': !wasValidated() }"
                         params="
                             value: password,
-                            placeholder: 'enter password',
+                            placeholder: 'Enter password',
                             strengthCalc: calcPasswordStrength
                     "></password-field>
                     <validation-rules-list params="field: password, highlightErrors: wasValidated"></validation-rules-list>
@@ -58,7 +58,7 @@
                 </p>
 
                 <editor params="label: 'NooBaa System name'">
-                    <input type="text" placeholder="name your system" ko.value="systemName">
+                    <input type="text" placeholder="Name your system" ko.value="systemName">
                 </editor>
 
                 <editor class="preview-only" params="label: 'Server DNS name'">

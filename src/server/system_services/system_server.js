@@ -151,7 +151,7 @@ function new_system_defaults(name, owner_account_id) {
 function new_system_changes(name, owner_account) {
     return P.fcall(function() {
         const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
-        const default_bucket_name = 'files';
+        const default_bucket_name = 'first-bucket';
         const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
         var system = new_system_defaults(name, owner_account._id);
         var pool = pool_server.new_pool_defaults(default_pool_name, system._id);

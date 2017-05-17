@@ -181,7 +181,7 @@ TestRunner.prototype.complete_run = function() {
         .then(function() {
             console.log('Uploading results file');
             //Save package on current NooBaa system
-            return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + self._version + '.tgz');
+            return ops.upload_file('127.0.0.1', dst, 'first-bucket', 'report_' + self._version + '.tgz');
         })
         .catch(function(err) {
             console.log('Failed restarting webserver', err);

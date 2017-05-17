@@ -19,7 +19,7 @@ if (argv.endpoint) {
     argv.access_key = argv.access_key || '123';
     argv.secret_key = argv.secret_key || 'abc';
 }
-argv.bucket = argv.bucket || 'files';
+argv.bucket = argv.bucket || 'first-bucket';
 argv.dir = argv.dir || `capacity-test/${new Date().toISOString()}/`;
 argv.part_size = (argv.part_size || 8) * 1024 * 1024;
 argv.file_size = (argv.file_size || 128) * 1024 * 1024;

@@ -9,8 +9,11 @@
     </p>
 </div>
 
-<ul class="list-no-style column greedy pad" ko.foreach="accounts">
-    <li class="push-next">
-        <a class="link" ko.text="email" ko.attr.href="href"></a>
-    </li>
-</ul>
+<section class="pad">
+    <ul class="list-no-style column greedy" ko.foreach="accounts">
+        <li class="push-next">
+            <a class="link" ko.text="email" ko.attr.href="href"></a>
+        </li>
+    </ul>
+    <p class="empty-message" ko.visible="!accounts().length">No associated accounts for this pool</p>
+</p>

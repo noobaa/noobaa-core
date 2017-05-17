@@ -202,7 +202,7 @@ return P.each(procedure, upgrade_procedure => {
                     .delay(120000)
                     .then(() => P.each(upgrade_procedure.versions_list, version => {
                         console.log('Upgrading to', version);
-                        return s3ops.put_file_with_md5(machine_ip, 'files', '20MBFile-' + version, 5)
+                        return s3ops.put_file_with_md5(machine_ip, 'first-bucket', '20MBFile-' + version, 5)
                             .then(filepath => {
                                 file_path = filepath;
                                 var file = fs.createWriteStream(version_map_tar[version]);
@@ -227,7 +227,7 @@ return P.each(procedure, upgrade_procedure => {
                             })
                             .then(() => {
                                 console.log('Verifying download of 20MB file', file_path);
-                                return s3ops.get_file_check_md5(machine_ip, 'files', '20MBFile-' + version);
+                                return s3ops.get_file_check_md5(machine_ip, 'first-bucket', '20MBFile-' + version);
                             })
                             .then(() => {
                                 console.log('Running the desired external test', test);

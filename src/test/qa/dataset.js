@@ -6,7 +6,7 @@ const promise_utils = require('../../util/promise_utils');
 const argv = require('minimist')(process.argv);
 
 var server = argv.server || '127.0.0.1';
-var bucket = argv.bucket || 'files';
+var bucket = argv.bucket || 'first-bucket';
 var low_file_size = argv.file_size_low || 50; // minimum 50MB
 var high_file_size = argv.file_size_high || 200; // maximum 200Mb
 var size_of_ds = argv.dataset_size || 10240; // DS of 10GB

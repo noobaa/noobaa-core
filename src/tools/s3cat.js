@@ -25,7 +25,7 @@ if (argv.endpoint) {
     if (argv.endpoint === true) argv.endpoint = 'http://127.0.0.1';
     argv.access_key = argv.access_key || '123';
     argv.secret_key = argv.secret_key || 'abc';
-    argv.bucket = argv.bucket || 'files';
+    argv.bucket = argv.bucket || 'first-bucket';
 }
 
 const s3 = new AWS.S3({
@@ -475,7 +475,7 @@ General S3 Flags:
   --endpoint <host>    (default is 127.0.0.1)
   --access_key <key>   (default is env.AWS_ACCESS_KEY_ID || 123)
   --secret_key <key>   (default is env.AWS_SECRET_ACCESS_KEY || abc)
-  --bucket <name>      (default is "files")
+  --bucket <name>      (default is "first-bucket")
   --sig v4|s3          (default is v4)
   --ssl                (default is false) Force SSL connection
   --aws                (default is false) Use AWS endpoint and subdomain-style buckets

@@ -22,7 +22,7 @@ dotenv.load();
 let TEST_CTX = {
     connection_name: 'test_connection',
     source_ip: '127.0.0.1',
-    source_bucket: 'files',
+    source_bucket: 'first-bucket',
     target_ip: argv.target_ip || '127.0.0.1',
     target_port: argv.target_port || process.env.PORT,
     target_bucket: argv.target_bucket || 'target'

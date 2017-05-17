@@ -16,7 +16,7 @@ dotenv.load();
 
 let TEST_PARAMS = {
     ip: argv.ip || '127.0.0.1',
-    bucket: argv.bucket || 'files',
+    bucket: argv.bucket || 'first-bucket',
     port: argv.target_port || process.env.PORT,
     access_key: argv.access_key || '123',
     secret_key: argv.secret_key || 'abc',
@@ -328,14 +328,14 @@ function run_test() {
         .then(() => basic_server_ops.generate_random_file(file_sizes[0]))
         .then(fl => {
             fkey = fl;
-            return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 'files', file_names[0]);
+            return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 'first-bucket', file_names[0]);
         })
         .delay(1000)
-        .then(() => head_object('files', file_names[0]))
+        .then(() => head_object('first-bucket', file_names[0]))
         .delay(1000)
-        .then(() => get_object('files', file_names[0]))
+        .then(() => get_object('first-bucket', file_names[0]))
         .delay(1000)
-        .then(() => getSignedUrl('files', file_names[0]))
+        .then(() => getSignedUrl('first-bucket', file_names[0]))
         .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
@@ -391,7 +391,7 @@ function run_test() {
             throw new Error(err);
         })
         .delay(1000)
-        .then(() => delete_object('files', file_names[0]))
+        .then(() => delete_object('first-bucket', file_names[0]))
         .delay(1000)
         .then(() => delete_object('s3testbucket', file_names[1]))
         .delay(1000)

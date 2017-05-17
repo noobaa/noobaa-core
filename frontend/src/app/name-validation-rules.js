@@ -6,24 +6,24 @@ export default function ruleset(entityName, existing, onlyIf = () => true) {
     return [
         {
             onlyIf: onlyIf,
-            validator: (name, params) => {
-                return name && name.length >= params.minLength && name.length <= params.maxLength;
+            validator: (name) => {
+                return name && name.length >= 3 && name.length <= 63;
             },
-            message: '3-63 characters',
-            params: { minLength: 3, maxLength: 63 }
+            message: '3-63 characters'
         },
         {
             onlyIf: onlyIf,
             validator: name => name && !name.includes('..')
                 && !name.includes('.-')
                 && !name.includes('-.')
+                && !name.includes('--')
                 && !/\s/.test(name)
                 && /^[a-z0-9.-]*$/.test(name),
             message: 'Only lowercase letters, numbers, nonconsecutive periods or hyphens'
         },
         {
             onlyIf: onlyIf,
-            validator: name => name && (/^[a-z0-9]$/.test(name) || /^[a-z0-9].*[a-z0-9]$/.test(name)),
+            validator: name => name && /^[a-z0-9]$|^[a-z0-9].*[a-z0-9]$/.test(name),
             message: 'Starts and ends with a lowercase letter or number'
         },
         {

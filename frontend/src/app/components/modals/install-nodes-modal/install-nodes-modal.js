@@ -25,7 +25,7 @@ const osTypes = deepFreeze([
 ]);
 
 const drivesInputPlaceholder =
-    `e.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
+    `E.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
 
 class InstallNodeWizardViewModel extends FormViewModel {
     constructor({ onClose }) {

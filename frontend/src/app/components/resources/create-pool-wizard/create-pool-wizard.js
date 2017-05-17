@@ -25,7 +25,7 @@ class CreatePoolWizardViewModel extends BaseViewModel {
         this.chooseNameStepTemplate = chooseNameStepTemplate;
         this.assignNodesStepTemplate = assignNodesStepTemplate;
         this.nodes = nodeList;
-        this.isValidated = ko.observable(false);
+        this.wasValidated = ko.observable(false);
 
         let pools = ko.pureComputed(
             () => systemInfo() ? systemInfo().pools : []
@@ -129,7 +129,7 @@ class CreatePoolWizardViewModel extends BaseViewModel {
             case 1:
                 if (this.chooseNameErrors().length > 0) {
                     this.chooseNameErrors.showAllMessages();
-                    this.isValidated(true);
+                    this.wasValidated(true);
                     return false;
                 }
                 break;

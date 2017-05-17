@@ -35,16 +35,17 @@
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
-                <editor class="push-next" params="label: 'Password'">
+                <editor class="push-next" params="
+                    label: 'Password',
+                    insertValMessages: false
+                ">
                     <password-field class="push-next-half hide-validation-msg"
-                        ko.css="{'no-validation-highlight': !isValidated()}"
-                        ko.validationOptions="{ insertMessages: false }"
                         params="
                             value: password,
                             placeholder: 'enter password',
                             strengthCalc: calcPasswordStrength
                     "></password-field>
-                    <validation-rules-list params="field: password, highlightErrors: isValidated"></validation-rules-list>
+                    <validation-rules-list params="field: password, highlightErrors: wasValidated"></validation-rules-list>
                 </editor>
             </div>
 

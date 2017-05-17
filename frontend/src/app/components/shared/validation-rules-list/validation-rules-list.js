@@ -9,6 +9,9 @@ class ValidationRulesListViewModel extends BaseViewModel {
         super();
         this.validationRules = ko.pureComputed(
             () => ko.validation.fullValidationState(field)()
+                .filter(
+                    validator => validator.rule !== 'required'
+                )
                 .map(
                     validator => ({
                         message: validator.message,
@@ -17,8 +20,6 @@ class ValidationRulesListViewModel extends BaseViewModel {
                     })
                 )
         );
-
-        this.highlightErrors = highlightErrors;
     }
 }
 

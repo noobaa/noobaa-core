@@ -63,6 +63,14 @@
     &.invalid, &:focus.invalid, &.focus.invalid {
         border-color: @color10;
     }
+
+    &.no-validation-highlight.invalid {
+        border: 1px solid @color7;
+
+        &:focus {
+            border: 1px solid @color14;
+        }
+    }
 }
 
 input[type=password] {
@@ -86,6 +94,14 @@ input {
         .input();
         padding-left: @gutter + 24px;
         background: url('@{assets}/search.png') @gutter/2 no-repeat;
+    }
+}
+
+.no-validation-highlight input.invalid {
+    border: 1px solid @color7;
+
+    &:focus {
+        border: 1px solid @color14;
     }
 }
 

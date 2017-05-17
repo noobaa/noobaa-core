@@ -164,7 +164,7 @@ function getRuleValidationState(observable, appliedRule) {
         rule = 'inline',
         params,
         validator = kv.rules[rule].validator,
-        message = kv.rules[rule].message,
+        message = kv.rules[rule].message
     } = appliedRule;
 
     return {

@@ -23,7 +23,7 @@ class CreateBucketWizardViewModel extends BaseViewModel {
         this.steps = steps;
         this.chooseNameStepTemplate = chooseNameStepTemplate;
         this.setPolicyStepTemplate = setPolicyStepTemplate;
-        this.isValidated = ko.observable(false);
+        this.wasValidated = ko.observable(false);
 
         const existingBucketNames = ko.pureComputed(
             () => (systemInfo() ? systemInfo().buckets : []).map(
@@ -97,7 +97,7 @@ class CreateBucketWizardViewModel extends BaseViewModel {
             case 1:
                 if (this.chooseNameErrors().length > 0) {
                     this.chooseNameErrors.showAllMessages();
-                    this.isValidated(true);
+                    this.wasValidated(true);
                     return false;
                 }
                 break;

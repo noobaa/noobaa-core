@@ -1,11 +1,13 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<editor params="label: 'Pool Name'">
+<editor params="
+        label: 'Pool Name',
+        insertValMessages: false
+    ">
     <div class="push-next-half">
-        <input class="hide-validation-msg" type="text" placeholder="Type here"
-               ko.css="{'no-validation-highlight': !isValidated()}"
+        <input type="text" placeholder="Type here"
                ko.textInput="poolName"
                ko.hasFocus="$inActiveStep"/>
     </div>
-    <validation-rules-list params="field: poolName, highlightErrors: isValidated"></validation-rules-list>
+    <validation-rules-list params="field: poolName, highlightErrors: wasValidated"></validation-rules-list>
 </editor>

@@ -1,14 +1,17 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="push-next greedy">
-    <editor params="label: 'Bucket Name', validationRules: true, field: bucketName">
+    <editor params="
+        label: 'Bucket Name',
+        insertValMessages: false,
+        field: bucketName
+    ">
         <div class="push-next-half">
-            <input class="hide-validation-msg" type="text" placeholder="Type here"
-                   ko.css="{'no-validation-highlight': !isValidated()}"
+            <input type="text" placeholder="Type here"
                    ko.textInput="bucketName"
                    ko.hasFocus="$inActiveStep" />
         </div>
-        <validation-rules-list params="field: bucketName, highlightErrors: isValidated"></validation-rules-list>
+        <validation-rules-list params="field: bucketName, highlightErrors: wasValidated"></validation-rules-list>
     </editor>
 </div>
 <p class="remark">

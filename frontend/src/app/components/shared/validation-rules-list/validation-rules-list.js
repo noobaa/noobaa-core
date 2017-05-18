@@ -9,14 +9,13 @@ class ValidationRulesListViewModel extends BaseViewModel {
         super();
         this.validationRules = ko.pureComputed(
             () => ko.validation.fullValidationState(field)()
-                .filter(
-                    validator => validator.rule !== 'required'
-                )
                 .map(
-                    validator => ({
-                        message: validator.message,
-                        isValid: field() && validator.isValid,
-                        isError: highlightErrors() && (!field() || !validator.isValid)
+                    ({ message, isValid }) => ({
+                        message: message,
+                        css: {
+                            success: field() && isValid,
+                            error: highlightErrors() && (!field() || !isValid)
+                        }
                     })
                 )
         );

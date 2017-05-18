@@ -25,9 +25,8 @@ class ChangePasswordFormViewModel extends BaseViewModel {
 
         this.newPassword = ko.observable()
             .extend({
-                required: true,
-                minLength: {
-                    params: 5,
+                validation: {
+                    validator: pass => pass && (pass.length >= 5),
                     message: 'Use at least 5 characters'
                 },
                 includesUppercase: true,

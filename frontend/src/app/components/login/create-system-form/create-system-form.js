@@ -79,27 +79,14 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
         this.password = ko.observable()
             .extend({
-                minLength: {
-                    params: 5,
+                validation: {
+                    validator: pass => pass && (pass.length >= 5),
                     message: 'Use at least 5 characters'
                 },
                 includesUppercase: true,
                 includesLowercase: true,
                 includesDigit: true
             });
-
-        this.passwordValidations = ko.pureComputed(
-            () => ko.validation.fullValidationState(this.password)()
-                .filter(
-                    validator => validator.rule !== 'required'
-                )
-                .map(
-                    validator => ({
-                        message: validator.message,
-                        isValid: this.password() && validator.isValid
-                    })
-                )
-        );
 
         this.calcPasswordStrength = calcPasswordStrength;
 

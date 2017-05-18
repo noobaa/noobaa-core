@@ -32,6 +32,7 @@
     ">
         <div class="push-next-half">
             <input type="text" placeholder="Choose Name"
+                   ko.css="{ 'no-validation-highlight': !wasValidated() }"
                    ko.enable="targetBucket"
                    ko.textInput="resourceName"/>
         </div>

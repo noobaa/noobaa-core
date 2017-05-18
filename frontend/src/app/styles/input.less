@@ -32,6 +32,15 @@
     }
 }
 
+.no-validation-highlight() {
+    border: 1px solid @color7;
+
+    &:focus {
+        border: 1px solid @color14;
+    }
+}
+
+
 .input {
     @width: 274px;
     .placeholder(@color7);
@@ -64,12 +73,9 @@
         border-color: @color10;
     }
 
-    &.no-validation-highlight.invalid {
-        border: 1px solid @color7;
-
-        &:focus {
-            border: 1px solid @color14;
-        }
+    &.no-validation-highlight.invalid,
+    &.no-validation-highlight input.invalid {
+        .no-validation-highlight();
     }
 }
 
@@ -94,14 +100,6 @@ input {
         .input();
         padding-left: @gutter + 24px;
         background: url('@{assets}/search.png') @gutter/2 no-repeat;
-    }
-}
-
-.no-validation-highlight input.invalid {
-    border: 1px solid @color7;
-
-    &:focus {
-        border: 1px solid @color14;
     }
 }
 

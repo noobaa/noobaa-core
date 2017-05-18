@@ -39,7 +39,8 @@
                     label: 'Password',
                     insertValMessages: false
                 ">
-                    <password-field class="push-next-half hide-validation-msg"
+                    <password-field class="push-next-half"
+                        ko.css="{ 'no-validation-highlight': !wasValidated() }"
                         params="
                             value: password,
                             placeholder: 'enter password',

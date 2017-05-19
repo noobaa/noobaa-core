@@ -7,7 +7,7 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { registerForAlerts } from 'actions';
-import { sessionInfo } from 'model';
+import { sessionInfo, systemInfo } from 'model';
 import * as routes from 'routes';
 
 const navItems = deepFreeze([
@@ -71,6 +71,10 @@ class MainLayoutViewModel extends Observer {
         this.breadcrumbs = ko.observable([]);
         this.area = ko.observable();
         this.panel = ko.observable('');
+
+        this.isUploadButtonVisible = ko.pureComputed(
+            () => systemInfo() && (systemInfo().owner.email === sessionInfo().user)
+        );
 
         this.observe(state$.get('layout'), this.onLayout);
 

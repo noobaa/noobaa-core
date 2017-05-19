@@ -7,7 +7,7 @@ import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import ObjectRowViewModel from './object-row';
 import { navigateTo } from 'actions';
-import { routeContext, systemInfo } from 'model';
+import { routeContext, systemInfo, sessionInfo } from 'model';
 import { uploadObjects } from 'dispatchers';
 
 const columns = deepFreeze([
@@ -47,17 +47,25 @@ class BucketObjectsTableViewModel extends BaseViewModel {
             () => !bucket() || !bucket().writable
         );
 
+        const notOwner = ko.pureComputed(
+            () => systemInfo().owner.email !== sessionInfo().user
+        );
+
         const httpsNoCert = ko.pureComputed(
             () => routeContext().protocol === 'https' &&
                 (!systemInfo() || !systemInfo().has_ssl_cert)
         );
 
         this.uploadDisabled = ko.pureComputed(
-            () => notWritable() || httpsNoCert()
+            () => notOwner() || notWritable() || httpsNoCert()
         );
 
         this.uploadTooltip = ko.pureComputed(
             () => {
+                if (notOwner()) {
+                    return 'Cannot upload, you are not an owner';
+                }
+
                 if (notWritable()) {
                     return 'Cannot upload, not enough healthy storage resources';
                 }

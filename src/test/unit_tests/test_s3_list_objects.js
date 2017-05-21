@@ -23,7 +23,7 @@ mocha.describe('s3_list_objects', function() {
     object_io.set_verification_mode();
 
     const SYS = 'test-list-objects-system';
-    const BKT = 'first-bucket'; // the default bucket name
+    const BKT = 'first.bucket'; // the default bucket name
     const EMAIL = 'test-list-objects-email@mail.mail';
     const PASSWORD = 'test-list-objects-password';
 

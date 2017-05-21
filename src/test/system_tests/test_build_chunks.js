@@ -22,7 +22,7 @@ dotenv.load();
 
 let TEST_CTX = {
     ip: '127.0.0.1',
-    default_bucket: 'first-bucket',
+    default_bucket: 'first.bucket',
     object_key: '',
     timeout: 120,
     discard_pool_name: config.NEW_SYSTEM_POOL_NAME,

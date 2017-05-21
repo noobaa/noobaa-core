@@ -9,7 +9,7 @@ let P = require('../../util/promise');
 const accessKeyDefault = '123';
 const secretKeyDefault = 'abc';
 
-// copy_file_with_md5('127.0.0.1', 'first-bucket', 'DataSet1470756819/file1', 'DataSet1470756819/file45');
+// copy_file_with_md5('127.0.0.1', 'first.bucket', 'DataSet1470756819/file1', 'DataSet1470756819/file45');
 
 function put_file_with_md5(ip, bucket, file_name, data_size) {
     var rest_endpoint = 'http://' + ip + ':80';
@@ -20,7 +20,7 @@ function put_file_with_md5(ip, bucket, file_name, data_size) {
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
-    bucket = bucket || 'first-bucket';
+    bucket = bucket || 'first.bucket';
     data_size = data_size || 50;
 
     var actual_size = data_size * 1024 * 1024;
@@ -59,7 +59,7 @@ function copy_file_with_md5(ip, bucket, source, destination) {
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
-    bucket = bucket || 'first-bucket';
+    bucket = bucket || 'first.bucket';
 
     var params = {
         Bucket: bucket,
@@ -88,7 +88,7 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
-    bucket = bucket || 'first-bucket';
+    bucket = bucket || 'first.bucket';
     data_size = data_size || 50;
 
     var actual_size = data_size * 1024 * 1024;

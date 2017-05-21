@@ -98,9 +98,9 @@ return azf.authenticate()
             console.warn('Node names are', nodes);
         });
     })
-    .then(() => s3ops.put_file_with_md5(serverName, 'first-bucket', '100MB_File', 100))
+    .then(() => s3ops.put_file_with_md5(serverName, 'first.bucket', '100MB_File', 100))
     .catch(err => errors.push(err.message))
-    .then(() => s3ops.get_file_check_md5(serverName, 'first-bucket', '100MB_File'))
+    .then(() => s3ops.get_file_check_md5(serverName, 'first.bucket', '100MB_File'))
     .catch(err => errors.push(err.message))
     .then(() => {
         console.warn('Will take diagnostics from all the agents');

@@ -40,7 +40,7 @@ db.tieringpolicies.remove({
 });
 db.buckets.remove({
     name: {
-        $ne: 'first-bucket'
+        $ne: 'first.bucket'
     }
 });
 db.nodes.remove({
@@ -93,7 +93,7 @@ db.accounts.update({
 }, {
     $set: {
         allowed_buckets: [db.buckets.find({
-            name: 'first-bucket'
+            name: 'first.bucket'
         })[0]._id]
     }
 });

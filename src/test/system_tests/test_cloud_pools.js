@@ -28,7 +28,7 @@ const s3 = new AWS.S3({
 
 let TEST_CTX = {
     source_ip: '127.0.0.1',
-    source_bucket: 'first-bucket',
+    source_bucket: 'first.bucket',
     target_port: process.env.PORT || '5001',
     target_bucket: 'cloud-resource-jenkins-test',
     connection_name: 'unicorn',

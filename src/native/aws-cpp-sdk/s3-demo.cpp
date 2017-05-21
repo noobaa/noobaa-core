@@ -315,7 +315,7 @@ DemoOptions::DemoOptions(int ac, char** av) {
     if (endpoint.empty()) endpoint = "127.0.0.1";
 
     bucket = flags["bucket"];
-    if (bucket.empty()) bucket = "first-bucket";
+    if (bucket.empty()) bucket = "first.bucket";
 
     key = flags["key"];
     if (key.empty()) key = fname;

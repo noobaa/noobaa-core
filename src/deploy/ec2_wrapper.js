@@ -338,7 +338,7 @@ function verify_demo_system(ip) {
     });
 
     return P.ninvoke(s3bucket, 'listObjects', {
-            Bucket: 'first-bucket'
+            Bucket: 'first.bucket'
         })
         .then(function(data) {
             console.log('Demo system exists');
@@ -363,7 +363,7 @@ function put_object(ip, source, bucket, key) {
 
     //if no source file supplied, use a log from the machine
     source = source || '/var/log/appstore.log';
-    bucket = bucket || 'first-bucket';
+    bucket = bucket || 'first.bucket';
     key = key || 'ec2_wrapper_test_upgrade.dat';
 
     var params = {
@@ -427,7 +427,7 @@ function get_object(ip, obj_path) {
     });
 
     var params = {
-        Bucket: 'first-bucket',
+        Bucket: 'first.bucket',
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
@@ -861,7 +861,7 @@ function load_demo_config_env() {
     AWS.config.update({
         accessKeyId: '123',
         secretAccessKey: 'abc',
-        Bucket: 'first-bucket'
+        Bucket: 'first.bucket'
     });
     current_s3_target = 'demo';
 }

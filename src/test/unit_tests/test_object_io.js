@@ -27,7 +27,7 @@ mocha.describe('object_io', function() {
     object_io.set_verification_mode();
 
     const SYS = 'test-object-system';
-    const BKT = 'first-bucket'; // the default bucket name
+    const BKT = 'first.bucket'; // the default bucket name
     const KEY = 'test-object-key';
     const EMAIL = 'test-object-email@mail.mail';
     const PASSWORD = 'test-object-password';

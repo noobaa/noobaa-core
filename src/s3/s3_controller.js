@@ -85,7 +85,7 @@ class S3Controller {
     }
 
     register_s3_error(req, s3_error) {
-        const code = _.get(s3_error, 'code', 'undefined');
+        const code = (s3_error && s3_error.code) || undefined;
         this.usage_report.s3_errors_info.total_errors += 1;
         this.usage_report.s3_errors_info[code] = (this.usage_report.s3_errors_info[code] || 0) + 1;
 

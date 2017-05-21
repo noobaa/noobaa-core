@@ -136,6 +136,10 @@ function _get_tier_pools_status(pools) {
             if (num_nodes !== config.NODES_PER_CLOUD_POOL) {
                 valid_for_allocation = false;
             }
+        } else if (pool.mongo_pool_info) {
+            if (num_nodes !== config.NODES_PER_MONGO_POOL) {
+                valid_for_allocation = false;
+            }
         } else if (num_nodes < config.NODES_MIN_COUNT) {
             valid_for_allocation = false;
         }
@@ -187,8 +191,8 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
     dbg.log1('allocate_node: pool_set', pool_set,
         'num_nodes', num_nodes,
         'alloc_group', alloc_group);
-    if (!pools[0].cloud_pool_info &&
-        num_nodes < config.NODES_MIN_COUNT) { //Not cloud requires NODES_MIN_COUNT
+    if ((!pools[0].cloud_pool_info && !pools[0].mongo_pool_info) &&
+        num_nodes < config.NODES_MIN_COUNT) { //Not cloud and mongo requires NODES_MIN_COUNT
         dbg.error('allocate_node: not enough online nodes in pool set',
             pools, avoid_nodes, allocated_hosts, content_tiering_params);
         return;

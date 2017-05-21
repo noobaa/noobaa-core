@@ -83,7 +83,7 @@ function getBarValues(values) {
 }
 
 function recommendQuota(data) {
-    const total = toBigInteger(data.size).add(toBigInteger(data.actual_free));
+    const total = toBigInteger(data.size).add(toBigInteger(data.free));
 
     if (total.greaterOrEquals(units.PETABYTE.inBytes)) {
         return {
@@ -181,7 +181,7 @@ class EditBucketQuotaModalViewModel extends Observer {
         this.quotaUnit(quota.unit);
         this.quotaSize(quota.size);
         this.dataSize(data.size);
-        this.dataFree(data.actual_free);
+        this.dataFree(data.free);
     }
 
     formatBarLabel(value) {

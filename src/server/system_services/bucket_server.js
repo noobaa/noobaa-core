@@ -20,6 +20,8 @@ const tier_server = require('./tier_server');
 const http_utils = require('../../util/http_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const nodes_client = require('../node_services/nodes_client');
+const pool_server = require('../system_services/pool_server');
+const system_server = require('../system_services/system_server');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
@@ -40,6 +42,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
         storage_stats: {
             chunks_capacity: 0,
             blocks_size: 0,
+            pools: {},
             objects_size: 0,
             objects_count: 0,
             objects_hist: [],
@@ -75,13 +78,29 @@ function create_bucket(req) {
         update: {}
     };
 
+    const mongo_pool = pool_server.get_internal_mongo_pool(req.system._id);
+    if (!mongo_pool) throw new RpcError('MONGO_POOL_NOT_FOUND');
+    const internal_storage_tier = tier_server.get_internal_storage_tier(req.system._id);
+    if (!internal_storage_tier) throw new RpcError('INTERNAL_TIER_NOT_FOUND');
+
     if (req.rpc_params.tiering) {
         tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
+        changes.update.tieringpolicies = [{
+            _id: tiering_policy._id,
+            $push: {
+                tiers: {
+                    tier: internal_storage_tier._id,
+                    order: 1,
+                    spillover: true,
+                    disabled: true
+                }
+            }
+        }];
     } else {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
         let default_pool = req.account.default_pool;
-        let bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
+        const bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
         let tier = tier_server.new_tier_defaults(
             bucket_with_suffix, req.system._id, [{
                 spread_pools: [default_pool._id]
@@ -91,8 +110,16 @@ function create_bucket(req) {
             bucket_with_suffix, req.system._id, [{
                 tier: tier._id,
                 order: 0,
-                is_spillover: false
-            }]);
+                spillover: false,
+                disabled: false
+            }, {
+                tier: internal_storage_tier._id,
+                order: 1,
+                spillover: true,
+                disabled: true
+            }]
+        );
+
         changes.insert.tieringpolicies = [tiering_policy];
         changes.insert.tiers = [tier];
     }
@@ -176,28 +203,33 @@ function read_bucket(req) {
  *
  */
 function update_bucket(req) {
-    var bucket = find_bucket(req);
-    var tiering_policy = req.rpc_params.tiering &&
+    const bucket = find_bucket(req);
+    const tiering_policy = req.rpc_params.tiering &&
         resolve_tiering_policy(req, req.rpc_params.tiering);
     let quota = req.rpc_params.quota;
-    var updates = {
+    const spillover_sent = !_.isUndefined(req.rpc_params.use_internal_spillover);
+    const bucket_updates = {
         _id: bucket._id
     };
+    const insert_changes = {};
+    const update_changes = {
+        buckets: [bucket_updates]
+    };
     if (req.rpc_params.new_name) {
-        updates.name = req.rpc_params.new_name;
+        bucket_updates.name = req.rpc_params.new_name;
     }
     if (req.rpc_params.new_tag) {
-        updates.tag = req.rpc_params.new_tag;
+        bucket_updates.tag = req.rpc_params.new_tag;
     }
     if (tiering_policy) {
-        updates.tiering = tiering_policy._id;
+        bucket_updates.tiering = tiering_policy._id;
     }
     if (!_.isUndefined(quota)) {
 
         let desc;
 
         if (quota === null) {
-            updates.$unset = {
+            bucket_updates.$unset = {
                 quota: 1
             };
             desc = `Bucket quota was removed from ${bucket.name} by ${req.account && req.account.email}`;
@@ -205,7 +237,7 @@ function update_bucket(req) {
             if (quota.size <= 0) {
                 throw new RpcError('BAD_REQUEST', 'quota size must be positive');
             }
-            updates.quota = quota;
+            bucket_updates.quota = quota;
             quota.value = size_utils.size_unit_to_bigint(quota.size, quota.unit).toJSON();
             let used_percent = system_utils.get_bucket_quota_usage_percent(bucket, quota);
             if (used_percent >= 100) {
@@ -236,11 +268,40 @@ function update_bucket(req) {
         });
 
     }
-    return system_store.make_changes({
-        update: {
-            buckets: [updates]
+    if (spillover_sent) {
+        const tiering = tiering_policy || bucket.tiering;
+        let spillover_tier = tiering.tiers.find(tier_and_order => tier_and_order.spillover);
+        if (!spillover_tier) {
+            const internal_mongo_pool = pool_server.get_internal_mongo_pool(req.system._id);
+            if (!internal_mongo_pool) throw new RpcError('INTERNAL POOL NOT FOUND');
+            spillover_tier = tier_server.get_internal_storage_tier(req.system._id);
+            if (!spillover_tier) {
+                spillover_tier = system_server.create_internal_tier(req.system._id, internal_mongo_pool._id);
+                insert_changes.tiers = [spillover_tier];
+            }
+            tiering.tiers.push({
+                tier: spillover_tier,
+                order: 1,
+                spillover: true,
+                disabled: !req.rpc_params.use_internal_spillover
+            });
         }
-    }).return();
+        spillover_tier.disabled = !req.rpc_params.use_internal_spillover;
+        update_changes.tieringpolicies = [{
+            _id: tiering._id,
+            tiers: tiering.tiers.map(tier_and_order => ({
+                tier: tier_and_order.tier._id,
+                order: tier_and_order.order,
+                spillover: tier_and_order.spillover,
+                disabled: tier_and_order.disabled
+            }))
+        }];
+    }
+    return system_store.make_changes({
+            update: update_changes,
+            insert: insert_changes
+        })
+        .return();
 }
 
 /**
@@ -350,7 +411,13 @@ function delete_bucket(req) {
                 remove: {
                     buckets: [bucket._id],
                     tieringpolicies: [tiering_policy._id],
-                    tiers: _.map(tiering_policy.tiers, tier_and_order => tier_and_order.tier._id)
+                    tiers: _.compact(_.map(tiering_policy.tiers, tier_and_order => {
+                        const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
+                            .filter(policy_id => String(policy_id) !== String(tiering_policy._id));
+                        if (_.isEmpty(associated_tiering_policies)) {
+                            return tier_and_order.tier._id;
+                        }
+                    }))
                 }
             });
         })
@@ -747,6 +814,14 @@ function toggle_cloud_sync(req) {
         });
 }
 
+// TODO: JEN maybe should do something more clever since this will run multiple make_changes
+function update_buckets(req) {
+    return P.map(req.rpc_params, update_params => server_rpc.client.bucket.update_bucket(update_params, {
+            auth_token: req.auth_token
+        }))
+        .return();
+}
+
 /**
  * _set_all_files_for_sync - mark all objects on specific bucket for sync
  */
@@ -906,13 +981,28 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     }
 
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
+    const tiering_pools_used_agg = [0];
+    let spillover_allowed_in_policy = false;
+    let spillover_tier_in_policy;
 
+    info.writable = false;
     _.each(bucket.tiering.tiers, tier_and_order => {
+        if (tier_and_order.spillover) {
+            if (tier_and_order.disabled) {
+                return;
+            } else {
+                spillover_allowed_in_policy = true;
+                spillover_tier_in_policy = tier_and_order.tier;
+            }
+        }
         info.writable = info.writable || tier_and_order.tier.mirrors.some(mirror_object => {
             let num_valid_nodes = 0;
             let has_valid_pool = false;
-            _.compact((mirror_object.spread_pools || []).map(pool =>
-                    tiering_pools_status[tier_and_order.tier._id].pools[pool._id]))
+            _.compact((mirror_object.spread_pools || []).map(pool => {
+                    const spread_pool = system_store.data.pools.find(pool_rec => String(pool_rec._id) === String(pool._id));
+                    tiering_pools_used_agg.push(_.get(spread_pool, 'storage_stats.blocks_size', 0));
+                    return tiering_pools_status[tier_and_order.tier._id].pools[pool._id];
+                }))
                 .forEach(pool_status => {
                     num_valid_nodes += pool_status.num_nodes || 0;
                     has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
@@ -930,37 +1020,63 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
 
     info.num_objects = num_of_objects || 0;
 
-    const used_by_other_buckets = size_utils.reduce_sum('blocks_size', _.values(
-        _.mapValues(_.omit(bucket.system.buckets_by_name, bucket.name), 'storage_stats.blocks_size')
-    ));
+    const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
     const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
     const bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size', 0));
+    const bucket_used_other = size_utils.BigInteger.max(used_of_pools_in_policy.minus(bucket_used), size_utils.BigInteger.zero);
     const bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
-    const bucket_used_other = size_utils.json_to_bigint(used_by_other_buckets || 0);
+    const spillover_tier_storage = spillover_tier_in_policy && _.mapValues(_.get(tier_server.get_tier_info(
+            spillover_tier_in_policy,
+            nodes_aggregate_pool,
+            aggregate_data_free_by_tier),
+        'storage'), x => size_utils.json_to_bigint(x));
 
-    info.storage = size_utils.to_bigint_storage({
-        used: bucket_used,
-        used_other: bucket_used_other,
-        total: bucket_free.plus(bucket_used).plus(bucket_used_other),
-        free: bucket_free,
-    });
+    const spillover_storage = _.mapValues(spillover_allowed_in_policy ?
+        spillover_tier_storage : {
+            free: 0,
+            unavailable_free: 0
+        }, x => size_utils.json_to_bigint(x));
 
-    const actual_free = _.get(info, 'tiering.data.free', 0);
-    let available_for_upload = actual_free;
+    info.storage = {
+        values: size_utils.to_bigint_storage({
+            used: bucket_used,
+            used_other: bucket_used_other,
+            total: bucket_free.plus(bucket_used)
+                .plus(bucket_used_other)
+                .plus(spillover_storage.free)
+                .plus(spillover_storage.unavailable_free),
+            free: bucket_free,
+            spillover_free: spillover_storage.free.plus(spillover_storage.unavailable_free),
+        }),
+        last_update: _.get(bucket, 'storage_stats.last_update')
+    };
+
+    const actual_free = size_utils.json_to_bigint(_.get(info, 'tiering.data.free', 0));
+    let available_for_upload = actual_free.plus(spillover_storage.free);
     if (bucket.quota) {
         info.quota = _.omit(bucket.quota, 'value');
         let quota_free = size_utils.json_to_bigint(bucket.quota.value).minus(size_utils.json_to_bigint(objects_aggregate.size));
         if (quota_free.isNegative()) quota_free = BigInteger.zero;
-        available_for_upload = size_utils.size_min([size_utils.bigint_to_json(quota_free), actual_free]);
+        available_for_upload = size_utils.size_min([size_utils.bigint_to_json(quota_free), size_utils.bigint_to_json(available_for_upload)]);
     }
 
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
         size_reduced: bucket_chunks_capacity,
-        actual_free,
-        available_for_upload
+        free: actual_free,
+        available_for_upload,
+        spillover_free: spillover_storage.free,
+        last_update: _.get(bucket, 'storage_stats.last_update')
     });
 
+    info.usage_by_pool = {
+        pools: {},
+        last_update: _.get(bucket, 'storage_stats.last_update')
+    };
+
+    info.usage_by_pool.pools = _.mapKeys(_.get(bucket, 'storage_stats.pools', {}), function(storage, pool_id) {
+        return system_store.data.get_by_id(pool_id).name;
+    });
 
     const stats = bucket.stats;
     const last_read = (stats && stats.last_read) ?
@@ -1054,6 +1170,7 @@ exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
 exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
 exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;
 exports.list_buckets = list_buckets;
+exports.update_buckets = update_buckets;
 //exports.generate_bucket_access = generate_bucket_access;
 exports.update_bucket_s3_access = update_bucket_s3_access;
 //Cloud Sync policies

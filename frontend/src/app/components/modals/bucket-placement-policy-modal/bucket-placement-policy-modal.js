@@ -23,6 +23,11 @@ const screenModalMetaMapping = deepFreeze({
     }
 });
 
+const allowedResourceTypes = deepFreeze([
+    'HOSTS', 
+    'CLOUD'
+]);
+
 class BacketPlacementPolicyModalViewModel extends BaseViewModel {
     constructor({ bucketName, onClose = noop }) {
         super();
@@ -68,6 +73,7 @@ class BacketPlacementPolicyModalViewModel extends BaseViewModel {
 
         this.pools = ko.pureComputed(
             () => (systemInfo() ? systemInfo().pools : [])
+                .filter(pool => allowedResourceTypes.includes(pool.resource_type))
         );
 
         this.selectedPools = ko.observableArray(
@@ -93,10 +99,10 @@ class BacketPlacementPolicyModalViewModel extends BaseViewModel {
 
                 const selectedPools = this.selectedPools();
                 const hasNodesPool = selectedPools.some(
-                    name => Boolean(poolsByName()[name].nodes)
+                    name => poolsByName()[name].resource_type === 'HOSTS'
                 );
                 const hasCloudResource = selectedPools.some(
-                    name => Boolean(poolsByName()[name].cloud_info)
+                    name => poolsByName()[name].resource_type === 'CLOUD'
                 );
 
                 return hasNodesPool && hasCloudResource;

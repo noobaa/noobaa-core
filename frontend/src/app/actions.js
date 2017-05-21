@@ -7,7 +7,7 @@ import AWS from 'services/aws';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
-import { isDefined, last, makeArray, deepFreeze, flatMap, keyBy } from 'utils/core-utils';
+import { isDefined, last, makeArray, deepFreeze, flatMap, groupBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
@@ -1945,23 +1945,21 @@ export function loadSystemUsageHistory() {
     logAction('loadSystemUsageHistory');
 
     api.pool.get_pool_history({})
-        .then(
-            history => history.map(
-                ({ timestamp, pool_list }) => {
-                    const { cloud = [], nodes = [] } = keyBy(
-                        pool_list,
-                        pool => pool.is_cloud_pool ? 'cloud' : 'nodes',
-                        (pool, list = []) => (list.push(pool.storage), list)
-                    );
+        .then(history => history.map(
+            ({ timestamp, pool_list }) => {
+                const { HOSTS: nodes = [], CLOUD: cloud = [] } = groupBy(
+                    pool_list,
+                    pool => pool.resource_type,
+                    pool => pool.storage
+                );
 
-                    return {
-                        timestamp: timestamp,
-                        nodes: aggregateStorage(...nodes),
-                        cloud: aggregateStorage(...cloud)
-                    };
-                }
-            )
-        )
+                return {
+                    timestamp: timestamp,
+                    nodes: aggregateStorage(...nodes),
+                    cloud: aggregateStorage(...cloud)
+                };
+            }
+        ))
         .then(model.systemUsageHistory)
         .done();
 }

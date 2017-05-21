@@ -23,7 +23,7 @@ class AssignNodeModalViewModel extends BaseViewModel {
 
         let relevantPools = ko.pureComputed(
             () => systemInfo() && systemInfo().pools.filter(
-                pool => !pool.demo_pool && pool.nodes && pool.name !== poolName
+                pool => pool.resource_type === 'HOSTS' && pool.name !== poolName
             )
         );
 

@@ -692,7 +692,7 @@ function list_objects_s3(req) {
                 ));
                 results = _.concat(results, res);
                 // This is the case when there are no more objects that apply to the query
-                if (_.get(res, 'length', 0) === 0) {
+                if ((res && res.length || 0) === 0) {
                     // If there were no object/common prefixes to match then no next marker
                     done = true;
                 } else if (results.length >= limit) {

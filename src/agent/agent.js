@@ -33,6 +33,7 @@ const time_utils = require('../util/time_utils');
 const FuncNode = require('./func_services/func_node');
 const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
+const BlockStoreMongo = require('./block_store_services/block_store_mongo').BlockStoreMongo;
 const BlockStoreMem = require('./block_store_services/block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_services/block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
@@ -97,6 +98,7 @@ function CreateAgent(agent_params) {
                 assert(!this.token, 'unexpected param: token. ' +
                     'with storage_path the token is expected in the file <storage_path>/token');
                 if (params.s3_agent) {
+                    this.node_type = 'ENDPOINT_S3';
                     dbg.log0(`this is a S3 agent`);
                     // TODO: currently ports are hard coded and not used anywhere.
                     this.s3_info = {
@@ -108,6 +110,7 @@ function CreateAgent(agent_params) {
                     block_store_options.cloud_info = params.cloud_info;
                     block_store_options.cloud_path = params.cloud_path;
                     if (params.cloud_info.endpoint_type === 'AWS' || params.cloud_info.endpoint_type === 'S3_COMPATIBLE') {
+                        this.node_type = 'BLOCK_STORE_S3';
                         this.block_store = new BlockStoreS3(block_store_options);
                     } else if (params.cloud_info.endpoint_type === 'AZURE') {
                         let connection_string = cloud_utils.get_azure_connection_string({
@@ -119,15 +122,23 @@ function CreateAgent(agent_params) {
                             connection_string: connection_string,
                             container: params.cloud_info.target_bucket
                         };
+                        this.node_type = 'BLOCK_STORE_AZURE';
                         this.block_store = new BlockStoreAzure(block_store_options);
                     }
+                } else if (params.mongo_info) {
+                    this.mongo_info = params.mongo_info;
+                    block_store_options.mongo_path = params.mongo_path;
+                    this.node_type = 'BLOCK_STORE_MONGO';
+                    this.block_store = new BlockStoreMongo(block_store_options);
                 } else {
                     block_store_options.root_path = this.storage_path;
+                    this.node_type = 'BLOCK_STORE_FS';
                     this.block_store = new BlockStoreFs(block_store_options);
                 }
             } else {
                 assert(this.token, 'missing param: token. ' +
                     'without storage_path the token must be provided as agent param');
+                this.node_type = 'BLOCK_STORE_FS';
                 this.block_store = new BlockStoreMem(block_store_options);
             }
 
@@ -343,7 +354,10 @@ function CreateAgent(agent_params) {
                 version: pkg.version
             };
             if (this.cloud_info) {
-                hb_info.pool_name = this.cloud_info.cloud_pool_name;
+                hb_info.pool_name = this.cloud_info.pool_name;
+            }
+            if (this.mongo_info) {
+                hb_info.pool_name = this.mongo_info.pool_name;
             }
 
             dbg.log0(`_do_heartbeat called`);
@@ -392,9 +406,9 @@ function CreateAgent(agent_params) {
                     if (err.rpc_code === 'DUPLICATE') {
                         dbg.error('This agent appears to be duplicated.',
                             'exiting and starting new agent', err);
-                        if (this.cloud_info) {
-                            dbg.error(`shouldnt be here. found duplicated node for cloud pool!!`);
-                            throw new Error('found duplicated cloud node');
+                        if (this.cloud_info || this.mongo_info) {
+                            dbg.error(`shouldnt be here. found duplicated node for cloud pool or mongo pool!!`);
+                            throw new Error('found duplicated cloud or mongo node');
                         } else {
                             process.exit(68); // 68 is 'D' in ascii
                         }
@@ -676,9 +690,13 @@ function CreateAgent(agent_params) {
                 enabled: this.enabled,
                 geolocation: this.geolocation,
                 debug_level: dbg.get_module_level('core'),
+                node_type: this.node_type
             };
-            if (this.cloud_info && this.cloud_info.cloud_pool_name) {
-                reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
+            if (this.cloud_info && this.cloud_info.pool_name) {
+                reply.pool_name = this.cloud_info.pool_name;
+            }
+            if (this.mongo_info && this.mongo_info.pool_name) {
+                reply.pool_name = this.mongo_info.pool_name;
             }
 
             reply.s3_agent = Boolean(this.s3_info);

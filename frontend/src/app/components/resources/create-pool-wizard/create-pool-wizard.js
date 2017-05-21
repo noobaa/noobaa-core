@@ -32,9 +32,7 @@ class CreatePoolWizardViewModel extends BaseViewModel {
         );
 
         let nodeSources = ko.pureComputed(
-            () => pools().filter(
-                pool => pool.nodes && !pool.demo_pool
-            )
+            () => pools().filter(pool => pool.resource_type === 'HOSTS')
         );
 
         let poolNames = ko.pureComputed(

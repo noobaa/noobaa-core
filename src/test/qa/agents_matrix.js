@@ -51,11 +51,12 @@ var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceG
 function createAgents(isInclude) {
     console.log(`starting the create agents stage`);
     return P.resolve(client.node.list_nodes({
-        query: {
-            online: true,
-            skip_cloud_nodes: true
-        }
-    }))
+            query: {
+                online: true,
+                skip_cloud_nodes: true,
+                skip_mongo_nodes: true
+            }
+        }))
         .then(res => {
             initial_node_number = res.total_count;
             console.log(`Num nodes before the test is: ${initial_node_number}`);
@@ -75,7 +76,8 @@ function createAgents(isInclude) {
         .then(() => P.resolve(client.node.list_nodes({
             query: {
                 online: true,
-                skip_cloud_nodes: true
+                skip_cloud_nodes: true,
+                skip_mongo_nodes: true
             }
         })))
         .then(res => {
@@ -109,7 +111,8 @@ function runCreateAgents(isInclude) {
     return P.resolve(client.node.list_nodes({
         query: {
             online: true,
-            skip_cloud_nodes: true
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true
         }
     })).then(res => {
         node_number_after_create = res.total_count;
@@ -145,7 +148,7 @@ function verifyAgent() {
 
 function runExtensions(script_name, flags = '') {
     return P.map(oses, osname => azf.deleteVirtualMachineExtension(osname)
-        .catch(err => console.log(err.message)))
+            .catch(err => console.log(err.message)))
         .then(() => P.map(oses, osname => {
             console.log(`running extention: ${script_name} with the flags: ${flags}`);
             var extension = {
@@ -196,7 +199,8 @@ function deleteAgent() {
         .then(() => P.resolve(client.node.list_nodes({
             query: {
                 online: true,
-                skip_cloud_nodes: true
+                skip_cloud_nodes: true,
+                skip_mongo_nodes: true
             }
         })))
         .then(res => {
@@ -231,9 +235,9 @@ function addDisksToMachine(diskSize) {
 
 function getAgentConf(exclude_drives) {
     return client.system.get_node_installation_string({
-        pool: "first.pool",
-        exclude_drives
-    })
+            pool: "first.pool",
+            exclude_drives
+        })
         .then(installationString => {
             agentConf = installationString.LINUX;
             const index = agentConf.indexOf('config');
@@ -244,11 +248,12 @@ function getAgentConf(exclude_drives) {
 function checkIncludeDisk() {
     let number_befor_adding_disks;
     return P.resolve(client.node.list_nodes({
-        query: {
-            online: true,
-            skip_cloud_nodes: true
-        }
-    }))
+            query: {
+                online: true,
+                skip_cloud_nodes: true,
+                skip_mongo_nodes: true
+            }
+        }))
         .then(res => {
             number_befor_adding_disks = res.total_count;
             console.log(`Num nodes before adding disks is: ${number_befor_adding_disks}`);
@@ -264,11 +269,12 @@ function checkExcludeDisk() {
     console.log('COMING SOON...');
     let number_befor_adding_disks;
     return P.resolve(client.node.list_nodes({
-        query: {
-            online: true,
-            skip_cloud_nodes: true
-        }
-    }))
+            query: {
+                online: true,
+                skip_cloud_nodes: true,
+                skip_mongo_nodes: true
+            }
+        }))
         .then(res => {
             number_befor_adding_disks = res.total_count;
             console.log(`Num nodes before adding disks is: ${number_befor_adding_disks}`);
@@ -291,11 +297,12 @@ function checkExcludeDisk() {
 //check how many agents there are now, expecting agent to be included.
 function isIncluded(previous_agent_number) {
     return P.resolve(client.node.list_nodes({
-        query: {
-            online: true,
-            skip_cloud_nodes: true
-        }
-    }))
+            query: {
+                online: true,
+                skip_cloud_nodes: true,
+                skip_mongo_nodes: true
+            }
+        }))
         .then(res => {
             nodes = [];
             _.each(res.nodes, node => {
@@ -319,11 +326,12 @@ function isIncluded(previous_agent_number) {
 //check how many agents there are now, expecting agent not to be included.
 function isExcluded(previous_agent_number) {
     return P.resolve(client.node.list_nodes({
-        query: {
-            online: true,
-            skip_cloud_nodes: true
-        }
-    }))
+            query: {
+                online: true,
+                skip_cloud_nodes: true,
+                skip_mongo_nodes: true
+            }
+        }))
         .then(res => {
             nodes = [];
             _.each(res.nodes, node => {
@@ -381,7 +389,7 @@ function main() {
             if (!argv.skipsetup) {
                 return P.map(oses, osname =>
                     azf.deleteVirtualMachine(osname)
-                        .catch(err => console.log('VM not found - skipping...', err))
+                    .catch(err => console.log('VM not found - skipping...', err))
                 );
             }
         })

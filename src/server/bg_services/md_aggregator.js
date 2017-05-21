@@ -9,7 +9,6 @@ const config = require('../../../config');
 const dbg = require('../../util/debug_module')(__filename);
 const MDStore = require('../object_services/md_store').MDStore;
 const size_utils = require('../../util/size_utils');
-const BigInteger = size_utils.BigInteger;
 const system_store = require('../system_services/system_store').get_instance();
 
 const SECONDS_IN_DAY = 86400;
@@ -110,30 +109,67 @@ function group_md_aggregator(from_time, till_time, group_to_aggregate, current_t
                 deleted_objects_aggregate,
                 existing_blocks_aggregate,
                 deleted_blocks_aggregate) {
+                const pool_updates = _.map(system_store.data.pools, pool => {
+                    const new_storage_stats = {
+                        blocks_size: (pool.storage_stats && pool.storage_stats.blocks_size) || 0,
+                        last_update: till_time,
+                    };
+                    dbg.log3('Pool storage stats before deltas:', new_storage_stats);
+                    const bigint_ex_blocks_agg = size_utils.json_to_bigint((existing_blocks_aggregate.pools[pool._id] &&
+                        existing_blocks_aggregate.pools[pool._id].size) || 0);
+                    const bigint_de_blocks_agg = size_utils.json_to_bigint((deleted_blocks_aggregate.pools[pool._id] &&
+                        deleted_blocks_aggregate.pools[pool._id].size) || 0);
+
+                    const delta_block_size = bigint_ex_blocks_agg.minus(bigint_de_blocks_agg);
+
+                    // If we won't always update the checkpoint, on no changes
+                    // We will reduce all of the chunks from last checkpoint (which can be a lot)
+                    new_storage_stats.blocks_size = (size_utils.json_to_bigint(new_storage_stats.blocks_size)
+                            .plus(delta_block_size))
+                        .toJSON();
+
+                    dbg.log3('Bucket storage stats after deltas:', new_storage_stats);
+                    return {
+                        _id: pool._id,
+                        storage_stats: new_storage_stats,
+                    };
+                });
+
                 const bucket_updates = _.map(group_to_aggregate, bucket => {
                     const new_storage_stats = {
                         chunks_capacity: (bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0,
                         objects_size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
                         objects_count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0,
                         blocks_size: (bucket.storage_stats && bucket.storage_stats.blocks_size) || 0,
+                        pools: (bucket.storage_stats && bucket.storage_stats.pools) || {},
                         last_update: till_time,
                     };
                     dbg.log3('Bucket storage stats before deltas:', new_storage_stats);
-                    const bigint_ex_chunks_agg = new BigInteger((existing_chunks_aggregate[bucket._id] &&
+                    const bigint_ex_chunks_agg = size_utils.json_to_bigint((existing_chunks_aggregate[bucket._id] &&
                         existing_chunks_aggregate[bucket._id].compress_size) || 0);
-                    const bigint_de_chunks_agg = new BigInteger((deleted_chunks_aggregate[bucket._id] &&
+                    const bigint_de_chunks_agg = size_utils.json_to_bigint((deleted_chunks_aggregate[bucket._id] &&
                         deleted_chunks_aggregate[bucket._id].compress_size) || 0);
-                    const bigint_ex_blocks_agg = new BigInteger((existing_blocks_aggregate[bucket._id] &&
-                        existing_blocks_aggregate[bucket._id].size) || 0);
-                    const bigint_de_blocks_agg = new BigInteger((deleted_blocks_aggregate[bucket._id] &&
-                        deleted_blocks_aggregate[bucket._id].size) || 0);
-                    const bigint_ex_obj_agg = new BigInteger((existing_objects_aggregate[bucket._id] &&
+                    const bigint_ex_blocks_agg = size_utils.json_to_bigint((existing_blocks_aggregate.buckets[bucket._id] &&
+                        existing_blocks_aggregate.buckets[bucket._id].size) || 0);
+                    const bigint_de_blocks_agg = size_utils.json_to_bigint((deleted_blocks_aggregate.buckets[bucket._id] &&
+                        deleted_blocks_aggregate.buckets[bucket._id].size) || 0);
+                    const ex_pools = (existing_blocks_aggregate.buckets[bucket._id] &&
+                        existing_blocks_aggregate.buckets[bucket._id].pools) || {};
+                    const de_pools = (deleted_blocks_aggregate.buckets[bucket._id] &&
+                        deleted_blocks_aggregate.buckets[bucket._id].pools) || {};
+                    const bigint_ex_obj_agg = size_utils.json_to_bigint((existing_objects_aggregate[bucket._id] &&
                         existing_objects_aggregate[bucket._id].size) || 0);
-                    const bigint_de_obj_agg = new BigInteger((deleted_objects_aggregate[bucket._id] &&
+                    const bigint_de_obj_agg = size_utils.json_to_bigint((deleted_objects_aggregate[bucket._id] &&
                         deleted_objects_aggregate[bucket._id].size) || 0);
 
                     const delta_chunk_compress_size = bigint_ex_chunks_agg.minus(bigint_de_chunks_agg);
                     const delta_block_size = bigint_ex_blocks_agg.minus(bigint_de_blocks_agg);
+
+                    const delta_buckets_pool_size = _.mergeWith(ex_pools, de_pools, (ex_value, de_value) => ({
+                        size: size_utils.json_to_bigint((ex_value && ex_value.size) || 0)
+                            .minus(size_utils.json_to_bigint((de_value && de_value.size) || 0))
+                    }));
+
                     const delta_object_size = bigint_ex_obj_agg.minus(bigint_de_obj_agg);
                     const delta_object_count = ((existing_objects_aggregate[bucket._id] &&
                             existing_objects_aggregate[bucket._id].count) || 0) -
@@ -141,14 +177,20 @@ function group_md_aggregator(from_time, till_time, group_to_aggregate, current_t
                             deleted_objects_aggregate[bucket._id].count) || 0);
                     // If we won't always update the checkpoint, on no changes
                     // We will reduce all of the chunks from last checkpoint (which can be a lot)
-                    new_storage_stats.chunks_capacity = (new BigInteger(new_storage_stats.chunks_capacity)
-                            .plus(delta_chunk_compress_size))
+                    new_storage_stats.chunks_capacity = size_utils.json_to_bigint(new_storage_stats.chunks_capacity)
+                        .plus(delta_chunk_compress_size)
                         .toJSON();
-                    new_storage_stats.blocks_size = (new BigInteger(new_storage_stats.blocks_size)
-                            .plus(delta_block_size))
+                    new_storage_stats.blocks_size = size_utils.json_to_bigint(new_storage_stats.blocks_size)
+                        .plus(delta_block_size)
                         .toJSON();
-                    new_storage_stats.objects_size = (new BigInteger(new_storage_stats.objects_size)
-                            .plus(delta_object_size))
+                    new_storage_stats.pools = _.mergeWith(new_storage_stats.pools, delta_buckets_pool_size, (ex_value, de_value) => ({
+                        blocks_size: size_utils.json_to_bigint((ex_value && ex_value.blocks_size) || 0)
+                            .plus((de_value && de_value.size) || 0)
+                            .toJSON()
+                    }));
+                    new_storage_stats.pools = _.pickBy(new_storage_stats.pools, pool => ((pool && pool.blocks_size) || 0));
+                    new_storage_stats.objects_size = size_utils.json_to_bigint(new_storage_stats.objects_size)
+                        .plus(delta_object_size)
                         .toJSON();
                     new_storage_stats.objects_count += delta_object_count;
                     new_storage_stats.objects_hist = build_objects_hist(bucket, existing_objects_aggregate, deleted_objects_aggregate);
@@ -162,7 +204,8 @@ function group_md_aggregator(from_time, till_time, group_to_aggregate, current_t
 
                 return system_store.make_changes({
                         update: {
-                            buckets: bucket_updates
+                            buckets: bucket_updates,
+                            pools: pool_updates
                         }
                     })
                     .delay(1000)
@@ -170,6 +213,7 @@ function group_md_aggregator(from_time, till_time, group_to_aggregate, current_t
             });
         });
 }
+
 
 function check_time_conditions(from_date, till_date, group_to_aggregate, current_time) {
     if (from_date > till_date) {
@@ -270,11 +314,12 @@ function get_new_bin(existing, deleted, current) {
     if (!existing && !deleted) {
         return current;
     }
-    let bigint_existing_size_bin = new size_utils.BigInteger(existing);
-    let bigint_deleted_size_bin = new size_utils.BigInteger(deleted);
+    let bigint_existing_size_bin = size_utils.json_to_bigint(existing);
+    let bigint_deleted_size_bin = size_utils.json_to_bigint(deleted);
     let delta_size_bin = bigint_existing_size_bin
         .minus(bigint_deleted_size_bin);
-    let new_bin = (new size_utils.BigInteger(current).plus(delta_size_bin))
+    let new_bin = size_utils.json_to_bigint(current)
+        .plus(delta_size_bin)
         .toJSON();
     return new_bin;
 }

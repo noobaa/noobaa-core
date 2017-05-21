@@ -41,7 +41,8 @@ function finalize_object_parts(bucket, obj, parts) {
                         system: obj.system,
                         bucket: bucket._id,
                         chunk: chunk_id,
-                        node: mongo_utils.make_object_id(block.block_md.node)
+                        node: mongo_utils.make_object_id(block.block_md.node),
+                        pool: mongo_utils.make_object_id(block.block_md.pool)
                     }, _.pick(f,
                         'size',
                         'layer',

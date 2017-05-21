@@ -103,6 +103,7 @@ function get_test_nodes(req) {
         deleted: false,
         skip_address: req.rpc_params.source,
         skip_cloud_nodes: true,
+        skip_mongo_nodes: true,
         skip_internal: true
     }, {
         pagination: true,

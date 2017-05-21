@@ -16,7 +16,6 @@
  */
 
 module.exports = {
-    map_size: map_size,
     map_aggregate_objects: map_aggregate_objects,
     map_aggregate_chunks: map_aggregate_chunks,
     map_aggregate_blocks: map_aggregate_blocks,
@@ -64,13 +63,6 @@ function reduce_common_prefixes_occurrence_and_objects(key, values) {
 /**
  * @this mongodb doc being mapped
  */
-function map_size() {
-    emit('size', this.size);
-}
-
-/**
- * @this mongodb doc being mapped
- */
 function map_aggregate_objects() {
     emit(['', 'size'], this.size);
     emit(['', 'count'], 1);
@@ -98,8 +90,10 @@ function map_aggregate_chunks() {
  * @this mongodb doc being mapped
  */
 function map_aggregate_blocks() {
-    emit(['', 'size'], this.size);
-    emit([this.bucket, 'size'], this.size);
+    emit(['total', ''], this.size);
+    emit(['bucket', this.bucket], this.size);
+    emit(['bucket_and_pool', this.bucket, this.pool], this.size);
+    emit(['pool', this.pool], this.size);
 }
 
 /**

@@ -169,8 +169,18 @@ const resourceStateIconMapping = deepFreeze({
 });
 
 export function getPoolStateIcon(pool) {
-    const state = pool.nodes ? poolStateIconMapping[pool.mode] : resourceStateIconMapping[pool.mode];
-    return isFunction(state) ? state(pool) : state;
+    const { resource_type, mode } = pool;
+    const mapping = {
+        HOSTS: poolStateIconMapping,
+        CLOUD: resourceStateIconMapping
+    }[resource_type];
+    
+    if (!mapping) {
+        throw new Error(`Pool state type icon is not supported for resource of type ${resource_type}`);
+    }
+
+    const state = mapping[mode];
+    return isFunction(state) ? state(pool) : state; 
 }
 
 const resourceTypeIconMapping = deepFreeze({
@@ -195,10 +205,17 @@ const resourceTypeIconMapping = deepFreeze({
     }
 });
 
-export function getResourceTypeIcon(resource) {
-    return resourceTypeIconMapping[
-        resource.nodes ? 'NODES_POOL' : resource.cloud_info.endpoint_type
-    ];
+export function getResourceTypeIcon({ resource_type, cloud_info }) {
+    const type = {
+        HOSTS: () => 'NODES_POOL',
+        CLOUD: () => cloud_info.endpoint_type
+    }[resource_type];
+
+    if (!type) {
+        throw new Error(`Resource type icon is not supported for resource of type ${resource_type}`);
+    }
+
+    return resourceTypeIconMapping[type()];
 }
 
 export function getSystemStorageIcon(storage) {
@@ -271,14 +288,22 @@ export function getNodeCapacityBarValues(node) {
     return { total, used: usage };
 }
 
-export function getPoolCapacityBarValues(pool) {
-    const { storage = {} } = pool;
+export function getPoolCapacityBarValues(resource) {
+    const { storage = {} } = resource;
     const { total, used, used_other, reserved } = storage;
-    const usage = pool.cloud_info ? used : [
-        { value: used, label: 'Used (Noobaa)' },
-        { value: used_other, label: 'Used (other)' },
-        { value: reserved, label: 'Reserved' }
-    ];
+
+    const usage = {
+        HOSTS: [ 
+            { value: used, label: 'Used (Noobaa)' },
+            { value: used_other, label: 'Used (other)' },
+            { value: reserved, label: 'Reserved' }
+        ],
+        CLOUD: used
+    }[resource.resource_type];
+
+    if (!usage) {
+        throw new Error(`Capacity bar values are not supported for resource of type ${resource.resource_type}`);
+    }
 
     return { total, used: usage };
 }

@@ -78,10 +78,13 @@ module.exports = {
                     os_info: {
                         $ref: 'common_api#/definitions/os_info'
                     },
+                    node_type: {
+                        $ref: 'node_api#/definitions/node_type'
+                    },
                     debug_level: {
                         type: 'integer',
                     },
-                    cloud_pool_name: {
+                    pool_name: {
                         type: 'string'
                     },
                     create_node_token: {

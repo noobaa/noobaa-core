@@ -595,9 +595,10 @@ function _create_bucket(params) {
             client.tiering_policy.create_policy({
                 name: params.tiering_policy,
                 tiers: [{
-                    is_spillover: false,
                     order: 0,
-                    tier: params.tier
+                    tier: params.tier,
+                    spillover: false,
+                    disabled: false
                 }]
             }))
         .then(() => client.bucket.create_bucket({

@@ -73,6 +73,12 @@ module.exports = {
                                 enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                             }
                         },
+                    },
+
+                    mongo_info: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
                     }
                 }
             },
@@ -82,7 +88,7 @@ module.exports = {
 
         },
 
-        create_cloud_agent: {
+        create_pool_agent: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -115,7 +121,7 @@ module.exports = {
         },
 
 
-        remove_cloud_agent: {
+        remove_pool_agent: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -123,7 +129,7 @@ module.exports = {
                     node_name: {
                         type: 'string',
                     },
-                    cloud_pool_name: {
+                    pool_name: {
                         type: 'string'
                     }
                 }

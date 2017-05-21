@@ -53,7 +53,7 @@ module.exports = {
 
         // maximum number of code paths in a function
         // TODO eslint complexity should be reduced to ~10 instead of 30
-        'complexity': ['error', 30],
+        'complexity': ['error', 35],
 
         // consistent return does not allow to write promises code very easily
         // because in many cases there are conditions to running a promise,
@@ -126,7 +126,7 @@ module.exports = {
 
         // prefer small number of params to functions, otherwise send object
         // TODO eslint max-params per function should be reduced to ~4 instead of 6
-        'max-params': ['error', 6],
+        'max-params': ['error', 7],
 
         // max statements in function
         // TODO eslint max-statements per function should be reduced to ~20 instead of 60

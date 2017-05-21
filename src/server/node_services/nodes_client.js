@@ -17,6 +17,8 @@ const NODE_FIELDS_FOR_MAP = [
     'heartbeat',
     'rpc_address',
     'is_cloud_node',
+    'node_type',
+    'is_mongo_node',
     'online',
     'readable',
     'writable',
@@ -55,11 +57,12 @@ class NodesClient {
             .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
-    aggregate_nodes_by_pool(pool_names, system_id, skip_cloud_nodes) {
+    aggregate_nodes_by_pool(pool_names, system_id, skip_cloud_nodes, skip_mongo_nodes) {
         const nodes_aggregate_pool = server_rpc.client.node.aggregate_nodes({
             query: {
                 pools: pool_names || undefined,
-                skip_cloud_nodes: skip_cloud_nodes
+                skip_cloud_nodes: skip_cloud_nodes,
+                skip_mongo_nodes: skip_mongo_nodes
             },
             group_by: 'pool'
         }, {

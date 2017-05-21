@@ -1175,7 +1175,9 @@ module.exports = {
                         in_cloud_pool: {
                             type: 'boolean'
                         },
-
+                        in_mongo_pool: {
+                            type: 'boolean'
+                        }
                     }
                 }
             }

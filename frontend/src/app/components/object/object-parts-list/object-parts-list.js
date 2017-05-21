@@ -6,10 +6,12 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
-import { keyByProperty } from 'utils/core-utils';
+import { deepFreeze, keyByProperty } from 'utils/core-utils';
 import { openObjectPreviewModal } from 'dispatchers';
 import { systemInfo, sessionInfo } from 'model';
 import { getResourceTypeIcon } from 'utils/ui-utils';
+
+const allowedResoruceTypes = deepFreeze([ 'HOSTS', 'CLOUD' ]);
 
 class ObjectPartsListViewModel extends BaseViewModel {
     constructor({ obj, parts }) {
@@ -24,7 +26,16 @@ class ObjectPartsListViewModel extends BaseViewModel {
         });
 
         const poolIconMapping = ko.pureComputed(
-            () => systemInfo() ? keyByProperty(systemInfo().pools, 'name', getResourceTypeIcon) : {}
+            () => {
+                if (!systemInfo()) {
+                    return {};
+                } 
+                
+                const pools = systemInfo().pools
+                    .filter(pool => allowedResoruceTypes.includes(pool.resource_type));
+                
+                return keyByProperty(pools, 'name', getResourceTypeIcon);
+            }
         );
 
         this.notOwner = ko.pureComputed(

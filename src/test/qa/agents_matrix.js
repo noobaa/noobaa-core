@@ -34,7 +34,7 @@ var client = rpc.new_client({});
 
 
 var oses = [
-    'ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2008R2', 'win2012R2', 'win2016'
+    'ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2008', 'win2012', 'win2016'
 ];
 
 let nodes = [];

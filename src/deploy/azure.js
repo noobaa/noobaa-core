@@ -32,7 +32,7 @@ var timestamp = (Math.floor(Date.now() / 1000));
 
 var vnetName = argv.vnet || 'newcapacity-vnet';
 var serverName;
-var agentConf;
+var agentConf = argv.agent_conf;
 
 var machineCount = 4;
 
@@ -57,14 +57,14 @@ function args_builder(count, os) {
         var vmName;
         if (net.isIP(serverName)) {
             var octets = serverName.split(".");
-            vmName = octets[2] + '-' + octets[3];
+            vmName = 'a' + octets[2] + '-' + octets[3];
         } else {
-            vmName = serverName.substring(0, 7);
+            vmName = 'a' + serverName.substring(0, 7);
         }
         var shasum = crypto.createHash('sha1');
         shasum.update(timestamp.toString() + i);
         var dateSha = shasum.digest('hex');
-        var postfix = dateSha.substring(dateSha.length - 7);
+        var postfix = dateSha.substring(dateSha.length - 6);
         if (os.osType === 'Windows') {
             vmName += 'W' + postfix;
             console.log('the Windows machine name is: ', vmName);
@@ -83,15 +83,6 @@ function vmOperations(operationCallback) {
     //named createVM() that encapsulates the steps to create a VM. Other tasks are   //
     //fairly simple in comparison. Hence we don't have a wrapper method for them.    //
     ///////////////////////////////////////////////////////////////////////////////////
-    if (_.isUndefined(argv.agent_conf)) {
-
-        console.error('\n\n******************************************');
-        console.error('Please provide --agent_conf (base64, copy from UI)');
-        console.error('******************************************\n\n');
-        throw new Error('MISSING --agent_conf');
-    } else {
-        agentConf = argv.agent_conf;
-    }
     if (_.isUndefined(argv.app)) {
 
         console.error('\n\n******************************************');
@@ -102,21 +93,21 @@ function vmOperations(operationCallback) {
     } else {
         serverName = argv.app;
     }
-    if (_.isUndefined(argv.scale) && _.isUndefined(argv.addallimages)) {
+    if (_.isUndefined(argv.scale) && _.isUndefined(argv.addallimages) && _.isUndefined(argv.servers)) {
 
         console.error('\n\n******************************************');
-        console.error('Please provide --scale (choose the number of agents you want to add) or --addallimages');
+        console.error('Please provide --scale (choose the number of agents you want to add) or --addallimages of --servers');
         console.error('******************************************\n\n');
-        throw new Error('MISSING --scale/--addallimages');
+        throw new Error('MISSING --scale/--addallimages/--servers');
     } else {
         machineCount = argv.scale;
     }
     var prefix;
     if (net.isIP(serverName)) {
         var octets = serverName.split(".");
-        prefix = octets[2] + '-' + octets[3];
+        prefix = 'a' + octets[2] + '-' + octets[3];
     } else {
-        prefix = serverName.substring(0, 7);
+        prefix = 'a' + serverName.substring(0, 7);
     }
     azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
     return azf.authenticate()
@@ -128,10 +119,41 @@ function vmOperations(operationCallback) {
                 console.log('adding all prossible machine types');
                 return P.map(oses, osname => {
                     var os2 = azf.getImagesfromOSname(osname);
-                    return azf.createAgent(prefix + osname.substring(0, 8), storageAccountName, vnetName,
+                    return azf.createAgent(prefix + osname.substring(0, 7), storageAccountName, vnetName,
                             os2, serverName, agentConf)
                         .catch(err => console.log('got error with agent', err));
                 });
+            }
+            if (argv.servers) {
+                var servers = [];
+                for (let i = 0; i < argv.servers; ++i) {
+                    servers.push({
+                        name: argv.app + i,
+                        secret: '',
+                        ip: ''
+                    });
+                }
+                return P.map(servers, server => azf.createServer(server.name, vnetName, storageAccountName)
+                        .then(new_secret => {
+                            server.secret = new_secret;
+                            return azf.getIpAddress(server.name + '_pip');
+                        })
+                        .then(ip => {
+                            server.ip = ip;
+                            return ip;
+                        })
+                    )
+                    .then(() => {
+                        if (argv.servers > 1) {
+                            var slaves = Array.from(servers);
+                            var master = slaves.pop();
+                            return P.each(slaves, slave => azf.addServerToCluster(master.ip, slave.ip, slave.secret));
+                        }
+                    })
+                    .then(() => {
+                        var server = servers[servers.length - 1];
+                        console.log('Cluster/Server:', server.name, 'was successfuly created, ip is:', server.ip);
+                    });
             }
             if (old_machines.length < machineCount) {
                 var os = azf.getImagesfromOSname(argv.os);
@@ -144,7 +166,7 @@ function vmOperations(operationCallback) {
             var todelete = old_machines.length - machineCount;
             if (todelete > 0) {
                 var machines_to_del = [];
-                for (let i = 0; i < todelete; i++) {
+                for (let i = 0; i < todelete; ++i) {
                     console.log(old_machines[i]);
                     machines_to_del.push(old_machines[i]);
                 }
@@ -179,6 +201,6 @@ Usage:
   --storage <storage-account> the azure storage account to use (default is capacitystorage)
   --vnet <vnet>               the azure virtual network to use (default is capacity-vnet)
   --os <name>                 the desired os for the agent (default is linux - ubuntu14)
-                              ubuntu16/ubuntu14/centos6/win2012R2/win2008R2/win2016
+                              ubuntu16/ubuntu14/centos6/win2012/win2008/win2016
 `);
 }

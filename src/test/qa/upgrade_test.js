@@ -105,7 +105,7 @@ var args = [
     '--skipsetup'
 ];
 
-var oses = ['ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7'];
+var oses = ['ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2012', 'win2016'];
 var errors = false;
 var file_path;
 var azf = new AzureFunctions(clientId, domain, secret, subscription, resourceGroup, location); // just for using one method

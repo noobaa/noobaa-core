@@ -3,7 +3,6 @@
 
 var P = require('../../util/promise');
 var AzureFunctions = require('../../deploy/azureFunctions');
-var net = require('net');
 
 // Environment Setup
 require('../../util/dotenv').load();
@@ -17,17 +16,17 @@ var argv = require('minimist')(process.argv);
 var location = argv.location || 'westus2';
 var resourceGroupName = argv.resource;
 var storageAccountName = argv.storage;
-var serverName = argv.app;
-var agentConf = argv.agent_conf;
+var prefix = argv.prefix;
+//var agentConf = argv.agent_conf;
 var size = argv.size;
 
-var prefix;
-if (net.isIP(serverName)) {
-    var octets = serverName.split(".");
-    prefix = octets[2] + '-' + octets[3];
-} else {
-    prefix = serverName.substring(0, 7);
-}
+// var prefix;
+// if (net.isIP(serverName)) {
+//     var octets = serverName.split(".");
+//     prefix = octets[2] + '-' + octets[3];
+// } else {
+//     prefix = serverName.substring(0, 7);
+// }
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
 return azf.authenticate()
     .then(() => azf.listVirtualMachines(prefix, 'VM running'))
@@ -48,7 +47,7 @@ return azf.authenticate()
                         autoUpgradeMinorVersion: true,
                         settings: {
                             fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.sh'],
-                            commandToExecute: 'bash -x ddisk.sh ' + serverName + ' ' + agentConf
+                            commandToExecute: 'bash -x ddisk.sh '
                         },
                         protectedSettings: {
                             storageAccountName: 'pluginsstorage',
@@ -64,7 +63,7 @@ return azf.authenticate()
                         extension.typeHandlerVersion = '1.7';
                         extension.settings = {
                             fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.ps1"],
-                            commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ddisk.ps1 ' + serverName + ' ' + agentConf
+                            commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ddisk.ps1 '
                         };
                         console.log('running new extension to mount disk to file system for Windows');
                     }

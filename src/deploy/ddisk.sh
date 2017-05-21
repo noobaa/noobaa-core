@@ -12,4 +12,3 @@ for line in $filelines ; do
     echo "$uuid $mountpath ext4   defaults,nofail   1   2" >> /etc/fstab
     mount $mountpath
 done
-service noobaalocalservice restart

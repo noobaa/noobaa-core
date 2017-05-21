@@ -143,12 +143,8 @@ export default class BucketRowViewModel extends BaseViewModel {
 
                 const poolsByName = keyByProperty(systemInfo().pools, 'name');
                 return tier().attached_pools
-                    .map(
-                        poolName => poolsByName[poolName]
-                    )
-                    .filter(
-                        pool => Boolean(pool.cloud_info)
-                    )
+                    .map(poolName => poolsByName[poolName])
+                    .filter(pool => pool.resource_type === 'CLOUD')
                     .reduce(
                         (mapping, pool) => {
                             mapping[pool.cloud_info.endpoint_type].push(pool.name);
@@ -184,7 +180,7 @@ export default class BucketRowViewModel extends BaseViewModel {
         };
 
         const storage = ko.pureComputed(
-            () => bucket() ? bucket().storage : {}
+            () => bucket() ? bucket().storage.values : {}
         );
 
         this.capacity = {

@@ -69,21 +69,14 @@ function _init() {
     function wait_for_system_store() {
         var update_done = false;
         P.fcall(function() {
-                if (system_store.is_finished_initial_load) {
-                    update_done = true;
-                    // The purpose of this code is to initialize the debug level
-                    // on server's startup, to synchronize the db with the actual value
-                    let current_clustering = system_store.get_local_cluster_info();
-                    if (current_clustering) {
-                        var update_object = {};
-                        update_object.clusters = [{
-                            _id: current_clustering._id,
-                            debug_level: 0
-                        }];
-                        return system_store.make_changes({
-                            update: update_object
+                if (system_store.is_finished_initial_load && system_store.data.systems.length) {
+                    return P.join(
+                            P.map(system_store.data.systems, system => _ensure_spillover_structure(system)),
+                            _initialize_debug_level()
+                        )
+                        .then(() => {
+                            update_done = true;
                         });
-                    }
                 }
             })
             .catch(err => {
@@ -99,6 +92,24 @@ function _init() {
     promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
 }
 
+function _initialize_debug_level(system) {
+    return P.resolve()
+        .then(() => {
+            // The purpose of this code is to initialize the debug level
+            // on server's startup, to synchronize the db with the actual value
+            let current_clustering = system_store.get_local_cluster_info();
+            if (current_clustering) {
+                var update_object = {};
+                update_object.clusters = [{
+                    _id: current_clustering._id,
+                    debug_level: 0
+                }];
+                return system_store.make_changes({
+                    update: update_object
+                });
+            }
+        });
+}
 
 function new_system_defaults(name, owner_account_id) {
     var system = {
@@ -155,14 +166,15 @@ function new_system_changes(name, owner_account) {
         const default_bucket_name = 'first.bucket';
         const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
         var system = new_system_defaults(name, owner_account._id);
-        var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
+        var pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
         var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [{
             spread_pools: [pool._id]
         }]);
         var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
             tier: tier._id,
             order: 0,
-            is_spillover: false
+            spillover: false,
+            disabled: false
         }]);
         var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
 
@@ -208,6 +220,7 @@ function create_system(req) {
     let default_pool;
     let reply_token;
     let owner_secret = system_store.get_server_secret();
+    let system_changes;
     //Create system
     return P.fcall(function() {
             var params = {
@@ -248,6 +261,7 @@ function create_system(req) {
                     return changes;
                 })
                 .then(changes => {
+                    system_changes = changes;
                     return system_store.make_changes(changes);
                 })
                 .then(() => {
@@ -261,7 +275,7 @@ function create_system(req) {
                             account_id: account._id.toString(),
                             allowed_buckets: allowed_buckets,
                             default_pool: default_pool,
-                            new_system_id: system_store.data.systems[0]._id.toString(),
+                            new_system_id: system_changes.insert.systems[0]._id.toString()
                         },
                     });
                 })
@@ -313,6 +327,7 @@ function create_system(req) {
                         auth_token: reply_token
                     });
                 })
+                .then(() => _create_system_internal_storage(system_changes, reply_token))
                 .then(() => _init_system())
                 .then(() => ({
                     token: reply_token
@@ -333,10 +348,16 @@ function read_system(req) {
     const system = req.system;
     return P.props({
         // nodes - count, online count, allocated/used storage aggregate by pool
-        nodes_aggregate_pool_no_cloud: nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
+        nodes_aggregate_pool_no_cloud_and_mongo: nodes_client.instance()
+            .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true, /*skip_mongo_nodes=*/ true),
 
         // TODO: find a better solution than aggregating nodes twice
-        nodes_aggregate_pool_with_cloud: nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false),
+        nodes_aggregate_pool_with_cloud_and_mongo: nodes_client.instance()
+            .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false, /*skip_mongo_nodes=*/ false),
+
+        // nodes - count, online count, allocated/used storage aggregate by pool
+        nodes_aggregate_pool_with_cloud_no_mongo: nodes_client.instance()
+            .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false, /*skip_mongo_nodes=*/ true),
 
         obj_count_per_bucket: MDStore.instance().count_objects_per_bucket(system._id),
 
@@ -363,8 +384,9 @@ function read_system(req) {
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket =>
             node_allocator.refresh_tiering_alloc(bucket.tiering)))
     }).then(({
-        nodes_aggregate_pool_no_cloud,
-        nodes_aggregate_pool_with_cloud,
+        nodes_aggregate_pool_no_cloud_and_mongo,
+        nodes_aggregate_pool_with_cloud_and_mongo,
+        nodes_aggregate_pool_with_cloud_no_mongo,
         obj_count_per_bucket,
         cloud_sync_by_bucket,
         accounts,
@@ -431,23 +453,23 @@ function read_system(req) {
             buckets: _.map(system.buckets_by_name,
                 bucket => bucket_server.get_bucket_info(
                     bucket,
-                    nodes_aggregate_pool_with_cloud,
+                    nodes_aggregate_pool_with_cloud_and_mongo,
                     aggregate_data_free_by_tier,
                     obj_count_per_bucket[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
-            pools: _.filter(system.pools_by_name, pool => !_.get(pool, 'cloud_pool_info.pending_delete'))
-                .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
+            pools: _.filter(system.pools_by_name, pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
+                .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo)),
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier,
-                    nodes_aggregate_pool_with_cloud,
+                    nodes_aggregate_pool_with_cloud_and_mongo,
                     aggregate_data_free_by_tier[String(tier._id)])),
             storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
-            }, nodes_aggregate_pool_with_cloud.storage, SYS_STORAGE_DEFAULTS)),
+            }, nodes_aggregate_pool_with_cloud_no_mongo.storage, SYS_STORAGE_DEFAULTS)),
             nodes_storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
-            }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),
-            nodes: _.defaults({}, nodes_aggregate_pool_no_cloud.nodes, SYS_NODES_INFO_DEFAULTS),
+            }, nodes_aggregate_pool_no_cloud_and_mongo.storage, SYS_STORAGE_DEFAULTS)),
+            nodes: _.defaults({}, nodes_aggregate_pool_no_cloud_and_mongo.nodes, SYS_NODES_INFO_DEFAULTS),
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report || 0,
             maintenance_mode: maintenance_mode,
@@ -1126,6 +1148,95 @@ function _init_system() {
         .then(() => stats_collector.collect_system_stats());
 }
 
+function create_internal_tier(system_id, mongo_pool_id) {
+    if (tier_server.get_internal_storage_tier(system_id)) return;
+    return tier_server.new_tier_defaults(`${config.SPILLOVER_TIER_NAME}-${system_id}`, system_id, [{
+        spread_pools: [mongo_pool_id]
+    }]);
+}
+
+function _ensure_spillover_structure(system) {
+    const support_account = _.find(system_store.data.accounts, account => account.is_support);
+    if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
+    return P.fcall(function() {
+            if (!pool_server.get_internal_mongo_pool(system._id)) {
+                return server_rpc.client.pool.create_mongo_pool({
+                    name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`
+                }, {
+                    auth_token: auth_server.make_auth_token({
+                        system_id: system._id,
+                        role: 'admin',
+                        account_id: support_account._id
+                    })
+                });
+            }
+        })
+        .then(() => {
+            if (!tier_server.get_internal_storage_tier(system._id)) {
+                const mongo_pool = pool_server.get_internal_mongo_pool(system._id);
+                if (!mongo_pool) throw new Error('MONGO POOL CREATION FAILURE');
+                const internal_tier = create_internal_tier(system._id, mongo_pool._id);
+
+                return {
+                    insert: {
+                        tiers: [internal_tier]
+                    }
+                };
+            }
+        })
+        .then(changes => {
+            if (changes) {
+                return system_store.make_changes(changes);
+            }
+        });
+}
+
+function _create_system_internal_storage(system_changes, auth_token) {
+    const default_tiering_policy = system_changes.insert.tieringpolicies[0];
+    const default_system = system_changes.insert.systems[0];
+    return P.fcall(function() {
+            if (!pool_server.get_internal_mongo_pool(default_system._id)) {
+                return server_rpc.client.pool.create_mongo_pool({
+                    name: `${config.INTERNAL_STORAGE_POOL_NAME}-${default_system._id}`
+                }, {
+                    auth_token: auth_token
+                });
+            }
+        })
+        .then(() => {
+            const mongo_pool = pool_server.get_internal_mongo_pool(default_system._id);
+            if (!mongo_pool) throw new Error('Could not find mongo pool');
+
+            let internal_tier = tier_server.get_internal_storage_tier(default_system._id);
+            if (!internal_tier) {
+                internal_tier = create_internal_tier(default_system._id, mongo_pool._id);
+            }
+
+            return {
+                update: {
+                    tieringpolicies: [{
+                        _id: default_tiering_policy._id,
+                        $push: {
+                            tiers: {
+                                tier: internal_tier._id,
+                                order: 1,
+                                spillover: true,
+                                disabled: false
+                            }
+                        }
+                    }]
+                },
+                insert: {
+                    tiers: [internal_tier]
+                }
+            };
+        })
+        .then(changes => {
+            return system_store.make_changes(changes);
+        })
+        .return();
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -1201,6 +1312,7 @@ function _communicate_license_server(params, proxy_address) {
 // EXPORTS
 exports._init = _init;
 exports.new_system_defaults = new_system_defaults;
+exports.create_internal_tier = create_internal_tier;
 exports.new_system_changes = new_system_changes;
 
 exports.create_system = create_system;

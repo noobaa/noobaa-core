@@ -32,7 +32,7 @@ mocha.describe('map_utils', function() {
             _.forEach(bucket.tiering.tiers, tier_and_order => {
                 let pools = [];
                 _.forEach(tier_and_order.tier.mirrors, mirror_object => {
-                    pools = _.concat(pools, _.get(mirror_object, 'spread_pools', []));
+                    pools = _.concat(pools, (mirror_object && mirror_object.spread_pools) || []);
                 });
                 pools = _.concat(pools);
                 let tier_pools_status = {};
@@ -314,11 +314,13 @@ mocha.describe('map_utils', function() {
                 tiers: [{
                     order: 0,
                     tier: regular_tier,
-                    is_spillover: false
+                    spillover: false,
+                    disabled: false
                 }, {
                     order: 1,
                     tier: spill_tier,
-                    is_spillover: true
+                    spillover: true,
+                    disabled: false
                 }]
             };
             let bucket = {

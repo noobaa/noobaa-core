@@ -112,7 +112,7 @@ class MapAllocator {
                 if (!node) {
                     throw new Error('MapAllocator: no nodes for allocation');
                 }
-                block.node = node;
+                map_utils.assign_node_to_block(block, node, this.bucket.system._id);
                 f.blocks = f.blocks || [];
                 f.blocks.push(map_utils.get_block_info(block));
                 avoid_nodes.push(String(node._id));

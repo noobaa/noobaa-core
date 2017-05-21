@@ -87,9 +87,8 @@ const poolsToBuckets = ko.pureComputed(
 
 const poolsNodeCounters = ko.pureComputed(
     () => {
-        const nodePools = (systemInfo() ? systemInfo().pools : []).filter(
-            pool => pool.nodes
-        );
+        const nodePools = (systemInfo() ? systemInfo().pools : [])
+            .filter(pool => pool.resource_type === 'HOSTS');
 
         return keyByProperty(
             nodePools,
@@ -148,9 +147,8 @@ class PoolsTableViewModel extends BaseViewModel {
         });
 
         const allNodePools = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : []).filter(
-                ({ nodes }) => Boolean(nodes)
-            )
+            () => (systemInfo() ? systemInfo().pools : [])
+                .filter(pool => pool.resource_type === 'HOSTS')
         );
 
         this.pools = ko.pureComputed(
@@ -160,9 +158,7 @@ class PoolsTableViewModel extends BaseViewModel {
                 const filter = (this.filter() || '').toLowerCase();
 
                 return allNodePools()
-                    .filter(
-                        ({ name }) => name.toLowerCase().includes(filter)
-                    )
+                    .filter(({ name }) => name.toLowerCase().includes(filter))
                     .sort(compareOp);
             }
         );

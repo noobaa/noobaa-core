@@ -93,7 +93,7 @@ class BucketSummrayViewModel extends BaseViewModel {
         this.viewType = ko.observable(this.graphOptions[0]);
 
         const storage = ko.pureComputed(
-            () => bucket() ? bucket().storage : {}
+            () => bucket() ? bucket().storage.values : {}
         );
 
         const data = ko.pureComputed(

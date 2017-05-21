@@ -46,6 +46,23 @@ module.exports = {
             }
         },
 
+        create_mongo_pool: {
+            doc: 'Create Mongo Pool',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         list_pool_nodes: {
             doc: 'List Pool Nodes',
             method: 'GET',
@@ -212,8 +229,8 @@ module.exports = {
                                     storage: {
                                         $ref: 'common_api#/definitions/storage_info'
                                     },
-                                    is_cloud_pool: {
-                                        type: 'boolean'
+                                    resource_type: {
+                                        $ref: '#/definitions/resource_type'
                                     }
                                 }
                             }
@@ -248,7 +265,7 @@ module.exports = {
 
         pool_extended_info: {
             type: 'object',
-            required: ['name', 'storage', 'associated_accounts'],
+            required: ['name', 'storage', 'associated_accounts', 'resource_type'],
             properties: {
                 name: {
                     type: 'string'
@@ -279,6 +296,17 @@ module.exports = {
                             type: 'string'
                         }
                     }
+                },
+                mongo_info: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {},
+                },
+                pool_node_type: {
+                    $ref: 'node_api#/definitions/node_type'
+                },
+                resource_type: {
+                    $ref: '#/definitions/resource_type'
                 },
                 mode: {
                     $ref: '#/definitions/pool_mode'
@@ -312,6 +340,11 @@ module.exports = {
                     }
                 }
             }
+        },
+
+        resource_type: {
+            type: 'string',
+            enum: ['HOSTS', 'CLOUD', 'INTERNAL']
         },
 
         pool_mode: {

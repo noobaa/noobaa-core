@@ -84,6 +84,10 @@ function to_bigint_storage(storage) {
     return _.mapValues(storage, x => bigint_to_json(json_to_bigint(x)));
 }
 
+function to_storage_bigint(storage) {
+    return _.mapValues(storage, x => json_to_bigint(x));
+}
+
 function size_unit_to_bigint(size, unit) {
     let big;
     if (unit === 'PETABYTE') {
@@ -293,6 +297,7 @@ exports.bigint_to_json = bigint_to_json;
 exports.json_to_bigint = json_to_bigint;
 exports.size_unit_to_bigint = size_unit_to_bigint;
 exports.to_bigint_storage = to_bigint_storage;
+exports.to_storage_bigint = to_storage_bigint;
 exports.reduce_storage = reduce_storage;
 exports.size_min = size_min;
 exports.size_max = size_max;

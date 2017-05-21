@@ -438,6 +438,12 @@ module.exports = {
                 is_cloud_node: {
                     type: 'boolean'
                 },
+                is_mongo_node: {
+                    type: 'boolean'
+                },
+                node_type: {
+                    $ref: '#/definitions/node_type'
+                },
                 demo_node: {
                     type: 'boolean'
                 },
@@ -562,6 +568,17 @@ module.exports = {
                 'NO_CAPACITY',
                 'OPTIMAL',
                 'HTTP_SRV_ERRORS',
+            ]
+        },
+
+        node_type: {
+            type: 'string',
+            enum: [
+                'BLOCK_STORE_S3',
+                'BLOCK_STORE_MONGO',
+                'BLOCK_STORE_AZURE',
+                'BLOCK_STORE_FS',
+                'ENDPOINT_S3',
             ]
         },
 
@@ -697,7 +714,16 @@ module.exports = {
                 strictly_cloud_nodes: {
                     type: 'boolean'
                 },
+                strictly_mongo_nodes: {
+                    type: 'boolean'
+                },
+                strictly_mongo_and_cloud_nodes: {
+                    type: 'boolean'
+                },
                 skip_cloud_nodes: {
+                    type: 'boolean'
+                },
+                skip_mongo_nodes: {
                     type: 'boolean'
                 },
                 accessibility: {

@@ -15,11 +15,11 @@ const initialState = {};
 
 function onCompleteFetchSystemInfo(_, { payload }) {
     const { pools, buckets, tiers } = payload;
-    const resources = pools.filter(_isPoolCloudResoruce);
+
     const bucketsByPools = _mapPoolsToBuckets(buckets, tiers);
 
     return keyByProperty(
-        resources,
+        pools.filter(pool => pool.resource_type === 'CLOUD'),
         'name',
         ({ name, cloud_info, storage, undeletable }) => ({
             name,
@@ -36,10 +36,6 @@ function onCompleteFetchSystemInfo(_, { payload }) {
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _isPoolCloudResoruce(pool) {
-    return Boolean(pool.cloud_info);
-}
-
 function _mapPoolsToBuckets(buckets, tiers) {
     const bucketsByTierName = keyBy(
         buckets,

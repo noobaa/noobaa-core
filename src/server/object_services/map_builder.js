@@ -199,7 +199,7 @@ class MapBuilder {
                     'digest_type',
                     'digest_b64');
                 block._id = MDStore.instance().make_md_id();
-                block.node = node; // keep the node ref, same when populated
+                map_utils.assign_node_to_block(block, node, chunk.system);
                 block.system = chunk.system;
                 block.chunk = chunk;
                 block.bucket = chunk.bucket._id;

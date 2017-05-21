@@ -125,7 +125,10 @@ module.exports = {
                             tier: {
                                 type: 'string',
                             },
-                            is_spillover: {
+                            spillover: {
+                                type: 'boolean'
+                            },
+                            disabled: {
                                 type: 'boolean'
                             }
                         }

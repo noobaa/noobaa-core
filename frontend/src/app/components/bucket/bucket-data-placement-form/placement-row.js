@@ -21,7 +21,7 @@ export default class PlacementRowViewModel {
                 }
 
                 const text = pool().name;
-                if (pool().nodes) {
+                if (pool().resource_type === 'HOSTS') {
                     const href = {
                         route: 'pool',
                         params: { pool: text, tab: null }
@@ -41,7 +41,7 @@ export default class PlacementRowViewModel {
                     return '';
                 }
 
-                return pool().nodes ?
+                return pool().resource_type === 'HOSTS' ?
                     `${pool().nodes.online} of ${pool().nodes.count}` :
                     '—';
             }

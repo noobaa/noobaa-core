@@ -79,7 +79,8 @@ function remove_agents() {
 
 function _list_nodes(retries) {
     let query = {
-        filter: TEST_CTX.nodes_name
+        filter: TEST_CTX.nodes_name,
+        skip_mongo_nodes: true
     };
     return client.node.list_nodes({
             query: query
@@ -128,9 +129,10 @@ function create_test_bucket() {
             client.tiering_policy.create_policy({
                 name: 'tiering-' + TEST_CTX.bucket,
                 tiers: [{
-                    is_spillover: false,
                     order: 0,
-                    tier: 'tier-' + TEST_CTX.bucket
+                    tier: 'tier-' + TEST_CTX.bucket,
+                    spillover: false,
+                    disabled: false
                 }]
             }))
         .then(() => client.bucket.create_bucket({

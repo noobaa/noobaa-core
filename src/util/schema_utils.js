@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
+const _ = require('lodash');
+const util = require('util');
 
 module.exports = {
     date_format: date_format,
@@ -35,7 +36,7 @@ function strictify(schema, options, base) {
     if (!_.isObject(schema)) return schema;
 
     if (schema.type === 'object') {
-        if (!_.isObject(schema.properties) && !_.isObject(schema.patternProperties)) {
+        if (!_.isObject(schema.properties) && !_.isObject(schema.patternProperties) && !_.isObject(schema.additionalProperties)) {
             illegal_json_schema(schema, base, 'missing properties for object type');
         }
         check_schema_extra_keywords(schema, base, [
@@ -86,6 +87,9 @@ function strictify(schema, options, base) {
         _.each(schema.allOf, val => {
             strictify(val, options, base);
         });
+    } else if (schema.additionalProperties) {
+        check_schema_extra_keywords(schema, base, 'additionalProperties');
+        strictify(schema.additionalProperties, options, base);
     } else if (schema.$ref) {
         check_schema_extra_keywords(schema, base, '$ref');
     } else if (schema.type === 'null') {
@@ -108,8 +112,8 @@ function illegal_json_schema(schema, base, error) {
     console.error('ILLEGAL JSON SCHEMA:',
         'ID: "' + base.id + '"',
         'ERROR: "' + error + '"',
-        'SCHEMA:', schema,
-        'BASE:', base);
+        'SCHEMA:', util.inspect(schema, true, null, true),
+        'BASE:', util.inspect(base, true, null, true));
     throw new Error('ILLEGAL JSON SCHEMA: ' +
         'ID: "' + base.id + '" ' +
         'ERROR: "' + error + '" ');

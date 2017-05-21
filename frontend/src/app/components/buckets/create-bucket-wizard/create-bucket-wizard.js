@@ -15,6 +15,11 @@ const steps = deepFreeze([
     { label: 'set policy', size: 'large' }
 ]);
 
+const allowedResourceTypes = deepFreeze([
+    'HOSTS', 
+    'CLOUD'
+]);
+
 class CreateBucketWizardViewModel extends BaseViewModel {
     constructor({ onClose }) {
         super();
@@ -39,7 +44,8 @@ class CreateBucketWizardViewModel extends BaseViewModel {
         this.placementType = ko.observable('SPREAD');
 
         this.pools = ko.pureComputed(
-            () => systemInfo() ? systemInfo().pools : []
+            () => (systemInfo() ? systemInfo().pools : [])
+                .filter(pool => allowedResourceTypes.includes(pool.resource_type))
         );
 
         this.selectedPools = ko.observableArray()
@@ -69,13 +75,13 @@ class CreateBucketWizardViewModel extends BaseViewModel {
                 const hasNodesPool = selectedPools.some(
                     name => {
                         const pool = poolsByName()[name];
-                        return Boolean(pool && pool.nodes);
+                        return Boolean(pool) && pool.resource_type === 'HOSTS';
                     }
                 );
                 const hasCloudResource = selectedPools.some(
                     name => {
                         const pool = poolsByName()[name];
-                        return Boolean(pool && pool.cloud_info);
+                        return Boolean(pool) && pool.resource_type === 'CLOUD';
                     }
                 );
 

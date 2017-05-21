@@ -54,15 +54,15 @@ function _aggregate_data_free_for_tier(tier_id, system) {
                 })
                 .then(res_nodes => {
                     const on_prem_storage = res_nodes.nodes
-                        .filter(node => !node.is_cloud_node)
+                        .filter(node => !node.is_cloud_node && !node.is_mongo_node)
                         .map(node => node.storage);
-                    const on_cloud_storage = res_nodes.nodes
-                        .filter(node => node.is_cloud_node)
+                    const on_mongo_or_cloud_storage = res_nodes.nodes
+                        .filter(node => node.is_cloud_node || node.is_mongo_node)
                         .map(node => node.storage);
 
                     mirror_available_storage.push({
                         free: size_utils.reduce_sum('free', _.concat(
-                            on_cloud_storage.map(storage => (storage.free || 0)),
+                            on_mongo_or_cloud_storage.map(storage => (storage.free || 0)),
                             calculate_total_spread_storage(on_prem_storage, tier.replicas, 'free')
                         ))
                     });

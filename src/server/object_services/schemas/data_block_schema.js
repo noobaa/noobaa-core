@@ -37,6 +37,10 @@ module.exports = {
             format: 'objectid'
         },
 
+        pool: {
+            format: 'objectid'
+        },
+
         // the storage node of this block
         node: {
             format: 'objectid'

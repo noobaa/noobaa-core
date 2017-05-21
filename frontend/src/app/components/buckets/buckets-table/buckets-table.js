@@ -67,7 +67,7 @@ const compareAccessors = deepFreeze({
     state: bucket => bucket.state,
     name: bucket => bucket.name,
     fileCount: bucket => bucket.num_objects,
-    capacity: bucket => bucket.storage.used,
+    capacity: bucket => bucket.storage.values.used,
     cloudSync: bucket => bucket.cloud_sync_status,
     placementPolicy: generatePlacementSortValue
 });

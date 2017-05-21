@@ -44,7 +44,10 @@ while [[ $# -gt 1 ]]; do
 done
 
 #Ordered Array of scripts to run
-UPGRADE_SCRIPTS=('mongo_upgrade_15.js')
+UPGRADE_SCRIPTS=(
+    'mongo_upgrade_15.js' 
+    'mongo_upgrade_17.js'
+)
 
 upgrade_failed=0
 for script in "${UPGRADE_SCRIPTS[@]}"; do 

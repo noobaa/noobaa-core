@@ -26,6 +26,9 @@ module.exports = {
                 free: {
                     $ref: '#/definitions/bigint'
                 },
+                spillover_free: {
+                    $ref: '#/definitions/bigint'
+                },
                 // "Offline/Issues" free space
                 unavailable_free: {
                     $ref: '#/definitions/bigint'
@@ -245,6 +248,9 @@ module.exports = {
                     type: 'string'
                 },
                 node: {
+                    type: 'string'
+                },
+                pool: {
                     type: 'string'
                 },
                 size: {

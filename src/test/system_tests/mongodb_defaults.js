@@ -14,7 +14,7 @@ db.objectparts.remove({});
 db.objectmds.remove({});
 db.tiers.update({
     name: {
-        $nin: [/files#.*/]
+        $nin: [/first\.bucket#/]
     }
 }, {
     $set: {
@@ -30,12 +30,12 @@ db.pools.remove({
 });
 db.tiers.remove({
     name: {
-        $nin: [/files#.*/]
+        $nin: [/first\.bucket#/]
     }
 });
 db.tieringpolicies.remove({
     name: {
-        $nin: [/files#.*/]
+        $nin: [/first\.bucket#/]
     }
 });
 db.buckets.remove({
@@ -60,6 +60,7 @@ db.buckets.updateMany({}, {
             chunks_capacity: 0,
             blocks_size: 0,
             objects_size: 0,
+            pools: {},
             objects_count: 0,
             objects_hist: [],
             last_update: Date.now()

@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 2600] */
+/* eslint max-lines: ['error', 2700] */
 'use strict';
 
 const _ = require('lodash');
@@ -55,6 +55,7 @@ const AGENT_INFO_FIELDS = [
     'debug_level',
     'is_internal_agent',
     's3_agent',
+    'node_type',
     'host_name',
 ];
 const MONITOR_INFO_FIELDS = [
@@ -74,6 +75,8 @@ const NODE_INFO_FIELDS = [
     'ip',
     'host_id',
     'is_cloud_node',
+    'node_type',
+    'is_mongo_node',
     'rpc_address',
     'base_address',
     'version',
@@ -361,18 +364,17 @@ class NodesMonitor extends EventEmitter {
         const to_pool = system_store.data.get_by_id(req.rpc_params.pool_id);
         const description = [];
 
-
         if (!to_pool) {
             throw new RpcError('BAD_REQUEST', 'No such pool ' + to_pool._id);
         }
-        if (to_pool.cloud_pool_info) {
+        if (to_pool.cloud_pool_info || to_pool.mongo_pool_info) {
             throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
         }
 
         const items = _.map(nodes_identities, node_identity => {
             const item = this._get_node(node_identity, 'allow_offline');
-            if (item.node.is_cloud_node) {
-                throw new RpcError('BAD_REQUEST', 'migrating cloud node is not allowed');
+            if (item.node.is_cloud_node || item.node.is_mongo_node) {
+                throw new RpcError('BAD_REQUEST', 'migrating cloud/mongo node is not allowed');
             }
             return item;
         });
@@ -568,6 +570,9 @@ class NodesMonitor extends EventEmitter {
 
         if (pool.cloud_pool_info) {
             item.node.is_cloud_node = true;
+        }
+        if (pool.mongo_pool_info) {
+            item.node.is_mongo_node = true;
         }
 
         dbg.log0('_add_new_node', item.node);
@@ -982,6 +987,11 @@ class NodesMonitor extends EventEmitter {
                 port: config.CLOUD_AGENTS_N2N_PORT
             };
         }
+        if (item.node.is_mongo_node) {
+            n2n_config.tcp_permanent_passive = {
+                port: config.MONGO_AGENTS_N2N_PORT
+            };
+        }
         if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
             rpc_config.n2n_config = n2n_config;
         }
@@ -1267,6 +1277,7 @@ class NodesMonitor extends EventEmitter {
                         // update the status of readable/writable after node_from_store is updated
                         this._update_status(item);
                         if (item.node.is_cloud_node) continue;
+                        if (item.node.is_mongo_node) continue;
                         if (item.node.is_internal_node) continue;
                         this._dispatch_node_event(item, 'create', `${item.node.name} was added`);
                     }
@@ -1278,15 +1289,15 @@ class NodesMonitor extends EventEmitter {
     }
 
     // Handle nodes that ready and need to be deleted
-    // TODO: At this time, the code is relevant to nodes of cloud resources
-    // Ready means that they evacuated their data from the cloud resource
+    // TODO: At this time, the code is relevant to nodes of cloud/mongo resources
+    // Ready means that they evacuated their data from the cloud/mongo resource
     // And currently waiting for their process to be deleted and removed from DB
     // Notice that we do not update the DB and then try to remeve the process
     // This is done in order to attempt and remove the process until we succeed
     // The node won't be deleted from the DB until the process is down and dead
     // This is why we are required to use a new variable by the name ready_to_be_deleted
-    // In order to mark the nodes that wait for their processes to be removed (cloud resource)
-    // If the node is not relevant to a cloud resouce it will be just marked as deleted
+    // In order to mark the nodes that wait for their processes to be removed (cloud/mongo resource)
+    // If the node is not relevant to a cloud/mongo resouce it will be just marked as deleted
     _update_deleted_nodes(deleted_nodes) {
         if (!deleted_nodes.length) return;
         const items_to_update = [];
@@ -1302,18 +1313,25 @@ class NodesMonitor extends EventEmitter {
 
                 // TODO handle deletion of normal nodes (uninstall?)
                 // Just mark the node as deleted and we will not scan it anymore
-                // This is done once the node's proccess is deleted (relevant to cloud resource)
+                // This is done once the node's proccess is deleted (relevant to cloud/mongo resource)
                 // Or in a normal node it is done immediately
                 if (!item.node.is_cloud_node &&
+                    !item.node.is_mongo_node &&
                     !item.node.is_internal_node) {
                     item.node.deleted = Date.now();
                     items_to_update.push(item);
                     return;
                 }
 
-                // Removing the internal node from the processes
-                return server_rpc.client.hosted_agents.remove_cloud_agent({
-                        node_name: item.node.name
+                return P.resolve()
+                    .then(() => {
+                        if (item.node.is_internal_node) {
+                            return P.reject('Do not support internal_node deletion yet');
+                        }
+                        // Removing the internal node from the processes
+                        return server_rpc.client.hosted_agents.remove_pool_agent({
+                            node_name: item.node.name
+                        });
                     })
                     .then(() => {
                         // Marking the node as deleted since we've removed it completely
@@ -1325,7 +1343,7 @@ class NodesMonitor extends EventEmitter {
                     })
                     .catch(err => {
                         // We will just wait another cycle and attempt to delete it fully again
-                        dbg.warn('delete_cloud_pool_node ERROR node', item.node, err);
+                        dbg.warn('delete_cloud_or_mongo_pool_node ERROR node', item.node, err);
                     });
             }, {
                 concurrency: 10
@@ -1985,6 +2003,7 @@ class NodesMonitor extends EventEmitter {
         // so that we can run it on every node item, and minimize the compare work.
         let code = '';
         if ((query.strictly_cloud_nodes && query.skip_cloud_nodes) ||
+            (query.strictly_mongo_nodes && query.skip_mongo_nodes) ||
             (query.strictly_internal && query.skip_internal)) { // I mean... srsly
             code += 'return false; ';
         }
@@ -2016,6 +2035,12 @@ class NodesMonitor extends EventEmitter {
         }
         if (query.skip_cloud_nodes) {
             code += `if (item.node.is_cloud_node) return false; `;
+        }
+        if (query.strictly_mongo_nodes) {
+            code += `if (!item.node.is_mongo_node) return false; `;
+        }
+        if (query.skip_mongo_nodes) {
+            code += `if (item.node.is_mongo_node) return false; `;
         }
         if (query.strictly_internal) {
             code += `if (!item.node.is_internal_node) return false; `;
@@ -2543,7 +2568,7 @@ class NodesMonitor extends EventEmitter {
 
 
     _node_storage_info(item) {
-        const ignore_reserve = item.node.is_internal_node || item.node.is_cloud_node;
+        const ignore_reserve = item.node.is_internal_node || item.node.is_cloud_node || item.node.is_mongo_node;
         let reply = {
             total: size_utils.json_to_bigint(item.node.storage.total || 0),
             free: BigInteger.max(size_utils.json_to_bigint(item.node.storage.free || 0), BigInteger.zero),

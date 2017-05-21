@@ -71,7 +71,14 @@ AgentCLI.prototype.init = function() {
                 access_key: self.params.cloud_access_key,
                 secret_key: self.params.cloud_secret_key
             },
-            cloud_pool_name: self.params.node_name
+            pool_name: self.params.node_name
+        };
+    }
+
+    if (self.params.mongo_info) {
+        self.mongo_info = {
+            mongo_path: self.params.mongo_path,
+            pool_name: self.params.node_name
         };
     }
 
@@ -223,6 +230,7 @@ AgentCLI.prototype.load = function(added_storage_paths) {
             internal_nodes_names.push(node_name);
         }
         dbg.log0('loading agents with cloud_info: ', self.cloud_info);
+        dbg.log0('loading agents with mongo_info: ', self.mongo_info);
         let storage_path = paths_to_work_on[0].mount;
         return P.resolve()
             .then(() => fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
@@ -230,7 +238,7 @@ AgentCLI.prototype.load = function(added_storage_paths) {
             .then(nodes_names => {
                 return P.all(internal_nodes_names.map(name => {
                     if (nodes_names.indexOf(name) >= 0) {
-                        // cloud node already exist. start it
+                        // cloud or mongo node already exist. start it
                         let node_path = path.join(storage_path, name);
                         dbg.log0('loading existing internal agent. node_path=', node_path);
                         return self.start(name, node_path);
@@ -261,7 +269,7 @@ AgentCLI.prototype.load = function(added_storage_paths) {
                     }))
                 .then(() => fs.readdirAsync(storage_path))
                 .then(nodes_names => {
-                    // filter out cloud agents:
+                    // filter out cloud and mongo agents:
                     let regular_node_names = _.reject(nodes_names,
                         name => name.startsWith(internal_agent_prefix));
 
@@ -539,7 +547,9 @@ AgentCLI.prototype.create_some.helper = function() {
  */
 AgentCLI.prototype.start = function(node_name, node_path) {
     var self = this;
-    dbg.log0('agent started ', node_path, node_name, self.cloud_info ? 'cloud_info: ' + self.cloud_info : '');
+    dbg.log0('agent started ', node_path, node_name,
+        self.cloud_info ? 'cloud_info: ' + self.cloud_info : '',
+        self.mongo_info ? 'mongo_info: ' + self.mongo_info : '');
 
     var agent = self.agents[node_name];
     if (!agent) {
@@ -564,6 +574,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             host_id: self.params.host_id,
             storage_path: node_path,
             cloud_info: self.cloud_info,
+            mongo_info: self.mongo_info,
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
             agent_conf: self.agent_conf,

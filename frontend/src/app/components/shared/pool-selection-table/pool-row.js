@@ -33,7 +33,7 @@ export default class PoolRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                return pool().nodes ?
+                return pool().resource_type === 'HOSTS' ?
                     `${pool().nodes.online} of ${pool().nodes.count}` :
                     '—';
             }

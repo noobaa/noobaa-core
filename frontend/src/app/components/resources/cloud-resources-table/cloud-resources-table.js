@@ -59,13 +59,9 @@ const resourcesToBuckets = ko.pureComputed(
         const poolsByName = keyByProperty(systemInfo().pools, 'name');
         return systemInfo().buckets.reduce(
             (mapping, bucket) => systemInfo().tiers
-                .find(
-                    tier => tier.name === bucket.tiering.tiers[0].tier
-                )
+                .find(tier => tier.name === bucket.tiering.tiers[0].tier)
                 .attached_pools
-                    .filter(
-                        poolName => Boolean(poolsByName[poolName].cloud_info)
-                    )
+                    .filter(poolName => poolsByName[poolName].resource_type === 'CLOUD')
                     .reduce(
                         (mapping, pool) => {
                             mapping[pool] = mapping[pool] || [];

@@ -116,7 +116,8 @@ function verify_object_health(expected_num_blocks, bucket_name, pool_names, clou
     return client.node.list_nodes({
             query: {
                 pools: pool_names,
-                skip_internal: !cloud_pool
+                skip_internal: !cloud_pool,
+                skip_mongo_nodes: true
             }
         })
         .then(node_list => promise_utils.pwhile(() => obj_is_invalid || !obj_is_verified,
@@ -238,7 +239,8 @@ function discard_nodes_from_pool(object_mapping, num_nodes, pool_name) {
     });
     return client.node.list_nodes({
             query: {
-                pools: [pool_name]
+                pools: [pool_name],
+                skip_mongo_nodes: true
             }
         })
         .then(node_list => client.pool.assign_nodes_to_pool({
@@ -256,7 +258,8 @@ function comission_nodes_to_pool(pool_name, num_nodes) {
     console.log(`commissioning ${num_nodes} nodes to pool ${pool_name}`);
     return client.node.list_nodes({
             query: {
-                pools: [TEST_CTX.discard_pool_name]
+                pools: [TEST_CTX.discard_pool_name],
+                skip_mongo_nodes: true
             }
         })
         .then(node_list => client.pool.assign_nodes_to_pool({
@@ -481,7 +484,8 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
             })), pool_to_create => client.node.list_nodes({
                 query: {
                     has_issues: false,
-                    pools: [TEST_CTX.discard_pool_name]
+                    pools: [TEST_CTX.discard_pool_name],
+                    skip_mongo_nodes: true
                 }
             })
             .then(node_list => {
@@ -518,9 +522,10 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
         .then(() => client.tiering_policy.create_policy({
             name: TEST_CTX.default_tier_policy_name,
             tiers: [{
-                is_spillover: false,
                 order: 0,
-                tier: TEST_CTX.default_tier_name
+                tier: TEST_CTX.default_tier_name,
+                spillover: false,
+                disabled: false
             }]
         }))
         .then(() => client.bucket.create_bucket({
@@ -533,7 +538,8 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
 function has_expected_num_nodes(pool_name, num_of_nodes) {
     return client.node.list_nodes({
             query: {
-                pools: [pool_name]
+                pools: [pool_name],
+                skip_mongo_nodes: true
             }
         })
         .then(nodes_list => {
@@ -573,7 +579,8 @@ function test_tear_down() {
                 if (pool.name !== config.NEW_SYSTEM_POOL_NAME) {
                     pools_to_delete.push(client.node.list_nodes({
                             query: {
-                                pools: [pool.name]
+                                pools: [pool.name],
+                                skip_mongo_nodes: true
                             }
                         })
                         .then(node_list => pool.cloud_info || // making sure not to assign cloud pool nodes to first.pool

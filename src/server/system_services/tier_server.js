@@ -7,7 +7,7 @@
 'use strict';
 
 const _ = require('lodash');
-
+const config = require('../../../config');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
@@ -87,7 +87,7 @@ function read_tier(req) {
 
     _.each(tier.mirrors, object => {
         _.each(object.spread_pools, pool => {
-            pool_names.push(_.get(pool, 'name', ''));
+            pool_names.push((pool && pool.name) || '');
         });
     });
 
@@ -136,13 +136,13 @@ function update_tier(req) {
             req.rpc_params.data_placement || tier.data_placement);
 
         _.forEach(tier.mirrors, mirror_object => {
-            old_pool_names = _.concat(old_pool_names, _.map(_.get(mirror_object, 'spread_pools', []), pool => pool.name));
+            old_pool_names = _.concat(old_pool_names, _.map((mirror_object && mirror_object.spread_pools) || [], pool => pool.name));
         });
         old_pool_names = _.compact(old_pool_names);
     } else if (tier.data_placement !== req.rpc_params.data_placement) {
         let pool_ids = [];
         _.forEach(tier.mirrors, mirror_object => {
-            pool_ids = _.concat(pool_ids, _.map(_.get(mirror_object, 'spread_pools', []), pool => pool._id));
+            pool_ids = _.concat(pool_ids, _.map((mirror_object && mirror_object.spread_pools) || [], pool => pool._id));
         });
         pool_ids = _.compact(pool_ids);
 
@@ -218,7 +218,8 @@ function create_policy(req) {
             return {
                 order: t.order,
                 tier: req.system.tiers_by_name[t.tier]._id,
-                is_spillover: t.is_spillover || false
+                spillover: t.spillover || false,
+                disabled: t.disabled || false
             };
         }));
     dbg.log0('Creating tiering policy', policy);
@@ -380,13 +381,16 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate
             var tier_info = get_tier_info(tier_and_order.tier,
                 nodes_aggregate_pool,
                 aggregate_data_free_by_tier[String(tier_and_order.tier._id)]);
-            tiers_storage.push(tier_info.storage);
-            tiers_data.push(tier_info.data);
+            if (!tier_and_order.spillover) {
+                tiers_storage.push(tier_info.storage);
+                tiers_data.push(tier_info.data);
+            }
         }
         return {
             order: tier_and_order.order,
             tier: tier_and_order.tier.name,
-            is_spillover: tier_and_order.is_spillover
+            spillover: tier_and_order.spillover || false,
+            disabled: tier_and_order.disabled || false
         };
     });
     if (tiers_storage) {
@@ -398,8 +402,26 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate
     return info;
 }
 
+function get_internal_storage_tier(system_id) {
+    const system = system_store.data.systems.find(sys => String(sys._id) === String(system_id));
+    if (!system) throw new Error('SYSTEM NOT FOUND', system_id);
+    const internal_tier = _.find(system.tiers_by_name, tier =>
+        String(tier.name) === String(`${config.SPILLOVER_TIER_NAME}-${system_id}`));
+    return internal_tier;
+}
+
+function get_associated_tiering_policies(tier) {
+    var associated_tiering_policies = _.filter(tier.system.tiering_policies_by_name, function(tiering_policy) {
+        return _.find(tiering_policy.tiers, tier_and_order =>
+            String(tier_and_order.tier._id) === String(tier._id));
+    });
+
+    return _.map(associated_tiering_policies, tiering_policies => tiering_policies._id);
+}
 
 // EXPORTS
+exports.get_associated_tiering_policies = get_associated_tiering_policies;
+exports.get_internal_storage_tier = get_internal_storage_tier;
 exports.new_tier_defaults = new_tier_defaults;
 exports.new_policy_defaults = new_policy_defaults;
 exports.get_tier_info = get_tier_info;

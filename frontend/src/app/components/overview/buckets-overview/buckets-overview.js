@@ -11,7 +11,7 @@ import { hexToRgb } from 'utils/color-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { toBytes, formatSize, sumSize } from 'utils/size-utils';
 import { aggregateStorage, interpolateStorage } from 'utils/storage-utils';
-import { deepFreeze, keyBy, isFunction } from 'utils/core-utils';
+import { deepFreeze, groupBy, isFunction } from 'utils/core-utils';
 
 const durationOptions = deepFreeze([
     {
@@ -94,9 +94,7 @@ function filterSamples(samples, start, end, includeCloudStorage) {
 
     const aggregated = filtered.map(
         ({ timestamp, cloud, nodes }) => {
-            const storage = includeCloudStorage ?
-                aggregateStorage(nodes, cloud) :
-                nodes;
+            const storage = includeCloudStorage ? aggregateStorage(nodes, cloud) : nodes;
             return { timestamp,  storage };
         }
     );
@@ -262,10 +260,10 @@ class BucketsOverviewViewModel extends BaseViewModel {
 
         const currentUsage = ko.pureComputed(
             () => {
-                const { nodes = [], cloud = [] } = keyBy(
+                const { HOSTS: nodes = [], CLOUD: cloud = [] } = groupBy(
                     systemInfo() ? systemInfo().pools : [],
-                    pool => pool.cloud_info ? 'cloud' : 'nodes',
-                    (pool, list = []) => (list.push(pool.storage), list)
+                    pool => pool.resource_type,
+                    pool => pool.storage
                 );
 
                 return {

@@ -61,39 +61,20 @@ module.exports = {
         update_bucket: {
             method: 'PUT',
             params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    new_name: {
-                        type: 'string',
-                    },
-                    tiering: {
-                        type: 'string',
-                    },
-                    new_tag: {
-                        type: 'string',
-                    },
-                    quota: {
-                        anyOf: [{
-                            type: 'null'
-                        }, {
-                            type: 'object',
-                            required: ['size', 'unit'],
-                            properties: {
-                                size: {
-                                    type: 'integer'
-                                },
-                                unit: {
-                                    type: 'string',
-                                    enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
-                                },
-                            }
-                        }]
-                    }
-                }
+                $ref: '#/definitions/update_bucket_params'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_buckets: {
+            method: 'PUT',
+            params: {
+                type: 'array',
+                items: {
+                    $ref: '#/definitions/update_bucket_params'
+                },
             },
             auth: {
                 system: 'admin'
@@ -510,7 +491,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'tiering', 'storage', 'data', 'num_objects', 'writable'],
+            required: ['name', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'writable'],
             properties: {
                 name: {
                     type: 'string',
@@ -519,7 +500,15 @@ module.exports = {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
                 },
                 storage: {
-                    $ref: 'common_api#/definitions/storage_info'
+                    type: 'object',
+                    properties: {
+                        values: {
+                            $ref: 'common_api#/definitions/storage_info'
+                        },
+                        last_update: {
+                            format: 'idate'
+                        }
+                    }
                 },
                 quota: {
                     type: 'object',
@@ -549,11 +538,38 @@ module.exports = {
                         // This is the actual free space of the bucket considering data placement policy.
                         // On mirror it is the minimum free space of the pools, on spread it is the sum.
                         // Also we divide by replicas in order to get the actual size that can be written.
-                        actual_free: {
+                        free: {
                             $ref: 'common_api#/definitions/bigint'
                         },
                         available_for_upload: {
                             $ref: 'common_api#/definitions/bigint'
+                        },
+                        spillover_free: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        last_update: {
+                            format: 'idate'
+                        }
+                    }
+                },
+                usage_by_pool: {
+                    type: 'object',
+                    required: ['last_update', 'pools'],
+                    properties: {
+                        last_update: {
+                            format: 'idate'
+                        },
+                        pools: {
+                            type: 'object',
+                            additionalProperties: {
+                                type: 'object',
+                                required: ['blocks_size'],
+                                properties: {
+                                    blocks_size: {
+                                        $ref: 'common_api#/definitions/bigint'
+                                    },
+                                },
+                            },
                         },
                     }
                 },
@@ -657,6 +673,45 @@ module.exports = {
         storage_class_enum: {
             enum: ['STANDARD_IA', 'GLACIER'],
             type: 'string'
-        }
+        },
+
+        update_bucket_params: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+                new_name: {
+                    type: 'string',
+                },
+                tiering: {
+                    type: 'string',
+                },
+                new_tag: {
+                    type: 'string',
+                },
+                quota: {
+                    anyOf: [{
+                        type: 'null'
+                    }, {
+                        type: 'object',
+                        required: ['size', 'unit'],
+                        properties: {
+                            size: {
+                                type: 'integer'
+                            },
+                            unit: {
+                                type: 'string',
+                                enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
+                            },
+                        }
+                    }]
+                },
+                use_internal_spillover: {
+                    type: 'boolean',
+                }
+            }
+        },
     },
 };

@@ -5,14 +5,14 @@ import BaseViewModel from 'components/base-view-model';
 import style from 'style';
 import { systemInfo } from 'model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, keyBy } from 'utils/core-utils';
 import { stringifyAmount} from 'utils/string-utils';
 import { countNodesByState } from 'utils/ui-utils';
 import { toBytes } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
 import { openInstallNodesModal } from 'dispatchers';
 
-const coutners = deepFreeze({
+const allCounters = deepFreeze({
     ALL: 0,
     NODES_POOL: 0,
     AWS: 0,
@@ -27,19 +27,23 @@ class ResourceOverviewViewModel extends BaseViewModel {
         super();
 
         const resourceCounters = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : [])
-                .map(
-                    pool =>  pool.nodes ? 'NODES_POOL' : pool.cloud_info.endpoint_type
-                )
-                .reduce(
-                    (counters, type) => {
-                        ++counters.ALL;
-                        ++counters[type];
-                        return counters;
-                    },
-                    Object.assign({}, coutners)
-                )
-        );
+            () => {
+                const relevantPools = (systemInfo() ? systemInfo().pools : [])
+                    .filter(({ resource_type }) => resource_type === 'HOSTS' || resource_type === 'CLOUD');
+
+                const counters = keyBy(
+                    relevantPools,
+                    pool => pool.resource_type === 'CLOUD' ? pool.cloud_info.endpoint_type : 'NODES_POOL',
+                    (_, counter) => (counter || 0) + 1
+                );
+
+                return { 
+                    ...allCounters, 
+                    ...counters, 
+                    ALL: relevantPools.length 
+                };
+            }
+        );        
 
         this.resourceCount = ko.pureComputed(
             () => resourceCounters().ALL
@@ -86,21 +90,20 @@ class ResourceOverviewViewModel extends BaseViewModel {
         this.genericResourceCount = ko.pureComputed(
             () => resourceCounters().S3_COMPATIBLE
         );
-
-        const nodeCoutners = ko.pureComputed(
+        const nodeCounters = ko.pureComputed(
             () => countNodesByState(systemInfo() ? systemInfo().nodes.by_mode : {})
         );
 
         const healthyNodesCount = ko.pureComputed(
-            () => nodeCoutners().healthy
+            () => nodeCounters().healthy
         );
 
         const offlineNodesCount = ko.pureComputed(
-            () => nodeCoutners().offline
+            () => nodeCounters().offline
         );
 
         const nodesWithIssuesCount = ko.pureComputed(
-            () => nodeCoutners().hasIssues
+            () => nodeCounters().hasIssues
         );
 
         this.chartValues = [

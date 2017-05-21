@@ -257,9 +257,10 @@ mocha.describe('system_servers', function() {
             .then(() => client.tiering_policy.create_policy({
                 name: TIERING_POLICY,
                 tiers: [{
-                    is_spillover: false,
                     order: 0,
-                    tier: TIER
+                    tier: TIER,
+                    spillover: false,
+                    disabled: false
                 }]
             }))
             .then(() => client.tiering_policy.read_policy({
@@ -268,13 +269,15 @@ mocha.describe('system_servers', function() {
             .then(() => client.tiering_policy.update_policy({
                     name: TIERING_POLICY,
                     tiers: [{
-                        is_spillover: false,
                         order: 0,
-                        tier: TIER
+                        tier: TIER,
+                        spillover: false,
+                        disabled: false
                     }, {
-                        is_spillover: false,
                         order: 1,
-                        tier: TIER
+                        tier: TIER,
+                        spillover: true,
+                        disabled: false
                     }]
                 })
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))

@@ -916,11 +916,31 @@ class MDStore {
                 })
             .then(res => {
                 const buckets = {};
+                const pools = {};
                 _.each(res, r => {
-                    const b = buckets[r._id[0]] = buckets[r._id[0]] || {};
-                    b[r._id[1]] = r.value;
+                    const type = r._id[0];
+                    if (type === 'total') {
+                        buckets[r._id[1]] = { size: r.value };
+                    } else if (type === 'bucket') {
+                        const b = buckets[r._id[1]] = buckets[r._id[1]] || {
+                            size: 0,
+                            pools: {}
+                        };
+                        b.size = r.value;
+                    } else if (type === 'pool') {
+                        pools[r._id[1]] = { size: r.value };
+                    } else if (type === 'bucket_and_pool') {
+                        const b = buckets[r._id[1]] = buckets[r._id[1]] || {
+                            size: 0,
+                            pools: {}
+                        };
+                        b.pools[r._id[2]] = { size: r.value };
+                    }
                 });
-                return buckets;
+                return {
+                    buckets,
+                    pools
+                };
             });
     }
 }

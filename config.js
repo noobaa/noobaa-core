@@ -13,6 +13,7 @@ var config = exports;
 // TODO take nodes min and free space reserve from system/pool config
 config.NODES_MIN_COUNT = 3;
 config.NODES_PER_CLOUD_POOL = 1;
+config.NODES_PER_MONGO_POOL = 1;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024 * 1024;
 
 // don't use agents with less than reserve + 5 GB
@@ -34,6 +35,8 @@ config.NODE_IO_DETENTION_TEST_NODES = 2;
 config.RPC_CONNECT_TIMEOUT = 5000;
 config.RPC_SEND_TIMEOUT = 5000;
 config.CLOUD_AGENTS_N2N_PORT = 60100;
+// TODO: Should check what PORT we are interested in taking
+config.MONGO_AGENTS_N2N_PORT = 60100;
 
 ///////////////
 // S3 CONFIG //
@@ -51,6 +54,8 @@ config.DEDUP_ENABLED = false;
 // Date was chosen as default NooBaa epoch date 2015
 config.NOOBAA_EPOCH = 1430006400000;
 config.NEW_SYSTEM_POOL_NAME = 'first.pool';
+config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
+config.SPILLOVER_TIER_NAME = 'system-internal-spillover-tier';
 
 ///////////////
 // IO CONFIG //

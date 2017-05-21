@@ -76,13 +76,13 @@ class BucketDataPlacementFormViewModel extends BaseViewModel {
 
         this.nodePoolCount = ko.pureComputed(
             () => this.nodePools() && this.nodePools().filter(
-                pool => Boolean(pool.nodes)
+                pool => pool.resource_type === 'HOSTS'
             ).length
         );
 
         this.cloudResourceCount = ko.pureComputed(
             () => this.nodePools() && this.nodePools().filter(
-                pool => Boolean(pool.cloud_info)
+                pool => pool.resource_type === 'CLOUD'
             ).length
         );
     }

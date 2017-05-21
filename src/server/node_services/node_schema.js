@@ -194,6 +194,21 @@ module.exports = {
             type: 'boolean',
         },
 
+        node_type: {
+            type: 'string',
+            enum: [
+                'BLOCK_STORE_S3',
+                'BLOCK_STORE_MONGO',
+                'BLOCK_STORE_AZURE',
+                'BLOCK_STORE_FS',
+                'ENDPOINT_S3',
+            ]
+        },
+
+        is_mongo_node: {
+            type: 'boolean',
+        },
+
         is_internal_node: {
             type: 'boolean',
         },

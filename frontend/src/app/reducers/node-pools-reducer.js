@@ -14,7 +14,7 @@ const initialState = {};
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload }) {
     const { pools, buckets, tiers } = payload;
-    const nodePools = pools.filter(pool => Boolean(pool.nodes));
+    const nodePools = pools.filter(pool => pool.resource_type === 'HOSTS');
     const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
     return keyByProperty(nodePools, 'name', pool => {
         const {

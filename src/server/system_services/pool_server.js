@@ -36,11 +36,13 @@ const POOL_NODES_INFO_DEFAULTS = Object.freeze({
 const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
 const LOW_CAPACITY_HARD_LIMIT = 50 * Math.pow(1024, 3); // 50GB
 
-function new_pool_defaults(name, system_id) {
+function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
     return {
         _id: system_store.generate_id(),
         system: system_id,
         name: name,
+        resource_type: resource_type,
+        pool_node_type: pool_node_type
     };
 }
 
@@ -51,7 +53,7 @@ function create_nodes_pool(req) {
         throw new RpcError('NOT ENOUGH NODES', 'cant create a pool with less than ' +
             config.NODES_MIN_COUNT + ' nodes');
     }
-    var pool = new_pool_defaults(name, req.system._id);
+    var pool = new_pool_defaults(name, req.system._id, 'HOSTS', 'BLOCK_STORE_FS');
     dbg.log0('Creating new pool', pool);
 
     return system_store.make_changes({
@@ -99,7 +101,9 @@ function create_cloud_pool(req) {
         throw new Error('Target already in use');
     }
 
-    var pool = new_pool_defaults(name, req.system._id);
+    const pool_node_type = (connection.endpoint_type === 'AWS' ||
+        connection.endpoint_type === 'S3_COMPATIBLE') ? 'BLOCK_STORE_S3' : 'BLOCK_STORE_AZURE';
+    var pool = new_pool_defaults(name, req.system._id, 'CLOUD', pool_node_type);
     dbg.log0('Creating new cloud_pool', pool);
     pool.cloud_pool_info = cloud_info;
 
@@ -109,7 +113,7 @@ function create_cloud_pool(req) {
                 pools: [pool]
             }
         })
-        .then(res => server_rpc.client.hosted_agents.create_cloud_agent({
+        .then(res => server_rpc.client.hosted_agents.create_pool_agent({
             pool_name: req.rpc_params.name,
         }, {
             auth_token: req.auth_token
@@ -127,14 +131,53 @@ function create_cloud_pool(req) {
         .return();
 }
 
+function create_mongo_pool(req) {
+    var name = req.rpc_params.name;
+    var mongo_info = {};
+
+    if (get_internal_mongo_pool(req.system._id)) {
+        dbg.error('System already has mongo pool');
+        throw new Error('System already has mongo pool');
+    }
+
+    var pool = new_pool_defaults(name, req.system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
+    dbg.log0('Creating new mongo_pool', pool);
+    pool.mongo_pool_info = mongo_info;
+
+    return system_store.make_changes({
+            insert: {
+                pools: [pool]
+            }
+        })
+        .then(res => server_rpc.client.hosted_agents.create_pool_agent({
+            pool_name: req.rpc_params.name,
+        }, {
+            auth_token: req.auth_token
+        }))
+        // .then(() => {
+        //     Dispatcher.instance().activity({
+        //         event: 'resource.cloud_create',
+        //         level: 'info',
+        //         system: req.system._id,
+        //         actor: req.account && req.account._id,
+        //         pool: pool._id,
+        //         desc: `${pool.name} was created by ${req.account && req.account.email}`,
+        //     });
+        // })
+        .return();
+}
+
 function list_pool_nodes(req) {
     var pool = find_pool_by_name(req);
     return P.resolve()
         .then(() => nodes_client.instance().list_nodes_by_pool(pool.name, req.system._id))
         .then(res => ({
             name: pool.name,
-            nodes: _.map(res.nodes, node =>
-                _.pick(node, 'id', 'name', 'peer_id', 'rpc_address'))
+            nodes: _.map(res.nodes, node => {
+                const reply = _.pick(node, '_id', 'name', 'peer_id', 'rpc_address');
+                reply.id = String(reply._id);
+                return _.omit(reply, '_id');
+            })
         }));
 }
 
@@ -147,10 +190,10 @@ function read_pool(req) {
 
 function delete_pool(req) {
     var pool = find_pool_by_name(req);
-    if (_is_cloud_pool(pool)) {
-        return _delete_cloud_pool(req, pool, req.account);
-    } else {
+    if (_is_regular_pool(pool)) {
         return _delete_nodes_pool(req.system, pool, req.account);
+    } else {
+        return _delete_resource_pool(req, pool, req.account);
     }
 }
 
@@ -184,12 +227,12 @@ function _delete_nodes_pool(system, pool, account) {
         .return();
 }
 
-function _delete_cloud_pool(req, pool, account) {
-    dbg.log0('Deleting cloud pool', pool.name);
+function _delete_resource_pool(req, pool, account) {
+    dbg.log0('Deleting resource pool', pool.name);
     var pool_name = pool.name;
     return P.resolve()
         .then(() => {
-            var reason = check_cloud_pool_deletion(pool);
+            const reason = check_resrouce_pool_deletion(pool);
             if (reason) {
                 throw new RpcError(reason, 'Cannot delete pool');
             }
@@ -199,9 +242,9 @@ function _delete_cloud_pool(req, pool, account) {
             if (!pool_nodes || pool_nodes.total_count === 0) {
                 // handle edge case where the cloud pool is deleted before it's node is registered in nodes monitor.
                 // in that case, send remove_cloud_agent to hosted_agents, which should also remove the pool.
-                dbg.log0(`cloud_pool ${pool_name} does not have any nodes in nodes_monitor. delete agent and pool from hosted_agents`);
-                return server_rpc.client.hosted_agents.remove_cloud_agent({
-                    cloud_pool_name: pool.name
+                dbg.log0(`resource_pool ${pool_name} does not have any nodes in nodes_monitor. delete agent and pool from hosted_agents`);
+                return server_rpc.client.hosted_agents.remove_pool_agent({
+                    pool_name: pool.name
                 }, {
                     auth_token: req.auth_token
                 });
@@ -211,13 +254,15 @@ function _delete_cloud_pool(req, pool, account) {
                 })
                 .then(function() {
                     // rename the deleted pool to avoid an edge case where there are collisions
-                    // with a new cloud pool name
+                    // with a new resource pool name
                     let db_update = {
                         _id: pool._id,
                         name: pool.name + '-' + pool._id
                     };
-                    // mark the cloud pool as pending delete
-                    db_update['cloud_pool_info.pending_delete'] = true;
+                    const pending_del_property = pool.resource_type === 'INTERNAL' ?
+                        'mongo_pool_info.pending_delete' : 'cloud_pool_info.pending_delete';
+                    // mark the resource pool as pending delete
+                    db_update[pending_del_property] = true;
                     return system_store.make_changes({
                         update: {
                             pools: [db_update]
@@ -227,14 +272,16 @@ function _delete_cloud_pool(req, pool, account) {
 
         })
         .then(() => {
-            Dispatcher.instance().activity({
-                event: 'resource.cloud_delete',
-                level: 'info',
-                system: req.system._id,
-                actor: account && account._id,
-                pool: pool._id,
-                desc: `${pool_name} was deleted by ${account && account.email}`,
-            });
+            if (pool.resource_type === 'CLOUD') {
+                Dispatcher.instance().activity({
+                    event: 'resource.cloud_delete',
+                    level: 'info',
+                    system: req.system._id,
+                    actor: account && account._id,
+                    pool: pool._id,
+                    desc: `${pool_name} was deleted by ${account && account.email}`,
+                });
+            }
         })
         .return();
 }
@@ -272,6 +319,8 @@ function get_pool_history(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
+// TODO: JEN notice that does not include pools in disabled tiers
+// What should we do in that case? Shall we delete the pool or not?
 function get_associated_buckets_int(pool) {
     var associated_buckets = _.filter(pool.system.buckets_by_name, function(bucket) {
         return _.find(bucket.tiering.tiers, function(tier_and_order) {
@@ -310,6 +359,8 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     var p = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
     var info = {
         name: pool.name,
+        resource_type: pool.resource_type,
+        pool_node_type: pool.pool_node_type,
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier
         storage: _.defaults(size_utils.to_bigint_storage(p.storage), POOL_STORAGE_DEFAULTS)
@@ -323,18 +374,34 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             endpoint_type: pool.cloud_pool_info.endpoint_type || 'AWS',
             target_bucket: pool.cloud_pool_info.target_bucket
         };
-        info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);
+        info.undeletable = check_resrouce_pool_deletion(pool);
         let nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
         if (!p.nodes) {
             info.mode = 'INITALIZING';
         } else if (nodes.by_mode.OPTIMAL) {
             info.mode = 'OPTIMAL';
         } else if (nodes.by_mode.STORAGE_NOT_EXIST) {
-            if (pool.cloud_pool_info.endpoint_type === 'AWS') {
+            if (pool.cloud_pool_info.endpoint_type === 'AWS' ||
+                pool.cloud_pool_info.endpoint_type === 'S3_COMPATIBLE') {
                 info.mode = 'BUCKET_NOT_EXIST';
             } else {
                 info.mode = 'CONTAINER_NOT_EXIST';
             }
+        } else if (nodes.by_mode.IO_ERRORS) {
+            info.mode = 'IO_ERRORS';
+        } else if (nodes.by_mode.INITALIZING) {
+            info.mode = 'INITALIZING';
+        } else {
+            info.mode = 'ALL_NODES_OFFLINE';
+        }
+    } else if (_is_mongo_pool(pool)) {
+        info.mongo_info = {};
+        info.undeletable = check_resrouce_pool_deletion(pool);
+        let nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+        if (!p.nodes) {
+            info.mode = 'INITALIZING';
+        } else if (nodes.by_mode.OPTIMAL) {
+            info.mode = 'OPTIMAL';
         } else if (nodes.by_mode.IO_ERRORS) {
             info.mode = 'IO_ERRORS';
         } else if (nodes.by_mode.INITALIZING) {
@@ -401,7 +468,7 @@ function check_pool_deletion(pool, nodes_aggregate_pool) {
 }
 
 
-function check_cloud_pool_deletion(pool) {
+function check_resrouce_pool_deletion(pool) {
 
     //Verify pool is not used by any bucket/tier
     var buckets = get_associated_buckets_int(pool);
@@ -410,17 +477,33 @@ function check_cloud_pool_deletion(pool) {
     }
 }
 
-
 function _is_cloud_pool(pool) {
     return Boolean(pool.cloud_pool_info);
 }
 
+function _is_mongo_pool(pool) {
+    return Boolean(pool.mongo_pool_info);
+}
+
+function _is_regular_pool(pool) {
+    return !(Boolean(pool.mongo_pool_info) || Boolean(pool.cloud_pool_info));
+}
+
+function get_internal_mongo_pool(system_id) {
+    const system = system_store.data.systems.find(sys => String(sys._id) === String(system_id));
+    if (!system) throw new Error('SYSTEM NOT FOUND', system_id);
+    const mongo_pool = _.find(system.pools_by_name, pool =>
+        String(pool.name) === String(`${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`));
+    return mongo_pool;
+}
 
 // EXPORTS
+exports.get_internal_mongo_pool = get_internal_mongo_pool;
 exports.new_pool_defaults = new_pool_defaults;
 exports.get_pool_info = get_pool_info;
 exports.create_nodes_pool = create_nodes_pool;
 exports.create_cloud_pool = create_cloud_pool;
+exports.create_mongo_pool = create_mongo_pool;
 exports.list_pool_nodes = list_pool_nodes;
 exports.read_pool = read_pool;
 exports.delete_pool = delete_pool;

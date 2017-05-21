@@ -33,9 +33,7 @@ function upgrade() {
     blocks_to_buckets_upgrade();
     upgrade_object_mds_total_parts();
     upgrade_server_hb();
-    // cluster upgrade: mark that upgrade is completed for this server
-    mark_completed(); // do not remove
-    print('\nUPGRADE DONE.');
+    print('\nUPGRADE DONE 15.');
 }
 
 function add_ssl_user() {
@@ -120,7 +118,7 @@ function upgrade_system(system) {
 
     var support_account_found = false;
     db.accounts.find().forEach(function(account) {
-       if (account.is_support) {
+        if (account.is_support) {
             if (support_account_found) {
                 print('\n*** more than one support account exists! deleting');
                 db.accounts.deleteMany({

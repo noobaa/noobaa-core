@@ -14,4 +14,3 @@ foreach ($disk in $Disks)
 "@
     $dpscript | diskpart
 }
-Restart-Service noobaalocalservice

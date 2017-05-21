@@ -1,19 +1,35 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var msRestAzure = require('ms-rest-azure');
-var ComputeManagementClient = require('azure-arm-compute');
-var NetworkManagementClient = require('azure-arm-network');
-var azureStorage = require('azure-storage');
-var util = require('util');
-var P = require('../util/promise');
-var promise_utils = require('../util/promise_utils');
-
-var adminUsername = 'notadmin';
-var adminPassword = 'Passw0rd123!';
-
+const msRestAzure = require('ms-rest-azure');
+const ComputeManagementClient = require('azure-arm-compute');
+const NetworkManagementClient = require('azure-arm-network');
+const azureStorage = require('azure-storage');
+const util = require('util');
+const P = require('../util/promise');
+const promise_utils = require('../util/promise_utils');
+const api = require('../api');
 require('../util/dotenv').load();
-var blobSvc = azureStorage.createBlobService();
+
+const adminUsername = 'notadmin';
+const adminPassword = 'Passw0rd123!';
+const DEFAULT_SIZE = 'Standard_A2_v2';
+
+const DEV_ACTIVATION_KEY = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
+    "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +
+    "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +
+    "3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd";
+
+const NOOBAA_IMAGE = 'https://jenkinsnoobaastorage.blob.core.windows.net/staging-vhds/image1-4-1-fixed.vhd';
+
+const system = {
+    name: 'demo',
+    email: 'demo@noobaa.com',
+    password: 'DeMo1',
+    activation_code: DEV_ACTIVATION_KEY
+};
+
+const blobSvc = azureStorage.createBlobService();
 
 class AzureFunctions {
 
@@ -32,7 +48,8 @@ class AzureFunctions {
             .then(credentials => {
                 this.computeClient = new ComputeManagementClient(credentials, this.subscriptionId);
                 this.networkClient = new NetworkManagementClient(credentials, this.subscriptionId);
-            });
+            })
+            .catch(err => console.log('Error', err));
     }
 
     getImagesfromOSname(osname) {
@@ -50,7 +67,7 @@ class AzureFunctions {
             os.sku = '16.04.0-LTS';
             os.osType = 'Linux';
         } else if (osname === 'ubuntu12') {
-            // Ubuntu 16 config
+            // Ubuntu 12 config
             os.publisher = 'Canonical';
             os.offer = 'UbuntuServer';
             os.sku = '12.04.5-LTS';
@@ -79,13 +96,13 @@ class AzureFunctions {
             os.offer = 'RHEL';
             os.sku = '7.2';
             os.version = 'latest';
-        } else if (osname === 'win2012R2') {
+        } else if (osname === 'win2012') {
             // Windows 2012R2 config
             os.publisher = 'MicrosoftWindowsServer';
             os.offer = 'WindowsServer';
             os.sku = '2012-R2-Datacenter';
             os.osType = 'Windows';
-        } else if (osname === 'win2008R2') {
+        } else if (osname === 'win2008') {
             // Windows 2008R2 config
             os.publisher = 'MicrosoftWindowsServer';
             os.offer = 'WindowsServer';
@@ -104,6 +121,12 @@ class AzureFunctions {
     getSubnetInfo(vnetName) {
         console.log('Getting subnet info for: ' + vnetName);
         return P.fromCallback(callback => this.networkClient.subnets.get(this.resourceGroupName, vnetName, 'default', callback));
+    }
+
+    getIpAddress(pipName) {
+        console.log('Getting IP for: ' + pipName);
+        return P.fromCallback(callback => this.networkClient.publicIPAddresses.get(this.resourceGroupName, pipName, callback))
+            .then(res => res.ipAddress);
     }
 
     createAgent(vmName, storage, vnet, os, server_name, agent_conf) {
@@ -180,7 +203,7 @@ class AzureFunctions {
         };
         if (publicIPInfo) {
             nicParameters.ipConfigurations[0].publicIPAddress = publicIPInfo;
-            console.log('Using public IP', nicParameters);
+            console.log('Using public IP');
         }
         console.log('Creating Network Interface: ' + networkInterfaceName);
         return P.fromCallback(callback => this.networkClient.networkInterfaces.createOrUpdate(this.resourceGroupName, networkInterfaceName,
@@ -221,13 +244,12 @@ class AzureFunctions {
                 adminPassword: adminPassword
             },
             hardwareProfile: {
-                vmSize: 'Standard_A2_v2'
+                vmSize: DEFAULT_SIZE
             },
             storageProfile: {
                 imageReference: imageReference,
                 osDisk: {
                     name: vmName + '_disk',
-                    diskSizeGB: 1023,
                     caching: 'None',
                     createOption: 'fromImage',
                     vhd: {
@@ -250,6 +272,61 @@ class AzureFunctions {
         };
         console.log('Creating Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName, vmName, vmParameters, callback));
+    }
+
+    createVirtualMachineFromImage(vmName, image, vnet, storageAccountName, osType, plan) {
+        var vmParameters = {
+            location: this.location,
+            plan: plan,
+            osProfile: {
+                computerName: vmName,
+                adminUsername: adminUsername,
+                adminPassword: adminPassword
+            },
+            hardwareProfile: {
+                vmSize: DEFAULT_SIZE
+            },
+            storageProfile: {
+                osDisk: {
+                    name: vmName + '_disk',
+                    // diskSizeGB: 1023,
+                    caching: 'None',
+                    createOption: 'fromImage',
+                    osType: osType,
+                    vhd: {
+                        uri: 'https://' + storageAccountName + '.blob.core.windows.net/osdisks/' + vmName + '-os.vhd'
+                    },
+                    image: {
+                        uri: image
+                    }
+                },
+            },
+            networkProfile: {
+                networkInterfaces: [{
+                    primary: true
+                }]
+            },
+            diagnosticsProfile: {
+                bootDiagnostics: {
+                    enabled: true,
+                    storageUri: 'https://wusdiagnostics.blob.core.windows.net/'
+                }
+            }
+        };
+        var subnetInfo;
+        return this.getSubnetInfo(vnet)
+            .then(result => {
+                subnetInfo = result;
+                return this.createPublicIp(vmName + '_pip');
+            })
+            .then(ipinfo => {
+                return this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip');
+            })
+            .then(nic => {
+                vmParameters.networkProfile.networkInterfaces[0].id = nic.id;
+                return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
+                    vmName, vmParameters, callback));
+            });
     }
 
     cloneVirtualMachine(origMachine, newMachine, nicId) {
@@ -408,6 +485,7 @@ class AzureFunctions {
         console.log('Deleting Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(this.resourceGroupName, vmName, callback))
             .then(() => P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(this.resourceGroupName, vmName + '_nic', callback)))
+            .then(() => P.fromCallback(callback => this.networkClient.publicIPAddresses.deleteMethod(this.resourceGroupName, vmName + '_pip', callback)))
             .then(() => P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback)))
             .then(() => P.fromCallback(callback => blobSvc.doesContainerExist('datadisks', callback))
                 .then(result => {
@@ -508,6 +586,75 @@ class AzureFunctions {
         console.log('Deleting Virtual Machine Desired extension');
         return P.fromCallback(callback => this.computeClient.virtualMachineExtensions.deleteMethod(this.resourceGroupName, vmName,
             vmName + '_ext', callback));
+    }
+
+
+    createServer(serverName, vnet, storage) { // creates new noobaa server and returns it's secret
+        const CONTAINER_NAME = 'staging-vhds';
+        var rpc;
+        var client;
+        var isDone = false;
+        return P.fromCallback(callback => blobSvc.doesContainerExist(CONTAINER_NAME, callback))
+            .then(({ exists }) => !exists && P.fromCallback(callback => blobSvc.createContainer(CONTAINER_NAME, callback)))
+            .then(() => P.fromCallback(callback => blobSvc.doesBlobExist(CONTAINER_NAME, 'image.vhd', callback)))
+            .then(({ exists }) => !exists && P.fromCallback(callback => blobSvc.startCopyBlob(NOOBAA_IMAGE, CONTAINER_NAME, 'image.vhd', callback))
+                .then(() => promise_utils.pwhile(() => !isDone, () => {
+                    return P.fromCallback(callback => blobSvc.getBlobProperties(CONTAINER_NAME, 'image.vhd', callback))
+                        .then(result => {
+                            if (result.copy) {
+                                console.log('Copying Image...', result.copy.progress);
+                                if (result.copy.status === 'success') {
+                                    isDone = true;
+                                } else if (result.copy.status !== 'pending') {
+                                    throw new Error('got wrong status while copying', result.copy.status);
+                                }
+                            }
+                        })
+                        .delay(10000);
+                })))
+            .then(() => this.createVirtualMachineFromImage(serverName, 'https://' + storage + '.blob.core.windows.net/staging-vhds/image.vhd', vnet, storage, 'Linux'))
+            .delay(20000)
+            .then(() => this.getIpAddress(serverName + '_pip'))
+            .then(ip => {
+                rpc = api.new_rpc('wss://' + ip + ':8443');
+                client = rpc.new_client({});
+                rpc.disable_validation();
+                return P.resolve(client.system.create_system(system));
+            })
+            .then(res => {
+                client.options.auth_token = res.token;
+            })
+            .then(() => P.resolve(client.system.read_system({})))
+            .then(res => {
+                var secret = res.cluster.master_secret;
+                console.log('Server ', serverName, 'was successfuly created');
+                return secret;
+            })
+            .finally(() => rpc.disconnect_all());
+    }
+
+    addServerToCluster(master_ip, slave_ip, slave_secret, slave_name) {
+        var rpc = api.new_rpc('wss://' + master_ip + ':8443');
+        var client = rpc.new_client({});
+        return P.fcall(() => {
+                var auth_params = {
+                    email: 'demo@noobaa.com',
+                    password: 'DeMo1',
+                    system: 'demo'
+                };
+                return client.create_auth_token(auth_params);
+            })
+            .then(() => P.resolve(client.cluster_server.add_member_to_cluster({
+                address: slave_ip,
+                secret: slave_secret,
+                role: 'REPLICA',
+                shard: 'shard1',
+                new_hostname: slave_name
+            })))
+            .then(() => {
+                console.log('successfully added server', slave_ip, 'to cluster, with master', master_ip);
+            })
+            .finally(() => rpc.disconnect_all());
     }
 }
 

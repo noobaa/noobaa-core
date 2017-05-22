@@ -84,6 +84,18 @@ function to_bigint_storage(storage) {
     return _.mapValues(storage, x => bigint_to_json(json_to_bigint(x)));
 }
 
+function size_unit_to_bigint(size, unit) {
+    let big;
+    if (unit === 'PETABYTE') {
+        big = new BigInteger(PETABYTE);
+    } else if (unit === 'TERABYTE') {
+        big = new BigInteger(TERABYTE);
+    } else if (unit === 'GIGABYTE') {
+        big = new BigInteger(GIGABYTE);
+    }
+    return big.multiply(size);
+}
+
 /**
  * mult_factor & div_factor must be positive integers.
  */
@@ -116,7 +128,7 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
 }
 
 
-function reduce_minimum(key, values) {
+function size_min(values) {
     var n_min = PETABYTE;
     var peta_min = 100000;
     values.forEach(function(v) {
@@ -144,8 +156,7 @@ function reduce_minimum(key, values) {
     } : n_min;
 }
 
-
-function reduce_maximum(key, values) {
+function size_max(values) {
     var n_max = 0;
     var peta_max = 0;
     values.forEach(function(v) {
@@ -171,6 +182,16 @@ function reduce_maximum(key, values) {
         n: n_max,
         peta: peta_max,
     } : n_max;
+}
+
+
+function reduce_minimum(key, values) {
+    return size_min(values);
+}
+
+
+function reduce_maximum(key, values) {
+    return size_max(values);
 }
 
 
@@ -270,8 +291,11 @@ function human_offset(offset) {
 exports.BigInteger = BigInteger;
 exports.bigint_to_json = bigint_to_json;
 exports.json_to_bigint = json_to_bigint;
+exports.size_unit_to_bigint = size_unit_to_bigint;
 exports.to_bigint_storage = to_bigint_storage;
 exports.reduce_storage = reduce_storage;
+exports.size_min = size_min;
+exports.size_max = size_max;
 exports.reduce_minimum = reduce_minimum;
 exports.reduce_maximum = reduce_maximum;
 exports.reduce_sum = mongo_functions.reduce_sum;

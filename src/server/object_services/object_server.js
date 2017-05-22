@@ -12,6 +12,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const MDStore = require('./md_store').MDStore;
 const LRUCache = require('../../util/lru_cache');
+const size_utils = require('../../util/size_utils');
 const RpcError = require('../../rpc/rpc_error');
 const Dispatcher = require('../notifications/dispatcher');
 const http_utils = require('../../util/http_utils');
@@ -36,6 +37,22 @@ function create_object_upload(req) {
     dbg.log0('create_object_upload:', req.rpc_params);
     throw_if_maintenance(req);
     load_bucket(req);
+
+    // enforce bucket quota
+    if (req.bucket.quota) {
+        const bucket_used = req.bucket.storage_stats && size_utils.json_to_bigint(req.bucket.storage_stats.objects_size);
+        const quota = size_utils.json_to_bigint(req.bucket.quota.value);
+        if (bucket_used.greaterOrEqual(quota)) {
+            const message = `the bucket ${req.bucket.name} used storage(${
+                size_utils.human_size(bucket_used)
+            }) exceeds the bucket quota (${
+                size_utils.human_size(req.bucket.quota.value)
+            })`;
+            dbg.error(message);
+            throw new RpcError('FORBIDDEN', message);
+        }
+    }
+
     var info = {
         _id: MDStore.instance().make_md_id(),
         system: req.system._id,

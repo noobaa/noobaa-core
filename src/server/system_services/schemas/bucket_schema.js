@@ -45,6 +45,20 @@ module.exports = {
         tiering: {
             format: 'objectid' // tiering policy id
         },
+        quota: {
+            type: 'object',
+            required: ['size', 'unit', 'value'],
+            properties: {
+                size: {
+                    type: 'integer'
+                },
+                unit: {
+                    type: 'string',
+                    enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
+                },
+                value: bigint
+            }
+        },
         // cloud sync target, if exists
         cloud_sync: {
             type: 'object',

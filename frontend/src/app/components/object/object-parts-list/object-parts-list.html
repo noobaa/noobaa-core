@@ -24,8 +24,7 @@
             "></svg-icon>
 
             <div class="greedy">
-                <span data-bind="text: name"></span>
-                (<span data-bind="text: size"></span>)
+                <span data-bind="text: label"></span>
             </div>
 
             <button class="expand-btn btn-flat rotate no-outline" data-bind="
@@ -37,47 +36,12 @@
             </button>
         </div>
 
-        <table class="blocks-table" data-bind="expand: isExpended">
-            <tbody data-bind="foreach: blocks">
-                <tr content-middle">
-                    <td class="status-col">
-                        <svg-icon params="name: stateIcon.name" data-bind="
-                            css: stateIcon.css,
-                            tooltip: stateIcon.tooltip
-                        "></svg-icon>
-                    </td>
-
-                    <td class="replica-col text-left" data-bind="text: label">
-                    </td>
-
-                    <td class="node-name-col" >
-                        <a data-bind="
-                            text: shortenNodeName,
-                            tooltip: nodeName,
-                            href: nodeHref,
-                            css: { link: nodeHref }
-                        "></a>
-                    </td>
-
-                    <td class="node-ip-col">
-                        <a data-bind="
-                            text: nodeIp,
-                            href: nodeHref,
-                            css: { link: nodeHref }
-                        "></a>
-                    </td>
-
-                    <td class="pool-col no-wrap">
-                        <a data-bind="
-                            text: poolName,
-                            tooltip: poolName,
-                            href: poolHref,
-                            css: { link: poolHref }
-                        "></a>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <section class="column" data-bind="expand: isExpended">
+            <data-table class="alt-bg push-next blocks-table" params="
+            columns: columns,
+            data: blocks
+        "></data-table>
+        </section>
     </li>
 </ul>
 

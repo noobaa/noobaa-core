@@ -2,10 +2,11 @@
 
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { shortString } from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
+import { deepFreeze } from 'utils/core-utils';
+import BlockRowViewModel from './block-row';
 
-const partStateIcons = Object.freeze({
+const partStateIcons = deepFreeze({
     available: {
         name: 'healthy',
         css: 'success',
@@ -23,56 +24,27 @@ const partStateIcons = Object.freeze({
     }
 });
 
-class BlockRowViewModel extends BaseViewModel {
-    constructor({ adminfo }, index, count) {
-        super();
-
-        let { online, in_cloud_pool, node_ip, node_name, pool_name } = adminfo;
-
-        this.stateIcon = {
-            name: online ? 'healthy' : 'problem',
-            tooltip: online ? 'Healthy' : 'Problem',
-            css: online ? 'success' : 'error'
-        };
-
-        if(count === 1) {
-            this.label = `${in_cloud_pool ? '(Cloud replica)' : ''}`;
-        } else {
-            this.label = `Replica ${index + 1} of ${count} ${in_cloud_pool ? '(cloud replica)' : ''}`;
-        }
-
-        this.poolName = pool_name;
-
-        if (!in_cloud_pool) {
-            this.nodeName = node_name;
-            this.shortenNodeName = shortString(node_name, 30, 8);
-            this.nodeIp = node_ip;
-
-            this.poolHref = {
-                route: 'pool',
-                params: {
-                    pool: pool_name,
-                    tab: null
-                }
-            };
-
-            this.nodeHref = {
-                route: 'node',
-                params: {
-                    pool: pool_name,
-                    node: node_name,
-                    tab: null
-                }
-            };
-        } else {
-            this.nodeName = null;
-            this.shortenNodeName = '---';
-            this.nodeIp = '---';
-            this.poolHref = null;
-            this.nodeHref = null;
-        }
+const columns = deepFreeze([
+    {
+        name: 'state',
+        type: 'icon'
+    },
+    {
+        name: 'replica'
+    },
+    {
+        name: 'recourseType',
+        type: 'icon'
+    },
+    {
+        name: 'replicaLocation',
+        type: 'link'
+    },
+    {
+        name: 'node',
+        type: 'link'
     }
-}
+]);
 
 export default class ObjectPartRowViewModel extends BaseViewModel {
     constructor(part, partNumber, partsCount) {
@@ -81,13 +53,12 @@ export default class ObjectPartRowViewModel extends BaseViewModel {
         let size = formatSize(part.chunk.size);
         let state = part.chunk.adminfo.health;
         let blocks = part.chunk.frags[0].blocks;
+        this.columns = columns;
 
         this.stateIcon = partStateIcons[state];
-        this.name = `Part ${partNumber + 1} of ${partsCount}`;
-        this.size = size;
-        this.blocks = blocks;
+        this.label = `Part ${partNumber + 1} of ${partsCount} | ${size} | ${blocks.length} blocks`;
         this.blocks = blocks.map(
-            (block, i) =>  new BlockRowViewModel(block, i, blocks.length)
+            (block, i) => new BlockRowViewModel(block, i, blocks.length)
         );
 
         this.isExpended = ko.observable(partsCount === 1);

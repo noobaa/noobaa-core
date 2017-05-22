@@ -63,7 +63,7 @@ class BucketObjectsTableViewModel extends BaseViewModel {
         this.uploadTooltip = ko.pureComputed(
             () => {
                 if (notOwner()) {
-                    return 'Cannot upload, you are not an owner';
+                    return 'This operation is only available for the system owner';
                 }
 
                 if (notWritable()) {

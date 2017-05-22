@@ -34,7 +34,13 @@ class BlockRowViewModel extends BaseViewModel {
             tooltip: online ? 'Healthy' : 'Problem',
             css: online ? 'success' : 'error'
         };
-        this.label = `Replica ${index + 1} of ${count} ${in_cloud_pool ? '(cloud replica)' : ''}`;
+
+        if(count === 1) {
+            this.label = `${in_cloud_pool ? '(Cloud replica)' : ''}`;
+        } else {
+            this.label = `Replica ${index + 1} of ${count} ${in_cloud_pool ? '(cloud replica)' : ''}`;
+        }
+
         this.poolName = pool_name;
 
         if (!in_cloud_pool) {

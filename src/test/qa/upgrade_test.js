@@ -74,6 +74,11 @@ var version_map_tar = {
     '0.8.0': 'noobaa-NVA-0.8.0-8ac4edc.tar.gz',
     '1.0.0': 'noobaa-NVA-1.0.0-92796da.tar.gz',
     '1.1.0': 'noobaa-NVA-1.1.0-35ea489.tar.gz',
+    '1.2.4': 'noobaa-NVA-1.2.4-34cb335.tar.gz',
+    '1.3.6': 'noobaa-NVA-1.3.6-c9675dd.tar.gz',
+    '1.4.1': 'noobaa-NVA-1.4.1-e9ba76d.tar.gz',
+    '1.5.3': 'noobaa-NVA-1.5.3-bf522bf.tar.gz',
+    '1.6.1': 'noobaa-NVA-1.6.1-d4a7fb7.tar.gz',
 };
 
 var basic_vhd_uri = 'https://qaupgrade.blob.core.windows.net/vhd-images/';
@@ -130,121 +135,121 @@ function clean_old_machines(machine_name) {
 }
 
 return P.each(procedure, upgrade_procedure => {
-        var machine_name = 'u' + upgrade_procedure.base_version.replace(new RegExp('\\.', 'g'), '-');
-        var machine_ip = 'upgrade-base0-8-0-vmdns.westus2.cloudapp.azure.com'; // the ip of the machine was just created
-        var base64;
-        console.log('Removing old running machine if exist');
-        return clean_old_machines(machine_name)
-            .then(() => {
-                console.log('Creating new server of version ', upgrade_procedure.base_version);
-                var createVMClient = new cloudCD.CreateVMAction(connection);
-                noobaa_server.storageOSDiskName = machine_name + '-osdisk' + timestamp;
-                var uri = basic_vhd_uri + version_map_vhd[upgrade_procedure.base_version];
-                noobaa_server.imageSourceUri = uri;
-                return P.fromCallback(callback => createVMClient.perform(noobaa_server, callback));
+    var machine_name = 'u' + upgrade_procedure.base_version.replace(new RegExp('\\.', 'g'), '-');
+    var machine_ip = 'upgrade-base0-8-0-vmdns.westus2.cloudapp.azure.com'; // the ip of the machine was just created
+    var base64;
+    console.log('Removing old running machine if exist');
+    return clean_old_machines(machine_name)
+        .then(() => {
+            console.log('Creating new server of version ', upgrade_procedure.base_version);
+            var createVMClient = new cloudCD.CreateVMAction(connection);
+            noobaa_server.storageOSDiskName = machine_name + '-osdisk' + timestamp;
+            var uri = basic_vhd_uri + version_map_vhd[upgrade_procedure.base_version];
+            noobaa_server.imageSourceUri = uri;
+            return P.fromCallback(callback => createVMClient.perform(noobaa_server, callback));
+        })
+        .then(machine => {
+            console.log('The server created is', machine.hostname);
+            machine_ip = machine.hostname;
+            return P.delay(10000);
+        })
+        .then(() => {
+            var rpc = api.new_rpc('wss://' + machine_ip + ':8443');
+            rpc.disable_validation();
+            var client = rpc.new_client({});
+            return P.fcall(() => {
+                var auth_params = {
+                    email: 'demo@noobaa.com',
+                    password: 'DeMo1',
+                    system: 'demo'
+                };
+                return client.create_auth_token(auth_params);
             })
-            .then(machine => {
-                console.log('The server created is', machine.hostname);
-                machine_ip = machine.hostname;
-                return P.delay(10000);
-            })
-            .then(() => {
-                var rpc = api.new_rpc('wss://' + machine_ip + ':8443');
-                rpc.disable_validation();
-                var client = rpc.new_client({});
-                return P.fcall(() => {
-                        var auth_params = {
-                            email: 'demo@noobaa.com',
-                            password: 'DeMo1',
-                            system: 'demo'
-                        };
-                        return client.create_auth_token(auth_params);
-                    })
-                    .then(() => P.resolve(client.system.read_system({})))
-                    .then(result => {
-                        var agent_conf = {
-                            address: result.base_address,
-                            system: result.name,
-                            access_key: '123',
-                            secret_key: 'abc',
-                            tier: 'nodes',
-                            root_path: './agent_storage/'
-                        };
-                        base64 = Buffer.from(JSON.stringify(agent_conf)).toString('base64');
-                        console.log('BASE64:', base64);
-                    })
-                    .then(() => P.each(oses, osname => {
-                        console.log('Adding agent', osname);
-                        var createVMagent = new cloudCD.CreateVMAction(connection);
-                        var os = azf.getImagesfromOSname(osname);
-                        noobaa_agent.name = (machine_name + os.offer.substring(0, 1) + os.sku.substring(0, 4)).replace(new RegExp('\\.', 'g'), '-').toLowerCase();
-                        noobaa_agent.storageOSDiskName = machine_name + osname + '-osdisk' + timestamp;
-                        noobaa_agent.imagePublisher = os.publisher;
-                        noobaa_agent.imageOffer = os.offer;
-                        noobaa_agent.imageSku = os.sku;
-                        noobaa_agent.osType = os.osType;
-                        noobaa_agent.imageVersion = 'latest';
-                        return P.fromCallback(callback => createVMagent.perform(noobaa_agent, callback))
-                            .delay(10000)
-                            .then(() => {
-                                var remoteExecuteClient = new cloudCD.RemoteExecute(connection);
-                                var ssh_script = path.join(__dirname, '/../../deploy/init_agent.sh');
-                                if (os.osType === 'Windows') {
-                                    ssh_script = path.join(__dirname, '/../../deploy/init_agent.ps1');
-                                }
-                                var args2 = machine_ip + ' ' + base64;
-                                return P.fromCallback(callback => remoteExecuteClient.perform(noobaa_agent, {
-                                    script: ssh_script,
-                                    args: args2
-                                }, callback));
+                .then(() => P.resolve(client.system.read_system({})))
+                .then(result => {
+                    var agent_conf = {
+                        address: result.base_address,
+                        system: result.name,
+                        access_key: '123',
+                        secret_key: 'abc',
+                        tier: 'nodes',
+                        root_path: './agent_storage/'
+                    };
+                    base64 = Buffer.from(JSON.stringify(agent_conf)).toString('base64');
+                    console.log('BASE64:', base64);
+                })
+                .then(() => P.each(oses, osname => {
+                    console.log('Adding agent', osname);
+                    var createVMagent = new cloudCD.CreateVMAction(connection);
+                    var os = azf.getImagesfromOSname(osname);
+                    noobaa_agent.name = (machine_name + os.offer.substring(0, 1) + os.sku.substring(0, 4)).replace(new RegExp('\\.', 'g'), '-').toLowerCase();
+                    noobaa_agent.storageOSDiskName = machine_name + osname + '-osdisk' + timestamp;
+                    noobaa_agent.imagePublisher = os.publisher;
+                    noobaa_agent.imageOffer = os.offer;
+                    noobaa_agent.imageSku = os.sku;
+                    noobaa_agent.osType = os.osType;
+                    noobaa_agent.imageVersion = 'latest';
+                    return P.fromCallback(callback => createVMagent.perform(noobaa_agent, callback))
+                        .delay(10000)
+                        .then(() => {
+                            var remoteExecuteClient = new cloudCD.RemoteExecute(connection);
+                            var ssh_script = path.join(__dirname, '/../../deploy/init_agent.sh');
+                            if (os.osType === 'Windows') {
+                                ssh_script = path.join(__dirname, '/../../deploy/init_agent.ps1');
+                            }
+                            var args2 = machine_ip + ' ' + base64;
+                            return P.fromCallback(callback => remoteExecuteClient.perform(noobaa_agent, {
+                                script: ssh_script,
+                                args: args2
+                            }, callback));
+                        });
+                }))
+                .delay(120000)
+                .then(() => P.each(upgrade_procedure.versions_list, version => {
+                    console.log('Upgrading to', version);
+                    return s3ops.put_file_with_md5(machine_ip, 'first.bucket', '20MBFile-' + version, 5)
+                        .then(filepath => {
+                            file_path = filepath;
+                            var file = fs.createWriteStream(version_map_tar[version]);
+                            return new P((resolve, reject) => {
+                                request.get({
+                                    url: basic_tar_uri + version_map_tar[version],
+                                    rejectUnauthorized: false
+                                })
+                                    .pipe(file)
+                                    .on('error', reject)
+                                    .on('finish', resolve);
                             });
-                    }))
-                    .delay(120000)
-                    .then(() => P.each(upgrade_procedure.versions_list, version => {
-                        console.log('Upgrading to', version);
-                        return s3ops.put_file_with_md5(machine_ip, 'first.bucket', '20MBFile-' + version, 5)
-                            .then(filepath => {
-                                file_path = filepath;
-                                var file = fs.createWriteStream(version_map_tar[version]);
-                                return new P((resolve, reject) => {
-                                    request.get({
-                                            url: basic_tar_uri + version_map_tar[version],
-                                            rejectUnauthorized: false
-                                        })
-                                        .pipe(file)
-                                        .on('error', reject)
-                                        .on('finish', resolve);
+                        })
+                        .then(() => rpc.disconnect_all())
+                        .then(() => {
+                            ops.disable_rpc_validation();
+                            return P.resolve(ops.upload_and_upgrade(machine_ip, version_map_tar[version]));
+                        })
+                        .then(() => {
+                            console.log('Upgrade successful, waiting on agents to upgrade');
+                            return P.resolve(ops.wait_on_agents_upgrade(machine_ip));
+                        })
+                        .then(() => {
+                            console.log('Verifying download of 20MB file', file_path);
+                            return s3ops.get_file_check_md5(machine_ip, 'first.bucket', '20MBFile-' + version);
+                        })
+                        .then(() => {
+                            console.log('Running the desired external test', test);
+                            args = args.concat(['--server_ip', machine_ip]);
+                            return promise_utils.fork(test, args)
+                                .then(() => {
+                                    console.log('Upgrading was successful');
+                                    return clean_old_machines(machine_name);
+                                })
+                                .catch(err => {
+                                    console.log('Upgrade failed', err.message);
+                                    errors = true;
                                 });
-                            })
-                            .then(() => rpc.disconnect_all())
-                            .then(() => {
-                                ops.disable_rpc_validation();
-                                return P.resolve(ops.upload_and_upgrade(machine_ip, version_map_tar[version]));
-                            })
-                            .then(() => {
-                                console.log('Upgrade successful, waiting on agents to upgrade');
-                                return P.resolve(ops.wait_on_agents_upgrade(machine_ip));
-                            })
-                            .then(() => {
-                                console.log('Verifying download of 20MB file', file_path);
-                                return s3ops.get_file_check_md5(machine_ip, 'first.bucket', '20MBFile-' + version);
-                            })
-                            .then(() => {
-                                console.log('Running the desired external test', test);
-                                args = args.concat(['--server_ip', machine_ip]);
-                                return promise_utils.fork(test, args)
-                                    .then(() => {
-                                        console.log('Upgrading was successful');
-                                        return clean_old_machines(machine_name);
-                                    })
-                                    .catch(err => {
-                                        console.log('Upgrade failed', err.message);
-                                        errors = true;
-                                    });
-                            });
-                    }));
-            });
-    })
+                        });
+                }));
+        });
+})
     .then(() => {
         if (errors) {
             console.error(':( :( Errors during upgrades ): ):');

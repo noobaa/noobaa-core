@@ -6,6 +6,7 @@ var AzureFunctions = require('../../deploy/azureFunctions');
 const P = require('../../util/promise');
 var api = require('../../api');
 var promise_utils = require('../../util/promise_utils');
+var ops = require('../system_tests/basic_server_ops');
 var _ = require('lodash');
 
 require('../../util/dotenv').load();
@@ -49,7 +50,6 @@ function checkClusterStatus(servers, oldMasterNumber) {
                 master_ip = serversByStatus.CONNECTED[0].ip;
             })
             .then(ip => {
-                // console.log('result!!!!', ip.trim());
                 master_ip = master_ip || ip.trim();
                 console.log('Master ip', master_ip);
                 rpc = api.new_rpc('wss://' + master_ip + ':8443');
@@ -119,13 +119,10 @@ function checkClusterStatus(servers, oldMasterNumber) {
                         errors_in_test = true;
                     }
                 });
-                return masterIndex;
-            })
-            .catch(err => console.log('something wrong with waiting for server', err))
-            .then(() => {
                 if (errors_in_test && breakonerror) {
                     throw new Error('Error in test - breaking the test');
                 }
+                return masterIndex;
             })
             .finally(() => rpc.disconnect_all());
     }
@@ -136,7 +133,7 @@ var servers = [];
 var master;
 var slaves;
 
-var timeout = argv.timeout || 10 * 60 * 1000; // 10 minutes default
+var timeout = argv.timeout || 10; // 10 minutes default
 var masterIndex = serversincluster - 1;
 console.log('Breaking on error?', breakonerror);
 return azf.authenticate()
@@ -158,7 +155,7 @@ return azf.authenticate()
         })
         .then(ip => {
             server.ip = ip;
-            return ip;
+            return ops.upload_and_upgrade(ip, argv.upgrade_pack);
         })
         .catch(err => console.log('Can\'t create server', err))))
     .then(() => {
@@ -173,25 +170,26 @@ return azf.authenticate()
     .then(() => checkClusterStatus(servers, masterIndex))
     .then(() => {
         var start = Date.now();
-        return promise_utils.pwhile(() => (timeout === 0 || (Date.now() - start) < timeout), () => {
+        return promise_utils.pwhile(() => (timeout === 0 || (Date.now() - start) < (timeout * 1000 * 60)), () => {
             var rand = Math.floor(Math.random() * serversincluster);
             console.log('<====== Starting a new cycle... ======>');
+            var prom;
             if (servers[rand].status === 'CONNECTED') {
                 servers[rand].status = 'DISCONNECTED';
-                return azf.stopVirtualMachine(servers[rand].name) // turn the server off
-                    .then(() => {
-                        console.log('Wating 90 seconds for cluster to stable...');
-                        return P.delay(90000);
-                    })
-                    .then(() => checkClusterStatus(servers, masterIndex, masterIndex === rand))
-                    .then(newMaster => {
-                        masterIndex = newMaster;
-                    });
+                prom = azf.stopVirtualMachine(servers[rand].name); // turn the server off
+            } else {
+                servers[rand].status = 'CONNECTED';
+                prom = azf.startVirtualMachine(servers[rand].name); // turn the server back on
             }
-            servers[rand].status = 'CONNECTED';
-            return azf.startVirtualMachine(servers[rand].name) // turn the server back on
-                .delay(90000) // 2 minutes for cluster changes to take effect
-                .then(() => checkClusterStatus(servers, masterIndex));
+            return prom
+                .then(() => {
+                    console.log('Waiting 180 seconds for cluster to stable...');
+                    return P.delay(180000);
+                })
+                .then(() => checkClusterStatus(servers, masterIndex))
+                .then(newMaster => {
+                    masterIndex = newMaster;
+                });
         });
     })
     .catch(err => {

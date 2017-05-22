@@ -105,6 +105,15 @@ node('jenkins-slave1-centos') {
                 . /opt/nvm/nvm.sh
                 node $WORKSPACE/src/test/qa/upgrade_test.js
             """
+          },
+          "cluster": {
+            echo 'Doing some clusterisation!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
+                node $WORKSPACE/src/test/qa/cluster_test.js --servers 3 --upgrade_pack \$fname --timeout '${aging_time}' --storage '${agentsStorage}' --resource '${agentsResource}' --vnet '${agentsVnet}' --breakonerror
+            """
           }
       )
    }

@@ -87,7 +87,7 @@ node('jenkins-slave1-centos') {
             sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverName}' --agent_conf '${agentConf}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}'
+                node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverName}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --upgrade_pack \$fname
             """
           },
           "system-configurations": {

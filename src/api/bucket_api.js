@@ -75,6 +75,23 @@ module.exports = {
                     },
                     new_tag: {
                         type: 'string',
+                    },
+                    quota: {
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'object',
+                            required: ['size', 'unit'],
+                            properties: {
+                                size: {
+                                    type: 'integer'
+                                },
+                                unit: {
+                                    type: 'string',
+                                    enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
+                                },
+                            }
+                        }]
                     }
                 }
             },
@@ -504,6 +521,19 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
+                quota: {
+                    type: 'object',
+                    required: ['size', 'unit'],
+                    properties: {
+                        size: {
+                            type: 'integer'
+                        },
+                        unit: {
+                            type: 'string',
+                            enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
+                        },
+                    }
+                },
                 data: {
                     type: 'object',
                     properties: {
@@ -520,6 +550,9 @@ module.exports = {
                         // On mirror it is the minimum free space of the pools, on spread it is the sum.
                         // Also we divide by replicas in order to get the actual size that can be written.
                         actual_free: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        available_for_upload: {
                             $ref: 'common_api#/definitions/bigint'
                         },
                     }

@@ -14,6 +14,7 @@ const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
+const BigInteger = size_utils.BigInteger;
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const http_utils = require('../../util/http_utils');
@@ -177,6 +178,7 @@ function update_bucket(req) {
     var bucket = find_bucket(req);
     var tiering_policy = req.rpc_params.tiering &&
         resolve_tiering_policy(req, req.rpc_params.tiering);
+    let quota = req.rpc_params.quota;
     var updates = {
         _id: bucket._id
     };
@@ -188,6 +190,16 @@ function update_bucket(req) {
     }
     if (tiering_policy) {
         updates.tiering = tiering_policy._id;
+    }
+    if (!_.isUndefined(quota)) {
+        if (quota === null) {
+            updates.$unset = {
+                quota: 1
+            };
+        } else {
+            updates.quota = quota;
+            quota.value = size_utils.size_unit_to_bigint(quota.size, quota.unit).toJSON();
+        }
     }
     return system_store.make_changes({
         update: {
@@ -898,11 +910,22 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         free: bucket_free,
     });
 
+    const actual_free = _.get(info, 'tiering.data.free', 0);
+    let available_for_upload = actual_free;
+    if (bucket.quota) {
+        info.quota = _.omit(bucket.quota, 'value');
+        let quota_free = size_utils.json_to_bigint(bucket.quota.value).minus(size_utils.json_to_bigint(objects_aggregate.size));
+        if (quota_free.isNegative()) quota_free = BigInteger.zero;
+        available_for_upload = size_utils.size_min([size_utils.bigint_to_json(quota_free), actual_free]);
+    }
+
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
         size_reduced: bucket_chunks_capacity,
-        actual_free: _.get(info, 'tiering.data.free', 0)
+        actual_free,
+        available_for_upload
     });
+
 
     const stats = bucket.stats;
     const last_read = (stats && stats.last_read) ?

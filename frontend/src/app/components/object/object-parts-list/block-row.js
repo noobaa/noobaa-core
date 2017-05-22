@@ -3,26 +3,7 @@
 import BaseViewModel from 'components/base-view-model';
 import { shortString } from 'utils/string-utils';
 import { getResourceTypeIcon } from 'utils/ui-utils';
-import { deepFreeze } from 'utils/core-utils';
 import { systemInfo } from 'model';
-
-const partStateIcons = deepFreeze({
-    available: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Available'
-    },
-    building:  {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'In process'
-    },
-    unavailable: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Unavailable'
-    }
-});
 
 const poolsMapObj = {};
 const poolsMap = () => {

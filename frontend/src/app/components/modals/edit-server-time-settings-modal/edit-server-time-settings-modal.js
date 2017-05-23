@@ -102,7 +102,7 @@ class EditServerTimeSettingsModalViewModel extends BaseViewModel {
         ]);
 
         this.isValid = ko.pureComputed(
-            () => this.usingManualTime() || this.ntpErrors().length === 0 && !this.ntpServer.isValidating
+            () => this.usingManualTime() || (this.ntpErrors().length === 0 && !this.ntpServer.isValidating)
         );
 
         loadServerTime(this.serverSecret);
@@ -119,7 +119,7 @@ class EditServerTimeSettingsModalViewModel extends BaseViewModel {
     }
 
     setNTPTime() {
-        if (this.ntpErrors().length > 0 || this.ntpServer.isValidating) {
+        if (this.ntpErrors().length > 0 || this.ntpErrors.validatingCount() > 0) {
             this.ntpErrors.showAllMessages();
 
         } else {

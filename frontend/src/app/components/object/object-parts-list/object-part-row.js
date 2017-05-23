@@ -47,7 +47,7 @@ const columns = deepFreeze([
 ]);
 
 export default class ObjectPartRowViewModel extends BaseViewModel {
-    constructor(part, partNumber, partsCount) {
+    constructor(part, partNumber, partsCount, poolIconMapping) {
         super();
 
         let size = formatSize(part.chunk.size);
@@ -58,7 +58,7 @@ export default class ObjectPartRowViewModel extends BaseViewModel {
         this.stateIcon = partStateIcons[state];
         this.label = `Part ${partNumber + 1} of ${partsCount} | ${size} | ${blocks.length} blocks`;
         this.blocks = blocks.map(
-            (block, i) => new BlockRowViewModel(block, i, blocks.length)
+            (block, i) => new BlockRowViewModel(block, i, blocks.length, poolIconMapping)
         );
 
         this.isExpended = ko.observable(partsCount === 1);

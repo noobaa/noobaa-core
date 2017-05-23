@@ -3,7 +3,7 @@
 import BaseViewModel from 'components/base-view-model';
 import { shortString } from 'utils/string-utils';
 
-const cloudPoolInfo = (pool_name) => {
+function cloudPoolInfo(pool_name) {
     const shortenNodeName = '---';
     return {
         nodeName: null,
@@ -19,7 +19,7 @@ const cloudPoolInfo = (pool_name) => {
     };
 };
 
-const serverPoolInfo = (pool_name, node_name) => {
+function serverPoolInfo(pool_name, node_name) {
     const shortenNodeName = shortString(node_name, 30, 8);
     return {
         nodeName: node_name,
@@ -61,11 +61,8 @@ export default class BlockRowViewModel extends BaseViewModel {
         };
 
         this.replica = `Replica ${index + 1} of ${count}`;
-
-        this.recourseType = poolIconMapping()[pool_name];
-
+        this.resourseType = poolIconMapping()[pool_name] ? poolIconMapping()[pool_name] : {};
         this.poolName = pool_name;
-
         Object.assign(this, in_cloud_pool ? cloudPoolInfo(pool_name) : serverPoolInfo(pool_name, node_name));
     }
 }

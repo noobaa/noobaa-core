@@ -22,6 +22,7 @@ function onCompleteFetchSystemInfo(_, { payload }) {
             hasS3Access: account.has_s3_access,
             allowedBuckets: account.allowed_buckets,
             defaultResource: account.default_pool,
+            isOwner: payload.owner.email === account.email,
             accessKeys: {
                 accessKey: accessKeys.access_key,
                 secretKey: accessKeys.secret_key

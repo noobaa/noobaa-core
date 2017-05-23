@@ -27,11 +27,11 @@ class ObjectPartsListViewModel extends BaseViewModel {
             () => systemInfo() ? keyByProperty(systemInfo().pools, 'name', getResourceTypeIcon) : {}
         );
 
-        this.rows = parts.map(
+        this.rows = ko.pureComputed(() => parts().map(
             (part, i) => {
-                let partNumber = this.page() * this.pageSize + i();
+                let partNumber = this.page() * this.pageSize + i;
                 return new ObjectPartRowViewModel(part, partNumber, this.count(), poolIconMapping);
-            }
+            })
         );
 
         this.s3SignedUrl = ko.pureComputed(

@@ -24,6 +24,16 @@ object-parts-list {
 
     }
 
+    .link() {
+        a {
+            color: @color7;
+
+            &[href] {
+                color: @color9;
+            }
+        }
+    }
+
     .blocks-table {
         display: block;
         text-align: center;
@@ -42,17 +52,21 @@ object-parts-list {
             width: 100%;
         }
 
-        .node-col {
-            min-width: 230px;
+        .recourse-type-col {
+            min-width: 120px;
         }
 
         .replica-location-col {
             min-width: 140px;
             max-width: 140px;
+
+            .link();
         }
 
-        .recourse-type-col {
-            min-width: 120px;
+        .node-col {
+            min-width: 230px;
+
+            .link();
         }
     }
 }

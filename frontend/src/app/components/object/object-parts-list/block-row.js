@@ -3,21 +3,18 @@
 import BaseViewModel from 'components/base-view-model';
 import { shortString } from 'utils/string-utils';
 import { getResourceTypeIcon } from 'utils/ui-utils';
+import ko from 'knockout';
 import { systemInfo } from 'model';
 
-const poolsMapObj = {};
-const poolsMap = () => {
-    if (!Object.keys(poolsMapObj).length) {
-        systemInfo() && systemInfo().pools.map( pool => poolsMapObj[pool.name] = pool );
-    }
-    return poolsMapObj;
-};
+let poolsMapObj = {};
 
 export default class BlockRowViewModel extends BaseViewModel {
     constructor({ adminfo }, index, count) {
         super();
 
         let { online, in_cloud_pool, node_name, pool_name } = adminfo;
+
+        systemInfo.subscribe(this.updateResourceType);
 
         this.state = {
             name: online ? 'healthy' : 'problem',
@@ -27,9 +24,8 @@ export default class BlockRowViewModel extends BaseViewModel {
 
         this.replica = `Replica ${index + 1} of ${count} ${in_cloud_pool ? '(cloud replica)' : ''}`;
 
-        this.pool = poolsMap()[pool_name];
 
-        this.recourseType = getResourceTypeIcon(this.pool);
+        this.recourseType = ko.observable({});
 
         this.poolName = pool_name;
 
@@ -63,8 +59,33 @@ export default class BlockRowViewModel extends BaseViewModel {
         } else {
             this.nodeName = null;
             this.shortenNodeName = '---';
-            this.replicaLocation = null;
-            this.node = null;
+
+            this.replicaLocation = {
+                text: pool_name,
+                href: null
+
+            };
+
+            this.node = {
+                text: this.shortenNodeName,
+                href: null
+            };
+        }
+
+        this.updateResourceType();
+    }
+
+    updateResourceType() {
+        const poolName = this.poolName;
+
+        if (!Object.keys(poolsMapObj).length) {
+            systemInfo() && systemInfo().pools.map( pool => poolsMapObj[pool.name] = pool );
+        }
+
+        const pool = poolsMapObj[poolName];
+
+        if(pool) {
+            this.recourseType(getResourceTypeIcon(pool));
         }
     }
 }

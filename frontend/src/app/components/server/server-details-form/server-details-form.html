@@ -13,12 +13,6 @@
         </button>
     </div>
     <property-sheet class="pad" params="properties: infoSheet"></property-sheet>
-    <span class="row content-middle hpad remark error push-next" data-bind="
-        visible: isBelowMinRequirements
-    ">
-        <svg-icon class="error icon-small push-next-half" params="name: 'problem'"></svg-icon>
-        Value does not match server minimum requirements
-    </span>
 </section>
 
 <section class="column server-monitor" data-bind="css: { disabled: !isConnected() }">

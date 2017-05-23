@@ -26,7 +26,7 @@ const icons = deepFreeze({
     }
 });
 
-const requirementsMarker = '<sup class="error">*</sup>';
+const requirementsMarker = (message) => `<sup class="warning">* ${message ? message : ''}</sup>`;
 
 class ServerDetailsFormViewModel extends BaseViewModel {
     constructor({ serverSecret }) {
@@ -168,7 +168,8 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => {
                 const { memory } = this.server() || {};
                 return memory ?
-                    `${formatSize(memory.total)} ${this.notEnoughMemory() ? requirementsMarker : ''}` :
+                    `${formatSize(memory.total)} ${this.notEnoughMemory() ? 
+                        requirementsMarker(`Memory minimum requirements: ${formatSize(memory.total)}`)  : ''}` :
                     '';
             }
         );
@@ -177,7 +178,8 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => {
                 const { storage } = this.server() || {};
                 return storage ?
-                    `${formatSize(storage.total)} ${this.notEnoughStorage() ? requirementsMarker : ''}` :
+                    `${formatSize(storage.total)} ${this.notEnoughStorage() ? 
+                        requirementsMarker(`Disk size minimum requirements: ${formatSize(storage.total)}`) : ''}` :
                     '';
             }
         );
@@ -186,7 +188,8 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => {
                 const { cpus } = this.server() || {};
                 return cpus ?
-                    `${cpus.count} CPUs ${this.notEnoughCpus() ? requirementsMarker : ''}` :
+                    `${cpus.count} CPUs ${this.notEnoughCpus() ? 
+                        requirementsMarker(`CPUs number minimum requirements:  ${cpus.count} CPUs`) : ''}` :
                     '';
             }
         );

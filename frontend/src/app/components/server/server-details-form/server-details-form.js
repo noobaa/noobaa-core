@@ -131,7 +131,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         );
 
         const timezone = ko.pureComputed(() => this.server().timezone);        
-        this.infoSheet = this.getInfoSheet();
+        this.infoSheet = this.getInfoSheet(minRequirements);
         this.version = this.getVersion();
         this.serverTime = this.getServerTime(timezone);
         this.dnsServers = this.getDNSServers();
@@ -147,7 +147,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         loadServerTime(ko.unwrap(serverSecret));
     }
 
-    getInfoSheet() {
+    getInfoSheet(minRequirements) {
         const address = ko.pureComputed(
             () => this.server().address
         );
@@ -169,7 +169,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 const { memory } = this.server() || {};
                 return memory ?
                     `${formatSize(memory.total)} ${this.notEnoughMemory() ? 
-                        requirementsMarker(`Memory minimum requirements: ${formatSize(memory.total)}`)  : ''}` :
+                        requirementsMarker(`Memory minimum requirements: ${formatSize(minRequirements().ram)}`)  : ''}` :
                     '';
             }
         );
@@ -179,7 +179,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 const { storage } = this.server() || {};
                 return storage ?
                     `${formatSize(storage.total)} ${this.notEnoughStorage() ? 
-                        requirementsMarker(`Disk size minimum requirements: ${formatSize(storage.total)}`) : ''}` :
+                        requirementsMarker(`Disk size minimum requirements: ${formatSize(minRequirements().storage)}`) : ''}` :
                     '';
             }
         );
@@ -189,7 +189,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 const { cpus } = this.server() || {};
                 return cpus ?
                     `${cpus.count} CPUs ${this.notEnoughCpus() ? 
-                        requirementsMarker(`CPUs number minimum requirements: ${cpus.count} CPUs`) : ''}` :
+                        requirementsMarker(`CPUs number minimum requirements: ${minRequirements().cpu_count} CPUs`) : ''}` :
                     '';
             }
         );

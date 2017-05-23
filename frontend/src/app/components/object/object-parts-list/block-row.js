@@ -17,7 +17,7 @@ function cloudPoolInfo(pool_name) {
             href: null
         }
     };
-};
+}
 
 function serverPoolInfo(pool_name, node_name) {
     const shortenNodeName = shortString(node_name, 30, 8);
@@ -46,7 +46,7 @@ function serverPoolInfo(pool_name, node_name) {
             }
         }
     };
-};
+}
 
 export default class BlockRowViewModel extends BaseViewModel {
     constructor({ adminfo }, index, count, poolIconMapping) {

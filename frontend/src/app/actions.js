@@ -2019,7 +2019,7 @@ function notifyUploadCompleted(uploaded, failed) {
 // appropriate sections are moved to the new architecture.
 // ----------------------------------------------------------------------
 import { COMPLETE_FETCH_SYSTEM_INFO, COMPLETE_CREATE_ACCOUNT,
-    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS } from 'action-types';
+    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS, COMPLETE_UPDATE_BUCKET_QUOTA } from 'action-types';
 
 action$.subscribe(action => {
     switch(action.type) {
@@ -2028,10 +2028,8 @@ action$.subscribe(action => {
             break;
 
         case COMPLETE_CREATE_ACCOUNT:
-            loadSystemInfo();
-            break;
-
         case COMPLETE_UPDATE_ACCOUNT_S3_ACCESS:
+        case COMPLETE_UPDATE_BUCKET_QUOTA:
             loadSystemInfo();
             break;
     }

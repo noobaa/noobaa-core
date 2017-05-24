@@ -4,6 +4,11 @@ export default function register(ko) {
     function registerHandler(name, handler) {
         ko.bindingHandlers[name] = handler;
         ko.bindingHandlers[name.toLowerCase()] = handler;
+
+        if (handler.allowOnVirtualElements) {
+            ko.virtualElements.allowedBindings[name] = true;
+            ko.virtualElements.allowedBindings[name.toLowerCase()] = true;
+        }
     }
 
     // Extending existing handlers

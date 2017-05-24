@@ -4,6 +4,7 @@ import { keyByProperty } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
+
 // ------------------------------
 // Initial State
 // ------------------------------
@@ -13,11 +14,13 @@ const initialState = {};
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload }) {
-    return keyByProperty(payload.buckets, 'name', bucket => {
-        const { name, storage } = bucket;
-        const mode = _clacBucketMode(bucket);
-        return { name, mode, storage };
-    });
+    return keyByProperty(payload.buckets, 'name', bucket => ({
+        name: bucket.name,
+        mode: _clacBucketMode(bucket),
+        storage: bucket.storage,
+        data: bucket.data,
+        quota: bucket.quota
+    }));
 }
 
 // ------------------------------

@@ -18,11 +18,6 @@ export default {
 
         canvas.width = width;
         canvas.height = height;
-
-        draw.call(
-            viewModel,
-            canvas.getContext('2d'),
-            { width, height }
-        );
+        draw.call(viewModel, canvas.getContext('2d'), { width, height });
     }
 };

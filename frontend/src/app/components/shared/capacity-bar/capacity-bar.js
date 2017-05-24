@@ -10,8 +10,6 @@ const minUsedRatio = .03;
 const bgColor = style['color7'];
 const emptyColor = style['color7'];
 const color = style['color8'];
-// const lowCapacityColor = style['color11'];
-// const noCapacityColor = style['color10'];
 
 class CapacityBarViewModel extends BaseViewModel {
     constructor({ total, used }) {
@@ -50,21 +48,10 @@ class CapacityBarViewModel extends BaseViewModel {
             }
         );
 
-        const usedColor = ko.pureComputed(
-            () => color
-            // () => {
-            //     const free = toBytes(ko.unwrap(total) - toBytes(ko.un)
-            //     if () <
-            // }
-            // toBytes(sum()) > Math.pow(1024, 2) ?
-            //     (usedRatio() > .8 ? color : lowCapacityColor) :
-            //     noCapacityColor
-        );
-
         this.values = [
             {
                 value: usedRatio,
-                color: usedColor
+                color: color
             },
             {
                 value: ko.pureComputed(

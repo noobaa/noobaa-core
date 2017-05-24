@@ -6,7 +6,7 @@ import PlacementRowViewModel from './placement-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
-import { openBucketPlacementPolicyModal } from 'dispatchers';
+import { openEditBucketQuotaModal, openBucketPlacementPolicyModal } from 'dispatchers';
 
 const placementTableColumns = deepFreeze([
     {
@@ -85,24 +85,20 @@ class BucketDataPlacementFormViewModel extends BaseViewModel {
                 pool => Boolean(pool.cloud_info)
             ).length
         );
-
-        this.editingDisabled = ko.pureComputed(
-            () => Boolean(bucket() && bucket().demo_bucket)
-        );
-
-        this.editingDisabledTooltip = ko.pureComputed(
-            () => this.editingDisabled() &&
-                'Editing policies is not supported for demo buckets'
-        );
     }
 
     createPlacementRow(pool) {
         return new PlacementRowViewModel(pool);
     }
 
+    onEditBucketQuota() {
+        openEditBucketQuotaModal(this.bucketName());
+    }
+
     onEditDataPlacement() {
         openBucketPlacementPolicyModal(this.bucketName());
     }
+
 }
 
 export default {

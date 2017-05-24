@@ -15,9 +15,6 @@ class ModalManagerViewModel extends Observer {
         this.modals = ko.observableArray();
         this.hasModals = ko.observable();
 
-        // bind the closeTopmost modal the manager.
-        this.closeActiveModal = closeActiveModal;
-
         this.observe(state$.get('modals'), this.onModals);
     }
 
@@ -25,7 +22,7 @@ class ModalManagerViewModel extends Observer {
         this.modals(
             modals.map(
                 (modalState, i) => {
-                    const modal = this.modals()[i] || new Modal(this.closeActiveModal);
+                    const modal = this.modals()[i] || new Modal(() => closeActiveModal());
                     modal.update(modalState);
                     return modal;
                 }
@@ -38,7 +35,7 @@ class ModalManagerViewModel extends Observer {
     onBackdrop() {
         const top = last(this.modals());
         if (top && top.backdropClose()) {
-            this.closeActiveModal();
+            closeActiveModal();
         }
     }
 }

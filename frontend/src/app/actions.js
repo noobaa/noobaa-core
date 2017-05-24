@@ -161,7 +161,7 @@ export function showBucket() {
 
     const ctx = model.routeContext();
     const { bucket, tab = 'data-placement' } = ctx.params;
-    const { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
+    const { filter, sortBy = 'key', order = 1, page = 0 } = ctx.query;
 
     model.uiState({
         layout: 'main-layout',

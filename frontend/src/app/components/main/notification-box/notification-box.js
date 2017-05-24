@@ -37,18 +37,18 @@ class NotificationBarViewModel extends Observer {
         this.visible = ko.observable();
         this.hover = ko.observable();
 
-        this.observe(state$.get('notifications', 'list', '0'), this.onState);
+        this.observe(state$.get('notifications', 'list', '0'), this.onNotification);
     }
 
-    onState(next) {
-        if (!next) {
+    onNotification(notif) {
+        if (!notif) {
             this.visible(false);
             return;
         }
 
         const current = this.notifications.get(0);
-        if (!current || current.id < next.id) {
-            this._processNotification(next);
+        if (!current || current.id < notif.id) {
+            this._processNotification(notif);
             this.visible(true);
         }
     }

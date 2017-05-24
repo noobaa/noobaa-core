@@ -39,7 +39,7 @@ export async function updateAlerts(query, read) {
         await api.events.update_alerts_state({ query, state: read });
         dispatch({
             type: COMPLETE_UPDATE_ALERTS,
-            paylod: { query, read }
+            payload: { query, read }
         });
 
     } catch (error) {

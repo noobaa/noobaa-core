@@ -7,3 +7,4 @@ export * from './forms-dispatchers';
 export * from './alerts-dispatchers';
 export * from './system-dispatchers';
 export * from './upload-dispatchers';
+export * from './bucket-dispatchers';

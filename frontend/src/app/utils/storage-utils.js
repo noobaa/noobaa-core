@@ -32,4 +32,3 @@ export function interpolateStorage(storage1, storage2, t) {
         key => interpolateSizes(storage1[key], storage2[key], t)
     );
 }
-

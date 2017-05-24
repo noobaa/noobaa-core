@@ -23,14 +23,12 @@
         </div>
 
 
-        <div data-bind="tooltip: editingDisabledTooltip">
-            <button class="btn" data-bind="
-                disable: editingDisabled,
-                click: onEditDataPlacement
-            ">
-                Edit data placement
-            </button>
-        </div>
+        <button class="btn push-next" ko.click="onEditBucketQuota">
+            Edit Bucket Quota
+        </button>
+        <button class="btn" ko.click="onEditDataPlacement">
+            Edit data placement
+        </button>
     </div>
 
     <data-table class="placement-table" params="

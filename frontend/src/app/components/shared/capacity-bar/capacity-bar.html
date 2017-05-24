@@ -1,10 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div data-bind="tooltip: tooltip">
+<div ko.tooltip="tooltip">
     <bar params="values: values, emptyColor: emptyColor"></bar>
     <div class="bar-legend">
-        <span class="used" data-bind="text: usedText"></span>
+        <span class="used" ko.text="usedText"></span>
         of
-        <span class="total" data-bind="text: totalText"></span>
+        <span class="total" ko.text="totalText"></span>
     </div>
 </div>

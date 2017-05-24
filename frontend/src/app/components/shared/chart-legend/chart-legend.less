@@ -16,7 +16,7 @@ chart-legend {
         flex-direction: row;
 
 
-        &:before {
+        &::before {
             content: '';
             display: inline-block;;
             border: 4px solid;
@@ -27,7 +27,6 @@ chart-legend {
             width: 0;
             align-self: center;
         }
-
 
         .legend-label {
             display: inline-block;
@@ -40,6 +39,10 @@ chart-legend {
             flex-grow: 1;
         }
 
+    }
+
+    &.disabled .legend-item::before {
+        opacity: .3;
     }
 
     &.legend-row {

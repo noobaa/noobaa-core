@@ -331,6 +331,23 @@ export function openCreateAccountModal() {
     });
 }
 
+export function openEditBucketQuotaModal(bucketName) {
+    dispatch({
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-bucket-quota-modal',
+                params: { bucketName },
+            },
+            options: {
+                size: 'small',
+                title: 'Edit Bucket Quota'
+            }
+        }
+
+    });
+}
+
 export function replaceWithAccountCreatedModal(account, password) {
     dispatch({
         type: REPLACE_MODAL,

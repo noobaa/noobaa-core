@@ -74,6 +74,7 @@ export default function register(ko) {
     ko.components.register('system-upgrade-modal',                  require('./modals/system-upgrade-modal/system-upgrade-modal').default);
     ko.components.register('create-account-modal',                  require('./modals/create-account-modal/create-account-modal').default);
     ko.components.register('account-created-modal',                 require('./modals/account-created-modal/account-created-modal').default);
+    ko.components.register('edit-bucket-quota-modal',               require('./modals/edit-bucket-quota-modal/edit-bucket-quota-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------

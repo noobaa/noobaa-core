@@ -1,0 +1,54 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="greedy column">
+    <editor params="label: 'Bucket Quota'">
+        <toggle-switch params="
+            value: isUsingQuota,
+            onLabel: 'Enabled',
+            offLabel: 'Disabled'
+        "></toggle-switch>
+    </editor>
+
+    <editor params="label: 'Set Limit', disabled: !isUsingQuota()">
+        <div class="row">
+            <input type="number"
+                min="0"
+                class="push-next"
+                ko.enable="isUsingQuota"
+                ko.value="quotaSize"
+            />
+
+            <dropdown class="size-unit" params="
+                options: unitOptions,
+                disabled: !isUsingQuota(),
+                selected: quotaUnit
+            "></dropdown>
+        </div>
+    </editor>
+
+    <bar class="push-prev align-start" ko.css.disabled="!isUsingQuota()" params="
+        values: barValues,
+        drawLabels: true,
+        labelFormatter: formatBarLabel,
+        width: 500,
+        minRatio: 0
+    "></bar>
+
+    <chart-legend class="legend-row"
+        params="items: barValues, format: 'size'"
+        ko.css.disabled="!isUsingQuota()"
+    ></chart-legend>
+</div>
+
+<div class="row content-middle">
+    <p class="remark greedy row push-next">
+        <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+        When a quota is not set the bucket will utilize all its available resources.
+    </p>
+    <button class="link alt-colors push-both" ko.click="onCancel">
+        Cancel
+    </button>
+    <button class="btn" ko.click="onSave">
+        Save
+    </button>
+</div>

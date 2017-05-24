@@ -27,12 +27,18 @@ const cloudSyncStatusMapping = deepFreeze({
     PAUSED: 'Paused',
     UNABLE: 'Unable to Sync',
     SYNCED: 'Completed',
-    NOTSET: 'not set'
+    NOTSET: 'Not Set'
 });
 
 const availableForWriteTooltip = `This number is calculated according to the
     bucket\'s available storage and the number of replicas defined in its placement
-    policy`;
+    policy. <br><br> Note: This number is limited by quota if set.`;
+
+const quotaUnitMapping = deepFreeze({
+    GIGABYTE: 'GB',
+    TERABYTE: 'TB',
+    PETABYTE: 'PB'
+});
 
 class BucketSummrayViewModel extends BaseViewModel {
     constructor({ bucket }) {
@@ -149,7 +155,7 @@ class BucketSummrayViewModel extends BaseViewModel {
         );
 
         this.availableForWrite = ko.pureComputed(
-            () => data().actual_free
+            () => data().available_for_upload
         ).extend({
             formatSize: true
         });
@@ -160,21 +166,21 @@ class BucketSummrayViewModel extends BaseViewModel {
             () => bucket() ? bucket().stats : {}
         );
 
-        this.lastRead = ko.pureComputed(
-            () => stats().last_read
+        this.bucketQuota = ko.pureComputed(
+            () => {
+                const quota = bucket() && bucket().quota;
+                return quota ?
+                    `Set to ${quota.size}${quotaUnitMapping[quota.unit]}` :
+                    'Disabled';
+            }
+
+        );
+
+        this.lastAccess = ko.pureComputed(
+            () => Math.max(stats().last_read, stats().last_write)
         ).extend({
             formatTime: true
         });
-
-        this.lastWrite = ko.pureComputed(
-            () => stats().last_write
-        ).extend({
-            formatTime: true
-        });
-
-        this.isPolicyModalVisible = ko.observable(false);
-        this.isSetCloudSyncModalVisible = ko.observable(false);
-        this.isViewCloudSyncModalVisible = ko.observable(false);
     }
 }
 

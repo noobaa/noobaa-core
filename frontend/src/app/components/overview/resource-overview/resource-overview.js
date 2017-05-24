@@ -8,6 +8,7 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount} from 'utils/string-utils';
 import { countNodesByState } from 'utils/ui-utils';
+import { toBytes } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
 import { openInstallNodesModal } from 'dispatchers';
 
@@ -121,7 +122,7 @@ class ResourceOverviewViewModel extends BaseViewModel {
         ];
 
         this.systemCapacity = ko.pureComputed(
-            () => systemInfo() && systemInfo().storage.total
+            () => toBytes(systemInfo() ? systemInfo().nodes_storage.total : 0)
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },

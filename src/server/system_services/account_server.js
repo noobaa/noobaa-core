@@ -95,7 +95,7 @@ function create_account(req) {
                 system: req.system && req.system._id || sys_id,
                 actor: req.account && req.account._id,
                 account: account._id,
-                desc: `${account.email} was created ${req.account && 'by ' + req.account.email}`,
+                desc: `${account.email} was created ` + (req.account ? `by ${req.account.email}` : ``),
             });
             return system_store.make_changes(changes);
         })

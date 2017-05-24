@@ -38,20 +38,7 @@ function create_object_upload(req) {
     throw_if_maintenance(req);
     load_bucket(req);
 
-    // enforce bucket quota
-    if (req.bucket.quota) {
-        const bucket_used = req.bucket.storage_stats && size_utils.json_to_bigint(req.bucket.storage_stats.objects_size);
-        const quota = size_utils.json_to_bigint(req.bucket.quota.value);
-        if (bucket_used.greaterOrEquals(quota)) {
-            const message = `the bucket ${req.bucket.name} used storage(${
-                size_utils.human_size(bucket_used)
-            }) exceeds the bucket quota (${
-                size_utils.human_size(req.bucket.quota.value)
-            })`;
-            dbg.error(message);
-            throw new RpcError('FORBIDDEN', message);
-        }
-    }
+    check_quota(req.bucket);
 
     var info = {
         _id: MDStore.instance().make_md_id(),
@@ -937,6 +924,38 @@ function throw_if_maintenance(req) {
     if (req.system && system_server_utils.system_in_maintenance(req.system._id)) {
         throw new RpcError('SYSTEM_IN_MAINTENANCE',
             'Operation not supported during maintenance mode');
+    }
+}
+
+function check_quota(bucket) {
+    if (!bucket.quota) return;
+
+    const bucket_used = bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size);
+    const quota = size_utils.json_to_bigint(bucket.quota.value);
+    if (bucket_used.greaterOrEquals(quota)) {
+        const message = `the bucket ${bucket.name} used storage(${
+                size_utils.human_size(bucket_used)
+            }) exceeds the bucket quota (${
+                size_utils.human_size(bucket.quota.value)
+            })`;
+        Dispatcher.instance().alert('MAJOR',
+            system_store.data.systems[0]._id,
+            `Bucket ${bucket.name} exceeded its configured quota of ${
+                    size_utils.human_size(bucket.quota.value)
+                }. Uploads to this bucket will be denied`,
+            Dispatcher.rules.once_every(1000 * 60 * 60 * 24)); // once a day
+        dbg.error(message);
+        throw new RpcError('FORBIDDEN', message);
+    } else {
+        const percent_alert_threshold = 90;
+        let used_percent = bucket_used.multiply(100)
+            .divide(quota);
+        if (used_percent.greaterOrEquals(percent_alert_threshold)) {
+            Dispatcher.instance().alert('INFO',
+                system_store.data.systems[0]._id,
+                `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(bucket.quota.value)}`,
+                Dispatcher.rules.once_daily);
+        }
     }
 }
 

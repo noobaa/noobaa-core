@@ -42,7 +42,7 @@ function create_object_upload(req) {
     if (req.bucket.quota) {
         const bucket_used = req.bucket.storage_stats && size_utils.json_to_bigint(req.bucket.storage_stats.objects_size);
         const quota = size_utils.json_to_bigint(req.bucket.quota.value);
-        if (bucket_used.greaterOrEqual(quota)) {
+        if (bucket_used.greaterOrEquals(quota)) {
             const message = `the bucket ${req.bucket.name} used storage(${
                 size_utils.human_size(bucket_used)
             }) exceeds the bucket quota (${

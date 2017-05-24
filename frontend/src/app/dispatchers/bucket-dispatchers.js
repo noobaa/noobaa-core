@@ -11,13 +11,12 @@ export async function updateBucketQuota(bucket, quota) {
 
     try {
         await api.bucket.update_bucket({ name: bucket, quota });
-
         dispatch({
             type: COMPLETE_UPDATE_BUCKET_QUOTA,
             payload: { bucket }
         });
 
-    } catch(error) {
+    } catch (error) {
         dispatch({
             type: FAIL_UPDATE_BUCKET_QUOTA,
             payload: { bucket, error }

@@ -762,7 +762,7 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['state', 'name', 'size', 'create_time']
+                        enum: ['state', 'key', 'size', 'create_time']
                     },
                     order: {
                         type: 'integer',

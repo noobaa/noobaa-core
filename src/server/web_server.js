@@ -401,6 +401,7 @@ app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
 app.use('/public/license-info', license_info.serve_http);
 
 // Serve the new frontend (management console)
+app.use('/fe/assets', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
 app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
 app.get('/fe/**/', function(req, res) {

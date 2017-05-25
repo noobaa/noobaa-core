@@ -25,7 +25,7 @@ function ping(target, options) {
     return P.resolve()
         .then(() => {
             let candidate_ip = url.parse(target).hostname || target;
-            if (_is_valid_ip(candidate_ip)) {
+            if (is_valid_ip(candidate_ip)) {
                 return _ping_ip(session, candidate_ip);
             }
             return dns_resolve(target)
@@ -87,11 +87,12 @@ function is_hostname(target) {
     return false;
 }
 
-function _is_valid_ip(input) {
+function is_valid_ip(input) {
     let ip_regex = /^(([1-9]?\d|1\d\d|2[0-5][0-5]|2[0-4]\d)\.){3}([1-9]?\d|1\d\d|2[0-5][0-5]|2[0-4]\d)$/;
     return Boolean(ip_regex.exec(input));
 }
 
 exports.ping = ping;
+exports.is_valid_ip = is_valid_ip;
 exports.dns_resolve = dns_resolve;
 exports.is_hostname = is_hostname;

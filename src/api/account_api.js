@@ -205,6 +205,49 @@ module.exports = {
             }
         },
 
+        update_account_ip_access: {
+            doc: 'Update account ip access permissions',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    ips: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        validate_ip_permission: {
+            doc: 'Validate that ip allowed to access',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['access_key', 'ip'],
+                properties: {
+                    access_key: {
+                        type: 'string',
+                    },
+                    ip: {
+                        type: 'string',
+                    }
+                },
+            },
+            auth: {
+                system: false
+            }
+        },
+
         delete_account: {
             doc: 'Delete a given account',
             method: 'DELETE',
@@ -368,6 +411,12 @@ module.exports = {
                     type: 'boolean'
                 },
                 allowed_buckets: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
+                allowed_ips: {
                     type: 'array',
                     items: {
                         type: 'string'

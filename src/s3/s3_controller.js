@@ -6,6 +6,7 @@ const uuid = require('node-uuid');
 
 const dbg = require('../util/debug_module')(__filename);
 const ObjectIO = require('../api/object_io');
+const P = require('../util/promise');
 const S3Error = require('./s3_errors').S3Error;
 const AzureError = require('./azure_errors').AzureError;
 const http_utils = require('../util/http_utils');
@@ -67,10 +68,20 @@ class S3Controller {
     }
 
     prepare_request(req) {
-        this.usage_report.s3_usage_info.prepare_request += 1;
-        req.rpc_client = this.rpc.new_client();
-        req.rpc_client.options.auth_token = req.auth_token;
-        this._submit_usage_report(req);
+        return P.resolve()
+            .then(() => {
+                this.usage_report.s3_usage_info.prepare_request += 1;
+                req.rpc_client = this.rpc.new_client();
+                req.rpc_client.options.auth_token = req.auth_token;
+                this._submit_usage_report(req);
+            })
+            .then(() => {
+                return req.rpc_client.account.validate_ip_permission({
+                    access_key: req.auth_token.access_key,
+                    ip: (req.headers['x-forwarded-for'] || req.connection.remoteAddress).replace(/^.*:/, '')
+                });
+            })
+            .return();
     }
 
     register_s3_error(req, s3_error) {

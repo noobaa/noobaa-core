@@ -11,6 +11,7 @@ const _ = require('lodash');
 const AWS = require('aws-sdk');
 const bcrypt = P.promisifyAll(require('bcrypt'));
 const azure = require('azure-storage');
+const net_utils = require('../../util/net_utils');
 
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
@@ -275,6 +276,64 @@ function update_account_s3_access(req) {
             });
         })
         .return();
+}
+
+function update_account_ip_access(req) {
+    let account = _.cloneDeep(system_store.get_account_by_email(req.rpc_params.email));
+    if (!account) {
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+
+    if (req.system && req.account) {
+        if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+            throw new RpcError('UNAUTHORIZED', 'Cannot update account');
+        }
+    }
+
+    if (account.is_support) {
+        throw new RpcError('FORBIDDEN', 'Cannot update support account');
+    }
+
+    const update = {
+        _id: account._id
+    };
+
+    if (req.rpc_params.ips) {
+        if (!_.every(req.rpc_params.ips, ip => net_utils.is_valid_ip(ip))) {
+            throw new RpcError('INVALID', 'All list must be valid IP');
+        }
+        update.allowed_ips = req.rpc_params.ips;
+    } else {
+        update.$unset = {
+            allowed_ips: true,
+        };
+    }
+
+    return system_store.make_changes({
+            update: {
+                accounts: [update]
+            }
+        })
+        .return();
+}
+
+function validate_ip_permission(req) {
+    const account = _.find(system_store.data.accounts, function(acc) {
+        if (acc.access_keys) {
+            return acc.access_keys[0].access_key.toString() === req.rpc_params.access_key.toString();
+        } else {
+            return false;
+        }
+    });
+
+    if (!account) {
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account access_key: ' + req.rpc_params.access_key);
+    }
+
+    if (account.allowed_ips &&
+        account.allowed_ips.indexOf(req.rpc_params.ip) === -1) {
+        throw new RpcError('NO_SUCH_IP_ALLOWED', 'No such ip allowed: ' + req.rpc_params.ip);
+    }
 }
 
 /**
@@ -669,6 +728,8 @@ function get_account_info(account, include_connection_cache) {
         info.is_support = true;
     }
 
+    info.allowed_ips = account.allowed_ips;
+
     if (account.next_password_change) {
         info.next_password_change = account.next_password_change.getTime();
     }
@@ -840,6 +901,8 @@ function _list_connection_usage(account, credentials) {
 // EXPORTS
 exports.create_account = create_account;
 exports.read_account = read_account;
+exports.update_account_ip_access = update_account_ip_access;
+exports.validate_ip_permission = validate_ip_permission;
 exports.update_account = update_account;
 exports.reset_password = reset_password;
 exports.delete_account = delete_account;

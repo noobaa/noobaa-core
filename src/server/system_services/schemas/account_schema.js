@@ -53,6 +53,12 @@ module.exports = {
                 format: 'objectid'
             }
         },
+        allowed_ips: {
+            type: 'array',
+            items: {
+                type: 'string'
+            }
+        },
         default_pool: {
             format: 'objectid'
         },

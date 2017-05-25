@@ -9,13 +9,13 @@
         "></toggle-switch>
     </editor>
 
-    <editor params="label: 'Set Limit', disabled: !isUsingQuota()">
+    <editor params="label: 'Set Limit', disabled: !isUsingQuota(), insertValMessages: false">
         <div class="row">
-            <input type="number"
-                min="0"
+            <input type="number" min="0"
                 class="push-next"
                 ko.enable="isUsingQuota"
                 ko.value="quotaSize"
+                ko.hasFocus="true"
             />
 
             <dropdown class="size-unit" params="
@@ -24,14 +24,16 @@
                 selected: quotaUnit
             "></dropdown>
         </div>
+        <div class="val-msg" data-bind="validationMessage: quotaSize"></div>
     </editor>
 
     <bar class="push-prev align-start" ko.css.disabled="!isUsingQuota()" params="
         values: barValues,
-        drawLabels: true,
-        labelFormatter: formatBarLabel,
+        teeth: 5,
+        limits: formatBarLabel,
         width: 500,
-        minRatio: 0
+        minRatio: 0,
+        markers: [quotaMarker()]
     "></bar>
 
     <chart-legend class="legend-row"
@@ -48,7 +50,7 @@
     <button class="link alt-colors push-both" ko.click="onCancel">
         Cancel
     </button>
-    <button class="btn" ko.click="onSave">
+    <button class="btn" ko.click="onSave" ko.shakeOnClick="errors().length">
         Save
     </button>
 </div>

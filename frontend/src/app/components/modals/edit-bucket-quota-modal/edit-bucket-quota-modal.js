@@ -15,11 +15,17 @@ const units = deepFreeze({
     PETABYTE: { label: 'PB', inBytes: Math.pow(1024, 5) },
 });
 
+const quotaSizeValidationMessage = 'Must be a number bigger or equal to 1';
+
+function quotaBigInt({ size, unit }) {
+    return toBigInteger(size).multiply(units[unit].inBytes);
+}
+
 function calcDataBreakdown(data, quota) {
     if (quota) {
         const zero = bigInteger.zero;
         const available = toBigInteger(data.free);
-        const quotaSize = toBigInteger(quota.size).multiply(units[quota.unit].inBytes);
+        const quotaSize = quotaBigInt(quota);
         const used = bigInteger.min(toBigInteger(data.size), quotaSize);
         const overused = bigInteger.max(zero, used.subtract(quotaSize));
         const overallocated = bigInteger.max(zero, quotaSize.subtract(available.add(used)));
@@ -77,7 +83,7 @@ function getBarValues(values) {
 }
 
 function recommendQuota(data) {
-    const total = toBigInteger(data.size).add(data.actual_free);
+    const total = toBigInteger(data.size).add(toBigInteger(data.actual_free));
 
     if (total.greaterOrEquals(units.PETABYTE.inBytes)) {
         return {
@@ -117,7 +123,22 @@ class EditBucketQuotaModalViewModel extends Observer {
 
         this.isUsingQuota = ko.observable();
         this.quotaUnit = ko.observable();
-        this.quotaSize = ko.observable();
+        this.quotaSize = ko.observable().extend({
+            required: {
+                onlyIf: this.isUsingQuota,
+                message: quotaSizeValidationMessage
+            },
+            number: {
+                onlyIf: this.isUsingQuota,
+                message: quotaSizeValidationMessage
+            },
+            min: {
+                onlyIf: this.isUsingQuota,
+                params: 1,
+                message: quotaSizeValidationMessage
+            }
+        });
+
         this.barValues = ko.observable();
         this.dataSize = ko.observable();
         this.dataFree = ko.observable();
@@ -132,6 +153,24 @@ class EditBucketQuotaModalViewModel extends Observer {
                 )
             )
         );
+
+        this.quotaMarker = ko.pureComputed(
+            () => {
+                const quota = quotaBigInt({
+                    size: this.quotaSize(),
+                    unit: this.quotaUnit()
+                });
+
+                return {
+                    placement: toBytes(quota),
+                    label: `Quota: ${formatSize(fromBigInteger(quota))}`
+                };
+            }
+        );
+
+        this.errors = ko.validation.group([
+            this.quotaSize
+        ]);
     }
 
     onBucket({ quota, data }) {
@@ -154,12 +193,17 @@ class EditBucketQuotaModalViewModel extends Observer {
     }
 
     onSave() {
-        const quota = this.isUsingQuota() ?
-            { unit: this.quotaUnit(), size: Number(this.quotaSize()) } :
-            null;
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
 
-        updateBucketQuota(this.bucketName, quota);
-        this.close();
+        } else {
+            const quota = this.isUsingQuota() ?
+                { unit: this.quotaUnit(), size: Number(this.quotaSize()) } :
+                null;
+
+            updateBucketQuota(this.bucketName, quota);
+            this.close();
+        }
     }
 }
 

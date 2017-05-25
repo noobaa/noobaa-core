@@ -814,10 +814,10 @@ class NodesMonitor extends EventEmitter {
                             this._add_node_to_hosts_map(updates.host_id, item);
 
                             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
-                            let { use_s3 = false, use_storage = true, exclude_drive = [] } = agent_config;
+                            let { use_s3 = false, use_storage = true, exclude_drives = [] } = agent_config;
                             // on first call to get_agent_info enable\disable the node according to the configuration
                             let should_start_service = (info.s3_agent && use_s3) ||
-                                (!info.s3_agent && use_storage && this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drive));
+                                (!info.s3_agent && use_storage && this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drives));
                             dbg.log0(`first call to get_agent_info. ${info.s3_agent ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
                             if (!should_start_service) {
                                 item.node.decommissioning = item.node.decommissioned = Date.now();

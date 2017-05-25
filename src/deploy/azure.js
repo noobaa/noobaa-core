@@ -48,7 +48,7 @@ if (argv.help) {
 }
 
 var oses = [
-    'ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2008R2', 'win2012R2', 'win2016'
+    'ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2008', 'win2012', 'win2016'
 ];
 
 function args_builder(count, os) {
@@ -119,7 +119,11 @@ function vmOperations(operationCallback) {
                 console.log('adding all prossible machine types');
                 return P.map(oses, osname => {
                     var os2 = azf.getImagesfromOSname(osname);
-                    return azf.createAgent(prefix + osname.substring(0, 7), storageAccountName, vnetName,
+                    var machine_name = prefix + osname;
+                    if (os2.osType === 'Windows') {
+                        machine_name = machine_name.substring(0, 15);
+                    }
+                    return azf.createAgent(machine_name, storageAccountName, vnetName,
                             os2, serverName, agentConf)
                         .catch(err => console.log('got error with agent', err));
                 });

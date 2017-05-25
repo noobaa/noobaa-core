@@ -197,6 +197,9 @@ function update_bucket(req) {
                 quota: 1
             };
         } else {
+            if (quota.size <= 0) {
+                throw new RpcError('BAD_REQUEST', 'quota size must be positive');
+            }
             updates.quota = quota;
             quota.value = size_utils.size_unit_to_bigint(quota.size, quota.unit).toJSON();
         }

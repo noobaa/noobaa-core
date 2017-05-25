@@ -275,6 +275,36 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
+            .then(() => client.bucket.update_bucket({
+                name: BUCKET,
+                quota: {
+                    size: 10,
+                    unit: 'TERABYTE'
+                }
+            }))
+            .then(() => client.bucket.read_bucket({
+                name: BUCKET,
+            }))
+            .then(info => assert(info.quota && info.quota.size === 10 && info.quota.unit === 'TERABYTE'))
+            .then(() => client.bucket.update_bucket({
+                name: BUCKET,
+                quota: null
+            }))
+            .then(() => client.bucket.read_bucket({
+                name: BUCKET,
+            }))
+            .then(info => assert(_.isUndefined(info.quota)))
+            .then(() => client.bucket.update_bucket({
+                name: BUCKET,
+                quota: {
+                    size: 0,
+                    unit: 'GIGABYTE'
+                }
+            }))
+            .then(() => {
+                    throw new Error('update bucket with 0 quota should fail');
+                },
+                () => _.noop) // update bucket with 0 quota should fail
             .then(() => {
                 if (!process.env.AWS_ACCESS_KEY_ID ||
                     !process.env.AWS_SECRET_ACCESS_KEY) {

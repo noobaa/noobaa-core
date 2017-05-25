@@ -16,5 +16,6 @@ if(!(Test-Path -Path $TARGETDIR )){
     $wc = New-Object System.Net.WebClient
     $wc.DownloadFile($setup_link,"c:\noobaa\noobaa-setup.exe")
     $agent_conf= $args[1]
+    Start-Sleep -s 30
     c:\noobaa\noobaa-setup.exe /S /config $agent_conf
 }

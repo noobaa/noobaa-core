@@ -58,6 +58,7 @@ class AzureFunctions {
             publisher: 'Canonical',
             offer: 'UbuntuServer',
             sku: '14.04.5-LTS',
+            version: 'latest',
             osType: 'Linux'
         };
         if (osname === 'ubuntu16') {
@@ -65,24 +66,28 @@ class AzureFunctions {
             os.publisher = 'Canonical';
             os.offer = 'UbuntuServer';
             os.sku = '16.04.0-LTS';
+            os.version = 'latest';
             os.osType = 'Linux';
         } else if (osname === 'ubuntu12') {
             // Ubuntu 12 config
             os.publisher = 'Canonical';
             os.offer = 'UbuntuServer';
             os.sku = '12.04.5-LTS';
+            os.version = 'latest';
             os.osType = 'Linux';
         } else if (osname === 'centos6') {
             // Centos 6.8 config
             os.publisher = 'OpenLogic';
             os.offer = 'CentOS';
             os.sku = '6.8';
+            os.version = 'latest';
             os.osType = 'Linux';
         } else if (osname === 'centos7') {
             // Centos 6.8 config
             os.publisher = 'OpenLogic';
             os.offer = 'CentOS';
             os.sku = '7.2';
+            os.version = 'latest';
             os.osType = 'Linux';
         } else if (osname === 'redhat6') {
             // RHEL 6.8 config
@@ -90,29 +95,34 @@ class AzureFunctions {
             os.offer = 'RHEL';
             os.sku = '6.8';
             os.version = 'latest';
+            os.osType = 'Linux';
         } else if (osname === 'redhat7') {
             // RHEL 7.2 config
             os.publisher = 'RedHat';
             os.offer = 'RHEL';
             os.sku = '7.2';
             os.version = 'latest';
+            os.osType = 'Linux';
         } else if (osname === 'win2012') {
             // Windows 2012R2 config
             os.publisher = 'MicrosoftWindowsServer';
             os.offer = 'WindowsServer';
             os.sku = '2012-R2-Datacenter';
+            os.version = 'latest';
             os.osType = 'Windows';
         } else if (osname === 'win2008') {
             // Windows 2008R2 config
             os.publisher = 'MicrosoftWindowsServer';
             os.offer = 'WindowsServer';
             os.sku = '2008-R2-SP1';
+            os.version = 'latest';
             os.osType = 'Windows';
         } else if (osname === 'win2016') {
             // Windows 2016 config
             os.publisher = 'MicrosoftWindowsServer';
             os.offer = 'WindowsServer';
             os.sku = '2016-Datacenter';
+            os.version = 'latest';
             os.osType = 'Windows';
         }
         return os;
@@ -250,6 +260,7 @@ class AzureFunctions {
                 imageReference: imageReference,
                 osDisk: {
                     name: vmName + '_disk',
+                    diskSizeGB: 1023,
                     caching: 'None',
                     createOption: 'fromImage',
                     vhd: {
@@ -494,7 +505,7 @@ class AzureFunctions {
                     }
                 })
                 .then(result => {
-                    if (result && result.entries) {
+                    if (result && result.entries && (result.entries.length > 0)) {
                         console.log('Deleting data disks', result.entries);
                         return P.map(result.entries, blob => P.fromCallback(callback => blobSvc.deleteBlob('datadisks', blob.name, callback)));
                     }

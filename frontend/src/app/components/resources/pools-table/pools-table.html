@@ -3,9 +3,7 @@
 <div class="row alt-bg pad content-middle">
     <div class="column greedy">
         <div class="push-next-half">
-            <input type="search" placeholder="Filter by pool name" data-bind="
-                textInput: filter
-            "/>
+            <input type="search" placeholder="Filter by pool name" ko.textInput="filter"/>
         </div>
         <div>
             <span>Nodes pool is a group of nodes that can be used for NooBaa's bucket data placement policy.</span>
@@ -13,10 +11,7 @@
     </div>
 
     <div class="column align-start" data-bind="tooltip: createPoolTooltip">
-        <button class="btn" data-bind="
-            click: () => showCreatePoolWizard(),
-            disable: isCreatePoolDisabled,
-        ">
+        <button class="btn" ko.click="showCreatePoolWizard" ko.disable="isCreatePoolDisabled">
             Create Pool
         </button>
     </div>

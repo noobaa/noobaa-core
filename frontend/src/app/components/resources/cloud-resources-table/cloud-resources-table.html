@@ -1,21 +1,32 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row alt-bg pad content-middle">
-    <div class="push-next">
-        <input type="search" placeholder="Filter by resource name" data-bind="
-            textInput: filter
-        "/>
+<div class="row alt-bg pad">
+    <div class="column greedy">
+        <div class="row content-middle push-next-half">
+            <input type="search" placeholder="Filter by resource name" data-bind="
+                textInput: filter
+            "/>
+
+            <dropdown class="push-prev greedy" params="
+                options: resourceTypeOptions,
+                selected: selectedResourceType
+            "></dropdown>
+        </div>
+
+        <div>
+            <span>Cloud resource can be an Azure blob storage,
+                AWS bucket or any S3 compatible service and can be used for
+                NooBaa's bucket data placement policy.
+            </span>
+        </div>
     </div>
 
-    <p class="push-next">By type:</p>
-    <dropdown class="greedy" params="
-        options: resourceTypeOptions,
-        selected: selectedResourceType
-    "></dropdown>
 
-    <button class="btn align-end" data-bind="click: onAddCloudResource">
-         Add Cloud Resource
-    </button>
+    <div class="column align-start">
+        <button class="btn align-end" ko.click="onAddCloudResource">
+            Add Cloud Resource
+        </button>
+    </div>
 </div>
 
 <data-table class="greedy" params="

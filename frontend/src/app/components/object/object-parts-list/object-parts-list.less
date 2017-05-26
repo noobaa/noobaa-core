@@ -24,20 +24,20 @@ object-parts-list {
 
     }
 
-    .link() {
-        a {
-            color: @color7;
-
-            &[href] {
-                color: @color9;
-            }
-        }
-    }
-
     .blocks-table {
         display: block;
         text-align: center;
         width: 100%;
+
+        .link() {
+            a {
+                color: @color7;
+
+                &[href] {
+                    color: @color9;
+                }
+            }
+        }
 
         td {
             padding: 0 @gutter/2;

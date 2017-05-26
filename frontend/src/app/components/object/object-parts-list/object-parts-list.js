@@ -29,7 +29,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
 
         this.rows = ko.pureComputed(() => parts().map(
             (part, i) => {
-                let partNumber = this.page() * this.pageSize + i;
+                const partNumber = this.page() * this.pageSize + i;
                 return new ObjectPartRowViewModel(part, partNumber, this.count(), poolIconMapping);
             })
         );

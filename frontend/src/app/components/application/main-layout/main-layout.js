@@ -88,8 +88,8 @@ class MainLayoutViewModel extends Observer {
 
     }
 
-    onAccount(accounts) {
-        this.isUploadButtonVisible(accounts && accounts.isOwner);
+    onAccount(account) {
+        this.isUploadButtonVisible(account && account.isOwner);
     }
 }
 

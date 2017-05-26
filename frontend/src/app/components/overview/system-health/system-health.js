@@ -113,6 +113,9 @@ class SystemHealthViewModel extends BaseViewModel {
                 systemInfo() ? systemInfo().storage : { total: 0, free: 0 }
             )
         );
+
+        this.storageToolTip = 'An estimated aggregation of all nodes, internal storage or cloud resources raw ' +
+            'storage that can be used via buckets (Any cloud resource is defined as 1PB of raw storage)';
     }
 }
 

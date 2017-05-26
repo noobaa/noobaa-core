@@ -189,7 +189,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 const { cpus } = this.server() || {};
                 return cpus ?
                     `${cpus.count} CPUs ${this.notEnoughCpus() ? 
-                        requirementsMarker(`CPUs number minimum requirements: ${minRequirements().cpu_count} CPUs`) : ''}` :
+                        requirementsMarker(`CPUs count minimum requirements: ${minRequirements().cpu_count} CPUs`) : ''}` :
                     '';
             }
         );

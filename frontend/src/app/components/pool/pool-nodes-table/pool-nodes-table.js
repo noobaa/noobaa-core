@@ -35,10 +35,6 @@ const columns = deepFreeze([
         type: 'capacity'
     },
     {
-        name: 'trustLevel',
-        sortable: 'trusted'
-    },
-    {
         name: 'dataActivity',
         sortable: 'data_activity'
     }

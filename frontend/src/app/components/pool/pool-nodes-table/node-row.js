@@ -49,12 +49,6 @@ export default class NodeRowViewModel extends BaseViewModel {
             () => getNodeCapacityBarValues(node() || {})
         );
 
-        this.trustLevel = ko.pureComputed(
-            () => node() ?
-                (node().trusted ? 'Trusted' : 'Untrusted') :
-                ''
-        );
-
         this.dataActivity = ko.pureComputed(
             () => {
                 if (!node() || !node().data_activity) {

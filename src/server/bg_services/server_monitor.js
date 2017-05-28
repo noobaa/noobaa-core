@@ -26,7 +26,14 @@ function run() {
     dbg.log0('SERVER_MONITOR: BEGIN');
     monitoring_status = {
         dns_status: "UNKNOWN",
-        ph_status: "UNKNOWN",
+        ph_status: {
+            status: "UNKNOWN",
+            test_time: moment().unix()
+        },
+        remote_syslog_status: {
+            status: "UNKNOWN",
+            test_time: moment().unix()
+        }
     };
     if (!system_store.is_finished_initial_load) {
         dbg.log0('waiting for system store to load');
@@ -236,7 +243,6 @@ function _check_remote_syslog() {
     dbg.log2('_check_remote_syslog');
     let system = system_store.data.systems[0];
     if (_.isEmpty(system.remote_syslog_config)) return;
-    monitoring_status.remote_syslog_status = "UNKNOWN";
     if (_.isEmpty(system.remote_syslog_config.address)) return;
     monitoring_status.remote_syslog_status = {
         test_time: moment().unix()
@@ -246,7 +252,7 @@ function _check_remote_syslog() {
             monitoring_status.remote_syslog_status.status = "OPERATIONAL";
         })
         .catch(err => {
-            monitoring_status.remote_syslog_status = "UNREACHABLE";
+            monitoring_status.remote_syslog_status.status = "UNREACHABLE";
             dbg.warn('Error when trying to check remote syslog status.', err.stack || err);
         });
 }

@@ -3,24 +3,14 @@
 import template from './svg-icon.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { realizeUri } from 'utils/browser-utils';
-import { asset as assetsRoute } from 'routes';
-import { defaultIconFile } from 'config.json';
 
 class SVGIconViewModel extends BaseViewModel {
-    constructor({ name, asset = defaultIconFile, fill, stroke }) {
+    constructor({ name, fill, stroke }) {
         super();
 
-        this.href = ko.pureComputed(
-            () => `${
-                realizeUri(assetsRoute, { asset: ko.unwrap(asset) })
-            }#${
-                ko.unwrap(name)
-            }`
-        );
+        this.href = ko.pureComputed(() => `#${ko.unwrap(name)}`);
         this.fill = fill;
         this.stroke = stroke;
-
     }
 }
 

@@ -6,7 +6,6 @@
     "timeLongFormat": "DD MMM YYYY HH:mm:ss ([GMT]Z)",
     "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",
-    "defaultIconFile": "icons.svg",
     "serverRestartWaitInterval": 20000,
     "nodeTest": {
         "targetCount": 20,

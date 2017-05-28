@@ -4,27 +4,24 @@
     <div class="row content-middle">
         <h3 class="heading3 push-next">
             Files in this bucket:
-            <span data-bind="text: objectCount"></span>
+            <span ko.text="objectCount"></span>
         </h3>
 
         <div class="greedy push-next">
             <input type="search" placeholder="Filter by file name"
-                data-bind="textInput: filter" />
+                ko.textInput="filter" />
         </div>
 
-        <div data-bind="tooltip: uploadTooltip">
-            <button class="upload-btn btn" data-bind="
-                disable: uploadDisabled,
-                click: () => fileSelectorExpanded.toggle()
-            ">
+        <div ko.tooltip="uploadTooltip">
+            <button class="upload-btn btn"
+                ko.disable="uploadDisabled"
+                ko.click="() => fileSelectorExpanded.toggle()">
                 Upload Files
             </button>
         </div>
     </div>
 
-    <div class="file-selector-wrapper column" data-bind="
-        expand: fileSelectorExpanded
-    ">
+    <div class="file-selector-wrapper column" ko.expand="fileSelectorExpanded">
         <file-selector class="push-prev" params="
             allowMultiSelect: true,
             onFilesReady: files => uploadFiles(files)

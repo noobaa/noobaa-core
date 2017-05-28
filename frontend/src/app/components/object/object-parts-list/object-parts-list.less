@@ -24,9 +24,18 @@ object-parts-list {
 
     }
 
+    .link() {
+        a {
+            color: @color7;
+
+            &[href] {
+                color: @color9;
+            }
+        }
+    }
+
     .blocks-table {
         display: block;
-        padding: 0 @gutter/2;
         text-align: center;
         width: 100%;
 
@@ -34,21 +43,30 @@ object-parts-list {
             padding: 0 @gutter/2;
         }
 
+        status-col {
+            min-width: 72px;
+        }
+
         .replica-col {
+            text-align: left;
             width: 100%;
         }
 
-        .node-name-col {
-            min-width: 230px;
+        .resourse-type-col {
+            min-width: 120px;
         }
 
-        .node-ip-col {
-            min-width: 116px;
-        }
-
-        .pool-col {
+        .replica-location-col {
             min-width: 140px;
             max-width: 140px;
+
+            .link();
+        }
+
+        .node-col {
+            min-width: 230px;
+
+            .link();
         }
     }
 }

@@ -72,8 +72,10 @@ class MainLayoutViewModel extends Observer {
         this.area = ko.observable();
         this.panel = ko.observable('');
 
-        this.observe(state$.get('layout'), this.onLayout);
+        this.isUploadButtonVisible = ko.observable(false);
 
+        this.observe(state$.get('layout'), this.onLayout);
+        this.observe(state$.get('accounts', sessionInfo().user), this.onAccount);
         registerForAlerts();
     }
 
@@ -83,6 +85,11 @@ class MainLayoutViewModel extends Observer {
         this.breadcrumbs(breadcrumbs);
         this.area(area);
         this.panel(panel ? `${panel}-panel` : 'empty');
+
+    }
+
+    onAccount(accounts) {
+        this.isUploadButtonVisible(accounts && accounts.isOwner);
     }
 }
 

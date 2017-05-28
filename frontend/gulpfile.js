@@ -6,6 +6,7 @@
 let argv = require('yargs').argv;
 const gulp = require('gulp');
 const del = require('del');
+const path = require('path');
 const VFile = require('vinyl');
 const sourceStream = require('vinyl-source-stream');
 const buffer = require('vinyl-buffer');
@@ -62,7 +63,7 @@ gulp.on('error', () => console.log('ERROR'));
 gulp.task('build', cb => {
     runSequence(
         'clean',
-        ['build-lib', 'build-api', 'build-app', 'compile-styles', 'copy'],
+        ['build-lib', 'build-api', 'build-app', 'compile-styles', 'generate-svg-symbols', 'copy'],
         'verify-build',
         cb
     );
@@ -141,12 +142,27 @@ gulp.task('compile-styles', () => {
         .pipe(gulp.dest(buildPath));
 });
 
+
+gulp.task('generate-svg-symbols', () => {
+    return gulp.src('src/assets/icons/*.svg')
+        .pipe($.svgSymbols({
+            templates: ['default-svg']
+        }))
+        .pipe($.rename('icons.svg'))
+        .pipe(gulp.dest(path.join(buildPath,'assets')));
+});
+
+
 gulp.task('copy', () => {
     return gulp.src(
         [
             'src/index.html',
             'src/preload.js',
-            'src/assets/**/*'
+            'src/assets/**/*',
+            // Exclude the icons folder, icons.svg will be build
+            // using generate-svg-symbols
+            '!src/assets/icons',
+            '!src/assets/icons/**/*'
         ],
         { base: 'src' }
     )

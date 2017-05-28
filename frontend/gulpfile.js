@@ -152,7 +152,7 @@ gulp.task('compile-styles', () => {
 
 gulp.task('generate-svg-icons', () => {
     return gulp.src('src/assets/icons/*.svg')
-        .pipe($.filter(f => f.stat && f.stat.size))
+        .pipe($.rename({ suffix: '-icon' }))
         .pipe($.svgstore({ inlineSvg: true }))
         .pipe(gulp.dest(path.join(buildPath, 'assets')));
 });

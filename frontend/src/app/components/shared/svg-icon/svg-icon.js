@@ -8,7 +8,7 @@ class SVGIconViewModel extends BaseViewModel {
     constructor({ name, fill, stroke }) {
         super();
 
-        this.href = ko.pureComputed(() => `#${ko.unwrap(name)}`);
+        this.href = ko.pureComputed(() => `#${ko.unwrap(name)}-icon`);
         this.fill = fill;
         this.stroke = stroke;
     }

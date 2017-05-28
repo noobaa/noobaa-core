@@ -63,7 +63,14 @@ gulp.on('error', () => console.log('ERROR'));
 gulp.task('build', cb => {
     runSequence(
         'clean',
-        ['build-lib', 'build-api', 'build-app', 'compile-styles', 'generate-svg-symbols', 'copy'],
+        [
+            'build-lib',
+            'build-api',
+            'build-app',
+            'compile-styles',
+            'generate-svg-icons',
+            'copy'
+        ],
         'verify-build',
         cb
     );
@@ -143,13 +150,11 @@ gulp.task('compile-styles', () => {
 });
 
 
-gulp.task('generate-svg-symbols', () => {
+gulp.task('generate-svg-icons', () => {
     return gulp.src('src/assets/icons/*.svg')
-        .pipe($.svgSymbols({
-            templates: ['default-svg']
-        }))
-        .pipe($.rename('icons.svg'))
-        .pipe(gulp.dest(path.join(buildPath,'assets')));
+        .pipe($.filter(f => f.stat && f.stat.size))
+        .pipe($.svgstore({ inlineSvg: true }))
+        .pipe(gulp.dest(path.join(buildPath, 'assets')));
 });
 
 
@@ -162,7 +167,7 @@ gulp.task('copy', () => {
             // Exclude the icons folder, icons.svg will be build
             // using generate-svg-symbols
             '!src/assets/icons',
-            '!src/assets/icons/**/*'
+            '!src/assets/icons/*.svg'
         ],
         { base: 'src' }
     )
@@ -214,7 +219,14 @@ gulp.task('verify-build', cb => {
 gulp.task('watch', cb => {
     runSequence(
         'clean',
-        ['build-api', 'watch-lib', 'watch-app', 'watch-styles', 'watch-assets'],
+        [
+            'build-api',
+            'watch-lib',
+            'watch-app',
+            'watch-styles',
+            'watch-svg-icons',
+            'watch-assets'
+        ],
         cb
     );
 });
@@ -237,12 +249,20 @@ gulp.task('watch-styles', ['compile-styles'], () => {
     });
 });
 
+gulp.task('watch-svg-icons', ['generate-svg-icons'], () => {
+    return $.watch([ 'src/assets/icons/*.svg' ], () => {
+        runSequence('generate-svg-icons');
+    });
+});
+
 gulp.task('watch-assets', ['copy'], () => {
     return $.watch(
         [
             'src/index.html',
             'src/preload.js',
-            'src/assets/**/*'
+            'src/assets/**/*',
+            '!src/assets/icons',
+            '!src/assets/icons/*.svg'
         ],
         vinyl => {
             // Copy the file that changed.

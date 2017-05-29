@@ -15,7 +15,7 @@ const nodes_server = require('./node_server');
 
 
 function read_host(req) {
-    return nodes_server.get_local_monitor().read_host(req.rpc_params.host_id);
+    return nodes_server.get_local_monitor().read_host(req.rpc_params.host_name);
 }
 
 function list_hosts(req) {
@@ -27,6 +27,10 @@ function list_hosts(req) {
         'sort',
         'order');
     return nodes_server.get_local_monitor().list_hosts(query, options);
+}
+
+function migrate_hosts_to_pool(req) {
+    return nodes_server.get_local_monitor().migrate_hosts_to_pool(req);
 }
 
 function get_test_hosts() {
@@ -81,3 +85,4 @@ exports.test_host_network = test_host_network;
 exports.set_debug_host = set_debug_host;
 exports.update_host_services = update_host_services;
 exports.list_hosts = list_hosts;
+exports.migrate_hosts_to_pool = migrate_hosts_to_pool;

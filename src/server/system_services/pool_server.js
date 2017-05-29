@@ -248,6 +248,18 @@ function assign_nodes_to_pool(req) {
 }
 
 
+function assign_hosts_to_pool(req) {
+    dbg.log0('Adding hosts to pool', req.rpc_params.name, 'hosts:', req.rpc_params.hosts);
+    var pool = find_pool_by_name(req);
+    return server_rpc.client.host.migrate_hosts_to_pool({
+        hosts: req.rpc_params.hosts,
+        pool_id: String(pool._id)
+    }, {
+        auth_token: req.auth_token
+    });
+}
+
+
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);
     return get_associated_buckets_int(pool);
@@ -412,6 +424,7 @@ exports.create_cloud_pool = create_cloud_pool;
 exports.list_pool_nodes = list_pool_nodes;
 exports.read_pool = read_pool;
 exports.delete_pool = delete_pool;
+exports.assign_hosts_to_pool = assign_hosts_to_pool;
 exports.assign_nodes_to_pool = assign_nodes_to_pool;
 exports.get_associated_buckets = get_associated_buckets;
 exports.get_pool_history = get_pool_history;

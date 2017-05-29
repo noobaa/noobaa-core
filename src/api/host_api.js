@@ -19,7 +19,7 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
-                    host_id: {
+                    host_name: {
                         type: 'string'
                     },
                 },
@@ -119,6 +119,33 @@ module.exports = {
             }
         },
 
+
+        migrate_hosts_to_pool: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['hosts', 'pool_id'],
+                properties: {
+                    hosts: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                host_name: {
+                                    type: 'string'
+                                },
+                            },
+                        }
+                    },
+                    pool_id: {
+                        type: 'string'
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
 
 
         // get_test_hosts: {

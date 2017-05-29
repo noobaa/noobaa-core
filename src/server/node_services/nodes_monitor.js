@@ -305,18 +305,55 @@ class NodesMonitor extends EventEmitter {
      */
     read_host(host_name) {
         this._throw_if_not_started_and_loaded();
-
-        let host_item = this._map_node_name.get(host_name);
-        if (!host_item) {
-            throw new RpcError('BAD_REQUEST', 'No such host ' + host_name);
-        }
-        let host_nodes = this._map_host_id.get(host_item.node.host_id);
-        if (!host_nodes) {
-            throw new RpcError('BAD_REQUEST', 'No such host ' + host_name);
-        }
-
+        const host_nodes = this._get_nodes_by_host_name(host_name);
         return this._get_host_info(this._consolidate_host(host_nodes));
     }
+
+    migrate_hosts_to_pool(req) {
+        this._throw_if_not_started_and_loaded();
+        const hosts = req.rpc_params.hosts.map(host => host.host_name);
+        const to_pool = system_store.data.get_by_id(req.rpc_params.pool_id);
+        const description = [];
+        if (!to_pool) throw new RpcError('BAD_REQUEST', 'No such pool ' + to_pool._id);
+        if (to_pool.cloud_pool_info) throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
+
+        // get on list of all nodes to migrate
+        const hosts_info = [];
+        const items = _.flatMap(hosts, host_name => {
+            const host_items = this._get_nodes_by_host_name(host_name);
+            if (host_items.some(item => item.node.is_cloud_node)) throw new RpcError('BAD_REQUEST', 'migrating cloud node is not allowed');
+            if (host_items.length === 0) return [];
+            const from_pool = system_store.data.get_by_id(host_items[0].node.pool);
+            hosts_info.push({
+                host_name,
+                from_pool: (String(from_pool) === String(to_pool._id)) ? '' : from_pool.name
+            });
+            return host_items;
+        });
+
+        return this._migrate_items_to_pool(items, to_pool)
+            .then(() => {
+                description.push(`${items.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email}`);
+                _.each(hosts_info, host => {
+                    const { host_name, from_pool } = hosts_info;
+                    dbg.log0('migrate_hosts_to_pool:', host_name,
+                        'from', from_pool, 'to', to_pool.name);
+                    if (from_pool) {
+                        description.push(`${host_name} was assigned from ${from_pool} to ${to_pool.name}`);
+                    }
+                });
+                Dispatcher.instance().activity({
+                    event: 'resource.assign_nodes',
+                    level: 'info',
+                    system: req.system._id,
+                    actor: req.account && req.account._id,
+                    pool: to_pool._id,
+                    desc: description.join('\n'),
+                });
+            });
+    }
+
+
 
     migrate_nodes_to_pool(req) {
         this._throw_if_not_started_and_loaded();
@@ -324,46 +361,33 @@ class NodesMonitor extends EventEmitter {
         const to_pool = system_store.data.get_by_id(req.rpc_params.pool_id);
         const description = [];
 
-        return P.resolve()
+
+        if (!to_pool) {
+            throw new RpcError('BAD_REQUEST', 'No such pool ' + to_pool._id);
+        }
+        if (to_pool.cloud_pool_info) {
+            throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
+        }
+
+        const items = _.map(nodes_identities, node_identity => {
+            const item = this._get_node(node_identity, 'allow_offline');
+            if (item.node.is_cloud_node) {
+                throw new RpcError('BAD_REQUEST', 'migrating cloud node is not allowed');
+            }
+            return item;
+        });
+
+        return this._migrate_items_to_pool(items, to_pool)
             .then(() => {
-                if (!to_pool) {
-                    throw new RpcError('BAD_REQUEST', 'No such pool ' + to_pool._id);
-                }
-                if (to_pool.cloud_pool_info) {
-                    throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
-                }
-
-                // first we validate that all the nodes can be migrated
-                const items = _.map(nodes_identities, node_identity => {
-                    const item = this._get_node(node_identity, 'allow_offline');
-                    if (item.node.is_cloud_node) {
-                        throw new RpcError('BAD_REQUEST', 'migrating cloud node is not allowed');
-                    }
-                    return item;
-                });
-
                 description.push(`${items.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email}`);
-
-                // now we update all nodes to the new pool
                 _.each(items, item => {
                     const from_pool = system_store.data.get_by_id(item.node.pool);
                     dbg.log0('migrate_nodes_to_pool:', item.node.name,
                         'from', from_pool.name, 'to', to_pool.name);
                     if (String(item.node.pool) !== String(to_pool._id)) {
-                        item.node.migrating_to_pool = Date.now();
-                        item.node.pool = to_pool._id;
-                        item.suggested_pool = ''; // reset previous suggestion
                         description.push(`${item.node.name} was assigned from ${from_pool.name} to ${to_pool.name}`);
                     }
-                    this._set_need_update.add(item);
-                    this._update_status(item);
                 });
-            })
-            // save the changes to store immediately
-            .then(() => this._update_nodes_store('force'))
-            // we hurry the next run schedule in case it's not close, and prefer to do full update sooner
-            .then(() => this._schedule_next_run(3000))
-            .then(() => {
                 Dispatcher.instance().activity({
                     event: 'resource.assign_nodes',
                     level: 'info',
@@ -605,6 +629,18 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
+    _get_nodes_by_host_name(host_name) {
+        let host_item = this._map_node_name.get(host_name);
+        if (!host_item) {
+            throw new RpcError('BAD_REQUEST', 'No such host ' + host_name);
+        }
+        let host_nodes = this._map_host_id.get(host_item.node.host_id);
+        if (!host_nodes) {
+            throw new RpcError('BAD_REQUEST', 'No such host ' + host_name);
+        }
+        return host_nodes;
+    }
+
     _connect_node(conn, node_id) {
         dbg.log0('_connect_node:', 'node_id', node_id);
         const item = this._map_node_id.get(String(node_id));
@@ -838,6 +874,22 @@ class NodesMonitor extends EventEmitter {
                 dbg.error('got error in _get_agent_info:', err);
                 throw err;
             });
+    }
+
+    _migrate_items_to_pool(items, pool) {
+        // now we update all nodes to the new pool
+        _.each(items, item => {
+            if (String(item.node.pool) !== String(pool._id)) {
+                item.node.migrating_to_pool = Date.now();
+                item.node.pool = pool._id;
+                item.suggested_pool = ''; // reset previous suggestion
+            }
+            this._set_need_update.add(item);
+            this._update_status(item);
+        });
+        return this._update_nodes_store('force')
+            // we hurry the next run schedule in case it's not close, and prefer to do full update sooner
+            .then(() => this._schedule_next_run(3000));
     }
 
     _update_node_service(item) {

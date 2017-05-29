@@ -126,6 +126,34 @@ module.exports = {
             }
         },
 
+        assign_hosts_to_pool: {
+            doc: 'Add nodes to Pool',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    hosts: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                host_name: {
+                                    type: 'string'
+                                },
+                            },
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_associated_buckets: {
             doc: 'Return list of buckets which are using this pool',
             method: 'GET',

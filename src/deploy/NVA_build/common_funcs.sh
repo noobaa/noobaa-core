@@ -14,7 +14,7 @@ function deploy_log {
 
 function set_mongo_cluster_mode {
 	RS_SERVERS=`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'@' -f 2 | cut -d'/' -f 1`
-    MONGO_SHELL="/usr/bin/mongors --host shard1/${RS_SERVERS}"
+    MONGO_SHELL="/usr/bin/mongors --host mongodb://${RS_SERVERS}/nbcore?replicaSet=shard1"
 }
 
 function check_mongo_status {

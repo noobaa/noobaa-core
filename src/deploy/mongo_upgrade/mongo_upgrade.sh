@@ -9,6 +9,14 @@ fi
 . ${COMMON_FUNCS_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 . ${COMMON_FUNCS_PATH}noobaa-core/src/deploy/NVA_build/common_funcs.sh
 
+CLUSTER="$1"
+if [ "$CLUSTER" == 'cluster' ]; then
+    shift
+    # TODO: handle differenet shard
+    set_mongo_cluster_mode
+fi
+
+
 while [[ $# -gt 1 ]]; do
     key="$1"
     case $key in

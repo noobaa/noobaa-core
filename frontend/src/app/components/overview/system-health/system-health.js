@@ -1,13 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './system-health.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getClusterStatus } from 'utils/cluster-utils';
 import { getSystemStorageIcon } from 'utils/ui-utils';
 import { systemInfo } from 'model';
+import { state$ } from 'state';
 
 const statusMapping = deepFreeze({
     HEALTHY: {
@@ -57,7 +58,7 @@ const highAvailabiltyMapping = deepFreeze({
     }
 });
 
-class SystemHealthViewModel extends BaseViewModel {
+class SystemHealthViewModel extends Observer {
     constructor() {
         super();
 
@@ -116,6 +117,28 @@ class SystemHealthViewModel extends BaseViewModel {
 
         this.storageToolTip = 'An estimated aggregation of all nodes, internal storage or cloud resources raw ' +
             'storage that can be used via buckets (Any cloud resource is defined as 1PB of raw storage)';
+
+        this.unreadAlertsCount = ko.observable(0);
+        this.observe(state$.get('alerts'), this.onAlerts);
+
+
+        this.alertStatusIcon = ko.pureComputed(
+            () => this.unreadAlertsCount() ? {
+                name: 'problem',
+                css: 'warning'
+            } : {
+                name: 'healthy',
+                css: 'success'
+            }
+        );
+
+        this.alertDetail = ko.pureComputed(
+            () => this.alert() || 'No critical alerts'
+        );
+    }
+
+    onAlerts(alerts) {
+        this.unreadAlertsCount(alerts.unreadCount);
     }
 }
 

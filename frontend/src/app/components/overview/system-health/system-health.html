@@ -3,43 +3,70 @@
 <div class="column pad borders greedy">
     <h2 class="heading3 row content-middle">System Health</h2>
     <hr>
-    <section class="column push-next">
-        <h3 class="push-both highlight">
-            Cluster | <a class="link" ko.text="serverCountText" ko.href.route="'cluster'"></a>
-        </h3>
-
-        <div class="row content-middle push-next">
-            <svg-icon class="push-next"
-                params="name: clusterStatusIcon().name"
-                ko.css="clusterStatusIcon().css"
-            ></svg-icon>
-            <span class="highlight" ko.text="clusterStatusText"></span>
+    <section class="row borders push-next">
+        <div class="column status content-middle align-middle push-both">
+            <div class="row content-middle push-both">
+                <svg-icon class="push-both"
+                          params="name: clusterStatusIcon().name"
+                          ko.css="clusterStatusIcon().css"
+                ></svg-icon>
+            </div>
+            <div class="row content-middle push-next">
+                Cluster
+            </div>
         </div>
-
-        <div class="row content-middle">
-            <svg-icon class="push-next"
-                params="name: clusterHAIcon().name"
-                ko.css="clusterHAIcon().css"
-            ></svg-icon>
-            <span class="highlight" ko.text="clusterHAText"></span>
-        </div>
-    </section>
-    <section class="column push-prev">
-        <div class="row push-next">
-            <h3 class="greedy">
-                <span class="highlight">System raw storage</span>
-            </h3>
-            <svg-icon class="icon-small" params="name: 'question'"
-                      ko.tooltip="storageToolTip"></svg-icon>
-        </div>
-
-        <div class="row content-middle push-next">
-            <svg-icon class="push-next"
-                params="name: storageStatus().name"
-                ko.css="storageStatus().css"
-            ></svg-icon>
-            <span class="highlight" ko.text="storageStatus().tooltip"></span>
+        <div class="column greedy description pad">
+            <div class="row content-middle">
+                Cluster:&nbsp;<span ko.text="clusterStatusText"></span>
+            </div>
+            <div class="row content-middle push-both">
+                Members:&nbsp;<span ko.text="serverCountText"></span>
+            </div>
+            <div class="row content-middle">
+                <span ko.text="clusterHAText"></span>
+            </div>
         </div>
     </section>
 
+    <section class="row borders greedy push-next">
+        <div class="column status content-middle align-middle push-both">
+            <div class="row content-middle push-both">
+                <svg-icon class="push-both"
+                    params="name: storageStatus().name"
+                    ko.css="storageStatus().css"
+                ></svg-icon>
+            </div>
+            <div class="row content-middle push-next">
+                Storage
+            </div>
+        </div>
+        <div class="column greedy description pad">
+            <div class="row align-end">
+                <svg-icon class="icon-small" params="name: 'question'"
+                          ko.tooltip="storageToolTip"></svg-icon>
+            </div>
+            <div class="row push-both">
+                <span ko.text="storageStatus().tooltip"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="row borders greedy">
+        <div class="column status content-middle align-middle push-both">
+            <div class="row content-middle push-both">
+                <svg-icon class="push-both"
+                          params="name: alertStatusIcon().name"
+                          ko.css="alertStatusIcon().css"
+                ></svg-icon>
+            </div>
+            <div class="row content-middle push-next">
+                Alerts
+            </div>
+        </div>
+        <div class="column greedy description pad">
+            <div class="row greedy content-middle">
+                Unread alerts count: {{unreadAlertsCount}}
+            </div>
+        </div>
+    </section>
 </div>

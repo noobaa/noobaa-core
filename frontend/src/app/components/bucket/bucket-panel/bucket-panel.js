@@ -1,11 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-panel.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import { uiState, systemInfo, routeContext, bucketObjectList } from 'model';
+import { loadBucketObjectList } from 'actions';
 
-class BucketPanelViewModel extends BaseViewModel {
+class BucketPanelViewModel extends Observer {
     constructor() {
         super();
 
@@ -24,6 +25,9 @@ class BucketPanelViewModel extends BaseViewModel {
         this.bucketName = ko.pureComputed(
             () => this.bucket() && this.bucket().name
         );
+
+        if(routeContext()) this.onUiState(routeContext());
+        this.observe(routeContext, this.onUiState);
     }
 
     tabHref(tab) {
@@ -37,6 +41,16 @@ class BucketPanelViewModel extends BaseViewModel {
         return {
             selected: uiState().tab === tab
         };
+    }
+
+    onUiState({ params, query }) {
+        const { bucket, tab } = params;
+
+        if (tab === 'objects') {
+            const { filter, sortBy = 'key', order = 1, page = 0 } = query;
+
+            loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));
+        }
     }
 
 }

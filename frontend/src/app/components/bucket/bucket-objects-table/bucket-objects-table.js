@@ -26,6 +26,12 @@ const columns = deepFreeze([
     }
 ]);
 
+const compareAccessors = deepFreeze({
+    key: object => object.name,
+    create_time: object => object.create_time,
+    size: object => object.size,
+});
+
 class BucketObjectsTableViewModel extends BaseViewModel {
     constructor({ bucket, objectList }) {
         super();
@@ -93,10 +99,14 @@ class BucketObjectsTableViewModel extends BaseViewModel {
         );
 
         this.sorting = ko.pureComputed({
-            read: () => ({
-                sortBy: query().sortBy || 'name',
-                order: Number(query().order) || 1
-            }),
+            read: () => {
+                const { sortBy, order } = query();
+                const canSort = Object.keys(compareAccessors).includes(sortBy);
+                return {
+                    sortBy: (canSort && sortBy) || 'name',
+                    order: (canSort && Number(order)) || 1
+                };
+            },
             write: value => this.orderBy(value)
         });
 

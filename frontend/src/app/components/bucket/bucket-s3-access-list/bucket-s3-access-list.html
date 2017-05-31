@@ -10,18 +10,11 @@
     </button>
 </div>
 
-<!-- ko if: isListEmpty -->
-<span class="no-accounts-message pad">
-    No accounts were granted access for this bucket
-</span>
-<!-- /ko -->
-
-<ul class="account-list column greedy" data-bind="foreach: accessList">
-    <li class="row content-middle hpad">
-        <span class="greedy" data-bind="text: $data"></span>
-        <button class="link" data-bind="click: $component.onConnectionDetails">
-            Connection Details
-        </button>
-
-    </li>
-</ul>
+<data-table params="
+    columns: columns,
+    data: accounts,
+    rowFactory: accessRow => createS3AccessRow(accessRow),
+    sorting: sorting,
+    emptyMessage: 'No accounts were granted access for this bucket'
+">
+</data-table>

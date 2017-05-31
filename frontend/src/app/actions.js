@@ -160,15 +160,12 @@ export function showBucket() {
     logAction('showBucket');
 
     const ctx = model.routeContext();
-    const { bucket, tab = 'data-placement' } = ctx.params;
-    const { filter, sortBy = 'key', order = 1, page = 0 } = ctx.query;
+    const { tab = 'data-placement' } = ctx.params;
 
     model.uiState({
         layout: 'main-layout',
         tab: tab
     });
-
-    loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showObject() {

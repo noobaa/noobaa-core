@@ -15,7 +15,8 @@ const initialState = {
     filter: {},
     list: [],
     endOfList: false,
-    unreadCount: undefined
+    unreadCount: undefined,
+    lastCriticalAlert: ''
 };
 
 // ------------------------------

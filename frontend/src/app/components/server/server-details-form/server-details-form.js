@@ -26,7 +26,7 @@ const icons = deepFreeze({
     }
 });
 
-const requirementsMarker = (message) => `<sup class="warning">* ${message ? message : ''}</sup>`;
+const requirementsMarker = (message) => `<span class="remark warning">&nbsp; * ${message ? message : ''}</span>`;
 
 class ServerDetailsFormViewModel extends BaseViewModel {
     constructor({ serverSecret }) {

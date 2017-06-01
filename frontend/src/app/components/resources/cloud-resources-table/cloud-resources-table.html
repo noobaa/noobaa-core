@@ -2,7 +2,7 @@
 
 <div class="row alt-bg pad">
     <div class="column greedy">
-        <div class="row content-middle push-next-half">
+        <div class="row content-middle push-next">
             <input type="search" placeholder="Filter by resource name" data-bind="
                 textInput: filter
             "/>
@@ -12,7 +12,6 @@
                 selected: selectedResourceType
             "></dropdown>
         </div>
-
         <div>
             <span>Cloud resource can be an Azure blob storage,
                 AWS bucket or any S3 compatible service and can be used for
@@ -20,8 +19,7 @@
             </span>
         </div>
     </div>
-
-
+    
     <div class="column align-start">
         <button class="btn align-end" ko.click="onAddCloudResource">
             Add Cloud Resource

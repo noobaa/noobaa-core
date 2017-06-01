@@ -7,7 +7,7 @@ const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const map_builder = require('../object_services/map_builder');
 const system_store = require('../system_services/system_store').get_instance();
-const system_server_utils = require('../utils/system_server_utils');
+const system_utils = require('../utils/system_utils');
 
 
 /**
@@ -25,7 +25,7 @@ function background_worker() {
         return;
     }
     const system = system_store.data.systems[0];
-    if (!system || system_server_utils.system_in_maintenance(system._id)) return;
+    if (!system || system_utils.system_in_maintenance(system._id)) return;
 
     if (!this.marker) {
         dbg.log0('SCRUBBER:', 'BEGIN');

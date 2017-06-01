@@ -31,7 +31,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const cluster_server = require('../system_services/cluster_server');
 const clustering_utils = require('../utils/clustering_utils');
-const system_server_utils = require('../utils/system_server_utils');
+const system_utils = require('../utils/system_utils');
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
@@ -1716,7 +1716,7 @@ class NodesMonitor extends EventEmitter {
             return;
         }
 
-        if (system_server_utils.system_in_maintenance(item.node.system)) {
+        if (system_utils.system_in_maintenance(item.node.system)) {
             dbg.warn('_update_status: delay node data_activity',
                 'while system in maintenance', item.node.name);
             act.stage.wait_reason = WAIT_SYSTEM_MAINTENANCE;

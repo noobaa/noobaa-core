@@ -26,7 +26,7 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const map_allocator = require('./map_allocator');
-const system_server_utils = require('../utils/system_server_utils');
+const system_utils = require('../utils/system_utils');
 
 /**
  *
@@ -921,7 +921,7 @@ function check_md_conditions(req, conditions, obj) {
 }
 
 function throw_if_maintenance(req) {
-    if (req.system && system_server_utils.system_in_maintenance(req.system._id)) {
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
         throw new RpcError('SYSTEM_IN_MAINTENANCE',
             'Operation not supported during maintenance mode');
     }
@@ -930,9 +930,10 @@ function throw_if_maintenance(req) {
 function check_quota(bucket) {
     if (!bucket.quota) return;
 
-    const bucket_used = bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size);
-    const quota = size_utils.json_to_bigint(bucket.quota.value);
-    if (bucket_used.greaterOrEquals(quota)) {
+    let used_percent = system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota);
+
+    if (used_percent >= 100) {
+        const bucket_used = bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size);
         const message = `the bucket ${bucket.name} used storage(${
                 size_utils.human_size(bucket_used)
             }) exceeds the bucket quota (${
@@ -946,16 +947,11 @@ function check_quota(bucket) {
             Dispatcher.rules.once_every(1000 * 60 * 60 * 24)); // once a day
         dbg.error(message);
         throw new RpcError('FORBIDDEN', message);
-    } else {
-        const percent_alert_threshold = 90;
-        let used_percent = bucket_used.multiply(100)
-            .divide(quota);
-        if (used_percent.greaterOrEquals(percent_alert_threshold)) {
-            Dispatcher.instance().alert('INFO',
-                system_store.data.systems[0]._id,
-                `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(bucket.quota.value)}`,
-                Dispatcher.rules.once_daily);
-        }
+    } else if (used_percent >= 90) {
+        Dispatcher.instance().alert('INFO',
+            system_store.data.systems[0]._id,
+            `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(bucket.quota.value)}`,
+            Dispatcher.rules.once_daily);
     }
 }
 
@@ -992,3 +988,4 @@ exports.report_error_on_object = report_error_on_object;
 exports.read_s3_usage_report = read_s3_usage_report;
 exports.add_s3_usage_report = add_s3_usage_report;
 exports.remove_s3_usage_reports = remove_s3_usage_reports;
+exports.check_quota = check_quota;

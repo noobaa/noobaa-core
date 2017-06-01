@@ -186,7 +186,7 @@ textarea {
         cursor: @cursor-not-allowed;
     }
 
-    &:disabled {
+    &.disabled, &:disabled {
         color: @color15;
         border-color: @color15;
         background: none;
@@ -194,7 +194,7 @@ textarea {
         transition: unset;
     }
 
-    &:hover:not(:disabled):not(.inactive) {
+    &:hover:not(:disabled):not(.inactive):not(.disabled) {
         color: @color6;
         background-color: @color8;
     }

@@ -37,7 +37,7 @@ export function getServerIssues(server, systemVersion, minRequirements) {
 
     const { phonehome_server } = services_status;
     if (phonehome_server && phonehome_server.status !== 'OPERATIONAL') {
-        issues.phoneHomeServer = formatIssueMessage('Phone Home server', phonehome_server);
+        issues.phoneHomeServer = formatIssueMessage('Phone Home server', phonehome_server.status);
     }
 
     const { phonehome_proxy } = services_status;
@@ -52,7 +52,7 @@ export function getServerIssues(server, systemVersion, minRequirements) {
 
     const { remote_syslog } = services_status;
     if (remote_syslog && remote_syslog.status !== 'OPERATIONAL') {
-        issues.remoteSyslog = formatIssueMessage('Remote syslog', remote_syslog);
+        issues.remoteSyslog = formatIssueMessage('Remote syslog', remote_syslog.status);
     }
 
     const { cluster_communication = {} } = services_status;

@@ -8,7 +8,7 @@ import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 import { keyByProperty } from 'utils/core-utils';
 import { openObjectPreviewModal } from 'dispatchers';
-import { systemInfo } from 'model';
+import { systemInfo, sessionInfo } from 'model';
 import { getResourceTypeIcon } from 'utils/ui-utils';
 
 class ObjectPartsListViewModel extends BaseViewModel {
@@ -25,6 +25,24 @@ class ObjectPartsListViewModel extends BaseViewModel {
 
         const poolIconMapping = ko.pureComputed(
             () => systemInfo() ? keyByProperty(systemInfo().pools, 'name', getResourceTypeIcon) : {}
+        );
+
+        this.isOwner = ko.pureComputed(
+            () => systemInfo() && systemInfo().owner.email === sessionInfo().user
+        );
+
+        this.notOwner = ko.pureComputed(
+            () => !this.isOwner()
+        );
+
+        this.tooltip = ko.pureComputed(
+            () => {
+                if (this.notOwner()) {
+                    return 'This operation is only available for the system owner';
+                }
+
+                return '';
+            }
         );
 
         this.rows = ko.pureComputed(() => parts().map(

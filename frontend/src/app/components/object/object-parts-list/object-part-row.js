@@ -33,7 +33,7 @@ const columns = deepFreeze([
         name: 'replica'
     },
     {
-        name: 'resourseType',
+        name: 'resourceType',
         type: 'icon'
     },
     {

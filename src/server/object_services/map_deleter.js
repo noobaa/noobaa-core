@@ -76,7 +76,30 @@ function delete_blocks_from_node(blocks) {
         });
 }
 
+/*
+ * delete_object
+ * delete objects mappings and MD
+ */
+function delete_object(obj) {
+    if (!obj) return;
+    return MDStore.instance().update_object_by_id(obj._id, {
+            deleted: new Date(),
+            cloud_synced: false
+        })
+        .then(() => delete_object_mappings(obj))
+        .return();
+}
+
+/*
+ * delete_multiple_objects
+ * delete multiple bjects mappings and MD
+ */
+function delete_multiple_objects(objects) {
+    return P.map(objects, obj => P.resolve(delete_object(obj)).reflect(), { concurrency: 10 });
+}
 
 // EXPORTS
+exports.delete_object = delete_object;
+exports.delete_multiple_objects = delete_multiple_objects;
 exports.delete_object_mappings = delete_object_mappings;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;

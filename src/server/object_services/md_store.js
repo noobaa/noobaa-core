@@ -241,9 +241,10 @@ class MDStore {
             .then(obj => Boolean(obj));
     }
 
-    has_any_objects_in_bucket(bucket_id) {
+    has_any_completed_objects_in_bucket(bucket_id) {
         return this._objects.col().findOne({
                 bucket: bucket_id,
+                upload_started: null,
                 deleted: null,
             })
             .then(obj => Boolean(obj));

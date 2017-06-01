@@ -61,7 +61,7 @@ function create_object_upload(req) {
             // check if the conditions for overwrite are met, throws if not
             check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
             // we passed the checks, so we can delete the existing object if exists
-            return delete_object_internal(existing_obj);
+            return map_deleter.delete_object(existing_obj);
         })
         .then(() => MDStore.instance().insert_object(info))
         .return({
@@ -185,7 +185,7 @@ function abort_object_upload(req) {
     //and only then delete. Thus not having currently allocated parts deleted,
     //while continuing to ul resulting in a partial file
     return find_object_upload(req)
-        .then(obj => delete_object_internal(obj))
+        .then(obj => map_deleter.delete_object(obj))
         .return();
 }
 
@@ -382,7 +382,7 @@ function copy_object(req) {
             check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
             check_md_conditions(req, req.rpc_params.source_if, source_obj);
             // we passed the checks, so we can delete the existing object if exists
-            return delete_object_internal(existing_obj);
+            return map_deleter.delete_object(existing_obj);
         })
         .then(() => MDStore.instance().insert_object(create_info))
         .then(() => MDStore.instance().copy_object_parts(source_obj, create_info))
@@ -568,7 +568,7 @@ function delete_object(req) {
     return MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key)
         .then(obj_arg => {
             obj = obj_arg;
-            return delete_object_internal(obj);
+            return map_deleter.delete_object(obj);
         })
         .then(() => {
             if (!obj) return;
@@ -598,7 +598,7 @@ function delete_multiple_objects(req) {
     // TODO: missing dispatch of activity log
     return P.map(req.params.keys, key =>
             MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, key)
-            .then(obj => delete_object_internal(obj))
+            .then(obj => map_deleter.delete_object(obj))
         )
         .return();
 }
@@ -615,7 +615,7 @@ function delete_multiple_objects_by_prefix(req) {
     return list_objects(req)
         .then(res => P.map(res.objects, obj => {
             dbg.log0('delete_multiple_objects_by_prefix:', obj.key);
-            return delete_object_internal(obj);
+            return map_deleter.delete_object(obj);
         }))
         .return();
 }
@@ -880,16 +880,6 @@ function check_object_upload_mode(req, obj) {
             ' upload_size ' + obj.upload_size);
     }
     return obj;
-}
-
-function delete_object_internal(obj) {
-    if (!obj) return;
-    return MDStore.instance().update_object_by_id(obj._id, {
-            deleted: new Date(),
-            cloud_synced: false
-        })
-        .then(() => map_deleter.delete_object_mappings(obj))
-        .return();
 }
 
 function check_md_conditions(req, conditions, obj) {

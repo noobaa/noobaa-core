@@ -34,6 +34,7 @@ class MapBuilder {
 
     constructor(chunk_ids) {
         this.chunk_ids = chunk_ids;
+        this.objects_to_delete = [];
     }
 
     run() {
@@ -80,14 +81,14 @@ class MapBuilder {
         const objects_by_id = _.keyBy(objects, '_id');
         return P.map(this.chunks, chunk => {
             // if other actions should be done to prepare a chunk for build, those actions should be added here
-            const chunk_parts = parts_by_chunk[chunk._id];
-            const chunk_objects = _.uniq(_.compact(_.map(chunk_parts, part => objects_by_id[part.obj])));
+            chunk.parts = parts_by_chunk[chunk._id];
+            chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj])));
             return P.resolve()
                 .then(() => {
-                    if (!chunk_parts || !chunk_parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
-                    if (!chunk_objects || !chunk_objects.length) throw new Error('No valid objects are pointing to chunk', chunk._id);
+                    if (!chunk.parts || !chunk.parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
+                    if (!chunk.objects || !chunk.objects.length) throw new Error('No valid objects are pointing to chunk', chunk._id);
                 })
-                .then(() => this.populate_chunk_bucket(chunk, chunk_objects))
+                .then(() => this.populate_chunk_bucket(chunk))
                 .catch(err => {
                     dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
                     chunk.had_errors = true;
@@ -96,13 +97,23 @@ class MapBuilder {
         });
     }
 
-    populate_chunk_bucket(chunk, objects) {
+    populate_chunk_bucket(chunk) {
         let bucket = system_store.data.get_by_id(chunk.bucket);
-        const object_bucket_ids = mongo_utils.uniq_ids(objects, 'bucket');
+        const object_bucket_ids = mongo_utils.uniq_ids(chunk.objects, 'bucket');
         const valid_buckets = _.compact(object_bucket_ids.map(bucket_id => system_store.data.get_by_id(bucket_id)));
         if (!valid_buckets.length) {
-            dbg.error(`Chunk ${chunk._id} is held by ${objects.length} invalid objects. The following objects have no valid bucket`, objects);
-            throw new Error('Chunk held by invalid objects');
+            return system_store.data.get_by_id_include_deleted(chunk.bucket, 'buckets')
+                .then(deleted_bucket => {
+                    if (deleted_bucket) {
+                        dbg.warn(`Chunk ${chunk._id} is held by a deleted bucket ${deleted_bucket.name} marking for deletion`);
+                        chunk.bucket = deleted_bucket.record;
+                        this.objects_to_delete.push(_.filter(chunk.objects, obj => _.isEqual(obj.bucket, deleted_bucket.record._id)));
+                        return;
+                    }
+                    //We prefer to leave the option for manual fix if we'll need it
+                    dbg.error(`Chunk ${chunk._id} is held by ${chunk.objects.length} invalid objects. The following objects have no valid bucket`, chunk.objects);
+                    throw new Error('Chunk held by invalid objects');
+                });
         }
         if (valid_buckets.length > 1) {
             dbg.error(`Chunk ${chunk._id} is held by objects from ${object_bucket_ids.length} different buckets`);
@@ -120,15 +131,15 @@ class MapBuilder {
     }
 
     refresh_alloc() {
-        const populated_chunks = _.filter(this.chunks, chunk => !chunk.had_errors);
+        const populated_chunks = _.filter(this.chunks, chunk => !chunk.had_errors && !chunk.bucket.deleted);
         // uniq works here since the bucket objects are the same from the system store
-        const buckets = _.map(_.uniqBy(populated_chunks, 'bucket._id'), chunk => chunk.bucket);
+        const buckets = _.uniqBy(_.map(populated_chunks, chunk => chunk.bucket), '_id');
         return P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
     }
 
     analyze_chunks() {
         _.each(this.chunks, chunk => {
-            if (chunk.had_errors) return;
+            if (chunk.had_errors || chunk.bucket.deleted) return;
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
 
             chunk.status = map_utils.get_chunk_status(
@@ -258,9 +269,10 @@ class MapBuilder {
             block.chunk = block.chunk._id;
         });
         const success_chunk_ids = mongo_utils.uniq_ids(
-            _.reject(this.chunks, 'had_errors'), '_id');
+            _.reject(this.chunks, chunk => chunk.had_errors || chunk.bucket.deleted), '_id');
         const failed_chunk_ids = mongo_utils.uniq_ids(
-            _.filter(this.chunks, 'had_errors'), '_id');
+            _.filter(this.chunks, chunk => chunk.had_errors && !chunk.bucket.deleted), '_id');
+        const objs_to_be_deleted = _.uniqBy(_.flatten(this.objects_to_delete), '_id');
 
         const unset_special_chunk_ids = mongo_utils.uniq_ids(
             _.filter(this.chunks, chunk => chunk.special_replica && !chunk.is_special), '_id');
@@ -271,6 +283,7 @@ class MapBuilder {
             'chunks', this.chunks.length,
             'success_chunk_ids', success_chunk_ids.length,
             'failed_chunk_ids', failed_chunk_ids.length,
+            'objs_to_be_deleted', objs_to_be_deleted.length,
             'new_blocks', _.get(this, 'new_blocks.length', 0),
             'delete_blocks', _.get(this, 'delete_blocks.length', 0));
 
@@ -279,7 +292,13 @@ class MapBuilder {
             MDStore.instance().update_blocks_by_ids(mongo_utils.uniq_ids(this.delete_blocks, '_id'), { deleted: now }),
             MDStore.instance().update_chunks_by_ids(set_special_chunk_ids, { special_replica: true }),
             MDStore.instance().update_chunks_by_ids(unset_special_chunk_ids, undefined, { special_replica: true }),
-            map_deleter.delete_blocks_from_nodes(this.delete_blocks)
+            map_deleter.delete_blocks_from_nodes(this.delete_blocks),
+            map_deleter.delete_multiple_objects(objs_to_be_deleted)
+            .each(res => {
+                if (!res.isFulfilled()) {
+                    dbg.log0('Failed delete_multiple_objects', res);
+                }
+            })
         );
     }
 }

@@ -8,7 +8,7 @@ module.exports = [{
         // find_object_by_key_allow_missing()
         // find_objects()
         // find_objects_by_prefix_and_delimiter()
-        // TODO index ??? has_any_objects_in_bucket()
+        // TODO index ??? has_any_completed_objects_in_bucket()
         // TODO index ??? count_objects_of_bucket()
         // TODO index ??? list_all_objects_of_bucket_ordered_by_key()
         fields: {

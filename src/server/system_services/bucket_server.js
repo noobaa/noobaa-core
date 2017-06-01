@@ -333,7 +333,7 @@ function delete_bucket(req) {
         throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
     }
 
-    return MDStore.instance().has_any_objects_in_bucket(bucket._id)
+    return MDStore.instance().has_any_completed_objects_in_bucket(bucket._id)
         .then(has_objects => {
             if (has_objects) {
                 throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);

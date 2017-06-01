@@ -98,8 +98,8 @@ mocha.describe('md_store', function() {
             return md_store.has_any_objects_in_system(system_id);
         });
 
-        mocha.it('has_any_objects_in_bucket()', function() {
-            return md_store.has_any_objects_in_bucket(bucket_id);
+        mocha.it('has_any_completed_objects_in_bucket()', function() {
+            return md_store.has_any_completed_objects_in_bucket(bucket_id);
         });
 
         mocha.it('count_objects_of_bucket()', function() {

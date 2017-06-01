@@ -81,7 +81,9 @@ function do_heartbeat() {
                     return Dispatcher.instance().alert('MAJOR',
                         system_store.data.systems[0]._id,
                         `Server ${name} configuration is below minimum requirements, consult server page for more information`,
-                        Dispatcher.rules.only_once);
+                        Dispatcher.rules.only_once_by_regex(
+                            `^Server .*${current_clustering.owner_secret} configuration is below minimum requirements, consult server page for more information$`
+                        ));
                 }
                 return P.resolve();
             })

@@ -8,14 +8,11 @@
 
     <div class="push-next" ko.tooltip="tooltip">
         <a class="btn" download
-            ko.visible="isOwner"
+            ko.css.disabled="notOwner"
+            ko.click="notOwner() ? onDownloadClick : null"
             ko.attr.href="s3SignedUrl" >
             Download File
         </a>
-        <button class="btn" disabled
-            ko.visible="notOwner">
-            Download File
-        </button>
     </div>
 
     <div ko.tooltip="tooltip">

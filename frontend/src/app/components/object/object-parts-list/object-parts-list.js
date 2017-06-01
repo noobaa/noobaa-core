@@ -27,12 +27,8 @@ class ObjectPartsListViewModel extends BaseViewModel {
             () => systemInfo() ? keyByProperty(systemInfo().pools, 'name', getResourceTypeIcon) : {}
         );
 
-        this.isOwner = ko.pureComputed(
-            () => systemInfo() && systemInfo().owner.email === sessionInfo().user
-        );
-
         this.notOwner = ko.pureComputed(
-            () => !this.isOwner()
+            () => systemInfo() && systemInfo().owner.email !== sessionInfo().user
         );
 
         this.tooltip = ko.pureComputed(
@@ -59,6 +55,10 @@ class ObjectPartsListViewModel extends BaseViewModel {
 
     onPreviewFile() {
         openObjectPreviewModal(this.s3SignedUrl());
+    }
+
+    onDownloadClick() {
+        return false;
     }
 }
 

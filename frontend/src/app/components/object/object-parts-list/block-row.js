@@ -61,7 +61,7 @@ export default class BlockRowViewModel extends BaseViewModel {
         };
 
         this.replica = `Replica ${index + 1} of ${count}`;
-        this.resourseType = poolIconMapping()[pool_name] || {};
+        this.resourceType = poolIconMapping()[pool_name] || {};
         this.poolName = pool_name;
         Object.assign(this, in_cloud_pool ? cloudPoolInfo(pool_name) : serverPoolInfo(pool_name, node_name));
     }

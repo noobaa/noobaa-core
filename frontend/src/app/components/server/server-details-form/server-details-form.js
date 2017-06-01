@@ -169,7 +169,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 const { memory } = this.server() || {};
                 return memory ?
                     `${formatSize(memory.total)} ${this.notEnoughMemory() ? 
-                        requirementsMarker(`Memory minimum requirements: ${formatSize(minRequirements().ram)}`)  : ''}` :
+                        requirementsMarker(`Minimum requirements: ${formatSize(minRequirements().ram)}`)  : ''}` :
                     '';
             }
         );
@@ -179,7 +179,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 const { storage } = this.server() || {};
                 return storage ?
                     `${formatSize(storage.total)} ${this.notEnoughStorage() ? 
-                        requirementsMarker(`Disk size minimum requirements: ${formatSize(minRequirements().storage)}`) : ''}` :
+                        requirementsMarker(`Minimum requirements: ${formatSize(minRequirements().storage)}`) : ''}` :
                     '';
             }
         );
@@ -189,7 +189,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 const { cpus } = this.server() || {};
                 return cpus ?
                     `${cpus.count} CPUs ${this.notEnoughCpus() ? 
-                        requirementsMarker(`CPUs count minimum requirements: ${minRequirements().cpu_count} CPUs`) : ''}` :
+                        requirementsMarker(`Minimum requirements: ${minRequirements().cpu_count} CPUs`) : ''}` :
                     '';
             }
         );

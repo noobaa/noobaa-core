@@ -41,7 +41,7 @@ const cluster_server = require('./cluster_server');
 const node_allocator = require('../node_services/node_allocator');
 const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
-const system_server_utils = require('../utils/system_server_utils');
+const system_utils = require('../utils/system_utils');
 const api = require('../../api/api');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
@@ -390,7 +390,7 @@ function read_system(req) {
             message: system.upgrade ? system.upgrade.error : undefined
         };
         const maintenance_mode = {
-            state: system_server_utils.system_in_maintenance(system._id)
+            state: system_utils.system_in_maintenance(system._id)
         };
         if (maintenance_mode.state) {
             maintenance_mode.till = system.maintenance_mode;

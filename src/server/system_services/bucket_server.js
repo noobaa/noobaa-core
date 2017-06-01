@@ -22,6 +22,7 @@ const cloud_utils = require('../../util/cloud_utils');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
+const system_utils = require('../utils/system_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
@@ -202,6 +203,22 @@ function update_bucket(req) {
             }
             updates.quota = quota;
             quota.value = size_utils.size_unit_to_bigint(quota.size, quota.unit).toJSON();
+            let used_percent = system_utils.get_bucket_quota_usage_percent(bucket, quota);
+            if (used_percent >= 100) {
+                Dispatcher.instance().alert('MAJOR',
+                    system_store.data.systems[0]._id,
+                    `Bucket ${bucket.name} exceeded its configured quota of ${
+                    size_utils.human_size(quota.value)
+                }. Uploads to this bucket will be denied`,
+                    Dispatcher.rules.once_every(1000 * 60 * 60 * 24)); // once a day
+                dbg.warn(`the bucket ${bucket.name} used capacity is more than the updated quota. uploads will be denied`);
+            } else if (used_percent >= 90) {
+                Dispatcher.instance().alert('INFO',
+                    system_store.data.systems[0]._id,
+                    `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(quota.value)}`,
+                    Dispatcher.rules.once_daily);
+                dbg.warn(`the bucket ${bucket.name} used capacity is more than 90% of the updated quota`);
+            }
         }
     }
     return system_store.make_changes({

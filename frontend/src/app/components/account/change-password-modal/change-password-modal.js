@@ -24,39 +24,17 @@ class ChangePasswordModalViewModel extends BaseViewModel {
                 }
             });
         this.touched = ko.touched(this.password);
+        this.wasValidated = ko.observable(false);
 
         this.newPassword = ko.observable()
             .extend({
-                required: true,
-                minLength: { message: 'At least 5 characters.' },
-                includesUppercase: { message: 'At least one uppercase letter' },
-                includesLowercase: { message: 'At least one lowercase letter' },
-                includesDigit: { message: 'At least one digit' }
-            });
-
-        this.newPasswordValidations = ko.pureComputed(
-            () => ko.validation.fullValidationState(this.newPassword)()
-                .filter(
-                    validator => validator.rule !== 'required'
-                )
-                .map(
-                    validator => ({
-                        message: validator.message,
-                        isValid: this.newPassword() && validator.isValid
-                    })
-                )
-        );
-
-
-        this.isNewPasswordValid = ko.pureComputed(
-            () => this.newPassword.isValid()
-        )
-            .extend({
-                equal: {
-                    params: true,
-                    message: 'Please enter a valid password'
+                validation: {
+                    validator: pass => pass && (pass.length >= 5),
+                    message: 'Use at least 5 characters'
                 },
-                isModified: this.newPassword.isModified
+                includesUppercase: true,
+                includesLowercase: true,
+                includesDigit: true
             });
 
         this.addToDisposeList(
@@ -75,6 +53,7 @@ class ChangePasswordModalViewModel extends BaseViewModel {
     change() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
+            this.wasValidated(true);
 
         } else {
             this.touched(false);

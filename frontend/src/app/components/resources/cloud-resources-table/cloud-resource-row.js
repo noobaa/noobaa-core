@@ -66,7 +66,7 @@ export default class CloudResourceRowViewModel extends BaseViewModel {
         );
 
         this.deleteBtn = {
-            subject: 'resrouces',
+            subject: 'resources',
             group: deleteGroup,
             undeletable: undeletable,
             tooltip: ko.pureComputed(

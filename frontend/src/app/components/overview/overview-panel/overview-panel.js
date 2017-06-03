@@ -13,20 +13,33 @@ class OverviewPanelViewModel extends Observer {
 
         this.baseRoute = '';
         this.selectedResourceType = ko.observable();
+        this.selectedDuration = ko.observable();
 
         this.observe(state$.get('location'), this.onState);
     }
 
     onState({ route, params, query }) {
         const { system } = params;
-        const { resourceType = 'HOSTS' } = query;
+        const { resourceType = 'HOSTS', duration = 'DAY' } = query;
 
         this.selectedResourceType(resourceType);
+        this.selectedDuration(duration);
         this.baseRoute = realizeUri(route, { system }, {}, true);
     }
 
     onResourceType(resourceType) {
-        const uri = realizeUri(this.baseRoute, {}, { resourceType });
+        const uri = realizeUri(this.baseRoute, {}, {
+            resourceType,
+            duration: this.selectedDuration()
+        });
+        action$.onNext(requestLocation(uri));
+    }
+
+    onDuration(duration) {
+        const uri = realizeUri(this.baseRoute, {}, {
+            resourceType: this.selectedResourceType(),
+            duration
+        });
         action$.onNext(requestLocation(uri));
     }
 }

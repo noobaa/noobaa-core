@@ -43,9 +43,9 @@ class ResourceOverviewViewModel extends Observer {
         this.resourceTypeOptions = Object.entries(resourceTypes)
             .map(([value, { label, preview = false }]) => ({ value, label, preview }));
 
-        this.poolsOverviewTemplate = poolsTemplate;
-        this.cloudOverviewTemplate = cloudTemplate;
-        this.internalOverviewTemplate = internalTemplate;
+        this.poolsTemplate = poolsTemplate;
+        this.cloudTemplate = cloudTemplate;
+        this.internalTemplate = internalTemplate;
 
         this.internalResourceState = ko.observable();
         this.cloudStorage = ko.observable();
@@ -113,7 +113,13 @@ class ResourceOverviewViewModel extends Observer {
         ];
 
         this.observe(
-            state$.getMany('nodePools', 'cloudResources', 'internalResources', 'buckets', 'location'),
+            state$.getMany(
+                'nodePools',
+                ['cloudResources', 'resources'],
+                ['internalResources', 'resources'],
+                'buckets',
+                'location'
+            ),
             this.onState
         );
     }

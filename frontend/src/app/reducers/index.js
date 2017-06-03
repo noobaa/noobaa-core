@@ -17,7 +17,7 @@ import objectUploadsReducer from './object-uploads-reducer';
 import alertsReducer from './alerts-reducer';
 import notificationsReducer from './notificaitons-reducer';
 import internalResourcesReducer from './internal-resources-reducer';
-
+import topologyReducer from './topology-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -35,5 +35,6 @@ export default combineReducers({
     internalResources: internalResourcesReducer,
     accounts: accountsReducer,
     objectUploads: objectUploadsReducer,
-    notifications: notificationsReducer
+    notifications: notificationsReducer,
+    topology: topologyReducer
 });

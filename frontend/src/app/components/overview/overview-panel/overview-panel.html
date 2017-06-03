@@ -6,5 +6,8 @@
         onResourceType: onResourceType.bind($component)
     "></resource-overview>
     <system-health class="column"></system-health>
-    <buckets-overview class="column"></buckets-overview>
+    <buckets-overview class="column" params="
+        selectedDuration: selectedDuration,
+        onDuration: onDuration.bind($component)
+    "></buckets-overview>
 </div>

@@ -105,8 +105,11 @@ function onChangeLocation(modals, { payload: location }) {
         return _openModal(modals, {
             component: 'welcome-modal',
             options: {
-                size: 'custom',
-                backdropClose: false
+                size: 'xsmall',
+                backdropClose: false,
+                closeButton: 'hidden',
+                severity: 'success',
+                title: 'Congratulations! System Created Succesfully',
             }
         });
 

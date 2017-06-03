@@ -1533,7 +1533,7 @@ export function loadSystemUsageHistory() {
     api.pool.get_pool_history({})
         .then(history => history.map(
             ({ timestamp, pool_list }) => {
-                const { HOSTS: nodes = [], CLOUD: cloud = [] } = groupBy(
+                const { HOSTS: nodes = [], CLOUD: cloud = [], INTERNAL: internal = [] } = groupBy(
                     pool_list,
                     pool => pool.resource_type,
                     pool => pool.storage
@@ -1542,7 +1542,8 @@ export function loadSystemUsageHistory() {
                 return {
                     timestamp: timestamp,
                     nodes: aggregateStorage(...nodes),
-                    cloud: aggregateStorage(...cloud)
+                    cloud: aggregateStorage(...cloud),
+                    internal: aggregateStorage(...internal)
                 };
             }
         ))

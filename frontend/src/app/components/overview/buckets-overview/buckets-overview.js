@@ -1,81 +1,106 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './buckets-overview.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
-import { loadSystemUsageHistory } from 'actions';
 import style from 'style';
 import moment from 'moment';
-import { systemInfo, systemUsageHistory } from 'model';
+import { routeContext } from 'model';
+import { redirectTo } from 'actions';
 import { hexToRgb } from 'utils/color-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { toBytes, formatSize, sumSize } from 'utils/size-utils';
+import { toBytes, formatSize } from 'utils/size-utils';
 import { aggregateStorage, interpolateStorage } from 'utils/storage-utils';
-import { deepFreeze, groupBy, isFunction } from 'utils/core-utils';
+import { deepFreeze, isFunction } from 'utils/core-utils';
+import { fetchResourceStorageHistory } from 'dispatchers';
+import { state$ } from 'state';
+
 
 const durationOptions = deepFreeze([
     {
         label: 'Day',
-        value: {
-            duration: 24,
-            stepSize: 4,
-            stepUnit: 'hour',
-            tickFormat: 'HH:mm',
-            pointRadius: 1
-        }
+        value: 'day'
     },
     {
         label: 'Week',
-        value: {
-            duration: 7,
-            stepSize: 1,
-            stepUnit: 'day',
-            tickFormat: 'D MMM',
-            pointRadius: 0
-        }
+        value: 'week'
     },
     {
-        label : 'Month',
-        value: {
-            duration: 30,
-            stepSize: 6,
-            stepUnit: 'day',
-            tickFormat: 'D MMM',
-            pointRadius: 0
-        }
+        label: 'Month',
+        value: 'month'
     }
 ]);
 
+const durationSettings = deepFreeze({
+    day: {
+
+        duration: 24,
+        stepSize: 4,
+        stepUnit: 'hour',
+        tickFormat: 'HH:mm',
+        pointRadius: 1
+    },
+    week: {
+
+        duration: 7,
+        stepSize: 1,
+        stepUnit: 'day',
+        tickFormat: 'D MMM',
+        pointRadius: 0
+
+    },
+    month: {
+        duration: 30,
+        stepSize: 6,
+        stepUnit: 'day',
+        tickFormat: 'D MMM',
+        pointRadius: 0
+    }
+});
+
 const chartDatasets = deepFreeze([
     {
-        key: 'used',
-        label: 'Used',
+        key: 'pools',
+        label: 'Used on nodes',
         labelPadding: 10,
         color: hexToRgb(style['color8']),
         fill: hexToRgb(style['color8'], .3)
     },
     {
-        key: 'unavailable_free',
-        label: 'Unavailable',
+        key: 'cloud',
+        label: 'Used on cloud',
         labelPadding: 10,
         color: hexToRgb(style['color6']),
         fill: hexToRgb(style['color6'], .3)
     },
     {
-        key: 'free',
-        label: 'Free',
+        key: 'internal',
+        label: 'Used on internal',
         labelPadding: 10,
         color: hexToRgb(style['color16']),
         fill: hexToRgb(style['color16'], .3)
     }
 ]);
 
+function prepareStoreData(storageHistory, resources, usageHistory, legendValue) {
+    const now = Date.now();
+    const resourcesList = Object.values(resources);
+    const storageList = resourcesList.map(item => item.storage);
+    const currentStorage = aggregateStorage(...storageList);
+
+    usageHistory([ ...storageHistory, {
+        timestamp: now,
+        storages: storageList
+    }]);
+    legendValue(formatSize(currentStorage.used || 0));
+}
+
 function interpolateSamples(sample0, sample1, time) {
     const t = (time - sample0.timestamp) / (sample1.timestamp - sample0.timestamp);
     return interpolateStorage(sample0.storage, sample1.storage, t);
 }
 
-function filterSamples(samples, start, end, includeCloudStorage) {
+function filterSamples(samples, start, end) {
     // We clone the array before sorting because Array.sort changes the
     // array and will not work if the array is immutable.
     const sorted = Array.from(samples).sort(
@@ -93,9 +118,12 @@ function filterSamples(samples, start, end, includeCloudStorage) {
     }
 
     const aggregated = filtered.map(
-        ({ timestamp, cloud, nodes }) => {
-            const storage = includeCloudStorage ? aggregateStorage(nodes, cloud) : nodes;
-            return { timestamp,  storage };
+        ({ timestamp, storages }) => {
+            const storage = aggregateStorage(...storages);
+            if(!storage.used) {
+                storage.used = 0;
+            }
+            return { timestamp, storage };
         }
     );
 
@@ -118,18 +146,11 @@ function filterSamples(samples, start, end, includeCloudStorage) {
     return aggregated;
 }
 
-function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
+function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat, timezone) {
     const gutter = parseInt(style['gutter']);
 
-    const useFixedMax = samples.every(
-        ({ storage }) => toBytes(storage.free || 0) === 0  &&
-            toBytes(storage.unavailable_free || 0) === 0 &&
-            toBytes(storage.used || 0) === 0
-    );
-
-    const cluster = systemInfo().cluster;
-    const { timezone } = cluster.shards[0].servers.find(
-        ({ secret }) => secret === cluster.master_secret
+    const useFixedMax = samples.pools.every(
+        ({ storage }) => toBytes(toBytes(storage.used || 0) === 0)
     );
 
     const formatFunc = isFunction(tickFormat) ? tickFormat : () => tickFormat;
@@ -165,7 +186,7 @@ function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
             ],
             yAxes: [
                 {
-                    stacked: true,
+                    stacked: false,
                     gridLines: {
                         color: style['color15']
                     },
@@ -217,6 +238,7 @@ function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
 }
 
 function getChartData(samples, pointRadius) {
+    console.warn('samples', samples);
     const datasets = chartDatasets.map(
         ({ key, color, fill }) => ({
             lineTension: 0,
@@ -225,101 +247,92 @@ function getChartData(samples, pointRadius) {
             backgroundColor: fill,
             pointRadius: pointRadius,
             pointHitRadius: 10,
-            data: samples.map(
+            data: samples[key].map(
                 ({ timestamp, storage }) => ({
                     x: timestamp,
-                    y: toBytes(storage[key]),
+                    y: toBytes(storage.used || 0),
                     radius: 10
                 })
             )
         })
     );
-
+    console.warn('datasets', datasets);
     return { datasets };
 }
 
 
-class BucketsOverviewViewModel extends BaseViewModel {
+class BucketsOverviewViewModel extends Observer {
     constructor() {
         super();
 
-        // This cannot be declered as constant because the value need to be updated
-        // to the time the component is instantize so it will not be too stale.
-        this.now = Date.now();
-
-        this.bucketCount = ko.pureComputed(
-            () => {
-                const count = (systemInfo() ? systemInfo().buckets : []).length;
-                return stringifyAmount('Bucket', count, 'No');
-            }
+        const query = ko.pureComputed(
+            () => routeContext().query || {}
         );
+
+        this.selectedDuration = ko.pureComputed({
+            read: () => query().duration || durationOptions[0].value,
+            write: value => this.selectDuration(value)
+        });
+
+        this.bucketsCount = ko.observable();
 
         this.durationOptions = durationOptions;
-        this.selectedDuration = ko.observable(durationOptions[0].value);
-        this.includeCloudStorage = ko.observable(false);
-
-        const currentUsage = ko.pureComputed(
-            () => {
-                const { HOSTS: nodes = [], CLOUD: cloud = [] } = groupBy(
-                    systemInfo() ? systemInfo().pools : [],
-                    pool => pool.resource_type,
-                    pool => pool.storage
-                );
-
-                return {
-                    timestamp: this.now,
-                    nodes: aggregateStorage(...nodes),
-                    cloud: aggregateStorage(...cloud)
-                };
-            }
-        );
+        this.poolsUsageHistory = ko.observable([]);
+        this.cloudUsageHistory = ko.observable([]);
+        this.internalUsageHistory = ko.observable([]);
 
         this.legendItems = chartDatasets.map(
             ({ label, color, key }) => {
-                const value = ko.pureComputed(
-                    () => {
-                        const { nodes, cloud } = currentUsage();
-                        return this.includeCloudStorage() ?
-                            sumSize(nodes[key] || 0, cloud[key] || 0) :
-                            nodes[key] || 0;
-                    }
-                ).extend({
-                    formatSize: true
-                });
-
-                return { color, label, value };
+                const value = ko.observable();
+                return { color, label, value, key };
             }
         );
 
-        this.chart = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return { options: {}, data: {} };
-                }
-
-                const { duration, stepSize, stepUnit, tickFormat,
-                    pointRadius } = this.selectedDuration();
-
-                const t = moment(this.now).add(1, stepUnit).startOf(stepUnit);
-                const end = t.valueOf();
-                const start = t.subtract(duration, stepUnit).startOf(stepUnit).valueOf();
-                const samples = filterSamples(
-                    (systemUsageHistory() || []).concat(currentUsage()),
-                    start,
-                    end,
-                    this.includeCloudStorage()
-                );
-
-                return {
-                    options: getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat),
-                    data: getChartData(samples, pointRadius)
-                };
-            }
-        );
+        this.chart = ko.observable({ options: {}, data: {} });
 
         this.isConnectApplicationWizardVisible = ko.observable(false);
 
-        loadSystemUsageHistory();
+        fetchResourceStorageHistory();
+        this.observe(state$.getMany('nodePools', 'cloudResources', 'internalResources', 'buckets', 'cluster'), this.onLoad);
+    }
+
+    onLoad([nodePools, cloudResources, internalResources, buckets, cluster]) {
+        prepareStoreData(nodePools.storageHistory, nodePools.pools, this.poolsUsageHistory, this.legendItems[0].value);
+        prepareStoreData(cloudResources.storageHistory, cloudResources.resources, this.cloudUsageHistory, this.legendItems[1].value);
+        prepareStoreData(internalResources.storageHistory, internalResources.resources, this.internalUsageHistory, this.legendItems[2].value);
+        const bucketsList = Object.values(buckets);
+
+        this.bucketsCount(stringifyAmount('Bucket', bucketsList.length, 'No'));
+        const { duration, stepSize, stepUnit, tickFormat,
+            pointRadius } = durationSettings[this.selectedDuration()];
+
+        const t = moment(Date.now()).add(1, stepUnit).startOf(stepUnit);
+        const end = t.valueOf();
+        const start = t.subtract(duration, stepUnit).startOf(stepUnit).valueOf();
+        const pools = filterSamples(
+            this.poolsUsageHistory(),
+            start,
+            end
+        );
+
+        const cloud = filterSamples(
+            this.cloudUsageHistory(),
+            start,
+            end
+        );
+
+        const internal = filterSamples(
+            this.internalUsageHistory(),
+            start,
+            end
+        );
+
+        const samples = { pools, cloud, internal };
+
+        this.chart({
+            options: getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat, cluster.masterTimezone),
+            data: getChartData(samples, pointRadius)
+        });
     }
 
     showConnectApplicationWizard() {
@@ -328,6 +341,10 @@ class BucketsOverviewViewModel extends BaseViewModel {
 
     hideConnectApplicationWizard() {
         this.isConnectApplicationWizardVisible(false);
+    }
+
+    selectDuration(duration) {
+        redirectTo(undefined, undefined, { ...routeContext().query, duration });
     }
 }
 

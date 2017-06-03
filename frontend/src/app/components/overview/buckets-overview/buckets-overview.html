@@ -4,7 +4,7 @@
     <h2 class="heading3 row content-middle">
         <span class="greedy">Data Buckets</span>
         <a class="link" data-bind="
-            text: bucketCount,
+            text: bucketsCount,
             href: { route: 'buckets' }
         "></a>
     </h2>
@@ -17,11 +17,6 @@
             selected: selectedDuration
         "></toggle-filter>
     </div>
-
-    <checkbox class="cloud-filter" params="
-        checked: includeCloudStorage,
-        label: 'Include cloud storage'
-    "></checkbox>
 
     <chart-legend  params="items: legendItems"></chart-legend>
 

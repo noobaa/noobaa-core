@@ -2,12 +2,13 @@
 
 import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
+import { aggregateStorage } from 'utils/storage-utils';
 import { navigateTo } from 'actions';
-import { systemInfo, routeContext } from 'model';
 import { inputThrottle } from 'config';
+import { state$ } from 'state';
 
 const columns = deepFreeze([
     {
@@ -31,15 +32,20 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'cloudStorage',
-        type: 'cloud-storage'
+        name: 'resourcesInPolicy',
+        type: 'resources-in-policy',
+        sortable: true
+    },
+    {
+        name: 'spilloverUsage',
+        sortable: true
     },
     {
         name: 'cloudSync',
         sortable: true
     },
     {
-        name: 'capacity',
+        name: 'usedCapacity',
         label: 'used capacity',
         type: 'capacity',
         sortable: true
@@ -53,95 +59,86 @@ const columns = deepFreeze([
 ]);
 
 function generatePlacementSortValue(bucket) {
-    const tierName = bucket.tiering.tiers[0].tier;
-    const { data_placement, attached_pools } = systemInfo() && systemInfo().tiers.find(
-        tier => tier.name === tierName
-    );
+    const { type, resources } = bucket.backingResources;
+
     return [
-        data_placement === 'SPREAD' ? 0 : 1,
-        attached_pools.length
+        type === 'SPREAD' ? 0 : 1,
+        resources.length
     ];
 }
 
+function spilloverUsage(bucket) {
+    return aggregateStorage(
+        ...bucket.backingResources.spillover
+            .map(s => ({ used: s.used }))
+    ).used;
+}
+
 const compareAccessors = deepFreeze({
-    state: bucket => bucket.state,
+    state: bucket => bucket.writable,
     name: bucket => bucket.name,
-    fileCount: bucket => bucket.num_objects,
-    capacity: bucket => bucket.storage.values.used,
-    cloudSync: bucket => bucket.cloud_sync_status,
+    fileCount: bucket => bucket.objectsCount,
+    resourcesInPolicy: bucket => bucket.backingResources.resources,
+    spilloverUsage: spilloverUsage,
+    usedCapacity: bucket => bucket.storage.values.used,
+    cloudSync: bucket => bucket.cloudSyncStatus,
     placementPolicy: generatePlacementSortValue
 });
 
-class BucketsTableViewModel extends BaseViewModel {
+class BucketsTableViewModel extends Observer {
     constructor() {
         super();
 
         this.columns = columns;
-
-        const query = ko.pureComputed(
-            () => routeContext().query || {}
-        );
-
-        this.filter = ko.pureComputed({
-            read: () => query().filter,
-            write: throttle(phrase => this.filterBuckets(phrase), inputThrottle)
-        });
-
-        this.sorting = ko.pureComputed({
-            read: () => ({
-                sortBy: query().sortBy || 'name',
-                order: Number(query().order) || 1
-            }),
-            write: value => this.orderBy(value)
-        });
-
-        this.buckets = ko.pureComputed(
-            () => {
-                const { sortBy, order } = this.sorting();
-                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
-
-                return systemInfo() && systemInfo().buckets
-                    .filter(
-                        ({ name }) => name.toLowerCase().includes(
-                            (this.filter() || '').toLowerCase()
-                        )
-                    )
-                    .sort(compareOp);
-            }
-        );
-
-        this.hasSingleBucket = ko.pureComputed(
-            () => systemInfo() && systemInfo().buckets.length === 1
-        );
-
+        this.filter = ko.observable();
+        this.sorting = ko.observable();
+        this.rows = ko.observable([]);
         this.deleteGroup = ko.observable();
         this.isCreateBucketWizardVisible = ko.observable(false);
-    }
 
-    newBucketRow(bucket) {
-        return new BucketRowViewModel(
-            bucket,
-            this.deleteGroup,
-            this.hasSingleBucket
+        this.observe(
+            state$.getMany(
+                ['nodePools', 'pools'],
+                ['cloudResources', 'resources'],
+                ['internalResources', 'resources'],
+                'buckets',
+                ['location', 'query']
+            ),
+            this.onState
         );
     }
 
-    orderBy({ sortBy, order }) {
-        this.deleteGroup(null);
+    onState([pools, cloud, internal, buckets, query]) {
+        const bucketsList = Object.values(buckets);
+        const { filter } = query;
 
-        const filter = this.filter() || undefined;
-        navigateTo(undefined, undefined, { filter, sortBy, order });
-    }
+        const poolByName = { ...pools, ...cloud, ...internal };
+        const canSort = Object.keys(compareAccessors).includes(query.sortBy);
+        const sortBy = (canSort && query.sortBy) || 'name';
+        const order = (canSort && Number(query.order)) || 1;
 
-    filterBuckets(phrase) {
-        this.deleteGroup(null);
+        const compareOp = createCompareFunc(compareAccessors[sortBy], order);
+        const sortedBuckets = bucketsList
+            .filter(
+                ({ name }) => name.toLowerCase().includes(
+                    (filter || '').toLowerCase()
+                )
+            )
+            .sort(compareOp);
 
-        const params = Object.assign(
-            { filter: phrase || undefined },
-            this.sorting()
-        );
+        this.rows(sortedBuckets.map((bucket, i) => {
+            const row = this.rows()[i] || new BucketRowViewModel();
+            row.onUpdate({
+                bucket,
+                poolByName,
+                deleteGroup: this.deleteGroup,
+                isLastBucket: bucketsList.length === 1
+            });
+            return row;
+        }));
 
-        navigateTo(undefined, undefined, params);
+        this.filter(filter);
+        this.sorting({ sortBy, order });
     }
 
     showCreateBucketWizard() {
@@ -150,6 +147,34 @@ class BucketsTableViewModel extends BaseViewModel {
 
     hideCreateBucketWizard() {
         this.isCreateBucketWizardVisible(false);
+    }
+
+    filterBuckets() {
+        return ko.pureComputed({
+            read: this.filter,
+            write: throttle(phrase => {
+                const { sortBy, order } = this.sorting();
+                const filter = phrase || undefined;
+
+                this.deleteGroup(null);
+                navigateTo(undefined, undefined, { filter, sortBy, order });
+            }, inputThrottle)
+        });
+    }
+
+    orderBy() {
+        return ko.pureComputed({
+            read: () => ({
+                sortBy: this.sorting().sortBy,
+                order: Number(this.sorting().order)
+            }),
+            write: ({ sortBy, order }) => {
+                const filter = this.filter();
+
+                this.deleteGroup(null);
+                navigateTo(undefined, undefined, { filter, sortBy, order });
+            }
+        });
     }
 }
 

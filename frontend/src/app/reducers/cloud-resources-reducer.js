@@ -23,6 +23,7 @@ function onCompleteFetchSystemInfo(cloudResources, { payload }) {
     const { pools, buckets, tiers } = payload;
 
     const bucketsByPools = _mapPoolsToBuckets(buckets, tiers);
+
     const resources = keyByProperty(
         pools.filter(pool => pool.resource_type === 'CLOUD'),
         'name',

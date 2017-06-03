@@ -107,6 +107,8 @@ export default function register(ko) {
     ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
     ko.components.register('bucket-s3-access-table',        require('./bucket/bucket-s3-access-table/bucket-s3-access-table').default);
     ko.components.register('bucket-namespace-form',         require('./bucket/bucket-namespace-form/bucket-namespace-form').default);
+    ko.components.register('bucket-spillover',              require('./bucket/bucket-spillover/bucket-spillover').default);
+    ko.components.register('bucket-data-placement-table',   require('./bucket/bucket-data-placement-table/bucket-data-placement-table').default);
     /** INJECT:bucket **/
 
     // -------------------------------
@@ -135,6 +137,7 @@ export default function register(ko) {
     ko.components.register('create-pool-wizard',        require('./resources/create-pool-wizard/create-pool-wizard').default);
     ko.components.register('cloud-resources-table',     require('./resources/cloud-resources-table/cloud-resources-table').default);
     ko.components.register('external-resources-table',  require('./resources/external-resources-table/external-resources-table').default);
+    ko.components.register('internal-resources-table',  require('./resources/internal-resources-table/internal-resources-table').default);
     /** INJECT:resources **/
 
     // -------------------------------

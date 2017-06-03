@@ -333,7 +333,7 @@ class BucketsOverviewViewModel extends Observer {
         this.chart.data(getChartData(samples, pointRadius));
 
         const bucketCount = Object.values(buckets).length;
-        
+
         this.bucketCount(stringifyAmount('Bucket', bucketCount, 'No'));
     }
 

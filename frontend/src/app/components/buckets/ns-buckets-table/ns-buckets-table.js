@@ -60,7 +60,10 @@ class NSBucketsTableViewModel extends Observer {
     }
 
     onBuckets([ buckets, query ]) {
-        const { sortBy = 'name', order = 1 } = query;
+        const canSort = !!columns.find(col => col.name === query.sortBy);
+        const sortBy = (canSort && query.sortBy) || 'name';
+        const order = (canSort && Number(query.order)) || 1;
+
         this.sorting({ sortBy, order });
 
         const { compareKey } = columns.find(col => col.name === sortBy);

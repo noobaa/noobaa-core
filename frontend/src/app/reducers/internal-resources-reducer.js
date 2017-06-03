@@ -20,13 +20,14 @@ const initialState = {
 // ------------------------------
 function onCompleteFetchSystemInfo(internalResources, { payload }) {
     const { pools } = payload;
-
     const resources = keyByProperty(
         pools.filter(pool => pool.resource_type === 'INTERNAL'),
         'name',
-        ({ name, storage }) => ({
+        ({ name, storage, resource_type, mode }) => ({
             name,
-            storage: storage
+            resource_type,
+            mode,
+            storage
         })
     );
 

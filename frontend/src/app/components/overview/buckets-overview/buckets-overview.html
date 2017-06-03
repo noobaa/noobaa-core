@@ -25,14 +25,10 @@
         data: chart.data
     "></chartjs>
 
-    <button class="btn overview-btn" data-bind="
-        click: () => showConnectApplicationWizard()
-    ">
+    <button class="btn overview-btn" ko.click="showConnectApplicationWizard">
         Connect Application
     </button>
 </section>
-
-
 
 <!-- ko if: isConnectApplicationWizardVisible -->
 <connect-app-wizard params="onClose: () => hideConnectApplicationWizard()">

@@ -1,0 +1,17 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<data-table class="placement-table greedy" params="
+        columns: placementTableColumns,
+        data: rows,
+        emptyMessage: 'No resources participate in policy'
+    ">
+    <template name="custom-link">
+        <!-- ko if: $data().href -->
+        <a class="link" ko.text="$data().text" ko.attr.href="$data().href"></a>
+        <!-- /ko -->
+        <!-- ko ifnot: $data().href -->
+        <span data-bind="text: $data().text"></span>
+        <!-- /ko -->
+    </template>
+
+</data-table>

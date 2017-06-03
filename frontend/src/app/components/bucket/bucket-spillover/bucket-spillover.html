@@ -1,0 +1,18 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row alt-bg pad content-middle">
+    <div class="column greedy">
+        <h3 class="heading3">Bucket Spillover</h3>
+        <span>Automatically used when this bucket storage is not enough to store new data.</span>
+    </div>
+    <button class="btn align-end"
+            ko.click="onChangeSpilloverState"
+            ko.text="ChangeSpilloverButtonText">
+    </button>
+</div>
+
+<data-table class="greedy" ko.css.disabled="tableDisabled" params="
+    columns: columns,
+    data: rows,
+    emptyMessage: emptyMessage
+"></data-table>

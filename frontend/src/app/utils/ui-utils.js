@@ -18,7 +18,7 @@ const nodeStateIconMapping = deepFreeze({
     INITALIZING: {
         name: 'working',
         css: 'warning',
-        tooltip: 'Initalizing'
+        tooltip: 'Initializing'
     },
     DELETING: {
         name: 'working',
@@ -86,7 +86,7 @@ export function getNodeStateIcon(node) {
     return nodeStateIconMapping[node.mode];
 }
 
-const poolStateIconMapping = deepFreeze({
+const hostsStateIconMapping = deepFreeze({
     HAS_NO_NODES: {
         tooltip: 'Pool is empty',
         css: 'error',
@@ -140,7 +140,7 @@ const poolStateIconMapping = deepFreeze({
     }
 });
 
-const resourceStateIconMapping = deepFreeze({
+const cloudStateIconMapping = deepFreeze({
     OPTIMAL: {
         tooltip: 'Healthy',
         css: 'success',
@@ -179,11 +179,35 @@ const resourceStateIconMapping = deepFreeze({
     }
 });
 
+const internalStateIconMapping = deepFreeze({
+    OPTIMAL: {
+        tooltip: 'Healthy',
+        css: 'success',
+        name: 'healthy',
+    },
+    ALL_NODES_OFFLINE: {
+        tooltip: 'Resource is offline',
+        css: 'error',
+        name: 'problem',
+    },
+    IO_ERRORS: {
+        tooltip: 'Resource has Read/Write problems',
+        css: 'error',
+        name: 'problem',
+    },
+    INITALIZING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Initializing'
+    },
+});
+
 export function getPoolStateIcon(pool) {
     const { resource_type, mode } = pool;
     const mapping = {
-        HOSTS: poolStateIconMapping,
-        CLOUD: resourceStateIconMapping
+        HOSTS: hostsStateIconMapping,
+        CLOUD: cloudStateIconMapping,
+        INTERNAL: internalStateIconMapping
     }[resource_type];
 
     if (!mapping) {
@@ -212,18 +236,29 @@ const resourceTypeIconMapping = deepFreeze({
 
     NODES_POOL: {
         name: 'nodes-pool',
-        tooltip: 'Nodes Pool'
+        tooltip: 'Nodes pool'
+    },
+
+    INTERNAL: {
+        name: 'internal-resource',
+        tooltip: 'Internal resource'
+    },
+
+    CLOUD: {
+        name: 'cloud-resources',
+        tooltip: 'Cloud resource'
     }
 });
 
-export function getResourceTypeIcon({ resource_type, cloud_info }) {
+export function getResourceTypeIcon(resourceType, subResourceType) {
     const type = {
         HOSTS: () => 'NODES_POOL',
-        CLOUD: () => cloud_info.endpoint_type
-    }[resource_type];
+        CLOUD: () => subResourceType ? subResourceType : 'CLOUD',
+        INTERNAL: () => 'INTERNAL'
+    }[resourceType];
 
     if (!type) {
-        throw new Error(`Resource type icon is not supported for resource of type ${resource_type}`);
+        throw new Error(`Resource type icon is not supported for resource of type ${resourceType}`);
     }
 
     return resourceTypeIconMapping[type()];
@@ -299,6 +334,18 @@ export function getNodeCapacityBarValues(node) {
     return { total, used: usage };
 }
 
+export function getBucketCapacityBarValues(node) {
+    const { storage = {} } = node;
+    const { total, used, used_other, reserved } = storage.values;
+    const usage = [
+        { value: used, label: 'Used (Noobaa)' },
+        { value: used_other, label: 'Used (other)' },
+        { value: reserved || 0, label: 'Reserved' }
+    ];
+
+    return { total, used: usage };
+}
+
 export function getPoolCapacityBarValues(resource) {
     const { storage = {} } = resource;
     const { total, used, used_other, reserved } = storage;
@@ -309,7 +356,8 @@ export function getPoolCapacityBarValues(resource) {
             { value: used_other, label: 'Used (other)' },
             { value: reserved, label: 'Reserved' }
         ],
-        CLOUD: used
+        CLOUD: used,
+        INTERNAL: used
     }[resource.resource_type];
 
     if (isUndefined(usage)) {

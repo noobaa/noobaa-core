@@ -48,7 +48,7 @@ function onCompleteFetchSystemUsageHistory(nodePools, { payload }) {
     const storageHistory = history.map(
         ({timestamp, pool_list }) => {
             const samples = keyByProperty(pool_list
-                .filter(pool => pool.resource_type === 'HOSTS'),
+                    .filter(pool => pool.resource_type === 'HOSTS'),
                 'name',
                 ({ storage }) => storage
             );

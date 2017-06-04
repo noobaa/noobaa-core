@@ -35,6 +35,11 @@ const upgrade_utils = require('../../util/upgrade_utils');
 const phone_home_utils = require('../../util/phone_home');
 
 
+// TODO: maybe we need to change it to use upgrade status in DB.
+// currently use this memory only flag to indicate if upgrade is still in process
+let upgrade_in_process = false;
+
+
 function _init() {
     return P.resolve(MongoCtrl.init());
 }
@@ -1063,10 +1068,17 @@ function do_upgrade(req) {
     }
     let filepath = server.upgrade.path;
     //Async as the server will soon be restarted anyway
-    upgrade_utils.do_upgrade(filepath, server.is_clusterized);
-    return;
+    const on_err = err => {
+        dbg.error('upgrade scripted failed. Aborting upgrade:', err);
+        upgrade_in_process = false;
+    };
+    upgrade_utils.do_upgrade(filepath, server.is_clusterized, on_err);
 }
 
+
+function get_upgrade_status(req) {
+    return { in_process: upgrade_in_process };
+}
 
 function upgrade_cluster(req) {
     dbg.log0('UPGRADE got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
@@ -1075,6 +1087,7 @@ function upgrade_cluster(req) {
     let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== cinfo.owner_address);
     dbg.log0('UPGRADE:', 'secondaries =', secondary_members);
     // upgrade can only be called from master. throw error otherwise
+    upgrade_in_process = true;
     return P.fcall(() => {
             if (cinfo.is_clusterized) {
                 return MongoCtrl.is_master()
@@ -1152,6 +1165,11 @@ function upgrade_cluster(req) {
             return server_rpc.client.cluster_internal.do_upgrade({
                 filepath: req.rpc_params.filepath
             });
+        })
+        .catch(err => {
+            dbg.error('got error on cluster upgrade', err);
+            upgrade_in_process = false;
+            throw err;
         });
 }
 
@@ -1753,4 +1771,5 @@ exports.verify_join_conditions = verify_join_conditions;
 exports.update_server_conf = update_server_conf;
 exports.set_hostname_internal = set_hostname_internal;
 exports.get_version = get_version;
+exports.get_upgrade_status = get_upgrade_status;
 exports.update_member_of_cluster = update_member_of_cluster;

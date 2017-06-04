@@ -21,7 +21,8 @@ function pre_upgrade(upgrade_file) {
     };
 }
 
-function do_upgrade(upgrade_file, is_clusterized) {
+function do_upgrade(upgrade_file, is_clusterized, err_handler) {
+    err_handler = err_handler || dbg.error;
     dbg.log0('UPGRADE file', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
     var fsuffix = new Date()
         .toISOString()
@@ -34,7 +35,7 @@ function do_upgrade(upgrade_file, is_clusterized) {
     // remove /tmp/test/ before calling upgrade.sh
     fs_utils.folder_delete('/tmp/test/');
     dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file, 'fsuffix', fsuffix, cluster_str);
-    spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh',
+    let upgrade_proc = spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh',
         'from_file', upgrade_file,
         'fsuffix', fsuffix,
         cluster_str
@@ -43,6 +44,13 @@ function do_upgrade(upgrade_file, is_clusterized) {
         stdio: ['ignore', stdout, stderr],
         cwd: '/tmp'
     });
+    upgrade_proc.on('exit', (code, signal) => {
+        // upgrade.sh is supposed to kill this node process, so it should not exit while
+        // this node process is still running. treat exit as error.
+        const err_msg = `upgrade.sh process was closed with code ${code} and signal ${signal}`;
+        err_handler(err_msg);
+    });
+    upgrade_proc.on('error', err_handler);
 }
 
 //Exports

@@ -312,6 +312,23 @@ module.exports = {
             }
         },
 
+        get_upgrade_status: {
+            doc: 'get the status of cluster upgrade',
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['in_process'],
+                properties: {
+                    in_process: {
+                        type: 'boolean'
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
         set_hostname_internal: {
             method: 'POST',
             params: {

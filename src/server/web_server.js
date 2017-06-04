@@ -108,10 +108,6 @@ var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
 
-// TODO: chang this. a temp fix to block /version until upgrade is finished
-// this is not cleared if upgrade fails, and will block UI until browser refresh.
-// maybe we need to change it to use upgrade status in DB.
-let shutting_down = false;
 let webserver_started = 0;
 
 P.fcall(function() {
@@ -216,7 +212,6 @@ app.post('/upgrade',
         var upgrade_file = req.file;
         dbg.log0('got upgrade file:', upgrade_file);
         dbg.log0('calling cluster.upgrade_cluster()');
-        shutting_down = true;
         server_rpc.client.cluster_internal.upgrade_cluster({
             filepath: upgrade_file.path
         });
@@ -349,23 +344,32 @@ app.get('/version', function(req, res) {
         started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
     }
 
-    if (started && registered && !shutting_down) {
-        return server_rpc.client.account.accounts_status(undefined, {
-                address: 'http://127.0.0.1:' + http_port
-            })
-            .then(sys => {
-                dbg.log0(`/version returning ${pkg.version}, service registered and not shutting down`);
-                res.send(pkg.version);
-                res.end();
-            })
-            .catch(err => {
-                dbg.log0(`/version caught ${err} on read system, returning 404`);
+    return (server_rpc.client.cluster_internal.get_upgrade_status())
+        .then(status => {
+            if (started && registered && !status.in_process) {
+                return server_rpc.client.account.accounts_status(undefined, {
+                        address: 'http://127.0.0.1:' + http_port
+                    })
+                    .then(sys => {
+                        dbg.log0(`/version returning ${pkg.version}, service registered and upgrade is not in progress`);
+                        res.send(pkg.version);
+                        res.end();
+                    })
+                    .catch(err => {
+                        dbg.log0(`/version caught ${err} on read system, returning 404`);
+                        res.status(404).end();
+                    });
+            } else {
+                dbg.log0(`/version returning 404, service_registered ${registered}, status.in_progress ${status.in_progress}`);
                 res.status(404).end();
-            });
-    } else {
-        dbg.log0(`/version returning 404, service_registered ${registered}, shutting_down ${shutting_down}`);
-        res.status(404).end();
-    }
+            }
+        })
+        .catch(err => {
+            dbg.error(`got error when checking upgrade status. returning 404`, err);
+            res.status(404).end();
+        });
+
+
 });
 
 ////////////

@@ -30,6 +30,8 @@ mocha.describe('system_servers', function() {
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
     const CLOUD_SYNC_CONNECTION = 'Connection 1';
+    const SERVER_RESTART_DELAY = 10000;
+    let server_secret = '';
 
     const client = coretest.new_test_client();
 
@@ -61,11 +63,9 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.account.list_accounts())
             .then(() => client.system.read_system())
-            .then(() => {
-                return client.system.update_system({
-                    name: SYS1,
-                });
-            })
+            .then(() => client.system.update_system({
+                name: SYS1,
+            }))
             .then(() => client.account.update_account({
                 email: EMAIL,
                 name: SYS1,
@@ -97,7 +97,10 @@ mocha.describe('system_servers', function() {
                 email: EMAIL1
             }))
             .then(() => client.system.read_system())
-            .then(() => client.system.list_systems())
+            .then(res => {
+                server_secret = res.cluster.master_secret;
+                return client.system.list_systems();
+            })
             .then(() => client.events.read_activity_log({
                 limit: 2016
             }))
@@ -110,24 +113,23 @@ mocha.describe('system_servers', function() {
                 password: PASSWORD,
                 system: SYS,
             }))
-            .then(() => {
-                return P.resolve(client.system.read_system())
-                    .then(res => client.auth.create_access_key_auth({
-                        access_key: res.owner.access_keys[0].access_key,
-                        string_to_sign: '',
-                        signature: s3_auth.sign(res.owner.access_keys[0].secret_key, '')
-                    }).then(() => res))
-                    .then(res => client.auth.create_access_key_auth({
-                        access_key: res.owner.access_keys[0].access_key,
-                        string_to_sign: 'blabla',
-                        signature: 'blibli'
-                    }))
-                    .then(
-                        () => assert.ifError('should fail with UNAUTHORIZED'),
-                        err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED')
-                    );
+            .then(() => P.resolve(client.system.read_system())
+                .then(res => client.auth.create_access_key_auth({
+                    access_key: res.owner.access_keys[0].access_key,
+                    string_to_sign: '',
+                    signature: s3_auth.sign(res.owner.access_keys[0].secret_key, '')
+                }).then(() => res))
+                .then(res => client.auth.create_access_key_auth({
+                    access_key: res.owner.access_keys[0].access_key,
+                    string_to_sign: 'blabla',
+                    signature: 'blibli'
+                }))
+                .then(
+                    () => assert.ifError('should fail with UNAUTHORIZED'),
+                    err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED')
+                )
 
-            })
+            )
             //////////////
             //  SYSTEM  //
             //////////////
@@ -141,7 +143,35 @@ mocha.describe('system_servers', function() {
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
             )
             //.then(() => client.system.start_debug({level:0}))
+            .then(() => client.cluster_server.update_time_config({
+                epoch: Math.round(Date.now() / 1000),
+                target_secret: server_secret,
+                timezone: "Asia/Jerusalem"
+            }))
+            .then(() => client.cluster.update_dns_servers({
+                target_secret: server_secret,
+                dns_servers: ['8.8.8.8']
+            }))
+            .delay(SERVER_RESTART_DELAY)
+            .then(() => client.cluster.update_dns_servers({
+                target_secret: server_secret,
+                dns_servers: ['8.8.8.8', '8.8.4.4']
+            }))
+            .delay(SERVER_RESTART_DELAY)
+            .then(() => client.cluster_server.update_time_config({
+                target_secret: server_secret,
+                ntp_server: 'pool.ntp.org'
+            }))
+            .then(() => client.cluster.update_dns_servers({
+                target_secret: server_secret,
+                dns_servers: ['8.8.8.8', '8.8.4.4'],
+                search_domains: ['noobaa']
+            }))
+            .delay(SERVER_RESTART_DELAY)
             .then(() => client.cluster_server.diagnose_system({}))
+            .then(() => client.cluster_server.diagnose_system({
+                target_secret: server_secret,
+            }))
             .then(() => client.system.update_system({
                 name: SYS1,
             }))

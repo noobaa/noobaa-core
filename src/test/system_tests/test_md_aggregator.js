@@ -13,7 +13,7 @@ const util = require('util');
 dotenv.load();
 
 const SERVICES_WAIT_IN_SECONDS = 30;
-// TODO: This was implemented to work on local servers only
+//This was implemented to work on local servers only
 // The reason is that there is no component to control the services remotely
 // If there will be a component in the future just change the method control_services
 argv.ip = argv.ip || '127.0.0.1';
@@ -112,20 +112,17 @@ function init_system_to_ntp() {
         .then(() => {
             console.log('supervisorctl shutdown successfully');
             return os_utils.get_time_config()
-                .then(res => {
-                    return os_utils.set_ntp('pool.ntp.org', res.timezone || '')
+                .then(res => os_utils.set_ntp('pool.ntp.org', res.timezone || '')
                         .then(() => {
                             console.log('update_time_config updated to ntp');
                         })
                         .catch(err => {
                             console.error('update_time_config to ntp failed', err);
                             throw err;
-                        });
-                });
+                        }));
         })
         .delay(10000)
-        .finally(() => {
-            return P.resolve()
+        .finally(() => P.resolve()
                 .then(() => {
                     console.log('start supervisord');
                     return promise_utils.exec('/etc/init.d/supervisord start', false, false);
@@ -142,8 +139,7 @@ function init_system_to_ntp() {
                 .catch(function(err) {
                     console.error('init_system_to_ntp had an error', err);
                     throw err;
-                });
-        });
+                }));
 }
 
 function prepare_buckets_with_objects() {
@@ -240,7 +236,7 @@ function run_test() {
             sys_res.buckets.forEach(bucket => {
                 if (String(bucket.name) !== 'first.bucket') {
                     storage_by_bucket[bucket.name] = {
-                        // TODO: Should include objects count, maybe histogram also
+                        //Should include objects count, maybe histogram also
                         chunks_capacity: bucket.data.size_reduced,
                         objects_size: bucket.data.size,
                         blocks_size: bucket.storage.used

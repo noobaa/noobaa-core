@@ -96,7 +96,6 @@ class Dispatcher {
 
     //Alerts
     alert(sev, sysid, alert, rule) {
-        dbg.log3('Sending alert', alert);
         return P.resolve()
             .then(() => {
                 if (rule) {
@@ -106,6 +105,7 @@ class Dispatcher {
             })
             .then(should_alert => {
                 if (should_alert) {
+                    dbg.log0('Sending alert', alert);
                     return AlertsLogStore.instance().create({
                             system: sysid,
                             severity: sev,

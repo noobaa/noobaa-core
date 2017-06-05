@@ -23,6 +23,7 @@ const os_utils = require('../util/os_utils');
 const Semaphore = require('../util/semaphore');
 const json_utils = require('../util/json_utils');
 const promise_utils = require('../util/promise_utils');
+const config = require('../../config');
 
 module.exports = AgentCLI;
 
@@ -113,6 +114,13 @@ AgentCLI.prototype.init = function() {
         })
         .then(() => os_utils.get_disk_mount_points())
         .then(function(mount_points) {
+            mount_points = mount_points.filter(mnt => {
+                if (mnt.storage.total < config.MINIMUM_AGENT_TOTAL_STORAGE) {
+                    dbg.log0(`ignoring mount ${mnt.mount}. not enought storage ${mnt.storage.total} (less than 15GB)`);
+                    return false;
+                }
+                return true;
+            });
             self.params.root_path = mount_points[0].mount;
 
             dbg.log0('root path:', self.params.root_path);
@@ -176,6 +184,7 @@ AgentCLI.prototype.detect_new_drives = function() {
 
     return os_utils.get_disk_mount_points()
         .then(added_mount_points => {
+            added_mount_points = added_mount_points.filter(mnt => mnt.storage.total >= config.MINIMUM_AGENT_TOTAL_STORAGE);
             let added_paths = _.differenceWith(added_mount_points, self.params.all_storage_paths,
                 (a, b) => String(a.drive_id) === String(b.drive_id));
             if (_.isEmpty(added_paths)) return P.resolve();

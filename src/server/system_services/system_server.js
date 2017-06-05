@@ -43,6 +43,8 @@ const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
 const system_utils = require('../utils/system_utils');
 const api = require('../../api/api');
+const pem = require('pem');
+const https = require('https');
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -934,6 +936,53 @@ function configure_remote_syslog(req) {
         .return();
 }
 
+function validate_certificate(cert, key) {
+    // Helper function to validate that the newly added certification and private key provided can be used
+    // with the webserver - it will start a dummy https server with the provided settings 
+    // and if for some reason the https server won't be able to start will reject the promise with the error
+    const server_options = {
+        key: key,
+        cert: cert,
+    };
+    const server = https.createServer(server_options, (req, res) => {
+        res.writeHead(200);
+        res.end('Server is up');
+    }); // starting the temp server
+    return P.fromCallback(callback => server.listen(0, callback))
+        .then(() => {
+            dbg.log0('Testing on port', server.address().port);
+            const client_options = {
+                host: '127.0.0.1',
+                port: server.address().port,
+                path: '/',
+                method: 'GET',
+                rejectUnauthorized: false // won't throw exception if the user will upload self-signed ssl ceritificate
+            };
+            return new P((resolve, reject) => {
+                try {
+                    let rq = https.request(client_options, res => {
+                        resolve(res);
+                    });
+                    rq.on('error', err => reject(err));
+                    rq.end();
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        })
+        .then(res => {
+            dbg.log0('Result status code', res.statusCode);
+            if (res.statusCode !== 200) { // just another checkup - will save error to log 
+                dbg.error('Expected Result code to be 200, got', res.statusCode);
+            }
+        })
+        .catch(err => {
+            dbg.error('The provided certificate could not be loaded', err);
+            throw new Error('The provided certificate could not be loaded');
+        })
+        .finally(() => server.close());
+}
+
 function set_certificate(zip_file) {
     const tmp_dir = '/tmp/ssl';
     const dest_dir = '/etc/private_ssl_path';
@@ -957,11 +1006,33 @@ function set_certificate(zip_file) {
         .then(files => {
             const cert_file = _throw_if_not_single_item(files, '.cert');
             const key_file = _throw_if_not_single_item(files, '.key');
-            return promise_utils.exec(`(/usr/bin/openssl x509 -noout -modulus -in ${cert_file} | /usr/bin/openssl md5 ; /usr/bin/openssl rsa -noout -modulus -in ${key_file} | /usr/bin/openssl md5) | uniq | wc -l`,
-                    false, true).then(openssl_res => {
-                    if (openssl_res.trim() !== '1') {
+            let cert_data;
+            let key_data;
+            return P.join(
+                    fs.readFileAsync(`${tmp_dir}/${cert_file}`)
+                    .then(cert => {
+                        cert_data = cert;
+                        return P.fromCallback(callback => pem.getModulus(cert, callback));
+                    })
+                    .catch(err => {
+                        dbg.error('Can\'t read certificate file', err);
+                        throw new Error('Can\'t read certificate file');
+                    }),
+                    fs.readFileAsync(`${tmp_dir}/${key_file}`)
+                    .then(key => {
+                        key_data = key;
+                        return P.fromCallback(callback => pem.getModulus(key, callback));
+                    })
+                    .catch(err => {
+                        dbg.error('Can\'t read private key file', err);
+                        throw new Error('Can\'t read private key file');
+                    })
+                )
+                .spread(function(cert_res, key_res) {
+                    if (cert_res.modulus !== key_res.modulus) {
                         throw new Error('No match between key and certificate');
                     }
+                    return validate_certificate(cert_data, key_data);
                 })
                 .then(() => fs_utils.create_fresh_path(dest_dir))
                 .then(() => P.join(
@@ -971,6 +1042,7 @@ function set_certificate(zip_file) {
         })
         .then(() => {
             Dispatcher.instance().activity({
+                system: system_store.data.systems[0]._id,
                 event: 'conf.set_certificate',
                 level: 'info',
                 desc: `New certificate was successfully set`

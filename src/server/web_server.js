@@ -240,7 +240,7 @@ app.post('/upload_certificate',
     })
     .catch(err => {
         dbg.error('Was unable to set certificate', err);
-        res.status(500).send('Was unable to set certificate (' + err + ' )');
+        res.status(500).send(err.message);
     })
 );
 

@@ -115,9 +115,18 @@ class Dispatcher {
                             this.send_syslog({
                                 description: alert
                             });
-                            return server_rpc.client.redirector.publish_alerts({
-                                request_params: { ids: [res._id] }
-                            });
+                            return P.resolve()
+                                .then(() => {
+                                    let current_clustering = system_store.get_local_cluster_info();
+                                    if (current_clustering && current_clustering.is_clusterized) {
+                                        return server_rpc.client.cluster_internal.redirect_to_cluster_master();
+                                    }
+                                })
+                                .then(ip => server_rpc.client.redirector.publish_alerts({
+                                    request_params: { ids: [res._id] }
+                                }, {
+                                    address: server_rpc.get_base_address(ip)
+                                }));
                         });
                 }
                 dbg.log3('Suppressed', alert);

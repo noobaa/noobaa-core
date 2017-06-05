@@ -51,7 +51,7 @@ class ConfigFileStore {
                 if (!res || !res.result) {
                     return P.reject(new Error('Unkown result from mongo client: ', res));
                 }
-                if (res.result.nModified === 0) {
+                if (res.result.n === 0) {
                     dbg.log0(`item ${item.filename} did not exist in db. Inserted`);
                     return this._config_files.col().insertOne(item);
                 }

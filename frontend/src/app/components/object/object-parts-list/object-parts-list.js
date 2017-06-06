@@ -28,7 +28,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
         );
 
         this.notOwner = ko.pureComputed(
-            () => systemInfo() && systemInfo().owner.email !== sessionInfo().user
+            () => !systemInfo() || (systemInfo().owner.email !== sessionInfo().user)
         );
 
         this.tooltip = ko.pureComputed(
@@ -58,7 +58,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
     }
 
     onDownloadClick() {
-        return false;
+        return !this.notOwner();
     }
 }
 

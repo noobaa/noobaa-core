@@ -9,7 +9,7 @@
     <div class="push-next" ko.tooltip="tooltip">
         <a class="btn" download
             ko.css.disabled="notOwner"
-            ko.click="notOwner() ? onDownloadClick : null"
+            ko.click="onDownloadClick"
             ko.attr.href="s3SignedUrl" >
             Download File
         </a>

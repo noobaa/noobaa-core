@@ -158,11 +158,11 @@ mocha.describe('system_servers', function() {
                 dns_servers: ['8.8.8.8', '8.8.4.4']
             }))
             .delay(SERVER_RESTART_DELAY)
-            // .then(() => client.cluster_server.update_time_config({
-            //     timezone: "Asia/Jerusalem",
-            //     target_secret: server_secret,
-            //     ntp_server: 'pool.ntp.org'
-            // }))
+            .then(() => client.cluster_server.update_time_config({
+                timezone: "Asia/Jerusalem",
+                target_secret: server_secret,
+                ntp_server: 'pool.ntp.org'
+            }))
             .then(() => client.cluster_server.update_dns_servers({
                 target_secret: server_secret,
                 dns_servers: ['8.8.8.8', '8.8.4.4'],

@@ -93,6 +93,11 @@ export default {
                 entityId: ({ bucket }) => bucket && bucket.name
             },
 
+            quota: {
+                message: 'Bucket Quota Configuration',
+                entityId: ({ bucket }) => bucket && bucket.name
+            },
+
             delete_lifecycle_configuration_rules: {
                 message: 'Delete Lifecycle Configuration',
                 entityId: ({ bucket }) => bucket && bucket.name

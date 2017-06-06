@@ -193,10 +193,14 @@ function update_bucket(req) {
         updates.tiering = tiering_policy._id;
     }
     if (!_.isUndefined(quota)) {
+
+        let desc;
+
         if (quota === null) {
             updates.$unset = {
                 quota: 1
             };
+            desc = `Bucket quota was removed from ${bucket.name} by ${req.account && req.account.email}`;
         } else {
             if (quota.size <= 0) {
                 throw new RpcError('BAD_REQUEST', 'quota size must be positive');
@@ -219,7 +223,18 @@ function update_bucket(req) {
                     Dispatcher.rules.once_daily);
                 dbg.warn(`the bucket ${bucket.name} used capacity is more than 90% of the updated quota`);
             }
+            desc = `Quota of ${size_utils.human_size(quota.value)} was set on ${bucket.name} by ${req.account && req.account.email}`;
         }
+
+        Dispatcher.instance().activity({
+            event: 'bucket.quota',
+            level: 'info',
+            system: req.system._id,
+            actor: req.account && req.account._id,
+            bucket: bucket._id,
+            desc
+        });
+
     }
     return system_store.make_changes({
         update: {

@@ -37,7 +37,7 @@ mocha.describe('system_servers', function() {
 
     mocha.it('works', function() {
         const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(60000);
+        self.timeout(90000);
 
         let nodes_list;
         return P.resolve()

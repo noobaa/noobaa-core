@@ -20,7 +20,7 @@ const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
 
 const P = require('../util/promise');
-const http_utils = require('../util/http_utils');
+const ssl_utils = require('../util/ssl_utils');
 const dbg = require('../util/debug_module')(__filename);
 const api = require('../api');
 const config = require('../../config');
@@ -90,7 +90,7 @@ function run_server(options) {
                 port: process.env.S3_PORT || 80,
                 ssl_port: process.env.S3_SSL_PORT || 443,
             });
-            return options.certs || http_utils.get_ssl_certificate();
+            return options.certs || ssl_utils.get_ssl_certificate();
         })
         .then(certificate => {
             params.certificate = certificate;

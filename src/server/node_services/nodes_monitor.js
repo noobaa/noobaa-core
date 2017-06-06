@@ -10,7 +10,7 @@ const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../../util/promise');
-const http_utils = require('../../util/http_utils');
+const ssl_utils = require('../../util/ssl_utils');
 const api = require('../../api');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -183,7 +183,7 @@ class NodesMonitor extends EventEmitter {
         // Notice that this is a mock up address just to ensure n2n connection authorization
         this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
         // get ssl certificates to send to s3 agents
-        this.ssl_certs_promise = http_utils.get_ssl_certificate();
+        this.ssl_certs_promise = ssl_utils.get_ssl_certificate();
     }
 
     start() {

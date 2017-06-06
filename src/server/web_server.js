@@ -35,7 +35,7 @@ const express_body_parser = require('body-parser');
 const express_morgan_logger = require('morgan');
 const express_method_override = require('method-override');
 const P = require('../util/promise');
-const http_utils = require('../util/http_utils');
+const ssl_utils = require('../util/ssl_utils');
 const dbg = require('../util/debug_module')(__filename);
 const pkg = require('../../package.json');
 const config = require('../../config.js');
@@ -117,7 +117,7 @@ P.fcall(function() {
         server_rpc.rpc.register_ws_transport(http_server);
         return P.ninvoke(http_server, 'listen', http_port);
     })
-    .then(() => http_utils.get_ssl_certificate())
+    .then(() => ssl_utils.get_ssl_certificate())
     .then(function(cert) {
         https_server = https.createServer(cert, app);
         server_rpc.rpc.register_ws_transport(https_server);

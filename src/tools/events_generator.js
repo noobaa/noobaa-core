@@ -121,22 +121,22 @@ EventsGenerator.prototype.init = function() {
     return promise_utils.exec('mongo nbcore --eval "db.systems.findOne({},{_id:1})" --quiet | grep _id', false, true)
         .then(res => {
             const location = res.indexOf('Obj') + 10;
-            sysid = ObjectId(res.substring(location, location + 24));
+            sysid = new ObjectId(res.substring(location, location + 24));
             return promise_utils.exec('mongo nbcore --eval "db.buckets.findOne({},{_id:1})" --quiet | grep _id', false, true);
         })
         .then(bucket => {
             const location = bucket.indexOf('Obj') + 10;
-            entities.bucket._id = ObjectId(bucket.substring(location, location + 24));
+            entities.bucket._id = new ObjectId(bucket.substring(location, location + 24));
             return promise_utils.exec('mongo nbcore --eval "db.accounts.findOne({},{_id:1})" --quiet | grep _id', false, true);
         })
         .then(account => {
             const location = account.indexOf('Obj') + 10;
-            entities.account._id = ObjectId(account.substring(location, location + 24));
+            entities.account._id = new ObjectId(account.substring(location, location + 24));
             return promise_utils.exec('mongo nbcore --eval "db.pools.findOne({},{_id:1})" --quiet | grep _id', false, true);
         })
         .then(pool => {
             const location = pool.indexOf('Obj') + 10;
-            entities.resource._id = ObjectId(pool.substring(location, location + 24));
+            entities.resource._id = new ObjectId(pool.substring(location, location + 24));
             return promise_utils.exec('mongo nbcore --eval "db.clusters.findOne({})" --quiet | grep hostname', false, true);
         })
         .then(hostname => {
@@ -152,7 +152,7 @@ EventsGenerator.prototype.init = function() {
         .then(node => {
             if (node) {
                 const location = node.indexOf('Obj') + 10;
-                entities.node._id = ObjectId(node.substring(location, location + 24));
+                entities.node._id = new ObjectId(node.substring(location, location + 24));
                 has_nodes = true;
             } else {
                 delete entities.node;
@@ -162,7 +162,7 @@ EventsGenerator.prototype.init = function() {
         .then(obj => {
             if (obj) {
                 const location = obj.indexOf('Obj') + 10;
-                entities.obj._id = ObjectId(obj.substring(location, location + 24));
+                entities.obj._id = new ObjectId(obj.substring(location, location + 24));
                 has_objects = true;
             } else {
                 delete entities.obj;

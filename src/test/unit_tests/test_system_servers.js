@@ -148,21 +148,22 @@ mocha.describe('system_servers', function() {
                 target_secret: server_secret,
                 timezone: "Asia/Jerusalem"
             }))
-            .then(() => client.cluster.update_dns_servers({
+            .then(() => client.cluster_server.update_dns_servers({
                 target_secret: server_secret,
                 dns_servers: ['8.8.8.8']
             }))
             .delay(SERVER_RESTART_DELAY)
-            .then(() => client.cluster.update_dns_servers({
+            .then(() => client.cluster_server.update_dns_servers({
                 target_secret: server_secret,
                 dns_servers: ['8.8.8.8', '8.8.4.4']
             }))
             .delay(SERVER_RESTART_DELAY)
-            .then(() => client.cluster_server.update_time_config({
-                target_secret: server_secret,
-                ntp_server: 'pool.ntp.org'
-            }))
-            .then(() => client.cluster.update_dns_servers({
+            // .then(() => client.cluster_server.update_time_config({
+            //     timezone: "Asia/Jerusalem",
+            //     target_secret: server_secret,
+            //     ntp_server: 'pool.ntp.org'
+            // }))
+            .then(() => client.cluster_server.update_dns_servers({
                 target_secret: server_secret,
                 dns_servers: ['8.8.8.8', '8.8.4.4'],
                 search_domains: ['noobaa']
@@ -325,16 +326,17 @@ mocha.describe('system_servers', function() {
             }))
             .then(info => assert(_.isUndefined(info.quota)))
             .then(() => client.bucket.update_bucket({
-                name: BUCKET,
-                quota: {
-                    size: 0,
-                    unit: 'GIGABYTE'
-                }
-            }))
-            .then(() => {
-                    throw new Error('update bucket with 0 quota should fail');
-                },
-                () => _.noop) // update bucket with 0 quota should fail
+                    name: BUCKET,
+                    quota: {
+                        size: 0,
+                        unit: 'GIGABYTE'
+                    }
+                })
+                .then(() => {
+                        throw new Error('update bucket with 0 quota should fail');
+                    },
+                    () => _.noop) // update bucket with 0 quota should fail
+            )
             .then(() => {
                 if (!process.env.AWS_ACCESS_KEY_ID ||
                     !process.env.AWS_SECRET_ACCESS_KEY) {

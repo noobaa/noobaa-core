@@ -727,12 +727,11 @@ function update_dns_servers(req) {
                     target_servers.push(current);
                 }
             }
-
-            let updates = _.map(target_servers, server => ({
+            let updates = _.map(target_servers, server => _.omitBy({
                 _id: server._id,
                 dns_servers: dns_servers_config.dns_servers,
                 search_domains: dns_servers_config.search_domains
-            }));
+            }, _.isUndefined));
             return system_store.make_changes({
                 update: {
                     clusters: updates,

@@ -155,12 +155,8 @@ class NodeInfoViewModel extends BaseViewModel {
             }
         ];
 
-        const mountName = ko.pureComputed(
-            () => node().drives[0].mount
-        );
-
-        const blockDevice = ko.pureComputed(
-            () => node().drives[0].drive_id
+        const drive = ko.pureComputed(
+            () => (node() && node().drives && node().drives[0]) || {}
         );
 
         const diskRead = ko.pureComputed(
@@ -186,11 +182,11 @@ class NodeInfoViewModel extends BaseViewModel {
         this.driveInfo = [
             {
                 label: 'Mount',
-                value: mountName
+                value: ko.pureComputed(() => drive().mount)
             },
             {
                 label: 'Block Device',
-                value: blockDevice
+                value: ko.pureComputed(() => drive().drive_id)
             },
             {
                 label: 'Read Latency',

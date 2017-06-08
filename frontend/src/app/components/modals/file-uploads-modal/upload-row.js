@@ -16,7 +16,7 @@ export default class UploadRowViewModel {
         const { name, bucket, completed, error, size, loaded } = upload;
         const progressText = completed ?
             (error ? 'FAILED' : 'UPLOADED') :
-            numeral(size ? loaded/size : size).format('%');
+            (size > 0 ? numeral(loaded/size).format('%') : 0);
 
         this.fileName(name);
         this.bucketName(bucket);

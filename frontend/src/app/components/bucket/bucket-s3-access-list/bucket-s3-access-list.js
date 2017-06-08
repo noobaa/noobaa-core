@@ -26,8 +26,7 @@ const columns = deepFreeze([
 ]);
 
 const compareAccessors = deepFreeze({
-    name: account => account.email,
-    recentlyUsed: account => account.email,
+    name: account => account.email
 });
 
 

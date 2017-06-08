@@ -3,70 +3,57 @@
 <div class="column pad borders greedy">
     <h2 class="heading3 row content-middle">System Health</h2>
     <hr>
-    <section class="row borders push-next">
-        <div class="column status content-middle align-middle push-both">
-            <div class="row content-middle push-both">
-                <svg-icon class="push-both"
-                          params="name: clusterStatusIcon().name"
+    <section class="row push-both">
+        <div class="column c4 borders content-middle pad">
+            <div class="row greedy content-end push-next-half">
+                <svg-icon params="name: clusterStatusIcon().name"
                           ko.css="clusterStatusIcon().css"
                 ></svg-icon>
             </div>
-            <div class="row content-middle push-next">
+            <div class="row greedy content-start push-prev-half">
                 Cluster
             </div>
         </div>
-        <div class="column greedy description pad">
-            <div class="row content-middle">
-                Cluster:&nbsp;<span ko.text="clusterStatusText"></span>
-            </div>
-            <div class="row content-middle push-both">
-                Members:&nbsp;<span ko.text="serverCountText"></span>
-            </div>
-            <div class="row content-middle">
-                <span ko.text="clusterHAText"></span>
-            </div>
+        <div class="column borders greedy description pad">
+            <p>Cluster: {{clusterStatusText}}</p>
+            <p class="push-both">
+                Members: <a class="link" ko.text="serverCountText" ko.href="{ route: 'cluster' }"></a>
+            </p>
+            <p>{{clusterHAText}}</p>
         </div>
     </section>
 
-    <section class="row borders greedy push-next">
-        <div class="column status content-middle align-middle push-both">
-            <div class="row content-middle push-both">
-                <svg-icon class="push-both"
-                    params="name: storageStatus().name"
+    <section class="row greedy push-next">
+        <div class="column c4 borders status content-middle pad">
+            <div class="row greedy content-end push-next-half">
+                <svg-icon params="name: storageStatus().name"
                     ko.css="storageStatus().css"
                 ></svg-icon>
             </div>
-            <div class="row content-middle push-next">
+            <div class="row greedy content-start push-prev-half">
                 Storage
             </div>
         </div>
-        <div class="column greedy description pad">
-            <div class="row align-end">
-                <svg-icon class="icon-small" params="name: 'question'"
-                          ko.tooltip="storageToolTip"></svg-icon>
-            </div>
-            <div class="row push-both">
-                <span ko.text="storageStatus().tooltip"></span>
-            </div>
+        <div class="row content-middle borders greedy pad">
+            <p class="greedy">{{storageStatus().tooltip}}</p>
+            <svg-icon class="icon-small align-start" params="name: 'question'"
+                      ko.tooltip="{ text: storageToolTip, position: 'above' }"></svg-icon>
         </div>
     </section>
 
-    <section class="row borders greedy">
-        <div class="column status content-middle align-middle push-both">
-            <div class="row content-middle push-both">
-                <svg-icon class="push-both"
-                          params="name: alertStatusIcon().name"
+    <section class="row greedy">
+        <div class="column c4 borders status content-middle pad">
+            <div class="row greedy content-end push-next-half">
+                <svg-icon params="name: alertStatusIcon().name"
                           ko.css="alertStatusIcon().css"
                 ></svg-icon>
             </div>
-            <div class="row content-middle push-next">
+            <div class="row greedy content-start push-prev-half">
                 Alerts
             </div>
         </div>
-        <div class="column greedy description pad">
-            <div class="row greedy content-middle">
-                Unread alerts count: {{unreadAlertsCount}}
-            </div>
+        <div class="row content-middle borders greedy pad">
+                {{unreadAlertsMessage}}
         </div>
     </section>
 </div>

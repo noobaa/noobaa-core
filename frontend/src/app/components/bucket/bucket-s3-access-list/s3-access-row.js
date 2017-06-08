@@ -15,21 +15,22 @@ export default class S3AccessRowViewModel extends BaseViewModel {
                 }
 
                 const email = account().email;
-                const text = email;
-                const href = {
-                    route: 'account',
-                    params: { account: email, tab: null }
-                };
-
-                return { text, href };
+                return {
+                    text: email,
+                    href: {
+                        route: 'account',
+                        params: { account: email, tab: null }
+                    }
+                }
             }
         );
 
-        this.recentlyUsed = ko.pureComputed(
-            () => account() && account().external_connections
+        // TODO: no data for this column yet
+        /*this.recentlyUsed = ko.pureComputed(
+            () =>
         ).extend({
             formatTime: true
-        });
+        });*/
 
         this.credentialsDetails = ko.pureComputed(
             () => {
@@ -37,9 +38,8 @@ export default class S3AccessRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                const email = account().email;
                 const text = 'View';
-                const click = openS3AccessDetailsModal.bind(null, email);
+                const click = () => openS3AccessDetailsModal.bind(account().email);
                 return { text, click };
             }
         );

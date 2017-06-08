@@ -162,17 +162,17 @@ export default function register(ko) {
 
         includesUppercase:{
             validator: includesUppercase,
-            message: 'Use at least one uppercased letter'
+            message: 'At least one uppercased letter'
         },
 
         includesLowercase:{
             validator: includesLowercase,
-            message: 'Use at least one lowercased letter'
+            message: 'At least one lowercased letter'
         },
 
         includesDigit:{
             validator: includesDigit,
-            message: 'Use at least one digit'
+            message: 'At least one digit'
         },
 
         isJSON: {

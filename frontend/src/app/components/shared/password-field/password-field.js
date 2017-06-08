@@ -28,6 +28,7 @@ class PasswordFieldViewModel extends BaseViewModel {
         this.disabled = disabled;
         this.type = ko.observable('password');
         this.placeholder = placeholder;
+        this.hasFocus = ko.observable();
 
         this.icon = ko.pureComputed(
             () => iconMapping[this.type()].icon

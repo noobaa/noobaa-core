@@ -75,7 +75,7 @@ class BucketS3AccessListViewModel extends BaseViewModel {
     }
 
     orderBy({ sortBy, order }) {
-        navigateTo(undefined, undefined, { undefined, sortBy, order });
+        navigateTo(undefined, undefined, { filter: undefined, sortBy, order });
     }
 
     onEditS3Access() {

@@ -417,7 +417,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => {
                 this._dispatch_node_event(item, 'decommission',
                     `${item.node.name} was deactivated by ${req.account && req.account.email}`,
-                    req.account && req.account.email
+                    req.account && req.account._id
                 );
             })
             .then(() => {
@@ -442,7 +442,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => {
                 this._dispatch_node_event(item, 'recommission',
                     `${item.node.name} was reactivated by ${req.account && req.account.email}`,
-                    req.account && req.account.email
+                    req.account && req.account._id
                 );
             });
 

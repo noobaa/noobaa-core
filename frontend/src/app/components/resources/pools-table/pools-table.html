@@ -1,19 +1,23 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row alt-bg pad content-middle">
-    <div class="column greedy">
-        <div class="push-next">
-            <input type="search" placeholder="Filter by pool name" ko.textInput="filter"/>
+<div class="column alt-bg pad">
+    <div class="row">
+        <div class="column greedy">
+            <div class="push-next">
+                <input type="search" placeholder="Filter by pool name" ko.textInput="filter"/>
+            </div>
         </div>
-        <div>
-            <span>Nodes pool is a group of nodes that can be used for NooBaa's bucket data placement policy.</span>
+
+        <div class="column align-start" ko.tooltip="createPoolTooltip">
+            <button class="btn"
+                    ko.click="showCreatePoolWizard"
+                    ko.disable="isCreatePoolDisabled">
+                Create Pool
+            </button>
         </div>
     </div>
-
-    <div class="column align-start" data-bind="tooltip: createPoolTooltip">
-        <button class="btn" ko.click="showCreatePoolWizard" ko.disable="isCreatePoolDisabled">
-            Create Pool
-        </button>
+    <div>
+        <span>Nodes pool is a group of nodes that can be used for NooBaa's bucket data placement policy.</span>
     </div>
 </div>
 

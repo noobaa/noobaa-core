@@ -26,8 +26,8 @@ class BucketPanelViewModel extends Observer {
             () => this.bucket() && this.bucket().name
         );
 
-        if(routeContext()) this.onUiState(routeContext());
-        this.observe(routeContext, this.onUiState);
+        if(routeContext()) this.onRoute(routeContext());
+        this.observe(routeContext, this.onRoute);
     }
 
     tabHref(tab) {
@@ -43,7 +43,7 @@ class BucketPanelViewModel extends Observer {
         };
     }
 
-    onUiState({ params, query }) {
+    onRoute({ params, query }) {
         const { bucket, tab } = params;
 
         if (tab === 'objects') {

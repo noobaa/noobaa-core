@@ -34,6 +34,22 @@ const statusMapping = deepFreeze({
     }
 });
 
+function getUnreadAlertsMessage(alertsCount) {
+    let message;
+    switch (alertsCount) {
+        case 0:
+            message = 'No unread alerts';
+            break;
+        case 1:
+            message = '1 unread alert';
+            break;
+        default:
+            message = `${alertsCount} unread alerts`;
+            break;
+    }
+    return message;
+}
+
 const highAvailabiltyMapping = deepFreeze({
     NO_ENOUGH_SERVERS: {
         text: 'High Availability: Not enough servers',
@@ -57,6 +73,9 @@ const highAvailabiltyMapping = deepFreeze({
         }
     }
 });
+
+const storageTooltip = `An estimated aggregation of all nodes, internal storage or cloud resources raw
+                        storage that can be used via buckets (Any cloud resource is defined as 1PB of raw storage)`;
 
 class SystemHealthViewModel extends Observer {
     constructor() {
@@ -115,30 +134,22 @@ class SystemHealthViewModel extends Observer {
             )
         );
 
-        this.storageToolTip = 'An estimated aggregation of all nodes, internal storage or cloud resources raw ' +
-            'storage that can be used via buckets (Any cloud resource is defined as 1PB of raw storage)';
-
-        this.unreadAlertsCount = ko.observable(0);
+        this.storageToolTip = storageTooltip;
+        this.unreadAlertsMessage = ko.observable('');
+        this.alertStatusIcon = ko.observable({});
         this.observe(state$.get('alerts'), this.onAlerts);
-
-
-        this.alertStatusIcon = ko.pureComputed(
-            () => this.unreadAlertsCount() ? {
-                name: 'problem',
-                css: 'warning'
-            } : {
-                name: 'healthy',
-                css: 'success'
-            }
-        );
-
-        this.alertDetail = ko.pureComputed(
-            () => this.alert() || 'No critical alerts'
-        );
     }
 
     onAlerts(alerts) {
-        this.unreadAlertsCount(alerts.unreadCount);
+        this.unreadAlertsMessage(getUnreadAlertsMessage(alerts.unreadCount));
+        this.alertStatusIcon(alerts.unreadCount ? {
+            name: 'problem',
+            css: 'warning'
+        } : {
+            name: 'healthy',
+            css: 'success'
+        });
+
     }
 }
 

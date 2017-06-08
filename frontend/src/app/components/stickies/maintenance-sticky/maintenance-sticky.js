@@ -19,7 +19,7 @@ class MaintenanceModeStickyViewModel extends BaseViewModel {
         let now = ko.observable(Date.now());
         this.addToDisposeList(
             setInterval(
-                () => now(Date.now()), 100
+                () => now(Date.now()), 1000
             ),
             clearInterval
         );

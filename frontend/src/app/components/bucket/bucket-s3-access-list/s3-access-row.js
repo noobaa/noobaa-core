@@ -21,7 +21,7 @@ export default class S3AccessRowViewModel extends BaseViewModel {
                         route: 'account',
                         params: { account: email, tab: null }
                     }
-                }
+                };
             }
         );
 

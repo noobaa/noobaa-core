@@ -30,10 +30,6 @@ function run() {
             status: "UNKNOWN",
             test_time: moment().unix()
         },
-        remote_syslog_status: {
-            status: "UNKNOWN",
-            test_time: moment().unix()
-        }
     };
     if (!system_store.is_finished_initial_load) {
         dbg.log0('waiting for system store to load');

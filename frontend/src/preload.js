@@ -58,7 +58,10 @@ function preload() {
             image => loadImage(`${base}/${image}`)
         ),
         loadSvg(`${base}/${iconsSvg}`).then(
-            svg => document.body.appendChild(svg)
+            svg => {
+                svg.style.display = 'none';
+                document.body.appendChild(svg);
+            }
         )
     );
 

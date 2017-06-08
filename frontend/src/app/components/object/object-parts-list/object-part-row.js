@@ -56,7 +56,7 @@ export default class ObjectPartRowViewModel extends BaseViewModel {
         this.columns = columns;
 
         this.stateIcon = partStateIcons[state];
-        this.label = `Part ${partNumber + 1} of ${partsCount} | ${size} | ${blocks.length} blocks`;
+        this.label = `Part ${partNumber + 1} of ${partsCount} | ${size} | ${blocks.length} replicas`;
         this.blocks = blocks.map(
             (block, i) => new BlockRowViewModel(block, i, blocks.length, poolIconMapping)
         );

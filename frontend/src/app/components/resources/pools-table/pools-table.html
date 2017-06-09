@@ -1,13 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="column alt-bg pad">
-    <div class="row">
-        <div class="column greedy">
-            <div class="push-next">
-                <input type="search" placeholder="Filter by pool name" ko.textInput="filter"/>
-            </div>
+    <div class="row content-middle push-next">
+        <div class="greedy">
+            <input type="search" placeholder="Filter by pool name" ko.textInput="filter"/>
         </div>
-
         <div class="column align-start" ko.tooltip="createPoolTooltip">
             <button class="btn"
                     ko.click="showCreatePoolWizard"
@@ -16,9 +13,7 @@
             </button>
         </div>
     </div>
-    <div>
-        <span>Nodes pool is a group of nodes that can be used for NooBaa's bucket data placement policy.</span>
-    </div>
+    <p>Nodes pool is a group of nodes that can be used for NooBaa's bucket data placement policy.</p>
 </div>
 
 <data-table class="greedy" params="

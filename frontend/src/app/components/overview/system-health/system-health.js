@@ -34,22 +34,6 @@ const statusMapping = deepFreeze({
     }
 });
 
-function getUnreadAlertsMessage(alertsCount) {
-    let message;
-    switch (alertsCount) {
-        case 0:
-            message = 'No unread alerts';
-            break;
-        case 1:
-            message = '1 unread alert';
-            break;
-        default:
-            message = `${alertsCount} unread alerts`;
-            break;
-    }
-    return message;
-}
-
 const highAvailabiltyMapping = deepFreeze({
     NO_ENOUGH_SERVERS: {
         text: 'High Availability: Not enough servers',
@@ -71,6 +55,17 @@ const highAvailabiltyMapping = deepFreeze({
             name: 'problem',
             css: 'error'
         }
+    }
+});
+
+const alertStatusMapping = deepFreeze({
+    WARNING: {
+        name: 'problem',
+        css: 'warning'
+    },
+    SUCCESS: {
+        name: 'healthy',
+        css: 'success'
     }
 });
 
@@ -141,15 +136,8 @@ class SystemHealthViewModel extends Observer {
     }
 
     onAlerts(alerts) {
-        this.unreadAlertsMessage(getUnreadAlertsMessage(alerts.unreadCount));
-        this.alertStatusIcon(alerts.unreadCount ? {
-            name: 'problem',
-            css: 'warning'
-        } : {
-            name: 'healthy',
-            css: 'success'
-        });
-
+        this.unreadAlertsMessage(stringifyAmount('unread alert', alerts.unreadCount).replace('0', 'No'));
+        this.alertStatusIcon(alerts.unreadCount ? alertStatusMapping.WARNING : alertStatusMapping.SUCCESS);
     }
 }
 

@@ -180,7 +180,7 @@ class AzureFunctions {
                     extension.settings = {
                         fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/init_agent.ps1'],
                         commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + server_name +
-                            ' ' + agent_conf
+                        ' ' + agent_conf
                     };
                 }
                 return this.createVirtualMachineExtension(vmName, extension);
@@ -241,7 +241,7 @@ class AzureFunctions {
         }, callback));
     }
 
-    createVirtualMachine(vmName, nicId, imageReference, storageAccountName) {
+    createVirtualMachine(vmName, nicId, imageReference, storageAccountName, diskSizeGB) {
         var vmParameters = {
             location: this.location,
             // tags: {
@@ -260,7 +260,7 @@ class AzureFunctions {
                 imageReference: imageReference,
                 osDisk: {
                     name: vmName + '_disk',
-                    diskSizeGB: 1023,
+                    diskSizeGB,
                     caching: 'None',
                     createOption: 'fromImage',
                     vhd: {
@@ -282,7 +282,8 @@ class AzureFunctions {
             }
         };
         console.log('Creating Virtual Machine: ' + vmName);
-        return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName, vmName, vmParameters, callback));
+        return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(
+            this.resourceGroupName, vmName, vmParameters, callback));
     }
 
     createVirtualMachineFromImage(vmName, image, vnet, storageAccountName, osType, plan) {
@@ -330,9 +331,7 @@ class AzureFunctions {
                 subnetInfo = result;
                 return this.createPublicIp(vmName + '_pip');
             })
-            .then(ipinfo => {
-                return this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip');
-            })
+            .then(ipinfo => this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip'))
             .then(nic => {
                 vmParameters.networkProfile.networkInterfaces[0].id = nic.id;
                 return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
@@ -418,16 +417,19 @@ class AzureFunctions {
         };
         console.log('Capturing Virtual Machine: ' + vmName);
         console.log('Stopping Virtual Machine: ' + vmName);
-        return P.fromCallback(callback => this.computeClient.virtualMachines.powerOff(this.resourceGroupName, vmName, callback))
+        return P.fromCallback(callback => this.computeClient.virtualMachines.powerOff(
+            this.resourceGroupName, vmName, callback))
             .then(() => {
                 console.log('Virtual Machine stopped');
                 console.log('Generalizing Virtual Machine: ' + vmName);
-                return P.fromCallback(callback => this.computeClient.virtualMachines.generalize(this.resourceGroupName, vmName, callback));
+                return P.fromCallback(callback => this.computeClient.virtualMachines.generalize(
+                    this.resourceGroupName, vmName, callback));
             })
             .then(res => {
                 console.log('Virtual Machine generalized', res);
                 console.log('capturing Virtual Machine: ' + vmName);
-                return P.fromCallback(callback => this.computeClient.virtualMachines.capture(this.resourceGroupName, vmName, snapshotParameters, callback));
+                return P.fromCallback(callback => this.computeClient.virtualMachines.capture(
+                    this.resourceGroupName, vmName, snapshotParameters, callback));
             })
             .then(res => res.output.resources[0].properties.storageProfile.osDisk.image.uri);
     }
@@ -439,7 +441,8 @@ class AzureFunctions {
             .then(machine => {
                 machine_info = machine;
                 console.log('deleting machine:', vmName);
-                return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(this.resourceGroupName, vmName, callback));
+                return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(
+                    this.resourceGroupName, vmName, callback));
             })
             .then(() => {
                 var parts = machine_info.storageProfile.osDisk.vhd.uri.split('/');
@@ -477,26 +480,31 @@ class AzureFunctions {
                     diagnosticsProfile: machine_info.diagnosticsProfile
                 };
                 console.log('starting machine from vhd for:', vmName);
-                return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
-                    vmName, vmParameters, callback));
+                return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(
+                    this.resourceGroupName, vmName, vmParameters, callback));
             });
     }
 
     restartVirtualMachine(vmName) {
         console.log('Restarting Virtual Machine: ' + vmName);
-        return P.fromCallback(callback => this.computeClient.virtualMachines.restart(this.resourceGroupName, vmName, callback));
+        return P.fromCallback(callback => this.computeClient.virtualMachines.restart(
+            this.resourceGroupName, vmName, callback));
     }
 
     stopVirtualMachine(vmName) {
         console.log('Stopping Virtual Machine: ' + vmName);
-        return P.fromCallback(callback => this.computeClient.virtualMachines.powerOff(this.resourceGroupName, vmName, callback));
+        return P.fromCallback(callback => this.computeClient.virtualMachines.powerOff(
+            this.resourceGroupName, vmName, callback));
     }
 
     deleteVirtualMachine(vmName) {
         console.log('Deleting Virtual Machine: ' + vmName);
-        return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(this.resourceGroupName, vmName, callback))
-            .then(() => P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(this.resourceGroupName, vmName + '_nic', callback)))
-            .then(() => P.fromCallback(callback => this.networkClient.publicIPAddresses.deleteMethod(this.resourceGroupName, vmName + '_pip', callback)))
+        return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(
+            this.resourceGroupName, vmName, callback))
+            .then(() => P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(
+                this.resourceGroupName, vmName + '_nic', callback)))
+            .then(() => P.fromCallback(callback => this.networkClient.publicIPAddresses.deleteMethod(
+                this.resourceGroupName, vmName + '_pip', callback)))
             .then(() => P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback)))
             .then(() => P.fromCallback(callback => blobSvc.doesContainerExist('datadisks', callback))
                 .then(result => {
@@ -507,7 +515,8 @@ class AzureFunctions {
                 .then(result => {
                     if (result && result.entries && (result.entries.length > 0)) {
                         console.log('Deleting data disks', result.entries);
-                        return P.map(result.entries, blob => P.fromCallback(callback => blobSvc.deleteBlob('datadisks', blob.name, callback)));
+                        return P.map(result.entries, blob => P.fromCallback(
+                            callback => blobSvc.deleteBlob('datadisks', blob.name, callback)));
                     }
                 })
             );
@@ -518,18 +527,18 @@ class AzureFunctions {
             .then(machines_in_rg => {
                 var machines_with_prefix = [];
                 return P.map(machines_in_rg, machine => {
-                        if (machine.name.startsWith(prefix)) {
-                            if (status) {
-                                return this.getMachineStatus(machine.name)
-                                    .then(machine_status => {
-                                        if (machine_status === status) {
-                                            machines_with_prefix.push(machine.name);
-                                        }
-                                    });
-                            }
-                            machines_with_prefix.push(machine.name);
+                    if (machine.name.startsWith(prefix)) {
+                        if (status) {
+                            return this.getMachineStatus(machine.name)
+                                .then(machine_status => {
+                                    if (machine_status === status) {
+                                        machines_with_prefix.push(machine.name);
+                                    }
+                                });
                         }
-                    })
+                        machines_with_prefix.push(machine.name);
+                    }
+                })
                     .then(() => machines_with_prefix);
             });
     }
@@ -544,8 +553,8 @@ class AzureFunctions {
 
     getMachineStatus(machine) {
         return P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
-                expand: 'instanceView',
-            }, callback))
+            expand: 'instanceView',
+        }, callback))
             .then(function(machine_info) {
                 if (machine_info.instanceView.statuses[1]) {
                     return machine_info.instanceView.statuses[1].displayStatus;
@@ -577,13 +586,13 @@ class AzureFunctions {
             P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
                 expand: 'instanceView',
             }, callback))
-            .then(machine_info => {
-                if (machine_info.instanceView.statuses[1]) {
-                    c_state = machine_info.instanceView.statuses[1].displayStatus;
-                }
-                console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
-            })
-            .delay(5000)
+                .then(machine_info => {
+                    if (machine_info.instanceView.statuses[1]) {
+                        c_state = machine_info.instanceView.statuses[1].displayStatus;
+                    }
+                    console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
+                })
+                .delay(5000)
         );
     }
 
@@ -608,7 +617,8 @@ class AzureFunctions {
         return P.fromCallback(callback => blobSvc.doesContainerExist(CONTAINER_NAME, callback))
             .then(({ exists }) => !exists && P.fromCallback(callback => blobSvc.createContainer(CONTAINER_NAME, callback)))
             .then(() => P.fromCallback(callback => blobSvc.doesBlobExist(CONTAINER_NAME, 'image.vhd', callback)))
-            .then(({ exists }) => !exists && P.fromCallback(callback => blobSvc.startCopyBlob(NOOBAA_IMAGE, CONTAINER_NAME, 'image.vhd', callback))
+            .then(({ exists }) => !exists && P.fromCallback(
+                callback => blobSvc.startCopyBlob(NOOBAA_IMAGE, CONTAINER_NAME, 'image.vhd', callback))
                 .then(() => promise_utils.pwhile(() => !isDone, () => {
                     return P.fromCallback(callback => blobSvc.getBlobProperties(CONTAINER_NAME, 'image.vhd', callback))
                         .then(result => {
@@ -648,13 +658,13 @@ class AzureFunctions {
         var rpc = api.new_rpc('wss://' + master_ip + ':8443');
         var client = rpc.new_client({});
         return P.fcall(() => {
-                var auth_params = {
-                    email: 'demo@noobaa.com',
-                    password: 'DeMo1',
-                    system: 'demo'
-                };
-                return client.create_auth_token(auth_params);
-            })
+            var auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo1',
+                system: 'demo'
+            };
+            return client.create_auth_token(auth_params);
+        })
             .then(() => P.resolve(client.cluster_server.add_member_to_cluster({
                 address: slave_ip,
                 secret: slave_secret,

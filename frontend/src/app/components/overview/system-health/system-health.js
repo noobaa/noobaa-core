@@ -136,7 +136,7 @@ class SystemHealthViewModel extends Observer {
     }
 
     onAlerts(alerts) {
-        this.unreadAlertsMessage(stringifyAmount('unread alert', alerts.unreadCount));
+        this.unreadAlertsMessage(stringifyAmount('unread alert', alerts.unreadCount, 'No'));
         this.alertStatusIcon(alertStatusMapping[alerts.unreadCount ? 'HAS_ALERTS' : 'NO_ALERTS']);
     }
 }

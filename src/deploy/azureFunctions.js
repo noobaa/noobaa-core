@@ -154,7 +154,11 @@ class AzureFunctions {
                     sku: os.sku,
                     version: 'latest'
                 };
-                return this.createVirtualMachine(vmName, nic.id, image, storage);
+                let diskSizeGB = 40;
+                if (os.osType === 'Windows') {
+                    diskSizeGB = 140;
+                }
+                return this.createVirtualMachine(vmName, nic.id, image, storage, diskSizeGB);
             })
             .then(() => {
                 console.log('Started the Virtual Machine!');
@@ -242,6 +246,9 @@ class AzureFunctions {
     }
 
     createVirtualMachine(vmName, nicId, imageReference, storageAccountName, diskSizeGB) {
+        if (!diskSizeGB) {
+            throw new Error('must Enter disk size in GB');
+        }
         var vmParameters = {
             location: this.location,
             // tags: {

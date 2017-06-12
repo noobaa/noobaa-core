@@ -48,60 +48,38 @@ let initial_node_number;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
 
+function saveErrorAndResume(err) {
+    errors.push(err.message);
+}
+
 function createAgents(isInclude) {
     console.log(`starting the create agents stage`);
     return P.resolve(client.node.list_nodes({
-            query: {
-                online: true,
-                skip_cloud_nodes: true,
-                skip_mongo_nodes: true
-            }
-        }))
+        query: {
+            online: true,
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true
+        }
+    }))
         .then(res => {
             initial_node_number = res.total_count;
             console.log(`Num nodes before the test is: ${initial_node_number}`);
         })
-        .then(() => P.map(oses, osname => {
+        .then(() => {
             if (isInclude) {
-                const os = azf.getImagesfromOSname(osname);
-                return azf.createAgent(osname, storageAccountName, vnetName,
-                    os, serverName, agentConf).catch(err => errors.push(err.message));
+                return P.map(oses, osname => azf.createAgent(
+                    osname, storageAccountName, vnetName,
+                    azf.getImagesfromOSname(osname), serverName, agentConf
+                ).catch(saveErrorAndResume));
+
             } else {
                 return runExtensions('init_agent', `${serverName}  ${agentConf}`)
-                    .catch(err => errors.push(err.message));
+                    .catch(saveErrorAndResume);
             }
-        }))
-        .then(() => console.warn(`Will now wait for a minute for agents to come up...`))
-        .delay(60000)
-        .then(() => P.resolve(client.node.list_nodes({
-            query: {
-                online: true,
-                skip_cloud_nodes: true,
-                skip_mongo_nodes: true
-            }
-        })))
-        .then(res => {
-            nodes = [];
-            _.each(res.nodes, node => {
-                nodes.push(node.name);
-            });
-            console.warn(`Node names are ${nodes}`);
-            if (res.total_count === (initial_node_number + oses.length)) {
-                console.warn(`Num nodes after the create agent are ${
-                    res.total_count
-                    } - initial node number: ${
-                    initial_node_number
-                    } - added ${oses.length}`);
-            } else {
-                const error = `Num nodes after the create agent are ${
-                    res.total_count
-                    } - something went wrong... suppose to add ${
-                    oses.length
-                    }`;
-                console.error(error);
-                throw new Error(error);
-            }
-        });
+        })
+        .then(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
+        .delay(120000)
+        .then(() => isIncluded(initial_node_number, oses.length, 'create agent'));
 }
 
 function runCreateAgents(isInclude) {
@@ -118,10 +96,7 @@ function runCreateAgents(isInclude) {
         node_number_after_create = res.total_count;
         console.log('Num nodes after create is: ', node_number_after_create);
         nodes = [];
-        _.each(res.nodes, node => {
-            nodes.push(node.name);
-        });
-        console.warn('Node names are: ', nodes);
+        console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
     });
 }
 
@@ -130,11 +105,11 @@ function verifyAgent() {
     console.log(`starting the verify agents stage`);
     return s3ops.put_file_with_md5(serverName, 'files', '100MB_File', 100)
         .then(() => s3ops.get_file_check_md5(serverName, 'files', '100MB_File'))
-        .then(() => {
-            console.warn(`Will take diagnostics from all the agents`);
-            return P.map(nodes, name => client.node.collect_agent_diagnostics({ name })
-                .catch(err => errors.push(err.message)));
-        })
+        // .then(() => {
+        //     console.warn(`Will take diagnostics from all the agents`);
+        //     return P.map(nodes, name => client.node.collect_agent_diagnostics({ name })
+        //         .catch(saveErrorAndResume));
+        // })
         .then(() => {
             console.warn(`Will put all agents in debug mode`);
             return P.map(nodes, name => client.node.set_debug_node({
@@ -142,15 +117,15 @@ function verifyAgent() {
                     name
                 },
                 level: 5,
-            }).catch(err => errors.push(err.message)));
+            }).catch(saveErrorAndResume));
         });
 }
 
 function runExtensions(script_name, flags = '') {
     return P.map(oses, osname => azf.deleteVirtualMachineExtension(osname)
-            .catch(err => console.log(err.message)))
+        .catch(err => console.log(err.message)))
         .then(() => P.map(oses, osname => {
-            console.log(`running extention: ${script_name} with the flags: ${flags}`);
+            console.log(`running extention: ${script_name}`);
             var extension = {
                 publisher: 'Microsoft.OSTCExtensions',
                 virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
@@ -158,7 +133,7 @@ function runExtensions(script_name, flags = '') {
                 autoUpgradeMinorVersion: true,
                 settings: {
                     fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/" + script_name + ".sh"],
-                    commandToExecute: `bash ${script_name}.sh ${flags}`
+                    commandToExecute: 'bash ' + script_name + '.sh ' + flags
                 },
                 protectedSettings: {
                     storageAccountName: "pluginsstorage",
@@ -173,17 +148,17 @@ function runExtensions(script_name, flags = '') {
                 extension.typeHandlerVersion = '1.7';
                 extension.settings = {
                     fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/" + script_name + ".ps1"],
-                    commandToExecute: `powershell -ExecutionPolicy Unrestricted -File ${script_name}.ps1 ${flags}`
+                    commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ' + script_name + '.ps1 ' + flags
                 };
             }
             return azf.createVirtualMachineExtension(osname, extension)
-                .catch(err => errors.push(err.message));
+                .catch(saveErrorAndResume);
         }));
 }
 
 function upgradeAgent() {
     console.log('starting the upgrade agents stage');
-    return P.map(oses, osname => runExtensions('replace_version_on_agent'))
+    return runExtensions('replace_version_on_agent')
         .then(() => client.system.read_system({})
             .then(result => ops.upload_and_upgrade(serverName, upgrade_pack))
             .then(() => {
@@ -194,7 +169,7 @@ function upgradeAgent() {
 
 function deleteAgent() {
     console.log(`starting the delete agents stage`);
-    return P.map(oses, osname => runExtensions('remove_agent'))
+    return runExtensions('remove_agent')
         .delay(60000)
         .then(() => P.resolve(client.node.list_nodes({
             query: {
@@ -205,10 +180,7 @@ function deleteAgent() {
         })))
         .then(res => {
             nodes = [];
-            _.each(res.nodes, node => {
-                nodes.push(node.name);
-            });
-            console.warn(`Node names are ${nodes}`);
+            console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
             if (res.total_count === initial_node_number) {
                 console.warn(`Num nodes after the delete agent are ${
                     res.total_count
@@ -235,87 +207,82 @@ function addDisksToMachine(diskSize) {
 
 function getAgentConf(exclude_drives) {
     return client.system.get_node_installation_string({
-            pool: "first.pool",
-            exclude_drives
-        })
+        pool: "first.pool",
+        exclude_drives
+    })
         .then(installationString => {
             agentConf = installationString.LINUX;
             const index = agentConf.indexOf('config');
             agentConf = agentConf.substring(index + 7);
+            console.log(agentConf);
         });
 }
 
 function checkIncludeDisk() {
     let number_befor_adding_disks;
     return P.resolve(client.node.list_nodes({
-            query: {
-                online: true,
-                skip_cloud_nodes: true,
-                skip_mongo_nodes: true
-            }
-        }))
+        query: {
+            online: true,
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true
+        }
+    }))
         .then(res => {
             number_befor_adding_disks = res.total_count;
             console.log(`Num nodes before adding disks is: ${number_befor_adding_disks}`);
         })
         .then(() => addDisksToMachine(size))
         //map the disks
-        .then(() => P.map(oses, osname => runExtensions('map_new_disk')))
+        .then(() => runExtensions('map_new_disk'))
         .delay(120000)
         .then(() => isIncluded(number_befor_adding_disks));
 }
 
-function checkExcludeDisk() {
-    console.log('COMING SOON...');
+function checkExcludeDisk(excludeList) {
     let number_befor_adding_disks;
     return P.resolve(client.node.list_nodes({
-            query: {
-                online: true,
-                skip_cloud_nodes: true,
-                skip_mongo_nodes: true
-            }
-        }))
+        query: {
+            online: true,
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true
+        }
+    }))
         .then(res => {
             number_befor_adding_disks = res.total_count;
             console.log(`Num nodes before adding disks is: ${number_befor_adding_disks}`);
         })
-        //replacing the disk map to be named exclude
-        .then(() => P.map(oses, osname => runExtensions('map_new_disk', '-r')))
-        .delay(120000)
-        //check that the agents number did not changed.
-        .then(() => isExcluded(number_befor_adding_disks))
         .then(() => addDisksToMachine(size))
-        .then(() => P.map(oses, osname => runExtensions('map_new_disk', '-e')))
-        .then(() => isExcluded(number_befor_adding_disks))
+        .then(() => runExtensions('map_new_disk', '-e'))
+        .then(() => isExcluded(excludeList))
         .then(() => addDisksToMachine(15))
-        .then(() => P.map(oses, osname => runExtensions('map_new_disk')))
-        .then(() => isExcluded(number_befor_adding_disks))
-        .then(() => P.map(oses, osname => runExtensions('map_new_disk')))
+        .then(() => runExtensions('map_new_disk'))
+        .then(() => isIncluded(number_befor_adding_disks, 0))
+        .then(() => runExtensions('map_new_disk'))
         .then(() => isIncluded(number_befor_adding_disks));
 }
 
 //check how many agents there are now, expecting agent to be included.
-function isIncluded(previous_agent_number) {
+function isIncluded(previous_agent_number, additional_agents = oses.length, print = 'include') {
     return P.resolve(client.node.list_nodes({
-            query: {
-                online: true,
-                skip_cloud_nodes: true,
-                skip_mongo_nodes: true
-            }
-        }))
+        query: {
+            online: true,
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true
+        }
+    }))
         .then(res => {
-            nodes = [];
-            _.each(res.nodes, node => {
-                nodes.push(node.name);
-            });
-            console.warn(`Node names are ${nodes}`);
-            if (res.total_count === previous_agent_number + oses.length) {
-                console.warn(`Num nodes after the include are ${res.total_count}`);
+            const my_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED');
+            console.warn(`Number of Excluded agents: ${my_nodes.length}`);
+            console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
+            const excpected_count = previous_agent_number + additional_agents;
+            const actual_count = res.total_count - my_nodes.length;
+            if (actual_count === excpected_count) {
+                console.warn(`Num nodes after the ${print} are ${actual_count}`);
             } else {
-                const error = `Num nodes after the include are ${
-                    res.total_count
+                const error = `Num nodes after the ${print} are ${
+                    actual_count
                     } - something went wrong... expected ${
-                    previous_agent_number + oses.length
+                    excpected_count
                     }`;
                 console.error(error);
                 throw new Error(error);
@@ -324,28 +291,29 @@ function isIncluded(previous_agent_number) {
 }
 
 //check how many agents there are now, expecting agent not to be included.
-function isExcluded(previous_agent_number) {
+function isExcluded(excludeList) {
     return P.resolve(client.node.list_nodes({
-            query: {
-                online: true,
-                skip_cloud_nodes: true,
-                skip_mongo_nodes: true
-            }
-        }))
+        query: {
+            online: true,
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true
+        }
+    }))
         .then(res => {
-            nodes = [];
-            _.each(res.nodes, node => {
-                nodes.push(node.name);
-            });
-            console.warn(`Node names are ${nodes}`);
-            if (res.total_count === previous_agent_number) {
-                console.warn(`Num nodes after the exclude are ${res.total_count}`);
+            console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
+            const countExclude = res.nodes
+                .map(node => node.drives.some(
+                    drive => excludeList.includes(drive.dirve_id)
+                ))
+                .map(Number)
+                .reduce((a, b) => a + b);
+            if (countExclude === 0) {
+                console.warn(`Num of exclude live nodes are ${
+                    countExclude} as expected`);
             } else {
-                const error = `Num nodes after the exclude are ${
-                    res.total_count
-                    } - something went wrong... expected ${
-                    previous_agent_number
-                    }`;
+                const error = `Num of exclude live nodes are ${
+                    countExclude
+                    } - something went wrong... expected 0`;
                 console.error(error);
                 throw new Error(error);
             }
@@ -353,25 +321,26 @@ function isExcluded(previous_agent_number) {
 }
 
 function includeExcludeCycle(isInclude) {
-    const excludeList = ['E:\\', 'F:\\', '\\exclude1', '\\exclude2'];
+    const excludeList = ['E:\\', 'F:\\', '/exclude1', '/exclude2'];
     if (isInclude) {
         console.warn('starting include cycle');
     } else {
         console.warn('starting exclude cycle');
     }
     return getAgentConf(isInclude ? [] : excludeList)
+        .then(() => isInclude || runExtensions('map_new_disk', '-r'))
         // creating agents on the VM - diffrent oses.
         .then(() => runCreateAgents(isInclude))
         //verifying write, read, diag and debug level.
-        .then(() => verifyAgent())
+        .then(verifyAgent())
         // adding phisical disks to the machines.
-        .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk()))
+        .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk(excludeList)))
         //verifying write, read, diag and debug level.
-        .then(() => verifyAgent())
+        .then(verifyAgent())
         // Upgrade to same version before uninstalling
-        .then(() => upgradeAgent())
+        .then(upgradeAgent())
         // // //verifying write, read, diag and debug level after the upgrade.
-        .then(() => verifyAgent())
+        .then(verifyAgent())
         // Cleaning the machine Extention and installing new one that remove nodes.
         .then(() => argv.skipsetup || deleteAgent());
 }
@@ -387,9 +356,16 @@ function main() {
         //deleting the VM machines with the same name as the OS we want to install.
         .then(() => {
             if (!argv.skipsetup) {
-                return P.map(oses, osname =>
-                    azf.deleteVirtualMachine(osname)
+                return P.map(oses, osname => azf.deleteVirtualMachine(osname)
                     .catch(err => console.log('VM not found - skipping...', err))
+                );
+            }
+        })
+        //runing all all the VM machines and deleating all the disks.
+        .then(() => {
+            if (!argv.skipsetup) {
+                return P.map(oses, osname => azf.deleteBlobDisks(osname)
+                    .catch(saveErrorAndResume)
                 );
             }
         })
@@ -397,7 +373,7 @@ function main() {
         .then(() => includeExcludeCycle(true))
         // checking the exclude disk cycle.
         // .then(() => includeExcludeCycle(false))
-        .catch(err => errors.push(err.message))
+        .catch(saveErrorAndResume)
         .then(() => rpc.disconnect_all())
         .then(() => {
             console.warn('End of Test, cleaning.');

@@ -4,7 +4,6 @@ new-wizard {
     display: block;
 
     stepper {
-        margin: 0 -@gutter;
         background-color: @color1;
     }
 
@@ -16,6 +15,7 @@ new-wizard {
             @duration: 500ms;
 
             min-width: 100%;
+            padding: 0 @gutter;
             visibility: hidden;
             opacity: 0;
             transition:

@@ -1,18 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-panel.html';
-import BaseViewModel from 'components/base-view-model';
-import { uiState } from 'model';
+import { state$ } from 'state';
+import Observer from 'observer';
 import ko from 'knockout';
 
-class AccountPanelViewModel extends BaseViewModel {
+class AccountPanelViewModel extends Observer {
     constructor() {
         super();
 
-        this.selectedTab = ko.pureComputed(
-            () => uiState().tab
-        );
+        this.selectedTab = ko.observable();
+        this.account = ko.observable();
 
+        this.observe(state$.get('location', 'params', 'tab'), this.onTab);
+    }
+
+    onTab(tab = 's3-access') {
+        this.selectedTab(tab);
     }
 
     tabHref(tab) {
@@ -24,6 +28,7 @@ class AccountPanelViewModel extends BaseViewModel {
 
     tabCss(tab) {
         return {
+            tab: true,
             selected: this.selectedTab() === tab
         };
     }

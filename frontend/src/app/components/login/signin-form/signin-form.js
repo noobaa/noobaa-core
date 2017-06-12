@@ -4,7 +4,8 @@ import template from './signin-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { loginInfo } from 'model';
-import { signIn } from 'actions';
+import { dispatch } from 'state';
+import { signIn } from 'action-creators';
 
 class SignInFormViewModel extends BaseViewModel {
     constructor() {
@@ -45,11 +46,11 @@ class SignInFormViewModel extends BaseViewModel {
 
         } else {
             this.isDirty(false);
-            signIn(
+            dispatch(signIn(
                 this.email(),
                 this.password(),
                 this.keepSessionAlive(),
-            );
+            ));
         }
     }
 }

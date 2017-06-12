@@ -1,10 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { parseQueryString } from 'utils/browser-utils';
-import { sessionInfo, routeContext } from 'model';
+import { sessionInfo } from 'model';
 import * as routes from 'routes';
 import * as actions from 'actions';
-import { changeLocation } from 'dispatchers';
+import { dispatch } from 'state';
+import { changeLocation } from 'action-creators';
 
 const { protocol } = location;
 
@@ -13,7 +14,6 @@ export default function routing(page) {
     function saveContext(ctx, next) {
         ctx.query = parseQueryString(ctx.querystring);
         ctx.protocol = protocol.substr(0, protocol.length - 1);
-        routeContext(ctx);
         next();
     }
 
@@ -34,7 +34,9 @@ export default function routing(page) {
 
     function registerRouteHandler(route, handler) {
         page(route, ctx => {
-            changeLocation({ ...ctx, route });
+            const { pathname, params: _params, query } = ctx;
+            const { ['0']: _, ...params } = _params;
+            dispatch(changeLocation({ route, pathname, params, query }));
 
             // TODO REFACTOR.
             handler(ctx);

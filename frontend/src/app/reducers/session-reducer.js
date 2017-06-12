@@ -1,7 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { RESTORE_LAST_SESSION, SIGN_IN, SIGN_OUT } from 'action-types';
+import {
+    COMPLETE_CREATE_SYSTEM,
+    COMPLETE_RESTORE_SESSION,
+    COMPLETE_SIGN_IN,
+    SIGN_OUT
+} from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -11,12 +16,16 @@ const initialState = null;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onRestoreLastSession(_, { payload }) {
-    return _getUserSession(payload);
+function onCompleteCreateSystem(_, { payload }) {
+    return payload;
 }
 
-function onSignIn(_, { payload }) {
-    return _getUserSession(payload);
+function onCompleteRestoreSession(_, { payload }) {
+    return payload;
+}
+
+function onCompleteSignIn(_, { payload }) {
+    return payload;
 }
 
 function onSignOut() {
@@ -24,22 +33,11 @@ function onSignOut() {
 }
 
 // ------------------------------
-// Local util functions
-// ------------------------------
-function _getUserSession({ account, system, role }) {
-    return {
-        user: account.email,
-        system: system.name,
-        role: role,
-        passwordExpired: Boolean(account.must_change_password),
-    };
-}
-
-// ------------------------------
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [RESTORE_LAST_SESSION]: onRestoreLastSession,
-    [SIGN_IN]: onSignIn,
+    [COMPLETE_CREATE_SYSTEM]: onCompleteCreateSystem,
+    [COMPLETE_RESTORE_SESSION]: onCompleteRestoreSession,
+    [COMPLETE_SIGN_IN]: onCompleteSignIn,
     [SIGN_OUT]: onSignOut
 });

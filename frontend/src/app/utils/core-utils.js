@@ -221,11 +221,11 @@ export function assignWith(target, ...sources) {
     return target;
 }
 
-export function mapValues(obj, mapOp) {
+export function mapValues(obj, mapOp, omitUndefinedValues = true) {
     const res = {};
     for (const [ key, value ] of Object.entries(obj)) {
         const newValue = mapOp(value, key);
-        if (isDefined(newValue)) res[key] = newValue;
+        if (!omitUndefinedValues || isDefined(newValue)) res[key] = newValue;
     }
     return res;
 }

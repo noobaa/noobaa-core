@@ -17,8 +17,13 @@ import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
 import { Buffer } from 'buffer';
 
 // Action dispathers from refactored code.
-import * as dispatchers from 'dispatchers';
-import { action$ } from 'state';
+import { action$, dispatch } from 'state';
+import {
+    restoreSession,
+    fetchSystemInfo,
+    signOut,
+    showNotification
+} from 'action-creators';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
 const endpoint = window.location.hostname;
@@ -43,40 +48,13 @@ function logAction(action, payload) {
 export function start() {
     logAction('start');
 
-    api.options.auth_token =
+    model.previewMode(localStorage.getItem('previewMode'));
+
+    const token =
         sessionStorage.getItem('sessionToken') ||
         localStorage.getItem('sessionToken');
 
-    model.previewMode(
-        localStorage.getItem('previewMode')
-    );
-
-    return api.auth.read_auth()
-        // Try to restore the last session
-        .then(({ account, system }) => {
-            if (isDefined(account)) {
-                model.sessionInfo({
-                    user: account.email,
-                    system: system.name,
-                    mustChangePassword: account.must_change_password
-                });
-            }
-        })
-        .catch(err => {
-            if (err.rpc_code === 'UNAUTHORIZED') {
-                if (api.options.auth_token) {
-                    console.info('Signing out on unauthorized session.');
-                    signOut(false);
-                }
-            } else {
-                console.error(err);
-            }
-        })
-        // Start the router.
-        .then(
-            () => page.start()
-        )
-        .done();
+    dispatch(restoreSession(token));
 }
 
 // -----------------------------------------------------
@@ -445,60 +423,6 @@ export function clearCompletedUploads() {
 }
 
 // -----------------------------------------------------
-// Sign In/Out actions.
-// -----------------------------------------------------
-export function signIn(email, password, keepSessionAlive = false) {
-    logAction('signIn', { email, password: '****', keepSessionAlive });
-
-    api.create_auth_token({ email, password })
-        .then(() => api.system.list_systems())
-        .then(
-            ({ systems }) => {
-                const system = systems[0].name;
-
-                return api.create_auth_token({ system, email, password })
-                    .then(({ token, info }) => {
-                        const storage = keepSessionAlive ? localStorage : sessionStorage;
-                        storage.setItem('sessionToken', token);
-
-                        const account = info.account;
-                        model.sessionInfo({
-                            user: account.email,
-                            system: info.system.name,
-                            mustChangePassword: account.must_change_password
-                        });
-                        model.loginInfo({ retryCount: 0 });
-                        refresh();
-                    });
-            }
-        )
-        .catch(
-            err => {
-                if (err.rpc_code === 'UNAUTHORIZED') {
-                    model.loginInfo({
-                        retryCount: model.loginInfo().retryCount + 1
-                    });
-
-                } else {
-                    throw err;
-                }
-            }
-        )
-        .done();
-}
-
-export function signOut(shouldRefresh = true) {
-    sessionStorage.removeItem('sessionToken');
-    localStorage.removeItem('sessionToken');
-    model.sessionInfo(null);
-    api.options.auth_token = undefined;
-
-    if (shouldRefresh) {
-        refresh();
-    }
-}
-
-// -----------------------------------------------------
 // Information retrieval actions.
 // -----------------------------------------------------
 export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
@@ -537,7 +461,7 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
 // ----------------------------------------------------------------------
 export function loadSystemInfo() {
     logAction('loadSystemInfo');
-    dispatchers.fetchSystemInfo();
+    dispatch(fetchSystemInfo());
 }
 
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
@@ -766,50 +690,6 @@ export function loadCloudBucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createSystem(
-    activationCode,
-    email,
-    password,
-    systemName,
-    dnsName,
-    dnsServers,
-    timeConfig
-) {
-    logAction('createSystem', {
-        activationCode, email, password: '****', systemName, dnsName,
-        dnsServers, timeConfig
-    });
-
-    api.system.create_system({
-        activation_code: activationCode,
-        name: systemName,
-        email: email,
-        password: password,
-        dns_name: dnsName,
-        dns_servers: dnsServers,
-        time_config: timeConfig
-    })
-        .then(
-            ({ token }) => {
-                api.options.auth_token = token;
-                sessionStorage.setItem('sessionToken', token);
-
-                // Update the session info and redirect to system screen.
-                model.sessionInfo({
-                    user: email,
-                    system: systemName
-                });
-
-                redirectTo(
-                    routes.system,
-                    { system: systemName },
-                    { welcome: true }
-                );
-            }
-        )
-        .done();
-}
-
 export function deleteAccount(email) {
     logAction('deleteAccount', { email });
 
@@ -818,7 +698,7 @@ export function deleteAccount(email) {
             () => {
                 const user = model.sessionInfo() && model.sessionInfo().user;
                 if (email === user) {
-                    signOut();
+                    dispatch(signOut());
                 } else {
                     loadSystemInfo();
                 }
@@ -831,16 +711,16 @@ export function deleteAccount(email) {
         .done();
 }
 
-export function resetAccountPassword(verificationPassword, email, password, mustChange) {
+export function resetAccountPassword(verificationPassword, email, password, mustChangePassword) {
     logAction('resetAccountPassword', { verificationPassword: '****', email,
-        password: '****', mustChange });
+        password: '****', mustChangePassword });
 
     model.resetPasswordState('IN_PROGRESS');
     api.account.reset_password({
         verification_password: verificationPassword,
         email: email,
         password: password,
-        must_change_password: mustChange
+        must_change_password: mustChangePassword
     })
         .then(
             () => {
@@ -1848,7 +1728,7 @@ export function attemptResolveNTPServer(ntpServerAddress, serverSecret) {
 export function notify(message, severity = 'info') {
     logAction('notify', { message, severity });
 
-    dispatchers.showNotification(message, severity);
+    dispatch(showNotification(message, severity));
 }
 
 export function validateActivation(code, email) {
@@ -2013,20 +1893,84 @@ function notifyUploadCompleted(uploaded, failed) {
 // TODO: Bridge between old and new architectures. will be removed after
 // appropriate sections are moved to the new architecture.
 // ----------------------------------------------------------------------
-import { COMPLETE_FETCH_SYSTEM_INFO, COMPLETE_CREATE_ACCOUNT,
-    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS, COMPLETE_UPDATE_BUCKET_QUOTA } from 'action-types';
+import * as actionTypes from 'action-types';
 
 action$.subscribe(action => {
-    switch(action.type) {
-        case COMPLETE_FETCH_SYSTEM_INFO:
+    const { type, payload } = action;
+    switch(type) {
+        case actionTypes.COMPLETE_FETCH_SYSTEM_INFO: {
             model.systemInfo({ ...action.payload, endpoint });
             break;
+        }
 
-        case COMPLETE_CREATE_ACCOUNT:
-        case COMPLETE_UPDATE_ACCOUNT_S3_ACCESS:
-        case COMPLETE_UPDATE_BUCKET_QUOTA:
-            loadSystemInfo();
+        case actionTypes.COMPLETE_SIGN_IN: {
+            const storage = payload.persistent ? localStorage : sessionStorage;
+            storage.setItem('sessionToken', payload.token);
+            model.sessionInfo(payload);
+            model.loginInfo({ retryCount: 0 });
+            refresh();
             break;
+        }
+
+        case actionTypes.FAIL_SIGN_IN: {
+            const { error } = payload;
+            if (error.rpc_code === 'UNAUTHORIZED') {
+                model.loginInfo({
+                    retryCount: model.loginInfo().retryCount + 1
+                });
+
+            } else {
+                throw error;
+            }
+            break;
+        }
+
+        case actionTypes.COMPLETE_RESTORE_SESSION: {
+            model.sessionInfo(payload);
+            page.start();
+            break;
+        }
+
+        case actionTypes.FAIL_RESTORE_SESSION: {
+            const { error } = payload;
+            if (error.rpc_code === 'UNAUTHORIZED') {
+                if (api.options.auth_token) {
+                    sessionStorage.removeItem('sessionToken');
+                    localStorage.removeItem('sessionToken');
+                    api.options.auth_token = undefined;
+                }
+
+                page.start();
+            } else {
+                throw error;
+            }
+            break;
+        }
+
+        case actionTypes.SIGN_OUT: {
+            sessionStorage.removeItem('sessionToken');
+            localStorage.removeItem('sessionToken');
+            model.sessionInfo(null);
+            api.options.auth_token = undefined;
+            refresh();
+            break;
+        }
+
+        case actionTypes.COMPLETE_CREATE_SYSTEM: {
+            const { token, system } = payload;
+            api.options.auth_token = token;
+            sessionStorage.setItem('sessionToken', token);
+
+            model.sessionInfo(payload);
+
+            redirectTo(routes.system, { system }, { welcome: true });
+            break;
+        }
+
+        case actionTypes.CHANGE_LOCATION: {
+            model.routeContext(payload);
+            break;
+        }
     }
 });
 // ----------------------------------------------------------------------

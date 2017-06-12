@@ -41,7 +41,6 @@ toggle-switch {
         display: inline-block;
         vertical-align: middle;
         text-transform: capitalize;
-
     }
 
     :checked {
@@ -57,5 +56,15 @@ toggle-switch {
 
     :focus ~ .toggle-label {
         .focused(3px)
+    }
+
+    :disabled {
+        + .toggle-box::before {
+            opacity: .4;
+        }
+
+        ~ .toggle-label {
+            color: @color15;
+        }
     }
 }

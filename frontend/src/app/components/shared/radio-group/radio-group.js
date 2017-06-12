@@ -20,7 +20,7 @@ class RadioGroupViewModel extends BaseViewModel {
         this.selected = selected;
         this.disabled = disabled;
         this.hasFocus = hasFocus;
-        this.layoutClass = multiline ? 'column' : 'row';
+        this.css = multiline ? 'multiline' : '';
 
         this.options = ko.pureComputed(
             () => ko.unwrap(options).map(

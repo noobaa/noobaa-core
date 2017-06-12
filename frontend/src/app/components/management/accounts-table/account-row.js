@@ -4,7 +4,8 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo, systemInfo } from 'model';
 import { stringifyAmount } from 'utils/string-utils';
-import { openDeleteCurrentAccountWarningModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openDeleteCurrentAccountWarningModal } from 'action-creators';
 import { deleteAccount } from 'actions';
 
 export default class AccountRowViewModel extends BaseViewModel {
@@ -73,6 +74,12 @@ export default class AccountRowViewModel extends BaseViewModel {
                 ''
         );
 
+        this.loginAccess = ko.pureComputed(
+            () => account() ?
+                (account().has_login ? 'enabled' : 'disabled') :
+                ''
+        );
+
         this.defaultResource = ko.pureComputed(
             () => (account() && account().default_pool) || '(not set)'
         );
@@ -95,7 +102,7 @@ export default class AccountRowViewModel extends BaseViewModel {
     onDelete() {
         const email = this.email();
         if (email === sessionInfo().user) {
-            openDeleteCurrentAccountWarningModal();
+            dispatch(openDeleteCurrentAccountWarningModal());
         } else {
             deleteAccount(email);
         }

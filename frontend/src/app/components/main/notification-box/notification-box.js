@@ -2,8 +2,8 @@
 
 import template from './notification-box.html';
 import Observer from 'observer';
-import { state$ } from 'state';
-import { hideNotification } from 'dispatchers';
+import { state$, dispatch } from 'state';
+import { hideNotification } from 'action-creators';
 import ko from 'knockout';
 import { deepFreeze, isFalsy } from 'utils/core-utils';
 import { sleep, all } from 'utils/promise-utils';
@@ -73,7 +73,7 @@ class NotificationBarViewModel extends Observer {
 
         await this.hover.when(isFalsy);
 
-        hideNotification(id);
+        dispatch(hideNotification(id));
     }
 }
 

@@ -106,7 +106,7 @@ ko.subscribable.fn.is = function(value) {
 };
 
 ko.subscribable.fn.when = function(condition = Boolean) {
-    const val = this .peek();
+    const val = this.peek();
     if (condition(val)) {
         return Promise.resolve(val);
     } else {

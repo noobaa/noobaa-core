@@ -6,7 +6,8 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateServerDNSSettings } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
-import { lockActiveModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { lockModal } from 'action-creators';
 
 const warnings = deepFreeze({
     master: `Updating the master's DNS settings will cause a restart of the NooBaa
@@ -80,7 +81,7 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
             const sdomains = (this.searchDomains() ? this.searchDomains().split(',') : []).map(d => d.trim());
             updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), sdomains);
 
-            lockActiveModal();
+            dispatch(lockModal());
             this.updating(true);
         }
     }

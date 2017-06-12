@@ -5,7 +5,8 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { timeLongFormat } from 'config';
-import { openEditServerTimeSettingsModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openEditServerTimeSettingsModal } from 'action-creators';
 
 const stateIconMapping = deepFreeze({
     CONNECTED: {
@@ -88,7 +89,7 @@ export default class ServerRowViewModel extends BaseViewModel {
 
         this.actions = {
             text: 'Edit',
-            click: () => openEditServerTimeSettingsModal(server().secret)
+            click: () => dispatch(openEditServerTimeSettingsModal(server().secret))
         };
     }
 }

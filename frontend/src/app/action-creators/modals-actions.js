@@ -1,25 +1,30 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state';
-import { UPDATE_MODAL, LOCK_ACTIVE_MODAL, CLOSE_ACTIVE_MODAL, OPEN_MODAL, REPLACE_MODAL } from 'action-types';
+import {
+    OPEN_MODAL,
+    UPDATE_MODAL,
+    REPLACE_MODAL,
+    LOCK_MODAL,
+    CLOSE_MODAL
+} from 'action-types';
 
 export function updateModal(options) {
-    dispatch({
+    return {
         type: UPDATE_MODAL,
         payload: options
-    });
+    };
 }
 
-export function lockActiveModal() {
-    dispatch({ type: LOCK_ACTIVE_MODAL });
+export function lockModal() {
+    return { type: LOCK_MODAL };
 }
 
-export function closeActiveModal() {
-    dispatch({ type: CLOSE_ACTIVE_MODAL });
+export function closeModal() {
+    return { type: CLOSE_MODAL };
 }
 
 export function openInstallNodesModal() {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: 'install-nodes-modal',
@@ -28,11 +33,11 @@ export function openInstallNodesModal() {
                 size: 'medium'
             }
         }
-    });
+    };
 }
 
 export function openAddCloudResrouceModal() {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: 'add-cloud-resource-modal',
@@ -41,11 +46,11 @@ export function openAddCloudResrouceModal() {
                 size: 'medium'
             }
         }
-    });
+    };
 }
 
 export function openAddCloudConnectionModal() {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: 'add-cloud-connection-modal',
@@ -54,11 +59,11 @@ export function openAddCloudConnectionModal() {
                 size: 'medium'
             }
         }
-    });
+    };
 }
 
 export function openSetCloudSyncModal(bucketName) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -70,11 +75,11 @@ export function openSetCloudSyncModal(bucketName) {
                 size: 'medium'
             }
         }
-    });
+    };
 }
 
 export function openEditCloudSyncModal(bucketName) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -85,11 +90,11 @@ export function openEditCloudSyncModal(bucketName) {
                 title: 'Edit Cloud Sync Policy'
             }
         }
-    });
+    };
 }
 
 export function openS3AccessDetailsModal(email) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -101,11 +106,11 @@ export function openS3AccessDetailsModal(email) {
                 size: 'xsmall'
             }
         }
-    });
+    };
 }
 
 export function openBucketS3AccessModal(bucketName) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -116,11 +121,11 @@ export function openBucketS3AccessModal(bucketName) {
                 title: 'Bucket S3 Access'
             }
         }
-    });
+    };
 }
 
 export function openBucketPlacementPolicyModal(bucketName) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -132,11 +137,11 @@ export function openBucketPlacementPolicyModal(bucketName) {
                 size: 'large'
             }
         }
-    });
+    };
 }
 
 export function openFileUploadsModal() {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: 'file-uploads-modal',
@@ -145,11 +150,11 @@ export function openFileUploadsModal() {
                 size: 'large'
             }
         }
-    });
+    };
 }
 
 export function openDeleteCurrentAccountWarningModal() {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: 'delete-current-account-warning-modal',
@@ -159,11 +164,11 @@ export function openDeleteCurrentAccountWarningModal() {
                 size: 'xsmall'
             }
         }
-    });
+    };
 }
 
 export function openStartMaintenanceModal() {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: 'start-maintenance-modal',
@@ -172,11 +177,11 @@ export function openStartMaintenanceModal() {
                 size: 'xsmall'
             }
         }
-    });
+    };
 }
 
 export function openObjectPreviewModal(objectUri) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -187,11 +192,11 @@ export function openObjectPreviewModal(objectUri) {
                 size: 'large'
             }
         }
-    });
+    };
 }
 
 export function openTestNodeModal(nodeRpcAddress) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -205,11 +210,11 @@ export function openTestNodeModal(nodeRpcAddress) {
                 closeButton: 'hidden'
             }
         }
-    });
+    };
 }
 
 export function openEditServerDNSSettingsModal(serverSecret) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -221,11 +226,11 @@ export function openEditServerDNSSettingsModal(serverSecret) {
                 size: 'medium'
             }
         }
-    });
+    };
 }
 
 export function openEditServerTimeSettingsModal(serverSecret) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -236,26 +241,27 @@ export function openEditServerTimeSettingsModal(serverSecret) {
                 title: 'Edit Server Time Settings'
             }
         }
-    });
+    };
 }
 
-export function openEditAccountS3AccessModal(accountEmail) {
-    dispatch({
+export function openEditAccountS3AccessModal(accountName) {
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'edit-account-s3-access-modal',
-                params: { accountEmail }
+                params: { accountName }
             },
             options: {
-                title: 'Edit Account S3 Access'
+                title: 'Edit Account S3 Access',
+                size: 'medium'
             }
         }
-    });
+    };
 }
 
 export function openEditServerDetailsModal(serverSecret) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -267,11 +273,11 @@ export function openEditServerDetailsModal(serverSecret) {
                 title: 'Edit Server Details'
             }
         }
-    });
+    };
 }
 
 export function openAssignNodesModal(poolName) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -283,11 +289,11 @@ export function openAssignNodesModal(poolName) {
                 title: 'Assign Nodes'
             }
         }
-    });
+    };
 }
 
 export function openUpdateSystemNameModal(name) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -299,11 +305,11 @@ export function openUpdateSystemNameModal(name) {
                 title: 'Updating System Name'
             }
         }
-    });
+    };
 }
 
 export function openUnableToActivateModal(reason) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -315,11 +321,11 @@ export function openUnableToActivateModal(reason) {
                 title: 'NooBaa\'s Activation Servers Unreachable'
             }
         }
-    });
+    };
 }
 
 export function openCreateAccountModal() {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: 'create-account-modal',
@@ -328,11 +334,11 @@ export function openCreateAccountModal() {
                 title: 'Create Account'
             }
         }
-    });
+    };
 }
 
 export function openEditBucketQuotaModal(bucketName) {
-    dispatch({
+    return {
         type: OPEN_MODAL,
         payload: {
             component: {
@@ -345,16 +351,16 @@ export function openEditBucketQuotaModal(bucketName) {
             }
         }
 
-    });
+    };
 }
 
-export function replaceWithAccountCreatedModal(account, password) {
-    dispatch({
+export function replaceToAccountCreatedModal(accountName, password) {
+    return {
         type: REPLACE_MODAL,
         payload: {
             component: {
                 name:'account-created-modal',
-                params: { account, password }
+                params: { accountName, password }
             },
             options: {
                 title: 'Account Created Successfully',
@@ -362,5 +368,20 @@ export function replaceWithAccountCreatedModal(account, password) {
                 size: 'small'
             }
         }
-    });
+    };
+}
+
+export function opensetAccountIpRestrictions(accountName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'set-account-ip-restrictions-modal',
+                params: { accountName }
+            },
+            options: {
+                title: 'Set IP Restrictions',
+            }
+        }
+    };
 }

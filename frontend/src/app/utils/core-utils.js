@@ -164,7 +164,8 @@ export function flatMap(arr, predicate = echo) {
 
 export function sumBy(array, selector = echo) {
     return array.map(selector).reduce(
-        (sum, value) => sum + value
+        (sum, value) => sum + value,
+        0
     );
 }
 

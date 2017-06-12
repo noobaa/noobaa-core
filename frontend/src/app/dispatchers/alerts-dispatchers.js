@@ -51,10 +51,10 @@ export async function updateAlerts(query, read) {
 }
 
 export async function getUnreadAlertsCount() {
-    const count = await api.events.get_unread_alerts_count();
+    const { CRIT: crit, MAJOR: major, INFO: info } = await api.events.get_unread_alerts_count();
     dispatch({
         type: UPDATE_ALERTS_UNREAD_COUNT,
-        payload: { count }
+        payload: { crit, major, info }
     });
 }
 

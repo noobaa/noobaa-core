@@ -264,21 +264,18 @@ function create_system(req) {
                     system_changes = changes;
                     return system_store.make_changes(changes);
                 })
-                .then(() => {
-                    //Create the owner account
-                    return server_rpc.client.account.create_account({
-                        name: req.rpc_params.name,
-                        email: req.rpc_params.email,
-                        password: req.rpc_params.password,
-                        s3_access: true,
-                        new_system_parameters: {
-                            account_id: account._id.toString(),
-                            allowed_buckets: allowed_buckets,
-                            default_pool: default_pool,
-                            new_system_id: system_changes.insert.systems[0]._id.toString()
-                        },
-                    });
-                })
+                .then(() => server_rpc.client.account.create_account({ //Create the owner account
+                    name: req.rpc_params.name,
+                    email: req.rpc_params.email,
+                    password: req.rpc_params.password,
+                    s3_access: true,
+                    new_system_parameters: {
+                        account_id: account._id.toString(),
+                        allowed_buckets: allowed_buckets,
+                        default_pool: default_pool,
+                        new_system_id: system_changes.insert.systems[0]._id.toString()
+                    },
+                }))
                 .then(response => {
                     reply_token = response.token;
 
@@ -580,7 +577,6 @@ function delete_system(req) {
 function log_frontend_stack_trace(req) {
     return P.fcall(function() {
             dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
-            return;
         })
         .return();
 }
@@ -1048,7 +1044,7 @@ function update_hostname(req) {
         .then(() => {
             // This will test if we've received IP or DNS name
             // This check is essential because there is no point of resolving an IP using DNS Servers
-            if (!req.rpc_params.hostname || net_utils.is_hostname(req.rpc_params.hostname)) {
+            if (!req.rpc_params.hostname || net_utils.is_valid_ip(req.rpc_params.hostname)) {
                 return;
             }
             // Use defaults to add dns_name property without altering the original request
@@ -1074,6 +1070,11 @@ function update_hostname(req) {
 
 
 function attempt_server_resolve(req) {
+    //If already in IP form, no need for resolving
+    if (net_utils.is_valid_ip(req.rpc_params.server_name)) {
+        dbg.log2('attempt_server_resolve recieved an IP form', req.rpc_params.server_name);
+        return { valid: true };
+    }
     dbg.log0('attempt_server_resolve', req.rpc_params.server_name);
     return P.promisify(dns.resolve)(req.rpc_params.server_name)
         .timeout(30000)
@@ -1140,7 +1141,6 @@ function log_client_console(req) {
     _.each(req.rpc_params.data, function(line) {
         client_syslog.log(5, req.rpc_params.data, 'LOG_LOCAL1');
     });
-    return;
 }
 
 function _init_system() {
@@ -1231,9 +1231,7 @@ function _create_system_internal_storage(system_changes, auth_token) {
                 }
             };
         })
-        .then(changes => {
-            return system_store.make_changes(changes);
-        })
+        .then(changes => system_store.make_changes(changes))
         .return();
 }
 

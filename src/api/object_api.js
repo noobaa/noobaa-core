@@ -529,6 +529,9 @@ module.exports = {
                     name: {
                         type: 'string'
                     },
+                    by_host: { // get mappings for all nodes in host
+                        type: 'boolean'
+                    },
                     skip: {
                         type: 'integer'
                     },

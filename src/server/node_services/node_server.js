@@ -138,6 +138,7 @@ exports.list_nodes = list_nodes;
 exports.aggregate_nodes = aggregate_nodes;
 exports.get_test_nodes = get_test_nodes;
 exports.allocate_nodes = allocate_nodes;
+exports.get_node_ids = req => monitor.get_node_ids(req);
 exports.aggregate_data_free_by_tier = req => nodes_aggregator.aggregate_data_free_by_tier(req);
 exports.migrate_nodes_to_pool = req => monitor.migrate_nodes_to_pool(req);
 exports.n2n_signal = req => monitor.n2n_signal(req.rpc_params);

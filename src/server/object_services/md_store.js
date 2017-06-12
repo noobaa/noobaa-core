@@ -831,12 +831,35 @@ class MDStore {
             blocks[0] && blocks[0].system, blocks, 'node');
     }
 
-    iterate_node_chunks({ node_id, marker, skip, limit }) {
+    iterate_node_chunks({ node_id, marker, limit }) {
         return this._blocks.col().find(compact({
                 node: node_id,
                 _id: marker ? {
                     $lt: marker
                 } : undefined,
+                deleted: null,
+            }), {
+                fields: {
+                    _id: 1,
+                    chunk: 1,
+                    size: 1
+                },
+                sort: {
+                    _id: -1 // start with latest blocks and go back
+                },
+                limit: limit,
+            })
+            .toArray()
+            .then(blocks => ({
+                chunk_ids: mongo_utils.uniq_ids(blocks, 'chunk'),
+                marker: blocks.length ? blocks[blocks.length - 1]._id : null,
+                blocks_size: _.sumBy(blocks, 'size'),
+            }));
+    }
+
+    iterate_multi_nodes_chunks({ node_ids, skip, limit }) {
+        return this._blocks.col().find(compact({
+                node: { $in: node_ids },
                 deleted: null,
             }), {
                 fields: {
@@ -858,9 +881,9 @@ class MDStore {
             }));
     }
 
-    count_blocks_of_node(node_id) {
+    count_blocks_of_nodes(node_ids) {
         return this._blocks.col().count({
-            node: node_id,
+            node: { $in: node_ids },
             deleted: null,
         });
     }

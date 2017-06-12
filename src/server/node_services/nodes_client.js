@@ -145,6 +145,23 @@ class NodesClient {
             .tap(node => mongo_utils.fix_id_type(node));
     }
 
+    get_node_ids_by_name(system_id, name, by_host) {
+        if (!system_id) {
+            dbg.error('read_node_by_name: expected system_id. node_name', name);
+            throw new Error('read_node_by_name: expected system_id');
+        }
+        return server_rpc.client.node.get_node_ids({
+                name,
+                by_host
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_id,
+                    role: 'admin'
+                })
+            })
+            .then(node_ids => node_ids.map(node_id => mongo_utils.make_object_id(node_id)));
+    }
+
     delete_node_by_name(system_id, node_name) {
         if (!system_id) {
             dbg.error('read_node_by_name: expected system_id. node_name', node_name);

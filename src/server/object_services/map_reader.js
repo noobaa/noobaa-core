@@ -8,7 +8,6 @@ const P = require('../../util/promise');
 const config = require('../../../config.js');
 const MDStore = require('./md_store').MDStore;
 const map_utils = require('./map_utils');
-const mongo_utils = require('../../util/mongo_utils');
 const node_allocator = require('../node_services/node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
 
@@ -56,8 +55,8 @@ function read_object_mappings(params) {
  * @params: node_id, skip, limit
  */
 function read_node_mappings(params) {
-    return MDStore.instance().iterate_node_chunks({
-            node_id: mongo_utils.make_object_id(params.node_id),
+    return MDStore.instance().iterate_multi_nodes_chunks({
+            node_ids: params.node_ids,
             skip: params.skip || 0,
             limit: params.limit || 0,
         })

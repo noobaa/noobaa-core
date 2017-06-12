@@ -59,6 +59,30 @@ module.exports = {
             }
         },
 
+        get_node_ids: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    by_host: {
+                        type: 'boolean'
+                    }
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         decommission_node: {
             method: 'DELETE',
             params: {

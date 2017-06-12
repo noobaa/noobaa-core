@@ -39,7 +39,7 @@ export default class S3AccessRowViewModel extends BaseViewModel {
                 }
 
                 const text = 'View';
-                const click = () => openS3AccessDetailsModal.bind(account().email);
+                const click = () => openS3AccessDetailsModal(account().email);
                 return { text, click };
             }
         );

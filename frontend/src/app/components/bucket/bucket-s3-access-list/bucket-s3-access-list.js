@@ -16,10 +16,6 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'recentlyUsed',
-        sortable: true
-    },
-    {
         name: 'credentialsDetails',
         type: 'button'
     }

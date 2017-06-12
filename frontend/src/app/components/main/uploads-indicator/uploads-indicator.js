@@ -2,10 +2,10 @@
 
 import template from './uploads-indicator.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, dispatch } from 'state';
 import ko from 'knockout';
 import style from 'style';
-import { openFileUploadsModal } from 'dispatchers';
+import { openFileUploadsModal } from 'action-creators';
 
 class UploadsIndicatorViewModel extends Observer {
     constructor() {
@@ -44,7 +44,7 @@ class UploadsIndicatorViewModel extends Observer {
     }
 
     onClick() {
-        openFileUploadsModal();
+        dispatch(openFileUploadsModal());
     }
 
     onUploadAnimationEnd() {

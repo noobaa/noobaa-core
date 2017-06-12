@@ -9,7 +9,8 @@ import { formatSize } from 'utils/size-utils';
 import { loadServerTime } from 'actions';
 import { timeLongFormat } from 'config';
 import ko from 'knockout';
-import { openEditServerDetailsModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openEditServerDetailsModal } from 'action-creators';
 
 const icons = deepFreeze({
     healthy: {
@@ -130,7 +131,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 this.notEnoughCpus()
         );
 
-        const timezone = ko.pureComputed(() => this.server().timezone);        
+        const timezone = ko.pureComputed(() => this.server().timezone);
         this.infoSheet = this.getInfoSheet(minRequirements);
         this.version = this.getVersion();
         this.serverTime = this.getServerTime(timezone);
@@ -168,7 +169,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => {
                 const { memory } = this.server() || {};
                 return memory ?
-                    `${formatSize(memory.total)} ${this.notEnoughMemory() ? 
+                    `${formatSize(memory.total)} ${this.notEnoughMemory() ?
                         requirementsMarker(`Minimum requirements: ${formatSize(minRequirements().ram)}`)  : ''}` :
                     '';
             }
@@ -178,7 +179,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => {
                 const { storage } = this.server() || {};
                 return storage ?
-                    `${formatSize(storage.total)} ${this.notEnoughStorage() ? 
+                    `${formatSize(storage.total)} ${this.notEnoughStorage() ?
                         requirementsMarker(`Minimum requirements: ${formatSize(minRequirements().storage)}`) : ''}` :
                     '';
             }
@@ -188,7 +189,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => {
                 const { cpus } = this.server() || {};
                 return cpus ?
-                    `${cpus.count} CPUs ${this.notEnoughCpus() ? 
+                    `${cpus.count} CPUs ${this.notEnoughCpus() ?
                         requirementsMarker(`Minimum requirements: ${minRequirements().cpu_count} CPUs`) : ''}` :
                     '';
             }
@@ -384,7 +385,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         const config = ko.pureComputed(
             () => (systemInfo() || {}).remote_syslog_config
         );
-        
+
         const icon = ko.pureComputed(
             () => {
                 if (!this.isConnected() || !config()) {
@@ -412,8 +413,8 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             }
         );
 
-        const isConfigured = ko.pureComputed(() => Boolean(config()));        
-        
+        const isConfigured = ko.pureComputed(() => Boolean(config()));
+
         const text = ko.pureComputed(
             () => {
                 if (config()) {
@@ -427,13 +428,13 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         const lastRSyslogSync = ko.pureComputed(
             () => {
                 const { remote_syslog = {} } = this.server().services_status || {};
-                const { test_time } = remote_syslog;                
+                const { test_time } = remote_syslog;
                 return test_time && test_time * 1000;
             }
         ).extend({
             formatTime: {
                 format: timeLongFormat,
-                timezone,                
+                timezone,
                 notAvailableText: 'Not Tested Yet'
             }
         });
@@ -478,17 +479,17 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 return systemInfo().phone_home_config.proxy_address || 'Not Configured';
             }
         );
-        
+
         const lastPhoneHomeSync = ko.pureComputed(
             () => {
                 const { phonehome_server = {} } = this.server().services_status || {};
-                const { test_time } = phonehome_server;                
+                const { test_time } = phonehome_server;
                 return test_time && test_time * 1000;
             }
         ).extend({
             formatTime: {
                 format: timeLongFormat,
-                timezone,                
+                timezone,
                 notAvailableText: 'Not Synced Yet'
             }
         });
@@ -497,7 +498,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
     }
 
     onEditServerDetails() {
-        openEditServerDetailsModal(this.secret);
+        dispatch(openEditServerDetailsModal(this.secret));
     }
 }
 

@@ -3,12 +3,14 @@
 import template from './create-system-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { validateActivation, attemptResolveSystemName, createSystem } from 'actions';
+import { validateActivation, attemptResolveSystemName } from 'actions';
+import { createSystem } from 'action-creators';
 import { activationState, nameResolutionState, serverInfo } from 'model';
 import moment from 'moment';
 import { deepFreeze } from 'utils/core-utils';
 import { sleep } from 'utils/promise-utils';
 import { calcPasswordStrength } from 'utils/password-utils';
+import { dispatch } from 'state';
 
 const activationFaliureReasonMapping = deepFreeze({
     ACTIVATION_CODE_IN_USE: 'Activation code is already in use',
@@ -208,7 +210,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
         };
 
         if (this.validateStep(this.step())) {
-            createSystem(
+            dispatch(createSystem(
                 this.activationCode(),
                 this.email(),
                 this.password(),
@@ -216,7 +218,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
                 this.serverDNSName(),
                 dnsServers,
                 timeConfig
-            );
+            ));
         }
     }
 }

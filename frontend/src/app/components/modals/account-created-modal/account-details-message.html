@@ -1,12 +1,12 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 Hi, I created a NooBaa user for you:
-
+<!-- ko if: username && password -->
 <span class="highlight">Use the following credentials to connect to the NooBaa console:</span>
 <span>Console Url: {{serverAddress}}</span>
 <span>Username: {{username}}</span>
 <span>Password: {{password}}</span>
-<!-- ko if: accessKey && secretKey -->
+<!-- /ko --><!-- ko if: accessKey && secretKey -->
 <span class="highlight">Use the following S3 access to connect an S3 compatible application to NooBaa:</span>
 <span>Access Key: {{accessKey}}</span>
 <span>Secret Key: {{secretKey}}</span>

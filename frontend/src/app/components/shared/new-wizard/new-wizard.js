@@ -5,26 +5,28 @@ import BaseViewModel from 'components/base-view-model';
 import { noop } from 'utils/core-utils';
 import ko from 'knockout';
 
+
 class NewWizardViewModel extends BaseViewModel {
     constructor({
         steps = [],
-        step = ko.observable(),
+        step = ko.observable(0),
         actionLabel = 'Done',
-        onNext,
-        onPrev,
-        onCancel,
-        onComplete
+        disabled = false,
+        shakeOnFailedStep = true,
+        onBeforeStep = () => true,
+        onCancel = noop,
+        onComplete = noop
     }) {
         super();
 
         this.steps = steps;
         this.step = step;
-        this.actionLabel = actionLabel;
-        this.onNext = onNext || noop;
-        this.onPrev = onPrev || noop;
-        this.onCancel = onCancel || noop;
-        this.onComplete = onComplete || noop;
-        this.shake = ko.observable();
+        this.disabled = disabled;
+        this.onBeforeStep = onBeforeStep;
+        this.onCancel = onCancel;
+        this.onComplete = onComplete;
+        this.shakeOnFailedStep = shakeOnFailedStep;
+        this.shake = ko.observable(false);
 
         this.isFirstStep = ko.pureComputed(
             () => this.step() === 0
@@ -33,26 +35,34 @@ class NewWizardViewModel extends BaseViewModel {
         this.isLastStep = ko.pureComputed(
             () => this.step() === ko.unwrap(steps).length - 1
         );
+
+        this.prevLabel = ko.pureComputed(
+            () => this.isFirstStep() ? 'Cancel' : 'Previous'
+        );
+
+        this.nextLabel = ko.pureComputed(
+            () => this.isLastStep() ? ko.unwrap(actionLabel) : 'Next'
+        );
     }
 
-    onNextInternal() {
-        if (this.isLastStep()) {
+    onStepForward() {
+        this.shake(false);
+
+        const step = this.step();
+        if (ko.unwrap(this.disabled)|| !this.onBeforeStep(step)) {
+            this.shake(ko.unwrap(this.shakeOnFailedStep));
             return;
         }
 
-        this.shake(this.onNext(this.step() + 1) === false);
+        this.isLastStep() ? this.onComplete() : this.step(step + 1);
     }
 
-    onPrevInternal() {
-        if (this.isFirstStep()) {
+    onStepBackword() {
+        if (ko.unwrap(this.disabled)) {
             return;
         }
 
-        this.onPrev(this.step() - 1);
-    }
-
-    onCompleteInternal() {
-        this.shake(this.onComplete() === false);
+        this.isFirstStep() ? this.onCancel() : this.step(this.step() - 1);
     }
 }
 

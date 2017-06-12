@@ -2,7 +2,8 @@
 
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { openS3AccessDetailsModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openS3AccessDetailsModal } from 'action-creators';
 
 export default class S3AccessRowViewModel extends BaseViewModel {
     constructor(account) {
@@ -39,7 +40,7 @@ export default class S3AccessRowViewModel extends BaseViewModel {
                 }
 
                 const text = 'View';
-                const click = () => openS3AccessDetailsModal(account().email);
+                const click = () => dispatch(openS3AccessDetailsModal(account().email));
                 return { text, click };
             }
         );

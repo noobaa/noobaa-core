@@ -8,7 +8,8 @@ import ko from 'knockout';
 import { deepFreeze, noop, keyByProperty } from 'utils/core-utils';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
-import { updateModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { updateModal } from 'action-creators';
 
 const screenModalMetaMapping = deepFreeze({
     0: {
@@ -24,7 +25,7 @@ const screenModalMetaMapping = deepFreeze({
 });
 
 const allowedResourceTypes = deepFreeze([
-    'HOSTS', 
+    'HOSTS',
     'CLOUD'
 ]);
 
@@ -38,7 +39,7 @@ class BacketPlacementPolicyModalViewModel extends BaseViewModel {
 
         this.screen = ko.observable(0);
         this.screen.subscribe(
-            screen => updateModal(screenModalMetaMapping[screen])
+            screen => dispatch(updateModal(screenModalMetaMapping[screen]))
         );
 
         this.tierName = ko.pureComputed(

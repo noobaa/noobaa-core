@@ -29,4 +29,5 @@ export default function register(ko) {
     registerHandler('globalEvent',      require('./global-event').default);
     registerHandler('selection',        require('./selection').default);
     registerHandler('preventBubble',    require('./prevent-bubble').default);
+    registerHandler('validationCss',    require('./validation-css').default);
 }

@@ -2,9 +2,9 @@
 
 import template from './drawer.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, dispatch } from 'state';
 import ko from 'knockout';
-import { closeDrawer } from 'dispatchers';
+import { closeDrawer } from 'action-creators';
 import { runAsync } from 'utils/core-utils';
 
 class DrawerViewModel extends Observer {
@@ -33,7 +33,7 @@ class DrawerViewModel extends Observer {
     }
 
     close() {
-        closeDrawer();
+        dispatch(closeDrawer());
     }
 }
 

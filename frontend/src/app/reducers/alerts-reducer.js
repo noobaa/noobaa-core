@@ -2,9 +2,16 @@
 
 import { mergeBy, isUndefined, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { START_FETCH_ALERTS, COMPLETE_FETCH_ALERTS, FAIL_FETCH_ALERTS,
-    START_UPDATE_ALERTS, COMPLETE_UPDATE_ALERTS, FAIL_UPDATE_ALERTS,
-    UPDATE_ALERTS_UNREAD_COUNT, DROP_ALERTS } from 'action-types';
+import {
+    FETCH_ALERTS,
+    COMPLETE_FETCH_ALERTS,
+    FAIL_FETCH_ALERTS,
+    UPDATE_ALERTS,
+    COMPLETE_UPDATE_ALERTS,
+    FAIL_UPDATE_ALERTS,
+    COMPLETE_FETCH_UNREAD_ALERTS_COUNT,
+    DROP_ALERTS
+} from 'action-types';
 
 // ------------------------------
 // Initial state
@@ -22,7 +29,7 @@ const initialState = {
 // Action Handlers
 // ------------------------------
 
-function onStartFetchAlerts(state, { payload }) {
+function onFetchAlerts(state, { payload }) {
     const { query } = payload;
     const loading = state.loading + 1;
     const loadError = null;
@@ -68,7 +75,7 @@ function onFailFetchAlerts(state, { payload }) {
     }
 }
 
-function onStartUpdateAlerts(state, { payload }) {
+function onUpdateAlerts(state, { payload }) {
     const { query } = payload;
     const list = state.list.map(
         item => _matchs(item, query) ?
@@ -101,7 +108,7 @@ function onFailUpdateAlerts(state, { payload }) {
     return { ...state, list };
 }
 
-function onUpdateAlertsUreadCount(state, { payload }) {
+function onCompleteFetchUnreadAlertsCount(state, { payload }) {
     return { ...state, unreadCounts: payload };
 }
 
@@ -124,12 +131,12 @@ function _matchs(item, { ids, severity, read }) {
 // Exported reducer function.
 // ------------------------------
 export default createReducer(initialState, {
-    [START_FETCH_ALERTS]: onStartFetchAlerts,
+    [FETCH_ALERTS]: onFetchAlerts,
     [COMPLETE_FETCH_ALERTS]: onCompleteFetchAlerts,
     [FAIL_FETCH_ALERTS]: onFailFetchAlerts,
-    [START_UPDATE_ALERTS]: onStartUpdateAlerts,
+    [UPDATE_ALERTS]: onUpdateAlerts,
     [COMPLETE_UPDATE_ALERTS]: onCompleteUpdateAlerts,
     [FAIL_UPDATE_ALERTS]: onFailUpdateAlerts,
-    [UPDATE_ALERTS_UNREAD_COUNT]: onUpdateAlertsUreadCount,
+    [COMPLETE_FETCH_UNREAD_ALERTS_COUNT]: onCompleteFetchUnreadAlertsCount,
     [DROP_ALERTS]: onDropAlerts
 });

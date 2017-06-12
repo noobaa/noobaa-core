@@ -10,7 +10,7 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 
 class AccountCreatedModalViewModel extends Observer {
-    constructor({ onClose, account, password }) {
+    constructor({ onClose, accountName, password }) {
         super();
 
         this.onClose = onClose;
@@ -18,17 +18,17 @@ class AccountCreatedModalViewModel extends Observer {
         this.password = password;
         this.message = ko.observable();
 
-        this.observe(state$.get('accounts', account), this.onAccount);
+        this.observe(state$.get('accounts', accountName), this.onAccount);
     }
 
     onAccount(account) {
         const { endpoint, ssl_port } = systemInfo();
-        const { email, hasS3Access, accessKeys } = account;
+        const { name, hasLoginAccess, hasS3Access, accessKeys } = account;
 
         const data = {
             serverAddress: `https://${endpoint}:${ssl_port}`,
-            username: email,
-            password: this.password,
+            username: hasLoginAccess ? name : '',
+            password: hasLoginAccess ? this.password : '',
             accessKey: hasS3Access ? accessKeys.accessKey : '',
             secretKey: hasS3Access ? accessKeys.secretKey : ''
         };

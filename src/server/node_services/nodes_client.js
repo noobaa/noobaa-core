@@ -74,6 +74,23 @@ class NodesClient {
         return nodes_aggregate_pool;
     }
 
+    aggregate_hosts_by_pool(pool_names, system_id) {
+        const nodes_aggregate_pool = server_rpc.client.node.aggregate_nodes({
+            query: {
+                pools: pool_names || undefined,
+                skip_cloud_nodes: true,
+            },
+            group_by: 'pool',
+            aggregate_hosts: true,
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            })
+        });
+        return nodes_aggregate_pool;
+    }
+
 
     aggregate_data_free_by_tier(tier_ids, system_id) {
         return server_rpc.client.node.aggregate_data_free_by_tier({

@@ -93,25 +93,20 @@ module.exports = {
         },
 
         update_host_services: {
-            method: 'DELETE',
+            method: 'POST',
             params: {
                 type: 'object',
+                required: ['host_name', 'storage_updates', 's3_updates'],
                 properties: {
-                    updates: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['node', 'enabled'],
-                            properties: {
-                                node: {
-                                    $ref: 'node_api#/definitions/node_identity'
-                                },
-                                enabled: {
-                                    type: 'boolean'
-                                }
-                            }
-                        }
-                    }
+                    host_name: {
+                        type: 'string'
+                    },
+                    storage_updates: {
+                        $ref: '#/definitions/host_service_update'
+                    },
+                    s3_updates: {
+                        $ref: '#/definitions/host_service_update'
+                    },
                 }
             },
             auth: {
@@ -190,36 +185,165 @@ module.exports = {
 
         host_info: {
             type: 'object',
-            required: ['host_info', 'storage_nodes_info', 's3_nodes_info'],
+            required: ['name', 'storage_nodes_info', 's3_nodes_info'],
             properties: {
-
-                // TODO: change host_info to hold only the neccessary fields. node_info contains
-                // many unnecessary fields
-                host_info: {
-                    $ref: 'node_api#/definitions/node_info',
+                name: {
+                    type: 'string'
+                },
+                hostname: {
+                    type: 'string'
+                },
+                pool: {
+                    type: 'string'
+                },
+                geolocation: {
+                    type: 'string'
+                },
+                ip: {
+                    type: 'string'
+                },
+                version: {
+                    type: 'string'
+                },
+                version_install_time: {
+                    format: 'idate'
+                },
+                last_communication: {
+                    format: 'idate'
+                },
+                trusted: {
+                    type: 'boolean',
+                },
+                connectivity: {
+                    $ref: 'node_api#/definitions/connectivity_type'
+                },
+                storage: {
+                    $ref: 'common_api#/definitions/storage_info'
+                },
+                os_info: {
+                    $ref: 'common_api#/definitions/os_info'
+                },
+                latency_to_server: {
+                    $ref: 'node_api#/definitions/latency_array'
+                },
+                debug_level: {
+                    type: 'integer',
+                },
+                suggested_pool: {
+                    type: 'string'
+                },
+                mode: {
+                    $ref: '#/definitions/host_mode'
                 },
                 storage_nodes_info: {
-                    type: 'array',
-                    items: {
-                        $ref: 'node_api#/definitions/node_info'
+                    type: 'object',
+                    properties: {
+                        mode: {
+                            $ref: '#/definitions/storage_nodes_mode'
+                        },
+                        enabled: {
+                            type: 'boolean'
+                        },
+                        nodes: {
+                            type: 'array',
+                            items: {
+                                $ref: 'node_api#/definitions/node_info'
+                            }
+                        }
                     }
                 },
                 s3_nodes_info: {
-                    type: 'array',
-                    items: {
-                        $ref: 'node_api#/definitions/node_info'
+                    type: 'object',
+                    properties: {
+                        mode: {
+                            $ref: '#/definitions/s3_nodes_mode'
+                        },
+                        enabled: {
+                            type: 'boolean'
+                        },
+                        nodes: {
+                            type: 'array',
+                            items: {
+                                $ref: 'node_api#/definitions/node_info'
+                            }
+                        }
                     }
                 },
             }
         },
 
-        hosts_aggregate_info: {
-            $ref: 'node_api#/definitions/nodes_aggregate_info'
+        storage_nodes_mode: {
+            type: 'string',
+            enum: [
+                'OFFLINE',
+                'DECOMMISSIONED',
+                'DECOMMISSIONING',
+                'UNTRUSTED',
+                'DETENTION',
+                'HAS_ISSUES',
+                'NO_CAPACITY',
+                'DATA_ACTIVITY',
+                'LOW_CAPACITY',
+                'INITALIZING',
+                'MEMORY_PRESSURE',
+                'OPTIMAL',
+            ]
+        },
+
+        s3_nodes_mode: {
+            type: 'string',
+            enum: [
+                'OFFLINE',
+                'DECOMMISSIONED',
+                'HTTP_SRV_ERRORS',
+                'INITALIZING',
+                'OPTIMAL',
+            ]
+        },
+
+        host_mode: {
+            type: 'string',
+            enum: [
+                'OFFLINE',
+                'DECOMMISSIONED',
+                'DECOMMISSIONING',
+                'DATA_ACTIVITY',
+                'HAS_ISSUES',
+                'MEMORY_PRESSURE',
+                'INITALIZING',
+                'OPTIMAL',
+            ]
+        },
+
+
+        host_service_update: {
+            anyOf: [{
+                type: 'null'
+            }, {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['node', 'enabled'],
+                    properties: {
+                        node: {
+                            $ref: 'node_api#/definitions/node_identity'
+                        },
+                        enabled: {
+                            type: 'boolean'
+                        }
+                    }
+                }
+            }]
         },
 
         hosts_query: {
             $ref: 'node_api#/definitions/nodes_query'
+        },
+
+        hosts_aggregate_info: {
+            $ref: 'node_api#/definitions/nodes_aggregate_info'
         }
+
 
 
 

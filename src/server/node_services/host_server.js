@@ -46,7 +46,7 @@ function set_debug_host() {
 }
 
 function update_host_services(req) {
-    let monitor = nodes_server.get_local_monitor();
+    const monitor = nodes_server.get_local_monitor();
     return monitor.update_nodes_services(req)
         .return();
 }

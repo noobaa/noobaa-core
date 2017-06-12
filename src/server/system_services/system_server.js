@@ -359,6 +359,10 @@ function read_system(req) {
         nodes_aggregate_pool_with_cloud_no_mongo: nodes_client.instance()
             .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false, /*skip_mongo_nodes=*/ true),
 
+        // TODO: when UI is changed from nodes to hosts (multidrive) we need to pass hosts_aggregate_pool
+        // to get_pool_info instead of nodes_aggregate_pool_with_cloud
+        // hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
+
         obj_count_per_bucket: MDStore.instance().count_objects_per_bucket(system._id),
 
         // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
@@ -387,6 +391,7 @@ function read_system(req) {
         nodes_aggregate_pool_no_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_no_mongo,
+        // hosts_aggregate_pool,
         obj_count_per_bucket,
         cloud_sync_by_bucket,
         accounts,

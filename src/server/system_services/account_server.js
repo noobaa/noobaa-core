@@ -740,6 +740,7 @@ function get_account_info(account, include_connection_cache) {
         info.is_support = true;
     }
 
+    info.has_login = account.has_login;
     info.allowed_ips = account.allowed_ips;
 
     if (account.next_password_change) {

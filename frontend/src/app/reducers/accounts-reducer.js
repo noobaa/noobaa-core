@@ -2,7 +2,9 @@
 
 import { createReducer } from 'utils/reducer-utils';
 import { keyByProperty } from 'utils/core-utils';
-import { COMPLETE_FETCH_SYSTEM_INFO, START_CREATE_ACCOUNT, FAIL_CREATE_ACCOUNT } from 'action-types';
+import {
+    COMPLETE_FETCH_SYSTEM_INFO,
+} from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -14,51 +16,47 @@ const initialState = {};
 // ------------------------------
 
 function onCompleteFetchSystemInfo(_, { payload }) {
-    return keyByProperty(payload.accounts, 'email', account => {
-        const accessKeys = account.access_keys[0];
+    const { buckets, accounts, owner } = payload;
+    const allBuckets = buckets.map(bucket => bucket.name);
+
+    return keyByProperty(accounts, 'email', account => {
+        const {
+            email,
+            has_login,
+            access_keys,
+            has_s3_access,
+            default_pool,
+            allowed_buckets,
+            allowed_ips
+        } = account;
+
+        const {
+            access_key: accessKey,
+            secret_key: secretKey
+        } = access_keys[0];
+
+        const hasAccessToAllBuckets = has_s3_access && allowed_buckets.full_permission;
+        const allowedBuckets = has_s3_access ?
+             (hasAccessToAllBuckets ? allBuckets : allowed_buckets.permission_list) :
+             [];
+
         return {
-            name: account.name,
-            email: account.email,
-            hasS3Access: account.has_s3_access,
-            allowedBuckets: account.allowed_buckets,
-            defaultResource: account.default_pool,
-            isOwner: payload.owner.email === account.email,
-            accessKeys: {
-                accessKey: accessKeys.access_key,
-                secretKey: accessKeys.secret_key
-            }
+            name: email,
+            isOwner: email === owner.email,
+            hasLoginAccess: has_login,
+            hasS3Access: has_s3_access,
+            hasAccessToAllBuckets,
+            allowedBuckets,
+            defaultResource: default_pool,
+            accessKeys: { accessKey, secretKey },
+            allowedIps: allowed_ips
         };
     });
 }
-
-function onStartCreateAccount(accounts, { payload }) {
-    const { name, email } = payload;
-    return {
-        ...accounts,
-        [email]: { name, email, mode: 'IN_CREATION' }
-    };
-}
-
-function onFailCreateAccount(accounts, { payload }) {
-    const { email } = payload;
-    return {
-        ...accounts,
-        [email]: {
-            ...accounts.email,
-            mode: 'CREATION_FAILURE'
-        }
-    };
-}
-
-// ------------------------------
-// Local util functions
-// ------------------------------
 
 // ------------------------------
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
     [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
-    [START_CREATE_ACCOUNT]: onStartCreateAccount,
-    [FAIL_CREATE_ACCOUNT]: onFailCreateAccount
 });

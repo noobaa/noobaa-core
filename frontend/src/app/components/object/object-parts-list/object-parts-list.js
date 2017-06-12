@@ -7,7 +7,8 @@ import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 import { deepFreeze, keyByProperty } from 'utils/core-utils';
-import { openObjectPreviewModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openObjectPreviewModal } from 'action-creators';
 import { systemInfo, sessionInfo } from 'model';
 import { getResourceTypeIcon } from 'utils/ui-utils';
 
@@ -29,11 +30,11 @@ class ObjectPartsListViewModel extends BaseViewModel {
             () => {
                 if (!systemInfo()) {
                     return {};
-                } 
-                
+                }
+
                 const pools = systemInfo().pools
                     .filter(pool => allowedResoruceTypes.includes(pool.resource_type));
-                
+
                 return keyByProperty(pools, 'name', getResourceTypeIcon);
             }
         );
@@ -65,7 +66,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
     }
 
     onPreviewFile() {
-        openObjectPreviewModal(this.s3SignedUrl());
+        dispatch(openObjectPreviewModal(this.s3SignedUrl()));
     }
 
     onDownloadClick() {

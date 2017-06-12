@@ -10,7 +10,7 @@ export function parseQueryString(str) {
         .split('&')
         .filter(part => part)
         .reduce( (result, part) => {
-            let [name, value] = part.split('=');
+            const [name, value] = part.split('=');
             result[toCammelCase(name)] = value || true;
             return result;
         }, {});

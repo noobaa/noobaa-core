@@ -2,12 +2,16 @@
 
 import template from './commands-bar.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, dispatch } from 'state';
 import ko from 'knockout';
 import { refresh } from 'actions';
-import { openAuditDrawer, openAlertsDrawer, getUnreadAlertsCount } from 'dispatchers';
 import { sleep } from 'utils/promise-utils';
 import { sumBy } from 'utils/core-utils';
+import {
+    openAuditDrawer,
+    openAlertsDrawer,
+    fetchUnreadAlertsCount
+} from 'action-creators';
 
 class CommandBarViewModel extends Observer {
     constructor() {
@@ -18,7 +22,7 @@ class CommandBarViewModel extends Observer {
 
         this.observe(state$.get('alerts', 'unreadCounts'), this.onUnreadCounts);
 
-        getUnreadAlertsCount();
+        dispatch(fetchUnreadAlertsCount());
     }
 
     onUnreadCounts(counts) {
@@ -34,11 +38,11 @@ class CommandBarViewModel extends Observer {
     }
 
     showAuditLog() {
-        openAuditDrawer();
+        dispatch(openAuditDrawer());
     }
 
     showAlerts() {
-        openAlertsDrawer();
+        dispatch(openAlertsDrawer());
     }
 }
 

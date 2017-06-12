@@ -4,26 +4,37 @@ import template from './multiselect.html';
 import Observer from 'observer';
 import ko from 'knockout';
 
+function _normalizeOption(option) {
+    const naked = ko.deepUnwrap(option);
+    const {
+        value = naked,
+        label = value.toString(),
+        tooltip = label,
+        disabled = false
+    } = naked;
+
+    return { value, label, disabled, tooltip };
+}
+
 class MultiSelectViewModel extends Observer {
     constructor({
         options = [],
-        selected = ko.observable(),
+        selected,
         disabled = false,
         insertValidationMessage = false
     }) {
         super();
 
         this.options = ko.pureComputed(
-            () => (ko.unwrap(options) || []).map(
-                option => typeof ko.unwrap(option) === 'object' ?
-                    ko.unwrap(option) :
-                    { value: ko.unwrap(option), label: ko.unwrap(option).toString() }
-            )
+            () => (ko.unwrap(options) || []).map(_normalizeOption)
         );
 
-        this.selected = ko.isObservable(selected) ?
-            selected :
-            ko.observableArray(selected);
+        this.selected = ko.isWritableObservable(selected) ?
+            ko.pureComputed({
+                read: () => Array.from(ko.unwrap(selected) || []),
+                write: selected
+            }) :
+            ko.observableArray(Array.from(ko.unwnrap(selected) || []));
 
         this.disabled = disabled;
         this.insertValidationMessage = insertValidationMessage;

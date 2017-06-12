@@ -2,14 +2,14 @@
 
 import template from './file-uploads-modal.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, dispatch } from 'state';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
 import numeral from 'numeral';
-import { clearCompletedObjectUploads } from 'dispatchers';
+import { clearCompletedObjectUploads } from 'action-creators';
 import style from 'style';
 
 const columns = deepFreeze([
@@ -68,7 +68,7 @@ class FileUploadsModalViewModel extends Observer {
     }
 
     onClearCompeleted() {
-        clearCompletedObjectUploads();
+        dispatch(clearCompletedObjectUploads());
     }
 
     _getCurrentUploadProgressText({ uploading, batchSize, batchLoaded }) {

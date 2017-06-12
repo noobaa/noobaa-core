@@ -9,7 +9,8 @@ import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { keyByProperty } from 'utils/core-utils';
 import { inputThrottle } from 'config';
-import { openAddCloudResrouceModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openAddCloudResrouceModal } from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -211,7 +212,7 @@ class CloudResourcesTableViewModel extends BaseViewModel {
     }
 
     onAddCloudResource() {
-        openAddCloudResrouceModal();
+        dispatch(openAddCloudResrouceModal());
     }
 }
 

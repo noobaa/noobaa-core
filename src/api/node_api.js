@@ -166,6 +166,9 @@ module.exports = {
                     group_by: {
                         type: 'string',
                         enum: ['pool']
+                    },
+                    aggregate_hosts: {
+                        type: 'boolean'
                     }
                 }
             },
@@ -179,6 +182,7 @@ module.exports = {
                 system: 'admin'
             }
         },
+
 
         n2n_signal: {
             method: 'POST',
@@ -566,6 +570,7 @@ module.exports = {
                 'IO_ERRORS',
                 'LOW_CAPACITY',
                 'NO_CAPACITY',
+                'MEMORY_PRESSURE',
                 'OPTIMAL',
                 'HTTP_SRV_ERRORS',
             ]

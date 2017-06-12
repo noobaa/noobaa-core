@@ -473,16 +473,15 @@ function read_object_mappings(req) {
  *
  */
 function read_node_mappings(req) {
-    return nodes_client.instance().read_node_by_name(req.system._id, req.params.name)
-        .then(node => {
-            const node_id = mongo_utils.make_object_id(node._id);
+    return nodes_client.instance().get_node_ids_by_name(req.system._id, req.params.name, req.params.by_host)
+        .then(node_ids => {
             const params = _.pick(req.rpc_params, 'skip', 'limit');
-            params.node_id = node_id;
+            params.node_ids = node_ids;
             params.system = req.system;
             return P.join(
                 map_reader.read_node_mappings(params),
                 req.rpc_params.adminfo &&
-                MDStore.instance().count_blocks_of_node(node_id));
+                MDStore.instance().count_blocks_of_nodes(node_ids));
         })
         .spread((objects, blocks_count) => (
             req.rpc_params.adminfo ? {

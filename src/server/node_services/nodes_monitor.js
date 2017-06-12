@@ -482,6 +482,16 @@ class NodesMonitor extends EventEmitter {
         return this._update_nodes_store('force');
     }
 
+    get_node_ids(req) {
+        const { name, by_host } = req.rpc_params;
+        if (by_host) {
+            return this._get_nodes_by_host_name(name).map(item => String(item.node._id));
+        } else {
+            const item = this._get_node({ name }, 'allow_offline');
+            return [String(item.node._id)];
+        }
+    }
+
     delete_node(node_identity) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');

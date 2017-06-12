@@ -1,78 +1,96 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<editor params="label: 'Email Address'">
-    <input type="text"
-        ko.value="bindToField('email')"
-        ko.disable="lock"
-        ko.css.invalid="email.touched() && email.error()"
-    />
-
-    <val-message params="field: email"></val-message>
-</editor>
-
-<editor params="label: 'S3 Access'">
-    <toggle-switch params="
-        value: bindToField('enableS3Access'),
-        onLabel: 'Enabled',
-        offLabel: 'Disabled',
-        disabled: lock
-    "></toggle-switch>
-</editor>
-
-<editor params="label: 'S3 default placement', disabled: !enableS3Access()">
-    <dropdown params="
-        options: resources,
-        selected: bindToField('selectedResource'),
-        disabled: !enableS3Access() || lock(),
-        placeholder: 'Choose pool...',
-        invalid: selectedResource.touched() && selectedResource.error()
-    "></dropdown>
-     <val-message params="field: selectedResource"></val-message>
-</editor>
-
-<div class="row content-middle push-prev push-next-half">
-    <p class="greedy push-next" ko.css.disabled="!enableS3Access()">
-        S3 access permissions for existing buckets:
-    </p>
-    <div>
-        <button class="link alt-colors"
-            ko.click="onSelectAllBuckets"
-            ko.disable="!enableS3Access() || lock()"
-        >
-            Select all
-        </button>
-        <span class="disabled">|</span>
-        <button class="link alt-colors"
-            ko.click="onClearAllBuckets"
-            ko.disable="!enableS3Access() || lock()"
-        >
-            Clear
-        </button>
-    </div>
-</div>
-
-<multiselect class="greedy push-next" params="
-    options: buckets,
-    selected: bindToField('selectedBuckets'),
-    disabled: !enableS3Access() || lock(),
-"></multiselect>
-
-
-<div class="row align-end">
-    <button class="link alt-colors push-next"
-        ko.click="onClose"
-        ko.disable="lock"
-    >
-        Cancel
-    </button>
-
-    <working-button ko.shakeOnClick="!valid()" params="
-        click: onCreate,
-        working: lock,
-        workingLabel: 'Creating...'
+<form class="column greedy">
+    <new-wizard class="column greedy" params="
+        steps: steps,
+        step: form.step,
+        actionLabel: 'Create',
+        disabled: form.isLocked,
+        onBeforeStep: onBeforeStep.bind($component),
+        onComplete: form.submit,
+        onCancel: close.bind($component)
     ">
-        Create Account
-    </working-button>
-</div>
+        <section class="column greedy">
+            <editor params="label: 'Login Access'">
+                <toggle-switch params="
+                    value: form.hasLoginAccess,
+                    onLabel: 'Enabled',
+                    offLabel: 'Disabled'
+                "></toggle-switch>
+                <p class="remark push-prev-half">
+                    Enabling this will generate a password that allows login to <br>
+                    NooBaa management  console as a system admin
+                </p>
+            </editor>
 
+            <editor params="label: accountNameLabel">
+                <input type="text"
+                    ko.validationCss="form.accountName"
+                    ko.value="form.accountName"
+                    ko.attr.placeholder="accountNamePlaceholder"
+                />
+                <validation-message params="field: form.accountName"></validation-message>
+                <p class="remark" ko.visible="isAccountNameRemarkVisible">
+                    1 - 32 characters
+                </p>
 
+            </editor>
+        </section>
+
+        <section class="column greedy">
+            <editor params="label: 'S3 Access', disabled: form.isLocked">
+                <toggle-switch params="
+                    value: form.hasS3Access,
+                    onLabel: 'Enabled',
+                    offLabel: 'Disabled',
+                    disabled: form.isLocked
+                "></toggle-switch>
+                <p class="remark push-prev-half" ko.css.disabled="form.isLocked">
+                    Granting S3 access will allow this account to connect an <br>
+                    S3 client applicationby generating a security credentials (key set).
+                </p>
+                <validation-message params="field: form.hasS3Access"></validation-message>
+            </editor>
+
+            <editor params="label: 'S3 default placement', disabled: !form.hasS3Access() || form.isLocked()">
+                <dropdown params="
+                    options: resourceOptions,
+                    selected: form.defaultResource,
+                    disabled: !form.hasS3Access() || form.isLocked(),
+                    placeholder: 'Choose Resources',
+                    invalid: form.defaultResource.isInvalidTouched,
+                "></dropdown>
+                 <validation-message params="field: form.defaultResource"></validation-message>
+            </editor>
+
+            <radio-group class="push-prev-half" params="
+                options: bucketPermissionModes,
+                selected: form.hasAccessToAllBuckets,
+                multiline: true,
+                disabled: !form.hasS3Access() || form.isLocked()
+            "></radio-group>
+
+            <div class="align-end push-next-half">
+                <button class="link alt-colors"
+                    ko.click="onSelectAllBuckets"
+                    ko.disable="isBucketSelectionDisabled"
+                ">
+                    Select all
+                </button>
+                |
+                <button class="link alt-colors"
+                    ko.click="onClearSelectedBuckets"
+                    ko.disable="isBucketSelectionDisabled"
+                >
+                    Clear
+                </button>
+            </div>
+
+            <multiselect class="push-next greedy" params="
+                options: bucketOptions,
+                selected: form.allowedBuckets,
+                disabled: isBucketSelectionDisabled
+            "></multiselect>
+        </section>
+    </new-wizard>
+</form>

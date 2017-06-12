@@ -3,9 +3,11 @@
 import template from './change-password-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { resetAccountPassword, signOut, refresh } from 'actions';
+import { resetAccountPassword, refresh } from 'actions';
+import { signOut } from 'action-creators';
 import { sessionInfo, resetPasswordState } from 'model';
 import { calcPasswordStrength } from 'utils/password-utils';
+
 
 class ChangePasswordFormViewModel extends BaseViewModel {
     constructor() {

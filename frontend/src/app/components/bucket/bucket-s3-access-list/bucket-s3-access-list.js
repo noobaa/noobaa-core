@@ -7,7 +7,8 @@ import { systemInfo, routeContext } from 'model';
 import S3AccessRowViewModel from './s3-access-row';
 import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
-import { openBucketS3AccessModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openBucketS3AccessModal } from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -41,10 +42,14 @@ class BucketS3AccessListViewModel extends BaseViewModel {
                 const compareOp = createCompareFunc(compareAccessors[sortBy], order);
 
                 return (systemInfo().accounts || [])
-                    .filter(
-                        account => (account.allowed_buckets || [])
-                            .includes(ko.unwrap(bucketName))
-                    )
+                    .filter(({ allowed_buckets })=> {
+                        if (!allowed_buckets) {
+                            return false;
+                        }
+
+                        const { full_permission, permission_list } = allowed_buckets;
+                        return full_permission || permission_list.includes(ko.unwrap(bucketName));
+                    })
                     .sort(compareOp);
             }
         );
@@ -75,9 +80,9 @@ class BucketS3AccessListViewModel extends BaseViewModel {
     }
 
     onEditS3Access() {
-        openBucketS3AccessModal(
+        dispatch(openBucketS3AccessModal(
             ko.unwrap(this.bucketName)
-        );
+        ));
     }
 
     createS3AccessRow(accessRow) {

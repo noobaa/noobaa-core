@@ -10,7 +10,8 @@ import { stringifyAmount} from 'utils/string-utils';
 import { countNodesByState } from 'utils/ui-utils';
 import { toBytes } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
-import { openInstallNodesModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openInstallNodesModal } from 'action-creators';
 
 const allCounters = deepFreeze({
     ALL: 0,
@@ -37,13 +38,13 @@ class ResourceOverviewViewModel extends BaseViewModel {
                     (_, counter) => (counter || 0) + 1
                 );
 
-                return { 
-                    ...allCounters, 
-                    ...counters, 
-                    ALL: relevantPools.length 
+                return {
+                    ...allCounters,
+                    ...counters,
+                    ALL: relevantPools.length
                 };
             }
-        );        
+        );
 
         this.resourceCount = ko.pureComputed(
             () => resourceCounters().ALL
@@ -145,7 +146,7 @@ class ResourceOverviewViewModel extends BaseViewModel {
     }
 
     onInstallNodes() {
-        openInstallNodesModal();
+        dispatch(openInstallNodesModal());
     }
 }
 

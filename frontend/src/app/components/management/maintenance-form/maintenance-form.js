@@ -7,7 +7,8 @@ import moment from 'moment';
 import { systemInfo } from 'model';
 import { exitMaintenanceMode } from 'actions';
 import { pad } from 'utils/string-utils';
-import { openStartMaintenanceModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openStartMaintenanceModal } from 'action-creators';
 
 class MaintenanceFormViewModel extends BaseViewModel {
     constructor({ isCollapsed }) {
@@ -67,7 +68,7 @@ class MaintenanceFormViewModel extends BaseViewModel {
         if (this.state()) {
             exitMaintenanceMode();
         } else {
-            openStartMaintenanceModal();
+            dispatch(openStartMaintenanceModal());
         }
     }
 }

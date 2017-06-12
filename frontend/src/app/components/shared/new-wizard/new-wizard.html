@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<stepper class="push-next" params="steps: steps, current: step">
+<stepper params="steps: steps, current: step">
 </stepper>
 
 <div class="pages greedy"
@@ -12,31 +12,16 @@
     ></div>
 </div>
 
-<div class="row align-end content-middle">
+<div class="row align-end content-middle hpad">
     <button class="link alt-colors push-next"
-        ko.click="onCancel"
-        ko.visible="isFirstStep"
-    ">
-        Cancel
-    </button>
-    <button class="link alt-colors push-next"
-        ko.click="onPrevInternal"
-        ko.visible="!isFirstStep()"
-    ">
-        Previous
-    </button>
+        ko.click="onStepBackword"
+        ko.text="prevLabel"
+        ko.disable="disabled"
+    ></button>
     <button class="btn"
-        ko.click="onNextInternal"
+        ko.click="onStepForward"
         ko.shakeOnClick="shake"
-        ko.visible="!isLastStep()"
-    >
-        Next
-    </button>
-    <button class="btn"
-        ko.click="onCompleteInternal"
-        ko.visible="isLastStep()"
-        ko.shakeOnClick="shake"
-        ko.text="actionLabel"
-    >
-    </button>
+        ko.text="nextLabel"
+        ko.disable="disabled"
+    ></button>
 </div>

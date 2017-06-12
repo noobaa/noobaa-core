@@ -75,6 +75,7 @@ export default function register(ko) {
     ko.components.register('create-account-modal',                  require('./modals/create-account-modal/create-account-modal').default);
     ko.components.register('account-created-modal',                 require('./modals/account-created-modal/account-created-modal').default);
     ko.components.register('edit-bucket-quota-modal',               require('./modals/edit-bucket-quota-modal/edit-bucket-quota-modal').default);
+    ko.components.register('set-account-ip-restrictions-modal',     require('./modals/set-account-ip-restrictions-modal/set-account-ip-restrictions-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -258,7 +259,8 @@ export default function register(ko) {
     ko.components.register('side-nav',                  require('./shared/side-nav/side-nav').default);
     ko.components.register('token-field',               require('./shared/token-field/token-field').default);
     ko.components.register('new-wizard',                require('./shared/new-wizard/new-wizard').default);
-    ko.components.register('val-message',               require('./shared/val-message/val-message').default);
+    ko.components.register('validation-message',        require('./shared/validation-message/validation-message').default);
     ko.components.register('validation-rules-list',     require('./shared/validation-rules-list/validation-rules-list').default);
+    ko.components.register('validation-indicator',      require('./shared/validation-indicator/validation-indicator').default);
     /** INJECT:shared **/
 }

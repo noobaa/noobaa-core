@@ -12,7 +12,7 @@ const initialState = null;
 // Action Handlers
 // ------------------------------
 function onChangeLocation(location, { payload }) {
-    return { ...location, ...payload };
+    return payload;
 }
 
 // ------------------------------

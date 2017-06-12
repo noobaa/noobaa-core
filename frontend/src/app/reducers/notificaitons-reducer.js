@@ -1,8 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { HIDE_NOTIFICATION, FAIL_CREATE_ACCOUNT, COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
-    FAIL_UPDATE_ACCOUNT_S3_ACCESS, FAIL_UPDATE_BUCKET_QUOTA, SHOW_NOTIFICATION } from 'action-types';
+import {
+    HIDE_NOTIFICATION,
+    FAIL_CREATE_ACCOUNT,
+    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
+    FAIL_UPDATE_ACCOUNT_S3_ACCESS,
+    FAIL_UPDATE_BUCKET_QUOTA,
+    SHOW_NOTIFICATION,
+    COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
+    FAIL_SET_ACCOUNT_IP_RESTRICTIONS
+} from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -34,7 +42,7 @@ function onFailCreateAccount(notifications, { payload }) {
 function onCompleteUpdateAccountS3Access(notifications, { payload }) {
     return _queueNotification(
         notifications,
-        `${payload.email} S3 access updated successfully`,
+        `${payload.accountName} S3 access updated successfully`,
         'success'
     );
 }
@@ -42,7 +50,7 @@ function onCompleteUpdateAccountS3Access(notifications, { payload }) {
 function onFailUpdateAccountS3Access(notifications, { payload }) {
     return _queueNotification(
         notifications,
-        `Updating ${payload.email} S3 access failed`,
+        `Updating ${payload.accountName} S3 access failed`,
         'error'
     );
 }
@@ -51,6 +59,22 @@ function onFailUpdateBucketQuota(notifications, { payload }) {
     return _queueNotification(
         notifications,
         `Updating quota for ${payload.bucket} failed`,
+        'error'
+    );
+}
+
+function onCompleteSetAccountIpRestrictions(notifications, { payload }) {
+    return _queueNotification(
+        notifications,
+        `IP restrictions for ${payload.accountName} set successfully`,
+        'success'
+    );
+}
+
+function onFailSetAccountIpRestrictions(notifications, { payload }) {
+    return _queueNotification(
+        notifications,
+        `Setting IP restrictions for ${payload.accountName} failed`,
         'error'
     );
 }
@@ -85,5 +109,7 @@ export default createReducer(initialState, {
     [COMPLETE_UPDATE_ACCOUNT_S3_ACCESS]: onCompleteUpdateAccountS3Access,
     [FAIL_UPDATE_ACCOUNT_S3_ACCESS]: onFailUpdateAccountS3Access,
     [FAIL_UPDATE_BUCKET_QUOTA]: onFailUpdateBucketQuota,
+    [COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS]: onCompleteSetAccountIpRestrictions,
+    [FAIL_SET_ACCOUNT_IP_RESTRICTIONS]: onFailSetAccountIpRestrictions,
     [SHOW_NOTIFICATION]: onShowNotification,
 });

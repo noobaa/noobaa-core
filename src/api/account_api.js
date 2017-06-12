@@ -368,7 +368,7 @@ module.exports = {
     definitions: {
         account_info: {
             type: 'object',
-            required: ['name', 'email'],
+            required: ['name', 'email', 'has_login', 'has_s3_access'],
             properties: {
                 name: {
                     type: 'string',

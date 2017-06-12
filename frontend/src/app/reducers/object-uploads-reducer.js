@@ -2,8 +2,13 @@
 
 import { deepFreeze } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { START_OBJECT_UPLOAD, UPDATE_OBJECT_UPLOAD, COMPLETE_OBJECT_UPLOAD, FAIL_OBJECT_UPLOAD,
-    CLEAR_COMPLETED_OBJECT_UPLOADES } from 'action-types';
+import {
+    UPLOAD_OBJECTS,
+    UPDATE_OBJECT_UPLOAD,
+    COMPLETE_OBJECT_UPLOAD,
+    FAIL_OBJECT_UPLOAD,
+    CLEAR_COMPLETED_OBJECT_UPLOADES
+} from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -38,7 +43,7 @@ const initialObjectState = deepFreeze({
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onStartObjectUpload(uploads, { payload }) {
+function onUploadObjects(uploads, { payload }) {
     let { time, objects } = payload;
     const newObjects = objects.map(
         ({ id, bucket, file }) => ({
@@ -135,7 +140,7 @@ function _recalcStats(objects) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [START_OBJECT_UPLOAD]: onStartObjectUpload,
+    [UPLOAD_OBJECTS]: onUploadObjects,
     [UPDATE_OBJECT_UPLOAD]: onUpdateObjectUpload,
     [COMPLETE_OBJECT_UPLOAD]: onCompleteObjectUpload,
     [FAIL_OBJECT_UPLOAD]: onFailObjectUpload,

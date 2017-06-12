@@ -6,7 +6,8 @@ import ko from 'knockout';
 import { systemInfo, nameResolutionState } from 'model';
 import { attemptResolveSystemName } from 'actions';
 import { inputThrottle } from 'config';
-import { openUpdateSystemNameModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openUpdateSystemNameModal } from 'action-creators';
 
 const addressOptions = [
     { label: 'Use Server IP', value: 'IP' },
@@ -83,7 +84,7 @@ class ServerDNSFormViewModel extends BaseViewModel {
             this.errors.showAllMessages();
 
         } else {
-            openUpdateSystemNameModal(this.baseAddress());
+            dispatch(openUpdateSystemNameModal(this.baseAddress()));
         }
     }
 }

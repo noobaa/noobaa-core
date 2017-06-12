@@ -14,32 +14,45 @@ class BucketS3AccessModalViewModel extends BaseViewModel {
         this.onClose = onClose;
         this.bucketName = bucketName;
 
-        this.accounts = ko.pureComputed(
+        this.accountOptions = ko.pureComputed(
             () => (systemInfo() ? systemInfo().accounts : [])
                 .filter(account => Boolean(account.allowed_buckets))
-                .map(account => account.email)
+                .map(({ email, allowed_buckets }) => ({
+                    value: email,
+                    disabled: allowed_buckets.full_permission,
+                    tooltip: allowed_buckets.full_permission ?
+                        'Account has an allow all buckets access configured' :
+                        email
+                }))
         );
 
         this.selectedAccounts = ko.observableWithDefault(
             () => (systemInfo() ? systemInfo().accounts : [])
-                .filter(
-                    account => (account.allowed_buckets || [])
-                        .includes(ko.unwrap(bucketName))
-                )
-                .map(
-                    account => account.email
-                )
+                .filter(({ allowed_buckets })=> {
+                    if (!allowed_buckets) {
+                        return false;
+                    }
+
+                    const { full_permission, permission_list } = allowed_buckets;
+                    return full_permission || permission_list.includes(bucketName);
+                })
+                .map(account => account.email)
         );
     }
 
     selectAllAccounts() {
-        this.selectedAccounts(
-            Array.from(this.accounts())
-        );
+        const accounts = this.accountOptions()
+            .map(opt => opt.value);
+
+        this.selectedAccounts(accounts);
     }
 
     clearAllAccounts() {
-        this.selectedAccounts([]);
+        const accounts = this.accountOptions()
+            .filter(x => x.disabled)
+            .map(opt => opt.value);
+
+        this.selectedAccounts(accounts);
     }
 
     onAccounts() {

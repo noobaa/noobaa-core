@@ -1,0 +1,33 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<form class="column greedy" ko.submit="form.submit" ko.if="isAccountReady">
+    <editor params="label: 'IP Restriction'">
+        <toggle-switch params="
+            onLabel: 'Enabled',
+            offLabel: 'Disabled',
+            value: form.usingIpRestrictions
+        "></toggle-switch>
+    </editor>
+    <p class="push-next-half" ko.css.disabled="!form.usingIpRestrictions()">
+        Accept S3 access requests from these IP addresses only.
+        Specify a single IP address or IP address range
+    </p>
+
+    <div class="column greedy push-next">
+        <token-field class="greedy" params="
+            disabled: !form.usingIpRestrictions(),
+            placeholder: allowedIpsPlaceholder,
+            tokens: form.allowedIps
+        "></token-field>
+        <validation-message params="field: form.allowedIps"></validation-message>
+    </div>
+
+    <div class="row align-end content-middle">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">
+            Save
+        </button>
+    </div>
+</form>

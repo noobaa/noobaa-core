@@ -5,7 +5,8 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo } from 'model';
 import { support } from 'config';
-import { signOut } from 'actions';
+import { dispatch } from 'state';
+import { signOut } from 'action-creators';
 
 class AccountMenuViewModel extends BaseViewModel {
     constructor() {
@@ -44,7 +45,7 @@ class AccountMenuViewModel extends BaseViewModel {
     }
 
     signOut() {
-        signOut();
+        dispatch(signOut());
     }
 }
 

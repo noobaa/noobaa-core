@@ -1,4 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 
 radio-group {
+    .radio-group-container:not(.multiline) {
+        .row();
+
+        > radio-btn {
+            margin-right: @gutter;
+        }
+    }
+
+    .radio-group-container.multiline {
+        .column();
+
+        > radio-btn {
+            line-height: 1.8;
+        }
+    }
 }

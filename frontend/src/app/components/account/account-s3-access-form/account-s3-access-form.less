@@ -3,7 +3,17 @@
 account-s3-access-form {
     .column();
 
-    .s3-access-details .prop-name {
-        width: 250px;
+    .s3-access-details {
+        .prop-name {
+            width: 250px;
+        }
+
+        .ip-box {
+            .alt-bg();
+            .remark();
+
+            margin-right: @gutter/2;
+            padding: @gutter/4 @gutter/2;
+        }
     }
 }

@@ -2,11 +2,11 @@
 
 import template from './modal-manager.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, dispatch } from 'state';
 import Modal from './modal';
 import ko from 'knockout';
 import { last } from 'utils/core-utils';
-import { closeActiveModal } from 'dispatchers';
+import { closeModal } from 'action-creators';
 
 class ModalManagerViewModel extends Observer {
     constructor() {
@@ -22,7 +22,7 @@ class ModalManagerViewModel extends Observer {
         this.modals(
             modals.map(
                 (modalState, i) => {
-                    const modal = this.modals()[i] || new Modal(() => closeActiveModal());
+                    const modal = this.modals()[i] || new Modal(() => dispatch(closeModal()));
                     modal.update(modalState);
                     return modal;
                 }
@@ -35,7 +35,7 @@ class ModalManagerViewModel extends Observer {
     onBackdrop() {
         const top = last(this.modals());
         if (top && top.backdropClose()) {
-            closeActiveModal();
+            dispatch(closeModal());
         }
     }
 }

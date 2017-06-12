@@ -7,6 +7,7 @@ import ko from 'knockout';
 import { refresh } from 'actions';
 import { openAuditDrawer, openAlertsDrawer, getUnreadAlertsCount } from 'dispatchers';
 import { sleep } from 'utils/promise-utils';
+import { sumBy } from 'utils/core-utils';
 
 class CommandBarViewModel extends Observer {
     constructor() {
@@ -15,11 +16,15 @@ class CommandBarViewModel extends Observer {
         this.isRefreshSpinning = ko.observable(false);
         this.unreadAlertsCount = ko.observable();
 
-        this.observe(state$.get('alerts', 'unreadCount'), this.unreadAlertsCount);
+        this.observe(state$.get('alerts', 'unreadCounts'), this.onUnreadCounts);
 
         getUnreadAlertsCount();
     }
 
+    onUnreadCounts(counts) {
+        const total = sumBy(Object.values(counts));
+        this.unreadAlertsCount(total);
+    }
 
     refresh() {
         refresh();

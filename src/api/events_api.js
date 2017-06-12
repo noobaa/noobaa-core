@@ -192,7 +192,18 @@ module.exports = {
         get_unread_alerts_count: {
             method: 'GET',
             reply: {
-                type: 'integer'
+                type: 'object',
+                properties: {
+                    CRIT: {
+                        type: 'integer'
+                    },
+                    MAJOR: {
+                        type: 'integer'
+                    },
+                    INFO: {
+                        type: 'integer'
+                    }
+                }
             },
             auth: {
                 system: 'admin',

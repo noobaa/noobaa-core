@@ -15,7 +15,7 @@ const initialState = {
     filter: {},
     list: [],
     endOfList: false,
-    unreadCount: undefined
+    unreadCounts: {}
 };
 
 // ------------------------------
@@ -102,13 +102,12 @@ function onFailUpdateAlerts(state, { payload }) {
 }
 
 function onUpdateAlertsUreadCount(state, { payload }) {
-    const { count: unreadCount } = payload;
-    return { ...state, unreadCount };
+    return { ...state, unreadCounts: payload };
 }
 
 function onDropAlerts(state) {
-    const { unreadCount } = state;
-    return { ...initialState, unreadCount };
+    const { unreadCounts } = state;
+    return { ...initialState, unreadCounts };
 }
 
 // ------------------------------

@@ -59,11 +59,11 @@ const highAvailabiltyMapping = deepFreeze({
 });
 
 const alertStatusMapping = deepFreeze({
-    HAS_ALERTS: {
+    HAS_CRIT_ALERTS: {
         name: 'problem',
-        css: 'warning'
+        css: 'error'
     },
-    NO_ALERTS: {
+    NO_CRIT_ALERTS: {
         name: 'healthy',
         css: 'success'
     }
@@ -136,8 +136,9 @@ class SystemHealthViewModel extends Observer {
     }
 
     onAlerts(alerts) {
-        this.unreadAlertsMessage(stringifyAmount('unread alert', alerts.unreadCount, 'No'));
-        this.alertStatusIcon(alertStatusMapping[alerts.unreadCount ? 'HAS_ALERTS' : 'NO_ALERTS']);
+        const { crit: count } = alerts.unreadCounts;
+        this.unreadAlertsMessage(stringifyAmount('unread critical alert', count, 'No'));
+        this.alertStatusIcon(alertStatusMapping[count ? 'HAS_CRIT_ALERTS' : 'NO_CRIT_ALERTS']);
     }
 }
 

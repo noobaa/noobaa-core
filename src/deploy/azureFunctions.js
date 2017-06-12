@@ -31,6 +31,11 @@ const system = {
 
 const blobSvc = azureStorage.createBlobService();
 
+function _makeArray(size, handler) {
+    return [...Array(30).keys()].map(handler);
+}
+
+
 class AzureFunctions {
 
     constructor(clientId, domain, secret, subscriptionId, resourceGroupName, location) {
@@ -513,20 +518,30 @@ class AzureFunctions {
             .then(() => P.fromCallback(callback => this.networkClient.publicIPAddresses.deleteMethod(
                 this.resourceGroupName, vmName + '_pip', callback)))
             .then(() => P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback)))
-            .then(() => P.fromCallback(callback => blobSvc.doesContainerExist('datadisks', callback))
-                .then(result => {
-                    if (result.exists) {
-                        return P.fromCallback(callback => blobSvc.listBlobsSegmentedWithPrefix('datadisks', vmName, null, callback));
-                    }
-                })
-                .then(result => {
-                    if (result && result.entries && (result.entries.length > 0)) {
-                        console.log('Deleting data disks', result.entries);
-                        return P.map(result.entries, blob => P.fromCallback(
-                            callback => blobSvc.deleteBlob('datadisks', blob.name, callback)));
-                    }
-                })
-            );
+            .then(() => P.fromCallback(callback => blobSvc.doesContainerExist('datadisks', callback)))
+            .then(result => {
+                if (result.exists) {
+                    return P.fromCallback(callback => blobSvc.listBlobsSegmentedWithPrefix('datadisks', vmName, null, callback));
+                }
+            })
+            .then(result => {
+                if (result && result.entries && (result.entries.length > 0)) {
+                    console.log('Deleting data disks', result.entries);
+                    return P.map(result.entries, blob => P.fromCallback(
+                        callback => blobSvc.deleteBlob('datadisks', blob.name, callback)));
+                }
+            });
+    }
+
+    deleteBlobDisks(vmName, container = 'datadisks') {
+        console.log('Deleting data disks of: ', vmName);
+        return P.all(
+            _makeArray(30, i => {
+                const disk = `${vmName}-data${i + 1}.vhd`;
+                return P.fromCallback(callback => blobSvc.deleteBlob(container, disk, callback))
+                    .catch(() => true);
+            })
+        );
     }
 
     listVirtualMachines(prefix, status) {
@@ -552,7 +567,7 @@ class AzureFunctions {
 
     getRandomMachine(prefix, status) {
         return this.listVirtualMachines(prefix, status)
-            .then(function(machines) {
+            .then(machines => {
                 let rand = Math.floor(Math.random() * machines.length);
                 return machines[rand];
             });
@@ -562,7 +577,7 @@ class AzureFunctions {
         return P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
             expand: 'instanceView',
         }, callback))
-            .then(function(machine_info) {
+            .then(machine_info => {
                 if (machine_info.instanceView.statuses[1]) {
                     return machine_info.instanceView.statuses[1].displayStatus;
                 }

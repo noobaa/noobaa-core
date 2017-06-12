@@ -3,6 +3,7 @@
 export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 toInclude=true
 remount=false
+sudo="sudo"
 
 OPTIONS=$( getopt -o 'h,e,r' --long "help,exclude,remount" -- "$@" )
 eval set -- "${OPTIONS}"
@@ -32,6 +33,11 @@ done
 unMountedDevice=$(mount | awk '{print $1}' | grep /dev/ | awk -F / '{print $3}')
 unMountedDevice=(${unMountedDevice//[0-9]/})
 
+if [ $(whoami) == "root" ]
+then
+    sudo=""
+fi
+
 if ${remount}
 then
     while read name x x x x x mountpoint
@@ -39,9 +45,14 @@ then
         if [ ! -z ${mountpoint} ]
         then
             ext=$(echo ${mountpoint} | awk -F "_" '{print $2}')
-            sudo umount ${mountpoint}
-            currevtExcludeDrives=$(mount | grep exclude | wc -l)
-            sudo mount -t ${ext} /dev/${name} /exclude$((currevtExcludeDrives+1))
+            ${sudo} umount ${mountpoint}
+            currentExcludeDrives=$(mount | grep exclude | wc -l)
+            mountDir=exclude$((currentExcludeDrives+1))
+            if [ ! -d  /${mountDir} ]
+            then
+                ${sudo} mkdir /${mountDir}
+            fi
+            ${sudo} mount -t ${ext} /dev/${name} /${mountDir}
         fi
         unset mountpoint
     done < <(lsblk | grep disk | tail -1) 
@@ -58,12 +69,12 @@ then
             then
                 mountDir=${name}_${ext}
             else
-                currevtExcludeDrives=$(mount | grep exclude | wc -l)
-                mountDir=exclude$((currevtExcludeDrives+1))
+                currentExcludeDrives=$(mount | grep exclude | wc -l)
+                mountDir=exclude$((currentExcludeDrives+1))
             fi
-            sudo mkdir /${mountDir}
-            sudo mkfs -F -t ${ext} /dev/${name}
-            sudo mount -t ${ext} /dev/${name} /${mountDir}
+            ${sudo} mkdir /${mountDir}
+            ${sudo} mkfs -F -t ${ext} /dev/${name}
+            ${sudo} mount -t ${ext} /dev/${name} /${mountDir}
         fi
     done < <(lsblk | grep disk | awk '{print $1}')
 fi

@@ -15,7 +15,11 @@ var CEPH_TEST = {
         name: 'cephalt',
         email: 'ceph.alt@noobaa.com',
         password: 'ceph',
-        allowed_buckets: [],
+        has_login: true,
+        allowed_buckets: {
+            full_permission: false,
+            permission_list: []
+        },
         s3_access: true,
         default_pool: config.NEW_SYSTEM_POOL_NAME
     },
@@ -212,12 +216,14 @@ module.exports = {
 function deploy_ceph() {
     var command = `chmod a+x ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_deploy}`;
     return promise_utils.exec(command, false, true)
-        .then(res => {
+        .then(function(res) {
             console.log('Starting Deployment Of Ceph Tests...');
             command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} > /tmp/ceph_deploy.log`;
             return promise_utils.exec(command, false, true);
         })
-        .then(res => console.log(res))
+        .then(function(res) {
+            return console.log(res);
+        })
         .catch(function(err) {
             console.error('Failed Deployment Of Ceph Tests', err, err.stack);
             throw new Error('Failed Deployment Of Ceph Tests');

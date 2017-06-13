@@ -290,9 +290,9 @@ class SystemStoreData {
             // filter only the buckets that were resolved to existing buckets
             // this is to handle deletions of buckets that currently do not
             // update all the accounts.
-            if (account.allowed_buckets) {
-                account.allowed_buckets = _.filter(
-                    account.allowed_buckets,
+            if (account.allowed_buckets && account.allowed_buckets.permission_list) {
+                account.allowed_buckets.permission_list = _.filter(
+                    account.allowed_buckets.permission_list,
                     bucket => Boolean(bucket._id)
                 );
             }

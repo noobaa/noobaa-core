@@ -8,7 +8,7 @@ module.exports = {
         '_id',
         'name',
         'email',
-        'password',
+        'has_login'
     ],
     properties: {
         _id: {
@@ -32,6 +32,9 @@ module.exports = {
         is_support: {
             type: 'boolean'
         },
+        has_login: {
+            type: 'boolean'
+        },
         access_keys: {
             type: 'array',
             items: {
@@ -48,9 +51,18 @@ module.exports = {
             }
         },
         allowed_buckets: {
-            type: 'array',
-            items: {
-                format: 'objectid'
+            type: 'object',
+            required: ['full_permission'],
+            properties: {
+                full_permission: {
+                    type: 'boolean'
+                },
+                permission_list: {
+                    type: 'array',
+                    items: {
+                        format: 'objectid'
+                    }
+                }
             }
         },
         allowed_ips: {

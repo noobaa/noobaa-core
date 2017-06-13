@@ -345,9 +345,9 @@ mocha.describe('s3_list_objects', function() {
                 content_type: 'application/octet-stream',
             }))
             .then(create_reply => client.object.complete_object_upload({
+                obj_id: create_reply.obj_id,
                 bucket: BKT,
                 key: array_of_names[i],
-                upload_id: create_reply.upload_id,
             })));
     }
 });

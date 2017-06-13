@@ -7,7 +7,7 @@
 function delete_bucket(req, res) {
     return req.rpc_client.bucket.delete_bucket({
         name: req.params.bucket
-    }).return();
+    });
 }
 
 module.exports = {

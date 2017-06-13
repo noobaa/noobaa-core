@@ -41,6 +41,7 @@ mocha.describe('signature_utils', function() {
     add_tests_from(path.join(SIG_TEST_SUITE, 'awscli'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkjs'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'awssdknodejs'), '.sreq');
+    add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkjava'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'cyberduck'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'postman'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'presigned'), '.sreq');
@@ -138,29 +139,40 @@ mocha.describe('signature_utils', function() {
             'query', req.query,
             'headers', req.headers);
         return new P((resolve, reject) => {
-                const sha256 = crypto.createHash('sha256');
+                const hasher = crypto.createHash('sha256');
                 req.on('data', data => {
-                        sha256.update(data);
+                        hasher.update(data);
                         body_len += data.length;
                         console.log(`Request body length so far ${body_len}`);
                     })
                     .once('end', () => {
-                        req.content_sha256 = sha256.digest();
-                        console.log(`Request body ended body length ${body_len} sha256 ${req.content_sha256.toString('hex')}`);
-                        return resolve();
+                        const sha256 = hasher.digest();
+                        console.log(`Request body ended body length ${body_len} sha256 ${sha256.toString('hex')}`);
+                        return resolve(sha256);
                     })
                     .once('error', reject);
             })
-            .then(() => {
-                const sha256_header = req.headers['x-amz-content-sha256'];
-                const sha256_data = req.content_sha256.toString('hex');
-                if (sha256_header &&
-                    sha256_header !== sha256_data) {
-                    console.error('Content sha256 does not match',
-                        'x-amz-content-sha256', sha256_header,
-                        'calculated', sha256_data,
-                        'assuming the header is right to allow tests without content...');
-                    req.content_sha256 = Buffer.from(sha256_header, 'hex');
+            .then(sha256_buf => {
+                const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
+                const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
+                req.content_sha256 = req.query['X-Amz-Signature'] ?
+                    UNSIGNED_PAYLOAD :
+                    req.headers['x-amz-content-sha256'];
+                if (typeof req.content_sha256 === 'string' &&
+                    req.content_sha256 !== UNSIGNED_PAYLOAD &&
+                    req.content_sha256 !== STREAMING_PAYLOAD) {
+                    req.content_sha256_buf = Buffer.from(req.content_sha256, 'hex');
+                    if (req.content_sha256_buf.length !== 32) {
+                        throw new Error('InvalidDigest');
+                    }
+                }
+                if (req.content_sha256_buf) {
+                    if (Buffer.compare(req.content_sha256_buf, sha256_buf)) {
+                        throw new Error('XAmzContentSHA256Mismatch');
+                    }
+                } else {
+                    req.content_sha256_buf = sha256_buf;
+                    if (!req.content_sha256) req.content_sha256 = req.content_sha256_buf.toString('hex');
                 }
                 const auth_token = signature_utils.authenticate_request(req);
                 const signature = signature_utils.signature(auth_token, SECRETS[auth_token.access_key]);

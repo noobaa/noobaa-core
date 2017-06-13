@@ -25,6 +25,10 @@ class BlobError extends Error {
 
 }
 
+/**
+ * https://docs.microsoft.com/en-us/rest/api/storageservices/common-rest-api-error-codes
+ * https://docs.microsoft.com/en-us/rest/api/storageservices/blob-service-error-codes
+ */
 const errors_defs = [{
     code: 'InternalError',
     message: 'The server encountered an internal error. Please retry the request.',

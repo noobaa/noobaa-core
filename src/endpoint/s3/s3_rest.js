@@ -63,14 +63,13 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     BUCKET_NOT_EMPTY: S3Error.BucketNotEmpty,
     BUCKET_ALREADY_EXISTS: S3Error.BucketAlreadyExists,
     NO_SUCH_UPLOAD: S3Error.NoSuchUpload,
-    BAD_DIGEST: S3Error.BadDigest,
+    BAD_DIGEST_MD5: S3Error.BadDigest,
+    BAD_DIGEST_SHA256: S3Error.XAmzContentSHA256Mismatch,
     BAD_SIZE: S3Error.IncompleteBody,
     IF_MODIFIED_SINCE: S3Error.NotModified,
     IF_UNMODIFIED_SINCE: S3Error.PreconditionFailed,
     IF_MATCH_ETAG: S3Error.PreconditionFailed,
-    // NOTE: IF_NONE_MATCH_ETAG is currently used by RPC only for PUT/POST/DELETE so this is mapped to PreconditionFailed
-    // if it was used for GET/HEAD it would need to return NotModified but we do it without RPC error
-    IF_NONE_MATCH_ETAG: S3Error.PreconditionFailed,
+    IF_NONE_MATCH_ETAG: S3Error.NotModified,
 });
 
 const S3_OPS = load_ops();
@@ -104,10 +103,6 @@ function handle_request(req, res) {
         return;
     }
 
-    // setting default headers which might get overriden by api's that
-    // return actual data in the reply instead of xml
-    res.setHeader('Content-Type', 'application/xml');
-    res.setHeader('ETag', '"1"');
     check_headers(req);
     authenticate_request(req);
 
@@ -131,6 +126,7 @@ function handle_request(req, res) {
         error_max_body_len_exceeded: S3Error.MaxMessageLengthExceeded,
         error_missing_body: S3Error.MissingRequestBodyError,
         error_invalid_body: op.body.invalid_error || (op.body.type === 'xml' ? S3Error.MalformedXML : S3Error.InvalidRequest),
+        error_body_sha256_mismatch: S3Error.XAmzContentSHA256Mismatch,
     };
 
     return P.resolve()
@@ -155,6 +151,17 @@ function check_headers(req, res) {
             }
         }
     });
+    _.each(req.query, (val, key) => {
+        // test for non printable characters
+        // 403 is required for unreadable query
+        // eslint-disable-next-line no-control-regex
+        if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
+            dbg.warn('Invalid query characters', key, val);
+            if (key !== 'marker') {
+                throw new S3Error(S3Error.InvalidArgument);
+            }
+        }
+    });
 
     if (req.headers['content-length'] === '') {
         throw new S3Error(S3Error.BadRequestWithoutCode);
@@ -168,12 +175,14 @@ function check_headers(req, res) {
         }
     }
 
-    const content_sha256_hex = req.headers['x-amz-content-sha256'];
-    if (typeof content_sha256_hex === 'string' &&
-        content_sha256_hex !== UNSIGNED_PAYLOAD &&
-        content_sha256_hex !== STREAMING_PAYLOAD) {
-        req.content_sha256 = Buffer.from(content_sha256_hex, 'hex');
-        if (req.content_sha256.length !== 32) {
+    req.content_sha256 = req.query['X-Amz-Signature'] ?
+        UNSIGNED_PAYLOAD :
+        req.headers['x-amz-content-sha256'];
+    if (typeof req.content_sha256 === 'string' &&
+        req.content_sha256 !== UNSIGNED_PAYLOAD &&
+        req.content_sha256 !== STREAMING_PAYLOAD) {
+        req.content_sha256_buf = Buffer.from(req.content_sha256, 'hex');
+        if (req.content_sha256_buf.length !== 32) {
             throw new S3Error(S3Error.InvalidDigest);
         }
     }
@@ -194,7 +203,7 @@ function authenticate_request(req, res) {
         signature_utils.check_expiry(req);
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
-        throw new S3Error(S3Error.SignatureDoesNotMatch);
+        throw new S3Error(S3Error.AccessDenied);
     }
 }
 
@@ -238,9 +247,23 @@ function parse_op_name(req) {
 }
 
 function handle_error(req, res, err) {
-    const s3err =
+    var s3err =
         ((err instanceof S3Error) && err) ||
         new S3Error(RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
+
+    if (s3err.rpc_data) {
+        if (s3err.rpc_data.etag) {
+            res.setHeader('ETag', s3err.rpc_data.etag);
+        }
+        if (s3err.rpc_data.last_modified) {
+            res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(s3err.rpc_data.last_modified)));
+        }
+    }
+
+    // md_conditions used for PUT/POST/DELETE should return PreconditionFailed instead of NotModified
+    if (s3err.code === 'NotModified' && req.method !== 'HEAD' && req.method !== 'GET') {
+        s3err = new S3Error(S3Error.PreconditionFailed);
+    }
 
     usage_report.s3_errors_info.total_errors += 1;
     usage_report.s3_errors_info[s3err.code] = (usage_report.s3_errors_info[s3err.code] || 0) + 1;

@@ -35,8 +35,7 @@ module.exports = {
                     xattr: {
                         $ref: '#/definitions/xattr',
                     },
-                    overwrite_if: {
-                        // conditions on target key if exists
+                    md_conditions: {
                         $ref: '#/definitions/md_conditions',
                     },
                     size: {
@@ -52,9 +51,9 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['upload_id'],
+                required: ['obj_id'],
                 properties: {
-                    upload_id: {
+                    obj_id: {
                         type: 'string'
                     }
                 }
@@ -69,18 +68,18 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
+                    'obj_id',
                     'bucket',
                     'key',
-                    'upload_id'
                 ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
-                        type: 'string',
-                    },
-                    upload_id: {
                         type: 'string',
                     },
                     size: {
@@ -134,20 +133,20 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
+                    'obj_id',
                     'bucket',
                     'key',
-                    'upload_id'
                 ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
                         type: 'string',
                     },
-                    upload_id: {
-                        type: 'string',
-                    }
                 }
             },
             auth: {
@@ -160,19 +159,19 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
+                    'obj_id',
                     'bucket',
                     'key',
-                    'upload_id',
                     'num'
                 ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
-                        type: 'string',
-                    },
-                    upload_id: {
                         type: 'string',
                     },
                     num: {
@@ -208,9 +207,9 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
+                    'obj_id',
                     'bucket',
                     'key',
-                    'upload_id',
                     'num',
                     'multipart_id',
                     'size',
@@ -218,13 +217,13 @@ module.exports = {
                     'num_parts',
                 ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
-                        type: 'string',
-                    },
-                    upload_id: {
                         type: 'string',
                     },
                     num: {
@@ -269,18 +268,18 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
+                    'obj_id',
                     'bucket',
                     'key',
-                    'upload_id'
                 ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
-                        type: 'string',
-                    },
-                    upload_id: {
                         type: 'string',
                     },
                     max: {
@@ -342,19 +341,19 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
+                    'obj_id',
                     'bucket',
                     'key',
-                    'upload_id',
                     'parts'
                 ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
-                        type: 'string',
-                    },
-                    upload_id: {
                         type: 'string',
                     },
                     parts: {
@@ -387,19 +386,19 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
+                    'obj_id',
                     'bucket',
                     'key',
-                    'upload_id',
                     'parts'
                 ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
-                        type: 'string',
-                    },
-                    upload_id: {
                         type: 'string',
                     },
                     parts: {
@@ -415,68 +414,19 @@ module.exports = {
             }
         },
 
-        copy_object: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: [
-                    'bucket',
-                    'key',
-                    'source_bucket',
-                    'source_key',
-                ],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    source_bucket: {
-                        type: 'string'
-                    },
-                    source_key: {
-                        type: 'string'
-                    },
-                    content_type: {
-                        type: 'string',
-                    },
-                    xattr: {
-                        $ref: '#/definitions/xattr',
-                    },
-                    xattr_copy: {
-                        type: 'boolean'
-                    },
-                    overwrite_if: {
-                        // conditions on target key if exists
-                        $ref: '#/definitions/md_conditions',
-                    },
-                    source_if: {
-                        // conditions on source key
-                        $ref: '#/definitions/md_conditions',
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    source_md: {
-                        $ref: '#/definitions/object_info'
-                    }
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
         read_object_mappings: {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['bucket', 'key'],
+                required: [
+                    // 'obj_id',
+                    'bucket',
+                    'key',
+                ],
                 properties: {
+                    obj_id: {
+                        type: 'string'
+                    },
                     bucket: {
                         type: 'string',
                     },
@@ -585,13 +535,23 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['bucket', 'key'],
+                required: [
+                    // 'obj_id',
+                    'bucket',
+                    'key',
+                ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
                         type: 'string',
+                    },
+                    md_conditions: {
+                        $ref: '#/definitions/md_conditions',
                     },
                     adminfo: {
                         type: 'object',
@@ -615,8 +575,14 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['bucket', 'key'],
+                required: [
+                    'bucket',
+                    'key'
+                ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
@@ -628,8 +594,7 @@ module.exports = {
                     },
                     xattr: {
                         $ref: '#/definitions/xattr',
-                    }
-
+                    },
                 }
             },
             auth: {
@@ -641,15 +606,21 @@ module.exports = {
             method: 'DELETE',
             params: {
                 type: 'object',
-                required: ['bucket', 'key'],
+                required: [
+                    'bucket',
+                    'key',
+                ],
                 properties: {
+                    obj_id: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },
                     key: {
                         type: 'string',
                     },
-                    delete_if: {
+                    md_conditions: {
                         $ref: '#/definitions/md_conditions',
                     },
                 }
@@ -833,13 +804,13 @@ module.exports = {
                         type: 'string',
                         enum: ['read', 'upload']
                     },
+                    obj_id: {
+                        type: 'string'
+                    },
                     bucket: {
                         type: 'string'
                     },
                     key: {
-                        type: 'string'
-                    },
-                    upload_id: {
                         type: 'string'
                     },
                     start: {

@@ -5,18 +5,27 @@ const stream = require('stream');
 
 const dbg = require('../../../util/debug_module')(__filename);
 const BlobError = require('../blob_errors').BlobError;
+const blob_utils = require('../blob_utils');
 const http_utils = require('../../../util/http_utils');
-const blob_head_blob = require('./blob_head_blob');
 
 // TODO merge code with s3_get_object
 
+/**
+ * HEAD : https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob-properties
+ * GET  : https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob
+ */
 function get_blob(req, res) {
-    return blob_head_blob.handler(req, res)
-        .then(() => {
-            const object_md = req.object_md;
+    return req.rpc_client.object.read_object_md({
+            bucket: req.params.bucket,
+            key: req.params.key,
+            md_conditions: http_utils.get_md_conditions(req),
+        })
+        .then(object_md => {
+            blob_utils.set_response_object_md(res, object_md);
             const obj_size = object_md.size;
             const params = {
                 client: req.rpc_client,
+                obj_id: object_md.obj_id,
                 bucket: req.params.bucket,
                 key: req.params.key,
             };
@@ -44,15 +53,19 @@ function get_blob(req, res) {
                 throw new BlobError(BlobError.InvalidRange);
             }
 
+
             // stream the entire object to the response
             if (!ranges) {
                 dbg.log1('reading object', req.path, obj_size);
+                if (req.method === 'HEAD') {
+                    res.end();
+                    return;
+                }
                 stream_reply(req, res, req.object_io.create_read_stream(params));
                 return;
             }
 
             // reply with HTTP 206 Partial Content
-            res.statusCode = 206;
             const start = ranges[0].start;
             const end = ranges[0].end + 1; // use exclusive end
             const range_params = Object.assign({ start, end }, params);
@@ -61,6 +74,12 @@ function get_blob(req, res) {
             res.setHeader('Content-Range', content_range);
             res.setHeader('Content-Length', end - start);
             // res.header('Cache-Control', 'max-age=0' || 'no-cache');
+            if (req.method === 'HEAD') {
+                res.end();
+                return;
+            }
+
+            res.statusCode = 206;
             stream_reply(req, res, req.object_io.create_read_stream(range_params));
 
             // when starting to stream also prefrech the last part of the file

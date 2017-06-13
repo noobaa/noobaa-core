@@ -29,6 +29,7 @@ function handle_request(req, res) {
 
     // fill up standard response headers
     res.setHeader('x-ms-request-id', req.request_id);
+    res.setHeader('x-ms-version', '2016-05-31');
 
     // note that browsers will not allow origin=* with credentials
     // but anyway we allow it by the agent server.
@@ -46,12 +47,7 @@ function handle_request(req, res) {
         return;
     }
 
-    res.setHeader('ETag', '"1"');
-    res.setHeader('Content-Type', 'application/xml');
-    // res.setHeader('Date', (new Date()).toUTCString());
     check_headers(req);
-    res.setHeader('x-ms-version', req.headers['x-ms-version']);
-
     authenticate_request(req);
 
     // resolve the op to call
@@ -72,9 +68,11 @@ function handle_request(req, res) {
             ServiceEndpoint: `https://${req.headers.host}/`,
         },
         ErrorClass: BlobError,
+        // TODO fix blob errors types
         error_max_body_len_exceeded: BlobError.InternalError,
         error_missing_body: BlobError.InternalError,
         error_invalid_body: op.body.invalid_error || BlobError.InternalError,
+        error_body_sha256_mismatch: BlobError.InternalError,
     };
 
     return P.resolve()
@@ -108,36 +106,18 @@ function authenticate_request(req) {
 }
 
 function parse_op_name(req) {
-    const m = req.method.toLowerCase();
     const u = req.url;
-
-    // account url
-    if (u === '/') {
-        req.params = {};
-        if (req.query.comp) return `${m}_account_${req.query.comp}`;
-        return `${m}_account`;
-    }
-
+    const m = req.method === 'HEAD' ? 'get' : req.method.toLowerCase();
+    const resource = req.query.restype || (u === '/' ? 'service' : 'blob');
     const index = u.indexOf('/', 1);
     const pos = index < 0 ? u.length : index;
     const bucket = decodeURIComponent(u.slice(1, pos));
     // replace hadoop _$folder$ in key
     const key = decodeURIComponent(u.slice(pos + 1)).replace(/_\$folder\$/, '/');
-
-    if (key) {
-        // blob url
-        req.params = {
-            bucket,
-            key,
-        };
-        if (req.query.comp) return `${m}_blob_${req.query.comp}`;
-        return `${m}_blob`;
-    } else {
-        // container url
-        req.params = { bucket };
-        if (req.query.comp) return `${m}_container_${req.query.comp}`;
-        return `${m}_container`;
-    }
+    req.params = { bucket, key };
+    return req.query.comp ?
+        `${m}_${resource}_${req.query.comp}` :
+        `${m}_${resource}`;
 }
 
 /**
@@ -165,19 +145,31 @@ function handle_error(req, res, err) {
 function load_ops() {
     const r = x => require(x); // eslint-disable-line global-require
     return js_utils.deep_freeze({
-        get_account_list: r('./ops/blob_list_containers'),
-        get_account_properties: r('./ops/blob_get_account_properties'),
-        get_account_stats: r('./ops/blob_get_account_stats'),
-        get_blob_blocklist: r('./ops/blob_get_blob_blocklist'),
-        get_blob: r('./ops/blob_get_blob'),
+
+        // SERVICE
+        get_service_list: r('./ops/blob_get_service_list'),
+        get_service_stats: r('./ops/blob_get_service_stats'),
+        get_service_properties: r('./ops/blob_get_service_properties'),
+        put_service_properties: r('./ops/blob_put_service_properties'),
+
+        // CONTAINER
+        get_container: r('./ops/blob_get_container'),
         get_container_acl: r('./ops/blob_get_container_acl'),
-        get_container_list: r('./ops/blob_list_blobs'),
-        head_blob: r('./ops/blob_head_blob'),
-        head_container: r('./ops/blob_head_container'),
-        put_blob_lease: r('./ops/blob_put_blob_lease'),
-        put_blob: r('./ops/blob_put_blob'),
+        get_container_list: r('./ops/blob_get_container_list'),
+        get_container_metadata: r('./ops/blob_get_container_metadata'),
+        put_container: r('./ops/blob_put_container'),
+        put_container_acl: r('./ops/blob_put_container_acl'),
         put_container_lease: r('./ops/blob_put_container_lease'),
-        put_container: r('./ops/blob_create_container'),
+        put_container_metadata: r('./ops/blob_put_container_metadata'),
+        delete_container: r('./ops/blob_delete_container'),
+
+        // BLOB
+        get_blob: r('./ops/blob_get_blob'),
+        get_blob_metadata: r('./ops/blob_get_blob_metadata'),
+        get_blob_blocklist: r('./ops/blob_get_blob_blocklist'),
+        put_blob: r('./ops/blob_put_blob'),
+        put_blob_lease: r('./ops/blob_put_blob_lease'),
+        delete_blob: r('./ops/blob_delete_blob'),
     });
 }
 

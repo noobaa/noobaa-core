@@ -11,10 +11,6 @@ const MDStore = require('../object_services/md_store').MDStore;
 const size_utils = require('../../util/size_utils');
 const system_store = require('../system_services/system_store').get_instance();
 
-const SECONDS_IN_DAY = 86400;
-const WORKER_INTERVAL_IN_SECONDS = config.MD_AGGREGATOR_INTERVAL / 1000;
-const JUMP_ALLOWANCE = (SECONDS_IN_DAY / WORKER_INTERVAL_IN_SECONDS);
-
 // TODO: This method is based on a single system
 function background_worker() {
     if (!system_store.is_finished_initial_load) {
@@ -44,7 +40,8 @@ function background_worker() {
             const next_group_from_date = is_last_group ? target_now :
                 parseInt(sorted_group_update_times[group_index + 1], 10);
             const time_diff = next_group_from_date - from_date;
-            const date_delta = Math.max(Math.floor(time_diff / JUMP_ALLOWANCE) || time_diff, config.MD_AGGREGATOR_INTERVAL);
+            const scaled_time_diff = time_diff * config.MD_AGGREGATOR_INTERVAL / config.MD_AGGREGATOR_MAX_TIME_FRAME;
+            const date_delta = Math.max(Math.floor(scaled_time_diff) || time_diff, config.MD_AGGREGATOR_INTERVAL);
 
             return promise_utils.pwhile(
                     () => !group_finished,

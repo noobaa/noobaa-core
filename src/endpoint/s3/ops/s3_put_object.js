@@ -4,6 +4,7 @@
 const dbg = require('../../../util/debug_module')(__filename);
 // const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
+const http_utils = require('../../../util/http_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
@@ -16,27 +17,21 @@ function put_object(req, res) {
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
         req.headers['x-amz-copy-source'] || '');
 
-    const params = {
-        client: req.rpc_client,
-        bucket: req.params.bucket,
-        key: req.params.key,
-        content_type: req.headers['content-type'],
-        xattr: s3_utils.get_request_xattr(req),
-        copy_source,
-        source_stream: req,
-    };
-
-    if (copy_source) {
-        params.xattr_copy = (req.headers['x-amz-metadata-directive'] === 'COPY');
-        s3_utils.set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
-    } else {
-        params.size = s3_utils.parse_content_length(req);
-        if (req.content_md5) params.md5_b64 = req.content_md5.toString('base64');
-        if (req.content_sha256) params.sha256_b64 = req.content_sha256.toString('base64');
-    }
-    s3_utils.set_md_conditions(req, params, 'overwrite_if');
-
-    return req.object_io.upload_object(params)
+    return req.object_io.upload_object({
+            client: req.rpc_client,
+            bucket: req.params.bucket,
+            key: req.params.key,
+            content_type: req.headers['content-type'],
+            copy_source,
+            source_stream: req,
+            size: copy_source ? undefined : s3_utils.parse_content_length(req),
+            md5_b64: req.content_md5 ? req.content_md5.toString('base64') : undefined,
+            sha256_b64: req.content_sha256_buf ? req.content_sha256_buf.toString('base64') : undefined,
+            md_conditions: http_utils.get_md_conditions(req),
+            source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
+            xattr: s3_utils.get_request_xattr(req),
+            xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY'),
+        })
         .then(reply => {
             if (copy_source) {
                 return {

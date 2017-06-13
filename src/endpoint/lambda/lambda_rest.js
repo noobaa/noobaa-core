@@ -74,6 +74,7 @@ function handle_request(req, res) {
         error_max_body_len_exceeded: LambdaError.MaxMessageLengthExceeded,
         error_missing_body: LambdaError.MissingRequestBodyError,
         error_invalid_body: LambdaError.InvalidRequest,
+        error_body_sha256_mismatch: LambdaError.XAmzContentSHA256Mismatch,
     };
 
     return P.resolve()
@@ -107,10 +108,10 @@ function check_headers(req, res) {
         }
     }
 
-    const content_sha256_hex = req.headers['x-amz-content-sha256'];
-    if (typeof content_sha256_hex === 'string') {
-        req.content_sha256 = Buffer.from(content_sha256_hex, 'hex');
-        if (req.content_sha256.length !== 32) {
+    req.content_sha256 = req.headers['x-amz-content-sha256'];
+    if (typeof req.content_sha256 === 'string') {
+        req.content_sha256_buf = Buffer.from(req.content_sha256, 'hex');
+        if (req.content_sha256_buf.length !== 32) {
             throw new LambdaError(LambdaError.InvalidDigest);
         }
     }

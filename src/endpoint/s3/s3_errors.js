@@ -368,6 +368,13 @@ const errors_defs = [{
     code: 'NoSuchWebsiteConfiguration',
     message: 'The specified bucket does not have a website configuration',
     http_code: 404,
+}, {
+    // not defined in AWS docs but this is what they return
+    code: 'XAmzContentSHA256Mismatch',
+    message: 'The provided \'x-amz-content-sha256\' header does not match what was computed.',
+    http_code: 400,
+    // ClientComputedContentSHA256: '...',
+    // S3ComputedContentSHA256: '...',
 }];
 
 for (const err_def of errors_defs) {

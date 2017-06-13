@@ -115,7 +115,7 @@ class RpcRequest {
         if (this.error) {
             // copy the error to a plain object because otherwise
             // the message is not encoded by
-            header.error = _.pick(this.error, 'rpc_code', 'message', 'retryable');
+            header.error = _.pick(this.error, 'message', 'rpc_code', 'rpc_data');
         } else {
             header.reply = this.reply;
             if (this.method_api.reply_export_buffers) {
@@ -133,7 +133,7 @@ class RpcRequest {
         this._set_times(msg.header.took);
         const err = msg.header.error;
         if (err) {
-            this.error = new RpcError(err.rpc_code, err.message, err.retryable);
+            this.error = new RpcError(err.rpc_code, err.message, err.rpc_data);
             this._response_defer.reject(this.error);
         } else {
             this.reply = msg.header.reply;

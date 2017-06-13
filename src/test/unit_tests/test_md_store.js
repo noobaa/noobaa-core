@@ -44,7 +44,7 @@ mocha.describe('md_store', function() {
                     num_parts: 88,
                 }, info)))
                 .then(() => md_store.update_object_by_id(info._id, { deleted: new Date() }))
-                .then(() => md_store.find_object_by_key_allow_missing(bucket_id, info.key))
+                .then(() => md_store.find_object_by_key(bucket_id, info.key))
                 .then(obj => assert_equal(obj, null))
                 .then(() => md_store.update_objects_by_key_deleted(bucket_id, info.key, {
                     num_parts: 111
@@ -218,18 +218,6 @@ mocha.describe('md_store', function() {
                 _id: part.chunk
             }));
             return md_store.load_parts_objects_for_chunks(chunks);
-        });
-
-        mocha.it('copy_object_parts()', function() {
-            const obj = {
-                system: parts[0].system,
-                _id: parts[0].obj,
-            };
-            const target_obj = {
-                system: parts[0].system,
-                _id: md_store.make_md_id(),
-            };
-            return md_store.copy_object_parts(obj, target_obj);
         });
 
         mocha.it('delete_parts_of_object()', function() {

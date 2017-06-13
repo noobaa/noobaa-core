@@ -388,6 +388,8 @@ class SystemStore extends EventEmitter {
     }
 
     load() {
+        // serializing load requests since we have to run a fresh load after the previous one will finish
+        // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(() => {
             dbg.log0('SystemStore: loading ...');
             let new_data = new SystemStoreData();

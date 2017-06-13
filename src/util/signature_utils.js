@@ -105,15 +105,7 @@ function _string_to_sign_v4(req, signed_headers, xamzdate, region, service) {
         !signed_headers_set ||
         signed_headers_set.has(key.toLowerCase());
 
-    v4.hexEncodedBodyHash = () => {
-        if (req.query['X-Amz-Signature'] && service === 's3') {
-            return 'UNSIGNED-PAYLOAD';
-        }
-        if (req.content_sha256) {
-            return req.content_sha256.toString('hex');
-        }
-        return EMPTY_SHA256;
-    };
+    v4.hexEncodedBodyHash = () => req.content_sha256 || EMPTY_SHA256;
 
     const canonical_str = v4.canonicalString();
     const string_to_sign = v4.stringToSign(xamzdate);

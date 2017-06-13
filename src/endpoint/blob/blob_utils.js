@@ -1,0 +1,41 @@
+/* Copyright (C) 2016 NooBaa */
+'use strict';
+
+const _ = require('lodash');
+const time_utils = require('../../util/time_utils');
+
+function set_response_object_md(res, object_md) {
+    res.setHeader('ETag', '"' + object_md.etag + '"');
+    res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
+    res.setHeader('Content-Type', object_md.content_type);
+    res.setHeader('Content-Length', object_md.size);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('x-ms-lease-status', 'unlocked');
+    res.setHeader('x-ms-lease-state', 'available');
+    res.setHeader('x-ms-blob-type', 'BlockBlob');
+    res.setHeader('x-ms-server-encrypted', false);
+    set_response_xattr(res, object_md.xattr);
+}
+
+const X_MS_META = 'x-ms-meta-';
+
+function get_request_xattr(req) {
+    let xattr = {};
+    _.each(req.headers, (val, hdr) => {
+        if (!hdr.startsWith(X_MS_META)) return;
+        let key = hdr.slice(X_MS_META.length);
+        if (!key) return;
+        xattr[key] = val;
+    });
+    return xattr;
+}
+
+function set_response_xattr(res, xattr) {
+    _.each(xattr, (val, key) => {
+        res.setHeader(X_MS_META + key, val);
+    });
+}
+
+exports.set_response_object_md = set_response_object_md;
+exports.get_request_xattr = get_request_xattr;
+exports.set_response_xattr = set_response_xattr;

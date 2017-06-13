@@ -3,20 +3,16 @@
 
 // const BlobError = require('../blob_errors').BlobError;
 
-/**
- * https://docs.microsoft.com/en-us/rest/api/storageservices/get-container-acl
- */
-function get_container_acl(req, res) {
+function put_container_metadata(req, res) {
     return req.rpc_client.bucket.read_bucket({ name: req.params.bucket })
         .then(bucket_info => {
-            return {
-                SignedIdentifiers: {}
-            };
+            // TODO implement put_container_metadata
+            // throw new BlobError(BlobError.NotImplemented);
         });
 }
 
 module.exports = {
-    handler: get_container_acl,
+    handler: put_container_metadata,
     body: {
         type: 'empty',
     },

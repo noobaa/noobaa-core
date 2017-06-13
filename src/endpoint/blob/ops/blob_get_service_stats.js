@@ -1,7 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-function get_account_properties(req, res) {
+/**
+ * https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob-service-stats
+ */
+function get_service_stats(req, res) {
     return {
         StorageServiceStats: {
             GeoReplication: {
@@ -13,7 +16,7 @@ function get_account_properties(req, res) {
 }
 
 module.exports = {
-    handler: get_account_properties,
+    handler: get_service_stats,
     body: {
         type: 'empty',
     },

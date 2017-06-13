@@ -7,9 +7,9 @@
  */
 function delete_object_uploadId(req) {
     return req.rpc_client.object.abort_object_upload({
+        obj_id: req.query.uploadId,
         bucket: req.params.bucket,
         key: req.params.key,
-        upload_id: req.query.uploadId,
     }).return();
 }
 

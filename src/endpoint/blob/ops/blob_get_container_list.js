@@ -5,7 +5,10 @@ const _ = require('lodash');
 
 const BlobError = require('../blob_errors').BlobError;
 
-function list_blobs(req, res) {
+/**
+ * https://docs.microsoft.com/en-us/rest/api/storageservices/list-blobs
+ */
+function get_container_list(req, res) {
     let params = {
         bucket: req.params.bucket,
         upload_mode: false,
@@ -72,7 +75,7 @@ function list_blobs(req, res) {
 }
 
 module.exports = {
-    handler: list_blobs,
+    handler: get_container_list,
     body: {
         type: 'empty',
     },

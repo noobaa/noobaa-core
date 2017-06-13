@@ -418,10 +418,11 @@ function _prepare_auth_request(req) {
         }*/
         // If the token includes S3 data, then we check for permissions
         if (req.auth_token && typeof req.auth_token === 'object') {
-            return _.find(
-                account.allowed_buckets,
-                allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
-            );
+            return _.get(account, 'allowed_buckets.full_permission', false) ||
+                _.find(
+                    _.get(account, 'allowed_buckets.permission_list', []),
+                    allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
+                );
         } else {
             return true;
         }

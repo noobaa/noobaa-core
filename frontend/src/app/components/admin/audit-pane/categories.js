@@ -98,6 +98,11 @@ export default {
                 entityId: ({ bucket }) => bucket && bucket.name
             },
 
+            spillover: {
+                message: 'Bucket Spillover Configuration',
+                entityId: ({ bucket }) => bucket && bucket.name
+            },
+
             delete_lifecycle_configuration_rules: {
                 message: 'Delete Lifecycle Configuration',
                 entityId: ({ bucket }) => bucket && bucket.name

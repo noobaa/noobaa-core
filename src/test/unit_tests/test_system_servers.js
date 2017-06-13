@@ -78,8 +78,12 @@ mocha.describe('system_servers', function() {
                 name: EMAIL1,
                 email: EMAIL1,
                 password: PASSWORD,
+                has_login: true,
                 s3_access: true,
-                allowed_buckets: [],
+                allowed_buckets: {
+                    full_permission: false,
+                    permission_list: []
+                },
                 default_pool: config.NEW_SYSTEM_POOL_NAME
             }))
             .then(() => client.system.read_system())
@@ -374,9 +378,9 @@ mocha.describe('system_servers', function() {
                             schedule_min: 11
                         }
                     }));
-                    // .then(() => client.bucket.get_cloud_buckets({
-                    //     connection: CLOUD_SYNC_CONNECTION
-                    // }))
+                // .then(() => client.bucket.get_cloud_buckets({
+                //     connection: CLOUD_SYNC_CONNECTION
+                // }))
             })
             .then(() => client.system.read_system())
             // .then(() => client.bucket.get_cloud_sync({

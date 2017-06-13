@@ -28,8 +28,12 @@ let full_access_user = {
     name: 'full_access',
     email: 'full_access@noobaa.com',
     password: 'master',
+    has_login: true,
     s3_access: true,
-    allowed_buckets: ['bucket1', 'bucket2'],
+    allowed_buckets: {
+        full_permission: false,
+        permission_list: ['bucket1', 'bucket2']
+    },
     default_pool: config.NEW_SYSTEM_POOL_NAME,
 };
 
@@ -37,8 +41,12 @@ let bucket1_user = {
     name: 'bucket1_access',
     email: 'bucket1_access@noobaa.com',
     password: 'onlyb1',
+    has_login: true,
     s3_access: true,
-    allowed_buckets: ['bucket1'],
+    allowed_buckets: {
+        full_permission: false,
+        permission_list: ['bucket1']
+    },
     default_pool: config.NEW_SYSTEM_POOL_NAME,
 };
 
@@ -47,6 +55,7 @@ let no_access_user = {
     email: 'no_access@noobaa.com',
     s3_access: false,
     password: 'goaway',
+    has_login: true,
 };
 
 module.exports = {
@@ -150,10 +159,10 @@ function test_list_buckets_returns_allowed_buckets() {
     return client.system.read_system()
         .then(system_info => {
             account = account_by_name(system_info.accounts, full_access_user.email);
-            full_access_user_buckets = (account.allowed_buckets || []).length;
+            full_access_user_buckets = (account.allowed_buckets.permission_list || []).length;
 
             account = account_by_name(system_info.accounts, bucket1_user.email);
-            bucket1_user_buckets = (account.allowed_buckets || []).length;
+            bucket1_user_buckets = (account.allowed_buckets.permission_list || []).length;
         })
         .then(() => P.ninvoke(server, 'listBuckets'))
         .then(data => {
@@ -197,17 +206,19 @@ function test_bucket_write_allowed() {
             return P.ninvoke(server, 'upload', params1)
                 .then(resp => P.ninvoke(server, 'upload', params2));
         })
-        .then(() => ops.generate_random_file(1)
-            .then(fname => {
-                // upload with full_access_user to both buckets:
-                let server = get_new_server(bucket1_user);
-                let params = {
-                    Bucket: 'bucket1',
-                    Key: fname,
-                    Body: fs.createReadStream(fname)
-                };
-                return P.ninvoke(server, 'upload', params);
-            }));
+        .then(function() {
+            return ops.generate_random_file(1)
+                .then(fname => {
+                    // upload with full_access_user to both buckets:
+                    let server = get_new_server(bucket1_user);
+                    let params = {
+                        Bucket: 'bucket1',
+                        Key: fname,
+                        Body: fs.createReadStream(fname)
+                    };
+                    return P.ninvoke(server, 'upload', params);
+                });
+        });
 }
 
 
@@ -339,7 +350,7 @@ function test_create_bucket_add_creator_permissions() {
         // check account server for permissions of full_access_user
         .then(() => client.system.read_system())
         .then(system_info => {
-            const allowed_buckets = account_by_name(system_info.accounts, full_access_user.email).allowed_buckets;
+            const allowed_buckets = account_by_name(system_info.accounts, full_access_user.email).allowed_buckets.permission_list;
             const has_access = allowed_buckets.includes(unique_bucket_name);
             assert(has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
         });
@@ -354,6 +365,7 @@ function test_delete_bucket_deletes_permissions() {
         .then(system_info => {
             const user_has_access = account_by_name(system_info.accounts, full_access_user.email)
                 .allowed_buckets
+                .permission_list
                 .includes(unique_bucket_name);
 
             assert(user_has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
@@ -363,6 +375,7 @@ function test_delete_bucket_deletes_permissions() {
         .then(system_info => {
             const user_has_access = account_by_name(system_info.accounts, full_access_user.email)
                 .allowed_buckets
+                .permission_list
                 .includes(unique_bucket_name);
 
             assert(!user_has_access, 'expecting full_access_user to not have permissions to access ' + unique_bucket_name);

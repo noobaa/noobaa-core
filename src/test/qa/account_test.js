@@ -14,13 +14,13 @@ const promise_utils = require('../../util/promise_utils');
 //defining the required parameters
 const {
     name = 'account',
-    emailSuffix = '@email.email',
-    password = 'Password',
-    s3_access = false,
-    cycles = 10,
-    accounts = 10,
-    to_delete = false, //the default should be true or false??
-    skip_create = false
+        emailSuffix = '@email.email',
+        password = 'Password',
+        s3_access = false,
+        cycles = 10,
+        accounts = 10,
+        to_delete = false, //the default should be true or false??
+        skip_create = false
 } = argv;
 
 //Verfy account is exist by list (using the emails).
@@ -52,19 +52,20 @@ function verify_account_by_list(emails) {
 
 function doCycle(cycle_num, count) {
     return P.all(
-        _.times(count, account_num => {
-            //building an account parameters object.
-            const fullName = `${name}${account_num}_cycle${cycle_num}`;
-            const req = {
-                name: fullName,
-                email: `${fullName}${emailSuffix}`,
-                password: password,
-                s3_access: s3_access
-            };
-            console.log(`accounts(${JSON.stringify(req)})`);
-            return skip_create ? req.email : client.account.create_account(req).then(() => req.email);
-        })
-    )
+            _.times(count, account_num => {
+                //building an account parameters object.
+                const fullName = `${name}${account_num}_cycle${cycle_num}`;
+                const req = {
+                    name: fullName,
+                    email: `${fullName}${emailSuffix}`,
+                    password: password,
+                    has_login: true,
+                    s3_access: s3_access
+                };
+                console.log(`accounts(${JSON.stringify(req)})`);
+                return skip_create ? req.email : client.account.create_account(req).then(() => req.email);
+            })
+        )
         .then(emails => verify_account_by_list(emails))
         .then(emails => to_delete && P.all(
             emails.map(email => {

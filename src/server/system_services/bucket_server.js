@@ -1008,6 +1008,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     };
 
     info.tag = bucket.tag ? bucket.tag : '';
+    info.spillover_enabled = spillover_allowed_in_policy;
 
     info.num_objects = num_of_objects || 0;
 

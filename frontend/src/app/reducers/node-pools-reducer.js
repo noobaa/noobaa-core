@@ -3,7 +3,6 @@
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
-import { countNodesByState } from 'utils/ui-utils';
 
 // ------------------------------
 // Initial State
@@ -32,15 +31,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
         return { name, mode, storage, associatedAccounts, associatedBuckets };
     });
 
-    const nodesByMode = countNodesByState(nodes.by_mode);
-
-    const nodesInfo = {
-        healthyCount: nodesByMode.healthy,
-        withIssuesCount: nodesByMode.hasIssues,
-        offlineCount: nodesByMode.offline,
-    };
-
-    return { pools: poolsByName, nodes: nodesInfo };
+    return { pools: poolsByName, nodes: nodes.by_mode };
 }
 
 // ------------------------------

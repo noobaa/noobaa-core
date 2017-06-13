@@ -15,6 +15,7 @@ import { formatSize } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
 import { openInstallNodesModal } from 'dispatchers';
 import { aggregateStorage } from 'utils/storage-utils';
+import { countNodesByState } from 'utils/ui-utils';
 import { state$ } from 'state';
 
 const cloudTypes = deepFreeze({
@@ -148,11 +149,12 @@ class ResourceOverviewViewModel extends Observer {
 
     onPools(nodePools) {
         const poolList = Object.values(nodePools.pools);
-        const nodes = nodePools.nodes;
 
-        const healthyCount = nodes.healthyCount ? nodes.healthyCount : 0;
-        const withIssuesCount = nodes.withIssuesCount ? nodes.withIssuesCount : 0;
-        const offlineCount = nodes.offlineCount ? nodes.offlineCount : 0;
+        const nodesByMode = countNodesByState(nodePools.nodes);
+
+        const healthyCount = nodesByMode.healthy || 0;
+        const withIssuesCount = nodesByMode.hasIssues || 0;
+        const offlineCount = nodesByMode.offline || 0;
         const count = healthyCount + withIssuesCount + offlineCount;
 
         this.nodeCount(count);

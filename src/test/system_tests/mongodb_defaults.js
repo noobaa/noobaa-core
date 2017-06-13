@@ -93,9 +93,9 @@ db.accounts.update({
     email: 'demo@noobaa.com'
 }, {
     $set: {
-        allowed_buckets: [db.buckets.find({
-            name: 'first.bucket'
-        })[0]._id]
+        allowed_buckets: {
+            full_permission: true
+        }
     }
 });
 

@@ -8,7 +8,6 @@
 const P = require('../../util/promise');
 
 const _ = require('lodash');
-const net = require('net');
 const AWS = require('aws-sdk');
 const azure = require('azure-storage');
 const bcrypt = require('bcrypt');
@@ -36,7 +35,7 @@ const demo_access_keys = Object.freeze({
  *
  */
 function create_account(req) {
-    var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    var account = _.pick(req.rpc_params, 'name', 'email', 'has_login');
     validate_create_account_params(req);
 
     if (account.name === 'demo' && account.email === 'demo@noobaa.com') {
@@ -58,19 +57,49 @@ function create_account(req) {
     } else {
         account._id = system_store.generate_id();
     }
-    return bcrypt_password(account.password)
-        .then(password_hash => {
-            account.password = password_hash;
 
+    return P.resolve()
+        .then(() => {
+            if (req.rpc_params.has_login) {
+                account.password = req.rpc_params.password;
+                return bcrypt_password(account.password)
+                    .then(password_hash => {
+                        account.password = password_hash;
+                    });
+            }
+        })
+        .then(() => {
             if (req.rpc_params.s3_access) {
                 if (req.rpc_params.allowed_buckets) {
-                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                        bucket => req.system.buckets_by_name[bucket]._id);
+                    const full_permission = Boolean(req.rpc_params.allowed_buckets.full_permission);
+                    const permission_list = req.rpc_params.allowed_buckets.permission_list;
+                    const allowed_buckets = {
+                        full_permission: full_permission
+                    };
+                    if (!full_permission) {
+                        if (!permission_list) {
+                            throw new RpcError('Cannot configure without permission_list when explicit permissions');
+                        }
+                        allowed_buckets.permission_list = _.map(permission_list, bucket =>
+                            req.system.buckets_by_name[bucket]._id);
+                    }
+                    account.allowed_buckets = allowed_buckets;
                 }
 
                 if (req.rpc_params.new_system_parameters) {
-                    account.allowed_buckets = _.map(req.rpc_params.new_system_parameters.allowed_buckets,
-                        bucket => mongo_utils.make_object_id(bucket));
+                    const full_permission = Boolean(req.rpc_params.new_system_parameters.allowed_buckets.full_permission);
+                    const permission_list = req.rpc_params.new_system_parameters.allowed_buckets.permission_list;
+                    const allowed_buckets = {
+                        full_permission: full_permission
+                    };
+                    if (!full_permission) {
+                        if (!permission_list) {
+                            throw new RpcError('Cannot configure without permission_list when explicit permissions');
+                        }
+                        allowed_buckets.permission_list = _.map(permission_list, bucket =>
+                            mongo_utils.make_object_id(bucket));
+                    }
+                    account.allowed_buckets = allowed_buckets;
                     account.default_pool = mongo_utils.make_object_id(req.rpc_params.new_system_parameters.default_pool);
                 } else {
                     account.default_pool = req.system.pools_by_name[req.rpc_params.default_pool]._id;
@@ -218,9 +247,20 @@ function update_account_s3_access(req) {
             !req.rpc_params.default_pool) {
             throw new RpcError('Enabling S3 requires providing allowed_buckets/default_pool');
         }
-        update.allowed_buckets = req.rpc_params.allowed_buckets.map(
-            bucket_name => system.buckets_by_name[bucket_name]._id
-        );
+
+        const full_permission = Boolean(req.rpc_params.allowed_buckets.full_permission);
+        const permission_list = req.rpc_params.allowed_buckets.permission_list;
+        const allowed_buckets = {
+            full_permission: full_permission
+        };
+        if (!full_permission) {
+            if (!permission_list) {
+                throw new RpcError('Cannot configure without permission_list when explicit permissions');
+            }
+            allowed_buckets.permission_list = _.map(permission_list, bucket =>
+                system.buckets_by_name[bucket]._id);
+        }
+        update.allowed_buckets = allowed_buckets;
         update.default_pool = system.pools_by_name[req.rpc_params.default_pool]._id;
     } else {
         update.$unset = {
@@ -235,27 +275,32 @@ function update_account_s3_access(req) {
             }
         })
         .then(() => {
-            let new_allowed_buckets = req.rpc_params.allowed_buckets;
-            let origin_allowed_buckets = account.allowed_buckets && account.allowed_buckets.map(bucket => bucket.name);
-            let pool = system.pools_by_name[req.rpc_params.default_pool];
-            let original_pool = pool && pool.name;
+            const origin_allowed_buckets = ((account.allowed_buckets &&
+                    account.allowed_buckets.permission_list) || [])
+                .map(bucket => bucket.name);
+            const pool = system.pools_by_name[req.rpc_params.default_pool];
+            const original_pool = pool && pool.name;
             let desc_string = [];
             let added_buckets = [];
             let removed_buckets = [];
             desc_string.push(`${account.email} S3 access was updated by ${req.account && req.account.email}`);
             if (req.rpc_params.s3_access) {
-                added_buckets = _.difference(new_allowed_buckets, origin_allowed_buckets);
-                removed_buckets = _.difference(origin_allowed_buckets, new_allowed_buckets);
-                // Here we need a new toggle or something instead of just null
-                // In order to know that we activated and know the removed_buckets and not only added
-                // Because how it works right now is that we will only know what we added and not removed
-                // Since the array will be always null
-                if (!origin_allowed_buckets) {
-                    desc_string.push(`S3 permissions was changed to enabled`);
-                }
-
                 if (original_pool !== req.rpc_params.default_pool) {
                     desc_string.push(`Default pool changed to`, req.rpc_params.default_pool ? req.rpc_params.default_pool : `None`);
+                }
+                if (req.rpc_params.allowed_buckets) {
+                    if (req.rpc_params.allowed_buckets.full_permission) {
+                        desc_string.push(`permissions were changed to full`);
+                    } else {
+                        const new_allowed_buckets = (req.rpc_params.allowed_buckets &&
+                            req.rpc_params.allowed_buckets.permission_list) || [];
+                        added_buckets = _.difference(new_allowed_buckets, origin_allowed_buckets);
+                        removed_buckets = _.difference(origin_allowed_buckets, new_allowed_buckets);
+                    }
+                } else {
+                    // Should be dead code since we should not get s3_access without allowed_buckets structure
+                    desc_string.push(`permissions were changed to none`);
+                    removed_buckets = _.difference(origin_allowed_buckets, []);
                 }
                 if (added_buckets.length) {
                     desc_string.push(`Added buckets: ${added_buckets}`);
@@ -278,43 +323,23 @@ function update_account_s3_access(req) {
         .return();
 }
 
-function update_account_ip_access(req) {
-    let account = _.cloneDeep(system_store.get_account_by_email(req.rpc_params.email));
+function validate_ip_permission(req) {
+    const account = _.find(system_store.data.accounts, function(acc) {
+        if (acc.access_keys) {
+            return acc.access_keys[0].access_key.toString() === req.rpc_params.access_key.toString();
+        } else {
+            return false;
+        }
+    });
+
     if (!account) {
-        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account access_key: ' + req.rpc_params.access_key);
     }
 
-    if (req.system && req.account) {
-        if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-            throw new RpcError('UNAUTHORIZED', 'Cannot update account');
-        }
+    if (account.allowed_ips &&
+        account.allowed_ips.indexOf(req.rpc_params.ip) === -1) {
+        throw new RpcError('NO_SUCH_IP_ALLOWED', 'No such ip allowed: ' + req.rpc_params.ip);
     }
-
-    if (account.is_support) {
-        throw new RpcError('FORBIDDEN', 'Cannot update support account');
-    }
-
-    const update = {
-        _id: account._id
-    };
-
-    if (req.rpc_params.ips) {
-        if (!_.every(req.rpc_params.ips, ip => net.isIP(ip))) {
-            throw new RpcError('INVALID', 'All list must be valid IP');
-        }
-        update.allowed_ips = req.rpc_params.ips;
-    } else {
-        update.$unset = {
-            allowed_ips: true,
-        };
-    }
-
-    return system_store.make_changes({
-            update: {
-                accounts: [update]
-            }
-        })
-        .return();
 }
 
 /**
@@ -339,11 +364,13 @@ function update_account(req) {
     let updates = {
         name: params.name,
         email: params.new_email,
-        next_password_change: params.must_change_password === true ? new Date() : undefined
+        next_password_change: params.must_change_password === true ? new Date() : undefined,
+        allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined
     };
 
     let removals = {
-        next_password_change: params.must_change_password === false ? true : undefined
+        next_password_change: params.must_change_password === false ? true : undefined,
+        allowed_ips: params.ips === null ? true : undefined
     };
 
     return system_store.make_changes({
@@ -381,6 +408,9 @@ function reset_password(req) {
     }
     if (account.is_support) {
         throw new RpcError('FORBIDDEN', 'Cannot change support password');
+    }
+    if (!account.has_login) {
+        throw new RpcError('FORBIDDEN', 'Cannot change non management password');
     }
 
     const params = req.rpc_params;
@@ -717,9 +747,18 @@ function get_account_info(account, include_connection_cache) {
 
     info.has_s3_access = Boolean(account.allowed_buckets);
     if (info.has_s3_access) {
-        info.allowed_buckets = (account.allowed_buckets || []).map(
-            bucket => bucket.name
-        );
+        const full_permission = Boolean(account.allowed_buckets.full_permission);
+        const permission_list = account.allowed_buckets.permission_list;
+        const allowed_buckets = {
+            full_permission: full_permission
+        };
+        if (!full_permission) {
+            if (!permission_list) {
+                throw new RpcError('Cannot configure without permission_list when explicit permissions');
+            }
+            allowed_buckets.permission_list = _.map(permission_list, bucket => bucket.name);
+        }
+        info.allowed_buckets = allowed_buckets;
         info.default_pool = account.default_pool.name;
     }
 
@@ -778,6 +817,7 @@ function ensure_support_account() {
                         name: 'Support',
                         email: 'support@noobaa.com',
                         password: password,
+                        has_login: true,
                         is_support: true,
                     };
 
@@ -829,6 +869,14 @@ function validate_create_account_params(req) {
                 'Creating new system with enabled S3 access for owner requires providing allowed_buckets/default_pool');
         }
     }
+
+    if (req.rpc_params.has_login) {
+        if (!req.rpc_params.password) {
+            throw new RpcError('BAD_REQUEST', 'Password is missing');
+        }
+    } else if (req.rpc_params.password) {
+        throw new RpcError('BAD_REQUEST', 'Password should not be sent');
+    }
 }
 
 function generate_access_keys() {
@@ -874,11 +922,29 @@ function _list_connection_usage(account, credentials) {
     return cloud_sync_usage.concat(cloud_pool_usage);
 }
 
+// // TODO: Shall implement that for everyone and call it
+// // Currently have a problem regarding the mapper function that needs outside parameters
+// function _allowed_buckets_setter(allowed_buckets, ) {
+//     const allow_all = Boolean(req.rpc_params.allowed_buckets.full_permission);
+//     const permission_list = req.rpc_params.allowed_buckets.permission_list;
+//     const allowed_buckets = {
+//         allow_all: allow_all
+//     };
+//     if (!allow_all) {
+//         if (!permission_list) {
+//             throw new RpcError('Cannot configure without permission_list when explicit permissions');
+//         }
+//         allowed_buckets.permission_list = _.map(permission_list, bucket =>
+//             system.buckets_by_name[bucket]._id);
+//     }
+//     return allowed_buckets;
+// }
+
 
 // EXPORTS
 exports.create_account = create_account;
 exports.read_account = read_account;
-exports.update_account_ip_access = update_account_ip_access;
+exports.validate_ip_permission = validate_ip_permission;
 exports.update_account = update_account;
 exports.reset_password = reset_password;
 exports.delete_account = delete_account;

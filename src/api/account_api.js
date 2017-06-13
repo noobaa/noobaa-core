@@ -19,7 +19,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password', 's3_access'],
+                required: ['name', 'email', 'has_login', 's3_access'],
                 properties: {
                     name: {
                         type: 'string',
@@ -33,14 +33,14 @@ module.exports = {
                     must_change_password: {
                         type: 'boolean',
                     },
+                    has_login: {
+                        type: 'boolean'
+                    },
                     s3_access: {
                         type: 'boolean'
                     },
                     allowed_buckets: {
-                        type: 'array',
-                        items: {
-                            type: 'string',
-                        }
+                        $ref: '#/definitions/allowed_buckets'
                     },
                     default_pool: {
                         type: 'string',
@@ -56,10 +56,7 @@ module.exports = {
                                 type: 'string'
                             },
                             allowed_buckets: {
-                                type: 'array',
-                                items: {
-                                    type: 'string',
-                                }
+                                $ref: '#/definitions/allowed_buckets'
                             },
                             default_pool: {
                                 type: 'string',
@@ -123,6 +120,16 @@ module.exports = {
                     new_email: {
                         type: 'string',
                     },
+                    ips: {
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'array',
+                            items: {
+                                type: 'string'
+                            }
+                        }]
+                    }
                 }
             },
             auth: {
@@ -190,10 +197,7 @@ module.exports = {
                         type: 'boolean'
                     },
                     allowed_buckets: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
+                        $ref: '#/definitions/allowed_buckets'
                     },
                     default_pool: {
                         type: 'string'
@@ -205,21 +209,18 @@ module.exports = {
             }
         },
 
-        update_account_ip_access: {
-            doc: 'Update account ip access permissions',
+        validate_ip_permission: {
+            doc: 'Validate that ip allowed to access',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email'],
+                required: ['access_key', 'ip'],
                 properties: {
-                    email: {
+                    access_key: {
                         type: 'string',
                     },
-                    ips: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
+                    ip: {
+                        type: 'string',
                     }
                 },
             },
@@ -378,6 +379,9 @@ module.exports = {
                 is_support: {
                     type: 'boolean',
                 },
+                has_login: {
+                    type: 'boolean',
+                },
                 next_password_change: {
                     format: 'idate',
                 },
@@ -391,9 +395,18 @@ module.exports = {
                     type: 'boolean'
                 },
                 allowed_buckets: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
+                    type: 'object',
+                    required: ['full_permission'],
+                    properties: {
+                        full_permission: {
+                            type: 'boolean'
+                        },
+                        permission_list: {
+                            type: 'array',
+                            items: {
+                                type: 'string'
+                            }
+                        }
                     }
                 },
                 allowed_ips: {
@@ -473,6 +486,22 @@ module.exports = {
                     }
                 }
             },
+        },
+
+        allowed_buckets: {
+            type: 'object',
+            required: ['full_permission'],
+            properties: {
+                full_permission: {
+                    type: 'boolean'
+                },
+                permission_list: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                }
+            }
         },
 
         account_acl: {

@@ -14,7 +14,7 @@ chart-legend {
         font-size: @font-size2;
         display: flex;
         flex-direction: row;
-        line-height: @gutter;
+        line-height: 1.3;
 
 
         &::before {
@@ -31,7 +31,8 @@ chart-legend {
 
         .legend-label {
             display: inline-block;
-            flex-basis: 150px;
+            flex-basis: auto;
+            flex-grow: 2;
         }
 
         .legend-value {

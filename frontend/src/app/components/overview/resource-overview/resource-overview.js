@@ -1,14 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './resource-overview.html';
-import poolsOverviewTemplate from './pools-overview.html';
-import cloudOverviewTemplate from './cloud-overview.html';
-import internalOverviewTemplate from './internal-overview.html';
+import poolsOverviewTemplate from './pools.html';
+import cloudOverviewTemplate from './cloud.html';
+import internalOverviewTemplate from './internal.html';
 import Observer from 'observer';
 import style from 'style';
 import { routeContext } from 'model';
 import ko from 'knockout';
-import { navigateTo } from 'actions';
+import { redirectTo } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount} from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
@@ -189,7 +189,7 @@ class ResourceOverviewViewModel extends Observer {
     selectResourceType(type) {
         const resourceType = type || undefined;
         const filter = undefined;
-        navigateTo(undefined, undefined, { filter, resourceType });
+        redirectTo(undefined, undefined, { filter, resourceType });
     }
 
     isVisible(resourceType) {

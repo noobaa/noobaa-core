@@ -55,7 +55,7 @@ class CreateAccountWizardViewModel extends FromViewModel {
         // Observe state.
         this.observe(state$.get('buckets'), this.onBuckets);
         this.observe(state$.get('accounts'), this.onAccounts);
-        this.observe(state$.getMany('nodePools', 'cloudResources'), this.onResources);
+        this.observe(state$.getMany(['nodePools', 'pools'], 'cloudResources'), this.onResources);
     }
 
     onAccounts(accounts) {

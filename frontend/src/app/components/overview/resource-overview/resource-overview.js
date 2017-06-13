@@ -1,152 +1,201 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './resource-overview.html';
-import BaseViewModel from 'components/base-view-model';
+import poolsOverviewTemplate from './pools-overview.html';
+import cloudOverviewTemplate from './cloud-overview.html';
+import internalOverviewTemplate from './internal-overview.html';
+import Observer from 'observer';
 import style from 'style';
-import { systemInfo } from 'model';
+import { routeContext } from 'model';
 import ko from 'knockout';
-import { deepFreeze, keyBy } from 'utils/core-utils';
+import { navigateTo } from 'actions';
+import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount} from 'utils/string-utils';
-import { countNodesByState } from 'utils/ui-utils';
-import { toBytes } from 'utils/size-utils';
+import { formatSize } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
 import { openInstallNodesModal } from 'dispatchers';
+import { aggregateStorage } from 'utils/storage-utils';
+import { state$ } from 'state';
 
-const allCounters = deepFreeze({
-    ALL: 0,
-    NODES_POOL: 0,
-    AWS: 0,
-    AZURE: 0,
-    S3_COMPATIBLE: 0
+const cloudTypes = deepFreeze({
+    AWS: 'AWS',
+    AZURE: 'AZURE',
+    S3_COMPATIBLE: 'S3_COMPATIBLE'
 });
 
-const pieColorsOpacityFactor = .5;
+const pieColorsOpacityFactor = deepFreeze({
+    pools: .5,
+    cloud: .8,
+    internal: .4
+});
 
-class ResourceOverviewViewModel extends BaseViewModel {
+const resourceTypeOptions = deepFreeze([
+    {
+        label: 'Pools',
+        value: 'pools'
+    },
+    {
+        label: 'Cloud',
+        value: 'cloud',
+    },
+    {
+        label : 'Internal',
+        value: 'internal'
+    }
+]);
+
+class ResourceOverviewViewModel extends Observer {
     constructor() {
         super();
 
-        const resourceCounters = ko.pureComputed(
-            () => {
-                const relevantPools = (systemInfo() ? systemInfo().pools : [])
-                    .filter(({ resource_type }) => resource_type === 'HOSTS' || resource_type === 'CLOUD');
-
-                const counters = keyBy(
-                    relevantPools,
-                    pool => pool.resource_type === 'CLOUD' ? pool.cloud_info.endpoint_type : 'NODES_POOL',
-                    (_, counter) => (counter || 0) + 1
-                );
-
-                return { 
-                    ...allCounters, 
-                    ...counters, 
-                    ALL: relevantPools.length 
-                };
-            }
-        );        
-
-        this.resourceCount = ko.pureComputed(
-            () => resourceCounters().ALL
+        const query = ko.pureComputed(
+            () => routeContext().query || {}
         );
 
+        this.resourceTypeOptions = resourceTypeOptions;
+        this.selectedResourceType = ko.pureComputed({
+            read: () => query().resourceType || resourceTypeOptions[0].value,
+            write: value => this.selectResourceType(value)
+        });
+        this.poolsOverviewTemplate = poolsOverviewTemplate;
+        this.cloudOverviewTemplate = cloudOverviewTemplate;
+        this.internalOverviewTemplate = internalOverviewTemplate;
+
+        this.poolsChartLegend = ko.observable('');
+        this.cloudChartLegend = ko.observable('');
+        this.internalChartLegend = ko.observable('');
+        this.cloudStorage = ko.observable('');
+
+        this.poolsChartValues = [
+            {
+                label: 'Online',
+                value: ko.observable(0),
+                color: hexToRgb(style['color12'], pieColorsOpacityFactor.pools)
+            },
+            {
+                label: 'Has issues',
+                value: ko.observable(0),
+                color: hexToRgb(style['color11'], pieColorsOpacityFactor.pools)
+            },
+            {
+                label: 'Offline',
+                value: ko.observable(0),
+                color: hexToRgb(style['color10'], pieColorsOpacityFactor.pools)
+            }
+        ];
+
+        this.cloudChartValues = [
+            {
+                label: 'AWS S3',
+                value: ko.observable(0),
+                icon: ko.observable('aws-s3-resource'),
+                color: hexToRgb(style['color8'], pieColorsOpacityFactor.cloud)
+            },
+            {
+                label: 'Azure blob',
+                value: ko.observable(0),
+                icon: ko.observable('azure-resource'),
+                color: hexToRgb(style['color6'], pieColorsOpacityFactor.cloud)
+            },
+            {
+                label: 'S3 compatible',
+                value: ko.observable(0),
+                icon: ko.observable('cloud-resource'),
+                color: hexToRgb(style['color16'], pieColorsOpacityFactor.cloud)
+            }
+        ];
+
+        this.internalChartValues = [
+            {
+                label: 'Available',
+                value: ko.observable(0),
+                color: hexToRgb(style['color8'], pieColorsOpacityFactor.internal)
+            },
+            {
+                label: 'Used (Spilled over from buckets)',
+                value: ko.observable(0),
+                color: hexToRgb(style['color6'], pieColorsOpacityFactor.internal)
+            }
+        ];
+
+        this.systemCapacity = ko.observable(0);
+        this.nodeCount = ko.observable(0);
+        this.nodeCountText = ko.pureComputed(
+            () => stringifyAmount('Nodes', this.nodeCount())
+        );
+
+        this.cloudCount = ko.observable(0);
+        this.cloudCountText = ko.pureComputed(
+            () => `${this.cloudCount()} Cloud`
+        );
+
+        this.cloudCountSecondaryText = ko.pureComputed(
+            () => this.cloudCount() === 1 ? 'resource' : 'resources'
+        );
+
+        this.poolsCount = ko.observable(0);
         this.resourcesLinkText = ko.pureComputed(
             () => stringifyAmount(
                 'Resource',
-                resourceCounters()['ALL'],
+                this.poolsCount() + this.cloudCount(),
                 'No'
             )
         );
 
-        this.nodePoolsCount = ko.pureComputed(
-            () => resourceCounters().NODES_POOL
-        );
+        this.observe(state$.get('nodePools'), this.onPools);
+        this.observe(state$.get('cloudResources'), this.onCloud);
+    }
 
-        this.awsResourceIcon = ko.pureComputed(
-            () => resourceCounters().AWS === 0 ?
-                'aws-s3-resource' :
-                'aws-s3-resource-colored'
-        );
+    onPools(nodePools) {
+        const poolList = Object.values(nodePools.pools);
+        const nodes = nodePools.nodes;
 
-        this.awsResourceCount = ko.pureComputed(
-            () => resourceCounters().AWS
-        );
+        const healthyCount = nodes.healthyCount ? nodes.healthyCount : 0;
+        const withIssuesCount = nodes.withIssuesCount ? nodes.withIssuesCount : 0;
+        const offlineCount = nodes.offlineCount ? nodes.offlineCount : 0;
+        const count = healthyCount + withIssuesCount + offlineCount;
 
-        this.azureResourceIcon = ko.pureComputed(
-            () => resourceCounters().AZURE === 0 ?
-                'azure-resource' :
-                'azure-resource-colored'
-        );
+        this.nodeCount(count);
+        this.poolsCount(poolList.length);
+        this.poolsChartLegend(`Pools: ${poolList.length} | Nodes in Pools:`);
+        this.poolsChartValues[0].value(healthyCount);
+        this.poolsChartValues[1].value(withIssuesCount);
+        this.poolsChartValues[2].value(offlineCount);
+        const poolsStorageList = poolList.map(cloud => cloud.storage);
+        this.systemCapacity(poolsStorageList.length ? formatSize(aggregateStorage(...poolsStorageList).total) : 0);
+    }
 
-        this.azureResourceCount = ko.pureComputed(
-            () => resourceCounters().AZURE
-        );
+    onCloud(cloudResources) {
+        const cloudResourcesList = Object.values(cloudResources);
 
-        this.genericResourceIcon = ko.pureComputed(
-            () => resourceCounters().S3_COMPATIBLE === 0 ?
-                'cloud-resource' :
-                'cloud-resource-colored'
-        );
+        this.cloudChartLegend(`Cloud storage: ${cloudResourcesList.length} | Services:`);
 
-        this.genericResourceCount = ko.pureComputed(
-            () => resourceCounters().S3_COMPATIBLE
-        );
-        const nodeCounters = ko.pureComputed(
-            () => countNodesByState(systemInfo() ? systemInfo().nodes.by_mode : {})
-        );
+        const awsCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.AWS).length;
+        const azureCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.AZURE).length;
+        const s3CompatibleCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.S3_COMPATIBLE).length;
 
-        const healthyNodesCount = ko.pureComputed(
-            () => nodeCounters().healthy
-        );
-
-        const offlineNodesCount = ko.pureComputed(
-            () => nodeCounters().offline
-        );
-
-        const nodesWithIssuesCount = ko.pureComputed(
-            () => nodeCounters().hasIssues
-        );
-
-        this.chartValues = [
-            {
-                label: 'Online',
-                value: healthyNodesCount,
-                color: hexToRgb(style['color12'], pieColorsOpacityFactor)
-            },
-            {
-                label: 'Has issues',
-                value: nodesWithIssuesCount,
-                color: hexToRgb(style['color11'], pieColorsOpacityFactor)
-            },
-            {
-                label: 'Offline',
-                value: offlineNodesCount,
-                color: hexToRgb(style['color10'], pieColorsOpacityFactor)
-            }
-        ];
-
-        this.systemCapacity = ko.pureComputed(
-            () => toBytes(systemInfo() ? systemInfo().nodes_storage.total : 0)
-        )
-        .extend({
-            tween: { useDiscreteValues: true, resetValue: 0 },
-            formatSize: true
-        });
-
-        const nodeCount = ko.pureComputed(
-            () => systemInfo() ? systemInfo().nodes.count : 0
-        ).extend({
-            tween: { useDiscreteValues: true, resetValue: 0 },
-            formatNumber: true
-        });
-
-        this.nodeCountText = ko.pureComputed(
-            () => `${nodeCount()} Nodes`
-        );
+        this.cloudCount(cloudResourcesList.length);
+        this.cloudChartValues[0].value(awsCount);
+        this.cloudChartValues[1].value(azureCount);
+        this.cloudChartValues[2].value(s3CompatibleCount);
+        const cloudStorageList = cloudResourcesList.map(cloud => cloud.storage);
+        this.cloudStorage(cloudStorageList.length ? aggregateStorage(...cloudStorageList).total.peta : 0);
     }
 
     onInstallNodes() {
         openInstallNodesModal();
     }
+
+    selectResourceType(type) {
+        const resourceType = type || undefined;
+        const filter = undefined;
+        navigateTo(undefined, undefined, { filter, resourceType });
+    }
+
+    isVisible(resourceType) {
+        return this.selectedResourceType() === resourceType;
+    }
+
 }
 
 export default {

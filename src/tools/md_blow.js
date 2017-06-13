@@ -55,11 +55,11 @@ function blow_object(index) {
     dbg.log0('create_object_upload', params.key);
     return client.object.create_object_upload(params)
         .then(create_reply => {
-            params.upload_id = create_reply.upload_id;
+            params.obj_id = create_reply.obj_id;
             return blow_parts(params);
         })
         .then(() => {
-            let complete_params = _.pick(params, 'bucket', 'key', 'upload_id');
+            let complete_params = _.pick(params, 'bucket', 'key', 'obj_id');
             dbg.log0('complete_object_upload', params.key);
             return client.object.complete_object_upload(complete_params);
         });
@@ -68,9 +68,9 @@ function blow_object(index) {
 function blow_parts(params) {
     dbg.log0('allocate_object_parts', params.key);
     return client.object.allocate_object_parts({
+            obj_id: params.obj_id,
             bucket: params.bucket,
             key: params.key,
-            upload_id: params.upload_id,
             parts: _.times(argv.chunks, i => ({
                 start: i * argv.chunk_size,
                 end: (i + 1) * argv.chunk_size,
@@ -97,9 +97,9 @@ function blow_parts(params) {
         .then(res => {
             dbg.log0('finalize_object_parts', params.key);
             return client.object.finalize_object_parts({
+                obj_id: params.obj_id,
                 bucket: params.bucket,
                 key: params.key,
-                upload_id: params.upload_id,
                 parts: res.parts
             });
         });

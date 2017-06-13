@@ -46,7 +46,7 @@ mocha.describe('http_utils', function() {
         });
 
         add_test('xyzzy', {
-            'xyzzy': false,
+            'xyzzy': true,
             'xyzz': false,
             '': false,
         });

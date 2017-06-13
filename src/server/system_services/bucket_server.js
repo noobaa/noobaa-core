@@ -147,7 +147,7 @@ function create_bucket(req) {
     }];
 
     // Grant the owner a full access for the newly created bucket.
-    if (req.account !== req.system.owner) {
+    if (String(req.account._id) !== String(req.system.owner._id)) {
         changes.update.accounts.push({
             _id: req.system.owner._id,
             $push: {
@@ -470,7 +470,6 @@ function delete_bucket_lifecycle(req) {
                 bucket: bucket._id,
                 desc: desc_string.join('\n'),
             });
-            return;
         })
         .catch(function(err) {
             dbg.error('Error deleting lifecycle configuration rules', err, err.stack);
@@ -1047,8 +1046,10 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         info.quota = _.omit(bucket.quota, 'value');
         let quota_free = size_utils.json_to_bigint(bucket.quota.value).minus(size_utils.json_to_bigint(objects_aggregate.size));
         if (quota_free.isNegative()) quota_free = BigInteger.zero;
-        available_for_upload =
-            size_utils.size_min([size_utils.bigint_to_json(quota_free), size_utils.bigint_to_json(available_for_upload)]);
+        available_for_upload = size_utils.size_min([
+            size_utils.bigint_to_json(quota_free),
+            size_utils.bigint_to_json(available_for_upload)
+        ]);
     }
 
     info.data = size_utils.to_bigint_storage({

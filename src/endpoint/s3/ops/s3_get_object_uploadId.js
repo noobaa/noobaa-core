@@ -24,9 +24,9 @@ function get_object_uploadId(req) {
     }
 
     return req.rpc_client.object.list_multiparts({
+            obj_id: req.query.uploadId,
             bucket: req.params.bucket,
             key: req.params.key,
-            upload_id: req.query.uploadId,
             max: Math.min(max, 1000),
             num_marker,
         })

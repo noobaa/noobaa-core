@@ -57,6 +57,15 @@ config.NEW_SYSTEM_POOL_NAME = 'first.pool';
 config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 config.SPILLOVER_TIER_NAME = 'system-internal-spillover-tier';
 
+config.MD_AGGREGATOR_INTERVAL = 30000;
+// the max time frame limits how much time the aggregator will aim to close the gaps
+// the higher this value the higher the time intervals it will scan when trying to close time gaps
+config.MD_AGGREGATOR_MAX_TIME_FRAME = 24 * 60 * 60 * 1000; // 1 day
+// Currently the grace is 3 cycles of md_aggregator
+// This grace is used since we can hold up an ObjectID and not push it inside the DB
+// Which will mean that it will be pushed later on with a previous date
+config.MD_GRACE_IN_MILLISECONDS = config.MD_AGGREGATOR_INTERVAL * 3;
+
 ///////////////
 // IO CONFIG //
 ///////////////
@@ -170,11 +179,6 @@ config.CLUSTERING_PATHS = {
 
 config.CLUSTER_HB_INTERVAL = 1 * 60000;
 config.CLUSTER_MASTER_INTERVAL = 10000;
-config.MD_AGGREGATOR_INTERVAL = 30000;
-// Currently the grace is 3 cycles of md_aggregator
-// This grace is used since we can hold up an ObjectID and not push it inside the DB
-// Which will mean that it will be pushed later on with a previous date
-config.MD_GRACE_IN_MILLISECONDS = config.MD_AGGREGATOR_INTERVAL * 3;
 config.CLUSTER_NODE_MISSING_TIME = 3 * 60000;
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
 

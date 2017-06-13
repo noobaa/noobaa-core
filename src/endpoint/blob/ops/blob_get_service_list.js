@@ -3,7 +3,10 @@
 
 const _ = require('lodash');
 
-function list_containers(req, res) {
+/**
+ * https://docs.microsoft.com/en-us/rest/api/storageservices/list-containers2
+ */
+function get_service_list(req, res) {
     const { prefix, marker, maxresults } = req.query;
     return req.rpc_client.bucket.list_buckets()
         .then(reply => ({
@@ -29,7 +32,7 @@ function list_containers(req, res) {
 }
 
 module.exports = {
-    handler: list_containers,
+    handler: get_service_list,
     body: {
         type: 'empty',
     },

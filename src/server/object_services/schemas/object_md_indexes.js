@@ -5,7 +5,6 @@ module.exports = [{
         // update_object_by_key()
         // update_objects_by_key_deleted()
         // find_object_by_key()
-        // find_object_by_key_allow_missing()
         // find_objects()
         // find_objects_by_prefix_and_delimiter()
         // TODO index ??? has_any_completed_objects_in_bucket()

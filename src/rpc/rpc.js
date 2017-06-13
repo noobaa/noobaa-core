@@ -388,10 +388,7 @@ RPC.prototype._on_request = function(conn, msg) {
             if (err instanceof RpcError) {
                 req.error = err;
             } else {
-                req.error = new RpcError(
-                    err.rpc_code || 'INTERNAL',
-                    err.message,
-                    err.retryable);
+                req.error = new RpcError(err.rpc_code || 'INTERNAL', err.message, { retryable: true });
             }
 
             return conn.send(req._encode_response(), 'res', req);
@@ -685,10 +682,7 @@ RPC.prototype._connection_closed = function(conn) {
 
     // reject pending requests
     for (const req of conn._sent_requests.values()) {
-        req.error = new RpcError(
-            'DISCONNECTED',
-            'connection closed ' + conn.connid + ' reqid ' + req.reqid,
-            'retryable');
+        req.error = new RpcError('DISCONNECTED', 'connection closed ' + conn.connid + ' reqid ' + req.reqid, { retryable: true });
         req._response_defer.reject(req.error);
     }
 

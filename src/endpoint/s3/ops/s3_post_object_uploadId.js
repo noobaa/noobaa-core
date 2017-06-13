@@ -24,9 +24,9 @@ function post_object_uploadId(req) {
     }
 
     return req.rpc_client.object.complete_object_upload({
+            obj_id: req.query.uploadId,
             bucket: req.params.bucket,
             key: req.params.key,
-            upload_id: req.query.uploadId,
             multiparts
         })
         .then(reply => ({

@@ -1,0 +1,24 @@
+PUT /eran.tamir2/test.txt HTTP/1.1
+Host: 127.0.0.1
+x-amz-content-sha256: STREAMING-AWS4-HMAC-SHA256-PAYLOAD
+Authorization: AWS4-HMAC-SHA256 Credential=123/20170615/us-east-1/s3/aws4_request, SignedHeaders=amz-sdk-invocation-id;amz-sdk-retry;content-length;content-md5;content-type;host;user-agent;x-amz-content-sha256;x-amz-date;x-amz-decoded-content-length, Signature=71412819b28b950ca881dd63b7103d35ae71b459a76a559714d1c127d5ab528f
+X-Amz-Date: 20170615T073142Z
+User-Agent: aws-sdk-java/1.11.138 Mac_OS_X/10.11.6 Java_HotSpot(TM)_64-Bit_Server_VM/25.131-b11/1.8.0_131
+amz-sdk-invocation-id: 267776c1-2e48-8f4c-d043-19bebca592d6
+x-amz-decoded-content-length: 135
+amz-sdk-retry: 0/0/500
+Content-MD5: JBVusP8u0QVhBvsvxNDthQ==
+Content-Type: text/plain
+Content-Length: 308
+Connection: Keep-Alive
+Expect: 100-continue
+
+87;chunk-signature=413d35181cde517e8eaaeffbebc06fda7804f80e43a06ac6c9092c60eeb1cf9c
+abcdefghijklmnopqrstuvwxyz
+01234567890112345678901234
+!@#$%^&*()-=[]{};':',.<>/?
+01234567890112345678901234
+abcdefghijklmnopqrstuvwxyz
+
+0;chunk-signature=00f240130e57b61164c55e4acb9540d5a7cdffc139f630cc06020ea07187f46b
+

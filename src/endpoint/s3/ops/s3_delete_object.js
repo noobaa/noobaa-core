@@ -1,18 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const s3_utils = require('../s3_utils');
+// const s3_utils = require('../s3_utils');
+const http_utils = require('../../../util/http_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
  */
 function delete_object(req) {
-    const params = {
+    return req.rpc_client.object.delete_object({
         bucket: req.params.bucket,
         key: req.params.key,
-    };
-    s3_utils.set_md_conditions(req, params, 'delete_if');
-    return req.rpc_client.object.delete_object(params);
+        md_conditions: http_utils.get_md_conditions(req),
+    });
 }
 
 module.exports = {

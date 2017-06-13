@@ -77,6 +77,10 @@ const errors_defs = [{
     message: 'The Content-MD5 you specified is not valid.',
     http_code: 400,
 }, {
+    code: 'MaxMessageLengthExceeded',
+    message: 'Your request was too big.',
+    http_code: 400,
+}, {
     // not defined in AWS list
     // needed for error cases that require no code in the reply
     reply_without_code: true,
@@ -84,9 +88,12 @@ const errors_defs = [{
     message: 'Bad Request',
     http_code: 400,
 }, {
-    code: 'MaxMessageLengthExceeded',
-    message: 'Your request was too big.',
+    // not defined in AWS docs but this is what they return
+    code: 'XAmzContentSHA256Mismatch',
+    message: 'The provided \'x-amz-content-sha256\' header does not match what was computed.',
     http_code: 400,
+    // ClientComputedContentSHA256: '...',
+    // S3ComputedContentSHA256: '...',
 }];
 
 for (const err_def of errors_defs) {

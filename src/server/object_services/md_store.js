@@ -107,22 +107,12 @@ class MDStore {
 
     find_object_by_id(obj_id) {
         return this._objects.col().findOne({
-                _id: obj_id,
-                deleted: null,
-            })
-            .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'));
+            _id: obj_id,
+            deleted: null,
+        });
     }
 
     find_object_by_key(bucket_id, key) {
-        return this._objects.col().findOne(compact({
-                bucket: bucket_id,
-                key: key,
-                deleted: null,
-            }))
-            .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'));
-    }
-
-    find_object_by_key_allow_missing(bucket_id, key) {
         return this._objects.col().findOne(compact({
             bucket: bucket_id,
             key: key,
@@ -565,22 +555,6 @@ class MDStore {
                 parts,
                 objects
             }));
-    }
-
-    copy_object_parts(source_obj, target_obj) {
-        return this._parts.col().find({
-                obj: source_obj._id,
-                deleted: null,
-            })
-            .toArray()
-            .then(parts => this.insert_parts(
-                _.map(parts, part => _.defaults({
-                    _id: this.make_md_id(),
-                    system: target_obj.system,
-                    bucket: target_obj.bucket,
-                    obj: target_obj._id,
-                }, part))
-            ));
     }
 
     find_parts_of_object(obj) {

@@ -76,9 +76,9 @@ mocha.describe('object_io', function() {
                 content_type: 'application/octet-stream',
             }))
             .then(create_reply => client.object.complete_object_upload({
+                obj_id: create_reply.obj_id,
                 bucket: BKT,
                 key: key,
-                upload_id: create_reply.upload_id,
             }))
             .then(() => client.object.read_object_md({
                 bucket: BKT,
@@ -193,7 +193,7 @@ mocha.describe('object_io', function() {
             const self = this; // eslint-disable-line no-invalid-this
             self.timeout(60000);
 
-            let upload_id;
+            let obj_id;
             let key = KEY + Date.now();
             let part_size = 1024;
             let num_parts = 10;
@@ -208,19 +208,19 @@ mocha.describe('object_io', function() {
                     content_type: 'test/test'
                 }))
                 .then(create_reply => {
-                    upload_id = create_reply.upload_id;
+                    obj_id = create_reply.obj_id;
                 })
                 .then(() => client.object.list_multiparts({
+                    obj_id: obj_id,
                     bucket: BKT,
                     key: key,
-                    upload_id: upload_id,
                 }))
                 .tap(list => console.log('list_multiparts reply', list))
                 .then(list => promise_utils.loop(num_parts, i => object_io.upload_multipart({
                     client: client,
+                    obj_id: obj_id,
                     bucket: BKT,
                     key: key,
-                    upload_id: upload_id,
                     num: i + 1,
                     size: part_size,
                     source_stream: new SliceReader(data, {
@@ -229,15 +229,15 @@ mocha.describe('object_io', function() {
                     }),
                 })))
                 .then(() => client.object.list_multiparts({
+                    obj_id: obj_id,
                     bucket: BKT,
                     key: key,
-                    upload_id: upload_id,
                 }))
                 .tap(list => console.log('list_multiparts reply', list))
                 .then(list => client.object.complete_object_upload({
+                    obj_id: obj_id,
                     bucket: BKT,
                     key: key,
-                    upload_id: upload_id,
                     multiparts: _.map(list.multiparts, p => ({
                         num: p.num,
                         etag: p.etag,

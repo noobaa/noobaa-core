@@ -19,7 +19,6 @@ const http_utils = require('../../util/http_utils');
 const map_writer = require('./map_writer');
 const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
-const mongo_utils = require('../../util/mongo_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const S3UsageStore = require('../analytic_services/s3_usage_store').S3UsageStore;
 const nodes_client = require('../node_services/nodes_client');
@@ -56,16 +55,16 @@ function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
-    return MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key)
+    return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key)
         .then(existing_obj => {
             // check if the conditions for overwrite are met, throws if not
-            check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
+            check_md_conditions(req, req.rpc_params.md_conditions, existing_obj);
             // we passed the checks, so we can delete the existing object if exists
             return map_deleter.delete_object(existing_obj);
         })
         .then(() => MDStore.instance().insert_object(info))
         .return({
-            upload_id: String(info._id)
+            obj_id: String(info._id)
         });
 }
 
@@ -100,23 +99,21 @@ function complete_object_upload(req) {
             }
             if (req.rpc_params.md5_b64 !== obj.md5_b64) {
                 if (obj.md5_b64) {
-                    throw new RpcError('BAD_DIGEST',
-                        `md5 on complete object (${
-                            req.rpc_params.md5_b64
-                        }) differs from create object (${
-                            obj.md5_b64
-                        })`);
+                    throw new RpcError('BAD_DIGEST_MD5',
+                        'md5 on complete object differs from create object', {
+                            client: req.rpc_params.md5_b64,
+                            server: obj.md5_b64,
+                        });
                 }
                 set_updates.md5_b64 = req.rpc_params.md5_b64;
             }
             if (req.rpc_params.sha256_b64 !== obj.sha256_b64) {
                 if (obj.sha256_b64) {
-                    throw new RpcError('BAD_DIGEST',
-                        `sha256 on complete object (${
-                            req.rpc_params.sha256_b64
-                        }) differs from create object (${
-                            obj.sha256_b64
-                        })`);
+                    throw new RpcError('BAD_DIGEST_SHA256',
+                        'sha256 on complete object differs from create object', {
+                            client: req.rpc_params.sha256_b64,
+                            server: obj.sha256_b64,
+                        });
                 }
                 set_updates.sha256_b64 = req.rpc_params.sha256_b64;
             }
@@ -271,23 +268,21 @@ function complete_multipart(req) {
             }
             if (req.rpc_params.md5_b64 !== multipart.md5_b64) {
                 if (multipart.md5_b64) {
-                    throw new RpcError('BAD_DIGEST',
-                        `md5 on complete multipart (${
-                            req.rpc_params.md5_b64
-                        }) differs from create multipart (${
-                            multipart.md5_b64
-                        })`);
+                    throw new RpcError('BAD_DIGEST_MD5',
+                        'md5 on complete multipart differs from create multipart', {
+                            client: req.rpc_params.md5_b64,
+                            server: multipart.md5_b64,
+                        });
                 }
                 set_updates.md5_b64 = req.rpc_params.md5_b64;
             }
             if (req.rpc_params.sha256_b64 !== multipart.sha256_b64) {
                 if (multipart.sha256_b64) {
-                    throw new RpcError('BAD_DIGEST',
-                        `sha256 on complete multipart (${
-                            req.rpc_params.sha256_b64
-                        }) differs from create multipart (${
-                            multipart.sha256_b64
-                        })`);
+                    throw new RpcError('BAD_DIGEST_SHA256',
+                        'sha256 on complete multipart differs from create multipart', {
+                            client: req.rpc_params.sha256_b64,
+                            server: multipart.sha256_b64,
+                        });
                 }
                 set_updates.sha256_b64 = req.rpc_params.sha256_b64;
             }
@@ -334,82 +329,6 @@ function list_multiparts(req) {
         });
 }
 
-
-/**
- *
- * copy_object
- *
- */
-function copy_object(req) {
-    dbg.log0('copy_object', req.rpc_params);
-    throw_if_maintenance(req);
-    load_bucket(req);
-    var source_bucket = req.system.buckets_by_name[req.rpc_params.source_bucket];
-    if (!source_bucket) {
-        throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.source_bucket);
-    }
-    var create_info;
-    var existing_obj;
-    var source_obj;
-    return P.join(
-            MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key),
-            MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.source_key)
-        )
-        .spread((existing_obj_arg, source_obj_arg) => {
-            existing_obj = existing_obj_arg;
-            source_obj = source_obj_arg;
-            create_info = {
-                _id: MDStore.instance().make_md_id(),
-                system: req.system._id,
-                bucket: req.bucket._id,
-                key: req.rpc_params.key,
-                size: source_obj.size,
-                content_type: req.rpc_params.content_type ||
-                    source_obj.content_type ||
-                    mime.lookup(req.rpc_params.key) ||
-                    'application/octet-stream',
-                cloud_synced: false,
-                upload_size: 0,
-                upload_started: new Date(),
-            };
-            if (source_obj.md5_b64) create_info.md5_b64 = source_obj.md5_b64;
-            if (source_obj.sha256_b64) create_info.sha256_b64 = source_obj.sha256_b64;
-            if (req.rpc_params.xattr_copy) {
-                create_info.xattr = source_obj.xattr;
-            } else if (req.rpc_params.xattr) {
-                create_info.xattr = req.rpc_params.xattr;
-            }
-            // check if the conditions for overwrite are met, throws if not
-            check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
-            check_md_conditions(req, req.rpc_params.source_if, source_obj);
-            // we passed the checks, so we can delete the existing object if exists
-            return map_deleter.delete_object(existing_obj);
-        })
-        .then(() => MDStore.instance().insert_object(create_info))
-        .then(() => MDStore.instance().copy_object_parts(source_obj, create_info))
-        .then(() => {
-            Dispatcher.instance().activity({
-                system: req.system._id,
-                level: 'info',
-                event: 'obj.uploaded',
-                obj: create_info._id,
-                actor: req.account && req.account._id,
-                desc: `${create_info.key} was copied by ${req.account && req.account.email}`,
-            });
-            // mark the new object not in upload mode
-            return MDStore.instance().update_object_by_id(create_info._id, {
-                etag: source_obj.etag,
-                num_parts: source_obj.num_parts,
-                create_time: new Date(),
-            }, {
-                upload_size: 1,
-                upload_started: 1,
-            });
-        })
-        .then(() => ({
-            source_md: get_object_info(source_obj)
-        }));
-}
 
 /**
  *
@@ -506,6 +425,7 @@ function read_object_md(req) {
     let info;
     return find_object_md(req)
         .then(obj => {
+            check_md_conditions(req, req.params.md_conditions, obj);
             info = get_object_info(obj);
             if (!adminfo || req.role !== 'admin') return;
 
@@ -563,16 +483,14 @@ function update_object_md(req) {
  */
 function delete_object(req) {
     throw_if_maintenance(req);
-    load_bucket(req);
     let obj;
-    return MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, req.rpc_params.key)
+    return find_object_md(req)
         .then(obj_arg => {
             obj = obj_arg;
-            check_md_conditions(req, req.rpc_params.delete_if, obj);
+            check_md_conditions(req, req.rpc_params.md_conditions, obj);
             return map_deleter.delete_object(obj);
         })
         .then(() => {
-            if (!obj) return;
             Dispatcher.instance().activity({
                 system: req.system._id,
                 level: 'info',
@@ -581,6 +499,9 @@ function delete_object(req) {
                 actor: req.account && req.account._id,
                 desc: `${obj.key} was deleted by ${req.account && req.account.email}`,
             });
+        })
+        .catch(err => {
+            if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
         })
         .return();
 }
@@ -598,7 +519,7 @@ function delete_multiple_objects(req) {
     // TODO: change it to perform changes in batch
     // TODO: missing dispatch of activity log
     return P.map(req.params.keys, key =>
-            MDStore.instance().find_object_by_key_allow_missing(req.bucket._id, key)
+            MDStore.instance().find_object_by_key(req.bucket._id, key)
             .then(obj => map_deleter.delete_object(obj))
         )
         .return();
@@ -693,7 +614,7 @@ function list_objects_s3(req) {
                 ));
                 results = _.concat(results, res);
                 // This is the case when there are no more objects that apply to the query
-                if ((res && res.length || 0) === 0) {
+                if (!res || !res.length) {
                     // If there were no object/common prefixes to match then no next marker
                     done = true;
                 } else if (results.length >= limit) {
@@ -801,7 +722,9 @@ function get_object_info(md) {
     info.content_type = info.content_type || 'application/octet-stream';
     info.etag = info.etag || '';
     info.upload_started = md.upload_started && md.upload_started.getTime();
-    info.create_time = md.create_time && md.create_time.getTime();
+    info.create_time = md.create_time ?
+        md.create_time.getTime() :
+        md._id.getTimestamp().getTime();
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
@@ -824,90 +747,128 @@ function load_bucket(req) {
     req.bucket = bucket;
 }
 
-function find_object_md(req) {
-    load_bucket(req);
-    return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key)
-        .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'));
-}
-
-function find_object_upload(req) {
-    load_bucket(req);
-    if (!MDStore.instance().is_valid_md_id(req.rpc_params.upload_id)) {
-        throw new RpcError('NO_SUCH_UPLOAD', `invalid id ${req.rpc_params.upload_id}`);
-    }
-    const obj_id = MDStore.instance().make_md_id(req.rpc_params.upload_id);
-    return MDStore.instance().find_object_by_id(obj_id)
-        .then(obj => check_object_upload_mode(req, obj));
-}
-
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
 const object_md_cache = new LRUCache({
     name: 'ObjectMDCache',
     max_usage: 1000,
     expiry_ms: 1000, // 1 second of blissful ignorance
-    load: function(id) {
-        const obj_id = MDStore.instance().make_md_id(id);
-        console.log('ObjectMDCache: load', obj_id);
+    load: function(id_str) {
+        console.log('ObjectMDCache: load', id_str);
+        const obj_id = MDStore.instance().make_md_id(id_str);
         return MDStore.instance().find_object_by_id(obj_id);
     }
 });
 
-function find_cached_object_upload(req) {
-    load_bucket(req);
+function find_object_md(req) {
     return P.resolve()
-        .then(() => object_md_cache.get_with_cache(req.rpc_params.upload_id))
-        .then(obj => check_object_upload_mode(req, obj));
+        .then(() => {
+            load_bucket(req);
+            // requests can omit obj_id if the caller does not care about consistency of the object identity between calls
+            // which is othersize
+            if (req.rpc_params.obj_id) {
+                const obj_id = get_obj_id(req, 'BAD_OBJECT_ID');
+                return MDStore.instance().find_object_by_id(obj_id);
+            }
+            return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key);
+        })
+        .then(obj => check_object_mode(req, obj, 'NO_SUCH_OBJECT'));
 }
 
-function check_object_upload_mode(req, obj) {
+function find_object_upload(req) {
+    return P.resolve()
+        .then(() => {
+            load_bucket(req);
+            const obj_id = get_obj_id(req, 'NO_SUCH_UPLOAD');
+            return MDStore.instance().find_object_by_id(obj_id);
+        })
+        .then(obj => check_object_mode(req, obj, 'NO_SUCH_UPLOAD'));
+}
+
+function find_cached_object_upload(req) {
+    return P.resolve()
+        .then(() => {
+            load_bucket(req);
+            const obj_id = get_obj_id(req, 'NO_SUCH_UPLOAD');
+            return object_md_cache.get_with_cache(String(obj_id));
+        })
+        .then(obj => check_object_mode(req, obj, 'NO_SUCH_UPLOAD'));
+}
+
+function get_obj_id(req, rpc_code) {
+    if (!MDStore.instance().is_valid_md_id(req.rpc_params.obj_id)) {
+        throw new RpcError(rpc_code, `invalid obj_id ${req.rpc_params.obj_id}`);
+    }
+    return MDStore.instance().make_md_id(req.rpc_params.obj_id);
+}
+
+function check_object_mode(req, obj, rpc_code) {
     if (!obj || obj.deleted) {
-        throw new RpcError('NO_SUCH_UPLOAD',
-            'No such upload id: ' + req.rpc_params.upload_id);
+        throw new RpcError(rpc_code,
+            `No such object id: ${req.rpc_params.obj_id}`);
     }
     if (String(req.system._id) !== String(obj.system)) {
-        throw new RpcError('NO_SUCH_UPLOAD',
-            'No such upload id in system: ' + req.rpc_params.upload_id);
+        throw new RpcError(rpc_code,
+            `No such object id in system: ${req.rpc_params.obj_id}`);
     }
     if (String(req.bucket._id) !== String(obj.bucket)) {
-        throw new RpcError('NO_SUCH_UPLOAD',
-            'No such upload id in bucket: ' + req.rpc_params.upload_id);
+        throw new RpcError(rpc_code,
+            `No such object id in bucket: ${req.rpc_params.obj_id}`);
     }
-    // TODO: Should look at the upload_size or create_time?
-    if (!_.isNumber(obj.upload_size)) {
-        throw new RpcError('NO_SUCH_UPLOAD',
-            'Object not in upload mode: ' + obj.key +
-            ' upload_size ' + obj.upload_size);
+    if (req.rpc_params.key !== obj.key) {
+        throw new RpcError(rpc_code,
+            `No such object id for key: ${obj.key} obj_id ${req.rpc_params.obj_id}`);
+    }
+    if (rpc_code === 'NO_SUCH_UPLOAD') {
+        if (!_.isNumber(obj.upload_size)) {
+            throw new RpcError(rpc_code,
+                `Object not in upload mode: ${obj.key} upload_size ${obj.upload_size}`);
+        }
     }
     return obj;
 }
 
 function check_md_conditions(req, conditions, obj) {
     if (!conditions) return;
+    if (!conditions.if_match_etag &&
+        !conditions.if_none_match_etag &&
+        !conditions.if_modified_since &&
+        !conditions.if_unmodified_since) return;
+
+    const data = obj ? {
+        etag: obj.etag,
+        last_modified: obj.create_time ?
+            obj.create_time.getTime() : obj._id.getTimestamp().getTime(),
+    } : {
+        etag: '',
+        last_modified: 0,
+    };
+
     // See http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html#req-header-consideration-1
     // See https://tools.ietf.org/html/rfc7232 (HTTP Conditional Requests)
     let matched = false;
     let unmatched = false;
+
     if (conditions.if_match_etag) {
-        if (!(obj && http_utils.match_etag(conditions.if_match_etag, obj.etag))) {
-            throw new RpcError('IF_MATCH_ETAG');
+        if (!(obj && http_utils.match_etag(conditions.if_match_etag, data.etag))) {
+            throw new RpcError('IF_MATCH_ETAG', 'check_md_conditions failed', data);
         }
         matched = true;
     }
     if (conditions.if_none_match_etag) {
-        if (obj && http_utils.match_etag(conditions.if_none_match_etag, obj.etag)) {
-            throw new RpcError('IF_NONE_MATCH_ETAG');
+        if (obj && http_utils.match_etag(conditions.if_none_match_etag, data.etag)) {
+            throw new RpcError('IF_NONE_MATCH_ETAG', 'check_md_conditions failed', data);
         }
         unmatched = true;
     }
     if (conditions.if_modified_since) {
-        if (!unmatched && (!obj || conditions.if_modified_since < obj._id.getTimestamp().getTime())) {
-            throw new RpcError('IF_MODIFIED_SINCE');
+        if (!unmatched && (!obj || conditions.if_modified_since > data.last_modified)) {
+            throw new RpcError('IF_MODIFIED_SINCE', 'check_md_conditions failed', data);
         }
     }
     if (conditions.if_unmodified_since) {
-        if (!matched && (!obj || conditions.if_unmodified_since > obj._id.getTimestamp().getTime())) {
-            throw new RpcError('IF_UNMODIFIED_SINCE');
+        if (!matched && (!obj || conditions.if_unmodified_since < data.last_modified)) {
+            throw new RpcError('IF_UNMODIFIED_SINCE', 'check_md_conditions failed', data);
         }
     }
 }
@@ -959,8 +920,6 @@ exports.list_multiparts = list_multiparts;
 // allocation of parts chunks and blocks
 exports.allocate_object_parts = allocate_object_parts;
 exports.finalize_object_parts = finalize_object_parts;
-// copy
-exports.copy_object = copy_object;
 // read
 exports.read_object_mappings = read_object_mappings;
 exports.read_node_mappings = read_node_mappings;

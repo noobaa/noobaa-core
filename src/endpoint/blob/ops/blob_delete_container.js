@@ -1,17 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-function create_container(req, res) {
-    return req.rpc_client.bucket.create_bucket({
+function delete_container(req, res) {
+    return req.rpc_client.bucket.delete_bucket({
             name: req.params.bucket
         })
         .then(() => {
-            res.statusCode = 201;
+            res.statusCode = 202;
         });
 }
 
 module.exports = {
-    handler: create_container,
+    handler: delete_container,
     body: {
         type: 'empty',
     },

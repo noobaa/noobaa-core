@@ -6,7 +6,7 @@ const _ = require('lodash');
 
 class RpcError extends Error {
 
-    constructor(rpc_code, message, retryable) {
+    constructor(rpc_code, message, rpc_data) {
         const final_message = message || rpc_code || 'UNKNOWN RPC ERROR';
         super(final_message);
         if (!this.message) {
@@ -18,13 +18,13 @@ class RpcError extends Error {
             this.message = err.message;
         }
         this.rpc_code = rpc_code;
-        if (retryable) {
-            this.retryable = true;
+        if (rpc_data) {
+            this.rpc_data = rpc_data;
         }
     }
 
     toJSON() {
-        return _.pick(this, 'message', 'rpc_code', 'retryable');
+        return _.pick(this, 'message', 'rpc_code', 'rpc_data');
     }
 
     toString() {

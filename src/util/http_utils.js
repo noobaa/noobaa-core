@@ -8,6 +8,7 @@ const pem = require('pem');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
 
@@ -35,6 +36,30 @@ function parse_client_ip(req) {
     return fwd.includes(',') ? fwd.split(',', 1)[0] : fwd;
 }
 
+function get_md_conditions(req, prefix) {
+    var cond;
+    prefix = prefix || '';
+    if (prefix + 'if-modified-since' in req.headers) {
+        cond = cond || {};
+        cond.if_modified_since =
+            (new Date(req.headers[prefix + 'if-modified-since'])).getTime();
+    }
+    if (prefix + 'if-unmodified-since' in req.headers) {
+        cond = cond || {};
+        cond.if_unmodified_since =
+            (new Date(req.headers[prefix + 'if-unmodified-since'])).getTime();
+    }
+    if (prefix + 'if-match' in req.headers) {
+        cond = cond || {};
+        cond.if_match_etag = req.headers[prefix + 'if-match'];
+    }
+    if (prefix + 'if-none-match' in req.headers) {
+        cond = cond || {};
+        cond.if_none_match_etag = req.headers[prefix + 'if-none-match'];
+    }
+    return cond;
+}
+
 /**
  * see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.24
  */
@@ -47,7 +72,9 @@ function match_etag(condition, etag) {
     if (condition === '*') return true;
 
     // detect exact match, but only allow it if no commas at all
-    if (condition === `"${etag}"` && !condition.includes(',')) return true;
+    if (!condition.includes(',')) {
+        if (condition === `"${etag}"` || condition === etag) return true;
+    }
 
     // split the condition on commas followed by proper quoted-string
     // the then compare to find any match
@@ -119,17 +146,28 @@ function read_request_body(req, options) {
     return new P((resolve, reject) => {
         let data = '';
         let content_len = 0;
+        const sha256 = crypto.createHash('sha256');
         req.on('data', chunk => {
             content_len += chunk.length;
             if (content_len > options.MAX_BODY_LEN) {
                 return reject(new options.ErrorClass(options.error_max_body_len_exceeded));
             }
+            sha256.update(chunk);
             // Parse the data after the length check
             data += chunk.toString('utf8');
         });
         req.once('error', reject);
         req.once('end', () => {
             req.body = data;
+            const sha256_buf = sha256.digest();
+            if (req.content_sha256_buf) {
+                if (Buffer.compare(sha256_buf, req.content_sha256_buf)) {
+                    return reject(new options.ErrorClass(options.error_body_sha256_mismatch));
+                }
+            } else {
+                req.content_sha256_buf = sha256_buf;
+                if (!req.content_sha256) req.content_sha256 = req.content_sha256_buf.toString('hex');
+            }
             return resolve();
         });
     });
@@ -171,8 +209,9 @@ function send_reply(req, res, reply, options) {
     }
     if (!reply || options.reply.type === 'empty') {
         dbg.log0('HTTP REPLY EMPTY', req.method, req.originalUrl,
-            JSON.stringify(req.headers));
-        if (!res.statusCode && req.method === 'DELETE') {
+            JSON.stringify(req.headers), res.statusCode);
+        if (req.method === 'DELETE' &&
+            (!res.statusCode || res.statusCode < 300)) {
             res.statusCode = 204;
         }
         res.end();
@@ -255,6 +294,7 @@ function get_ssl_certificate() {
 
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
+exports.get_md_conditions = get_md_conditions;
 exports.match_etag = match_etag;
 exports.parse_http_range = parse_http_range;
 exports.normalize_http_ranges = normalize_http_ranges;

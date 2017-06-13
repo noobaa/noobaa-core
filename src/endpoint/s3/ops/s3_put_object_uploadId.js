@@ -4,6 +4,7 @@
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
+const http_utils = require('../../../util/http_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
@@ -17,25 +18,19 @@ function put_object_uploadId(req, res) {
     dbg.log0('PUT OBJECT PART', req.params.bucket, req.params.key, num,
         req.headers['x-amz-copy-source'] || '');
 
-    const params = {
-        client: req.rpc_client,
-        bucket: req.params.bucket,
-        key: req.params.key,
-        upload_id: req.query.uploadId,
-        num,
-        copy_source,
-        source_stream: req,
-    };
-
-    if (copy_source) {
-        s3_utils.set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
-    } else {
-        params.size = s3_utils.parse_content_length(req);
-        if (req.content_md5) params.md5_b64 = req.content_md5.toString('base64');
-        if (req.content_sha256) params.sha256_b64 = req.content_sha256.toString('base64');
-    }
-
-    return req.object_io.upload_multipart(params)
+    return req.object_io.upload_multipart({
+            client: req.rpc_client,
+            obj_id: req.query.uploadId,
+            bucket: req.params.bucket,
+            key: req.params.key,
+            num,
+            copy_source,
+            source_stream: req,
+            size: copy_source ? undefined : s3_utils.parse_content_length(req),
+            md5_b64: req.content_md5 ? req.content_md5.toString('base64') : undefined,
+            sha256_b64: req.content_sha256_buf ? req.content_sha256_buf.toString('base64') : undefined,
+            source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
+        })
         .then(reply => {
             res.setHeader('ETag', `"${reply.etag}"`);
             if (copy_source) {

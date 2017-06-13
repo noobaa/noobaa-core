@@ -138,11 +138,11 @@ class ObjectIO {
             'bucket',
             'key',
             'content_type',
-            'xattr',
-            'overwrite_ifs',
             'size',
             'md5_b64',
-            'sha256_b64'
+            'sha256_b64',
+            'md_conditions',
+            'xattr'
         );
         const complete_params = _.pick(params,
             'bucket',
@@ -151,10 +151,11 @@ class ObjectIO {
 
         dbg.log0('upload_object: start upload', complete_params);
         return P.resolve()
+            .then(() => this._load_copy_source_md(params, create_params))
             .then(() => params.client.object.create_object_upload(create_params))
             .then(create_reply => {
-                params.upload_id = create_reply.upload_id;
-                complete_params.upload_id = create_reply.upload_id;
+                params.obj_id = create_reply.obj_id;
+                complete_params.obj_id = create_reply.obj_id;
             })
             .then(() => (
                 params.copy_source ?
@@ -166,8 +167,8 @@ class ObjectIO {
             .then(() => params.client.object.complete_object_upload(complete_params))
             .catch(err => {
                 dbg.warn('upload_object: failed upload', complete_params, err);
-                if (!params.upload_id) throw err;
-                return params.client.object.abort_object_upload(_.pick(params, 'bucket', 'key', 'upload_id'))
+                if (!params.obj_id) throw err;
+                return params.client.object.abort_object_upload(_.pick(params, 'bucket', 'key', 'obj_id'))
                     .then(() => {
                         dbg.log0('upload_object: aborted object upload', complete_params);
                         throw err; // still throw to the calling request
@@ -181,18 +182,18 @@ class ObjectIO {
 
     upload_multipart(params) {
         const create_params = _.pick(params,
+            'obj_id',
             'bucket',
             'key',
-            'upload_id',
             'num',
             'size',
             'md5_b64',
             'sha256_b64'
         );
         const complete_params = _.pick(params,
+            'obj_id',
             'bucket',
             'key',
-            'upload_id',
             'num'
         );
 
@@ -218,11 +219,26 @@ class ObjectIO {
             });
     }
 
+    _load_copy_source_md(params, create_params) {
+        if (!params.copy_source) return;
+        return params.client.object.read_object_md({
+                bucket: params.copy_source.bucket,
+                key: params.copy_source.key,
+                md_conditions: params.source_md_conditions,
+            })
+            .then(object_md => {
+                params.copy_source.obj_id = object_md.obj_id;
+                if (params.xattr_copy) {
+                    create_params.xattr = object_md.xattr;
+                }
+            });
+    }
+
     _upload_copy(params) {
         if (params.copy_source.bucket !== params.bucket) {
-            // TODO S3 source_if
             params.source_stream = this.create_read_stream({
                 client: params.client,
+                obj_id: params.copy_source.obj_id,
                 bucket: params.copy_source.bucket,
                 key: params.copy_source.key,
             });
@@ -232,6 +248,7 @@ class ObjectIO {
         // copy mappings
         var mappings;
         return params.client.object.read_object_mappings({
+                obj_id: params.copy_source.obj_id,
                 bucket: params.copy_source.bucket,
                 key: params.copy_source.key,
             })
@@ -239,9 +256,9 @@ class ObjectIO {
                 mappings = res;
             })
             .then(() => params.client.object.finalize_object_parts({
+                obj_id: params.obj_id,
                 bucket: params.bucket,
                 key: params.key,
-                upload_id: params.upload_id,
                 // sending part.chunk_id so no need for part.chunk info
                 parts: _.map(mappings.parts, p => _.omit(p, 'chunk')),
             }))
@@ -267,7 +284,7 @@ class ObjectIO {
      *
      */
     _upload_stream(params) {
-        params.desc = `${params.upload_id}${
+        params.desc = `${params.obj_id}${
             params.num ? '[' + params.num + ']' : ''
         }`;
         dbg.log0('UPLOAD:', params.desc, 'streaming to', params.bucket, params.key);
@@ -441,9 +458,9 @@ class ObjectIO {
         dbg.log2('UPLOAD:', params.desc,
             'allocate parts', range_utils.human_range(range));
         return params.client.object.allocate_object_parts({
+                obj_id: params.obj_id,
                 bucket: params.bucket,
                 key: params.key,
-                upload_id: params.upload_id,
                 parts: _.map(parts, part => {
                     const p = _.pick(part, PART_ATTRS);
                     p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
@@ -482,9 +499,9 @@ class ObjectIO {
         dbg.log2('UPLOAD:', params.desc,
             'finalize parts', range_utils.human_range(range));
         return params.client.object.finalize_object_parts({
+                obj_id: params.obj_id,
                 bucket: params.bucket,
                 key: params.key,
-                upload_id: params.upload_id,
                 parts: _.map(parts, 'alloc_part')
             })
             .then(() => {
@@ -664,9 +681,9 @@ class ObjectIO {
     _report_error_on_object_upload(params, block_md, action, err) {
         return params.client.object.report_error_on_object({
                 action: 'upload',
+                obj_id: params.obj_id,
                 bucket: params.bucket,
                 key: params.key,
-                upload_id: params.upload_id,
                 blocks_report: [{
                     block_md: block_md,
                     action: action,
@@ -733,12 +750,14 @@ class ObjectIO {
      * see ObjectReader.
      *
      */
-    create_read_stream(params, watermark) {
+    create_read_stream(params) {
+        var pos = Number(params.start) || 0;
+        const end = _.isUndefined(params.end) ? Infinity : Number(params.end);
         const reader = new stream.Readable({
             // highWaterMark Number - The maximum number of bytes to store
             // in the internal buffer before ceasing to read
             // from the underlying resource. Default=16kb
-            highWaterMark: watermark || config.IO_OBJECT_RANGE_ALIGN,
+            highWaterMark: params.watermark || config.IO_OBJECT_RANGE_ALIGN,
             // encoding String - If specified, then buffers will be decoded to strings
             // using the specified encoding. Default=null
             encoding: null,
@@ -747,8 +766,6 @@ class ObjectIO {
             // instead of a Buffer of size n. Default=false
             objectMode: false,
         });
-        var pos = Number(params.start) || 0;
-        const end = _.isUndefined(params.end) ? Infinity : Number(params.end);
 
         // close() is setting a flag to enforce immediate close
         // and avoid more reads made by buffering
@@ -769,6 +786,7 @@ class ObjectIO {
                     const requested_end = Math.min(end, pos + requested_size);
                     return this.read_object({
                         client: params.client,
+                        obj_id: params.obj_id,
                         bucket: params.bucket,
                         key: params.key,
                         start: pos,
@@ -800,6 +818,7 @@ class ObjectIO {
      *
      * @param params (Object):
      *   - client - rpc client with auth info if needed
+     *   - obj_id (String)
      *   - bucket (String)
      *   - key (String)
      *   - start (Number) - object start offset
@@ -849,13 +868,13 @@ class ObjectIO {
             max_usage: 256 * 1024 * 1024, // 128 MB
             item_usage: (data, params) => (data && data.buffer && data.buffer.length) || 1024,
             make_key: params => {
-                let start = range_utils.align_down(
+                const start = range_utils.align_down(
                     params.start, config.IO_OBJECT_RANGE_ALIGN);
-                let end = start + config.IO_OBJECT_RANGE_ALIGN;
-                return params.bucket + '\0' + params.key + '\0' + start + '\0' + end;
+                const end = start + config.IO_OBJECT_RANGE_ALIGN;
+                return params.obj_id + '\0' + start + '\0' + end;
             },
             load: params => {
-                let range_params = _.clone(params);
+                const range_params = _.clone(params);
                 range_params.start = range_utils.align_down(
                     params.start, config.IO_OBJECT_RANGE_ALIGN);
                 range_params.end = range_params.start + config.IO_OBJECT_RANGE_ALIGN;
@@ -863,11 +882,13 @@ class ObjectIO {
                 return this._read_object_range(range_params);
             },
             validate: (data, params) => params.client.object.read_object_md({
+                    obj_id: params.obj_id,
                     bucket: params.bucket,
                     key: params.key
                 })
                 .then(object_md => {
-                    let validated = object_md.obj_id === data.object_md.obj_id &&
+                    const validated =
+                        object_md.obj_id === data.object_md.obj_id &&
                         object_md.etag === data.object_md.etag &&
                         object_md.size === data.object_md.size &&
                         object_md.create_time === data.object_md.create_time;
@@ -877,15 +898,15 @@ class ObjectIO {
                     return validated;
                 }),
             make_val: (data, params) => {
-                let buffer = data.buffer;
+                const buffer = data.buffer;
                 if (!buffer) {
                     dbg.log3('RangesCache: null', range_utils.human_range(params));
                     return buffer;
                 }
-                let start = range_utils.align_down(
+                const start = range_utils.align_down(
                     params.start, config.IO_OBJECT_RANGE_ALIGN);
-                let end = start + config.IO_OBJECT_RANGE_ALIGN;
-                let inter = range_utils.intersection(
+                const end = start + config.IO_OBJECT_RANGE_ALIGN;
+                const inter = range_utils.intersection(
                     start, end, params.start, params.end);
                 if (!inter) {
                     dbg.log3('RangesCache: empty', range_utils.human_range(params),

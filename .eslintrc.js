@@ -245,8 +245,8 @@ module.exports = {
         // prefer to use let/const instead of var
         'no-var': 'off',
 
-        // warn on todo/fixme comments
-        'no-warning-comments': 'warn',
+        // turn off todo/fixme comments - will grep it to a different report
+        'no-warning-comments': 'off',
 
         // the rule object-property-newline is better than object-curly-newline
         'object-property-newline': 'off',

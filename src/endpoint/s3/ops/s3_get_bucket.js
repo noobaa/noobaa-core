@@ -41,7 +41,7 @@ function get_bucket(req) {
                     'Prefix': req.query.prefix,
                     'Delimiter': req.query.delimiter,
                     'MaxKeys': max_keys_received,
-                    'Marker': req.query.marker,
+                    'Marker': req.query.marker || '',
                     'IsTruncated': reply.is_truncated,
                     'NextMarker': reply.next_marker,
                     'Encoding-Type': req.query['encoding-type'],

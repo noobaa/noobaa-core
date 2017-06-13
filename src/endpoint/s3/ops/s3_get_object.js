@@ -5,19 +5,24 @@ const stream = require('stream');
 
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
+const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
-const s3_head_object = require('./s3_head_object');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
  */
 function get_object(req, res) {
-    return s3_head_object.handler(req, res)
-        .then(() => {
-            const object_md = req.object_md;
+    return req.rpc_client.object.read_object_md({
+            bucket: req.params.bucket,
+            key: req.params.key,
+            md_conditions: http_utils.get_md_conditions(req),
+        })
+        .then(object_md => {
+            s3_utils.set_response_object_md(res, object_md);
             const obj_size = object_md.size;
             const params = {
                 client: req.rpc_client,
+                obj_id: object_md.obj_id,
                 bucket: req.params.bucket,
                 key: req.params.key,
             };

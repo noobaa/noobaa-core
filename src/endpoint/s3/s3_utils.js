@@ -7,6 +7,7 @@ const querystring = require('querystring');
 const dbg = require('../../util/debug_module')(__filename);
 const S3Error = require('./s3_errors').S3Error;
 const http_utils = require('../../util/http_utils');
+const time_utils = require('../../util/time_utils');
 
 const STORAGE_CLASS_STANDARD = 'STANDARD';
 
@@ -21,11 +22,13 @@ function format_s3_xml_date(input) {
     return date.toISOString();
 }
 
+const X_AMZ_META = 'x-amz-meta-';
+
 function get_request_xattr(req) {
     let xattr = {};
     _.each(req.headers, (val, hdr) => {
-        if (!hdr.startsWith('x-amz-meta-')) return;
-        let key = hdr.slice('x-amz-meta-'.length);
+        if (!hdr.startsWith(X_AMZ_META)) return;
+        let key = hdr.slice(X_AMZ_META.length);
         if (!key) return;
         xattr[key] = val;
     });
@@ -34,7 +37,7 @@ function get_request_xattr(req) {
 
 function set_response_xattr(res, xattr) {
     _.each(xattr, (val, key) => {
-        res.setHeader('x-amz-meta-' + key, val);
+        res.setHeader(X_AMZ_META + key, val);
     });
 }
 
@@ -94,63 +97,14 @@ function parse_copy_source(req) {
     };
 }
 
-function check_md_conditions(req, res, object_md) {
-    // See http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html#req-header-consideration-1
-    // See https://tools.ietf.org/html/rfc7232 (HTTP Conditional Requests)
-    let matched = false;
-    let unmatched = false;
-    if ('if-match' in req.headers) {
-        if (!http_utils.match_etag(req.headers['if-match'], object_md.etag)) {
-            throw new S3Error(S3Error.PreconditionFailed);
-        }
-        matched = true;
-    }
-    if ('if-none-match' in req.headers) {
-        if (http_utils.match_etag(req.headers['if-none-match'], object_md.etag)) {
-            if (req.method === 'GET' || req.method === 'HEAD') {
-                throw new S3Error(S3Error.NotModified);
-            } else {
-                throw new S3Error(S3Error.PreconditionFailed);
-            }
-        }
-        unmatched = true;
-    }
-    if ('if-modified-since' in req.headers) {
-        if (!unmatched && object_md.create_time <= (new Date(req.headers['if-modified-since'])).getTime()) {
-            throw new S3Error(S3Error.NotModified);
-        }
-    }
-    if ('if-unmodified-since' in req.headers) {
-        if (!matched && object_md.create_time >= (new Date(req.headers['if-unmodified-since'])).getTime()) {
-            throw new S3Error(S3Error.PreconditionFailed);
-        }
-    }
-}
-
-function set_md_conditions(req, params, params_key, prefix) {
-    var cond = params[params_key];
-    prefix = prefix || '';
-    if (prefix + 'if-modified-since' in req.headers) {
-        cond = cond || {};
-        cond.if_modified_since =
-            (new Date(req.headers[prefix + 'if-modified-since'])).getTime();
-    }
-    if (prefix + 'if-unmodified-since' in req.headers) {
-        cond = cond || {};
-        cond.if_unmodified_since =
-            (new Date(req.headers[prefix + 'if-unmodified-since'])).getTime();
-    }
-    if (prefix + 'if-match' in req.headers) {
-        cond = cond || {};
-        cond.if_match_etag = req.headers[prefix + 'if-match'];
-    }
-    if (prefix + 'if-none-match' in req.headers) {
-        cond = cond || {};
-        cond.if_none_match_etag = req.headers[prefix + 'if-none-match'];
-    }
-    if (params[params_key] !== cond) {
-        params[params_key] = cond;
-    }
+function set_response_object_md(res, object_md) {
+    res.setHeader('ETag', '"' + object_md.etag + '"');
+    res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
+    res.setHeader('Content-Type', object_md.content_type);
+    res.setHeader('Content-Length', object_md.size);
+    res.setHeader('Accept-Ranges', 'bytes');
+    set_response_xattr(res, object_md.xattr);
+    return object_md;
 }
 
 
@@ -163,5 +117,4 @@ exports.parse_etag = parse_etag;
 exports.parse_content_length = parse_content_length;
 exports.parse_part_number = parse_part_number;
 exports.parse_copy_source = parse_copy_source;
-exports.check_md_conditions = check_md_conditions;
-exports.set_md_conditions = set_md_conditions;
+exports.set_response_object_md = set_response_object_md;

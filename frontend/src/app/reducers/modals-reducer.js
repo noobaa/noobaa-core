@@ -105,7 +105,7 @@ function onChangeLocation(modals, { payload: location }) {
         return _openModal(modals, {
             component: 'welcome-modal',
             options: {
-                size: 'xsmall',
+                size: 'small',
                 backdropClose: false,
                 closeButton: 'hidden',
                 severity: 'success',

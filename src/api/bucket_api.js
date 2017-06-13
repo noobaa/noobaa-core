@@ -499,6 +499,9 @@ module.exports = {
                 tiering: {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
                 },
+                spillover_enabled: {
+                    type: 'boolean'
+                },
                 storage: {
                     type: 'object',
                     properties: {

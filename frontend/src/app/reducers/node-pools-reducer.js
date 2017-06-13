@@ -3,20 +3,24 @@
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
+import { countNodesByState } from 'utils/ui-utils';
 
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = {};
+const initialState = {
+    pools: {},
+    nodes: {}
+};
 
 // ------------------------------
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload }) {
-    const { pools, buckets, tiers } = payload;
+    const { pools, buckets, tiers, nodes } = payload;
     const nodePools = pools.filter(pool => pool.resource_type === 'HOSTS');
     const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
-    return keyByProperty(nodePools, 'name', pool => {
+    const poolsByName = keyByProperty(nodePools, 'name', pool => {
         const {
             name,
             mode,
@@ -27,6 +31,16 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 
         return { name, mode, storage, associatedAccounts, associatedBuckets };
     });
+
+    const nodesByMode = countNodesByState(nodes.by_mode);
+
+    const nodesInfo = {
+        healthyCount: nodesByMode.healthy,
+        withIssuesCount: nodesByMode.hasIssues,
+        offlineCount: nodesByMode.offline,
+    };
+
+    return { pools: poolsByName, nodes: nodesInfo };
 }
 
 // ------------------------------

@@ -1,0 +1,20 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<chart-legend class="nodes-legend" params="
+    items: poolsChartValues,
+    caption: poolsChartLegend
+"></chart-legend>
+<div class="nodes-chart column content-middle">
+    <pie-chart class="push-next" params="
+        values: poolsChartValues,
+        primaryText: nodeCountText,
+        secondaryText: 'Total'
+    "></pie-chart>
+</div>
+<div class="row">
+    <p class="greedy remark highlight">
+        Total Nodes Capacity: {{systemCapacity}}
+    </p>
+    <svg-icon class="icon-small align-start" params="name: 'question'"
+          ko.tooltip="{ text: '', position: 'above' }"></svg-icon>
+</div>

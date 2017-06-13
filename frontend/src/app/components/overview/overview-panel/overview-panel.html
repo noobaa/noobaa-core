@@ -1,7 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="row content-box push-prev">
-    <resource-overview class="column"></resource-overview>
+    <resource-overview class="column" params="
+        selectedResourceType: selectedResourceType,
+        onResourceType: onResourceType.bind($component)
+    "></resource-overview>
     <system-health class="column"></system-health>
     <buckets-overview class="column"></buckets-overview>
 </div>

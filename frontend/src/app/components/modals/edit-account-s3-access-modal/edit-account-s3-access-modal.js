@@ -46,7 +46,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
         this.observe(
             state$.getMany(
                 ['accounts', accountName],
-                'nodePools',
+                ['nodePools', 'pools'],
                 'cloudResources',
                 'buckets'
             ),

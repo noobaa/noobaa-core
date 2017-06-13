@@ -16,11 +16,11 @@ class ToggleFilterViewModel extends BaseViewModel {
 
         this.options = ko.pureComputed(
             () => ko.unwrap(options).map(
-                opt => {
-                    const { value = opt, label = value } = opt;
-                    return { value, label };
-                }
-            )
+                    opt => {
+                        const { value = opt, label = value, preview } = opt;
+                        return { value, label, preview };
+                    }
+                )
         );
 
         this.selected = selected;

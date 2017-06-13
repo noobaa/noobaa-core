@@ -1,0 +1,28 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row push-next">
+    <span>
+        <span class="highlight">Pools: </span>
+        {{poolsCount}}
+    </span>
+    <vr></vr>
+    <span class="highlight">Nodes in Pools:</span>
+</div>
+<chart-legend params="
+    items: poolsChartValues
+"></chart-legend>
+<pie-chart class="push-both greedy align-middle" params="
+    values: poolsChartValues,
+    primaryText: nodeCountText,
+    secondaryText: 'Total'
+"></pie-chart>
+<div class="row push-next">
+    <p class="greedy remark highlight">
+        Node storage contribution: {{nodesStorage}}
+    </p>
+    <svg-icon class="icon-small" params="name: 'question'"
+          ko.tooltip="{ text: tooltips.HOSTS, position: 'above' }"></svg-icon>
+</div>
+<button class="btn overview-btn" ko.click="onInstallNodes">
+    Install Nodes
+</button>

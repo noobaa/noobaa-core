@@ -16,7 +16,7 @@ class PoolConnectedBucketsListViewModel extends Observer {
 
         this.observe(
             state$.getMany(
-                ['nodePools', ko.unwrap(poolName), 'associatedBuckets'],
+                ['nodePools', 'pools', ko.unwrap(poolName), 'associatedBuckets'],
                 ['location', 'params', 'system']
             ),
             this.onBuckets

@@ -1,9 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { keyByProperty } from 'utils/core-utils';
-import { createReducer } from 'utils/reducer-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
-
+import { createReducer } from 'utils/reducer-utils';
 
 // ------------------------------
 // Initial State
@@ -13,23 +12,24 @@ const initialState = {};
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onCompleteFetchSystemInfo(state, { payload }) {
-    return keyByProperty(payload.buckets, 'name', bucket => ({
-        name: bucket.name,
-        spilloverEnabled: bucket.spillover_enabled,
-        mode: _clacBucketMode(bucket),
-        storage: bucket.storage,
-        data: bucket.data,
-        quota: bucket.quota
-    }));
+
+function onCompleteFetchSystemInfo(_, { payload }) {
+    const { pools } = payload;
+
+    return keyByProperty(
+        pools.filter(pool => pool.resource_type === 'INTERNAL'),
+        'name',
+        ({ name, storage }) => ({
+            name,
+            storage: storage
+        })
+    );
 }
 
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _clacBucketMode({ writable }) {
-    return writable = writable ? 'OPTIMAL' : 'NOT_WRITABLE';
-}
+
 
 // ------------------------------
 // Exported reducer function

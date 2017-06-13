@@ -30,11 +30,11 @@ class ChartLegendViewModel extends BaseViewModel {
 
     }
 
-    normalizeItem({ label, color, value, visible = true }) {
+    normalizeItem({ label, color, value, visible = true, icon }) {
         const formattedValue = this.formatter(ko.unwrap(value));
         const style = { 'border-color': color };
 
-        return { label, style, formattedValue, visible };
+        return { label, style, formattedValue, visible, icon };
     }
 
 }

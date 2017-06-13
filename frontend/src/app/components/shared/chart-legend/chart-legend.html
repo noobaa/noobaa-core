@@ -3,6 +3,9 @@
 <h3 class="legend-caption heading3" ko.text="caption"></h3>
 <ul class="list-no-style legend-items " ko.foreach="items">
     <li class="legend-item" ko.visible="visible" ko.style="style">
+        <!-- ko if: icon -->
+        <svg-icon class="icon-small legend-icon" params="name: icon"></svg-icon>
+        <!-- /ko -->
         <span class="highlight legend-label" ko.text="label"></span>
         <span class="legend-value" ko.text="formattedValue"></span>
     </li>

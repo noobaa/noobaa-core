@@ -1,0 +1,29 @@
+<!-- Copyright (C) 2016 NooBaa -->
+<div class="row push-next">
+    <span>
+        <span class="highlight">Internal storage: </span>
+        {{internalResourceState}}
+    </span>
+    <vr></vr>
+    <span class="highlight">Spillover usage:</span>
+</div>
+<chart-legend params="
+    items: internalChartValues,
+    format: 'size'
+"></chart-legend>
+<pie-chart class="push-both greedy align-middle" params="
+    values: internalChartValues,
+    primaryText: '',
+    secondaryText: '',
+"></pie-chart>
+<div class="row push-both">
+    <p class="greedy remark highlight">
+        Internal storage contribution: {{internalStorage}}
+    </p>
+    <svg-icon class="icon-small" params="name: 'question'"
+              ko.tooltip="{ text: tooltips.INTERNAL, position: 'above' }"></svg-icon>
+</div>
+<p class="row push-both remark content-middle">
+    <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+    Used as buckets spillover only
+</p>

@@ -16,6 +16,7 @@ import accountsReducer from './accounts-reducer';
 import objectUploadsReducer from './object-uploads-reducer';
 import alertsReducer from './alerts-reducer';
 import notificationsReducer from './notificaitons-reducer';
+import internalResourcesReducer from './internal-resources-reducer';
 
 
 export default combineReducers({
@@ -31,6 +32,7 @@ export default combineReducers({
     nodePools: nodePoolsReducer,
     cloudResources: cloudResourcesReducer,
     externalResources: externalResourcesReducer,
+    internalResources: internalResourcesReducer,
     accounts: accountsReducer,
     objectUploads: objectUploadsReducer,
     notifications: notificationsReducer

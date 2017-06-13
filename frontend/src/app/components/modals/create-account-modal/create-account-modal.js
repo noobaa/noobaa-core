@@ -75,7 +75,7 @@ class CreateAccountWizardViewModel extends Observer {
         });
 
         this.observe(
-            state$.getMany('accounts', 'nodePools', 'cloudResources', 'buckets'),
+            state$.getMany('accounts', ['nodePools', 'pools'], 'cloudResources', 'buckets'),
             this.onState
         );
     }

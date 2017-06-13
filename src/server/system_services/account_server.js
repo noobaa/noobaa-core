@@ -524,6 +524,7 @@ function list_accounts(req) {
         if (!_.includes(req.account.roles_by_system[req.system._id], 'admin')) {
             throw new RpcError('UNAUTHORIZED', 'Must be system admin');
         }
+
         let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
             (roles && roles.length ? account_id : null)
         );

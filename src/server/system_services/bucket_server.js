@@ -143,21 +143,13 @@ function create_bucket(req) {
     });
 
     // Grant the account a full access for the newly created bucket.
-    changes.update.accounts = [{
-        _id: req.account._id,
-        $push: {
-            allowed_buckets: bucket._id,
-        }
-    }];
-
-    // Grant the owner a full access for the newly created bucket.
-    if (String(req.account._id) !== String(req.system.owner._id)) {
-        changes.update.accounts.push({
-            _id: req.system.owner._id,
+    if (req.account.allowed_buckets && !req.account.allowed_buckets.full_permission) {
+        changes.update.accounts = [{
+            _id: req.account._id,
             $push: {
-                allowed_buckets: bucket._id,
+                'allowed_buckets.permission_list': bucket._id,
             }
-        });
+        }];
     }
 
     return system_store.make_changes(changes)
@@ -299,6 +291,21 @@ function update_bucket(req) {
                 disabled: tier_and_order.disabled
             }))
         }];
+
+        let desc;
+        if (req.rpc_params.use_internal_spillover) {
+            desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
+        } else {
+            desc = `Bucket ${bucket.name} spillover was turned on by ${req.account && req.account.email}`;
+        }
+        Dispatcher.instance().activity({
+            event: 'bucket.spillover',
+            level: 'info',
+            system: req.system._id,
+            actor: req.account && req.account._id,
+            bucket: bucket._id,
+            desc
+        });
     }
     return system_store.make_changes({
             update: update_changes,
@@ -322,9 +329,10 @@ function update_bucket_s3_access(req) {
     const removed_accounts = [];
     const updates = [];
     system_store.data.accounts.forEach(account => {
-        if (!account.allowed_buckets) return;
+        if (!account.allowed_buckets ||
+            (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
 
-        const is_allowed = account.allowed_buckets.includes(bucket);
+        const is_allowed = account.allowed_buckets.permission_list.includes(bucket);
         const should_be_allowed = allowed_accounts.includes(account);
 
         if (!is_allowed && should_be_allowed) {
@@ -332,7 +340,7 @@ function update_bucket_s3_access(req) {
             updates.push({
                 _id: account._id,
                 $push: {
-                    allowed_buckets: bucket._id
+                    'allowed_buckets.permission_list': bucket._id
                 }
             });
         } else if (is_allowed && !should_be_allowed) {
@@ -340,7 +348,7 @@ function update_bucket_s3_access(req) {
             updates.push({
                 _id: account._id,
                 $pullAll: {
-                    allowed_buckets: [bucket._id]
+                    'allowed_buckets.permission_list': [bucket._id]
                 }
             });
         }
@@ -426,11 +434,12 @@ function delete_bucket(req) {
         .then(res => {
             const accounts_update = _.compact(_.map(system_store.data.accounts,
                 account => {
-                    if (!account.allowed_buckets) return;
+                    if (!account.allowed_buckets ||
+                        (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
                     return {
                         _id: account._id,
                         $pullAll: {
-                            allowed_buckets: [bucket._id]
+                            'allowed_buckets.permission_list': [bucket._id]
                         }
                     };
                 }));
@@ -1016,7 +1025,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
     const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
     const bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size', 0));
-    const bucket_used_other = size_utils.BigInteger.max(used_of_pools_in_policy.minus(bucket_used), size_utils.BigInteger.zero);
+    const bucket_used_other = BigInteger.max(used_of_pools_in_policy.minus(bucket_used), BigInteger.zero);
     const bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
     const spillover_tier_storage = spillover_tier_in_policy && _.mapValues(_.get(tier_server.get_tier_info(
             spillover_tier_in_policy,

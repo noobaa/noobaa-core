@@ -15,19 +15,16 @@
             selected: selectedResourceType
         "></toggle-filter>
     </div>
-    <section class="column greedy push-both"
+    <section class="column greedy push-prev"
              ko.visible="isVisible('pools')"
              ko.template="{ html: poolsOverviewTemplate }">
     </section>
-    <section class="column greedy push-both"
+    <section class="column greedy push-prev"
              ko.visible="isVisible('cloud')"
              ko.template="{ html: cloudOverviewTemplate }">
     </section>
-    <section class="column greedy push-both"
+    <section class="column greedy push-prev"
              ko.visible="isVisible('internal')"
              ko.template="{ html: internalOverviewTemplate }">
     </section>
-    <button class="btn overview-btn" ko.click="onInstallNodes">
-        Install Nodes
-    </button>
 </section>

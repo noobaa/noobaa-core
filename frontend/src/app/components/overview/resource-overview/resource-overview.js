@@ -13,7 +13,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount} from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
-import { openInstallNodesModal } from 'dispatchers';
+import { openInstallNodesModal, openAddCloudResrouceModal } from 'dispatchers';
 import { aggregateStorage } from 'utils/storage-utils';
 import { countNodesByState } from 'utils/ui-utils';
 import { state$ } from 'state';
@@ -37,13 +37,29 @@ const resourceTypeOptions = deepFreeze([
     },
     {
         label: 'Cloud',
-        value: 'cloud',
+        value: 'cloud'
     },
     {
         label : 'Internal',
         value: 'internal'
     }
 ]);
+
+const internalResourceStates = deepFreeze({
+    ENABLED: 'Enabled',
+    DISABLED: 'Disabled'
+});
+
+const tooltips = deepFreeze({
+    pools:    `This number is calculated from the total capacity of all 
+               installed nodes in the system regardless to current usage or availability.`,
+    cloud:    `This number is an estimated aggregation of all public cloud resources connected to the system. 
+               Any cloud resource is define as 1PB of raw storage.`,
+    internal: `Internal storage is a resource which resides on the local VM’s disks.  
+               It can only be used for spilled-over data from buckets. 
+               This number represents the amount of total internal storage in the system.`
+
+})
 
 class ResourceOverviewViewModel extends Observer {
     constructor() {
@@ -54,6 +70,7 @@ class ResourceOverviewViewModel extends Observer {
         );
 
         this.resourceTypeOptions = resourceTypeOptions;
+        this.tooltips = tooltips;
         this.selectedResourceType = ko.pureComputed({
             read: () => query().resourceType || resourceTypeOptions[0].value,
             write: value => this.selectResourceType(value)
@@ -62,10 +79,11 @@ class ResourceOverviewViewModel extends Observer {
         this.cloudOverviewTemplate = cloudOverviewTemplate;
         this.internalOverviewTemplate = internalOverviewTemplate;
 
-        this.poolsChartLegend = ko.observable('');
-        this.cloudChartLegend = ko.observable('');
-        this.internalChartLegend = ko.observable('');
+        this.poolsCount = ko.observable(0);
+        this.cloudCount = ko.observable(0);
+        this.internalResourceState = ko.observable('');
         this.cloudStorage = ko.observable('');
+        this.internalStorage = ko.observable('');
 
         this.poolsChartValues = [
             {
@@ -110,19 +128,19 @@ class ResourceOverviewViewModel extends Observer {
             {
                 label: 'Available',
                 value: ko.observable(0),
-                color: hexToRgb(style['color8'], pieColorsOpacityFactor.internal)
+                color: hexToRgb(style['color6'], pieColorsOpacityFactor.internal)
             },
             {
                 label: 'Used (Spilled over from buckets)',
                 value: ko.observable(0),
-                color: hexToRgb(style['color6'], pieColorsOpacityFactor.internal)
+                color: hexToRgb(style['color8'], pieColorsOpacityFactor.internal)
             }
         ];
 
-        this.systemCapacity = ko.observable(0);
+        this.nodesStorage = ko.observable(0);
         this.nodeCount = ko.observable(0);
         this.nodeCountText = ko.pureComputed(
-            () => stringifyAmount('Nodes', this.nodeCount())
+            () => stringifyAmount('Node', this.nodeCount())
         );
 
         this.cloudCount = ko.observable(0);
@@ -145,13 +163,12 @@ class ResourceOverviewViewModel extends Observer {
 
         this.observe(state$.get('nodePools'), this.onPools);
         this.observe(state$.get('cloudResources'), this.onCloud);
+        this.observe(state$.get('internalResources'), this.onInternal);
     }
 
     onPools(nodePools) {
         const poolList = Object.values(nodePools.pools);
-
         const nodesByMode = countNodesByState(nodePools.nodes);
-
         const healthyCount = nodesByMode.healthy || 0;
         const withIssuesCount = nodesByMode.hasIssues || 0;
         const offlineCount = nodesByMode.offline || 0;
@@ -159,19 +176,17 @@ class ResourceOverviewViewModel extends Observer {
 
         this.nodeCount(count);
         this.poolsCount(poolList.length);
-        this.poolsChartLegend(`Pools: ${poolList.length} | Nodes in Pools:`);
+        this.poolsCount(poolList.length)
         this.poolsChartValues[0].value(healthyCount);
         this.poolsChartValues[1].value(withIssuesCount);
         this.poolsChartValues[2].value(offlineCount);
         const poolsStorageList = poolList.map(cloud => cloud.storage);
-        this.systemCapacity(poolsStorageList.length ? formatSize(aggregateStorage(...poolsStorageList).total) : 0);
+        this.nodesStorage(poolsStorageList.length ? formatSize(aggregateStorage(...poolsStorageList).total) : 0);
     }
 
     onCloud(cloudResources) {
         const cloudResourcesList = Object.values(cloudResources);
-
-        this.cloudChartLegend(`Cloud storage: ${cloudResourcesList.length} | Services:`);
-
+        this.cloudCount(cloudResourcesList.length)
         const awsCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.AWS).length;
         const azureCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.AZURE).length;
         const s3CompatibleCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.S3_COMPATIBLE).length;
@@ -184,8 +199,26 @@ class ResourceOverviewViewModel extends Observer {
         this.cloudStorage(cloudStorageList.length ? aggregateStorage(...cloudStorageList).total.peta : 0);
     }
 
+    onInternal(internalResources) {
+        const internalResourcesList = Object.values(internalResources);
+
+        if(internalResourcesList.length) {
+            const internalResource = internalResourcesList[0];
+            this.internalResourceState(internalResourceStates[internalResource.state]);
+
+            this.internalChartValues[0].value(internalResource.storage.free);
+            this.internalChartValues[1].value(internalResource.storage.used);
+
+            this.internalStorage(formatSize(internalResource.storage.total));
+        }
+    }
+
     onInstallNodes() {
         openInstallNodesModal();
+    }
+
+    onAddCloudResource() {
+        openAddCloudResrouceModal();
     }
 
     selectResourceType(type) {

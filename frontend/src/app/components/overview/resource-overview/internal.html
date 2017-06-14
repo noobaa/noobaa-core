@@ -1,20 +1,29 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
+<p class="push-next-half">
+    <span class="highlight legend-caption">Internal storage: </span>
+    {{internalResourceState}}
+    <span class="highlight legend-caption"> | Spillover usage:</span>
+</p>
 <chart-legend class="nodes-legend" params="
     items: internalChartValues,
-    caption: internalChartLegend
+    format: 'size'
 "></chart-legend>
 <div class="nodes-chart column content-middle">
-    <pie-chart class="push-next" params="
-        values: cloudChartValues,
-        primaryText: nodeCountText,
-        secondaryText: 'Total'
+    <pie-chart class="push-both" params="
+        values: internalChartValues,
+        primaryText: '',
+        secondaryText: '',
     "></pie-chart>
 </div>
-<div class="row">
+<div class="row push-both">
     <p class="greedy remark highlight">
-        Cloud Storage: {{cloudStorage}} PB estimation
+        Internal storage total: {{internalStorage}}
     </p>
     <svg-icon class="icon-small align-start" params="name: 'question'"
-              ko.tooltip="{ text: '', position: 'above' }"></svg-icon>
+              ko.tooltip="{ text: tooltips.internal, position: 'above' }"></svg-icon>
 </div>
+<p class="push-both">
+    <svg-icon class="icon-small" params="name: 'notif-info'"></svg-icon>
+    Used as buckets spillover only
+</p>

@@ -936,7 +936,7 @@ function check_quota(bucket) {
             `Bucket ${bucket.name} exceeded its configured quota of ${
                     size_utils.human_size(bucket.quota.value)
                 }. Uploads to this bucket will be denied`,
-            Dispatcher.rules.once_every(1000 * 60 * 60 * 24)); // once a day
+            Dispatcher.rules.once_daily);
         dbg.error(message);
         throw new RpcError('FORBIDDEN', message);
     } else if (used_percent >= 90) {

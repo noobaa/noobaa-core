@@ -20,10 +20,15 @@ const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
+const size_utils = require('../../util/size_utils');
+const Dispatcher = require('../notifications/dispatcher');
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
+
+const ALERT_LOW_TRESHOLD = 10;
+const ALERT_HIGH_TRESHOLD = 20;
 
 var successfuly_sent_period = 0;
 var failed_sent = 0;
@@ -82,6 +87,7 @@ function get_systems_stats(req) {
                         allocated_space: res.storage.alloc,
                         used_space: res.storage.used,
                         total_space: res.storage.total,
+                        free_space: res.storage.free,
                         associated_nodes: {
                             on: res.nodes.online,
                             off: res.nodes.count - res.nodes.online,
@@ -174,9 +180,9 @@ function get_nodes_stats(req) {
             for (const system_nodes of results) {
                 for (const node of system_nodes.nodes) {
                     if (node.has_issues) {
-                        nodes_stats.nodes_with_issue++;
+                        nodes_stats.nodes_with_issue += 1;
                     }
-                    nodes_stats.count++;
+                    nodes_stats.count += 1;
                     nodes_histo.histo_allocation.add_value(
                         node.storage.alloc / SCALE_BYTES_TO_GB);
                     nodes_histo.histo_usage.add_value(
@@ -188,13 +194,13 @@ function get_nodes_stats(req) {
                     nodes_histo.histo_uptime.add_value(
                         node.os_info.uptime / SCALE_SEC_TO_DAYS);
                     if (node.os_info.ostype === 'Darwin') {
-                        nodes_stats.os.osx++;
+                        nodes_stats.os.osx += 1;
                     } else if (node.os_info.ostype === 'Windows_NT') {
-                        nodes_stats.os.win++;
+                        nodes_stats.os.win += 1;
                     } else if (node.os_info.ostype === 'Linux') {
-                        nodes_stats.os.linux++;
+                        nodes_stats.os.linux += 1;
                     } else {
-                        nodes_stats.os.other++;
+                        nodes_stats.os.other += 1;
                     }
                 }
             }
@@ -256,28 +262,28 @@ function get_cloud_sync_stats(req) {
             for (var isys = 0; isys < results.length; ++isys) {
                 for (var ipolicy = 0; ipolicy < results[isys].length; ++ipolicy) {
                     let cloud_sync = results[isys][ipolicy];
-                    sync_stats.bucket_count++;
+                    sync_stats.bucket_count += 1;
                     if (Object.getOwnPropertyNames(cloud_sync).length) {
-                        sync_stats.sync_count++;
+                        sync_stats.sync_count += 1;
                         if (cloud_sync.policy.additions_only) {
-                            sync_stats.sync_type.additions_only++;
+                            sync_stats.sync_type.additions_only += 1;
                         } else {
-                            sync_stats.sync_type.additions_and_deletions++;
+                            sync_stats.sync_type.additions_and_deletions += 1;
                         }
 
                         if (cloud_sync.policy.n2c_enabled && cloud_sync.policy.c2n_enabled) {
-                            sync_stats.sync_type.bi_directional++;
+                            sync_stats.sync_type.bi_directional += 1;
                         } else if (cloud_sync.policy.n2c_enabled) {
-                            sync_stats.sync_type.n2c++;
+                            sync_stats.sync_type.n2c += 1;
                         } else if (cloud_sync.policy.c2n_enabled) {
-                            sync_stats.sync_type.c2n++;
+                            sync_stats.sync_type.c2n += 1;
                         }
 
                         if (cloud_sync.endpoint) {
                             if (cloud_sync.endpoint.indexOf('amazonaws.com') > -1) {
-                                sync_stats.sync_target.amazon++;
+                                sync_stats.sync_target.amazon += 1;
                             } else {
-                                sync_stats.sync_target.other++;
+                                sync_stats.sync_target.other += 1;
                             }
                         }
                         sync_histo.histo_schedule.add_value(cloud_sync.policy.schedule_min);
@@ -319,14 +325,14 @@ function get_cloud_pool_stats(req) {
             var cloud_pool_stats = _.cloneDeep(CLOUD_POOL_STATS_DEFAULTS);
             //Per each system fill out the needed info
             _.forEach(system_store.data.pools, pool => {
-                cloud_pool_stats.pool_count++;
+                cloud_pool_stats.pool_count += 1;
                 if (pool.cloud_pool_info) {
-                    cloud_pool_stats.cloud_pool_count++;
+                    cloud_pool_stats.cloud_pool_count += 1;
                     if (pool.cloud_pool_info.endpoint) {
                         if (pool.cloud_pool_info.endpoint.indexOf('amazonaws.com') > -1) {
-                            cloud_pool_stats.cloud_pool_target.amazon++;
+                            cloud_pool_stats.cloud_pool_target.amazon += 1;
                         } else {
-                            cloud_pool_stats.cloud_pool_target.other++;
+                            cloud_pool_stats.cloud_pool_target.other += 1;
                         }
                     }
                 }
@@ -626,7 +632,7 @@ function _handle_payload(payload) {
             return send_stats_payload(payload);
         })
         .catch(err => {
-            failed_sent++;
+            failed_sent += 1;
             if (failed_sent > 5) {
                 successfuly_sent_period = 0;
                 let updates = {
@@ -681,6 +687,7 @@ function _handle_payload(payload) {
 }
 
 function background_worker() {
+    let statistics;
     dbg.log('Central Statistics gathering started');
     //Run the system statistics gatheting
     return P.fcall(() => {
@@ -694,7 +701,29 @@ function background_worker() {
                 })
             });
         })
-        .then(payload => _handle_payload(payload))
+        .then(payload => {
+            statistics = payload;
+            return _handle_payload(payload);
+        })
+        .then(() => {
+            const free_bytes = size_utils.bigint_to_bytes(statistics.systems_stats.systems[0].free_space);
+            const total_bytes = size_utils.bigint_to_bytes(statistics.systems_stats.systems[0].total_space);
+
+            if (total_bytes > 0) {
+                const free_precntage = Math.floor((free_bytes / total_bytes) * 100);
+                if (free_precntage < ALERT_LOW_TRESHOLD) {
+                    Dispatcher.instance().alert('MAJOR',
+                        system_store.data.systems[0]._id,
+                        `Free storage is lower than ${ALERT_LOW_TRESHOLD}%`,
+                        Dispatcher.rules.once_weekly);
+                } else if (free_precntage < ALERT_HIGH_TRESHOLD) {
+                    Dispatcher.instance().alert('MAJOR',
+                        system_store.data.systems[0]._id,
+                        `Free storage is lower than ${ALERT_HIGH_TRESHOLD}%`,
+                        Dispatcher.rules.once_weekly);
+                }
+            }
+        }) // adding to here
         .catch(err => {
             dbg.warn('Phone Home data send failed', err.stack || err);
             return;

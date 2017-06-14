@@ -175,6 +175,9 @@ module.exports = {
                             total_space: {
                                 $ref: 'common_api#/definitions/bigint'
                             },
+                            free_space: {
+                                $ref: 'common_api#/definitions/bigint'
+                            },
                             associated_nodes: {
                                 type: 'object',
                                 properties: {

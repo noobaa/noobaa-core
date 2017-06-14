@@ -200,6 +200,10 @@ function add_member_to_cluster(req) {
         })
         .catch(function(err) {
             console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
+            Dispatcher.instance().alert('MAJOR',
+                system_store.data.systems[0]._id,
+                `Failed adding server ${req.rpc_params.new_hostname} to cluster`,
+                null); // always
             throw new Error('Failed adding members to cluster');
         })
         // TODO: solve in a better way

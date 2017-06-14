@@ -80,12 +80,10 @@ class BlockStoreFs extends BlockStoreBase {
         return P.join(
                 fs.readFileAsync(block_path),
                 fs.readFileAsync(meta_path))
-            .spread((data_file, meta_file) => {
-                return {
-                    block_md: block_md,
-                    data: data_file,
-                };
-            });
+            .spread((data_file, meta_file) => ({
+                block_md: block_md,
+                data: data_file,
+            }));
     }
 
     _write_block(block_md, data) {

@@ -24,13 +24,9 @@ class RpcNudpConnection extends RpcBaseConnection {
         this.nudp = new Nudp();
         this._init_nudp();
         return P.ninvoke(this.nudp, 'bind', 0, '0.0.0.0')
-            .then(port => {
-                return P.ninvoke(this.nudp, 'connect', this.url.port, this.url.hostname);
-            })
-            .then(() => {
-                // send stun request just for testing
-                return P.ninvoke(this.nudp, 'send_outbound', stun.new_packet(stun.METHODS.REQUEST), this.url.port, this.url.hostname);
-            })
+            .then(port => P.ninvoke(this.nudp, 'connect', this.url.port, this.url.hostname))
+            // send stun request just for testing
+            .then(() => P.ninvoke(this.nudp, 'send_outbound', stun.new_packet(stun.METHODS.REQUEST), this.url.port, this.url.hostname))
             .then(() => this.emit('connect'))
             .catch(err => this.emit('error', err));
     }
@@ -50,10 +46,8 @@ class RpcNudpConnection extends RpcBaseConnection {
         this.nudp = new Nudp();
         this._init_nudp();
         return P.ninvoke(this.nudp, 'bind', port, '0.0.0.0')
-            .then(out_port => {
-                // TODO emit event from native code?
-                return P.delay(1000);
-            })
+            // TODO emit event from native code?
+            .then(out_port => P.delay(1000))
             .then(() => this.emit('connect'))
             .catch(err => this.emit('error', err));
     }

@@ -104,40 +104,37 @@ function compare_object_lists(params) {
                 let diff = Date.now() - start_ts;
                 return (diff < timeout_ms && !done);
             },
-            () => {
-                return client.bucket.get_cloud_sync({
-                        name: params.source_bucket
-                    })
-                    .then(cloud_sync_info => {
-                        if (_.last(status_list) !== cloud_sync_info.status) {
-                            status_list.push(cloud_sync_info.status);
-                        }
-                        return client.object.list_objects({
-                            bucket: params.source_bucket
-                        });
-                    })
-                    // get objects list on the source
-                    .then(function(source_objects) {
-                        source_list = _.map(source_objects.objects, 'key');
-                        return target_client.object.list_objects({
-                            bucket: params.target_bucket
-                        });
-                    })
-                    .then(target_objects => {
-                        target_list = _.map(target_objects.objects, 'key');
-                        // sort all lists:
-                        source_list.sort();
-                        target_list.sort();
-                        if (_.isUndefined(expected_len)) {
-                            done = (target_list.length === source_list.length) && _.last(status_list) === 'SYNCED';
-                        } else {
-                            done = (source_list.length === expected_len && target_list.length === expected_len) &&
-                                _.last(status_list) === 'SYNCED';
-                        }
-                    })
-                    .delay(5000); // wait 10 seconds between each check
-            }
-        )
+            () => client.bucket.get_cloud_sync({
+                name: params.source_bucket
+            })
+            .then(cloud_sync_info => {
+                if (_.last(status_list) !== cloud_sync_info.status) {
+                    status_list.push(cloud_sync_info.status);
+                }
+                return client.object.list_objects({
+                    bucket: params.source_bucket
+                });
+            })
+            // get objects list on the source
+            .then(function(source_objects) {
+                source_list = _.map(source_objects.objects, 'key');
+                return target_client.object.list_objects({
+                    bucket: params.target_bucket
+                });
+            })
+            .then(target_objects => {
+                target_list = _.map(target_objects.objects, 'key');
+                // sort all lists:
+                source_list.sort();
+                target_list.sort();
+                if (_.isUndefined(expected_len)) {
+                    done = (target_list.length === source_list.length) && _.last(status_list) === 'SYNCED';
+                } else {
+                    done = (source_list.length === expected_len && target_list.length === expected_len) &&
+                        _.last(status_list) === 'SYNCED';
+                }
+            })
+            .delay(5000)) // wait 10 seconds between each check
         .then(function() {
             assert(_.last(status_list) === 'SYNCED', `Did not finish in expected state but instead is now: ${_.last(status_list)}`);
             assert(target_list.length === source_list.length, fail_msg + ': mismatch between lists length.');
@@ -172,36 +169,33 @@ function verify_object_lists_after_delete(params) {
                 let diff = Date.now() - start_ts;
                 return (diff < timeout_ms && !done);
             },
-            () => {
-                return client.bucket.get_cloud_sync({
-                        name: params.source_bucket
-                    })
-                    .then(cloud_sync_info => {
-                        if (_.last(status_list) !== cloud_sync_info.status) {
-                            status_list.push(cloud_sync_info.status);
-                        }
-                        return client.object.list_objects({
-                            bucket: params.source_bucket
-                        });
-                    })
-                    // get objects list on the source
-                    .then(function(source_objects) {
-                        source_list = _.map(source_objects.objects, 'key');
-                        return target_client.object.list_objects({
-                            bucket: params.target_bucket
-                        });
-                    })
-                    .then(target_objects => {
-                        target_list = _.map(target_objects.objects, 'key');
-                        // sort all lists:
-                        source_list.sort();
-                        target_list.sort();
-                        done = (Math.abs(source_list.length - target_list.length) === file_names.length) &&
-                            _.last(status_list) === 'SYNCED';
-                    })
-                    .delay(10000); // wait 10 seconds between each check
-            }
-        )
+            () => client.bucket.get_cloud_sync({
+                name: params.source_bucket
+            })
+            .then(cloud_sync_info => {
+                if (_.last(status_list) !== cloud_sync_info.status) {
+                    status_list.push(cloud_sync_info.status);
+                }
+                return client.object.list_objects({
+                    bucket: params.source_bucket
+                });
+            })
+            // get objects list on the source
+            .then(function(source_objects) {
+                source_list = _.map(source_objects.objects, 'key');
+                return target_client.object.list_objects({
+                    bucket: params.target_bucket
+                });
+            })
+            .then(target_objects => {
+                target_list = _.map(target_objects.objects, 'key');
+                // sort all lists:
+                source_list.sort();
+                target_list.sort();
+                done = (Math.abs(source_list.length - target_list.length) === file_names.length) &&
+                    _.last(status_list) === 'SYNCED';
+            })
+            .delay(10000)) // wait 10 seconds between each check
         .then(function() {
             let list_cmp;
             file_names.sort();

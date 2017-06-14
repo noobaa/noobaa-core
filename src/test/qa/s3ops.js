@@ -177,20 +177,17 @@ function check_MD5_all_objects(ip, bucket, prefix) {
     let stop = false;
     promise_utils.pwhile(
         () => !stop,
-        () => {
-            return P.ninvoke(s3bucket, 'listObjects', params)
-                .then(function(res) {
-                    let list = res.Contents;
-                    if (list.length === 0) {
-                        stop = true;
-                    } else {
-                        params.Marker = list[list.length - 1].Key;
-                        stop = true;
-                        return P.each(list, obj => get_file_check_md5(ip, bucket, obj.Key));
-                    }
-                });
-        }
-    );
+        () => P.ninvoke(s3bucket, 'listObjects', params)
+        .then(function(res) {
+            let list = res.Contents;
+            if (list.length === 0) {
+                stop = true;
+            } else {
+                params.Marker = list[list.length - 1].Key;
+                stop = true;
+                return P.each(list, obj => get_file_check_md5(ip, bucket, obj.Key));
+            }
+        }));
 }
 
 

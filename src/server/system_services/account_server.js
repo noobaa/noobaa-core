@@ -494,9 +494,9 @@ function list_accounts(req) {
         if (!_.includes(req.account.roles_by_system[req.system._id], 'admin')) {
             throw new RpcError('UNAUTHORIZED', 'Must be system admin');
         }
-        let account_ids = _.map(req.system.roles_by_account, (roles, account_id) => {
-            return roles && roles.length ? account_id : null;
-        });
+        let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
+            (roles && roles.length ? account_id : null)
+        );
 
         accounts = _.compact(
             _.map(
@@ -830,7 +830,8 @@ function validate_create_account_params(req) {
 
         if (req.rpc_params.new_system_parameters &&
             (!req.rpc_params.new_system_parameters.allowed_buckets || !req.rpc_params.new_system_parameters.default_pool)) {
-            throw new RpcError('BAD_REQUEST', 'Creating new system with enabled S3 access for owner requires providing allowed_buckets/default_pool');
+            throw new RpcError('BAD_REQUEST',
+                'Creating new system with enabled S3 access for owner requires providing allowed_buckets/default_pool');
         }
     }
 }

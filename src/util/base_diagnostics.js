@@ -37,17 +37,12 @@ function collect_basic_diagnostics(limit_logs_size) {
                 TMP_WORK_DIR
             )
         )
-        .then(() => {
-            return os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out')
-                .catch(err => { //netstat fails, soft trying ss instead
-                    return P.fcall(() => {
-                            return os_utils.ss_single(TMP_WORK_DIR + '/ss.out');
-                        })
-                        .catch(err2 => {
-                            throw err;
-                        });
-                });
-        })
+        .then(() => os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out')
+            .catch(err => //netstat fails, soft trying ss instead
+                P.fcall(() => os_utils.ss_single(TMP_WORK_DIR + '/ss.out'))
+                .catch(err2 => {
+                    throw err;
+                })))
         .then(() => 'ok')
         .catch(err => {
             console.error('Error in collecting basic diagnostics', err);
@@ -106,8 +101,6 @@ function archive_diagnostics_pack(dst) {
                 return fs.unlinkAsync(config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
             } else {
                 console.log('archive_diagnostics_pack5');
-
-                return;
             }
         })
         .then(function() {
@@ -119,7 +112,6 @@ function archive_diagnostics_pack(dst) {
         })
         .then(null, function(err) {
             console.error('Error in archive_diagnostics_pack', err, err.stack);
-            return;
         });
 }
 

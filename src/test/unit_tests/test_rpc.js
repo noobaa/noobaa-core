@@ -355,12 +355,10 @@ mocha.describe('RPC', function() {
                 days: 365 * 100,
                 selfSigned: true
             }, callback))
-            .then(cert => {
-                return rpc.register_tcp_transport(0, {
-                    key: cert.serviceKey,
-                    cert: cert.certificate
-                });
-            })
+            .then(cert => rpc.register_tcp_transport(0, {
+                key: cert.serviceKey,
+                cert: cert.certificate
+            }))
             .then(tls_server_arg => {
                 tls_server = tls_server_arg;
                 var tls_client = rpc.new_client({

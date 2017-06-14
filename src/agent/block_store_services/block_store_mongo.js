@@ -39,13 +39,13 @@ class BlockStoreMongo extends BlockStoreBase {
         const files_collection = mongo_client.instance().collection(GRID_FS_BUCKET_NAME_FILES);
         const chunks_collection = mongo_client.instance().collection(GRID_FS_BUCKET_NAME_CHUNKS);
         return P.join(files_collection.stats(), chunks_collection.stats())
-            .spread((files_res, chunks_res) => {
+            .spread((files_res, chunks_res) => (
                 // Notice that storageSize includes actual storage size and not only block sizes
-                return {
+                {
                     size: ((files_res && files_res.storageSize) || 0) + ((chunks_res && chunks_res.storageSize) || 0),
                     count: (files_res && files_res.count) || 0
-                };
-            })
+                }
+            ))
             // You will always see errors on initialization when there was no GridFS collection prior
             .catch(err => {
                 console.error('read_usage_gridfs had error: ', err);
@@ -58,17 +58,16 @@ class BlockStoreMongo extends BlockStoreBase {
 
     init() {
         return mongo_client.instance().connect()
-            .then(() => {
-                return this.read_usage_gridfs()
-                    .then(usage_metadata => {
-                        if (usage_metadata) {
-                            this._usage = usage_metadata;
-                            dbg.log0('found usage data usage_data = ', this._usage);
-                        }
-                    }, err => {
-                        dbg.error('got error on init:', err);
-                    });
-            });
+            .then(() => this.read_usage_gridfs()
+                .then(usage_metadata => {
+                    if (usage_metadata) {
+                        this._usage = usage_metadata;
+                        dbg.log0('found usage data usage_data = ', this._usage);
+                    }
+                }, err => {
+                    dbg.error('got error on init:', err);
+                })
+            );
     }
 
     get_storage_info() {
@@ -162,19 +161,15 @@ class BlockStoreMongo extends BlockStoreBase {
 
     _delete_blocks(block_ids) {
         const block_names = _.map(block_ids, block_id => this._block_key(block_id));
-        return P.map(block_names, block_name => {
-                return this._gridfs().find({
-                        filename: block_name
-                    })
-                    .toArray()
-                    .then(blocks => {
-                        return P.map(blocks, block => this._gridfs().delete(block._id), {
-                            concurrency: 10
-                        });
-                    });
-            }, {
-                concurrency: 10
-            })
+        return P.map(block_names, block_name => this._gridfs().find({
+                    filename: block_name
+                })
+                .toArray()
+                .then(blocks => P.map(blocks, block => this._gridfs().delete(block._id), {
+                    concurrency: 10
+                })), {
+                    concurrency: 10
+                })
             .catch(err => {
                 dbg.error('_delete_blocks failed:', err);
                 throw err;

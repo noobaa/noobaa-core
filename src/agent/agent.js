@@ -983,10 +983,7 @@ function test_average_latency(count, delay_ms, func) {
                 return P.delay(delay_ms * jitter);
             });
         })
-        .then(() => {
-            // throw the first result which is sometimes skewed
-            return results.slice(1);
-        });
+        .then(() => results.slice(1)); // throw the first result which is sometimes skewed
 }
 
 

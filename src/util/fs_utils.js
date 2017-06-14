@@ -135,33 +135,27 @@ function disk_usage(root) {
                 }
             }
         })
-        .then(() => {
-            return {
-                size: size,
-                count: count,
-            };
-        });
+        .then(() => ({
+            size: size,
+            count: count,
+        }));
 }
 
 
 // returns the first line in the file that contains the substring
 function find_line_in_file(file_name, line_sub_string) {
     return fs.readFileAsync(file_name, 'utf8')
-        .then(data => {
-            return data.split('\n')
-                .find(line => line.indexOf(line_sub_string) > -1);
-        });
+        .then(data => data.split('\n')
+            .find(line => line.indexOf(line_sub_string) > -1));
 }
 
 // returns all lines in the file that contains the substring
 function find_all_lines_in_file(file_name, line_sub_string) {
     return fs.readFileAsync(file_name, 'utf8')
-        .then(data => {
-            return data.split('\n')
-                .filter(function(line) {
-                    return line.indexOf(line_sub_string) > -1;
-                });
-        });
+        .then(data => data.split('\n')
+            .filter(function(line) {
+                return line.indexOf(line_sub_string) > -1;
+            }));
 }
 
 function get_last_line_in_file(file_name) {

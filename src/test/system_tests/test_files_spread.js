@@ -123,13 +123,11 @@ function run_test() {
             console.log('Failed uploading file (MIRROR)', err);
             throw new Error('Failed uploading file (MIRROR) ' + err);
         })
-        .then(() => {
-            return client.object.read_object_mappings({
-                bucket: 'bucket1',
-                key: fkey,
-                adminfo: true
-            });
-        })
+        .then(() => client.object.read_object_mappings({
+            bucket: 'bucket1',
+            key: fkey,
+            adminfo: true
+        }))
         .then(res => {
             _.each(res.parts, part => {
                 var pool1_count = 0;
@@ -245,27 +243,25 @@ function perform_upload_test_without_spillover() {
             use_internal_spillover: false
         }))
         .then(() => basic_server_ops.generate_random_file(1))
-        .then(fl => {
-            return basic_server_ops.upload_file(argv.ip, fl, 'bucket1', fl)
-                // Since upload_file has a timeout of 20minutes, we do not want to wait
-                // Please fix this value in case that you change put_object in ec2_wrapper
-                // We currently use 10 seconds since it is the cycle length there to retry
-                .timeout(10000, err_timeout)
-                .catch(err => {
-                    if (err === err_timeout) {
-                        console.error('DESIRED ERROR', err);
-                        catch_received = true;
-                    } else {
-                        console.warn('UNDESIRED ERROR', err);
-                    }
-                })
-                .then(() => {
-                    if (!catch_received) {
-                        console.error('SHOULD NOT SUCCEED TO UPLOAD');
-                        throw new Error('SHOULD NOT SUCCEED TO UPLOAD');
-                    }
-                });
-        });
+        .then(fl => basic_server_ops.upload_file(argv.ip, fl, 'bucket1', fl)
+            // Since upload_file has a timeout of 20minutes, we do not want to wait
+            // Please fix this value in case that you change put_object in ec2_wrapper
+            // We currently use 10 seconds since it is the cycle length there to retry
+            .timeout(10000, err_timeout)
+            .catch(err => {
+                if (err === err_timeout) {
+                    console.error('DESIRED ERROR', err);
+                    catch_received = true;
+                } else {
+                    console.warn('UNDESIRED ERROR', err);
+                }
+            })
+            .then(() => {
+                if (!catch_received) {
+                    console.error('SHOULD NOT SUCCEED TO UPLOAD');
+                    throw new Error('SHOULD NOT SUCCEED TO UPLOAD');
+                }
+            }));
 }
 
 function main() {

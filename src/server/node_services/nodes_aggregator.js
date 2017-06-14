@@ -15,18 +15,16 @@ const BigInteger = size_utils.BigInteger;
 function aggregate_data_free_by_tier(req) {
     let available_by_tiers = [];
 
-    return P.each(req.rpc_params.tier_ids, tier_id => {
-            return _aggregate_data_free_for_tier(tier_id, req.system)
-                .then(available_storage => {
-                    available_by_tiers.push({
-                        tier_id: tier_id,
-                        mirrors_storage: available_storage
-                    });
-                })
-                .catch(err => {
-                    console.error(`Error getting available to upload of tier: ${tier_id}`, err);
+    return P.each(req.rpc_params.tier_ids, tier_id => _aggregate_data_free_for_tier(tier_id, req.system)
+            .then(available_storage => {
+                available_by_tiers.push({
+                    tier_id: tier_id,
+                    mirrors_storage: available_storage
                 });
-        })
+            })
+            .catch(err => {
+                console.error(`Error getting available to upload of tier: ${tier_id}`, err);
+            }))
         .return(available_by_tiers);
 }
 
@@ -41,33 +39,31 @@ function _aggregate_data_free_for_tier(tier_id, system) {
         return P.reject(err);
     }
 
-    return P.each(tier.mirrors, mirror_object => {
-            return server_rpc.client.node.list_nodes({
-                    query: {
-                        pools: mirror_object.spread_pools.map(pool => pool.name) || undefined,
-                    },
-                }, {
-                    auth_token: auth_server.make_auth_token({
-                        system_id: system._id,
-                        role: 'admin'
-                    })
+    return P.each(tier.mirrors, mirror_object => server_rpc.client.node.list_nodes({
+                query: {
+                    pools: mirror_object.spread_pools.map(pool => pool.name) || undefined,
+                },
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin'
                 })
-                .then(res_nodes => {
-                    const on_prem_storage = res_nodes.nodes
-                        .filter(node => !node.is_cloud_node && !node.is_mongo_node)
-                        .map(node => node.storage);
-                    const on_mongo_or_cloud_storage = res_nodes.nodes
-                        .filter(node => node.is_cloud_node || node.is_mongo_node)
-                        .map(node => node.storage);
+            })
+            .then(res_nodes => {
+                const on_prem_storage = res_nodes.nodes
+                    .filter(node => !node.is_cloud_node && !node.is_mongo_node)
+                    .map(node => node.storage);
+                const on_mongo_or_cloud_storage = res_nodes.nodes
+                    .filter(node => node.is_cloud_node || node.is_mongo_node)
+                    .map(node => node.storage);
 
-                    mirror_available_storage.push({
-                        free: size_utils.reduce_sum('free', _.concat(
-                            on_mongo_or_cloud_storage.map(storage => (storage.free || 0)),
-                            calculate_total_spread_storage(on_prem_storage, tier.replicas, 'free')
-                        ))
-                    });
+                mirror_available_storage.push({
+                    free: size_utils.reduce_sum('free', _.concat(
+                        on_mongo_or_cloud_storage.map(storage => (storage.free || 0)),
+                        calculate_total_spread_storage(on_prem_storage, tier.replicas, 'free')
+                    ))
                 });
-        })
+            }))
         .return(mirror_available_storage);
 }
 

@@ -21,13 +21,11 @@ class BlockStoreBase {
             max_usage: 200 * 1024 * 1024, // 200 MB
             item_usage: block => block.data.length,
             make_key: block_md => block_md.id,
-            load: block_md => {
-                return P.resolve(this._read_block(block_md))
-                    .then(block => {
-                        this._verify_block(block_md, block.data, block.block_md);
-                        return block;
-                    });
-            }
+            load: block_md => P.resolve(this._read_block(block_md))
+                .then(block => {
+                    this._verify_block(block_md, block.data, block.block_md);
+                    return block;
+                })
         });
 
         // BLOCK STORE API methods - bind to self
@@ -43,12 +41,10 @@ class BlockStoreBase {
     read_block(req) {
         const block_md = req.rpc_params.block_md;
         dbg.log1('read_block', block_md.id, 'node', this.node_name);
+        // must clone before returning to rpc encoding
+        // since it mutates the object for encoding buffers
         return this.block_cache.get_with_cache(block_md)
-            .then(block => {
-                // must clone before returning to rpc encoding
-                // since it mutates the object for encoding buffers
-                return _.clone(block);
-            });
+            .then(block => _.clone(block));
     }
 
     write_block(req) {

@@ -511,23 +511,22 @@ function news_config_servers(req) {
     //If config servers changed, update
     //Only the first server in the cfg array does so
     return P.resolve(_update_rs_if_needed(req.rpc_params.IPs, config.MONGO_DEFAULTS.CFG_RSET_NAME, true))
-        .then(() => {
+        .then(() =>
             //Update our view of the topology
-            return P.resolve(_update_cluster_info({
-                    config_servers: req.rpc_params.IPs
-                }))
-                .then(() => {
-                    //We have a valid config replica set, start the mongos service
-                    return MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
-                        cutil.get_topology().config_servers
-                    ));
+            P.resolve(_update_cluster_info({
+                config_servers: req.rpc_params.IPs
+            }))
+            .then(() =>
+                //We have a valid config replica set, start the mongos service
+                MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
+                    cutil.get_topology().config_servers
+                ))
 
-                    //TODO:: Update connection string for our mongo connections, currently only seems needed for
-                    //Replica sets =>
-                    //Need to close current connections and re-open (bg_worker, all webservers)
-                    //probably best to use publish_to_cluster
-                });
-        });
+                //TODO:: Update connection string for our mongo connections, currently only seems needed for
+                //Replica sets =>
+                //Need to close current connections and re-open (bg_worker, all webservers)
+                //probably best to use publish_to_cluster
+            ));
 }
 
 function news_replicaset_servers(req) {
@@ -738,13 +737,11 @@ function update_dns_servers(req) {
                 }
             });
         })
-        .then(() => {
-            return P.each(target_servers, function(server) {
-                return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
-                    address: server_rpc.get_base_address(server.owner_address)
-                });
+        .then(() => P.each(target_servers, function(server) {
+            return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
+                address: server_rpc.get_base_address(server.owner_address)
             });
-        })
+        }))
         .then(() => {
             Dispatcher.instance().activity({
                 event: 'conf.dns_servers',
@@ -763,9 +760,7 @@ function apply_updated_dns_servers(req) {
     return P.fcall(function() {
             return os_utils.set_dns_server(req.rpc_params.dns_servers, req.rpc_params.search_domains);
         })
-        .then(() => {
-            return os_utils.restart_services();
-        })
+        .then(() => os_utils.restart_services())
         .return();
 }
 

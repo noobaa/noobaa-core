@@ -216,19 +216,17 @@ function get_ops_stats(req) {
 
 function get_bucket_sizes_stats(req) {
     return P.resolve()
-        .then(() => {
-            return system_store.data.buckets.map(bucket => {
-                let bins = bucket.storage_stats.objects_hist || [];
-                return {
-                    master_label: 'Size',
-                    bins: bins.map(bin => ({
-                        label: bin.label,
-                        count: bin.count,
-                        avg: bin.count ? bin.aggregated_sum / bin.count : 0
-                    }))
-                };
-            });
-        });
+        .then(() => system_store.data.buckets.map(bucket => {
+            let bins = bucket.storage_stats.objects_hist || [];
+            return {
+                master_label: 'Size',
+                bins: bins.map(bin => ({
+                    label: bin.label,
+                    count: bin.count,
+                    avg: bin.count ? bin.aggregated_sum / bin.count : 0
+                }))
+            };
+        }));
 }
 
 function get_pool_stats(req) {
@@ -298,14 +296,12 @@ function get_object_usage_stats(req) {
     let new_req = req;
     new_req.rpc_params.from_time = req.system.last_stats_report;
     return object_server.read_s3_usage_report(new_req)
-        .then(res => {
-            return _.map(res.reports, report => ({
-                system: String(report.system),
-                time: report.time,
-                s3_usage_info: report.s3_usage_info,
-                s3_errors_info: report.s3_errors_info
-            }));
-        })
+        .then(res => _.map(res.reports, report => ({
+            system: String(report.system),
+            time: report.time,
+            s3_usage_info: report.s3_usage_info,
+            s3_errors_info: report.s3_errors_info
+        })))
         .catch(err => {
             dbg.warn('Error in collecting object usage stats,',
                 'skipping current sampling point', err.stack || err);
@@ -338,20 +334,18 @@ function get_cloud_pool_stats(req) {
 
 function get_tier_stats(req) {
     return P.resolve()
-        .then(() => {
-            return _.map(system_store.data.tiers, tier => {
-                let pools = [];
-                _.forEach(tier.mirrors, mirror_object => {
-                    pools = _.concat(pools, mirror_object.spread_pools);
-                });
-                pools = _.compact(pools);
-
-                return {
-                    pools_num: pools.length,
-                    data_placement: tier.data_placement,
-                };
+        .then(() => _.map(system_store.data.tiers, tier => {
+            let pools = [];
+            _.forEach(tier.mirrors, mirror_object => {
+                pools = _.concat(pools, mirror_object.spread_pools);
             });
-        });
+            pools = _.compact(pools);
+
+            return {
+                pools_num: pools.length,
+                data_placement: tier.data_placement,
+            };
+        }));
 }
 
 //Collect operations related stats and usage
@@ -697,7 +691,6 @@ function background_worker() {
         .then(payload => _handle_payload(payload))
         .catch(err => {
             dbg.warn('Phone Home data send failed', err.stack || err);
-            return;
         })
         .return();
 }

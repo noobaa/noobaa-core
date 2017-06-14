@@ -168,7 +168,7 @@ function get_cluster_info() {
             memory.free = freemem;
 
             cpus.count = cinfo.heartbeat.health.os_info.cpus.length;
-            cpus.usage = cinfo.heartbeat.health.os_info.loadavg[0];
+            cpus.usage = cinfo.heartbeat.health.usage || 0;
             version = cinfo.heartbeat.version;
             if (online_members.indexOf(cinfo.owner_address) !== -1) {
                 is_connected = 'CONNECTED';
@@ -242,7 +242,6 @@ function _get_online_members(rs_status) {
     }
     return online_members;
 }
-
 
 function get_potential_masters() {
     //TODO: For multiple shards, this should probably change?

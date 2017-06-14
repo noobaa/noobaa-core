@@ -248,88 +248,87 @@ function create_system(req) {
                     }
                 });
         })
-        .then(() => {
-            return P.join(new_system_changes(account.name, account),
-                    cluster_server.new_cluster_info())
-                .spread(function(changes, cluster_info) {
-                    allowed_buckets = [changes.insert.buckets[0]._id.toString()];
-                    default_pool = changes.insert.pools[0]._id.toString();
+        .then(() =>
+            P.join(new_system_changes(account.name, account),
+                cluster_server.new_cluster_info())
+            .spread(function(changes, cluster_info) {
+                allowed_buckets = [changes.insert.buckets[0]._id.toString()];
+                default_pool = changes.insert.pools[0]._id.toString();
 
-                    if (cluster_info) {
-                        changes.insert.clusters = [cluster_info];
-                    }
-                    return changes;
-                })
-                .then(changes => {
-                    system_changes = changes;
-                    return system_store.make_changes(changes);
-                })
-                .then(() => server_rpc.client.account.create_account({ //Create the owner account
-                    name: req.rpc_params.name,
-                    email: req.rpc_params.email,
-                    password: req.rpc_params.password,
-                    s3_access: true,
-                    new_system_parameters: {
-                        account_id: account._id.toString(),
-                        allowed_buckets: allowed_buckets,
-                        default_pool: default_pool,
-                        new_system_id: system_changes.insert.systems[0]._id.toString()
-                    },
-                }))
-                .then(response => {
-                    reply_token = response.token;
+                if (cluster_info) {
+                    changes.insert.clusters = [cluster_info];
+                }
+                return changes;
+            })
+            .then(changes => {
+                system_changes = changes;
+                return system_store.make_changes(changes);
+            })
+            .then(() => server_rpc.client.account.create_account({ //Create the owner account
+                name: req.rpc_params.name,
+                email: req.rpc_params.email,
+                password: req.rpc_params.password,
+                s3_access: true,
+                new_system_parameters: {
+                    account_id: account._id.toString(),
+                    allowed_buckets: allowed_buckets,
+                    default_pool: default_pool,
+                    new_system_id: system_changes.insert.systems[0]._id.toString()
+                },
+            }))
+            .then(response => {
+                reply_token = response.token;
 
-                    //Time config, if supplied
-                    if (!req.rpc_params.time_config) {
-                        return;
-                    }
-                    let time_config = req.rpc_params.time_config;
-                    time_config.target_secret = owner_secret;
-                    return server_rpc.client.cluster_server.update_time_config(time_config, {
-                        auth_token: reply_token
-                    });
-                })
-                .then(() => {
-                    //DNS servers, if supplied
-                    if (_.isEmpty(req.rpc_params.dns_servers)) {
-                        return;
-                    }
+                //Time config, if supplied
+                if (!req.rpc_params.time_config) {
+                    return;
+                }
+                let time_config = req.rpc_params.time_config;
+                time_config.target_secret = owner_secret;
+                return server_rpc.client.cluster_server.update_time_config(time_config, {
+                    auth_token: reply_token
+                });
+            })
+            .then(() => {
+                //DNS servers, if supplied
+                if (_.isEmpty(req.rpc_params.dns_servers)) {
+                    return;
+                }
 
-                    return server_rpc.client.cluster_server.update_dns_servers({
-                        target_secret: owner_secret,
-                        dns_servers: req.rpc_params.dns_servers
-                    }, {
-                        auth_token: reply_token
-                    });
-                })
-                .then(() => {
-                    //DNS name, if supplied
-                    if (!req.rpc_params.dns_name) {
-                        return;
-                    }
-                    return server_rpc.client.system.update_hostname({
-                        hostname: req.rpc_params.dns_name
-                    }, {
-                        auth_token: reply_token
-                    });
-                })
-                .then(() => {
-                    if (!req.rpc_params.proxy_address) {
-                        return;
-                    }
+                return server_rpc.client.cluster_server.update_dns_servers({
+                    target_secret: owner_secret,
+                    dns_servers: req.rpc_params.dns_servers
+                }, {
+                    auth_token: reply_token
+                });
+            })
+            .then(() => {
+                //DNS name, if supplied
+                if (!req.rpc_params.dns_name) {
+                    return;
+                }
+                return server_rpc.client.system.update_hostname({
+                    hostname: req.rpc_params.dns_name
+                }, {
+                    auth_token: reply_token
+                });
+            })
+            .then(() => {
+                if (!req.rpc_params.proxy_address) {
+                    return;
+                }
 
-                    return server_rpc.client.system.update_phone_home_config({
-                        proxy_address: req.rpc_params.proxy_address
-                    }, {
-                        auth_token: reply_token
-                    });
-                })
-                .then(() => _create_system_internal_storage(system_changes, reply_token))
-                .then(() => _init_system())
-                .then(() => ({
-                    token: reply_token
-                }));
-        })
+                return server_rpc.client.system.update_phone_home_config({
+                    proxy_address: req.rpc_params.proxy_address
+                }, {
+                    auth_token: reply_token
+                });
+            })
+            .then(() => _create_system_internal_storage(system_changes, reply_token))
+            .then(() => _init_system())
+            .then(() => ({
+                token: reply_token
+            })))
         .catch(err => {
             throw err;
         });
@@ -459,7 +458,8 @@ function read_system(req) {
                     aggregate_data_free_by_tier,
                     obj_count_per_bucket[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
-            pools: _.filter(system.pools_by_name, pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
+            pools: _.filter(system.pools_by_name,
+                    pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
                 .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo)),
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier,

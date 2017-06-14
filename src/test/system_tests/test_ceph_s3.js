@@ -217,9 +217,7 @@ function deploy_ceph() {
             command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} > /tmp/ceph_deploy.log`;
             return promise_utils.exec(command, false, true);
         })
-        .then(res => {
-            return console.log(res);
-        })
+        .then(res => console.log(res))
         .catch(function(err) {
             console.error('Failed Deployment Of Ceph Tests', err, err.stack);
             throw new Error('Failed Deployment Of Ceph Tests');
@@ -256,7 +254,6 @@ function s3_ceph_test() {
             } else {
                 throw new Error('Failed Running Ceph S3 Tests (' + fail_count + ' failed )');
             }
-            return;
         });
 }
 
@@ -288,7 +285,6 @@ function system_ceph_test() {
             } else {
                 throw new Error('Failed Running System Ceph S3 Tests (' + fail_count + ' failed )');
             }
-            return;
         });
 }
 

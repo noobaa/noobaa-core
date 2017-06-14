@@ -94,12 +94,10 @@ class BlockStoreS3 extends BlockStoreBase {
                 Bucket: this.cloud_info.target_bucket,
                 Key: this._block_key(block_md.id),
             })
-            .then(data => {
-                return {
-                    data: data.Body,
-                    block_md: this._decode_block_md(data.Metadata.noobaa_block_md)
-                };
-            })
+            .then(data => ({
+                data: data.Body,
+                block_md: this._decode_block_md(data.Metadata.noobaa_block_md)
+            }))
             .catch(err => {
                 if (this._try_change_region(err)) {
                     return this._read_block(block_md);

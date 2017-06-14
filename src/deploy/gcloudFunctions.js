@@ -55,9 +55,7 @@ class GcloudFunctions {
                 };
                 return P.nfcall(compute.instances.list, instancesListParams);
             })
-            .then(instances_list => {
-                return instances_list.items.length;
-            });
+            .then(instances_list => instances_list.items.length);
     }
 
     getRandomMachine(prefix) {
@@ -122,14 +120,13 @@ class GcloudFunctions {
         };
         var c_state;
         console.log('Waiting for machine state to be ' + state);
-        return promise_utils.pwhile(() => c_state !== state, () => {
-            return P.nfcall(compute.instances.get, instanceParams)
-                .then(machine_info => {
-                    c_state = machine_info.status;
-                    console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
-                })
-                .delay(5000);
-        });
+        return promise_utils.pwhile(() => c_state !== state, () => P.nfcall(compute.instances.get, instanceParams)
+            .then(machine_info => {
+                c_state = machine_info.status;
+                console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
+            })
+            .delay(5000)
+        );
     }
 }
 

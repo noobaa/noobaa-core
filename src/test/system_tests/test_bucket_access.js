@@ -83,8 +83,8 @@ function setup() {
     let account;
     return P.resolve()
         // Create test buckets.
-        .then(() => client.bucket.create_bucket({name: 'bucket1'}))
-        .then(() => client.bucket.create_bucket({name: 'bucket2'}))
+        .then(() => client.bucket.create_bucket({ name: 'bucket1' }))
+        .then(() => client.bucket.create_bucket({ name: 'bucket2' }))
         // add new accounts:
         .then(() => client.account.create_account(full_access_user))
         .then(() => client.account.create_account(bucket1_user))
@@ -156,25 +156,25 @@ function test_list_buckets_returns_allowed_buckets() {
             bucket1_user_buckets = (account.allowed_buckets || []).length;
         })
         .then(() => P.ninvoke(server, 'listBuckets'))
-            .then(data => {
-                assert(data.Buckets.length === full_access_user_buckets,
-                    'expecting ' + full_access_user_buckets + ' buckets in the list, but got ' + data.Buckets.length);
+        .then(data => {
+            assert(data.Buckets.length === full_access_user_buckets,
+                'expecting ' + full_access_user_buckets + ' buckets in the list, but got ' + data.Buckets.length);
 
-                const buckets = data.Buckets.map(bucket => bucket.Name);
-                assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
-                assert(buckets.indexOf('bucket2') !== -1, 'expecting bucket2 to be in the list');
-            })
-            .then(() => {
-                server = get_new_server(bucket1_user);
-                return P.ninvoke(server, 'listBuckets');
-            })
-            .then(data => {
-                assert(data.Buckets.length === bucket1_user_buckets,
-                    'expecting ' + bucket1_user_buckets + ' bucket in the list, but got ' + data.Buckets.length);
+            const buckets = data.Buckets.map(bucket => bucket.Name);
+            assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
+            assert(buckets.indexOf('bucket2') !== -1, 'expecting bucket2 to be in the list');
+        })
+        .then(() => {
+            server = get_new_server(bucket1_user);
+            return P.ninvoke(server, 'listBuckets');
+        })
+        .then(data => {
+            assert(data.Buckets.length === bucket1_user_buckets,
+                'expecting ' + bucket1_user_buckets + ' bucket in the list, but got ' + data.Buckets.length);
 
-                const buckets = data.Buckets.map(bucket => bucket.Name);
-                assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
-            });
+            const buckets = data.Buckets.map(bucket => bucket.Name);
+            assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
+        });
 }
 
 
@@ -197,19 +197,17 @@ function test_bucket_write_allowed() {
             return P.ninvoke(server, 'upload', params1)
                 .then(resp => P.ninvoke(server, 'upload', params2));
         })
-        .then(() => {
-            return ops.generate_random_file(1)
-                .then(fname => {
-                    // upload with full_access_user to both buckets:
-                    let server = get_new_server(bucket1_user);
-                    let params = {
-                        Bucket: 'bucket1',
-                        Key: fname,
-                        Body: fs.createReadStream(fname)
-                    };
-                    return P.ninvoke(server, 'upload', params);
-                });
-        });
+        .then(() => ops.generate_random_file(1)
+            .then(fname => {
+                // upload with full_access_user to both buckets:
+                let server = get_new_server(bucket1_user);
+                let params = {
+                    Bucket: 'bucket1',
+                    Key: fname,
+                    Body: fs.createReadStream(fname)
+                };
+                return P.ninvoke(server, 'upload', params);
+            }));
 }
 
 
@@ -273,7 +271,6 @@ function test_bucket_write_denied() {
                 })
                 .catch(err => {
                     assert(err.statusCode === 403, 'expecting upload to fail with statusCode 403- AccessDenied');
-                    return;
                 });
         });
 }
@@ -300,7 +297,6 @@ function test_bucket_read_denied() {
                         })
                         .catch(err => {
                             assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied');
-                            return;
                         });
                 });
         });
@@ -327,7 +323,6 @@ function test_bucket_list_denied() {
                         })
                         .catch(err => {
                             assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied');
-                            return;
                         });
                 });
         });
@@ -354,7 +349,7 @@ function test_delete_bucket_deletes_permissions() {
     let server = get_new_server(full_access_user);
     let unique_bucket_name = 'bucket' + uuid();
 
-    return P.ninvoke(server, 'createBucket', {Bucket: unique_bucket_name})
+    return P.ninvoke(server, 'createBucket', { Bucket: unique_bucket_name })
         .then(() => client.system.read_system())
         .then(system_info => {
             const user_has_access = account_by_name(system_info.accounts, full_access_user.email)
@@ -363,7 +358,7 @@ function test_delete_bucket_deletes_permissions() {
 
             assert(user_has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
         })
-        .then(() => P.ninvoke(server, 'deleteBucket', {Bucket: unique_bucket_name}))
+        .then(() => P.ninvoke(server, 'deleteBucket', { Bucket: unique_bucket_name }))
         .then(() => client.system.read_system())
         .then(system_info => {
             const user_has_access = account_by_name(system_info.accounts, full_access_user.email)

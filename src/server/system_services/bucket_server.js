@@ -189,10 +189,9 @@ function read_bucket(req) {
             get_cloud_sync(req, bucket),
             node_allocator.refresh_tiering_alloc(bucket.tiering)
         )
-        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) => {
-            return get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier,
-                num_of_objects, cloud_sync_policy);
-        });
+        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) =>
+            get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier,
+                num_of_objects, cloud_sync_policy));
 }
 
 
@@ -869,7 +868,6 @@ function set_bucket_lifecycle_configuration_rules(req) {
                 bucket: bucket._id,
                 desc: desc_string.join('\n'),
             });
-            return;
         })
         .catch(function(err) {
             dbg.error('Error setting lifecycle configuration rules', err, err.stack);
@@ -1049,7 +1047,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         info.quota = _.omit(bucket.quota, 'value');
         let quota_free = size_utils.json_to_bigint(bucket.quota.value).minus(size_utils.json_to_bigint(objects_aggregate.size));
         if (quota_free.isNegative()) quota_free = BigInteger.zero;
-        available_for_upload = size_utils.size_min([size_utils.bigint_to_json(quota_free), size_utils.bigint_to_json(available_for_upload)]);
+        available_for_upload =
+            size_utils.size_min([size_utils.bigint_to_json(quota_free), size_utils.bigint_to_json(available_for_upload)]);
     }
 
     info.data = size_utils.to_bigint_storage({

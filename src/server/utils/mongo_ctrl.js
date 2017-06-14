@@ -41,10 +41,10 @@ MongoCtrl.prototype.add_replica_set_member = function(name, first_server, server
                 self._init_replica_set_from_shell(cutil.extract_servers_ip(servers)[0]);
             }
         })
-        .then(() => {
+        .then(() =>
             // build new connection url for mongo and write to .env
-            return self.update_dotenv(name, cutil.extract_servers_ip(servers));
-        });
+            self.update_dotenv(name, cutil.extract_servers_ip(servers))
+        );
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {

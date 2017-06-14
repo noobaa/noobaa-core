@@ -33,14 +33,12 @@ mocha.describe('s3_list_objects', function() {
 
         return P.resolve()
             .then(() => account_server.ensure_support_account())
-            .then(() => {
-                return client.system.create_system({
-                    activation_code: 'rainbow',
-                    name: SYS,
-                    email: EMAIL,
-                    password: PASSWORD
-                });
-            })
+            .then(() => client.system.create_system({
+                activation_code: 'rainbow',
+                name: SYS,
+                email: EMAIL,
+                password: PASSWORD
+            }))
             .then(res => {
                 client.options.auth_token = res.token;
             })
@@ -300,10 +298,9 @@ mocha.describe('s3_list_objects', function() {
                         }
                     });
             })
-            .then(() => {
+            .then(() =>
                 // TODO: JEN should be changed to md_blow
-                return upload_multiple_files(max_keys_objects);
-            })
+                upload_multiple_files(max_keys_objects))
             .then(function() {
                 return client.object.list_objects_s3({
                         bucket: BKT,

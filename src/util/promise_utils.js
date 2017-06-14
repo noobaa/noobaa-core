@@ -186,9 +186,7 @@ function run_background_worker(worker) {
 
     function run() {
         P.try(() => worker.run_batch())
-            .then(delay => {
-                return delay_unblocking(delay || worker.delay || DEFUALT_DELAY);
-            }, err => {
+            .then(delay => delay_unblocking(delay || worker.delay || DEFUALT_DELAY), err => {
                 dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
                 return delay_unblocking(worker.delay || DEFUALT_DELAY);
             })
@@ -366,20 +364,19 @@ function auto(tasks) {
 function all_obj(obj, func) {
     var new_obj = {};
     func = func || ((val, key) => val);
-    return P.all(_.map(obj, (val, key) => {
-            return P.try(() => func(val, key))
-                .then(res => {
-                    new_obj[key] = res;
-                });
-        }))
+    return P.all(_.map(obj, (val, key) => P.try(() => func(val, key))
+            .then(res => {
+                new_obj[key] = res;
+            })
+        ))
         .return(new_obj);
 }
 
 function conditional_timeout(cond, timeout, prom) {
-        if (cond) {
-                return prom.timeout(timeout);
-        }
-        return prom;
+    if (cond) {
+        return prom.timeout(timeout);
+    }
+    return prom;
 }
 
 

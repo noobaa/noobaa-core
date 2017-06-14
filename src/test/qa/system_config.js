@@ -218,23 +218,21 @@ P.fcall(function() {
         }));
     })
     .then(() => phone_home_proxy_server.listen(ph_proxy_port))
-    .then(() => {
-        return promise_utils.pwhile(
-                function() {
-                    return !received_phonehome_proxy_connection;
-                },
-                function() {
-                    console.warn('Didn\'t get phone home message yet');
-                    return P.delay(5000);
-                }).timeout(1 * 60000)
-            .then(() => {
-                console.log('Just received phone home message - as should');
-            })
-            .catch(() => {
-                console.log('Didn\'t receive phone home message for 1 minute - failure!!!');
-                failures_in_test = true;
-            });
-    })
+    .then(() => promise_utils.pwhile(
+            function() {
+                return !received_phonehome_proxy_connection;
+            },
+            function() {
+                console.warn('Didn\'t get phone home message yet');
+                return P.delay(5000);
+            }).timeout(1 * 60000)
+        .then(() => {
+            console.log('Just received phone home message - as should');
+        })
+        .catch(() => {
+            console.log('Didn\'t receive phone home message for 1 minute - failure!!!');
+            failures_in_test = true;
+        }))
     .then(() => {
         console.log('Doing Read system to verify Proxy settings');
         return P.resolve(client.system.read_system({}));
@@ -269,27 +267,23 @@ P.fcall(function() {
             port: tcp_rsyslog_port
         }));
     })
-    .then(() => {
-        return P.resolve()
-            .then(() => {
-                return promise_utils.pwhile(
-                    function() {
-                        return !received_tcp_rsyslog_connection;
-                    },
-                    function() {
-                        console.warn('Didn\'t get tcp rsyslog message yet');
-                        return P.delay(5000);
-                    });
-            })
-            .timeout(1 * 60000)
-            .then(() => {
-                console.log('Just received tcp rsyslog message - as should');
-            })
-            .catch(() => {
-                console.log('Didn\'t receive tcp rsyslog message for 1 minute - failure!!!');
-                failures_in_test = true;
-            });
-    })
+    .then(() => P.resolve()
+        .then(() => promise_utils.pwhile(
+            function() {
+                return !received_tcp_rsyslog_connection;
+            },
+            function() {
+                console.warn('Didn\'t get tcp rsyslog message yet');
+                return P.delay(5000);
+            }))
+        .timeout(1 * 60000)
+        .then(() => {
+            console.log('Just received tcp rsyslog message - as should');
+        })
+        .catch(() => {
+            console.log('Didn\'t receive tcp rsyslog message for 1 minute - failure!!!');
+            failures_in_test = true;
+        }))
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
         var address = result.remote_syslog_config.address;
@@ -323,27 +317,23 @@ P.fcall(function() {
             port: udp_rsyslog_port
         }));
     })
-    .then(() => {
-        return P.resolve()
-            .then(() => {
-                return promise_utils.pwhile(
-                    function() {
-                        return !received_udp_rsyslog_connection;
-                    },
-                    function() {
-                        console.warn('Didn\'t get udp rsyslog message yet');
-                        return P.delay(5000);
-                    });
-            })
-            .timeout(1 * 60000)
-            .then(() => {
-                console.log('Just received udp rsyslog message - as should');
-            })
-            .catch(() => {
-                console.log('Didn\'t receive udp rsyslog message for 1 minute - failure!!!');
-                failures_in_test = true;
-            });
-    })
+    .then(() => P.resolve()
+        .then(() => promise_utils.pwhile(
+            function() {
+                return !received_udp_rsyslog_connection;
+            },
+            function() {
+                console.warn('Didn\'t get udp rsyslog message yet');
+                return P.delay(5000);
+            }))
+        .timeout(1 * 60000)
+        .then(() => {
+            console.log('Just received udp rsyslog message - as should');
+        })
+        .catch(() => {
+            console.log('Didn\'t receive udp rsyslog message for 1 minute - failure!!!');
+            failures_in_test = true;
+        }))
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
         var address = result.remote_syslog_config.address;

@@ -132,6 +132,9 @@ module.exports = {
                 health: {
                     type: 'object',
                     properties: {
+                        usage: {
+                            type: 'number'
+                        },
                         os_info: {
                             type: 'object',
                             properties: {

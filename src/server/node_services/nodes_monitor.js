@@ -947,14 +947,12 @@ class NodesMonitor extends EventEmitter {
                     return this.ssl_certs_promise;
                 }
             })
-            .then(ssl_certs => {
-                return this.client.agent.update_node_service({
-                    enabled: should_enable,
-                    ssl_certs
-                }, {
-                    connection: item.connection
-                });
-            });
+            .then(ssl_certs => this.client.agent.update_node_service({
+                enabled: should_enable,
+                ssl_certs
+            }, {
+                connection: item.connection
+            }));
     }
 
     _update_create_node_token(item) {

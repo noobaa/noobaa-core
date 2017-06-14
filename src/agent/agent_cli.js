@@ -235,22 +235,20 @@ AgentCLI.prototype.load = function(added_storage_paths) {
         return P.resolve()
             .then(() => fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
             .then(() => fs.readdirAsync(storage_path))
-            .then(nodes_names => {
-                return P.all(internal_nodes_names.map(name => {
-                    if (nodes_names.indexOf(name) >= 0) {
-                        // cloud or mongo node already exist. start it
-                        let node_path = path.join(storage_path, name);
-                        dbg.log0('loading existing internal agent. node_path=', node_path);
-                        return self.start(name, node_path);
-                    } else {
-                        dbg.log0('starting new internal agent. name = ', name);
-                        return self.create_node_helper(paths_to_work_on[0], {
-                            use_host_id: true,
-                            internal_node_name: name
-                        });
-                    }
-                }));
-            });
+            .then(nodes_names => P.all(internal_nodes_names.map(name => {
+                if (nodes_names.indexOf(name) >= 0) {
+                    // cloud or mongo node already exist. start it
+                    let node_path = path.join(storage_path, name);
+                    dbg.log0('loading existing internal agent. node_path=', node_path);
+                    return self.start(name, node_path);
+                } else {
+                    dbg.log0('starting new internal agent. name = ', name);
+                    return self.create_node_helper(paths_to_work_on[0], {
+                        use_host_id: true,
+                        internal_node_name: name
+                    });
+                }
+            })));
     }
 
     // TODO: This has to work on partitial relevant paths only

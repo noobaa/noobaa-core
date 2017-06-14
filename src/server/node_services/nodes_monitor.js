@@ -2103,7 +2103,7 @@ class NodesMonitor extends EventEmitter {
         } else if (options.sort === 'trusted') {
             list.sort(js_utils.sort_compare_by(item => Boolean(item.trusted), options.order));
         } else if (options.sort === 'used') {
-            list.sort(js_utils.sort_compare_by(item => item.node.storage.used, options.order));
+            list.sort(js_utils.sort_compare_by(item => (item.node.storage.total - item.node.storage.free), options.order));
         } else if (options.sort === 'accessibility') {
             list.sort(js_utils.sort_compare_by(item => item.accessibility, options.order));
         } else if (options.sort === 'connectivity') {

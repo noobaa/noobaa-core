@@ -84,8 +84,20 @@ function to_bigint_storage(storage) {
     return _.mapValues(storage, x => bigint_to_json(json_to_bigint(x)));
 }
 
+
 function to_storage_bigint(storage) {
     return _.mapValues(storage, x => json_to_bigint(x));
+}
+
+/* Help function taken from frontent - This function, if passed a size object, will convert the object to a non exact
+ * integer representation of the size object. A difference may happen for sizes above
+ * Number.MAX_SAFE_INTEGER because of the inability of floating point numbers to
+ * represent very big numbers.
+ */
+function bigint_to_bytes(bigint) {
+    const peta = _.isUndefined(bigint.peta) ? 0 : bigint.peta;
+    const n = _.isUndefined(bigint.n) ? bigint : bigint.n;
+    return (peta * PETABYTE) + n;
 }
 
 function size_unit_to_bigint(size, unit) {
@@ -294,6 +306,7 @@ function human_offset(offset) {
 
 exports.BigInteger = BigInteger;
 exports.bigint_to_json = bigint_to_json;
+exports.bigint_to_bytes = bigint_to_bytes;
 exports.json_to_bigint = json_to_bigint;
 exports.size_unit_to_bigint = size_unit_to_bigint;
 exports.to_bigint_storage = to_bigint_storage;

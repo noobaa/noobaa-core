@@ -18,6 +18,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const phone_home_utils = require('../../util/phone_home');
 const config_file_store = require('../system_services/config_file_store').instance();
+const Dispatcher = require('../notifications/dispatcher');
 
 let server_conf = {};
 let monitoring_status = {};
@@ -152,11 +153,21 @@ function _check_ntp() {
     return net_utils.ping(server_conf.ntp.server)
         .catch(err => {
             monitoring_status.ntp_status = "UNREACHABLE";
+            Dispatcher.instance().alert('MAJOR',
+                system_store.data.systems[0]._id,
+                `NTP Server ${server_conf.ntp.server} could not be reached`,
+                Dispatcher.rules.once_daily);
             throw err;
         })
-        .then(() => promise_utils.exec(`ntpstat`, false, true))
+        .then(() => promise_utils.exec(`ntpstat`, true, true))
         .then(netstat_res => {
-            if (netstat_res.startsWith('unsynchronised')) throw new Error('unsynchronised');
+            if (netstat_res.startsWith('unsynchronised')) {
+                Dispatcher.instance().alert('MAJOR',
+                    system_store.data.systems[0]._id,
+                    `Local server time is not synchorinised with NTP Server`,
+                    Dispatcher.rules.once_daily);
+                throw new Error('unsynchronised');
+            }
             let regex_res = (/NTP server \(([\d.]+)\) /).exec(netstat_res);
             if (!regex_res || !regex_res[1]) throw new Error('failed to check ntp sync');
             return net_utils.dns_resolve(server_conf.ntp.server)
@@ -201,15 +212,32 @@ function _check_dns_and_phonehome() {
                         status: "UNREACHABLE",
                         test_time: moment().unix()
                     };
+                    Dispatcher.instance().alert('MAJOR',
+                        system_store.data.systems[0]._id,
+                        `Phone home server could not be reached`,
+                        Dispatcher.rules.once_daily);
                     break;
                 case "CANNOT_CONNECT_INTERNET":
                     monitoring_status.internet_connectivity = "FAULTY";
+                    Dispatcher.instance().alert('MAJOR',
+                        system_store.data.systems[0]._id,
+                        `Phone home server could not be reached, phone home connectivity is used for proactive
+                         support product statistics analysis. In most causes this is caused by lack of connectivity to the internet`,
+                        Dispatcher.rules.once_daily);
                     break;
                 case "CANNOT_RESOLVE_PHONEHOME_NAME":
                     monitoring_status.dns_status = "FAULTY";
+                    Dispatcher.instance().alert('MAJOR',
+                        system_store.data.systems[0]._id,
+                        `DNS server cannot resolve Phone home server name`,
+                        Dispatcher.rules.once_daily);
                     break;
                 case "CANNOT_REACH_DNS_SERVER":
                     monitoring_status.dns_status = "UNREACHABLE";
+                    Dispatcher.instance().alert('MAJOR',
+                        system_store.data.systems[0]._id,
+                        `DNS server can't be reached`,
+                        Dispatcher.rules.once_daily);
                     break;
                 default:
                     break;
@@ -231,6 +259,10 @@ function _check_proxy_configuration() {
         })
         .catch(err => {
             monitoring_status.proxy_status = "UNREACHABLE";
+            Dispatcher.instance().alert('MAJOR',
+                system_store.data.systems[0]._id,
+                `Proxy server ${system.phone_home_proxy_address} could not be reached`,
+                Dispatcher.rules.once_daily);
             dbg.warn('Error when trying to check phone home proxy status.', err.stack || err);
         });
 }
@@ -249,6 +281,10 @@ function _check_remote_syslog() {
         })
         .catch(err => {
             monitoring_status.remote_syslog_status.status = "UNREACHABLE";
+            Dispatcher.instance().alert('MAJOR',
+                system_store.data.systems[0]._id,
+                `Remote syslog server ${system.remote_syslog_config.address} could not be reached`,
+                Dispatcher.rules.once_daily);
             dbg.warn('Error when trying to check remote syslog status.', err.stack || err);
         });
 }
@@ -264,10 +300,18 @@ function _check_is_self_in_dns_table() {
                 monitoring_status.dns_name = "OPERATIONAL";
             } else {
                 monitoring_status.dns_name = "FAULTY";
+                Dispatcher.instance().alert('MAJOR',
+                    system_store.data.systems[0]._id,
+                    `Server DNS name ${system_dns} does not point to this server's IP`,
+                    Dispatcher.rules.once_daily);
             }
         })
         .catch(err => {
             monitoring_status.dns_name = "UNKNOWN";
+            Dispatcher.instance().alert('MAJOR',
+                system_store.data.systems[0]._id,
+                `Server DNS name ${system_dns} counld not be resolved`,
+                Dispatcher.rules.once_daily);
             dbg.warn(`Error when trying to find address in dns resolve table: ${server_conf.owner_address}. err:`, err.stack || err);
         });
 }

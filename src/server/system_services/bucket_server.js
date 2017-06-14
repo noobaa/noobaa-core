@@ -246,7 +246,7 @@ function update_bucket(req) {
                     `Bucket ${bucket.name} exceeded its configured quota of ${
                     size_utils.human_size(quota.value)
                 }. Uploads to this bucket will be denied`,
-                    Dispatcher.rules.once_every(1000 * 60 * 60 * 24)); // once a day
+                    Dispatcher.rules.once_daily);
                 dbg.warn(`the bucket ${bucket.name} used capacity is more than the updated quota. uploads will be denied`);
             } else if (used_percent >= 90) {
                 Dispatcher.instance().alert('INFO',

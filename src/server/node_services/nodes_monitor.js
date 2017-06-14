@@ -1410,13 +1410,13 @@ class NodesMonitor extends EventEmitter {
                 } else if (drv[drv.length - 1] === '\\') {
                     return drv.slice(0, drv.length - 1);
                 }
-                return drv;
+                // win drives are case insensitive;
+                return drv.toLowerCase();
             });
-            return win_drives.indexOf(mount) === -1;
+            return win_drives.indexOf(mount.toLowerCase()) === -1;
         }
         return exclude_drives.indexOf(mount) === -1;
     }
-
 
     /*
      *

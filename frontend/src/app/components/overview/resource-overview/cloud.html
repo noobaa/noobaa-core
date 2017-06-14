@@ -1,8 +1,12 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
+<p>
+    <span class="highlight legend-caption">Cloud storage: </span>
+    {{cloudCount}}
+    <span class="highlight legend-caption"> | Services:</span>
+</p>
 <chart-legend class="nodes-legend" params="
-    items: cloudChartValues,
-    caption: cloudChartLegend
+    items: cloudChartValues
 "></chart-legend>
 <div class="nodes-chart column content-middle">
     <pie-chart class="push-next" params="
@@ -11,10 +15,13 @@
         secondaryText: cloudCountSecondaryText
     "></pie-chart>
 </div>
-<div class="row">
+<div class="row push-next">
     <p class="greedy remark highlight">
         Cloud Storage: {{cloudStorage}} PB estimation
     </p>
     <svg-icon class="icon-small align-start" params="name: 'question'"
-              ko.tooltip="{ text: '', position: 'above' }"></svg-icon>
+              ko.tooltip="{ text: tooltips.cloud, position: 'above' }"></svg-icon>
 </div>
+<button class="btn overview-btn" ko.click="onAddCloudResource">
+    Add Cloud Resource
+</button>

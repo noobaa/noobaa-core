@@ -13,6 +13,7 @@ import accountsReducer from './accounts-reducer';
 import objectUploadsReducer from './object-uploads-reducer';
 import alertsReducer from './alerts-reducer';
 import notificationsReducer from './notificaitons-reducer';
+import internalResourcesReducer from './internal-resources-reducer';
 
 export default combineReducers({
     session: sessionReducer,
@@ -26,5 +27,6 @@ export default combineReducers({
     cloudResources: cloudResourcesReducer,
     accounts: accountsReducer,
     objectUploads: objectUploadsReducer,
-    notifications: notificationsReducer
+    notifications: notificationsReducer,
+    internalResources: internalResourcesReducer
 });

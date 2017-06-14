@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
+import { keyByProperty } from 'utils/core-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 import { createReducer } from 'utils/reducer-utils';
 

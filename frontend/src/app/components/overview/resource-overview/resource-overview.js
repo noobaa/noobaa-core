@@ -59,7 +59,7 @@ const tooltips = deepFreeze({
                It can only be used for spilled-over data from buckets. 
                This number represents the amount of total internal storage in the system.`
 
-})
+});
 
 class ResourceOverviewViewModel extends Observer {
     constructor() {
@@ -176,7 +176,7 @@ class ResourceOverviewViewModel extends Observer {
 
         this.nodeCount(count);
         this.poolsCount(poolList.length);
-        this.poolsCount(poolList.length)
+        this.poolsCount(poolList.length);
         this.poolsChartValues[0].value(healthyCount);
         this.poolsChartValues[1].value(withIssuesCount);
         this.poolsChartValues[2].value(offlineCount);
@@ -186,7 +186,7 @@ class ResourceOverviewViewModel extends Observer {
 
     onCloud(cloudResources) {
         const cloudResourcesList = Object.values(cloudResources);
-        this.cloudCount(cloudResourcesList.length)
+        this.cloudCount(cloudResourcesList.length);
         const awsCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.AWS).length;
         const azureCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.AZURE).length;
         const s3CompatibleCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.S3_COMPATIBLE).length;
@@ -224,7 +224,7 @@ class ResourceOverviewViewModel extends Observer {
     selectResourceType(type) {
         const resourceType = type || undefined;
         const filter = undefined;
-        redirectTo(undefined, undefined, { filter, resourceType });
+        redirectTo(undefined, undefined, { filter, ...routeContext().query, resourceType });
     }
 
     isVisible(resourceType) {

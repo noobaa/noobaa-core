@@ -143,39 +143,39 @@ module.exports = {
         },
 
 
-        // get_test_hosts: {
-        //     method: 'GET',
-        //     params: {
-        //         type: 'object',
-        //         required: ['count', 'source'],
-        //         properties: {
-        //             count: {
-        //                 type: 'integer',
-        //             },
-        //             source: {
-        //                 type: 'string',
-        //             },
-        //         }
-        //     },
-        //     reply: {
-        //         type: 'array',
-        //         items: {
-        //             type: 'object',
-        //             required: ['name', 'rpc_address'],
-        //             properties: {
-        //                 name: {
-        //                     type: 'string'
-        //                 },
-        //                 rpc_address: {
-        //                     type: 'string'
-        //                 }
-        //             }
-        //         }
-        //     },
-        //     auth: {
-        //         system: 'admin',
-        //     }
-        // },
+        get_test_hosts: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['count', 'source'],
+                properties: {
+                    count: {
+                        type: 'integer',
+                    },
+                    source: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['name', 'rpc_address'],
+                    properties: {
+                        name: {
+                            type: 'string'
+                        },
+                        rpc_address: {
+                            type: 'string'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
 
     },
@@ -228,6 +228,9 @@ module.exports = {
                 },
                 debug_level: {
                     type: 'integer',
+                },
+                rpc_address: {
+                    type: 'string'
                 },
                 suggested_pool: {
                     type: 'string'

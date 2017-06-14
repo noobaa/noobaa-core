@@ -2390,7 +2390,8 @@ class NodesMonitor extends EventEmitter {
             }
         });
 
-        const s3_mode = info.s3_nodes_info.mode = info.s3_nodes_info.nodes[0].mode;
+        const s3_mode = info.s3_nodes_info.nodes.length ? info.s3_nodes_info.mode = info.s3_nodes_info.nodes[0].mode :
+            'OFFLINE';
 
         // collect host info
         info.name = host_item.node.name;
@@ -2412,6 +2413,7 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
+        info.rpc_address = host_item.node.rpc_address;
         info.latency_to_server = host_item.node.latency_to_server;
         info.debug_level = host_item.node.debug_level;
         info.suggested_pool = host_item.suggested_pool;

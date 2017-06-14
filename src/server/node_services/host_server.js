@@ -33,8 +33,17 @@ function migrate_hosts_to_pool(req) {
     return nodes_server.get_local_monitor().migrate_hosts_to_pool(req);
 }
 
-function get_test_hosts() {
-    throw new Error('NOT_IMPLEMENTED');
+function get_test_hosts(req) {
+    const list_res = nodes_server.get_local_monitor().list_hosts({
+        system: String(req.system._id),
+        mode: 'OPTIMAL'
+    }, {
+        pagination: true,
+        limit: req.rpc_params.count,
+        sort: 'shuffle'
+    });
+    return _.map(list_res.hosts,
+        host => _.pick(host, 'name', 'rpc_address'));
 }
 
 function test_host_network() {

@@ -16,8 +16,6 @@ const initialState = {};
 function onCompleteFetchSystemInfo(_, { payload }) {
     const { pools, buckets } = payload;
 
-    console.warn('onCompleteFetchSystemInfo.pools', pools);
-
     const enabledInBuckets = buckets.filter(bucket => bucket.spillover_enabled);
 
     return keyByProperty(

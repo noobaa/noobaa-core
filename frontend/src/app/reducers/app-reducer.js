@@ -25,8 +25,8 @@ export default combineReducers({
     buckets: bucketsReducer,
     nodePools: nodePoolsReducer,
     cloudResources: cloudResourcesReducer,
+    internalResources: internalResourcesReducer,
     accounts: accountsReducer,
     objectUploads: objectUploadsReducer,
-    notifications: notificationsReducer,
-    internalResources: internalResourcesReducer
+    notifications: notificationsReducer
 });

@@ -1,9 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './resource-overview.html';
-import poolsOverviewTemplate from './pools.html';
-import cloudOverviewTemplate from './cloud.html';
-import internalOverviewTemplate from './internal.html';
+import poolsTemplate from './pools.html';
+import cloudTemplate from './cloud.html';
+import internalTemplate from './internal.html';
 import Observer from 'observer';
 import style from 'style';
 import { routeContext } from 'model';
@@ -18,17 +18,9 @@ import { aggregateStorage } from 'utils/storage-utils';
 import { countNodesByState } from 'utils/ui-utils';
 import { state$ } from 'state';
 
-const cloudTypes = deepFreeze({
-    AWS: 'AWS',
-    AZURE: 'AZURE',
-    S3_COMPATIBLE: 'S3_COMPATIBLE'
-});
-
-const pieColorsOpacityFactor = deepFreeze({
-    pools: .5,
-    cloud: .8,
-    internal: .4
-});
+const AWS = 'AWS';
+const AZURE = 'AZURE';
+const S3_COMPATIBLE = 'S3_COMPATIBLE';
 
 const resourceTypeOptions = deepFreeze([
     {
@@ -44,11 +36,6 @@ const resourceTypeOptions = deepFreeze([
         value: 'internal'
     }
 ]);
-
-const internalResourceStates = deepFreeze({
-    ENABLED: 'Enabled',
-    DISABLED: 'Disabled'
-});
 
 const tooltips = deepFreeze({
     pools:    `This number is calculated from the total capacity of all 
@@ -75,52 +62,60 @@ class ResourceOverviewViewModel extends Observer {
             read: () => query().resourceType || resourceTypeOptions[0].value,
             write: value => this.selectResourceType(value)
         });
-        this.poolsOverviewTemplate = poolsOverviewTemplate;
-        this.cloudOverviewTemplate = cloudOverviewTemplate;
-        this.internalOverviewTemplate = internalOverviewTemplate;
+        this.poolsOverviewTemplate = poolsTemplate;
+        this.cloudOverviewTemplate = cloudTemplate;
+        this.internalOverviewTemplate = internalTemplate;
 
-        this.poolsCount = ko.observable(0);
-        this.cloudCount = ko.observable(0);
-        this.internalResourceState = ko.observable('');
-        this.cloudStorage = ko.observable('');
-        this.internalStorage = ko.observable('');
+        this.poolsCount = ko.observable();
+        this.cloudCount = ko.observable();
+        this.internalResourceState = ko.observable();
+        this.cloudStorage = ko.observable();
+        this.internalStorage = ko.observable();
+        this.nodesStorage = ko.observable();
+        this.nodeCount = ko.observable();
+        this.nodeCountText = ko.observable();
+        this.cloudCount = ko.observable();
+        this.cloudCountText = ko.observable();
+        this.cloudCountSecondaryText = ko.observable();
+        this.poolsCount = ko.observable();
+        this.resourcesLinkText = ko.observable();
 
         this.poolsChartValues = [
             {
                 label: 'Online',
-                value: ko.observable(0),
-                color: hexToRgb(style['color12'], pieColorsOpacityFactor.pools)
+                value: ko.observable(),
+                color: hexToRgb(style['color12'])
             },
             {
                 label: 'Has issues',
-                value: ko.observable(0),
-                color: hexToRgb(style['color11'], pieColorsOpacityFactor.pools)
+                value: ko.observable(),
+                color: hexToRgb(style['color11'])
             },
             {
                 label: 'Offline',
-                value: ko.observable(0),
-                color: hexToRgb(style['color10'], pieColorsOpacityFactor.pools)
+                value: ko.observable(),
+                color: hexToRgb(style['color10'])
             }
         ];
 
         this.cloudChartValues = [
             {
                 label: 'AWS S3',
-                value: ko.observable(0),
-                icon: ko.observable('aws-s3-resource'),
-                color: hexToRgb(style['color8'], pieColorsOpacityFactor.cloud)
+                value: ko.observable(),
+                icon: 'aws-s3-resource',
+                color: hexToRgb(style['color8'])
             },
             {
                 label: 'Azure blob',
-                value: ko.observable(0),
-                icon: ko.observable('azure-resource'),
-                color: hexToRgb(style['color6'], pieColorsOpacityFactor.cloud)
+                value: ko.observable(),
+                icon: 'azure-resource',
+                color: hexToRgb(style['color7'])
             },
             {
                 label: 'S3 compatible',
-                value: ko.observable(0),
-                icon: ko.observable('cloud-resource'),
-                color: hexToRgb(style['color16'], pieColorsOpacityFactor.cloud)
+                value: ko.observable(),
+                icon: 'cloud-resource',
+                color: hexToRgb(style['color16'])
             }
         ];
 
@@ -128,42 +123,19 @@ class ResourceOverviewViewModel extends Observer {
             {
                 label: 'Available',
                 value: ko.observable(0),
-                color: hexToRgb(style['color6'], pieColorsOpacityFactor.internal)
+                color: hexToRgb(style['color5'])
             },
             {
                 label: 'Used (Spilled over from buckets)',
                 value: ko.observable(0),
-                color: hexToRgb(style['color8'], pieColorsOpacityFactor.internal)
+                color: hexToRgb(style['color13'])
             }
         ];
-
-        this.nodesStorage = ko.observable(0);
-        this.nodeCount = ko.observable(0);
-        this.nodeCountText = ko.pureComputed(
-            () => stringifyAmount('Node', this.nodeCount())
-        );
-
-        this.cloudCount = ko.observable(0);
-        this.cloudCountText = ko.pureComputed(
-            () => `${this.cloudCount()} Cloud`
-        );
-
-        this.cloudCountSecondaryText = ko.pureComputed(
-            () => this.cloudCount() === 1 ? 'resource' : 'resources'
-        );
-
-        this.poolsCount = ko.observable(0);
-        this.resourcesLinkText = ko.pureComputed(
-            () => stringifyAmount(
-                'Resource',
-                this.poolsCount() + this.cloudCount(),
-                'No'
-            )
-        );
 
         this.observe(state$.get('nodePools'), this.onPools);
         this.observe(state$.get('cloudResources'), this.onCloud);
         this.observe(state$.get('internalResources'), this.onInternal);
+        this.observe(state$.get('buckets'), this.onBucket);
     }
 
     onPools(nodePools) {
@@ -182,14 +154,20 @@ class ResourceOverviewViewModel extends Observer {
         this.poolsChartValues[2].value(offlineCount);
         const poolsStorageList = poolList.map(cloud => cloud.storage);
         this.nodesStorage(poolsStorageList.length ? formatSize(aggregateStorage(...poolsStorageList).total) : 0);
+        this.nodeCountText(stringifyAmount('Node', this.nodeCount()));
+        this.resourcesLinkText(stringifyAmount(
+            'Resource',
+            this.poolsCount() + this.cloudCount(),
+            'No'
+        ));
     }
 
     onCloud(cloudResources) {
         const cloudResourcesList = Object.values(cloudResources);
         this.cloudCount(cloudResourcesList.length);
-        const awsCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.AWS).length;
-        const azureCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.AZURE).length;
-        const s3CompatibleCount = cloudResourcesList.filter( cloud => cloud.type === cloudTypes.S3_COMPATIBLE).length;
+        const awsCount = cloudResourcesList.filter( cloud => cloud.type === AWS).length;
+        const azureCount = cloudResourcesList.filter( cloud => cloud.type === AZURE).length;
+        const s3CompatibleCount = cloudResourcesList.filter( cloud => cloud.type === S3_COMPATIBLE).length;
 
         this.cloudCount(cloudResourcesList.length);
         this.cloudChartValues[0].value(awsCount);
@@ -197,6 +175,8 @@ class ResourceOverviewViewModel extends Observer {
         this.cloudChartValues[2].value(s3CompatibleCount);
         const cloudStorageList = cloudResourcesList.map(cloud => cloud.storage);
         this.cloudStorage(cloudStorageList.length ? aggregateStorage(...cloudStorageList).total.peta : 0);
+        this.cloudCountText(`${this.cloudCount()} Cloud`);
+        this.cloudCountSecondaryText(this.cloudCount() === 1 ? 'resource' : 'resources');
     }
 
     onInternal(internalResources) {
@@ -204,13 +184,18 @@ class ResourceOverviewViewModel extends Observer {
 
         if(internalResourcesList.length) {
             const internalResource = internalResourcesList[0];
-            this.internalResourceState(internalResourceStates[internalResource.state]);
 
             this.internalChartValues[0].value(internalResource.storage.free);
             this.internalChartValues[1].value(internalResource.storage.used);
 
             this.internalStorage(formatSize(internalResource.storage.total));
         }
+    }
+
+    onBucket(buckets) {
+        const bucketsList = Object.values(buckets);
+        const spilloverEnabled = bucketsList.filter(bucket => bucket.spilloverEnabled).length;
+        this.internalResourceState( spilloverEnabled ? 'Enabled' : 'Disabled');
     }
 
     onInstallNodes() {

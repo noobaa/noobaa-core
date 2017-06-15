@@ -14,18 +14,14 @@ const initialState = {};
 // ------------------------------
 
 function onCompleteFetchSystemInfo(_, { payload }) {
-    const { pools, buckets } = payload;
-
-    const enabledInBuckets = buckets.filter(bucket => bucket.spillover_enabled);
+    const { pools } = payload;
 
     return keyByProperty(
         pools.filter(pool => pool.resource_type === 'INTERNAL'),
         'name',
         ({ name, storage }) => ({
             name,
-            state: enabledInBuckets.length ? 'ENABLED' : 'DISABLED',
-            storage: storage,
-            usedBy: enabledInBuckets
+            storage: storage
         })
     );
 }

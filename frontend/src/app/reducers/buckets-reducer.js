@@ -16,6 +16,7 @@ const initialState = {};
 function onCompleteFetchSystemInfo(state, { payload }) {
     return keyByProperty(payload.buckets, 'name', bucket => ({
         name: bucket.name,
+        spilloverEnabled: bucket.spillover_enabled,
         mode: _clacBucketMode(bucket),
         storage: bucket.storage,
         data: bucket.data,

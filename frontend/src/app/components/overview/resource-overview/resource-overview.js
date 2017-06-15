@@ -139,20 +139,15 @@ class ResourceOverviewViewModel extends Observer {
     }
 
     onPools(nodePools) {
-        const poolList = Object.values(nodePools.pools);
-        const nodesByMode = countNodesByState(nodePools.nodes);
-        const healthyCount = nodesByMode.healthy || 0;
-        const withIssuesCount = nodesByMode.hasIssues || 0;
-        const offlineCount = nodesByMode.offline || 0;
-        const count = healthyCount + withIssuesCount + offlineCount;
+        const poolsList = Object.values(nodePools.pools);
+        const nodesByState = countNodesByState(nodePools.nodes);
 
-        this.nodeCount(count);
-        this.poolsCount(poolList.length);
-        this.poolsCount(poolList.length);
-        this.poolsChartValues[0].value(healthyCount);
-        this.poolsChartValues[1].value(withIssuesCount);
-        this.poolsChartValues[2].value(offlineCount);
-        const poolsStorageList = poolList.map(cloud => cloud.storage);
+        this.nodeCount(nodesByState.all);
+        this.poolsCount(poolsList.length);
+        this.poolsChartValues[0].value(nodesByState.healthy);
+        this.poolsChartValues[1].value(nodesByState.hasIssues);
+        this.poolsChartValues[2].value(nodesByState.offline);
+        const poolsStorageList = poolsList.map(pool => pool.storage);
         this.nodesStorage(poolsStorageList.length ? formatSize(aggregateStorage(...poolsStorageList).total) : 0);
         this.nodeCountText(stringifyAmount('Node', this.nodeCount()));
         this.resourcesLinkText(stringifyAmount(
@@ -181,15 +176,12 @@ class ResourceOverviewViewModel extends Observer {
 
     onInternal(internalResources) {
         const internalResourcesList = Object.values(internalResources);
+        const internalStorageList = internalResourcesList.map(cloud => cloud.storage);
+        const aggregatedStorage = aggregateStorage(...internalStorageList);
+        this.internalChartValues[0].value(aggregatedStorage.free || 0);
+        this.internalChartValues[1].value(aggregatedStorage.used || 0);
+        this.internalStorage(formatSize(aggregatedStorage.total || 0));
 
-        if(internalResourcesList.length) {
-            const internalResource = internalResourcesList[0];
-
-            this.internalChartValues[0].value(internalResource.storage.free);
-            this.internalChartValues[1].value(internalResource.storage.used);
-
-            this.internalStorage(formatSize(internalResource.storage.total));
-        }
     }
 
     onBucket(buckets) {
@@ -208,8 +200,7 @@ class ResourceOverviewViewModel extends Observer {
 
     selectResourceType(type) {
         const resourceType = type || undefined;
-        const filter = undefined;
-        redirectTo(undefined, undefined, { filter, ...routeContext().query, resourceType });
+        redirectTo(undefined, undefined, { ...routeContext().query, resourceType });
     }
 
     isVisible(resourceType) {

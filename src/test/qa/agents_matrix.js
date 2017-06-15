@@ -27,6 +27,11 @@ var vnetName = argv.vnet;
 const serverName = argv.server_ip;
 const upgrade_pack = argv.upgrade_pack;
 
+//define colors
+const Yellow = "\x1b[33;1m";
+const Red = "\x1b[31m";
+const NC = "\x1b[0m";
+
 //noobaa rpc
 var api = require('../../api');
 var rpc = api.new_rpc('wss://' + serverName + ':8443');
@@ -62,8 +67,12 @@ function createAgents(isInclude) {
         }
     }))
         .then(res => {
-            initial_node_number = res.total_count;
-            console.log(`Num nodes before the test is: ${initial_node_number}`);
+            const my_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED').length;
+            console.log(`${Yellow}Number of Excluded agents: ${my_nodes}${NC}`);
+            initial_node_number = res.total_count - my_nodes;
+            console.warn(`${Yellow}Num nodes before the test is: ${
+                res.total_count}, ${initial_node_number} include and ${
+                my_nodes} exclude.${NC}`);
         })
         .then(() => {
             if (isInclude) {
@@ -73,7 +82,7 @@ function createAgents(isInclude) {
                 ).catch(saveErrorAndResume));
 
             } else {
-                return runExtensions('init_agent', `${serverName}  ${agentConf}`)
+                return runExtensions('init_agent', `${serverName} ${agentConf}`)
                     .catch(saveErrorAndResume);
             }
         })
@@ -94,7 +103,7 @@ function runCreateAgents(isInclude) {
         }
     })).then(res => {
         node_number_after_create = res.total_count;
-        console.log('Num nodes after create is: ', node_number_after_create);
+        console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
         nodes = [];
         console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
     });
@@ -182,16 +191,16 @@ function deleteAgent() {
             nodes = [];
             console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
             if (res.total_count === initial_node_number) {
-                console.warn(`Num nodes after the delete agent are ${
+                console.warn(`${Yellow}Num nodes after the delete agent are ${
                     res.total_count
-                    } - the same as before - good`);
+                    } - the same as before - good${NC}`);
             } else {
                 const error = `Num nodes after the delete agent are ${
                     res.total_count
                     } - something went wrong... suppose to go back to initial size ${
                     initial_node_number
                     }`;
-                console.error(error);
+                console.error(`${Yellow}${error}${NC}`);
                 throw new Error(error);
             }
         });
@@ -229,7 +238,7 @@ function checkIncludeDisk() {
     }))
         .then(res => {
             number_befor_adding_disks = res.total_count;
-            console.log(`Num nodes before adding disks is: ${number_befor_adding_disks}`);
+            console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`);
         })
         .then(() => addDisksToMachine(size))
         //map the disks
@@ -249,7 +258,7 @@ function checkExcludeDisk(excludeList) {
     }))
         .then(res => {
             number_befor_adding_disks = res.total_count;
-            console.log(`Num nodes before adding disks is: ${number_befor_adding_disks}`);
+            console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`);
         })
         .then(() => addDisksToMachine(size))
         .then(() => runExtensions('map_new_disk', '-e'))
@@ -272,19 +281,19 @@ function isIncluded(previous_agent_number, additional_agents = oses.length, prin
     }))
         .then(res => {
             const my_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED');
-            console.warn(`Number of Excluded agents: ${my_nodes.length}`);
+            console.warn(`${Yellow}Number of Excluded agents: ${my_nodes.length}${NC}`);
             console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
             const excpected_count = previous_agent_number + additional_agents;
             const actual_count = res.total_count - my_nodes.length;
             if (actual_count === excpected_count) {
-                console.warn(`Num nodes after the ${print} are ${actual_count}`);
+                console.warn(`${Yellow}Num nodes after the ${print} are ${actual_count}${NC}`);
             } else {
                 const error = `Num nodes after the ${print} are ${
                     actual_count
                     } - something went wrong... expected ${
                     excpected_count
                     }`;
-                console.error(error);
+                console.error(`${Yellow}${error}${NC}`);
                 throw new Error(error);
             }
         });
@@ -308,13 +317,13 @@ function isExcluded(excludeList) {
                 .map(Number)
                 .reduce((a, b) => a + b);
             if (countExclude === 0) {
-                console.warn(`Num of exclude live nodes are ${
-                    countExclude} as expected`);
+                console.warn(`${Yellow}Num of exclude live nodes are ${
+                    countExclude} as expected${NC}`);
             } else {
                 const error = `Num of exclude live nodes are ${
                     countExclude
                     } - something went wrong... expected 0`;
-                console.error(error);
+                console.error(`${Yellow}${error}${NC}`);
                 throw new Error(error);
             }
         });
@@ -323,24 +332,24 @@ function isExcluded(excludeList) {
 function includeExcludeCycle(isInclude) {
     const excludeList = ['E:\\', 'F:\\', '/exclude1', '/exclude2'];
     if (isInclude) {
-        console.warn('starting include cycle');
+        console.warn(`${Red}starting include cycle${NC}`);
     } else {
-        console.warn('starting exclude cycle');
+        console.warn(`${Red}starting exclude cycle${NC}`);
     }
     return getAgentConf(isInclude ? [] : excludeList)
         .then(() => isInclude || runExtensions('map_new_disk', '-r'))
         // creating agents on the VM - diffrent oses.
         .then(() => runCreateAgents(isInclude))
         //verifying write, read, diag and debug level.
-        .then(verifyAgent())
+        .then(verifyAgent)
         // adding phisical disks to the machines.
         .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk(excludeList)))
         //verifying write, read, diag and debug level.
-        .then(verifyAgent())
+        .then(verifyAgent)
         // Upgrade to same version before uninstalling
-        .then(upgradeAgent())
+        .then(upgradeAgent)
         // // //verifying write, read, diag and debug level after the upgrade.
-        .then(verifyAgent())
+        .then(verifyAgent)
         // Cleaning the machine Extention and installing new one that remove nodes.
         .then(() => argv.skipsetup || deleteAgent());
 }
@@ -361,7 +370,7 @@ function main() {
                 );
             }
         })
-        //runing all all the VM machines and deleating all the disks.
+        //running all all the VM machines and deleating all the disks.
         .then(() => {
             if (!argv.skipsetup) {
                 return P.map(oses, osname => azf.deleteBlobDisks(osname)
@@ -372,7 +381,7 @@ function main() {
         // checking the include disk cycle.
         .then(() => includeExcludeCycle(true))
         // checking the exclude disk cycle.
-        // .then(() => includeExcludeCycle(false))
+        .then(() => includeExcludeCycle(false))
         .catch(saveErrorAndResume)
         .then(() => rpc.disconnect_all())
         .then(() => {

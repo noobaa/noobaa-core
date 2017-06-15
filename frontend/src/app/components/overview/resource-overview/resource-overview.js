@@ -198,8 +198,7 @@ class ResourceOverviewViewModel extends Observer {
         openAddCloudResrouceModal();
     }
 
-    selectResourceType(type) {
-        const resourceType = type || undefined;
+    selectResourceType(resourceType) {
         redirectTo(undefined, undefined, { ...routeContext().query, resourceType });
     }
 

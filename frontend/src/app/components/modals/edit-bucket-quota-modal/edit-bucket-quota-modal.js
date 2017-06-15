@@ -27,7 +27,7 @@ function calcDataBreakdown(data, quota) {
         const available = toBigInteger(data.free);
         const quotaSize = quotaBigInt(quota);
         const used = bigInteger.min(toBigInteger(data.size), quotaSize);
-        const overused = bigInteger.max(zero, used.subtract(quotaSize));
+        const overused = bigInteger.max(zero, toBigInteger(data.size).subtract(quotaSize));
         const overallocated = bigInteger.max(zero, quotaSize.subtract(available.add(used)));
         const availableToUpload = bigInteger.min(bigInteger.max(zero, quotaSize.subtract(used)), available);
         const availableOverQuota = bigInteger.max(zero, available.subtract(availableToUpload));

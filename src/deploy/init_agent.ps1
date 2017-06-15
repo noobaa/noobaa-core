@@ -18,4 +18,7 @@ if(!(Test-Path -Path $TARGETDIR )){
     $agent_conf= $args[1]
     Start-Sleep -s 30
     c:\noobaa\noobaa-setup.exe /S /config $agent_conf
+} else {
+    $agent_conf= $args[1]
+    c:\noobaa\noobaa-setup.exe /S /config $agent_conf
 }

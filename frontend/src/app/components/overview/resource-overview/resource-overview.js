@@ -132,7 +132,11 @@ class ResourceOverviewViewModel extends Observer {
             }
         ];
 
-        this.observe(state$.getMany('nodePools', 'cloudResources', 'internalResources', 'buckets'), this.onLoad);
+        this.observe(state$.getMany(
+            'nodePools',
+            ['cloudResources', 'resources'],
+            ['internalResources', 'resources'],
+            'buckets'), this.onLoad);
     }
 
     onLoad([nodePools, cloudResources, internalResources, buckets]) {

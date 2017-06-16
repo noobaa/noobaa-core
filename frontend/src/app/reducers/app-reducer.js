@@ -14,6 +14,7 @@ import objectUploadsReducer from './object-uploads-reducer';
 import alertsReducer from './alerts-reducer';
 import notificationsReducer from './notificaitons-reducer';
 import internalResourcesReducer from './internal-resources-reducer';
+import clusterReducer from './cluster-reducer';
 
 export default combineReducers({
     session: sessionReducer,
@@ -28,5 +29,6 @@ export default combineReducers({
     internalResources: internalResourcesReducer,
     accounts: accountsReducer,
     objectUploads: objectUploadsReducer,
-    notifications: notificationsReducer
+    notifications: notificationsReducer,
+    cluster: clusterReducer
 });

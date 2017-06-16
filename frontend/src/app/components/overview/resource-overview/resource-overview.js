@@ -25,15 +25,15 @@ const S3_COMPATIBLE = 'S3_COMPATIBLE';
 const resourceTypeOptions = deepFreeze([
     {
         label: 'Pools',
-        value: 'pools'
+        value: 'HOSTS'
     },
     {
         label: 'Cloud',
-        value: 'cloud'
+        value: 'CLOUD'
     },
     {
         label : 'Internal',
-        value: 'internal'
+        value: 'INTERNAL'
     }
 ]);
 
@@ -132,22 +132,20 @@ class ResourceOverviewViewModel extends Observer {
             }
         ];
 
-        this.observe(state$.get('nodePools'), this.onPools);
-        this.observe(state$.get('cloudResources'), this.onCloud);
-        this.observe(state$.get('internalResources'), this.onInternal);
-        this.observe(state$.get('buckets'), this.onBucket);
+        this.observe(state$.getMany('nodePools', 'cloudResources', 'internalResources', 'buckets'), this.onLoad);
     }
 
-    onPools(nodePools) {
+    onLoad([nodePools, cloudResources, internalResources, buckets]) {
+        // node pools
         const poolsList = Object.values(nodePools.pools);
         const nodesByState = countNodesByState(nodePools.nodes);
+        const poolsStorageList = poolsList.map(pool => pool.storage);
 
         this.nodeCount(nodesByState.all);
         this.poolsCount(poolsList.length);
         this.poolsChartValues[0].value(nodesByState.healthy);
         this.poolsChartValues[1].value(nodesByState.hasIssues);
         this.poolsChartValues[2].value(nodesByState.offline);
-        const poolsStorageList = poolsList.map(pool => pool.storage);
         this.nodesStorage(poolsStorageList.length ? formatSize(aggregateStorage(...poolsStorageList).total) : 0);
         this.nodeCountText(stringifyAmount('Node', this.nodeCount()));
         this.resourcesLinkText(stringifyAmount(
@@ -155,11 +153,9 @@ class ResourceOverviewViewModel extends Observer {
             this.poolsCount() + this.cloudCount(),
             'No'
         ));
-    }
 
-    onCloud(cloudResources) {
+        // cloud resources
         const cloudResourcesList = Object.values(cloudResources);
-        this.cloudCount(cloudResourcesList.length);
         const awsCount = cloudResourcesList.filter( cloud => cloud.type === AWS).length;
         const azureCount = cloudResourcesList.filter( cloud => cloud.type === AZURE).length;
         const s3CompatibleCount = cloudResourcesList.filter( cloud => cloud.type === S3_COMPATIBLE).length;
@@ -172,9 +168,8 @@ class ResourceOverviewViewModel extends Observer {
         this.cloudStorage(cloudStorageList.length ? aggregateStorage(...cloudStorageList).total.peta : 0);
         this.cloudCountText(`${this.cloudCount()} Cloud`);
         this.cloudCountSecondaryText(this.cloudCount() === 1 ? 'resource' : 'resources');
-    }
 
-    onInternal(internalResources) {
+        // internal resources
         const internalResourcesList = Object.values(internalResources);
         const internalStorageList = internalResourcesList.map(cloud => cloud.storage);
         const aggregatedStorage = aggregateStorage(...internalStorageList);
@@ -182,9 +177,7 @@ class ResourceOverviewViewModel extends Observer {
         this.internalChartValues[1].value(aggregatedStorage.used || 0);
         this.internalStorage(formatSize(aggregatedStorage.total || 0));
 
-    }
-
-    onBucket(buckets) {
+        // buckets
         const bucketsList = Object.values(buckets);
         const spilloverEnabled = bucketsList.filter(bucket => bucket.spilloverEnabled).length;
         this.internalResourceState( spilloverEnabled ? 'Enabled' : 'Disabled');

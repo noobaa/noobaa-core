@@ -16,15 +16,15 @@
         "></toggle-filter>
     </div>
     <section class="column greedy"
-             ko.visible="isVisible('pools')"
+             ko.visible="isVisible('HOSTS')"
              ko.template="{ html: poolsOverviewTemplate }">
     </section>
     <section class="column greedy"
-             ko.visible="isVisible('cloud')"
+             ko.visible="isVisible('CLOUD')"
              ko.template="{ html: cloudOverviewTemplate }">
     </section>
     <section class="column greedy"
-             ko.visible="isVisible('internal')"
+             ko.visible="isVisible('INTERNAL')"
              ko.template="{ html: internalOverviewTemplate }">
     </section>
 </section>

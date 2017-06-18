@@ -1405,15 +1405,16 @@ class NodesMonitor extends EventEmitter {
     _should_include_drives(mount, os_info, exclude_drives) {
         if (os_info.ostype === 'Windows_NT') {
             let win_drives = exclude_drives.map(drv => {
+                let ret = drv;
                 if (drv.length === 1) {
-                    return drv + ':';
+                    ret = drv + ':';
                 } else if (drv[drv.length - 1] === '\\') {
-                    return drv.slice(0, drv.length - 1);
+                    ret = drv.slice(0, drv.length - 1);
                 }
                 // win drives are case insensitive;
-                return drv.toLowerCase();
+                return ret.toLowerCase();
             });
-            return win_drives.indexOf(mount.toLowerCase()) === -1;
+            return !win_drives.includes(mount.toLowerCase());
         }
         return exclude_drives.indexOf(mount) === -1;
     }

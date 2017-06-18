@@ -10,6 +10,7 @@ coretest.setup({
 // CORE
 require('./test_system_servers');
 require('./test_node_server');
+require('./test_host_server');
 require('./test_agent');
 require('./test_object_io');
 require('./test_map_utils');

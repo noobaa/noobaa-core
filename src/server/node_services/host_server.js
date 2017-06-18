@@ -50,8 +50,8 @@ function test_host_network() {
     throw new Error('NOT_IMPLEMENTED');
 }
 
-function set_debug_host() {
-    throw new Error('NOT_IMPLEMENTED');
+function set_debug_host(req) {
+    return nodes_server.get_local_monitor().set_debug_host(req);
 }
 
 function update_host_services(req) {

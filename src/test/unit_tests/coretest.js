@@ -157,7 +157,11 @@ function clear_test_nodes() {
         .then(() => console.log('REMOVE NODES'))
         .then(() => NodesStore.instance().test_code_delete_all_nodes())
         .then(() => console.log('CLEANING AGENTS'))
-        .then(() => core_agent_control.cleanup_agents());
+        .then(() => core_agent_control.cleanup_agents())
+        .then(() => {
+            node_server.stop_monitor();
+            node_server.start_monitor();
+        });
 }
 
 exports.setup = setup;

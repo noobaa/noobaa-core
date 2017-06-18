@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+const uuid = require('node-uuid');
 
 var P = require('../../util/promise');
 // var dbg = require('../../util/debug_module')(__filename);
@@ -89,6 +90,7 @@ function create_agent(howmany) {
                     create_node_token = _.cloneDeep(new_token);
                 }
             },
+            host_id: uuid(),
         });
         agntCtlConfig.allocated_agents[agent.node_name] = {
             agent: agent,

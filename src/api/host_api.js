@@ -177,6 +177,24 @@ module.exports = {
             }
         },
 
+        set_debug_host: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['host_name', 'level'],
+                properties: {
+                    host_name: {
+                        type: 'string'
+                    },
+                    level: {
+                        type: 'integer',
+                    }
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
     },
 

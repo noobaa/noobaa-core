@@ -1412,7 +1412,7 @@ class NodesMonitor extends EventEmitter {
                 // win drives are case insensitive;
                 return ret.toLowerCase();
             });
-            return !win_drives.includes(mount.toLowerCase());
+            return win_drives.indexOf(mount.toLowerCase()) === -1;
         }
         return exclude_drives.indexOf(mount) === -1;
     }
@@ -2592,21 +2592,24 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
+    set_debug_host(req) {
+        this._throw_if_not_started_and_loaded();
+        const debug_level = req.rpc_params.level;
+        const name = req.rpc_params.host_name;
+        const host_nodes = this._get_nodes_by_host_name(name);
+        return P.map(host_nodes, item => this._set_agent_debug_level(item, debug_level))
+            .then(() => {
+                // TODO: generte event here
+                dbg.log1('set_debug_node was successful for host', name, 'level', debug_level);
+            });
+    }
+
     set_debug_node(req) {
         this._throw_if_not_started_and_loaded();
         const debug_level = req.rpc_params.level;
         const node_identity = req.rpc_params.node;
         const item = this._get_node(node_identity);
-        return P.resolve()
-            .then(() => {
-                item.node.debug_level = debug_level;
-                this._set_need_update.add(item);
-                return server_rpc.client.agent.set_debug_node({
-                    level: debug_level
-                }, {
-                    connection: item.connection,
-                });
-            })
+        return this._set_agent_debug_level(item, debug_level)
             .then(() => {
                 Dispatcher.instance().activity({
                     system: req.system._id,
@@ -2678,6 +2681,15 @@ class NodesMonitor extends EventEmitter {
         }
     }
 
+    _set_agent_debug_level(item, debug_level) {
+        item.node.debug_level = debug_level;
+        this._set_need_update.add(item);
+        return server_rpc.client.agent.set_debug_node({
+            level: debug_level
+        }, {
+            connection: item.connection,
+        });
+    }
 
     _node_storage_info(item) {
         const ignore_reserve = item.node.is_internal_node || item.node.is_cloud_node || item.node.is_mongo_node;

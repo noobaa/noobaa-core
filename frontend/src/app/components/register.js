@@ -121,6 +121,7 @@ export default function register(ko) {
     ko.components.register('pools-table',           require('./resources/pools-table/pools-table').default);
     ko.components.register('create-pool-wizard',    require('./resources/create-pool-wizard/create-pool-wizard').default);
     ko.components.register('cloud-resources-table', require('./resources/cloud-resources-table/cloud-resources-table').default);
+    ko.components.register('internal-resources-table', require('./resources/internal-resources-table/internal-resources-table').default);
     /** INJECT:resources **/
 
     // -------------------------------

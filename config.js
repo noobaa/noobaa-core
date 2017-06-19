@@ -58,9 +58,9 @@ config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 config.SPILLOVER_TIER_NAME = 'system-internal-spillover-tier';
 
 config.MD_AGGREGATOR_INTERVAL = 30000;
-// the max time frame limits how much time the aggregator will aim to close the gaps
+// the max cycles limits how many intervals the aggregator will split the gap
 // the higher this value the higher the time intervals it will scan when trying to close time gaps
-config.MD_AGGREGATOR_MAX_TIME_FRAME = 24 * 60 * 60 * 1000; // 1 day
+config.MD_AGGREGATOR_MAX_CYCLES = 2880; // 1 day / 30 seconds
 // Currently the grace is 3 cycles of md_aggregator
 // This grace is used since we can hold up an ObjectID and not push it inside the DB
 // Which will mean that it will be pushed later on with a previous date

@@ -40,13 +40,19 @@ function background_worker() {
             const next_group_from_date = is_last_group ? target_now :
                 parseInt(sorted_group_update_times[group_index + 1], 10);
             const time_diff = next_group_from_date - from_date;
-            const scaled_time_diff = time_diff * config.MD_AGGREGATOR_INTERVAL / config.MD_AGGREGATOR_MAX_TIME_FRAME;
-            const date_delta = Math.max(Math.floor(scaled_time_diff) || time_diff, config.MD_AGGREGATOR_INTERVAL);
+
+            // on normal operation the time_diff to close can be closed within a single MD_AGGREGATOR_INTERVAL
+            // but on upgrades or shutdowns the gap can get higher, and then we limit the number of cycles we
+            // allow to run to MD_AGGREGATOR_MAX_CYCLES, and therefore increase the interval from MD_AGGREGATOR_INTERVAL
+            // to higher interval in order to close the gap in a reasonable number of cycles.
+            const current_interval = Math.max(
+                Math.floor(time_diff / config.MD_AGGREGATOR_MAX_CYCLES),
+                config.MD_AGGREGATOR_INTERVAL);
 
             return promise_utils.pwhile(
                     () => !group_finished,
                     () => {
-                        const till_date = Math.min(from_date + date_delta, next_group_from_date);
+                        const till_date = Math.min(from_date + current_interval, next_group_from_date);
                         return group_md_aggregator(
                                 from_date,
                                 till_date,

@@ -563,14 +563,23 @@ module.exports = {
                             format: 'idate'
                         },
                         pools: {
-                            type: 'object',
-                            additionalProperties: {
+                            type: 'array',
+                            items: {
                                 type: 'object',
-                                required: ['blocks_size'],
+                                required: ['pool_name', 'storage'],
                                 properties: {
-                                    blocks_size: {
-                                        $ref: 'common_api#/definitions/bigint'
+                                    pool_name: {
+                                        type: 'string'
                                     },
+                                    storage: {
+                                        type: 'object',
+                                        required: ['blocks_size'],
+                                        properties: {
+                                            blocks_size: {
+                                                $ref: 'common_api#/definitions/bigint'
+                                            },
+                                        },
+                                    }
                                 },
                             },
                         },

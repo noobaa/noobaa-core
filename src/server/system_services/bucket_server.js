@@ -1066,13 +1066,15 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         last_update: _.get(bucket, 'storage_stats.last_update')
     };
 
-    info.usage_by_pool.pools = _.omitBy(_.mapKeys(_.get(bucket, 'storage_stats.pools', {}), function(storage, pool_id) {
+    info.usage_by_pool.pools = [];
+    _.mapKeys(_.get(bucket, 'storage_stats.pools', {}), function(storage, pool_id) {
         const pool = system_store.data.get_by_id(pool_id);
         if (pool) {
-            return system_store.data.get_by_id(pool_id).name;
+            info.usage_by_pool.pools.push({
+                pool_name: system_store.data.get_by_id(pool_id).name,
+                storage: storage
+            });
         }
-    }), function(value, key) {
-        return !_.isUndefined(key);
     });
 
     const stats = bucket.stats;

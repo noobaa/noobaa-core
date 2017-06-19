@@ -219,6 +219,7 @@ function get_chunk_status(chunk, tiering, additional_params) {
         if (String(chunk_status.tier._id) === String(prefered_tier._id)) {
             status.allocations = chunk_status.status.allocations;
             status.deletions = chunk_status.status.deletions;
+            status.extra_allocations = chunk_status.status.extra_allocations;
         }
     });
 

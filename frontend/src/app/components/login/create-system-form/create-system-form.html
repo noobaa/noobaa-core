@@ -86,7 +86,13 @@
                 Next
             </button>
 
-            <button class="btn" ko.visible="isCreateSystemVisible" ko.click="createSystem">Create system</button>
+            <working-button class="align-start push-next" ko.visible="isCreateSystemVisible" params="
+                working: creatingSystem,
+                workingLabel: 'Creating...',
+                click: createSystem
+            ">
+                Create System
+            </working-button>
         </div>
     </div>
 </section>

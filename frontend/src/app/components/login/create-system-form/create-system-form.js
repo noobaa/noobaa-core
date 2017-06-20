@@ -7,6 +7,7 @@ import { validateActivation, attemptResolveSystemName, createSystem } from 'acti
 import { activationState, nameResolutionState, serverInfo } from 'model';
 import moment from 'moment';
 import { deepFreeze } from 'utils/core-utils';
+import { sleep } from 'utils/promise-utils';
 import { calcPasswordStrength } from 'utils/password-utils';
 
 const activationFaliureReasonMapping = deepFreeze({
@@ -24,7 +25,8 @@ class CreateSystemFormViewModel extends BaseViewModel {
         this.steps = ['account details', 'system config'];
         this.step = ko.observable(0);
         this.wasValidated = ko.observable(false);
-
+        this.creatingSystem = ko.observable(false);
+        
         let serverConfig = ko.pureComputed(
             () => serverInfo() ? serverInfo().config : {}
         );
@@ -191,6 +193,8 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
     createSystem() {
         let serverConfig = serverInfo().config;
+        this.creatingSystem(true);
+        sleep(25 * 1000, false).then(this.creatingSystem);
 
         let dnsServers = [];
         if (!serverConfig.using_dhcp && serverConfig.dns_servers) {

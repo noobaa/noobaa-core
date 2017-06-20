@@ -85,17 +85,18 @@ function create_bucket(req) {
 
     if (req.rpc_params.tiering) {
         tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
-        changes.update.tieringpolicies = [{
-            _id: tiering_policy._id,
-            $push: {
-                tiers: {
-                    tier: internal_storage_tier._id,
-                    order: 1,
-                    spillover: true,
-                    disabled: true
-                }
-            }
-        }];
+        // TODO: Disabled spillover untill the UI will support the feature
+        // changes.update.tieringpolicies = [{
+        //     _id: tiering_policy._id,
+        //     $push: {
+        //         tiers: {
+        //             tier: internal_storage_tier._id,
+        //             order: 1,
+        //             spillover: true,
+        //             disabled: true
+        //         }
+        //     }
+        // }];
     } else {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
@@ -108,16 +109,19 @@ function create_bucket(req) {
         );
         tiering_policy = tier_server.new_policy_defaults(
             bucket_with_suffix, req.system._id, [{
-                tier: tier._id,
-                order: 0,
-                spillover: false,
-                disabled: false
-            }, {
-                tier: internal_storage_tier._id,
-                order: 1,
-                spillover: true,
-                disabled: true
-            }]
+                    tier: tier._id,
+                    order: 0,
+                    spillover: false,
+                    disabled: false
+                }
+                // TODO: Disabled spillover untill the UI will support the feature
+                // , {
+                //     tier: internal_storage_tier._id,
+                //     order: 1,
+                //     spillover: true,
+                //     disabled: true
+                // }
+            ]
         );
 
         changes.insert.tieringpolicies = [tiering_policy];

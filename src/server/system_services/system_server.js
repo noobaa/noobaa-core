@@ -1197,7 +1197,8 @@ function _ensure_spillover_structure(system) {
 }
 
 function _create_system_internal_storage(system_changes, auth_token) {
-    const default_tiering_policy = system_changes.insert.tieringpolicies[0];
+    // TODO: Disabled spillover untill the UI will support the feature
+    // const default_tiering_policy = system_changes.insert.tieringpolicies[0];
     const default_system = system_changes.insert.systems[0];
     return P.fcall(function() {
             if (!pool_server.get_internal_mongo_pool(default_system._id)) {
@@ -1218,19 +1219,20 @@ function _create_system_internal_storage(system_changes, auth_token) {
             }
 
             return {
-                update: {
-                    tieringpolicies: [{
-                        _id: default_tiering_policy._id,
-                        $push: {
-                            tiers: {
-                                tier: internal_tier._id,
-                                order: 1,
-                                spillover: true,
-                                disabled: false
-                            }
-                        }
-                    }]
-                },
+                // TODO: Disabled spillover untill the UI will support the feature
+                // update: {
+                //     tieringpolicies: [{
+                //         _id: default_tiering_policy._id,
+                //         $push: {
+                //             tiers: {
+                //                 tier: internal_tier._id,
+                //                 order: 1,
+                //                 spillover: true,
+                //                 disabled: false
+                //             }
+                //         }
+                //     }]
+                // },
                 insert: {
                     tiers: [internal_tier]
                 }

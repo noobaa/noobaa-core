@@ -2,7 +2,7 @@
 
 import { keyByProperty } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
+import { COMPLETE_FETCH_SYSTEM_INFO, COMPLETE_UPDATE_BUCKET_INTERNAL_SPILLOVER } from 'action-types';
 
 
 // ------------------------------
@@ -20,8 +20,22 @@ function onCompleteFetchSystemInfo(state, { payload }) {
         mode: _clacBucketMode(bucket),
         storage: bucket.storage,
         data: bucket.data,
-        quota: bucket.quota
+        quota: bucket.quota,
+        usage_by_pool: keyByProperty(
+            bucket.usage_by_pool.pools,
+            'pool_name',
+            ({ pool_name, storage }) => ({
+                name: pool_name,
+                storage
+            })
+        )
     }));
+}
+
+function onCompleteUpdateBucketInternalSpillover(state, { payload }) {
+    const { bucket, spilloverEnabled } = payload;
+
+    return { ...state, [bucket]: { ...state[bucket], spilloverEnabled }  };
 }
 
 // ------------------------------
@@ -35,5 +49,6 @@ function _clacBucketMode({ writable }) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
+    [COMPLETE_UPDATE_BUCKET_INTERNAL_SPILLOVER]: onCompleteUpdateBucketInternalSpillover
 });

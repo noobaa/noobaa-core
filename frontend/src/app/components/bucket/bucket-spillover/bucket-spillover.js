@@ -4,8 +4,9 @@ import template from './bucket-spillover.html';
 import SpilloverResourceRowViewModel from './spillover-resource-row';
 import Observer from 'observer';
 import { deepFreeze } from 'utils/core-utils';
-//import { stringifyAmount } from 'utils/string-utils';
+import { updateBucketInternalSpillover } from 'dispatchers';
 import { getPoolStateIcon, getPoolCapacityBarValues, getResourceTypeIcon } from 'utils/ui-utils';
+import { routeContext } from 'model';
 import ko from 'knockout';
 import { state$ } from 'state';
 
@@ -36,16 +37,18 @@ class BucketSpilloverViewModel extends Observer {
         this.rows = ko.observable([]);
         this.columns = columns;
         this.emptyMessage = 'System does not contain any internal resources';
-        this.ChangeSpilloverStateText = ko.observable();
-
+        this.tableDisabled = ko.observable();
+        this.ChangeSpilloverButtonText = ko.observable();
+        this.bucket = ko.observable();
         this.observe(state$.getMany('internalResources', 'buckets'), this.onState);
     }
 
     onState([internalResources, buckets]) {
         const resourcesList = Object.values(internalResources.resources);
         const bucketsList = Object.values(buckets);
-
-        this.ChangeSpilloverStateText(bucketsList[0].spillover_enabled ? 'Disable Spillover' : 'Enable Spillover');
+        const bucket = bucketsList.find(
+            ({ name }) => routeContext().params.bucket === name
+        );
 
         const rows = resourcesList.map(
             item => (new SpilloverResourceRowViewModel()).onUpdate({
@@ -59,12 +62,16 @@ class BucketSpilloverViewModel extends Observer {
         for (let i = 0; i < rows.length; ++i) {
             this.rows()[i] = rows[i];
         }
+
         this.rows().length = rows.length;
         this.rows(this.rows());
+        this.bucket(bucket);
+        this.tableDisabled(!bucket.spilloverEnabled);
+        this.ChangeSpilloverButtonText(bucket.spilloverEnabled ? 'Disable Spillover' : 'Enable Spillover');
     }
 
     onChangeSpilloverState() {
-        // TODO:Add edit spillover targets modals to internal storage tab (resource page)
+        updateBucketInternalSpillover(this.bucket().name, !this.bucket().spilloverEnabled);
     }
 }
 

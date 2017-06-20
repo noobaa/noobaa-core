@@ -7,11 +7,11 @@
     </div>
     <button class="btn align-end"
             ko.click="onChangeSpilloverState"
-            ko.text="ChangeSpilloverStateText">
+            ko.text="ChangeSpilloverButtonText">
     </button>
 </div>
 
-<data-table class="greedy" params="
+<data-table class="greedy" ko.css.disabled="tableDisabled" params="
     columns: columns,
     data: rows,
     emptyMessage: emptyMessage

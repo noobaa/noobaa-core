@@ -226,13 +226,19 @@ const resourceTypeIconMapping = deepFreeze({
     NODES_POOL: {
         name: 'nodes-pool',
         tooltip: 'Nodes Pool'
+    },
+
+    INTERNAL: {
+        name: 'internal-resource',
+        tooltip: 'Internal Resource'
     }
 });
 
 export function getResourceTypeIcon({ resource_type, cloud_info }) {
     const type = {
         HOSTS: () => 'NODES_POOL',
-        CLOUD: () => cloud_info.endpoint_type
+        CLOUD: () => cloud_info.endpoint_type,
+        INTERNAL: () => 'INTERNAL'
     }[resource_type];
 
     if (!type) {

@@ -44,11 +44,9 @@ class BucketSpilloverViewModel extends Observer {
     onState([internalResources, buckets]) {
         const resourcesList = Object.values(internalResources.resources);
         const bucketsList = Object.values(buckets);
-        //const bucketsCount = bucketsList.length;
-        //const spilloverEnabledBucketsCount = bucketsList.filter(bucket => bucket.spilloverEnabled).length;
 
         this.ChangeSpilloverStateText(bucketsList[0].spillover_enabled ? 'Disable Spillover' : 'Enable Spillover');
-        console.warn('resourcesList', resourcesList);
+
         const rows = resourcesList.map(
             item => (new SpilloverResourceRowViewModel()).onUpdate({
                 status: getPoolStateIcon(item),
@@ -63,8 +61,6 @@ class BucketSpilloverViewModel extends Observer {
         }
         this.rows().length = rows.length;
         this.rows(this.rows());
-
-        //this.buckets(bucketsList);
     }
 
     onChangeSpilloverState() {

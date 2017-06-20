@@ -984,10 +984,22 @@ function set_certificate(zip_file) {
 
             // check that these key and certificate are valid, matching and can be loaded before storing them
             try {
+                tls.createSecureContext({ key });
+            } catch (err) {
+                dbg.error('The provided private key is invalid', err);
+                throw new Error('The provided private key is invalid');
+            }
+            try {
+                tls.createSecureContext({ cert });
+            } catch (err) {
+                dbg.error('The provided certificate is invalid', err);
+                throw new Error('The provided certificate is invalid');
+            }
+            try {
                 tls.createSecureContext({ key, cert });
             } catch (err) {
-                dbg.error('The provided certificate could not be loaded', err);
-                throw new Error('The provided certificate could not be loaded');
+                dbg.error('The provided certificate and private key do not match', err);
+                throw new Error('The provided certificate and private key do not match');
             }
         })
         .then(() => fs_utils.create_fresh_path(ssl_utils.SERVER_SSL_DIR_PATH))

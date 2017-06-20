@@ -33,4 +33,5 @@ require('./test_fs_utils');
 require('./test_signature_utils');
 require('./test_http_utils');
 require('./test_v8_optimizations');
+require('./test_native_core_crypto');
 //require('./test_wait_queue');

@@ -36,7 +36,7 @@ class EditAccountS3AccessModalViewModel extends FormViewModel {
         this.resources = ko.observable();
 
         this.observe(state$.get('buckets'), this.onBuckets);
-        this.observe(state$.getMany('nodePools', 'cloudResources'), this.onResources);
+        this.observe(state$.getMany(['nodePools', 'pools'], ['cloudResources', 'resources']), this.onResources);
         this.observe(state$.get('accounts', accountEmail), this.onAccount);
     }
 

@@ -46,7 +46,7 @@ class InstallNodeWizardViewModel extends FormViewModel {
             commands: { LINUX: '', WINDOWS: '' }
         });
 
-        this.observe(state$.get('nodePools'), this.onPools);
+        this.observe(state$.get('nodePools', 'pools'), this.onPools);
     }
 
     onPools(pools) {

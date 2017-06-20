@@ -62,7 +62,7 @@ function new_cluster_info() {
                 cluster_id: system_store.get_server_secret(),
                 owner_address: address,
                 owner_shardname: 'shard1',
-                location: 'Earth',
+                location: 'DC1',
                 shards: [{
                     shardname: 'shard1',
                     servers: [{

@@ -565,11 +565,14 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             })
         };
 
+        // if running with --scale simulate different hosts by adding the node name as suffix to the host id
+        const host_id = self.params.scale ? self.params.host_id + node_name : self.params.host_id;
+
         agent = self.agents[node_name] = createAgent({
             address: self.params.address,
             servers: self.params.servers,
             node_name: node_name,
-            host_id: self.params.host_id,
+            host_id: host_id,
             storage_path: node_path,
             cloud_info: self.cloud_info,
             mongo_info: self.mongo_info,

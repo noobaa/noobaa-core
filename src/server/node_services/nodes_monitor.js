@@ -2014,9 +2014,16 @@ class NodesMonitor extends EventEmitter {
         host_item.io_test_errors = host_nodes.some(item => item.io_test_errors);
         host_item.io_reported_errors = host_nodes.some(item => item.io_reported_errors);
         host_item.has_issues = false; // if true it causes storage count to be 0. not used by the UI.
-        let host_aggragate = this._aggregate_nodes_list(host_nodes);
+
+        // aggregate data used by suggested pools classification
+        host_item.avg_ping = _.mean(storage_nodes.map(item => item.avg_ping));
+        host_item.avg_disk_read = _.mean(storage_nodes.map(item => item.avg_disk_read));
+        host_item.avg_disk_write = _.mean(storage_nodes.map(item => item.avg_disk_write));
+
+
+        let host_aggragate = this._aggregate_nodes_list(storage_nodes);
         host_item.node.storage = host_aggragate.storage;
-        _.flatMap(host_nodes, item => host_item.node.drives);
+        host_item.node.drives = _.flatMap(host_nodes, item => item.node.drives);
 
         host_item.mode = this._get_item_mode(host_item);
 
@@ -2124,26 +2131,28 @@ class NodesMonitor extends EventEmitter {
     _suggest_pool_assign() {
         // prepare nodes data per pool
         const pools_data_map = new Map();
-        for (const item of this._map_node_id.values()) {
+        for (const host_nodes of this._map_host_id.values()) {
+            // get the host aggregated item
+            const item = this._consolidate_host(host_nodes);
             item.suggested_pool = ''; // reset previous suggestion
-            const node_id = String(item.node._id);
+            const host_id = String(item.node.host_id);
             const pool_id = String(item.node.pool);
             const pool = system_store.data.get_by_id(pool_id);
             dbg.log3('_suggest_pool_assign: node', item.node.name, 'pool', pool && pool.name);
-            if (!pool) continue;
-            // skip new nodes
-            if (!item.node_from_store) continue;
-            let pool_data = pools_data_map.get(pool_id);
-            if (!pool_data) {
-                pool_data = {
-                    pool_id: pool_id,
-                    pool_name: pool.name,
-                    docs: []
-                };
-                pools_data_map.set(pool_id, pool_data);
+            // skip new nodes and cloud\internal nodes
+            if (pool && item.node_from_store && item.node.node_type === 'BLOCK_STORE_FS') {
+                let pool_data = pools_data_map.get(pool_id);
+                if (!pool_data) {
+                    pool_data = {
+                        pool_id: pool_id,
+                        pool_name: pool.name,
+                        docs: []
+                    };
+                    pools_data_map.set(pool_id, pool_data);
+                }
+                const tokens = this._classify_node_tokens(item);
+                pool_data.docs.push(new dclassify.Document(host_id, tokens));
             }
-            const tokens = this._classify_node_tokens(item);
-            pool_data.docs.push(new dclassify.Document(node_id, tokens));
         }
 
         // take the data of all the pools and use it to train a classifier of nodes to pools
@@ -2151,12 +2160,16 @@ class NodesMonitor extends EventEmitter {
         const classifier = new dclassify.Classifier({
             applyInverse: true
         });
+        const pools_to_classify = ['default_pool', config.NEW_SYSTEM_POOL_NAME];
         let num_trained_pools = 0;
         for (const pool_data of pools_data_map.values()) {
-            dbg.log3('_suggest_pool_assign: add to data set',
-                pool_data.pool_name, pool_data.docs);
-            data_set.add(pool_data.pool_name, pool_data.docs);
-            num_trained_pools += 1;
+            // don't train by the nodes that we need to classify
+            if (!pools_to_classify.includes(pool_data.pool_name)) {
+                dbg.log3('_suggest_pool_assign: add to data set',
+                    pool_data.pool_name, pool_data.docs);
+                data_set.add(pool_data.pool_name, pool_data.docs);
+                num_trained_pools += 1;
+            }
         }
         if (num_trained_pools <= 0) {
             dbg.log3('_suggest_pool_assign: no pools to suggest');
@@ -2171,6 +2184,30 @@ class NodesMonitor extends EventEmitter {
         dbg.log3('_suggest_pool_assign: Trained:', classifier,
             'probabilities', JSON.stringify(classifier.probabilities));
 
+        // for nodes in the default_pool use the classifier to suggest a pool
+        const system = system_store.data.systems[0];
+        const target_pool = system.pools_by_name[config.NEW_SYSTEM_POOL_NAME];
+        const target_pool_data = pools_data_map.get(String(target_pool._id));
+        if (target_pool_data) {
+            for (const doc of target_pool_data.docs) {
+                const host_nodes = this._map_host_id.get(doc.id);
+                const hostname = host_nodes[0].node.os_info.hostname;
+                dbg.log0('_suggest_pool_assign: classify start', hostname, doc);
+                const res = classifier.classify(doc);
+                dbg.log0('_suggest_pool_assign: classify result', hostname, res);
+                let suggested_pool;
+                if (res.category !== config.NEW_SYSTEM_POOL_NAME) {
+                    suggested_pool = res.category;
+                } else if (res.secondCategory !== config.NEW_SYSTEM_POOL_NAME) {
+                    suggested_pool = res.secondCategory;
+                }
+                host_nodes.forEach(item => {
+                    item.suggested_pool = suggested_pool;
+                });
+
+            }
+
+        }
     }
 
     _classify_node_tokens(item) {

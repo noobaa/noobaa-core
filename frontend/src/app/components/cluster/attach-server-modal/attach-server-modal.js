@@ -129,7 +129,7 @@ class AttachServerModalViewModel extends BaseViewModel {
             () => `- ${this.secret()}`
         );
 
-        this.location = ko.observable('Earth')
+        this.location = ko.observable('DC1')
             .extend({
                 required: { message: 'Location tag is required' }
             });

@@ -17,7 +17,7 @@ const connectionTypes = deepFreeze([
     {
         type: 'NATIVE',
         label: 'Native Access',
-        description: 'A REST based protocal commonly used by S3 compatible clients (e.g. S3 Browser)'
+        description: 'A REST based protocol commonly used by S3 compatible clients (e.g. S3 Browser)'
     },
     {
         type: 'SPLUNK',

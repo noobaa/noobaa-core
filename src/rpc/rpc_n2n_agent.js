@@ -70,7 +70,7 @@ class RpcN2NAgent extends EventEmitter {
             // tcp options
             tcp_active: true,
             tcp_permanent_passive: {
-                min: 60101,
+                min: 60101, //60100 is used by the hosted agents
                 max: 60600
             },
             tcp_transient_passive: false,

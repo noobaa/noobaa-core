@@ -530,6 +530,7 @@ class SystemStore extends EventEmitter {
                     _.each(list, item => {
                         data.check_indexes(col, item);
                         let updates = _.omit(item, '_id');
+                        if (_.isEmpty(updates)) return;
                         let keys = _.keys(updates);
 
                         if (_.first(keys)[0] === '$') {

@@ -15,44 +15,14 @@ function deploy_log {
 function fix_iptables {
   deploy_log "fixing IPtables"
   #fix iptables
-  local exist=$(iptables -L -n | grep 80 | wc -l)
-  if [ "${exist}" == "0" ]; then
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
-  fi
-
-  local exist=$(iptables -L -n | grep 443 | wc -l)
-  if [ "${exist}" == "0" ]; then
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
-  fi
-
-  local exist=$(iptables -L -n | grep 8080 | wc -l)
-  if [ "${exist}" == "0" ]; then
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
-  fi
-
-  local exist=$(iptables -L -n | grep 8443 | wc -l)
-  if [ "${exist}" == "0" ]; then
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
-  fi
-
-  local exist=$(iptables -L -n | grep 8444 | wc -l)
-  if [ "${exist}" == "0" ]; then
-	iptables -I INPUT 1 -i eth0 -p tcp --dport 8444 -j ACCEPT
-  fi
-
-  local exist=$(iptables -L -n | grep 26050 | wc -l)
-  if [ "${exist}" == "0" ]; then
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 26050 -j ACCEPT
-  fi
-
-  local exist=$(iptables -L -n | grep 27000 | wc -l)
-  if [ "${exist}" == "0" ]; then
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 27000 -j ACCEPT
-  fi
-
   local exist=$(iptables -L -n | grep 60100 | wc -l)
+  if [ "${exist}" == "1" ]; then
+    iptables -D INPUT -i eth0 -p tcp --dport 60100 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n | grep "multiport dports 60100:60600" | wc -l)
   if [ "${exist}" == "0" ]; then
-    iptables -I INPUT 1 -i eth0 -p tcp --dport 60100 -j ACCEPT
+    iptables -A INPUT -i eth0 -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
   fi
 
   #If logging rules exist, remove them

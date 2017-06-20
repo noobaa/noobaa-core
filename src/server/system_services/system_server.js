@@ -134,7 +134,7 @@ function new_system_defaults(name, owner_account_id) {
             tcp_tls: true,
             tcp_active: true,
             tcp_permanent_passive: {
-                min: 60100,
+                min: 60101,
                 max: 60600
             },
             udp_dtls: true,

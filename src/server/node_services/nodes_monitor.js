@@ -1621,7 +1621,7 @@ class NodesMonitor extends EventEmitter {
             this._set_need_rebuild.delete(item);
             return;
         }
-        dbg.log0('_update_data_activity: reason', reason, item.node.name);
+        dbg.log1('_update_data_activity: reason', reason, item.node.name);
         const now = Date.now();
         const act = item.data_activity = item.data_activity || {};
         act.reason = reason;
@@ -1651,7 +1651,7 @@ class NodesMonitor extends EventEmitter {
         // Which means that in case of untrusted node we will not restore/rebuild it
         if (now < end_of_grace) {
             if (act.reason === ACT_RESTORING) {
-                dbg.log0('_update_data_activity_stage: WAIT OFFLINE GRACE',
+                dbg.log1('_update_data_activity_stage: WAIT OFFLINE GRACE',
                     item.node.name, act);
                 act.stage = {
                     name: STAGE_OFFLINE_GRACE,
@@ -1664,14 +1664,14 @@ class NodesMonitor extends EventEmitter {
                 return;
             }
         } else if (act.stage && act.stage.name === STAGE_OFFLINE_GRACE) {
-            dbg.log0('_update_data_activity_stage: PASSED OFFLINE GRACE',
+            dbg.log1('_update_data_activity_stage: PASSED OFFLINE GRACE',
                 item.node.name, act);
             // nullify to reuse the code that init right next
             act.stage = null;
         }
 
         if (!act.stage) {
-            dbg.log0('_update_data_activity_stage: START REBUILDING',
+            dbg.log1('_update_data_activity_stage: START REBUILDING',
                 item.node.name, act);
             act.stage = {
                 name: STAGE_REBUILDING,
@@ -1691,7 +1691,7 @@ class NodesMonitor extends EventEmitter {
 
 
         if (act.stage.name === STAGE_REBUILDING) {
-            dbg.log0('_update_data_activity_stage: DONE REBUILDING',
+            dbg.log1('_update_data_activity_stage: DONE REBUILDING',
                 item.node.name, act);
             if (act.reason === ACT_RESTORING) {
                 // restore is done after rebuild, not doing wiping

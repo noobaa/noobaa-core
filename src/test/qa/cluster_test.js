@@ -11,22 +11,96 @@ var _ = require('lodash');
 
 require('../../util/dotenv').load();
 
+//define colors
+const YELLOW = "\x1b[33;1m";
+const RED = "\x1b[31m";
+const NC = "\x1b[0m";
+
 var clientId = process.env.CLIENT_ID;
 var domain = process.env.DOMAIN;
 var secret = process.env.APPLICATION_SECRET;
 var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
+const serversincluster = argv.servers || 3;
+let errors_in_test = false;
 
-var resourceGroup = argv.resource || 'jacky-rg';
-var location = argv.location || 'westus2';
-var storage = argv.storage || 'jenkinsnoobaastorage';
-var vnet = argv.vnet || 'jacky-rg-vnet';
-var prefix = argv.prefix || 'Server';
+//defining the required parameters
+const {
+    location = 'westus2',
+    prefix = 'Server',
+    timeout = 10,
+    breakonerror = false,
+    resource,
+    storage,
+    vnet,
+    upgrade_pack,
+    clean = false
+} = argv;
 
-var serversincluster = argv.servers || 3;
-var errors_in_test = false;
-var breakonerror = argv.breakonerror || false;
+console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
+var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroup, location);
+function isSecretChanged(isMasterDown, oldSecret, masterSecret) {
+    if (isMasterDown) {
+        if (oldSecret === masterSecret) {
+            console.log(`Error - The master didn't move server and it is down`);
+            errors_in_test = true;
+        } else {
+            console.log(`The master has moved - as should from secret: ${oldSecret} to: ${masterSecret}`);
+        }
+    } else if (oldSecret === masterSecret) {
+        console.log(`The master is the same as the old one - as Should`);
+    } else {
+        console.log(`Error - The master has moved from secret: ${oldSecret} to: ${
+            masterSecret} and shoulden't.`);
+        errors_in_test = true;
+    }
+}
+
+function checkClusterHAReport(read_system_res, serversByStatus, servers) {
+    const serversUp = serversByStatus.CONNECTED.length;
+    if (serversUp > (servers.length / 2) + 1) {
+        if (read_system_res.cluster.shards[0].high_availabilty) {
+            console.log(`Cluster is highly available as should!!`);
+        } else {
+            console.log(`Error! Cluster is not highly available although most servers are up!!`);
+            errors_in_test = true;
+        }
+    } else if (read_system_res.cluster.shards[0].high_availabilty) {
+        console.log(`Error! Cluster is highly available when most servers are down!!`);
+        errors_in_test = true;
+    } else {
+        console.log(`Cluster is not highly available as should!!`);
+    }
+}
+
+
+function checkServersStatus(read_system_res, servers, masterSecret, masterIndex) {
+    const serversBySecret = _.groupBy(read_system_res.cluster.shards[0].servers, 'secret');
+    servers.forEach(server => {
+        if (serversBySecret[server.secret].length > 1) {
+            console.log(`Read system returned more than one server with the same secret!! ${
+                serversBySecret[server.secret]
+                }`);
+            errors_in_test = true;
+            throw new Error(`Read System duplicate Secrets!!`);
+        }
+        var role = '*SLAVE*';
+        if (server.secret === masterSecret) {
+            masterIndex = servers.indexOf(server);
+            role = '*MASTER*';
+        }
+        if (server.status === serversBySecret[server.secret][0].status) {
+            console.log(`Success - ${role} ${server.name} (${server.ip}) secret ${
+                server.secret} is of Status ${serversBySecret[server.secret][0].status} - As should`);
+        } else {
+            console.log(`Error - ${role}${server.name} (${server.ip}) secret ${
+                server.secret} is of Status ${
+                serversBySecret[server.secret][0].status} - should be ${server.status}`);
+            console.log(read_system_res.cluster.shards[0]);
+            errors_in_test = true;
+        }
+    });
+}
 
 function checkClusterStatus(servers, oldMasterNumber) {
     var oldSecret = 0;
@@ -34,9 +108,10 @@ function checkClusterStatus(servers, oldMasterNumber) {
     if (oldMasterNumber > -1) {
         oldSecret = servers[oldMasterNumber].secret;
         isMasterDown = servers[oldMasterNumber].status !== 'CONNECTED';
-        console.log('Old master is', oldMasterNumber, servers[oldMasterNumber].status);
+        console.log(`${YELLOW}Previous master is ${servers[oldMasterNumber].name}, status: ${
+            servers[oldMasterNumber].status}${NC}`);
     } else {
-        console.log('Old master is undesicive - too much servers were down');
+        console.log(`${YELLOW}Previous master is undesicive - too much servers were down${NC}`);
     }
     var serversByStatus = _.groupBy(servers, 'status');
     var masterIndex = oldMasterNumber;
@@ -45,7 +120,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
     var client;
     if (serversByStatus.CONNECTED && serversByStatus.CONNECTED.length > (servers.length / 2)) {
         return promise_utils.exec('curl http://' + serversByStatus.CONNECTED[0].ip + ':8080 2> /dev/null ' +
-                '| grep -o \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'', false, true)
+            '| grep -o \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'', false, true)
             .catch(() => {
                 master_ip = serversByStatus.CONNECTED[0].ip;
             })
@@ -65,76 +140,63 @@ function checkClusterStatus(servers, oldMasterNumber) {
                 });
             })
             .then(() => {
-                console.log('Waiting on read system');
+                console.log(`Waiting on read system`);
                 return P.resolve(client.system.read_system({}));
             })
             .then(res => {
                 var masterSecret = res.cluster.master_secret;
-                if (isMasterDown) {
-                    if (oldSecret === masterSecret) {
-                        console.log('Error - Cluster secret didn\'t change and master is down');
-                        errors_in_test = true;
-                    } else {
-                        console.log('The cluster secret was changed - as should', oldSecret, 'to', masterSecret);
-                    }
-                } else if (oldSecret === masterSecret) {
-                    console.log('The cluster secret is the same as the old one - as Should');
-                } else {
-                    console.log('Error - Cluster secret was changed - and Shouldn\'t', oldSecret, 'to', masterSecret);
-                    errors_in_test = true;
-                }
-                var serversBySecret = _.groupBy(res.cluster.shards[0].servers, 'secret');
-                var serversUp = serversByStatus.CONNECTED.length;
-                if (serversUp > (servers.length / 2) + 1) {
-                    if (res.cluster.shards[0].high_availabilty) {
-                        console.log('Cluster is highly available as should!!');
-                    } else {
-                        console.log('Error! Cluster is not highly available although most servers are up!!');
-                        errors_in_test = true;
-                    }
-                } else if (res.cluster.shards[0].high_availabilty) {
-                    console.log('Error! Cluster is highly available when most servers are down!!');
-                    errors_in_test = true;
-                } else {
-                    console.log('Cluster is not highly available as should!!');
-                }
-                servers.forEach(server => {
-                    if (serversBySecret[server.secret].length > 1) {
-                        console.log('Read system returned more than one server with the same secret!!', serversBySecret[server.secret]);
-                        errors_in_test = true;
-                        throw new Error('Read System duplicate Secrets!!');
-                    }
-                    var role = '*SLAVE*';
-                    if (server.secret === masterSecret) {
-                        masterIndex = servers.indexOf(server);
-                        role = '*MASTER*';
-                    }
-                    if (server.status === serversBySecret[server.secret][0].status) {
-                        console.log('Success -', role, server.name, '(' + server.ip + ')',
-                            'secret', server.secret, 'is of Status', serversBySecret[server.secret][0].status, '- As should');
-
-                    } else {
-                        console.log('Error -', role, server.name, '(' + server.ip + ')', 'secret', server.secret, 'is of Status', serversBySecret[server.secret][0].status, '- should be', server.status);
-                        console.log(res.cluster.shards[0]);
-                        errors_in_test = true;
-                    }
-                });
+                isSecretChanged(isMasterDown, oldSecret, masterSecret);
+                checkClusterHAReport(res, serversByStatus, servers);
+                checkServersStatus(res, servers, masterSecret, masterIndex);
                 if (errors_in_test && breakonerror) {
                     throw new Error('Error in test - breaking the test');
                 }
                 return masterIndex;
             })
             .finally(() => rpc.disconnect_all());
+    } else {
+        console.log('Most of the servers are down - Can\'t check cluster status');
+        return -1;
     }
-    console.log('Most of the servers are down - Can\'t check cluster status');
-    return -1;
 }
-var servers = [];
-var master;
-var slaves;
 
-var timeout = argv.timeout || 10; // 10 minutes default
-var masterIndex = serversincluster - 1;
+let servers = [];
+let master;
+let slaves;
+
+//this function is getting servers array creating and upgrading them.
+function preparServers(requestedServers) {
+    return P.map(requestedServers, server => azf.createServer(server.name, vnet, storage)
+        .then(new_secret => {
+            server.secret = new_secret;
+            return azf.getIpAddress(server.name + '_pip');
+        })
+        .then(ip => {
+            console.log(`${YELLOW}${server.name} ip is: ${ip}${NC}`);
+            server.ip = ip;
+            if (!_.isUndefined(upgrade_pack)) {
+                return ops.upload_and_upgrade(ip, upgrade_pack);
+            }
+        })
+        .catch(err => console.log('Can\'t create server', err)));
+}
+
+function delayInSec(sec) {
+    console.log(`Waiting ${sec} seconds for cluster to stable...`);
+    return P.delay(sec * 1000);
+}
+
+function createCluster(requestedServers) {
+    slaves = Array.from(requestedServers);
+    master = slaves.shift();
+    return P.each(slaves, slave => azf.addServerToCluster(master.ip, slave.ip, slave.secret, slave.name))
+        .then(() => delayInSec(90));
+}
+
+const timeInMin = timeout * 1000 * 60;
+console.log(`${YELLOW}Timeout in min is: ${timeout}${NC}`);
+// var masterIndex = serversincluster + 1;
+let masterIndex = 0;
 console.log('Breaking on error?', breakonerror);
 return azf.authenticate()
     .then(() => {
@@ -147,32 +209,19 @@ return azf.authenticate()
             });
         }
     })
-    .then(() => P.map(servers, server => azf.deleteVirtualMachine(server.name).catch(err => console.log('Can\'t delete old server', err.message))))
-    .then(() => P.map(servers, server => azf.createServer(server.name, vnet, storage)
-        .then(new_secret => {
-            server.secret = new_secret;
-            return azf.getIpAddress(server.name + '_pip');
-        })
-        .then(ip => {
-            server.ip = ip;
-            return ops.upload_and_upgrade(ip, argv.upgrade_pack);
-        })
-        .catch(err => console.log('Can\'t create server', err))))
+    .then(() => P.map(servers, server => azf.deleteVirtualMachine(server.name)
+        .catch(err => console.log('Can\'t delete old server', err.message)))
+        .then(() => clean && process.exit(0)))
+    .then(() => preparServers(servers))
+    .then(() => createCluster(servers))
+    .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
+    // .then(() => checkClusterStatus(servers, 0)) //TODO: remove...
     .then(() => {
-        slaves = Array.from(servers);
-        master = slaves.pop();
-        return P.each(slaves, slave => azf.addServerToCluster(master.ip, slave.ip, slave.secret, slave.name));
-    })
-    .then(() => {
-        console.log('Wating 90 seconds for cluster to stable...');
-        return P.delay(90000);
-    })
-    .then(() => checkClusterStatus(servers, masterIndex))
-    .then(() => {
-        var start = Date.now();
-        return promise_utils.pwhile(() => (timeout === 0 || (Date.now() - start) < (timeout * 1000 * 60)), () => {
+        const start = Date.now();
+        let cycle = 0;
+        return promise_utils.pwhile(() => (timeout === 0 || (Date.now() - start) < timeInMin), () => {
             var rand = Math.floor(Math.random() * serversincluster);
-            console.log('<====== Starting a new cycle... ======>');
+            console.log(`${RED}<==== Starting a new cycle ${cycle}... ====>${NC}`);
             var prom;
             if (servers[rand].status === 'CONNECTED') {
                 servers[rand].status = 'DISCONNECTED';
@@ -181,11 +230,9 @@ return azf.authenticate()
                 servers[rand].status = 'CONNECTED';
                 prom = azf.startVirtualMachine(servers[rand].name); // turn the server back on
             }
+            cycle += 1;
             return prom
-                .then(() => {
-                    console.log('Waiting 180 seconds for cluster to stable...');
-                    return P.delay(180000);
-                })
+                .then(() => delayInSec(180))
                 .then(() => checkClusterStatus(servers, masterIndex))
                 .then(newMaster => {
                     masterIndex = newMaster;

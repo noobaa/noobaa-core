@@ -393,7 +393,34 @@ function read_object_mappings(req) {
  *
  */
 function read_node_mappings(req) {
-    return nodes_client.instance().get_node_ids_by_name(req.system._id, req.params.name, req.params.by_host)
+    return nodes_client.instance().get_node_ids_by_name(req.system._id, req.params.name)
+        .then(node_ids => {
+            const params = _.pick(req.rpc_params, 'skip', 'limit');
+            params.node_ids = node_ids;
+            params.system = req.system;
+            return P.join(
+                map_reader.read_node_mappings(params),
+                req.rpc_params.adminfo &&
+                MDStore.instance().count_blocks_of_nodes(node_ids));
+        })
+        .spread((objects, blocks_count) => (
+            req.rpc_params.adminfo ? {
+                objects: objects,
+                total_count: blocks_count
+            } : {
+                objects: objects
+            }
+        ));
+}
+
+
+/**
+ *
+ * READ_HOST_MAPPINGS
+ *
+ */
+function read_host_mappings(req) {
+    return nodes_client.instance().get_node_ids_by_name(req.system._id, req.params.host_id, /*by_host=*/ true)
         .then(node_ids => {
             const params = _.pick(req.rpc_params, 'skip', 'limit');
             params.node_ids = node_ids;
@@ -923,6 +950,7 @@ exports.finalize_object_parts = finalize_object_parts;
 // read
 exports.read_object_mappings = read_object_mappings;
 exports.read_node_mappings = read_node_mappings;
+exports.read_host_mappings = read_host_mappings;
 // object meta-data
 exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;

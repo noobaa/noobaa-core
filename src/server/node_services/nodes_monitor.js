@@ -308,15 +308,15 @@ class NodesMonitor extends EventEmitter {
     /**
      * read_host returns information about all nodes in one host
      */
-    read_host(host_name) {
+    read_host(host_id) {
         this._throw_if_not_started_and_loaded();
-        const host_nodes = this._get_nodes_by_host_name(host_name);
+        const host_nodes = this._get_nodes_by_host_id(host_id);
         return this._get_host_info(this._consolidate_host(host_nodes));
     }
 
     migrate_hosts_to_pool(req) {
         this._throw_if_not_started_and_loaded();
-        const hosts = req.rpc_params.hosts.map(host => host.host_name);
+        const hosts = req.rpc_params.hosts;
         const to_pool = system_store.data.get_by_id(req.rpc_params.pool_id);
         const description = [];
         if (!to_pool) throw new RpcError('BAD_REQUEST', 'No such pool ' + to_pool._id);
@@ -324,13 +324,13 @@ class NodesMonitor extends EventEmitter {
 
         // get on list of all nodes to migrate
         const hosts_info = [];
-        const items = _.flatMap(hosts, host_name => {
-            const host_items = this._get_nodes_by_host_name(host_name);
+        const items = _.flatMap(hosts, host_id => {
+            const host_items = this._get_nodes_by_host_id(host_id);
             if (host_items.some(item => item.node.is_cloud_node)) throw new RpcError('BAD_REQUEST', 'migrating cloud node is not allowed');
             if (host_items.length === 0) return [];
             const from_pool = system_store.data.get_by_id(host_items[0].node.pool);
             hosts_info.push({
-                host_name,
+                host_id,
                 from_pool: (String(from_pool) === String(to_pool._id)) ? '' : from_pool.name
             });
             return host_items;
@@ -340,11 +340,11 @@ class NodesMonitor extends EventEmitter {
             .then(() => {
                 description.push(`${items.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email}`);
                 _.each(hosts_info, host => {
-                    const { host_name, from_pool } = hosts_info;
-                    dbg.log0('migrate_hosts_to_pool:', host_name,
+                    const { host_id, from_pool } = hosts_info;
+                    dbg.log0('migrate_hosts_to_pool:', host_id,
                         'from', from_pool, 'to', to_pool.name);
                     if (from_pool) {
-                        description.push(`${host_name} was assigned from ${from_pool} to ${to_pool.name}`);
+                        description.push(`${host_id} was assigned from ${from_pool} to ${to_pool.name}`);
                     }
                 });
                 Dispatcher.instance().activity({
@@ -452,8 +452,8 @@ class NodesMonitor extends EventEmitter {
 
     update_nodes_services(req) {
         this._throw_if_not_started_and_loaded();
-        const { host_name, storage_updates, s3_updates } = req.rpc_params;
-        const host_nodes = this._get_nodes_by_host_name(host_name);
+        const { host_id, storage_updates, s3_updates } = req.rpc_params;
+        const host_nodes = this._get_nodes_by_host_id(host_id);
         const [s3_nodes, storage_nodes] = _.partition(host_nodes, item => item.node.s3_agent);
         let updates = [];
         const push_updates = (service_updates, nodes) => {
@@ -485,11 +485,11 @@ class NodesMonitor extends EventEmitter {
     }
 
     get_node_ids(req) {
-        const { name, by_host } = req.rpc_params;
+        const { identity, by_host } = req.rpc_params;
         if (by_host) {
-            return this._get_nodes_by_host_name(name).map(item => String(item.node._id));
+            return this._get_nodes_by_host_id(identity).map(item => String(item.node._id));
         } else {
-            const item = this._get_node({ name }, 'allow_offline');
+            const item = this._get_node({ name: identity }, 'allow_offline');
             return [String(item.node._id)];
         }
     }
@@ -670,14 +670,10 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
-    _get_nodes_by_host_name(host_name) {
-        let host_item = this._map_node_name.get(host_name);
-        if (!host_item) {
-            throw new RpcError('BAD_REQUEST', 'No such host ' + host_name);
-        }
-        let host_nodes = this._map_host_id.get(host_item.node.host_id);
+    _get_nodes_by_host_id(host_id) {
+        let host_nodes = this._map_host_id.get(host_id);
         if (!host_nodes) {
-            throw new RpcError('BAD_REQUEST', 'No such host ' + host_name);
+            throw new RpcError('BAD_REQUEST', 'No such host ' + host_id);
         }
         return host_nodes;
     }
@@ -2021,10 +2017,93 @@ class NodesMonitor extends EventEmitter {
         host_item.node.storage = host_aggragate.storage;
         host_item.node.drives = _.flatMap(host_nodes, item => item.node.drives);
 
-        host_item.mode = this._get_item_mode(host_item);
+        this._calculate_host_mode(host_item);
 
         return host_item;
     }
+
+    _calculate_host_mode(host_item) {
+        const storage_nodes = host_item.storage_nodes;
+        const s3_nodes = host_item.s3_nodes;
+
+        // aggregate storage nodes and s3 nodes info
+        const has_issues_modes = Object.freeze([
+            'OFFLINE',
+            'STORAGE_NOT_EXIST',
+            'IO_ERRORS',
+            'N2N_ERRORS',
+            'GATEWAY_ERRORS',
+        ]);
+        const MB = Math.pow(1024, 2);
+        const storage = this._node_storage_info(host_item);
+        const free = size_utils.json_to_bigint(storage.free);
+        const used = size_utils.json_to_bigint(storage.used);
+        const free_ratio = free.add(used).isZero() ?
+            BigInteger.zero :
+            free.multiply(100).divide(free.add(used));
+        if (storage_nodes.length) {
+            host_item.storage_nodes_mode =
+                (storage_nodes.every(node => node.mode === 'OFFLINE') && 'OFFLINE') ||
+                (storage_nodes.every(node => node.mode === 'DECOMMISSIONED') && 'DECOMMISSIONED') ||
+                (storage_nodes.every(node => ['DECOMMISSIONED', 'DECOMMISSIONING'].includes(node.mode)) && 'DECOMMISSIONING') ||
+                (storage_nodes.some(node => node.mode === 'UNTRUSTED') && 'UNTRUSTED') ||
+                (storage_nodes.every(node => ['IO_ERRORS', 'N2N_ERRORS', 'GATEWAY_ERRORS'].includes(node.mode)) && 'DETENTION') ||
+                (storage_nodes.some(node => has_issues_modes.includes(node.mode)) && 'HAS_ISSUES') ||
+                (storage_nodes.some(node => node.mode === 'MEMORY_PRESSURE') && 'MEMORY_PRESSURE') ||
+                (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
+                (storage_nodes.some(node => ['MIGRATING', 'DECOMMISSIONING'].includes(node.mode)) && 'DATA_ACTIVITY') ||
+                (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
+                (storage_nodes.some(node => ['INITALIZING'].includes(node.mode)) && 'INITALIZING') ||
+                'OPTIMAL';
+        } else {
+            host_item.storage_nodes_mode = 'OPTIMAL'; // if no storage nodes, consider storage mode as optimal
+        }
+
+        const storage_mode = host_item.storage_nodes_mode;
+
+        const s3_node_modes = [
+            'OFFLINE',
+            'UNTRUSTED',
+            'INITALIZING',
+            'DECOMMISSIONED',
+            'N2N_ERRORS',
+            'GATEWAY_ERRORS',
+            'OPTIMAL',
+            'HTTP_SRV_ERRORS',
+        ];
+        s3_nodes.forEach(node => {
+            if (s3_node_modes.indexOf(node.mode) === -1) {
+                node.mode = 'HTTP_SRV_ERRORS';
+            }
+        });
+
+        const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'OPTIMAL';
+
+        // calculate the host's mode according to the storage and s3 modes in decreasing priority
+        // | storage        |     s3          |   host           |
+        // |----------------|-----------------|------------------|
+        // | OFFLINE        | OFFLINE         | OFFLINE          |
+        // | DECOMMISSIONED | DECOMMISSIONED  | DECOMMISSIONED   |
+        // | DECOMMISSIONING| DECOMMISSIONING | DECOMMISSIONING  |
+        // | UNTRUSTED      |        *        | UNTRUSTED        |
+        // | ACT\INIT       |        *        | DATA_ACTIVITY    |
+        // | HAS_ISSUES     |        *        | HAS_ISSUES       |
+        // |       *        | HTTP_SRV_ERRORS | HAS_ISSUES       |
+        // | OPTIMAL        | OPTIMAL         | OPTIMAL          |
+        const storage_issues = ['HAS_ISSUES', 'DETENTION', 'MEMORY_PRESSURE', 'NO_CAPACITY', 'LOW_CAPACITY', 'MEMORY_PRESSURE'];
+        host_item.mode =
+            (storage_mode === 'OFFLINE' && s3_mode === 'OFFLINE' && 'OFFLINE') ||
+            (storage_mode === 'DECOMMISSIONED' && s3_mode === 'DECOMMISSIONED' && 'DECOMMISSIONED') || // all decommissioned
+            (['DECOMMISSIONING', 'DECOMMISSIONED'].includes(storage_mode) && ['DECOMMISSIONING', 'DECOMMISSIONED'].includes(s3_mode) &&
+                'DECOMMISSIONING') || // all are either decommissioned or decommissioning
+            (storage_mode === 'UNTRUSTED' && 'UNTRUSTED') || // one is untrusted
+            (['DATA_ACTIVITY', 'INITALIZING'].includes(storage_mode) && 'DATA_ACTIVITY') ||
+            ((storage_issues.includes(storage_mode) || s3_mode === 'HTTP_SRV_ERRORS') && 'HAS_ISSUES') ||
+            (['OPTIMAL', 'DECOMMISSIONING', 'DECOMMISSIONED'].includes(storage_mode) && ['OPTIMAL', 'DECOMMISSIONING', 'DECOMMISSIONED'].includes(s3_mode) &&
+                'OPTIMAL') ||
+            'HAS_ISSUES'; // use HAS_ISSUES if all other modes didn't hit
+    }
+
 
     _get_filter_item_func(query) {
         // we are generating a function that will implement most of the query
@@ -2374,60 +2453,12 @@ class NodesMonitor extends EventEmitter {
                 })
             }
         };
-
-        // aggregate storage nodes and s3 nodes info
-        const storage_nodes = info.storage_nodes_info.nodes;
-        const has_issues_modes = Object.freeze([
-            'OFFLINE',
-            'STORAGE_NOT_EXIST',
-            'IO_ERRORS',
-            'N2N_ERRORS',
-            'GATEWAY_ERRORS',
-        ]);
-        const MB = Math.pow(1024, 2);
-        const storage = this._node_storage_info(host_item);
-        const free = size_utils.json_to_bigint(storage.free);
-        const used = size_utils.json_to_bigint(storage.used);
-        const free_ratio = free.add(used).isZero() ?
-            BigInteger.zero :
-            free.multiply(100).divide(free.add(used));
-
-        const storage_mode = info.storage_nodes_info.mode =
-            (storage_nodes.every(node => node.mode === 'OFFLINE') && 'OFFLINE') ||
-            (storage_nodes.every(node => node.mode === 'DECOMMISSIONED') && 'DECOMMISSIONED') ||
-            (storage_nodes.every(node => ['DECOMMISSIONED', 'DECOMMISSIONING'].includes(node.mode)) && 'DECOMMISSIONING') ||
-            (storage_nodes.some(node => node.mode === 'UNTRUSTED') && 'UNTRUSTED') ||
-            (storage_nodes.every(node => ['IO_ERRORS', 'N2N_ERRORS', 'GATEWAY_ERRORS'].includes(node.mode)) && 'DETENTION') ||
-            (storage_nodes.some(node => has_issues_modes.includes(node.mode)) && 'HAS_ISSUES') ||
-            (storage_nodes.some(node => node.mode === 'MEMORY_PRESSURE') && 'MEMORY_PRESSURE') ||
-            (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
-            (storage_nodes.some(node => ['MIGRATING', 'DECOMMISSIONING'].includes(node.mode)) && 'DATA_ACTIVITY') ||
-            (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
-            (storage_nodes.some(node => ['INITALIZING'].includes(node.mode)) && 'INITALIZING') ||
-            'OPTIMAL';
-
-        const s3_node_modes = [
-            'OFFLINE',
-            'UNTRUSTED',
-            'INITALIZING',
-            'DECOMMISSIONED',
-            'N2N_ERRORS',
-            'GATEWAY_ERRORS',
-            'OPTIMAL',
-            'HTTP_SRV_ERRORS',
-        ];
-        info.s3_nodes_info.nodes.forEach(node => {
-            if (s3_node_modes.indexOf(node.mode) === -1) {
-                node.mode = 'HTTP_SRV_ERRORS';
-            }
-        });
-
-        const s3_mode = info.s3_nodes_info.nodes.length ? info.s3_nodes_info.mode = info.s3_nodes_info.nodes[0].mode :
-            'OFFLINE';
+        info.s3_nodes_info.mode = host_item.s3_nodes_mode;
+        info.storage_nodes_info.mode = host_item.storage_nodes_mode;
 
         // collect host info
-        info.name = host_item.node.name;
-        info.hostname = host_item.node.os_info.hostname;
+        info.name = host_item.node.os_info.hostname;
+        info.host_id = host_item.node.host_id;
         const pool = system_store.data.get_by_id(host_item.node.pool);
         info.pool = pool ? pool.name : '';
         info.geolocation = host_item.node.geolocation;
@@ -2449,29 +2480,7 @@ class NodesMonitor extends EventEmitter {
         info.latency_to_server = host_item.node.latency_to_server;
         info.debug_level = host_item.node.debug_level;
         info.suggested_pool = host_item.suggested_pool;
-        // calculate the host's mode according to the storage and s3 modes in decreasing priority
-        // | storage        |     s3          |   host           |
-        // |----------------|-----------------|------------------|
-        // | OFFLINE        | OFFLINE         | OFFLINE          |
-        // | DECOMMISSIONED | DECOMMISSIONED  | DECOMMISSIONED   |
-        // | DECOMMISSIONING| DECOMMISSIONING | DECOMMISSIONING  |
-        // | UNTRUSTED      |        *        | UNTRUSTED        |
-        // | ACT\INIT       |        *        | DATA_ACTIVITY    |
-        // | HAS_ISSUES     |        *        | HAS_ISSUES       |
-        // |       *        | HTTP_SRV_ERRORS | HAS_ISSUES       |
-        // | OPTIMAL        | OPTIMAL         | OPTIMAL          |
-        const storage_issues = ['HAS_ISSUES', 'DETENTION', 'MEMORY_PRESSURE', 'NO_CAPACITY', 'LOW_CAPACITY', 'MEMORY_PRESSURE'];
-        info.mode =
-            (storage_mode === 'OFFLINE' && s3_mode === 'OFFLINE' && 'OFFLINE') ||
-            (storage_mode === 'DECOMMISSIONED' && s3_mode === 'DECOMMISSIONED' && 'DECOMMISSIONED') || // all decommissioned
-            (['DECOMMISSIONING', 'DECOMMISSIONED'].includes(storage_mode) && ['DECOMMISSIONING', 'DECOMMISSIONED'].includes(s3_mode) &&
-                'DECOMMISSIONING') || // all are either decommissioned or decommissioning
-            (storage_mode === 'UNTRUSTED' && 'UNTRUSTED') || // one is untrusted
-            (['DATA_ACTIVITY', 'INITALIZING'].includes(storage_mode) && 'DATA_ACTIVITY') ||
-            ((storage_issues.includes(storage_mode) || s3_mode === 'HTTP_SRV_ERRORS') && 'HAS_ISSUES') ||
-            (['OPTIMAL', 'DECOMMISSIONING', 'DECOMMISSIONED'].includes(storage_mode) && ['OPTIMAL', 'DECOMMISSIONING', 'DECOMMISSIONED'].includes(s3_mode) &&
-                'OPTIMAL') ||
-            'HAS_ISSUES'; // use HAS_ISSUES if all other modes didn't hit
+        info.mode = host_item.mode;
         return info;
     }
 
@@ -2627,22 +2636,20 @@ class NodesMonitor extends EventEmitter {
 
     set_debug_host(req) {
         this._throw_if_not_started_and_loaded();
-        const debug_level = req.rpc_params.level;
-        const name = req.rpc_params.host_name;
-        const host_nodes = this._get_nodes_by_host_name(name);
-        return P.map(host_nodes, item => this._set_agent_debug_level(item, debug_level))
+        const { host_id, level } = req.rpc_params;
+        const host_nodes = this._get_nodes_by_host_id(host_id);
+        return P.map(host_nodes, item => this._set_agent_debug_level(item, level))
             .then(() => {
                 // TODO: generte event here
-                dbg.log1('set_debug_node was successful for host', name, 'level', debug_level);
+                dbg.log1('set_debug_node was successful for host', host_id, 'level', level);
             });
     }
 
     set_debug_node(req) {
         this._throw_if_not_started_and_loaded();
-        const debug_level = req.rpc_params.level;
-        const node_identity = req.rpc_params.node;
+        const { level, node_identity } = req.rpc_params;
         const item = this._get_node(node_identity);
-        return this._set_agent_debug_level(item, debug_level)
+        return this._set_agent_debug_level(item, level)
             .then(() => {
                 Dispatcher.instance().activity({
                     system: req.system._id,
@@ -2653,7 +2660,7 @@ class NodesMonitor extends EventEmitter {
                     desc: `${item.node.name} debug level was raised by ${req.account && req.account.email}`,
                 });
                 dbg.log1('set_debug_node was successful for agent', item.node.name,
-                    'level', debug_level);
+                    'level', level);
             });
     }
 

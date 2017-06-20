@@ -158,7 +158,7 @@ module.exports = {
                         items: {
                             type: 'object',
                             properties: {
-                                host_name: {
+                                host_id: {
                                     type: 'string'
                                 },
                             },

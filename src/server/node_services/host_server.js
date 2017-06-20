@@ -15,7 +15,7 @@ const nodes_server = require('./node_server');
 
 
 function read_host(req) {
-    return nodes_server.get_local_monitor().read_host(req.rpc_params.host_name);
+    return nodes_server.get_local_monitor().read_host(req.rpc_params.host_id);
 }
 
 function list_hosts(req) {
@@ -43,11 +43,11 @@ function get_test_hosts(req) {
         sort: 'shuffle'
     });
     return _.map(list_res.hosts,
-        host => _.pick(host, 'name', 'rpc_address'));
+        host => _.pick(host, 'host_id', 'rpc_address'));
 }
 
 function test_host_network() {
-    throw new Error('NOT_IMPLEMENTED');
+    throw new Error('NOT_IMPLEMENTED - use test_node_network');
 }
 
 function set_debug_host(req) {

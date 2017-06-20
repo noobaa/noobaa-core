@@ -41,18 +41,18 @@ mocha.describe('host_server', function() {
                 assert.strictEqual(hosts.length, 5);
             })
             .then(() => client.host.read_host({
-                host_name: hosts[0].name
+                host_id: hosts[0].host_id
             }))
             .then(res => client.host.get_test_hosts({
                 count: 10,
                 source: hosts[0].rpc_address,
             }))
             .then(() => client.host.set_debug_host({
-                host_name: hosts[0].name,
+                host_id: hosts[0].host_id,
                 level: 0,
             }))
             .then(() => client.host.update_host_services({
-                host_name: hosts[0].name,
+                host_id: hosts[0].host_id,
                 s3_updates: null,
                 storage_updates: [{
                         node: {

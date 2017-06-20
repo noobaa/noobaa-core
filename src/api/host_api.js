@@ -18,8 +18,9 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
+                required: ['host_id'],
                 properties: {
-                    host_name: {
+                    host_id: {
                         type: 'string'
                     },
                 },
@@ -96,9 +97,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['host_name', 'storage_updates', 's3_updates'],
+                required: ['host_id', 'storage_updates', 's3_updates'],
                 properties: {
-                    host_name: {
+                    host_id: {
                         type: 'string'
                     },
                     storage_updates: {
@@ -124,12 +125,7 @@ module.exports = {
                     hosts: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            properties: {
-                                host_name: {
-                                    type: 'string'
-                                },
-                            },
+                            type: 'string'
                         }
                     },
                     pool_id: {
@@ -161,9 +157,9 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['name', 'rpc_address'],
+                    required: ['host_id', 'rpc_address'],
                     properties: {
-                        name: {
+                        host_id: {
                             type: 'string'
                         },
                         rpc_address: {
@@ -181,9 +177,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['host_name', 'level'],
+                required: ['host_id', 'level'],
                 properties: {
-                    host_name: {
+                    host_id: {
                         type: 'string'
                     },
                     level: {
@@ -208,7 +204,7 @@ module.exports = {
                 name: {
                     type: 'string'
                 },
-                hostname: {
+                host_id: {
                     type: 'string'
                 },
                 pool: {

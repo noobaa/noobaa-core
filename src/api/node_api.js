@@ -64,7 +64,7 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
-                    name: {
+                    identity: {
                         type: 'string'
                     },
                     by_host: {
@@ -657,6 +657,15 @@ module.exports = {
                     type: 'integer'
                 },
                 STORAGE_NOT_EXIST: {
+                    type: 'integer'
+                },
+                DATA_ACTIVITY: {
+                    type: 'integer'
+                },
+                HAS_ISSUES: {
+                    type: 'integer'
+                },
+                MEMORY_PRESSURE: {
                     type: 'integer'
                 },
             }

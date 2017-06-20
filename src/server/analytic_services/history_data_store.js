@@ -29,7 +29,7 @@ class HistoryDataStore {
             .toArray()
             .then(history_records => history_records.map(history_record => {
                 const pools = history_record.system_snapshot.pools
-                    .filter(pool => (!pool.mongo_info) && (!pool_list || pool_list.includes(pool.name)))
+                    .filter(pool => (!pool_list || pool_list.includes(pool.name)))
                     .map(pool => {
                         const { name, storage, cloud_info, mongo_info } = pool;
                         let resource_type = 'HOSTS';

@@ -18,7 +18,7 @@ class PoolAssociatedBucketsListViewModel extends Observer {
         this.bucketCount = ko.observable();
 
         this.observe(
-            state$.get('nodePools', ko.unwrap(poolName), 'associatedBuckets'),
+            state$.get('nodePools', 'pools', ko.unwrap(poolName), 'associatedBuckets'),
             this.onBuckets
         );
     }

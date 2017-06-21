@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-const uuid = require('node-uuid');
+const uuid = require('uuid/v4');
 
 var P = require('../../util/promise');
 // var dbg = require('../../util/debug_module')(__filename);

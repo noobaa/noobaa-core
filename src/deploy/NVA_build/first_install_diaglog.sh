@@ -206,21 +206,21 @@ function resize_hd {
 
   dialog --colors --backtitle "NooBaa First Install" --infobox "Resizing HD, this might take some time" 4 42 
   logger -p local0.info -s -t resize_fs_on_sda "Starting ..."
-  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -s /dev/sda: $(fdisk -s /dev/sda)"
-  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -s /dev/sda2: $(fdisk -s /dev/sda2)"
+  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -s /dev/sda: $(sudo fdisk -s /dev/sda)"
+  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -s /dev/sda2: $(sudo fdisk -s /dev/sda2)"
   logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -l:"
-  logger -p local0.info -s -t resize_fs_on_sda "$(fdisk -l)"
+  logger -p local0.info -s -t resize_fs_on_sda "$(sudo fdisk -l)"
   logger -p local0.info -s -t resize_fs_on_sda "Running lvs:"
-  logger -p local0.info -s -t resize_fs_on_sda "$(lvs)"
+  logger -p local0.info -s -t resize_fs_on_sda "$(sudo lvs)"
   logger -p local0.info -s -t resize_fs_on_sda "Running pvs:"
-  logger -p local0.info -s -t resize_fs_on_sda "$(pvs)"
+  logger -p local0.info -s -t resize_fs_on_sda "$(sudo pvs)"
   logger -p local0.info -s -t resize_fs_on_sda "Running df:"
-  logger -p local0.info -s -t resize_fs_on_sda "$(df)"
+  logger -p local0.info -s -t resize_fs_on_sda "$(sudo df)"
 
   logger -p local0.info -s -t resize_fs_on_sda "Running fdisk to resize sda2 partition and reboot ..."
-  echo -e "d\n2\nn\np\n2\n\n\nw\n" | fdisk -cu /dev/sda
+  echo -e "d\n2\nn\np\n2\n\n\nw\n" | sudo fdisk -cu /dev/sda
   logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -l after repartitioning:"
-  logger -p local0.info -s -t resize_fs_on_sda "$(fdisk -l)"
+  logger -p local0.info -s -t resize_fs_on_sda "$(sudo fdisk -l)"
   dialog --colors --backtitle "NooBaa First Install" --infobox "Rebooting Machine" 4 22; sleep 2
   sudo reboot; sleep 60
 
@@ -230,15 +230,15 @@ function apply_resize  {
 
   dialog --colors --backtitle "NooBaa First Install" --infobox "Applying resize changes" 4 28 
   logger -p local0.info -s -t fix_server_plat "Running lvs (PRE):"
-  logger -p local0.info -s -t fix_server_plat "$(lvs)"
+  logger -p local0.info -s -t fix_server_plat "$(sudo lvs)"
   logger -p local0.info -s -t fix_server_plat "Running pvs (PRE):"
-  logger -p local0.info -s -t fix_server_plat "$(pvs)"
-  pvresize /dev/sda2
-  lvextend --resizefs -l +100%FREE /dev/VolGroup/lv_root
+  logger -p local0.info -s -t fix_server_plat "$(sudo pvs)"
+  sudo pvresize /dev/sda2
+  sudo lvextend --resizefs -l +100%FREE /dev/VolGroup/lv_root
   logger -p local0.info -s -t fix_server_plat "Running lvs (POST):"
-  logger -p local0.info -s -t fix_server_plat "$(lvs)"
+  logger -p local0.info -s -t fix_server_plat "$(sudo lvs)"
   logger -p local0.info -s -t fix_server_plat "Running pvs (POST):"
-  logger -p local0.info -s -t fix_server_plat "$(pvs)"
+  logger -p local0.info -s -t fix_server_plat "$(sudo pvs)"
   dialog --colors --backtitle "NooBaa First Install" --infobox "Done" 4 8 ; sleep 2 
 
 }

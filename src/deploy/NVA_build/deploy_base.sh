@@ -290,9 +290,9 @@ function fix_security_issues {
 		echo '	PasswordAuthentication no'  >> /etc/ssh/sshd_config
 	fi
 
-    # copy fix_server_sec to rc.local
-    if ! grep -q 'fix_server_sec' /etc/rc.local; then
-        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
+    # copy fix_server_plat to rc.local
+    if ! grep -q 'fix_server_plat' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_plat.sh" >> /etc/rc.local
     fi
     # copy fix_mongo_ssl to rc.local
     if ! grep -q 'fix_mongo_ssl' /etc/rc.local; then

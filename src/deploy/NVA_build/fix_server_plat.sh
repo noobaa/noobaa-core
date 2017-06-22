@@ -14,3 +14,4 @@ if [ ! -f ${NOOBAASEC} ]; then
       echo "JWT_SECRET=${jwt}" | tee -a /root/node_modules/noobaa-core/.env
   fi
 fi
+

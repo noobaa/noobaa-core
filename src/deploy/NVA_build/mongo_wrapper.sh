@@ -21,12 +21,11 @@ fi
 #Are non supervised mongos, so we kill them in order to supervise
 function kill_services_on_mongo_ports {
   local proc
-  proc=$(lsof -i :27017,27000 | awk '{if(NR>1)print $1,"",$2}')
+  proc=$(lsof -i TCP:27017,27000 -s TCP:LISTEN | awk '{print $2}' | grep -v PID)
   #kill pids
   for p in ${proc}; do
-    local pid=$(echo $proc | awk '{print $2}')
-    deploy_log "Killing ${p}"
-    kill -9 ${pid}
+    deploy_log "Killing process that listens on mongo ports - pid ${p} - $(cat /proc/${p}/cmdline)"
+    kill -9 ${p}
   done
 
   proc=$(ps -elf | grep mongo_wrapper | grep -v $$ | awk '{print $4}')

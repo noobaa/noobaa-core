@@ -43,7 +43,7 @@ class ActivityLogStore {
         return P.resolve()
             .then(() => this._activitylogs.validate(activity_log))
             .then(() => this._activitylogs.col().insertOne(activity_log))
-            .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'alerts_log'))
+            .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'audit_log'))
             .return(activity_log);
     }
 

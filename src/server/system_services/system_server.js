@@ -253,7 +253,7 @@ function create_system(req) {
         })
         .then(() => {
             return P.join(new_system_changes(account.name, account),
-                cluster_server.new_cluster_info());
+                cluster_server.new_cluster_info({ address: "127.0.0.1" }));
         })
         .spread(function(changes, cluster_info) {
             allowed_buckets = {

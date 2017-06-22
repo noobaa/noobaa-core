@@ -579,6 +579,14 @@ function get_networking_info() {
     return ifaces;
 }
 
+function get_all_network_interfaces() {
+    return promise_utils.exec('ifconfig -a | grep eth | awk \'{print $1}\'', false, true)
+        .then(nics => {
+            nics = nics.substring(0, nics.length - 1);
+            return nics.split('\n');
+        });
+}
+
 function _set_time_zone(tzone) {
     // TODO _set_time_zone: Ugly Ugly, change to datectrl on centos7
     return promise_utils.exec('ln -sf /usr/share/zoneinfo/' +
@@ -729,6 +737,7 @@ exports.set_ntp = set_ntp;
 exports.get_ntp = get_ntp;
 exports.get_time_config = get_time_config;
 exports.get_local_ipv4_ips = get_local_ipv4_ips;
+exports.get_all_network_interfaces = get_all_network_interfaces;
 exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;

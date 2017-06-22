@@ -77,6 +77,10 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected df.out successfully'))
                 .catch(err => diag_log('collecting df.out failed with error: ' + err)),
 
+                () => promise_utils.exec('cp -f /tmp/noobaa_wizard.log ' + TMP_WORK_DIR + '/noobaa_wizard.log', false, false, LONG_EXEC_TIMEOUT)
+                .then(() => diag_log('collected noobaa_wizard.log successfully'))
+                .catch(err => diag_log('collecting noobaa_wizard.log failed with error: ' + err)),
+
                 () => collect_statistics(req)
                 .then(() => diag_log('collected statistics successfully'))
                 .catch(err => diag_log('collect_statistics failed with error: ' + err)),

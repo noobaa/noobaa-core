@@ -45,6 +45,7 @@ function run() {
         .then(() => _check_remote_syslog())
         .then(() => _check_is_self_in_dns_table())
         .then(() => _check_internal_ips())
+        .then(() => _check_network_configuration())
         .then(() => _check_disk_space())
         .then(() => {
             dbg.log0('SERVER_MONITOR: END. status:', monitoring_status);
@@ -84,8 +85,8 @@ function _verify_ntp_cluster_config() {
 function _verify_dns_cluster_config() {
     dbg.log2('Verifying dns configuration in relation to cluster config');
     let cluster_conf = {
-        dns_servers: server_conf.dns_servers,
-        search_domains: server_conf.search_domains
+        dns_servers: _.compact(server_conf.dns_servers),
+        search_domains: _.compact(server_conf.search_domains)
     };
     return os_utils.get_dns_servers()
         .then(platform_dns_config => {
@@ -126,7 +127,8 @@ function _verify_server_certificate() {
 
 function _verify_remote_syslog_cluster_config() {
     dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
-    let cluster_conf = _.clone(system_store.data.systems[0].remote_syslog_config);
+
+    let cluster_conf = _.clone(server_conf.remote_syslog_config);
     return os_utils.get_syslog_server_configuration()
         .then(platform_syslog_server => {
             if (!_are_platform_and_cluster_conf_equal(platform_syslog_server, cluster_conf)) {
@@ -156,7 +158,7 @@ function _check_ntp() {
             monitoring_status.ntp_status = "UNREACHABLE";
             Dispatcher.instance().alert('MAJOR',
                 system_store.data.systems[0]._id,
-                `NTP Server ${server_conf.ntp.server} could not be reached`,
+                `NTP Server ${server_conf.ntp.server} could not be reached, check NTP server configuration or connectivity`,
                 Dispatcher.rules.once_daily);
             throw err;
         })
@@ -223,21 +225,21 @@ function _check_dns_and_phonehome() {
                     Dispatcher.instance().alert('MAJOR',
                         system_store.data.systems[0]._id,
                         `Phone home server could not be reached, phone home connectivity is used for proactive
-                         support product statistics analysis. In most causes this is caused by lack of connectivity to the internet`,
+                         support product statistics analysis. Check internet connection`,
                         Dispatcher.rules.once_daily);
                     break;
                 case "CANNOT_RESOLVE_PHONEHOME_NAME":
                     monitoring_status.dns_status = "FAULTY";
                     Dispatcher.instance().alert('MAJOR',
                         system_store.data.systems[0]._id,
-                        `DNS server cannot resolve Phone home server name`,
+                        `DNS server/s cannot resolve Phone home server name`,
                         Dispatcher.rules.once_daily);
                     break;
                 case "CANNOT_REACH_DNS_SERVER":
                     monitoring_status.dns_status = "UNREACHABLE";
                     Dispatcher.instance().alert('MAJOR',
                         system_store.data.systems[0]._id,
-                        `DNS server can't be reached`,
+                        `DNS server/s could not be reached, check DNS server configuration or connectivity`,
                         Dispatcher.rules.once_daily);
                     break;
                 default:
@@ -248,6 +250,35 @@ function _check_dns_and_phonehome() {
             }
         })
         .catch(err => dbg.warn('Error when trying to check dns and phonehome status.', err.stack || err));
+}
+
+function _check_network_configuration() {
+    dbg.log2('check_network_configuration');
+    let ips = os_utils.get_local_ipv4_ips();
+    if (server_conf.is_clusterized && !_.find(ips, ip => ip === server_conf.owner_address)) {
+        Dispatcher.instance().alert('MAJOR',
+            system_store.data.systems[0]._id,
+            `IP address change was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
+            please update the server IP in Cluster->${server_conf.heartbeat.health.os_info.hostname}->Change IP`);
+        dbg.log0('server ip was changed, IP:', server_conf.owner_address, 'not in the ip list:', ips);
+    }
+    let interfaces = os_utils.get_all_network_interfaces();
+    let data = "";
+    dbg.log2('current network interfaces are', interfaces);
+    return P.map(interfaces, inter => {
+            data += inter + '\n';
+            return fs_utils.find_line_in_file('/etc/noobaa_network', inter)
+                .then(line => {
+                    if (!line) { // if didn't found the interface in the file
+                        Dispatcher.instance().alert('MAJOR',
+                            system_store.data.systems[0]._id,
+                            `Net interface ${inter} was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
+                            please configure it using the server console`);
+                        dbg.log0('found new interface', inter);
+                    }
+                });
+        })
+        .then(() => fs_utils.replace_file('/etc/noobaa_network', data));
 }
 
 function _check_proxy_configuration() {
@@ -262,7 +293,7 @@ function _check_proxy_configuration() {
             monitoring_status.proxy_status = "UNREACHABLE";
             Dispatcher.instance().alert('MAJOR',
                 system_store.data.systems[0]._id,
-                `Proxy server ${system.phone_home_proxy_address} could not be reached`,
+                `Proxy server ${system.phone_home_proxy_address} could not be reached, check Proxy configuration or connectivity`,
                 Dispatcher.rules.once_daily);
             dbg.warn('Error when trying to check phone home proxy status.', err.stack || err);
         });
@@ -284,7 +315,7 @@ function _check_remote_syslog() {
             monitoring_status.remote_syslog_status.status = "UNREACHABLE";
             Dispatcher.instance().alert('MAJOR',
                 system_store.data.systems[0]._id,
-                `Remote syslog server ${system.remote_syslog_config.address} could not be reached`,
+                `Remote syslog server ${system.remote_syslog_config.address} could not be reached, check Syslog configuration or connectivity`,
                 Dispatcher.rules.once_daily);
             dbg.warn('Error when trying to check remote syslog status.', err.stack || err);
         });
@@ -311,7 +342,7 @@ function _check_is_self_in_dns_table() {
             monitoring_status.dns_name = "UNKNOWN";
             Dispatcher.instance().alert('MAJOR',
                 system_store.data.systems[0]._id,
-                `Server DNS name ${system_dns} counld not be resolved`,
+                `Server DNS name ${system_dns} could not be resolved`,
                 Dispatcher.rules.once_daily);
             dbg.warn(`Error when trying to find address in dns resolve table: ${server_conf.owner_address}. err:`, err.stack || err);
         });

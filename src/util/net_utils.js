@@ -89,6 +89,15 @@ function is_hostname(target) {
     return false;
 }
 
+function is_fqdn(target) {
+    const regExp = /^(?=^.{1,253}$)(^(((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9])|((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63})$)/;
+    if (regExp.test(target)) {
+        return true;
+    }
+
+    return false;
+}
+
 function unwrap_ipv6(ip) {
     if (net.isIPv6(ip)) {
         if (ip.startsWith('::ffff:')) return ip.slice('::ffff:'.length);
@@ -99,4 +108,5 @@ function unwrap_ipv6(ip) {
 exports.ping = ping;
 exports.dns_resolve = dns_resolve;
 exports.is_hostname = is_hostname;
+exports.is_fqdn = is_fqdn;
 exports.unwrap_ipv6 = unwrap_ipv6;

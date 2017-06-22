@@ -42,9 +42,9 @@ function set_response_xattr(res, xattr) {
 }
 
 function parse_etag(etag, err) {
-    const match = (/\s*"(.*)"\s*/).exec(etag);
+    const match = (/^\s*(?:"(\S*)"|(\S*))\s*$/).exec(etag);
     if (!match) throw new S3Error(err);
-    return match[1];
+    return match[1] || match[2];
 }
 
 function parse_content_length(req) {

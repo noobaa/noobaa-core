@@ -164,7 +164,7 @@ function unavailable_handler(req, res) {
         }
     });
     res.setHeader('Content-Type', 'application/xml');
-    res.setHeader('Content-Length', reply.length);
+    res.setHeader('Content-Length', Buffer.byteLength(reply));
     res.end(reply);
 }
 

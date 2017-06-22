@@ -285,7 +285,9 @@ function post_upgrade {
   local BG=$(grep "bg_workers_starter" /etc/noobaa_supervisor.conf | wc -l)
   #if noobaa supervisor.conf is pre mongo_wrapper
   local MONGO_DB=$(grep "mongodb" /etc/noobaa_supervisor.conf | wc -l)
-  if [ ${BG} -eq 1 ] || [ ${MONGO_DB} -eq 1 ]; then
+  #if noobaa supervisor.conf is pre limit to logs
+  local LOG_LIMIT=$(grep "stderr_logfile_backups" /etc/noobaa_supervisor.conf | wc -l)
+  if [ ${BG} -eq 1 ] || [ ${MONGO_DB} -eq 1 ] || [ ${LOG_LIMIT} -eq 0 ] ; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
 
@@ -296,6 +298,7 @@ function post_upgrade {
   #NooBaa supervisor services configuration changes
   sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
   sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
+  sed -i 's:logfile_backups=.*:logfile_backups=5:' /etc/supervisord.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
   deploy_log "first install wizard"
@@ -386,9 +389,8 @@ function post_upgrade {
     rm -rf /usr/src/node-v0.10.33/
   fi
 
-  #/usr/lib/node_modules/
-  #/usr/local/lib/node_modules/
-  #/usr/src/node-v0.10.33/
+  rm -rf ${EXTRACTION_PATH}/*
+  rm -rf /backup/build/public/*diagnostics*
 }
 
 #Log file name supplied

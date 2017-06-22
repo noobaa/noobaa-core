@@ -34,11 +34,10 @@ const word_count_func = {
     VpcConfig: {
         SubnetIds: POOLS
     },
-    Files: {
-        'word_count_func.js': {
-            path: path.join(__dirname, 'word_count_func.js')
-        },
-    }
+    Files: [{
+        path: 'word_count_func.js',
+        fs_path: path.join(__dirname, 'word_count_func.js'),
+    }]
 };
 
 const dos_func = {
@@ -51,11 +50,10 @@ const dos_func = {
     VpcConfig: {
         SubnetIds: POOLS
     },
-    Files: {
-        'denial_of_service_func.js': {
-            path: path.join(__dirname, 'denial_of_service_func.js')
-        },
-    }
+    Files: [{
+        path: 'denial_of_service_func.js',
+        fs_path: path.join(__dirname, 'denial_of_service_func.js'),
+    }]
 };
 
 const sync_func = {
@@ -68,11 +66,10 @@ const sync_func = {
     VpcConfig: {
         SubnetIds: POOLS
     },
-    Files: {
-        'sync_s3_to_azure.js': {
-            path: path.join(__dirname, 'sync_s3_to_azure.js')
-        },
-    }
+    Files: [{
+        path: 'sync_s3_to_azure.js',
+        fs_path: path.join(__dirname, 'sync_s3_to_azure.js'),
+    }]
 };
 
 const create_account_func = {
@@ -85,11 +82,10 @@ const create_account_func = {
     VpcConfig: {
         SubnetIds: POOLS
     },
-    Files: {
-        'create_account_func.js': {
-            path: path.join(__dirname, 'create_account_func.js')
-        },
-    }
+    Files: [{
+        path: 'create_account_func.js',
+        fs_path: path.join(__dirname, 'create_account_func.js'),
+    }]
 };
 
 const WC_EVENT = {

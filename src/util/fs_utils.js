@@ -203,9 +203,7 @@ function folder_delete(dir) {
 
 function file_delete(file_name) {
     return fs.unlinkAsync(file_name)
-        .catch(err => {
-            if (err.code !== 'ENOENT') throw err;
-        })
+        .catch(ignore_enoent)
         .return();
 }
 
@@ -294,6 +292,14 @@ function replace_file(file_path, data) {
         });
 }
 
+function ignore_eexist(err) {
+    if (err.code !== 'EEXIST') throw err;
+}
+
+function ignore_enoent(err) {
+    if (err.code !== 'ENOENT') throw err;
+}
+
 // EXPORTS
 exports.file_must_not_exist = file_must_not_exist;
 exports.file_must_exist = file_must_exist;
@@ -311,4 +317,6 @@ exports.folder_delete = folder_delete;
 exports.tar_pack = tar_pack;
 exports.write_file_from_stream = write_file_from_stream;
 exports.replace_file = replace_file;
+exports.ignore_eexist = ignore_eexist;
+exports.ignore_enoent = ignore_enoent;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;

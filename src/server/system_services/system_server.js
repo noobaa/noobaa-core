@@ -966,16 +966,16 @@ function set_certificate(zip_file) {
     let cert;
     return P.resolve()
         .then(() => zip_utils.unzip_from_file(zip_file.path))
-        .then(zipfile => zip_utils.unzip_to_mem(zipfile, 'utf8'))
+        .then(zipfile => zip_utils.unzip_to_mem(zipfile))
         .then(files => {
             let key_count = 0;
             let cert_count = 0;
             _.forEach(files, file => {
                 if (file.path.endsWith('.key')) {
-                    key = file.data;
+                    key = file.data.toString();
                     key_count += 1;
                 } else if (file.path.endsWith('.cert')) {
-                    cert = file.data;
+                    cert = file.data.toString();
                     cert_count += 1;
                 }
             });

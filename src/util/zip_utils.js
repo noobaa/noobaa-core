@@ -13,13 +13,13 @@ const buffer_utils = require('./buffer_utils');
 function zip_from_files(files) {
     const zipfile = new yazl.ZipFile();
     return P.resolve()
-        .then(() => _.each(files, (file, name) => {
+        .then(() => _.each(files, file => {
             if (file.data) {
-                zipfile.addBuffer(Buffer.from(file.data), name);
+                zipfile.addBuffer(file.data, file.path);
             } else if (file.stream) {
-                zipfile.addReadStream(file.stream, name);
-            } else if (file.path) {
-                zipfile.addFile(file.path, name);
+                zipfile.addReadStream(file.stream, file.path);
+            } else {
+                zipfile.addFile(file.fs_path || file.path, file.path);
             }
         }))
         .then(() => zipfile.end())
@@ -64,7 +64,7 @@ function unzip_from_file(file_path) {
     return P.fromCallback(cb => yauzl.open(file_path, UNZIP_OPTIONS, cb));
 }
 
-function unzip_to_func(zipfile, on_entry) {
+function unzip_to_callback(zipfile, on_entry) {
     return new P((resolve, reject) => zipfile
         .once('error', reject)
         .once('end', resolve)
@@ -76,35 +76,30 @@ function unzip_to_func(zipfile, on_entry) {
         .readEntry()); // start reading entries
 }
 
-function unzip_to_mem(zipfile, encoding) {
-    const files = {};
-    return unzip_to_func(zipfile, (entry, stream) =>
+function unzip_to_mem(zipfile) {
+    const files = [];
+    return unzip_to_callback(zipfile, (entry, stream) =>
             buffer_utils.read_stream_join(stream)
             .then(buffer => {
-                files[entry.fileName] = {
-                    path: entry.fileName,
-                    data: encoding ? buffer.toString(encoding) : buffer,
-                };
+                files.push({
+                    path: entry.fileName.toString(),
+                    data: buffer,
+                });
             }))
         .return(files);
 }
 
 function unzip_to_dir(zipfile, dir) {
-    return unzip_to_func(zipfile, (entry, stream) => {
-        const path_name = path.resolve(dir, '.' + path.sep + entry.fileName);
+    return unzip_to_callback(zipfile, (entry, stream) => {
+        const path_name = path.resolve(dir, '.' + path.sep + entry.fileName.toString());
         // directory ends with '/'
-        if (entry.fileName.endsWith('/')) {
-            return fs_utils.create_path(path_name).catch(ignore_eexist);
+        if (path_name.endsWith('/')) {
+            return fs_utils.create_path(path_name);
         }
         return P.resolve()
-            .then(() => fs_utils.create_path(path.dirname(path_name)).catch(ignore_eexist))
+            .then(() => fs_utils.create_path(path.dirname(path_name)))
             .then(() => fs_utils.write_file_from_stream(path_name, stream));
     });
-}
-
-function ignore_eexist(err) {
-    if (err.code === 'EEXIST') return;
-    throw err;
 }
 
 exports.zip_from_files = zip_from_files;

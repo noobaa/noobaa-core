@@ -151,7 +151,7 @@ config.central_stats = {
     send_stats: 'true',
     send_time_cycle: 30 * 60 * 1000, //30 min
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
-    previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
+    previous_diag_packs_count: 2 //TODO: We might want to split between agent and server
 };
 config.central_stats.send_time = 14 * 24 * 60 * 60 * 1000; //14 days
 

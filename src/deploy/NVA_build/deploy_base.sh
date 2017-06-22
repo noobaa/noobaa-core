@@ -308,6 +308,7 @@ function setup_supervisors {
     echo_supervisord_conf > /etc/supervisord.conf
     sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
     sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
+    sed -i 's:logfile_backups=.*:logfile_backups=5:' /etc/supervisord.conf
 
     # Autostart supervisor
     deploy_log "setup_supervisors autostart"

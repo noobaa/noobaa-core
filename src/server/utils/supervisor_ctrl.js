@@ -73,6 +73,8 @@ SupervisorCtrl.prototype.add_program = function(prog) {
             if (!self._supervised) {
                 return;
             }
+            prog.stderr_logfile_backups = '3';
+            prog.stdout_logfile_backups = '3';
             return self._programs.push(prog);
         });
 };

@@ -200,6 +200,46 @@ function reset_password {
     local bcrypt_sec=$(sudo /usr/local/bin/node /root/node_modules/noobaa-core/src/tools/bcrypt_cli.js "$answer_reset_password")
     /usr/bin/mongo nbcore --eval  "db.accounts.update({email:'${user_name}'},{\$set:{password:'${bcrypt_sec}'}})" --quiet
 
+}
+
+function resize_hd {
+
+  dialog --colors --backtitle "NooBaa First Install" --infobox "Resizing HD, this might take some time" 4 42 
+  logger -p local0.info -s -t resize_fs_on_sda "Starting ..."
+  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -s /dev/sda: $(fdisk -s /dev/sda)"
+  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -s /dev/sda2: $(fdisk -s /dev/sda2)"
+  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -l:"
+  logger -p local0.info -s -t resize_fs_on_sda "$(fdisk -l)"
+  logger -p local0.info -s -t resize_fs_on_sda "Running lvs:"
+  logger -p local0.info -s -t resize_fs_on_sda "$(lvs)"
+  logger -p local0.info -s -t resize_fs_on_sda "Running pvs:"
+  logger -p local0.info -s -t resize_fs_on_sda "$(pvs)"
+  logger -p local0.info -s -t resize_fs_on_sda "Running df:"
+  logger -p local0.info -s -t resize_fs_on_sda "$(df)"
+
+  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk to resize sda2 partition and reboot ..."
+  echo -e "d\n2\nn\np\n2\n\n\nw\n" | fdisk -cu /dev/sda
+  logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -l after repartitioning:"
+  logger -p local0.info -s -t resize_fs_on_sda "$(fdisk -l)"
+  dialog --colors --backtitle "NooBaa First Install" --infobox "Rebooting Machine" 4 22; sleep 2
+  reboot
+
+}
+
+function apply_resize  {
+
+  dialog --colors --backtitle "NooBaa First Install" --infobox "Applying resize changes" 4 28 
+  logger -p local0.info -s -t fix_server_plat "Running lvs (PRE):"
+  logger -p local0.info -s -t fix_server_plat "$(lvs)"
+  logger -p local0.info -s -t fix_server_plat "Running pvs (PRE):"
+  logger -p local0.info -s -t fix_server_plat "$(pvs)"
+  pvresize /dev/sda2
+  lvextend --resizefs -l +100%FREE /dev/VolGroup/lv_root
+  logger -p local0.info -s -t fix_server_plat "Running lvs (POST):"
+  logger -p local0.info -s -t fix_server_plat "$(lvs)"
+  logger -p local0.info -s -t fix_server_plat "Running pvs (POST):"
+  logger -p local0.info -s -t fix_server_plat "$(pvs)"
+  dialog --colors --backtitle "NooBaa First Install" --infobox "Done" 4 8 ; sleep 2 
 
 }
 
@@ -209,7 +249,7 @@ function run_wizard {
 is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"
   while [ "${menu_entry}" -ne "4" ]; do
-    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration (Optional)" 3 "Password reset" 4 "Exit" 2> choice
+    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 14 57 6 1 "Networking Configuration" 2 "NTP Configuration (optional)" 3 "Password reset" 4 "Resize Partition (requires reboot)" 5 "Resize FS (after partition was resized)" 6 "Exit" 2> choice
     menu_entry=$(cat choice)
   if [ "${menu_entry}" -eq "1" ]; then
     configure_networking_dialog
@@ -218,6 +258,10 @@ is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit y
     configure_ntp_dialog
   elif [ "${menu_entry}" -eq "3" ]; then
     reset_password
+  elif [ "${menu_entry}" -eq "4" ]; then
+    resize_hd
+  elif [ "${menu_entry}" -eq "5" ]; then
+    apply_resize
   fi
   done
   dialog --colors --nocancel --backtitle "NooBaa First Install" --infobox "Finalizing \Z5\ZbNooBaa\Zn first install..." 4 40 ; sleep 2

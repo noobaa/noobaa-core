@@ -222,7 +222,7 @@ function resize_hd {
   logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -l after repartitioning:"
   logger -p local0.info -s -t resize_fs_on_sda "$(fdisk -l)"
   dialog --colors --backtitle "NooBaa First Install" --infobox "Rebooting Machine" 4 22; sleep 2
-  reboot
+  sudo reboot; sleep 60
 
 }
 

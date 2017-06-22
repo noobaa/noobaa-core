@@ -244,6 +244,7 @@ function do_upgrade {
   local id=$(${MONGO_SHELL} --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
   ${MONGO_SHELL} --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
 
+  rm -rf ${EXTRACTION_PATH}/*
   deploy_log "Upgrade finished successfully!"
 }
 

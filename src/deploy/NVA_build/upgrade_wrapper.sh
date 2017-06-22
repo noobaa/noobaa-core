@@ -189,18 +189,20 @@ function pre_upgrade {
   sysctl -e -p
   agent_conf=${CORE_DIR}/agent_conf.json
   if [ -f "$agent_conf" ]
-    then
-        deploy_log "$agent_conf found. Save to /tmp and restore"
-        rm -f /tmp/agent_conf.json
-        cp ${agent_conf} /tmp/agent_conf.json
-    else
-        deploy_log "$agent_conf not found."
-    fi
+  then
+      deploy_log "$agent_conf found. Save to /tmp and restore"
+      rm -f /tmp/agent_conf.json
+      cp ${agent_conf} /tmp/agent_conf.json
+  else
+      deploy_log "$agent_conf not found."
+  fi
 
-	# copy fix_server_sec to
-    if ! grep -q 'fix_server_sec' /etc/rc.local; then
-        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
-    fi
+	# copy fix_server_plat
+  if ! grep -q 'fix_server_plat' /etc/rc.local; then
+      echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_plat.sh" >> /etc/rc.local
+  fi
+  sed -i 's:.*fix_server_sec.sh::' /etc/rc.local
+
 
 	rm -rf ~/.nvm
 	mkdir ~/.nvm

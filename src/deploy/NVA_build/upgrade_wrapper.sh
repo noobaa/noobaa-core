@@ -391,7 +391,6 @@ function post_upgrade {
     rm -rf /usr/src/node-v0.10.33/
   fi
 
-  rm -rf ${EXTRACTION_PATH}/*
   rm -rf /backup/build/public/*diagnostics*
 }
 

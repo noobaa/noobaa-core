@@ -185,7 +185,7 @@ function handle_error(req, res, err) {
         err.stack || err);
     res.statusCode = lambda_err.http_code;
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Length', reply.length);
+    res.setHeader('Content-Length', Buffer.byteLength(reply));
     res.end(reply);
 }
 

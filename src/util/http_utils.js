@@ -232,7 +232,7 @@ function send_reply(req, res, reply, options) {
         dbg.log0('HTTP REPLY XML', req.method, req.originalUrl,
             JSON.stringify(req.headers), xml_reply);
         res.setHeader('Content-Type', 'application/xml');
-        res.setHeader('Content-Length', xml_reply.length);
+        res.setHeader('Content-Length', Buffer.byteLength(xml_reply));
         res.end(xml_reply);
         return;
     }
@@ -241,7 +241,7 @@ function send_reply(req, res, reply, options) {
         dbg.log0('HTTP REPLY JSON', req.method, req.originalUrl,
             JSON.stringify(req.headers), json_reply);
         res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Content-Length', json_reply.length);
+        res.setHeader('Content-Length', Buffer.byteLength(json_reply));
         res.end(json_reply);
         return;
     }

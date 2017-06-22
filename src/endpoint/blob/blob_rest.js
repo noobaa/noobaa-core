@@ -138,7 +138,7 @@ function handle_error(req, res, err) {
         err.stack || err);
     res.statusCode = blob_err.http_code;
     res.setHeader('Content-Type', 'application/xml');
-    res.setHeader('Content-Length', reply.length);
+    res.setHeader('Content-Length', Buffer.byteLength(reply));
     res.end(reply);
 }
 

@@ -7,7 +7,7 @@ dotenv.load();
 const _ = require('lodash');
 const P = require('../util/promise');
 const argv = require('minimist')(process.argv);
-const ObjectId = require('mongodb').ObjectID;
+// const ObjectId = require('mongodb').ObjectID;
 const Dispatcher = require('../server/notifications/dispatcher');
 const mongo_client = require('../util/mongo_client');
 const promise_utils = require('../util/promise_utils');
@@ -118,63 +118,52 @@ function EventsGenerator() {
 
 EventsGenerator.prototype.init = function() {
     //Init all ObjectIDs of the entities in the system, ndoes and objects don't have to exist
-    return promise_utils.exec('mongo nbcore --eval "db.systems.findOne({},{_id:1})" --quiet | grep _id', false, true)
+    return mongo_client.instance().connect()
+        .then(() => mongo_client.instance().db.collection('systems').findOne({}, { _id: 1 }))
         .then(res => {
             if (res) {
-                const location = res.indexOf('Obj') + 10;
-                sysid = new ObjectId(res.substring(location, location + 24));
-                return promise_utils.exec('mongo nbcore --eval "db.buckets.findOne({},{_id:1})" --quiet | grep _id', false, true);
+                sysid = res._id;
+                return mongo_client.instance().db.collection('buckets').findOne({}, { _id: 1 });
             } else {
                 console.info('No system, aborting...');
                 process.exit(0);
             }
         })
         .then(bucket => {
-            const location = bucket.indexOf('Obj') + 10;
-            entities.bucket._id = new ObjectId(bucket.substring(location, location + 24));
-            return promise_utils.exec('mongo nbcore --eval "db.accounts.findOne({},{_id:1})" --quiet | grep _id', false, true);
+            entities.bucket._id = bucket._id;
+            return mongo_client.instance().db.collection('accounts').findOne({}, { _id: 1 });
         })
         .then(account => {
-            const location = account.indexOf('Obj') + 10;
-            entities.account._id = new ObjectId(account.substring(location, location + 24));
-            return promise_utils.exec('mongo nbcore --eval "db.pools.findOne({},{_id:1})" --quiet | grep _id', false, true);
+            entities.account._id = account._id;
+            return mongo_client.instance().db.collection('pools').findOne({}, { _id: 1 });
         })
         .then(pool => {
-            const location = pool.indexOf('Obj') + 10;
-            entities.resource._id = new ObjectId(pool.substring(location, location + 24));
-            return promise_utils.exec('mongo nbcore --eval "db.clusters.findOne({})" --quiet | grep hostname', false, true);
+            entities.resource._id = pool._id;
+            return mongo_client.instance().db.collection('clusters').findOne({});
         })
-        .then(hostname => {
-            const location = hostname.indexOf(':') + 3;
-            entities.cluster.hostname = hostname.substring(location, hostname.length - 3);
-            return promise_utils.exec('mongo nbcore --eval "db.clusters.findOne({})" --quiet | grep owner_secret', false, true);
-        })
-        .then(secret => {
-            const location = secret.indexOf(':') + 3;
-            entities.cluster.secret = secret.substring(location, secret.length - 3);
-            return promise_utils.exec('mongo nbcore --eval "db.nodes.findOne({},{_id:1})" --quiet | grep _id', true, true);
+        .then(cluster => {
+            entities.cluster.hostname = cluster.heartbeat.health.os_info.hostname;
+            entities.cluster.secret = cluster.owner_secret;
+            return mongo_client.instance().db.collection('nodes').findOne({}, { _id: 1 });
         })
         .then(node => {
             if (node) {
-                const location = node.indexOf('Obj') + 10;
-                entities.node._id = new ObjectId(node.substring(location, location + 24));
+                entities.node._id = node._id;
                 has_nodes = true;
             } else {
                 delete entities.node;
             }
-            return promise_utils.exec('mongo nbcore --eval "db.objectmds.findOne({},{_id:1})" --quiet | grep _id', true, true);
+            return mongo_client.instance().db.collection('objectmds').findOne({}, { _id: 1 });
         })
         .then(obj => {
             if (obj) {
-                const location = obj.indexOf('Obj') + 10;
-                entities.obj._id = new ObjectId(obj.substring(location, location + 24));
+                entities.obj._id = obj._id;
                 has_objects = true;
             } else {
                 delete entities.obj;
             }
             console.warn('Initiated with', entities);
-        })
-        .then(() => mongo_client.instance().connect());
+        });
 };
 
 EventsGenerator.prototype.generate_alerts = function(num, pri) {
@@ -253,7 +242,7 @@ EventsGenerator.prototype.generate_audit = function(num, cat) {
             count += 1;
             const chosen = Math.floor(Math.random() * (logs_size));
             return P.resolve()
-                .then(() => Dispatcher.instance().activity(events_pool[chosen]))
+                .then(() => Dispatcher.instance().activity(_.clone(events_pool[chosen])))
                 .delay(1000);
         });
 };

@@ -15,14 +15,86 @@ function deploy_log {
 function fix_iptables {
   deploy_log "fixing IPtables"
   #fix iptables
+  
+
+  local exist=$(iptables -L -n -v | grep ':80 ' | grep eth0 | wc -l)
+  if [ "${exist}" == "1" ]; then
+    iptables -D INPUT -i eth0 -p tcp --dport 80 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep ':80 ' | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1  -p tcp --dport 80 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 443 | grep eth0 | wc -l)
+  if [ "${exist}" == "1" ]; then
+    iptables -D INPUT -i eth0 -p tcp --dport 443 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 443 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1  -p tcp --dport 443 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 8080 | grep eth0 | wc -l)
+  if [ "${exist}" == "1" ]; then
+    iptables -D INPUT -i eth0 -p tcp --dport 8080 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 8080 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1  -p tcp --dport 8080 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 8443 | grep eth0 | wc -l)
+  if [ "${exist}" == "1" ]; then
+    iptables -D INPUT -i eth0 -p tcp --dport 8443 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 8443 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1  -p tcp --dport 8443 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 8444 | grep eth0 | wc -l)
+  if [ "${exist}" == "1" ]; then
+    iptables -D INPUT -i eth0 -p tcp --dport 8444 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 8444 | wc -l)
+  if [ "${exist}" == "0" ]; then
+	  iptables -I INPUT 1  -p tcp --dport 8444 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v| grep 26050 | grep eth0 | wc -l)
+  if [ "${exist}" == "1" ]; then
+    iptables -D INPUT -i eth0 -p tcp --dport 26050 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v| grep 26050| wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1  -p tcp --dport 26050 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 27000 | grep eth0 | wc -l)
+  if [ "${exist}" == "1" ]; then
+    iptables -D INPUT -i eth0 -p tcp --dport 27000 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n -v | grep 27000 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1  -p tcp --dport 27000 -j ACCEPT
+  fi
+
   local exist=$(iptables -L -n | grep 60100 | wc -l)
   if [ "${exist}" == "1" ]; then
     iptables -D INPUT -i eth0 -p tcp --dport 60100 -j ACCEPT
   fi
-
+  
   local exist=$(iptables -L -n | grep "multiport dports 60100:60600" | wc -l)
   if [ "${exist}" == "0" ]; then
-    iptables -A INPUT -i eth0 -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
+    iptables -A INPUT -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
   fi
 
   #If logging rules exist, remove them
@@ -155,6 +227,8 @@ function pre_upgrade {
 	useradd noobaaroot
 	echo Passw0rd | passwd noobaaroot --stdin
 	fi
+  
+  update_noobaa_net
 
   fix_iptables
 
@@ -203,6 +277,11 @@ function pre_upgrade {
   fi
   sed -i 's:.*fix_server_sec.sh::' /etc/rc.local
 
+	# copy fix_server_sec to rc.local
+    if ! grep -q 'fix_server_sec' /etc/rc.local; then
+        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_sec.sh" >> /etc/rc.local
+    fi
+  
 
 	rm -rf ~/.nvm
 	mkdir ~/.nvm

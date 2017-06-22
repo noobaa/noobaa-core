@@ -4,6 +4,7 @@ MONGO_PROGRAM="mongo_wrapper"
 MONGO_SHELL="/usr/bin/mongo nbcore"
 LOG_FILE="/var/log/noobaa_deploy_wrapper.log"
 LOG_TOPIC="UPGRADE"
+NOOBAANET="/etc/noobaa_network"
 
 function deploy_log {
 	if [ "$1" != "" ]; then
@@ -22,6 +23,14 @@ function set_deploy_log_topic {
 function set_mongo_cluster_mode {
 	RS_SERVERS=`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'@' -f 2 | cut -d'/' -f 1`
     MONGO_SHELL="/usr/bin/mongors --host mongodb://${RS_SERVERS}/nbcore?replicaSet=shard1"
+}
+
+function update_noobaa_net {
+    > ${NOOBAANET}
+    eths=$(ifconfig -a | grep eth | awk '{print $1}')
+    for eth in ${eths}; do
+        echo "${eth}" >> ${NOOBAANET}
+    done
 }
 
 function check_mongo_status {

@@ -48,6 +48,7 @@ UPGRADE_SCRIPTS=(
     'mongo_upgrade_15.js' 
     'mongo_upgrade_17.js'
     'mongo_upgrade_18.js'
+    'mongo_upgrade_19.js'
     'mongo_upgrade_mark_completed.js'
 )
 

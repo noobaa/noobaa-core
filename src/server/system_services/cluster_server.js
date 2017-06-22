@@ -48,13 +48,13 @@ function _init() {
 //
 
 //Return new cluster info, if doesn't exists in db
-function new_cluster_info() {
+function new_cluster_info(params) {
     if (system_store.get_local_cluster_info()) {
         return;
     }
 
     return P.fcall(function() {
-            var address = os_utils.get_local_ipv4_ips()[0];
+            var address = (params && params.address) || os_utils.get_local_ipv4_ips()[0];
             var cluster = {
                 is_clusterized: false,
                 owner_secret: system_store.get_server_secret(),
@@ -91,6 +91,7 @@ function add_member_to_cluster(req) {
     let my_address;
     let first_server = !is_clusterized;
 
+    dbg.log0('validating member request');
     return _validate_member_request(req)
         .catch(err => {
             throw err;
@@ -106,12 +107,13 @@ function add_member_to_cluster(req) {
             timeout: 60000 //60s
         }))
         .then(response => {
+            dbg.log0('validating succeeded, got this caller_address', response.caller_address);
             my_address = response.caller_address || os_utils.get_local_ipv4_ips()[0];
             if (!is_clusterized && response && response.caller_address) {
-                dbg.log1('updating adding server ip in db');
+                dbg.log0('updating adding server ip in db');
                 let shard_idx = cutil.find_shard_index(req.rpc_params.shard);
                 let server_idx = _.findIndex(topology.shards[shard_idx].servers,
-                    server => server.address === os_utils.get_local_ipv4_ips()[0]);
+                    server => server.address === '127.0.0.1');
                 if (server_idx === -1) {
                     dbg.warn("db does not contain internal ip of master server");
                 } else {
@@ -728,6 +730,12 @@ function update_dns_servers(req) {
                 if (current) {
                     target_servers.push(current);
                 }
+            }
+            if (!dns_servers_config.dns_servers.every(net.isIPv4)) {
+                throw new RpcError('MALFORMED_IP', 'Malformed dns configuration');
+            }
+            if (!dns_servers_config.search_domains.every(net_utils.is_fqdn)) {
+                throw new RpcError('MALFORMED_FQDN', 'Malformed dns configuration');
             }
             let updates = _.map(target_servers, server => _.omitBy({
                 _id: server._id,

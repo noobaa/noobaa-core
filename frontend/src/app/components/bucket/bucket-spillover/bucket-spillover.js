@@ -56,7 +56,7 @@ class BucketSpilloverViewModel extends Observer {
         const rows = resourcesList.map(
             item => (new SpilloverResourceRowViewModel()).onUpdate({
                 status: getPoolStateIcon(item),
-                type: getResourceTypeIcon(item.resource_type, item.cloud_info),
+                type: getResourceTypeIcon(item.resource_type),
                 name: item.name,
                 usage: getPoolCapacityBarValues(item || {})
             })

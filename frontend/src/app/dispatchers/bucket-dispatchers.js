@@ -1,8 +1,12 @@
 import { dispatch } from 'state';
 import api from 'services/api';
-import { START_UPDATE_BUCKET_QUOTA, COMPLETE_UPDATE_BUCKET_QUOTA, FAIL_UPDATE_BUCKET_QUOTA,
-         START_UPDATE_BUCKET_INTERNAL_SPILLOVER, COMPLETE_UPDATE_BUCKET_INTERNAL_SPILLOVER,
-         FAIL_UPDATE_BUCKET_INTERNAL_SPILLOVER } from 'action-types';
+import {
+    START_UPDATE_BUCKET_QUOTA,
+    COMPLETE_UPDATE_BUCKET_QUOTA,
+    FAIL_UPDATE_BUCKET_QUOTA,
+    START_UPDATE_BUCKET_SPILLOVER,
+    COMPLETE_UPDATE_BUCKET_SPILLOVER,
+    FAIL_UPDATE_BUCKET_SPILLOVER } from 'action-types';
 
 export async function updateBucketQuota(bucket, quota) {
     dispatch({
@@ -27,20 +31,20 @@ export async function updateBucketQuota(bucket, quota) {
 
 export async function updateBucketInternalSpillover(bucket, spilloverEnabled) {
     dispatch({
-        type: START_UPDATE_BUCKET_INTERNAL_SPILLOVER,
+        type: START_UPDATE_BUCKET_SPILLOVER,
         payload: { bucket, spilloverEnabled }
     });
 
     try {
         await api.bucket.update_bucket({ name: bucket, use_internal_spillover: spilloverEnabled });
         dispatch({
-            type: COMPLETE_UPDATE_BUCKET_INTERNAL_SPILLOVER,
+            type: COMPLETE_UPDATE_BUCKET_SPILLOVER,
             payload: { bucket, spilloverEnabled }
         });
 
     } catch (error) {
         dispatch({
-            type: FAIL_UPDATE_BUCKET_INTERNAL_SPILLOVER,
+            type: FAIL_UPDATE_BUCKET_SPILLOVER,
             payload: { bucket, error }
         });
     }

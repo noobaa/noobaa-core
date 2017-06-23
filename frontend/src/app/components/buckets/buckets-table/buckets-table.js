@@ -2,12 +2,13 @@
 
 import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
-import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, keyByProperty } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 import { inputThrottle } from 'config';
+import { state$ } from 'state';
 
 const columns = deepFreeze([
     {
@@ -31,15 +32,20 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'cloudStorage',
-        type: 'cloud-storage'
+        name: 'resourcesInPolicy',
+        type: 'resources-in-policy',
+        sortable: true
+    },
+    {
+        name: 'spilloverUsage',
+        sortable: true
     },
     {
         name: 'cloudSync',
         sortable: true
     },
     {
-        name: 'capacity',
+        name: 'usedCapacity',
         label: 'used capacity',
         type: 'capacity',
         sortable: true
@@ -64,15 +70,17 @@ function generatePlacementSortValue(bucket) {
 }
 
 const compareAccessors = deepFreeze({
-    state: bucket => bucket.state,
+    state: bucket => bucket.writable,
     name: bucket => bucket.name,
-    fileCount: bucket => bucket.num_objects,
-    capacity: bucket => bucket.storage.values.used,
-    cloudSync: bucket => bucket.cloud_sync_status,
+    fileCount: bucket => bucket.objectsCount,
+    resourcesInPolicy: bucket => bucket.backingResources.resources,
+    spilloverUsage: bucket => bucket.backingResources.spillover.usage.size,
+    usedCapacity: bucket => bucket.storage.values.used,
+    cloudSync: bucket => bucket.cloudSyncStatus,
     placementPolicy: generatePlacementSortValue
 });
 
-class BucketsTableViewModel extends BaseViewModel {
+class BucketsTableViewModel extends Observer {
     constructor() {
         super();
 
@@ -95,35 +103,45 @@ class BucketsTableViewModel extends BaseViewModel {
             write: value => this.orderBy(value)
         });
 
-        this.buckets = ko.pureComputed(
-            () => {
-                const { sortBy, order } = this.sorting();
-                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
-
-                return systemInfo() && systemInfo().buckets
-                    .filter(
-                        ({ name }) => name.toLowerCase().includes(
-                            (this.filter() || '').toLowerCase()
-                        )
-                    )
-                    .sort(compareOp);
-            }
-        );
-
-        this.hasSingleBucket = ko.pureComputed(
-            () => this.buckets().length === 1
-        );
-
+        this.rows = ko.observable([]);
         this.deleteGroup = ko.observable();
         this.isCreateBucketWizardVisible = ko.observable(false);
+
+        this.observe(state$.getMany(
+            ['nodePools', 'pools'],
+            ['cloudResources', 'resources'],
+            ['internalResources', 'resources'],
+            'buckets'),
+            this.onState);
     }
 
-    newBucketRow(bucket) {
-        return new BucketRowViewModel(
-            bucket,
-            this.deleteGroup,
-            this.hasSingleBucket
-        );
+    onState([pools, cloud, internal, buckets]) {
+        const bucketsList = Object.values(buckets);
+
+        const { sortBy, order } = this.sorting();
+        const compareOp = createCompareFunc(compareAccessors[sortBy], order);
+        const poolByName = { ...pools, ...cloud, ...internal };
+
+        const rows = bucketsList
+            .filter(
+                ({ name }) => name.toLowerCase().includes(
+                    (this.filter() || '').toLowerCase()
+                )
+            )
+            .sort(compareOp).map(bucket => (new BucketRowViewModel()).onUpdate({
+                bucket,
+                poolByName,
+                deleteGroup: this.deleteGroup,
+                isLastBucket: bucketsList.length === 1
+            }));
+
+
+        for (let i = 0; i < rows.length; ++i) {
+            this.rows()[i] = rows[i];
+        }
+
+        this.rows().length = rows.length;
+        this.rows(this.rows());
     }
 
     orderBy({ sortBy, order }) {

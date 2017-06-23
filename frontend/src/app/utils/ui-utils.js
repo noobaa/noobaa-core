@@ -225,24 +225,29 @@ const resourceTypeIconMapping = deepFreeze({
 
     NODES_POOL: {
         name: 'nodes-pool',
-        tooltip: 'Nodes Pool'
+        tooltip: 'Nodes pool'
     },
 
     INTERNAL: {
         name: 'internal-resource',
-        tooltip: 'Internal Resource'
+        tooltip: 'Internal resource'
+    },
+
+    CLOUD: {
+        name: 'cloud-resources',
+        tooltip: 'Cloud resource'
     }
 });
 
-export function getResourceTypeIcon({ resource_type, cloud_info }) {
+export function getResourceTypeIcon(resoruceType, subResourceType) {
     const type = {
         HOSTS: () => 'NODES_POOL',
-        CLOUD: () => cloud_info.endpoint_type,
+        CLOUD: () => subResourceType ? subResourceType : 'CLOUD',
         INTERNAL: () => 'INTERNAL'
-    }[resource_type];
+    }[resoruceType];
 
     if (!type) {
-        throw new Error(`Resource type icon is not supported for resource of type ${resource_type}`);
+        throw new Error(`Resource type icon is not supported for resource of type ${resoruceType}`);
     }
 
     return resourceTypeIconMapping[type()];
@@ -313,6 +318,18 @@ export function getNodeCapacityBarValues(node) {
         { value: used, label: 'Used (Noobaa)' },
         { value: used_other, label: 'Used (other)' },
         { value: reserved, label: 'Reserved' }
+    ];
+
+    return { total, used: usage };
+}
+
+export function getBucketCapacityBarValues(node) {
+    const { storage = {} } = node;
+    const { total, used, used_other, reserved } = storage.values;
+    const usage = [
+        { value: used, label: 'Used (Noobaa)' },
+        { value: used_other, label: 'Used (other)' },
+        { value: reserved || 0, label: 'Reserved' }
     ];
 
     return { total, used: usage };

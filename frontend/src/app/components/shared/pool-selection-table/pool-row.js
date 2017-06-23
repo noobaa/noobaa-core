@@ -20,7 +20,7 @@ export default class PoolRowViewModel extends BaseViewModel {
         );
 
         this.type = ko.pureComputed(
-            () => pool() ? getResourceTypeIcon(pool()) : ''
+            () => pool() ? getResourceTypeIcon(pool().resource_type, pool().cloud_info) : ''
         );
 
         this.name = ko.pureComputed(

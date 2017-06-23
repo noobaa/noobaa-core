@@ -11,7 +11,7 @@ export default class PlacementRowViewModel {
         );
 
         this.type = ko.pureComputed(
-            () => pool() ? getResourceTypeIcon(pool()) : ''
+            () => pool() ? getResourceTypeIcon(pool().resource_type, pool().cloud_info) : ''
         );
 
         this.resourceName = ko.pureComputed(

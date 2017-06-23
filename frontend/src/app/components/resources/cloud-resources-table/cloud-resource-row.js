@@ -32,7 +32,7 @@ export default class CloudResourceRowViewModel extends BaseViewModel {
         );
 
         this.type = ko.pureComputed(
-            () => resource() ? getResourceTypeIcon(resource()) : ''
+            () => resource() ? getResourceTypeIcon(resource().resource_type, resource().cloud_info) : ''
         );
 
         this.name = ko.pureComputed(

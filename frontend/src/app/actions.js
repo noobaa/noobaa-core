@@ -2014,8 +2014,13 @@ function notifyUploadCompleted(uploaded, failed) {
 // TODO: Bridge between old and new architectures. will be removed after
 // appropriate sections are moved to the new architecture.
 // ----------------------------------------------------------------------
-import { COMPLETE_FETCH_SYSTEM_INFO, COMPLETE_CREATE_ACCOUNT,
-    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS, COMPLETE_UPDATE_BUCKET_QUOTA } from 'action-types';
+import {
+    COMPLETE_FETCH_SYSTEM_INFO,
+    COMPLETE_CREATE_ACCOUNT,
+    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
+    COMPLETE_UPDATE_BUCKET_QUOTA,
+    COMPLETE_UPDATE_BUCKET_SPILLOVER
+} from 'action-types';
 
 action$.subscribe(action => {
     switch(action.type) {
@@ -2025,9 +2030,11 @@ action$.subscribe(action => {
 
         case COMPLETE_CREATE_ACCOUNT:
         case COMPLETE_UPDATE_ACCOUNT_S3_ACCESS:
+        case COMPLETE_UPDATE_BUCKET_SPILLOVER:
         case COMPLETE_UPDATE_BUCKET_QUOTA:
             loadSystemInfo();
             break;
+
     }
 });
 // ----------------------------------------------------------------------

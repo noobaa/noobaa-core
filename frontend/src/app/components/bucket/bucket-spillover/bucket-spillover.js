@@ -40,6 +40,7 @@ class BucketSpilloverViewModel extends Observer {
         this.tableDisabled = ko.observable();
         this.ChangeSpilloverButtonText = ko.observable();
         this.bucket = ko.observable();
+        this.spilloverDisabled = ko.observable();
         this.observe(state$.getMany('internalResources', 'buckets'), this.onState);
     }
 
@@ -49,11 +50,13 @@ class BucketSpilloverViewModel extends Observer {
         const bucket = bucketsList.find(
             ({ name }) => routeContext().params.bucket === name
         );
+        const spilloverDisabled = bucket.backingResources.spillover.disabled;
 
+        this.spilloverDisabled(spilloverDisabled);
         const rows = resourcesList.map(
             item => (new SpilloverResourceRowViewModel()).onUpdate({
                 status: getPoolStateIcon(item),
-                type: getResourceTypeIcon(item),
+                type: getResourceTypeIcon(item.resource_type, item.cloud_info),
                 name: item.name,
                 usage: getPoolCapacityBarValues(item || {})
             })
@@ -66,12 +69,12 @@ class BucketSpilloverViewModel extends Observer {
         this.rows().length = rows.length;
         this.rows(this.rows());
         this.bucket(bucket);
-        this.tableDisabled(!bucket.spilloverEnabled);
-        this.ChangeSpilloverButtonText(bucket.spilloverEnabled ? 'Disable Spillover' : 'Enable Spillover');
+        this.tableDisabled(spilloverDisabled);
+        this.ChangeSpilloverButtonText(spilloverDisabled ? 'Enable Spillover' : 'Disable Spillover');
     }
 
     onChangeSpilloverState() {
-        updateBucketInternalSpillover(this.bucket().name, !this.bucket().spilloverEnabled);
+        updateBucketInternalSpillover(this.bucket().name, this.spilloverDisabled());
     }
 }
 

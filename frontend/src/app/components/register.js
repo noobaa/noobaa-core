@@ -105,6 +105,7 @@ export default function register(ko) {
     ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
     ko.components.register('bucket-s3-access-list',         require('./bucket/bucket-s3-access-list/bucket-s3-access-list').default);
     ko.components.register('bucket-spillover',              require('./bucket/bucket-spillover/bucket-spillover').default);
+    ko.components.register('bucket-data-placement-table',   require('./bucket/bucket-data-placement-table/bucket-data-placement-table').default);
     /** INJECT:bucket **/
 
     // -------------------------------

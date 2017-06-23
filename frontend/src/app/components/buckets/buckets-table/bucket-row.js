@@ -4,7 +4,6 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deleteBucket } from'actions';
 import { deepFreeze } from 'utils/core-utils';
-import { capitalize } from 'utils/string-utils';
 import { getResourceTypeIcon, getBucketCapacityBarValues } from 'utils/ui-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { formatSize } from 'utils/size-utils';
@@ -59,7 +58,6 @@ function storageIcon(bucket, type) {
     const icon = getResourceTypeIcon(type);
     const resources = bucket.backingResources.resources.filter(resource => resource.type === type);
     const list = resources.map(resource => resource.name);
-    console.warn('resources', resources);
     const tooltipText = resources.length === 0 ?
         `No ${icon.tooltip.toLowerCase()}s` :
         { title: `${icon.tooltip}s`, list };

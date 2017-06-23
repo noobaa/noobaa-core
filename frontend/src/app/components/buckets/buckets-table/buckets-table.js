@@ -4,7 +4,7 @@ import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
 import Observer from 'observer';
 import ko from 'knockout';
-import { deepFreeze, throttle, createCompareFunc, keyByProperty } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 import { inputThrottle } from 'config';

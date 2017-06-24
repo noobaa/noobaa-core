@@ -7,6 +7,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { updateBucketInternalSpillover } from 'dispatchers';
 import { getPoolStateIcon, getPoolCapacityBarValues, getResourceTypeIcon } from 'utils/ui-utils';
 import { routeContext } from 'model';
+import { aggregateStorage } from 'utils/storage-utils';
 import ko from 'knockout';
 import { state$ } from 'state';
 
@@ -50,7 +51,16 @@ class BucketSpilloverViewModel extends Observer {
         const bucket = bucketsList.find(
             ({ name }) => routeContext().params.bucket === name
         );
-        const spilloverDisabled = bucket.backingResources.spillover.disabled;
+        const spilloverDisabled = bucket.backingResources.spillover[0].disabled;
+
+        const spilloverStorage = aggregateStorage(
+            ...bucket.backingResources.spillover.map(
+                spillover => ({
+                    used: spillover.used,
+                })
+            )
+        );
+
 
         this.spilloverDisabled(spilloverDisabled);
         const rows = resourcesList.map(
@@ -58,7 +68,13 @@ class BucketSpilloverViewModel extends Observer {
                 status: getPoolStateIcon(item),
                 type: getResourceTypeIcon(item.resource_type),
                 name: item.name,
-                usage: getPoolCapacityBarValues(item || {})
+                usage: getPoolCapacityBarValues({
+                    resource_type: item.resource_type,
+                    storage: {
+                        total: item.storage.total,
+                        used: spilloverStorage.used
+                    }
+                })
             })
         );
 

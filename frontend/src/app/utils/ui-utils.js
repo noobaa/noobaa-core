@@ -247,7 +247,7 @@ export function getResourceTypeIcon(resourceType, subResourceType) {
     }[resourceType];
 
     if (!type) {
-        throw new Error(`Resource type icon is not supported for resource of type ${resourceType}`);
+        throw new Error(`Resource type icon is not supported for resource of type ${resoruceType}`);
     }
 
     return resourceTypeIconMapping[type()];
@@ -349,7 +349,7 @@ export function getPoolCapacityBarValues(resource) {
         INTERNAL: used
     }[resource.resource_type];
 
-    if (!usage) {
+    if (usage === undefined) {
         throw new Error(`Capacity bar values are not supported for resource of type ${resource.resource_type}`);
     }
 

@@ -242,7 +242,6 @@ function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat, cl
 }
 
 function getChartData(samples, pointRadius) {
-    console.warn('samples', samples);
     const datasets = chartDatasets.map(
         ({ key, color, fill }) => ({
             lineTension: 0,
@@ -260,7 +259,7 @@ function getChartData(samples, pointRadius) {
             )
         })
     );
-    console.warn('datasets', datasets);
+
     return { datasets };
 }
 
@@ -332,9 +331,6 @@ class BucketsOverviewViewModel extends Observer {
         );
 
         const samples = { pools, cloud, internal };
-
-        console.warn('cluster', cluster);
-
 
         if(cluster.master_secret) {
             this.chart({

@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const util = require('util');
 const crypto = require('crypto');
 
 const P = require('../../util/promise');
@@ -120,8 +121,9 @@ function complete_object_parts(obj, multiparts_req) {
         for (const part of parts) {
             const len = part.end - part.start;
             if (part.seq !== seq) {
-                console.log('complete_object_parts: update part at seq', seq,
-                    'pos', pos, 'len', len, part._id);
+                dbg.log0('complete_object_parts: update part at seq', seq,
+                    'pos', pos, 'len', len,
+                    'part', util.inspect(part, { colors: true, depth: null, breakLength: Infinity }));
                 parts_updates.push({
                     _id: part._id,
                     set_updates: {

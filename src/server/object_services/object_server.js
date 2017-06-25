@@ -132,10 +132,16 @@ function complete_object_upload(req) {
             }
             set_updates.size = res.size;
             set_updates.num_parts = res.num_parts;
-            set_updates.etag = res.size === 0 ?
-                ZERO_SIZE_ETAG :
-                (res.multipart_etag || Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex'));
             set_updates.create_time = new Date();
+            if (req.rpc_params.etag) {
+                set_updates.etag = req.rpc_params.etag;
+            } else if (res.size === 0) {
+                set_updates.etag = ZERO_SIZE_ETAG;
+            } else if (res.multipart_etag) {
+                set_updates.etag = res.multipart_etag;
+            } else {
+                set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
+            }
         })
         .then(() => MDStore.instance().update_object_by_id(obj._id, set_updates, unset_updates))
         .then(() => {
@@ -714,28 +720,29 @@ function read_s3_usage_report(req) {
 
 
 function get_object_info(md) {
-    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr', 'key', 'cloud_synced');
     var bucket = system_store.data.get_by_id(md.bucket);
-    info.bucket = bucket.name;
-    info.obj_id = String(md._id);
-    info.size = info.size || 0;
-    info.content_type = info.content_type || 'application/octet-stream';
-    info.etag = info.etag || '';
-    info.upload_started = md.upload_started && md.upload_started.getTime();
-    info.create_time = md.create_time ?
-        md.create_time.getTime() :
-        md._id.getTimestamp().getTime();
-    if (_.isNumber(md.upload_size)) {
-        info.upload_size = md.upload_size;
-    }
-    info.stats = md.stats ? {
-        reads: md.stats.reads || 0,
-        last_read: (md.stats.last_read && md.stats.last_read.getTime()) || 0,
-    } : {
-        reads: 0,
-        last_read: 0,
+    return {
+        obj_id: String(md._id),
+        bucket: bucket.name,
+        key: md.key,
+        size: md.size || 0,
+        etag: md.etag || '',
+        md5_b64: md.md5_b64 || undefined,
+        sha256_b64: md.sha256_b64 || undefined,
+        content_type: md.content_type || 'application/octet-stream',
+        create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
+        upload_started: md.upload_started ? md.upload_started.getTime() : undefined,
+        upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
+        xattr: md.attr,
+        cloud_synced: md.cloud_synced,
+        stats: md.stats ? {
+            reads: md.stats.reads || 0,
+            last_read: (md.stats.last_read && md.stats.last_read.getTime()) || 0,
+        } : {
+            reads: 0,
+            last_read: 0,
+        },
     };
-    return info;
 }
 
 function load_bucket(req) {

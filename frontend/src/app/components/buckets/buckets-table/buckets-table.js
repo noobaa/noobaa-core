@@ -5,6 +5,7 @@ import BucketRowViewModel from './bucket-row';
 import Observer from 'observer';
 import ko from 'knockout';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
+import { aggregateStorage } from 'utils/storage-utils';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 import { inputThrottle } from 'config';
@@ -74,7 +75,7 @@ const compareAccessors = deepFreeze({
     name: bucket => bucket.name,
     fileCount: bucket => bucket.objectsCount,
     resourcesInPolicy: bucket => bucket.backingResources.resources,
-    spilloverUsage: bucket => bucket.backingResources.spillover.usage.size,
+    spilloverUsage: bucket => aggregateStorage(...bucket.backingResources.spillover.map(s => ({ used: s.used }))).used,
     usedCapacity: bucket => bucket.storage.values.used,
     cloudSync: bucket => bucket.cloudSyncStatus,
     placementPolicy: generatePlacementSortValue

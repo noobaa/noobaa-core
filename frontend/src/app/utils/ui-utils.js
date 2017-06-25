@@ -247,7 +247,7 @@ export function getResourceTypeIcon(resourceType, subResourceType) {
     }[resourceType];
 
     if (!type) {
-        throw new Error(`Resource type icon is not supported for resource of type ${resoruceType}`);
+        throw new Error(`Resource type icon is not supported for resource of type ${resourceType}`);
     }
 
     return resourceTypeIconMapping[type()];

@@ -962,6 +962,12 @@ module.exports = {
                 etag: {
                     type: 'string',
                 },
+                md5_b64: {
+                    type: 'string',
+                },
+                sha256_b64: {
+                    type: 'string',
+                },
                 cloud_synced: {
                     type: 'boolean'
                 },

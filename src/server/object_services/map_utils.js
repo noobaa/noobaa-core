@@ -493,13 +493,15 @@ function is_chunk_good_for_dedup(chunk, tiering, tiering_status) {
 
 
 function get_part_info(part, adminfo, tiering_status) {
-    let p = _.pick(part,
-        'start',
-        'end',
-        'chunk_offset');
-    p.chunk_id = String(part.chunk._id);
-    p.chunk = get_chunk_info(part.chunk, adminfo, tiering_status);
-    return p;
+    return {
+        start: part.start,
+        end: part.end,
+        seq: part.seq,
+        multipart_id: String(part.multipart_id),
+        chunk_id: String(part.chunk._id),
+        chunk: get_chunk_info(part.chunk, adminfo, tiering_status),
+        chunk_offset: part.chunk_offset, // currently undefined
+    };
 }
 
 function get_chunk_info(chunk, adminfo, tiering_status) {

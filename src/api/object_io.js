@@ -157,13 +157,10 @@ class ObjectIO {
             .then(create_reply => {
                 params.obj_id = create_reply.obj_id;
                 complete_params.obj_id = create_reply.obj_id;
+                return params.copy_source ?
+                    this._upload_copy(params, complete_params) :
+                    this._upload_stream(params, complete_params);
             })
-            .then(() => (
-                params.copy_source ?
-                this._upload_copy(params) :
-                this._upload_stream(params)
-            ))
-            .then(upload_info => _.assign(complete_params, upload_info))
             .then(() => dbg.log0('upload_object: complete upload', complete_params))
             .then(() => params.client.object.complete_object_upload(complete_params))
             .catch(err => {
@@ -204,13 +201,10 @@ class ObjectIO {
             .then(multipart_reply => {
                 params.multipart_id = multipart_reply.multipart_id;
                 complete_params.multipart_id = multipart_reply.multipart_id;
+                return params.copy_source ?
+                    this._upload_copy(params, complete_params) :
+                    this._upload_stream(params, complete_params);
             })
-            .then(() => (
-                params.copy_source ?
-                this._upload_copy(params) :
-                this._upload_stream(params)
-            ))
-            .then(upload_info => _.assign(complete_params, upload_info))
             .then(() => dbg.log0('upload_multipart: complete upload', complete_params))
             .then(() => params.client.object.complete_multipart(complete_params))
             .catch(err => {
@@ -229,13 +223,15 @@ class ObjectIO {
             })
             .then(object_md => {
                 params.copy_source.obj_id = object_md.obj_id;
+                create_params.md5_b64 = object_md.md5_b64;
+                create_params.sha256_b64 = object_md.sha256_b64;
                 if (params.xattr_copy) {
                     create_params.xattr = object_md.xattr;
                 }
             });
     }
 
-    _upload_copy(params) {
+    _upload_copy(params, complete_params) {
         if (params.copy_source.bucket !== params.bucket) {
             params.source_stream = this.create_read_stream({
                 client: params.client,
@@ -243,35 +239,28 @@ class ObjectIO {
                 bucket: params.copy_source.bucket,
                 key: params.copy_source.key,
             });
-            return this._upload_stream(params);
+            return this._upload_stream(params, complete_params);
         }
 
         // copy mappings
-        var mappings;
         return params.client.object.read_object_mappings({
                 obj_id: params.copy_source.obj_id,
                 bucket: params.copy_source.bucket,
                 key: params.copy_source.key,
             })
-            .then(res => {
-                mappings = res;
-            })
-            .then(() => params.client.object.finalize_object_parts({
-                obj_id: params.obj_id,
-                bucket: params.bucket,
-                key: params.key,
-                // sending part.chunk_id so no need for part.chunk info
-                parts: _.map(mappings.parts, p => _.omit(p, 'chunk')),
-            }))
-            .then(() => {
-                const upload_info = {
-                    size: mappings.object_md.size,
-                    num_parts: mappings.parts.length,
-                    // TODO S3 COPY etag, md5_b64, sha256_b64 require handling for multipart and in general
-                    md5_b64: Buffer.from(mappings.object_md.etag, 'hex').toString('base64'),
-                    sha256_b64: '',
-                };
-                return upload_info;
+            .then(({ object_md, parts }) => {
+                complete_params.size = object_md.size;
+                complete_params.num_parts = parts.length;
+                complete_params.md5_b64 = object_md.md5_b64;
+                complete_params.sha256_b64 = object_md.sha256_b64;
+                complete_params.etag = object_md.etag; // preserve source etag
+                return params.client.object.finalize_object_parts({
+                    obj_id: params.obj_id,
+                    bucket: params.bucket,
+                    key: params.key,
+                    // sending part.chunk_id so no need for part.chunk info
+                    parts: _.map(parts, p => _.omit(p, 'chunk', 'multipart_id')),
+                });
             });
     }
 
@@ -284,7 +273,7 @@ class ObjectIO {
      * by reading large portions from the stream and call _upload_buffers()
      *
      */
-    _upload_stream(params) {
+    _upload_stream(params, complete_params) {
         params.desc = `${params.obj_id}${
             params.num ? '[' + params.num + ']' : ''
         }`;
@@ -304,15 +293,14 @@ class ObjectIO {
         const upload_buffers = buffers => this._upload_buffers(params, buffers);
         const md5 = crypto.createHash('md5');
         const sha256 = params.sha256_b64 ? crypto.createHash('sha256') : null;
-        const upload_info = {
-            size: 0,
-            num_parts: 0,
-        };
+
+        var size = 0;
+        var num_parts = 0;
 
         params.source_stream.on('readable', () =>
             dbg.log0('UPLOAD:', params.desc,
                 'streaming to', params.bucket, params.key,
-                'readable', upload_info.size
+                'readable', size
             )
         );
 
@@ -325,7 +313,7 @@ class ObjectIO {
                 transform(buf, encoding, callback) {
                     md5.update(buf);
                     if (sha256) sha256.update(buf);
-                    upload_info.size += buf.length;
+                    size += buf.length;
                     this.bufs = this.bufs || [];
                     this.bufs.push(buf);
                     this.bytes = (this.bytes || 0) + buf.length;
@@ -337,8 +325,6 @@ class ObjectIO {
                     return callback();
                 },
                 flush(callback) {
-                    upload_info.md5_b64 = md5.digest('base64');
-                    if (sha256) upload_info.sha256_b64 = sha256.digest('base64');
                     if (this.bytes) {
                         this.push(this.bufs);
                         this.bufs = null;
@@ -373,7 +359,7 @@ class ObjectIO {
                 transform(buffers, encoding, callback) {
                     upload_buffers(buffers)
                         .then(parts => {
-                            upload_info.num_parts += parts.length;
+                            num_parts += parts.length;
                             for (const part of parts) {
                                 dbg.log0('UPLOAD:', params.desc,
                                     'streaming at', range_utils.human_range(part),
@@ -387,7 +373,12 @@ class ObjectIO {
                 },
             }))
             .promise()
-            .return(upload_info);
+            .then(() => {
+                complete_params.size = size;
+                complete_params.num_parts = num_parts;
+                complete_params.md5_b64 = md5.digest('base64');
+                if (sha256) complete_params.sha256_b64 = sha256.digest('base64');
+            });
     }
 
 

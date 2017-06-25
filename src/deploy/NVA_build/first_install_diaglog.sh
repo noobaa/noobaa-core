@@ -248,7 +248,7 @@ function run_wizard {
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
 is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"
-  while [ "${menu_entry}" -ne "4" ]; do
+  while [ "${menu_entry}" -ne "6" ]; do
     dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 14 57 6 1 "Networking Configuration" 2 "NTP Configuration (optional)" 3 "Password reset" 4 "Resize Partition (requires reboot)" 5 "Resize FS (after partition was resized)" 6 "Exit" 2> choice
     menu_entry=$(cat choice)
   if [ "${menu_entry}" -eq "1" ]; then

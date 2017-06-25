@@ -246,7 +246,7 @@ function apply_resize  {
 function run_wizard {
 
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
-is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 60
+is a short first install wizard to help configure \n\Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"
   while [ "${menu_entry}" -ne "6" ]; do
     dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 14 57 6 1 "Networking Configuration" 2 "NTP Configuration (optional)" 3 "Password reset" 4 "Resize Partition (requires reboot)" 5 "Resize FS (after partition was resized)" 6 "Exit" 2> choice
@@ -271,7 +271,7 @@ is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit y
 
 function end_wizard {
   local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
-  dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
+  dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. \nYou can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 72
   date | sudo tee -a ${FIRST_INSTALL_MARK}
   clear
 

@@ -1049,7 +1049,7 @@ function update_hostname(req) {
         .then(() => {
             // This will test if we've received IP or DNS name
             // This check is essential because there is no point of resolving an IP using DNS Servers
-            if (!req.rpc_params.hostname || net_utils.is_valid_ip(req.rpc_params.hostname)) {
+            if (!req.rpc_params.hostname || net.isIP(req.rpc_params.hostname)) {
                 return;
             }
             // Use defaults to add dns_name property without altering the original request
@@ -1076,7 +1076,7 @@ function update_hostname(req) {
 
 function attempt_server_resolve(req) {
     //If already in IP form, no need for resolving
-    if (net_utils.is_valid_ip(req.rpc_params.server_name)) {
+    if (net.isIP(req.rpc_params.server_name)) {
         dbg.log2('attempt_server_resolve recieved an IP form', req.rpc_params.server_name);
         return { valid: true };
     }

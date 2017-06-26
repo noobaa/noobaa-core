@@ -6,7 +6,9 @@ import {
     FAIL_UPDATE_ACCOUNT_S3_ACCESS,
     FAIL_UPDATE_BUCKET_QUOTA,
     COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
-    FAIL_SET_ACCOUNT_IP_RESTRICTIONS
+    FAIL_SET_ACCOUNT_IP_RESTRICTIONS,
+    COMPLETE_CHANGE_ACCOUNT_PASSWORD,
+    FAIL_CHANGE_ACCOUNT_PASSWORD
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -32,11 +34,21 @@ const actionToNotification = deepFreeze({
 
     [COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS]: ({ accountName }) => ({
         message: `IP restrictions for ${accountName} set successfully`,
-        severity: 'error'
+        severity: 'success'
     }),
 
     [FAIL_SET_ACCOUNT_IP_RESTRICTIONS]: ({ accountName }) => ({
         message: `Setting IP restrictions for ${accountName} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_CHANGE_ACCOUNT_PASSWORD]: ({ accountName }) => ({
+        message: `${accountName} password changed successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_CHANGE_ACCOUNT_PASSWORD]: ({ accountName }) => ({
+        message: `Changing ${accountName} password failed`,
         severity: 'error'
     })
 });

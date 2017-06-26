@@ -38,14 +38,14 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
                 usingIpRestrictions: Boolean(allowedIps),
                 allowedIps: allowedIps || [],
             },
-            onValidate: this.onValdiate,
+            onValidate: this.onValidate,
             onSubmit: this.onSubmit.bind(this)
         });
 
         this.isAccountReady(true);
     }
 
-    onValdiate({ usingIpRestrictions, allowedIps }) {
+    onValidate({ usingIpRestrictions, allowedIps }) {
         const errors = {};
 
         if (usingIpRestrictions && !allowedIps.every(isIP)) {

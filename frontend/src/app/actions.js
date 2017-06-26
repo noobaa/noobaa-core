@@ -3,12 +3,10 @@
 import * as model from 'model';
 import page from 'page';
 import api from 'services/api';
-import AWS from 'services/aws';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
 import { isDefined, last, makeArray, deepFreeze, flatMap, groupBy } from 'utils/core-utils';
-import { stringifyAmount } from 'utils/string-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
 import { getModeFilterFromState } from 'utils/ui-utils';
@@ -17,7 +15,7 @@ import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
 import { Buffer } from 'buffer';
 
 // Action dispathers from refactored code.
-import { action$, dispatch } from 'state';
+import { dispatch } from 'state';
 import {
     restoreSession,
     fetchSystemInfo,
@@ -406,14 +404,6 @@ export async function deleteFunc(name, version) {
     }
 }
 
-export function handleUnknownRoute() {
-    logAction('handleUnknownRoute');
-
-    const system = model.sessionInfo().system;
-    const uri = realizeUri(routes.system, { system });
-    redirectTo(uri);
-}
-
 export function clearCompletedUploads() {
     model.uploads(
         model.uploads().filter(
@@ -436,6 +426,7 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
         serverInfo({
             initialized: true
         });
+
 
     } else {
         // Guarantee a minimum time of at least 500ms before resuming execution.
@@ -711,38 +702,6 @@ export function deleteAccount(email) {
         .done();
 }
 
-export function resetAccountPassword(verificationPassword, email, password, mustChangePassword) {
-    logAction('resetAccountPassword', { verificationPassword: '****', email,
-        password: '****', mustChangePassword });
-
-    model.resetPasswordState('IN_PROGRESS');
-    api.account.reset_password({
-        verification_password: verificationPassword,
-        email: email,
-        password: password,
-        must_change_password: mustChangePassword
-    })
-        .then(
-            () => {
-                model.resetPasswordState('SUCCESS');
-                model.sessionInfo.assign({ mustChangePassword: false });
-
-                notify(`${email} password changed successfully`, 'success');
-            }
-        )
-        .catch(
-            err => {
-                if (err.rpc_code === 'UNAUTHORIZED') {
-                    model.resetPasswordState('UNAUTHORIZED');
-                } else {
-                    model.resetPasswordState('ERROR');
-                    notify(`Changing ${email} password failed`, 'error');
-                }
-            }
-        )
-        .done();
-}
-
 export function createBucket(name, dataPlacement, pools) {
     logAction('createBucket', { name, dataPlacement, pools });
 
@@ -883,103 +842,6 @@ export function deleteCloudResource(name) {
         )
         .then(loadSystemInfo)
         .done();
-}
-
-export function uploadFiles(bucketName, files) {
-    logAction('uploadFiles', { bucketName, files });
-
-    const requestSettings = deepFreeze({
-        partSize: 64 * 1024 * 1024,
-        queueSize: 4
-    });
-
-    const uploads = model.uploads;
-
-    const { access_key , secret_key } = model.systemInfo().owner.access_keys[0];
-    const s3 = new AWS.S3({
-        endpoint: endpoint,
-        credentials: {
-            accessKeyId: access_key,
-            secretAccessKey: secret_key
-        },
-        s3ForcePathStyle: true,
-        sslEnabled: false
-    });
-
-    for (const file of files) {
-        // Create an entry in the recent uploaded list.
-        const upload = {
-            name: file.name,
-            targetBucket: bucketName,
-            completed: false,
-            archived: false,
-            error: false,
-            size: file.size,
-            progress: 0
-        };
-
-        // Add the new upload to the uploads model.
-        uploads.unshift(upload);
-
-        // Start the upload.
-        s3.upload(
-            {
-                Key: file.name,
-                Bucket: bucketName,
-                Body: file,
-                ContentType: file.type
-            },
-            requestSettings,
-            error => {
-                upload.completed = true;
-                if (error) {
-                    upload.error = error;
-                } else {
-                    upload.progress = upload.size;
-                }
-
-                const currentBatch = uploads().filter(
-                    upload => !upload.archived
-                );
-
-                const noMoreUploads = currentBatch.every(
-                    upload => upload.completed
-                );
-
-                // If this is the last running upload to completed, notify the
-                // user and archive recent uploads.
-                if (noMoreUploads) {
-                    let failedCount = 0;
-                    for (const uploadInBatch of currentBatch) {
-                        // Archive the upload.
-                        uploadInBatch.archived = true;
-
-                        if (uploadInBatch.error) {
-                            ++failedCount;
-                        }
-                    }
-
-                    notifyUploadCompleted(
-                        currentBatch.length - failedCount,
-                        failedCount
-                    );
-                }
-
-                // Notify uploads changes.
-                uploads.valueHasMutated();
-            }
-        )
-        //  Report on progress.
-        .on('httpUploadProgress',
-            ({ loaded }) => {
-                upload.progress = loaded;
-                uploads.valueHasMutated();
-            }
-        );
-    }
-
-    // Save the request size.
-    uploads.lastRequestFileCount(files.length);
 }
 
 export function testNode(source, testSet) {
@@ -1864,113 +1726,29 @@ export function registerForAlerts() {
 // ------------------------------------------
 // Helper functions:
 // ------------------------------------------
-function notifyUploadCompleted(uploaded, failed) {
-    if (failed === 0) {
-        notify(
-            `Uploading ${stringifyAmount('file', uploaded)} completed successfully`,
-            'success'
-        );
+// DONT REMOVE THIS CODE - IT IS A NOTIFICAITON CODE WE NEED TO TRANSFER
+// TO THE NEW ARCHITCTURE.
+// function notifyUploadCompleted(uploaded, failed) {
+//     if (failed === 0) {
+//         notify(
+//             `Uploading ${stringifyAmount('file', uploaded)} completed successfully`,
+//             'success'
+//         );
 
-    } else if (uploaded === 0) {
-        notify(
-            `Uploading ${stringifyAmount('file', failed)} failed`,
-            'error'
-        );
+//     } else if (uploaded === 0) {
+//         notify(
+//             `Uploading ${stringifyAmount('file', failed)} failed`,
+//             'error'
+//         );
 
-    } else {
-        notify(
-            `Uploading completed. ${
-                stringifyAmount('file', uploaded)
-            } uploaded successfully, ${
-                stringifyAmount('file', failed)
-            } failed`,
-            'warning'
-        );
-    }
-}
-
-// ----------------------------------------------------------------------
-// TODO: Bridge between old and new architectures. will be removed after
-// appropriate sections are moved to the new architecture.
-// ----------------------------------------------------------------------
-import * as actionTypes from 'action-types';
-
-action$.subscribe(action => {
-    const { type, payload } = action;
-    switch(type) {
-        case actionTypes.COMPLETE_FETCH_SYSTEM_INFO: {
-            model.systemInfo({ ...action.payload, endpoint });
-            break;
-        }
-
-        case actionTypes.COMPLETE_SIGN_IN: {
-            const storage = payload.persistent ? localStorage : sessionStorage;
-            storage.setItem('sessionToken', payload.token);
-            model.sessionInfo(payload);
-            model.loginInfo({ retryCount: 0 });
-            refresh();
-            break;
-        }
-
-        case actionTypes.FAIL_SIGN_IN: {
-            const { error } = payload;
-            if (error.rpc_code === 'UNAUTHORIZED') {
-                model.loginInfo({
-                    retryCount: model.loginInfo().retryCount + 1
-                });
-
-            } else {
-                throw error;
-            }
-            break;
-        }
-
-        case actionTypes.COMPLETE_RESTORE_SESSION: {
-            model.sessionInfo(payload);
-            page.start();
-            break;
-        }
-
-        case actionTypes.FAIL_RESTORE_SESSION: {
-            const { error } = payload;
-            if (error.rpc_code === 'UNAUTHORIZED') {
-                if (api.options.auth_token) {
-                    sessionStorage.removeItem('sessionToken');
-                    localStorage.removeItem('sessionToken');
-                    api.options.auth_token = undefined;
-                }
-
-                page.start();
-            } else {
-                throw error;
-            }
-            break;
-        }
-
-        case actionTypes.SIGN_OUT: {
-            sessionStorage.removeItem('sessionToken');
-            localStorage.removeItem('sessionToken');
-            model.sessionInfo(null);
-            api.options.auth_token = undefined;
-            refresh();
-            break;
-        }
-
-        case actionTypes.COMPLETE_CREATE_SYSTEM: {
-            const { token, system } = payload;
-            api.options.auth_token = token;
-            sessionStorage.setItem('sessionToken', token);
-
-            model.sessionInfo(payload);
-
-            redirectTo(routes.system, { system }, { welcome: true });
-            break;
-        }
-
-        case actionTypes.CHANGE_LOCATION: {
-            model.routeContext(payload);
-            break;
-        }
-    }
-});
-// ----------------------------------------------------------------------
+//     } else {
+//         notify(
+//             `Uploading completed. ${
+//                 stringifyAmount('file', uploaded)
+//             } uploaded successfully, ${
+//                 stringifyAmount('file', failed)
+//             } failed`,
+//             'warning'
+//         );
+//     }
+// }

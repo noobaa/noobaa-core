@@ -6,6 +6,7 @@ import * as routes from 'routes';
 import * as actions from 'actions';
 import { dispatch } from 'state';
 import { changeLocation } from 'action-creators';
+import { realizeUri } from 'utils/browser-utils';
 
 const { protocol } = location;
 
@@ -19,7 +20,7 @@ export default function routing(page) {
 
     // General middleware that check for authorization redner login screen if neccecery.
     function authorize(ctx, next) {
-        if (!sessionInfo() || sessionInfo().mustChangePassword) {
+        if (!sessionInfo() || sessionInfo().passwordExpired) {
             actions.showLogin();
         } else {
             next();
@@ -43,6 +44,11 @@ export default function routing(page) {
         });
     }
 
+    function handleUnknownRoute() {
+        const system = sessionInfo().system;
+        const uri = realizeUri(routes.system, { system });
+        page.redirect(uri);
+    }
 
     // Global middlewares.
     page('*', saveContext, authorize);
@@ -67,5 +73,5 @@ export default function routing(page) {
     registerRouteHandler(routes.func, actions.showFunc);
 
     // Unknown paths
-    page('*', actions.handleUnknownRoute);
+    page('*', handleUnknownRoute);
 }

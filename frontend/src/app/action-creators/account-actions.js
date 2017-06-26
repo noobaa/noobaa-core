@@ -9,7 +9,10 @@ import {
     FAIL_UPDATE_ACCOUNT_S3_ACCESS,
     SET_ACCOUNT_IP_RESTRICTIONS,
     COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
-    FAIL_SET_ACCOUNT_IP_RESTRICTIONS
+    FAIL_SET_ACCOUNT_IP_RESTRICTIONS,
+    CHANGE_ACCOUNT_PASSWORD,
+    COMPLETE_CHANGE_ACCOUNT_PASSWORD,
+    FAIL_CHANGE_ACCOUNT_PASSWORD
 } from 'action-types';
 
 export function createAccount(
@@ -100,6 +103,37 @@ export function completeSetAccountIpRestrictions(accountName) {
 export function failSetAccountIpRestrictions(accountName, error) {
     return {
         type: FAIL_SET_ACCOUNT_IP_RESTRICTIONS,
+        payload: { accountName, error }
+    };
+}
+
+export function changeAccountPassword(
+    verificationPassword,
+    accountName,
+    password,
+    expireNewPassword = false
+) {
+    return {
+        type: CHANGE_ACCOUNT_PASSWORD,
+        payload: {
+            verificationPassword,
+            accountName,
+            password,
+            expireNewPassword
+        }
+    };
+}
+
+export function completeChangeAccountPassword(accountName, expireNewPassword) {
+    return {
+        type: COMPLETE_CHANGE_ACCOUNT_PASSWORD,
+        payload: { accountName, expireNewPassword }
+    };
+}
+
+export function failChangeAccountPassword(accountName, error) {
+    return {
+        type: FAIL_CHANGE_ACCOUNT_PASSWORD,
         payload: { accountName, error }
     };
 }

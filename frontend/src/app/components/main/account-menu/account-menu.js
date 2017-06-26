@@ -15,8 +15,10 @@ class AccountMenuViewModel extends BaseViewModel {
         this.isOpen = ko.observable(false);
         this.isLocalClick = ko.observable(false);
 
+        // TODO: A workaroun for rece between pureComputed that is depended on
+        // sessionInfo and state$ updates.
         this.userEmail = ko.pureComputed(
-            () => sessionInfo() && sessionInfo().user
+            () => sessionInfo() ? sessionInfo().user : 'WORKAROUND'
         );
 
         this.profileHref = {

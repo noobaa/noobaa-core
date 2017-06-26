@@ -43,7 +43,7 @@ export function completeCreateSystem(systemName, ownerEmail, token) {
             token: token,
             user: ownerEmail,
             system: systemName,
-            passwordExpaired: false,
+            passwordExpired: false,
             persistent: false
         }
     };

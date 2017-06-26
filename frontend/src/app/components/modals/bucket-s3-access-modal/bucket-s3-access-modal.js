@@ -21,7 +21,7 @@ class BucketS3AccessModalViewModel extends BaseViewModel {
                     value: email,
                     disabled: allowed_buckets.full_permission,
                     tooltip: allowed_buckets.full_permission ?
-                        'Account has an allow all buckets access configured' :
+                        'This account access permissions is set to “all buckets” and cannot be edited' :
                         email
                 }))
         );

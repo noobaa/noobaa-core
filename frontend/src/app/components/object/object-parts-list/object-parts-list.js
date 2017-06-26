@@ -40,7 +40,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
         );
 
         this.notOwner = ko.pureComputed(
-            () => !systemInfo() || (systemInfo().owner.email !== sessionInfo().user)
+            () => !systemInfo() || !sessionInfo() || (systemInfo().owner.email !== sessionInfo().user)
         );
 
         this.tooltip = ko.pureComputed(

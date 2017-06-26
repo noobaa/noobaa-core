@@ -4,10 +4,11 @@ import template from './reset-password-modal.html';
 import passwordResetMessageTemplate from './password-reset-message.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { resetAccountPassword } from 'actions';
 import { resetPasswordState } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
+import { dispatch } from 'state';
+import { changeAccountPassword } from 'action-creators';
 
 const screenTitleMapping = deepFreeze({
     0: {
@@ -85,12 +86,12 @@ class RestPasswordModalViewModel extends BaseViewModel {
         if (this.errors().length) {
             this.errors.showAllMessages();
         } else {
-            resetAccountPassword(
-                this.verificationPassword(),
+            dispatch(changeAccountPassword(
+                 this.verificationPassword(),
                 ko.unwrap(this.email),
                 this.password,
                 true
-            );
+            ));
         }
     }
 

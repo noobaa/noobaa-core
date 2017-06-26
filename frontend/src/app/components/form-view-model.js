@@ -49,12 +49,12 @@ export default class FormViewModel extends Observer {
             () => Boolean(state() && state().validating)
         );
         this.isValid = ko.pureComputed(
-            () => Boolean(state) && Object.values(state().fields).every(
+            () => Boolean(state()) && Object.values(state().fields).every(
                 field => field.validity === 'VALID'
             )
         );
         this.isDirty = ko.pureComputed(
-            () => Boolean(state) && Object.values(state().fields).some(
+            () => Boolean(state()) && Object.values(state().fields).some(
                 field => field.value === field.initial
             )
         );

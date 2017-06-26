@@ -46,7 +46,7 @@ const columns = deepFreeze([
 
 function getAccountRole(account) {
     return account.email !== systemInfo().owner.email ?
-        (account.had_login ? 'admin' : 'application') :
+        (account.has_login ? 'admin' : 'application') :
         'owner';
 }
 

@@ -4,7 +4,8 @@ import template from './change-password-modal.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { calcPasswordStrength  } from 'utils/password-utils';
-import { resetAccountPassword } from 'actions';
+import { dispatch } from 'state';
+import { changeAccountPassword } from 'action-creators';
 import { resetPasswordState } from 'model';
 
 class ChangePasswordModalViewModel extends BaseViewModel {
@@ -57,12 +58,11 @@ class ChangePasswordModalViewModel extends BaseViewModel {
 
         } else {
             this.touched(false);
-            resetAccountPassword(
+            dispatch(changeAccountPassword(
                 this.password(),
                 ko.unwrap(this.email),
                 this.newPassword(),
-                false
-            );
+            ));
         }
     }
 

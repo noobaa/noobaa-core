@@ -25,7 +25,7 @@ export function completeRestoreSession(token, sessionInfo) {
             token: token,
             user: account.email,
             system: system.name,
-            passwordExpaired: Boolean(account.must_change_password),
+            passwordExpired: Boolean(account.must_change_password),
             persistent: true
         }
     };
@@ -53,7 +53,7 @@ export function completeSignIn(token, sessionInfo) {
             token: token,
             user: account.email,
             system: system.name,
-            passwordExpaired: Boolean(account.must_change_password),
+            passwordExpired: Boolean(account.must_change_password),
             persistent: true
         }
     };

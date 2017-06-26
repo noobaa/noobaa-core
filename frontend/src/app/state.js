@@ -4,6 +4,7 @@ import Rx from 'rx';
 import { deepFreeze, isObject } from 'utils/core-utils';
 import appReducer from 'reducers/app-reducer';
 import rootEpic from 'epics';
+import actionsModelBridge from 'actions-model-bridge';
 
 // Actions stream.
 export const action$ = new Rx.Subject();
@@ -45,3 +46,6 @@ action$.ofType = function(...types) {
 };
 rootEpic(action$)
     .subscribe(dispatch);
+
+// Register a bridge between the action stream and the old model.
+actionsModelBridge(action$);

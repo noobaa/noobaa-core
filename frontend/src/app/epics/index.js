@@ -20,6 +20,7 @@ import fetchNodeInstallationCommandsEpic from './fetch-node-installation-command
 import uploadObjectsEpic from './upload-objects';
 import setAccountIpRestrictionsEpic from './set-account-ip-restrictions';
 import updateInstallNodesFormCommandsFieldEpic from './update-install-nodes-form-commands-field';
+import changeAccountPasswordEpic from './change-account-password';
 
 // A utility that combine multiple epics into one epic.
 function combineEpics(epics) {
@@ -49,5 +50,6 @@ export default combineEpics([
     fetchNodeInstallationCommandsEpic,
     uploadObjectsEpic,
     setAccountIpRestrictionsEpic,
-    updateInstallNodesFormCommandsFieldEpic
+    updateInstallNodesFormCommandsFieldEpic,
+    changeAccountPasswordEpic
 ]);

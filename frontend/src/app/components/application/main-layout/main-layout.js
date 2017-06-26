@@ -71,8 +71,8 @@ class MainLayoutViewModel extends Observer {
         this.breadcrumbs = ko.observable([]);
         this.area = ko.observable();
         this.panel = ko.observable('');
-
         this.isUploadButtonVisible = ko.observable(false);
+
 
         this.observe(state$.get('layout'), this.onLayout);
         this.observe(state$.get('accounts', sessionInfo().user), this.onAccount);

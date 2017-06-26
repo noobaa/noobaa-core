@@ -32,7 +32,7 @@
             disabled: !form.hasS3Access()
         "></radio-group>
 
-        <div class="align-end push-next-half">
+        <div class="align-end push-next-half" ko.css.disabled="isBucketSelectionDisabled">
             <button class="link alt-colors"
                 ko.click="onSelectAllBuckets"
                 ko.disable="isBucketSelectionDisabled"

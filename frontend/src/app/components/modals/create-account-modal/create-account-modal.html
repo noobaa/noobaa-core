@@ -18,7 +18,7 @@
                     offLabel: 'Disabled'
                 "></toggle-switch>
                 <p class="remark push-prev-half">
-                    Enabling this will generate a password that allows login to <br>
+                    Enabling login access will generate a password that allows login to <br>
                     NooBaa management  console as a system admin
                 </p>
             </editor>
@@ -31,7 +31,7 @@
                 />
                 <validation-message params="field: form.accountName"></validation-message>
                 <p class="remark" ko.visible="isAccountNameRemarkVisible">
-                    1 - 32 characters
+                    3 - 32 characters
                 </p>
 
             </editor>
@@ -46,8 +46,8 @@
                     disabled: form.isLocked
                 "></toggle-switch>
                 <p class="remark push-prev-half" ko.css.disabled="form.isLocked">
-                    Granting S3 access will allow this account to connect an <br>
-                    S3 client applicationby generating a security credentials (key set).
+                    Granting S3 access will allow this account to connect S3 client <br>
+                    applications by generating security credentials (key set).
                 </p>
                 <validation-message params="field: form.hasS3Access"></validation-message>
             </editor>
@@ -70,7 +70,7 @@
                 disabled: !form.hasS3Access() || form.isLocked()
             "></radio-group>
 
-            <div class="align-end push-next-half">
+            <div class="align-end push-next-half" ko.css.disabled="isBucketSelectionDisabled">
                 <button class="link alt-colors"
                     ko.click="onSelectAllBuckets"
                     ko.disable="isBucketSelectionDisabled"

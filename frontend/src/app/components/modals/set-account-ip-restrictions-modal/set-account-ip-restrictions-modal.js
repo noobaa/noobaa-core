@@ -11,7 +11,7 @@ import { setAccountIpRestrictions } from 'action-creators';
 // import moment from 'moment';
 
 const allowedIpsPlaceholder =
-    `e.g., 10.5.3.2 or 10.2.1.5-24 and click enter ${String.fromCodePoint(0x23ce)}`;
+    `e.g., 10.5.3.2 or 10.2.253.5 and click enter ${String.fromCodePoint(0x23ce)}`;
 
 class setAccountIpRestrictionsModalViewModel extends Observer {
     constructor({ onClose, accountName }) {

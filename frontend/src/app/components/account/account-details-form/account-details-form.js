@@ -13,7 +13,8 @@ class AccountDetailsFormViewModel extends Observer {
         this.role = ko.observable();
         this.isCurrentUser = ko.observable();
         this.changePasswordButtonLabel = ko.observable();
-        this.disableResetPassword = ko.observable();
+        this.disableChangePasswordButton = ko.observable();
+        this.changePasswordButtonTooltip = ko.observable();
 
         this.profileInfo = [
             {
@@ -45,12 +46,19 @@ class AccountDetailsFormViewModel extends Observer {
 
         const { isOwner } = account;
         const isCurrentUser = currentUser === accountName;
+        const role  = !isOwner ?
+            (account.hasLoginAccess ? 'Admin' : 'Application') :
+            'Owner';
 
         this.accountName(accountName);
-        this.role(isOwner ? 'Owner' : 'Admin');
+        this.role(role);
         this.isCurrentUser(isCurrentUser);
         this.changePasswordButtonLabel(isCurrentUser ? 'Change Password' : 'Reset Password');
-        this.disableResetPassword(!account.hasLoginAccess);
+        this.disableChangePasswordButton(!account.hasLoginAccess);
+        this.changePasswordButtonTooltip(!account.hasLoginAccess ?
+            'This action is unavailable for accounts without login access' :
+            ''
+        );
     }
 
     showPasswordModal() {

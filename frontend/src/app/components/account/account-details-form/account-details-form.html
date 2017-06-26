@@ -5,12 +5,13 @@
         General Information
     </h2>
 
-    <button class="btn"
-        ko.click="showPasswordModal"
-        ko.text="changePasswordButtonLabel"
-        ko.disable="disableResetPassword"
-    ></button>
-
+    <div ko.tooltip="changePasswordButtonTooltip">
+        <button class="btn"
+            ko.click="showPasswordModal"
+            ko.text="changePasswordButtonLabel"
+            ko.disable="disableChangePasswordButton"
+        ></button>
+    </div>
 </div>
 
 <property-sheet class="pad" params="properties: profileInfo">

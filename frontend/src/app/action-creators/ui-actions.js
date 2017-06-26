@@ -8,7 +8,7 @@ import {
 } from 'action-types';
 
 // -------------------------------
-// Drawer action dispatchers
+// Drawer action creators
 // -------------------------------
 export function openAuditDrawer() {
     return {
@@ -29,7 +29,7 @@ export function closeDrawer() {
 }
 
 // -------------------------------
-// Notificaitons action dispatchers
+// Notificaitons action creators
 // -------------------------------
 export function hideNotification(id) {
     return {
@@ -38,10 +38,6 @@ export function hideNotification(id) {
     };
 }
 
-// --------------------------------------------------------------------
-// REFACTOR: this is used for backword compatability where
-// that sender is an old architecture action
-// --------------------------------------------------------------------
 export function showNotification(message, severity = 'info') {
     return {
         type: SHOW_NOTIFICATION,

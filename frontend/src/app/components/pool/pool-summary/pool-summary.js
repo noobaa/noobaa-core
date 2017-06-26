@@ -111,7 +111,7 @@ class PoolSummaryViewModel extends BaseViewModel {
 
         this.pieValues = [
             {
-                label: 'Currently Avaliable',
+                label: 'Currently Available',
                 color: style['color5'],
                 value: ko.pureComputed(
                     () => toBytes(storage().free)

@@ -9,7 +9,7 @@
 
         <div class="prop-value no-wrap greedy"
             ko.html="value"
-            ko.css.disabled="$data.disabled"
+            ko.css="{ disabled: $data.disabled, 'push-next': $data.allowCopy }"
         "></div>
 
         <copy-to-clipboard-button ko.visible="$data.allowCopy" params="

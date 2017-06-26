@@ -62,9 +62,9 @@ export default class AccountRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                return  this.isSystemOwner() ? 'owner' : account().systems.find(
-                    ({ name }) => name === systemName()
-                ).roles[0];
+                return  !this.isSystemOwner() ?
+                 (account().has_login ? 'Admin' : 'Application') :
+                'Owner';
             }
         );
 

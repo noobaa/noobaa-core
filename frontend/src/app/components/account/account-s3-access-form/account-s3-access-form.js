@@ -6,6 +6,8 @@ import Observer from 'observer';
 import ko from 'knockout';
 import { openEditAccountS3AccessModal, opensetAccountIpRestrictions } from 'action-creators';
 
+const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
+
 function _createIpBox(ip) {
     return `<span class="ip-box">${ip}</span>`;
 }
@@ -24,6 +26,8 @@ class AccountS3AccessFormViewModel extends Observer {
         this.ipRestrictions = ko.observable();
         this.allowedIps = ko.observable();
         this.isAllowedIpVisible = ko.observable();
+        this.setIPRestrictionsButtonTooltip = ko.observable();
+        this.regenerateCredentialsButtonTooltip = ko.observable();
 
         this.s3AccessInfo = [
             {
@@ -103,8 +107,11 @@ class AccountS3AccessFormViewModel extends Observer {
         this.ipRestrictions(allowedIps ? 'Enabled' : 'Not set');
         this.isAllowedIpVisible(Boolean(hasS3Access && allowedIps));
         this.allowedIps(
-            allowedIps && (allowedIps.length ? allowedIps.map(_createIpBox).join('') : 'No IP allowed')
+            allowedIps &&
+            (allowedIps.length ? allowedIps.map(_createIpBox).join('') : 'No IP allowed')
         );
+        this.setIPRestrictionsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
+        this.regenerateCredentialsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
     }
 
     onEditS3Access() {

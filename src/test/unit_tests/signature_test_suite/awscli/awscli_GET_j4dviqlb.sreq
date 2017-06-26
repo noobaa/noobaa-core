@@ -1,0 +1,7 @@
+GET /first.bucket?delimiter=%2F&prefix=48%2548%2F&encoding-type=url HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+Date: Mon, 26 Jun 2017 08:20:49 GMT
+Authorization: AWS 123:XT4B8eTuIAqMlNlFQu++tkIz4nI=
+User-Agent: aws-cli/1.10.13 Python/2.7.10 Darwin/15.6.0 botocore/1.4.4
+

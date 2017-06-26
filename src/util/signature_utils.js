@@ -197,15 +197,14 @@ const HEADERS_MAP_FOR_AWS_SDK = {
 
 function _aws_request(req, region, service) {
     const v2_signature = _.isUndefined(region) && _.isUndefined(service);
-    const u = url.parse(req.originalUrl);
+    const u = url.parse(req.originalUrl, true);
     const pathname = service === 's3' ?
         u.pathname :
         path.normalize(decodeURI(u.pathname));
-    const query = u.search ?
-        _.omit(
-            AWS.util.queryStringParse(decodeURI(u.search.slice(1))),
-            'X-Amz-Signature', 'Signature', 'Expires', 'AWSAccessKeyId'
-        ) : {};
+    const query = _.omit(
+        req.query,
+        'X-Amz-Signature', 'Signature', 'Expires', 'AWSAccessKeyId'
+    );
     const query_to_string = AWS.util.queryParamsToString(query);
     const equals_handling = v2_signature ? query_to_string.replace(/=$/, '').replace(/=&/g, '&') :
         query_to_string;

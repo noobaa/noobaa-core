@@ -1,0 +1,8 @@
+GET /first.bucket?delimiter=%2F&prefix=48%2548%2F&encoding-type=url HTTP/1.1
+Host: 127.0.0.1
+Accept-Encoding: identity
+X-Amz-Content-SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+X-Amz-Date: 20170626T080617Z
+Authorization: AWS4-HMAC-SHA256 Credential=123/20170626/us-east-1/s3/aws4_request, SignedHeaders=host;user-agent;x-amz-content-sha256;x-amz-date, Signature=300e4e9abe282cab4a1f7a4c96eb4ea1a27d14e2f756606eedca6f3b4b429c62
+User-Agent: aws-cli/1.10.13 Python/2.7.10 Darwin/15.6.0 botocore/1.4.4
+

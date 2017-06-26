@@ -8,6 +8,7 @@
 const P = require('../../util/promise');
 
 const _ = require('lodash');
+const net = require('net');
 const AWS = require('aws-sdk');
 const bcrypt = P.promisifyAll(require('bcrypt'));
 const azure = require('azure-storage');
@@ -359,6 +360,9 @@ function update_account(req) {
     }
     if (account.is_support) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
+    }
+    if (params.ips && !_.every(params.ips, ip => net.isIP(ip))) {
+        throw new RpcError('FORBIDDEN', 'Non valid IPs');
     }
 
     let updates = {

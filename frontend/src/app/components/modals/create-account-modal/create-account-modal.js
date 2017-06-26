@@ -22,7 +22,7 @@ function mapResourceToOptions({ type, name: value, storage }) {
 
 const steps = deepFreeze([
     'Account Details',
-    'S3Access'
+    'S3 Access'
 ]);
 
 const bucketPermissionModes = deepFreeze([
@@ -126,21 +126,22 @@ class CreateAccountWizardViewModel extends Observer {
             defaultResource
         } = values;
 
-        const subject = hasLoginAccess ? 'Account name' : 'Email address';
+        const subject = hasLoginAccess ? 'Email address' : 'Account name';
         const accounts = this.accountNames;
         const errors = {};
+        const trimmedName = accountName.trim();
 
         if (step == 0) {
-            if (!accountName) {
+            if (!trimmedName) {
                 errors.accountName = `${subject} is required`;
             }
-            else if (hasLoginAccess && !isEmail(accountName)) {
+            else if (hasLoginAccess && !isEmail(trimmedName)) {
                 errors.accountName = 'Please enter a valid email address';
 
-            } else if (!hasLoginAccess && (accountName.length < 3 || accountName.length > 32)) {
-                errors.accountName = 'Please enter a name between 3-63 characters';
+            } else if (!hasLoginAccess && (trimmedName.length < 3 || trimmedName.length > 32)) {
+                errors.accountName = 'Please enter a name between 3 - 32 characters';
 
-            } else if (accounts.includes(accountName)) {
+            } else if (accounts.includes(trimmedName)) {
                 errors.accountName = `${subject} already in use by another account`;
             }
 
@@ -177,7 +178,7 @@ class CreateAccountWizardViewModel extends Observer {
 
     async onSubmit(values) {
         dispatch(createAccount(
-            values.accountName,
+            values.accountName.trim(),
             values.hasLoginAccess,
             this.password,
             values.hasS3Access,

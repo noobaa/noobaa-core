@@ -36,7 +36,7 @@ export default function(action$) {
                         );
 
                         if (--uploading == 0) {
-                            uploadEvent$.onComplete();
+                            uploadEvent$.onCompleted();
                         }
                     }
                 )

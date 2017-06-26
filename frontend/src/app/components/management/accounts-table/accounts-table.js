@@ -45,9 +45,9 @@ const columns = deepFreeze([
 ]);
 
 function getAccountRole(account) {
-    return account.email === systemInfo().owner.email ?
-        'owner' :
-        account.systems[0].roles[0];
+    return account.email !== systemInfo().owner.email ?
+        (account.had_login ? 'admin' : 'application') :
+        'owner';
 }
 
 const compareAccessors = deepFreeze({

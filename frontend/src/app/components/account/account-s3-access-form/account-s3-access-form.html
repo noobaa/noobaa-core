@@ -4,12 +4,16 @@
     <h2 class="heading3 greedy push-next">
         Account S3 Access
     </h2>
-    <button class="btn push-next"
-        ko.click="onSetIPRestrictions"
-        ko.disable="isS3AccessDisabled"
-    >
-        Set IP Restrictions
-    </button>
+
+    <div class="push-next" ko.tooltip="setIPRestrictionsButtonTooltip">
+        <button class="btn"
+            ko.click="onSetIPRestrictions"
+            ko.disable="isS3AccessDisabled"
+        >
+            Set IP Restrictions
+        </button>
+    </div>
+
     <button class="btn" ko.click="onEditS3Access">
         Edit S3 Access
     </button>
@@ -22,12 +26,15 @@
     <h2 class="heading3 greedy push-next" ko.css.disabled="isS3AccessDisabled">
         Account Security Credentials
     </h2>
-    <button class="btn"
-        ko.click="showRegenerateAccountCredentialsModal"
-        ko.disable="isS3AccessDisabled"
-    ">
-        Regenerate Credentials
-    </button>
+
+    <div ko.tooltip="regenerateCredentialsButtonTooltip">
+        <button class="btn"
+            ko.click="showRegenerateAccountCredentialsModal"
+            ko.disable="isS3AccessDisabled"
+        ">
+            Regenerate Credentials
+        </button>
+    </div>
 </div>
 
 <div class="pad column">

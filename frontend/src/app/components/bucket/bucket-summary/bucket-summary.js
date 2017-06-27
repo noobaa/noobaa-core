@@ -155,7 +155,7 @@ class BucketSummrayViewModel extends Observer {
         this.cloudSyncStatus(cloudSyncStatusMapping[cloudSyncStatus]);
 
         this.availableValues[0].value(toBytes(data.size));
-        this.availableValues[1].value(toBytes(data.available_for_upload));
+        this.availableValues[1].value(toBytes(data.available_for_upload) - toBytes(storage.spillover_free));
         this.availableValues[2].value(toBytes(storage.spillover_free));
 
         this.rawUsageValues[0].value(toBytes(storage.free));

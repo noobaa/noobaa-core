@@ -15,16 +15,16 @@
     </section>
 
     <section class="c6 column push-both">
-        <div class="row align-middle">
-            <div class="column greedy push-next">
+        <div class="row">
+            <div class="column push-both">
                 <toggle-filter class="align-start push-next" params="
                     options: graphOptions,
                     selected: viewType
                 "></toggle-filter>
 
-                <chart-legend class="greedy" params="items: legend, format: 'size'"></chart-legend>
+                <chart-legend class="greedy" ko.css="viewType()" params="items: legend, format: 'size'"></chart-legend>
 
-                <!-- ko if: viewType() === 'data' -->
+                <!-- ko if: viewType() === 'dataUsage' -->
                 <p class="row push-next">
                     <span class="greedy highlight">
                         {{availableForWrite}}
@@ -37,18 +37,26 @@
                 <!-- /ko -->
             </div>
 
-            <!-- ko if: viewType() === 'storage' -->
+            <!-- ko if: viewType() === 'rawUsage' -->
             <pie-chart class="push-prev" params="
-                values: storageValues,
+                values: rawUsageValues,
                 primaryText: totalStorage,
                 secondaryText: 'Total'
             "></pie-chart>
             <!-- /ko -->
 
-            <!-- ko if: viewType() === 'data' -->
-            <bar-chart class="push-prev" params="values: dataValues"></bar-chart>
+            <!-- ko if: viewType() === 'dataUsage' -->
+            <bar-chart class="push-prev" params="values: dataUsageValues"></bar-chart>
             <!-- /ko -->
         </div>
+        <!-- ko if: viewType() === 'available' -->
+        <div class="greedy content-middle hpad">
+            <canvas class="cluster-graph" data-bind="
+                        canvas: { draw: drawChart.bind($data), height: 50 },
+                        globalEvent: { resize: () => triggerRedraw() }
+                    "></canvas>
+        </div>
+        <!-- /ko -->
     </section>
 
     <section class="c3 column">

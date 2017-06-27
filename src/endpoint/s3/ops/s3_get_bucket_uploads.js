@@ -10,7 +10,7 @@ const s3_utils = require('../s3_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListMPUpload.html
  */
 function get_bucket_uploads(req) {
-    // TODO S3 MUST implement Marker & MaxKeys & IsTruncated
+    // TODO S3 MUST implement KeyMarker & UploadIdMarker & MaxKeys & IsTruncated
     let params = {
         bucket: req.params.bucket,
         upload_mode: true,

@@ -55,14 +55,7 @@ function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
-    return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key)
-        .then(existing_obj => {
-            // check if the conditions for overwrite are met, throws if not
-            check_md_conditions(req, req.rpc_params.md_conditions, existing_obj);
-            // we passed the checks, so we can delete the existing object if exists
-            return map_deleter.delete_object(existing_obj);
-        })
-        .then(() => MDStore.instance().insert_object(info))
+    return MDStore.instance().insert_object(info)
         .return({
             obj_id: String(info._id)
         });
@@ -142,6 +135,13 @@ function complete_object_upload(req) {
             } else {
                 set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
             }
+        })
+        .then(() => MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key))
+        .then(existing_obj => {
+            // check if the conditions for overwrite are met, throws if not
+            check_md_conditions(req, req.rpc_params.md_conditions, existing_obj);
+            // we passed the checks, so we can delete the existing object if exists
+            return map_deleter.delete_object(existing_obj);
         })
         .then(() => MDStore.instance().update_object_by_id(obj._id, set_updates, unset_updates))
         .then(() => {
@@ -760,7 +760,7 @@ function get_object_info(md) {
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
         upload_started: md.upload_started ? md.upload_started.getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
-        xattr: md.attr,
+        xattr: md.xattr,
         cloud_synced: md.cloud_synced,
         stats: md.stats ? {
             reads: md.stats.reads || 0,
@@ -854,9 +854,9 @@ function check_object_mode(req, obj, rpc_code) {
             `No such object id for key: ${obj.key} obj_id ${req.rpc_params.obj_id}`);
     }
     if (rpc_code === 'NO_SUCH_UPLOAD') {
-        if (!_.isNumber(obj.upload_size)) {
+        if (!obj.upload_started) {
             throw new RpcError(rpc_code,
-                `Object not in upload mode: ${obj.key} upload_size ${obj.upload_size}`);
+                `Object not in upload mode: ${obj.key} create_time ${obj.create_time}`);
         }
     }
     return obj;

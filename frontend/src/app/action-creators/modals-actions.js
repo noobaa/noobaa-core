@@ -371,7 +371,7 @@ export function replaceToAccountCreatedModal(accountName, password) {
     };
 }
 
-export function opensetAccountIpRestrictions(accountName) {
+export function openSetAccountIpRestrictions(accountName) {
     return {
         type: OPEN_MODAL,
         payload: {
@@ -384,4 +384,16 @@ export function opensetAccountIpRestrictions(accountName) {
             }
         }
     };
+}
+
+export function openTestFormModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'test-form',
+            options: {
+                title: 'Validation test form'
+            }
+        }
+    }
 }

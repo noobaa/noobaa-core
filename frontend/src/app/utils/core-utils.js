@@ -249,8 +249,7 @@ export function mergeBy(...arrays) {
 }
 
 export function runAsync(callback) {
-    // TODO: Replace with a postMessage implementation for better results.
-    setTimeout(() => callback(), 0);
+    Promise.resolve().then(callback);
 }
 
 export function reverse(iterable) {

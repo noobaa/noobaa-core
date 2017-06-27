@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-import { isDefined, mapValues, noop, keyBy, echo, runAsync } from 'utils/core-utils';
+import { isDefined, mapValues, noop, keyBy, echo } from 'utils/core-utils';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$, dispatch } from 'state';
@@ -46,18 +46,23 @@ export default class FormViewModel extends Observer {
         const state = this._state = ko.observable();
 
         this.isValidating = ko.pureComputed(
-            () => Boolean(state() && state().validating)
+            () => Boolean(state() && state().validatingAsync)
         );
-        this.isValid = ko.pureComputed(
-            () => Boolean(state()) && Object.values(state().fields).every(
+
+        this.isValid = ko.pureComputed(() =>
+            Boolean(state()) &&
+            // state().validated &&
+            Object.values(state().fields).every(
                 field => field.validity === 'VALID'
             )
         );
+
         this.isDirty = ko.pureComputed(
             () => Boolean(state()) && Object.values(state().fields).some(
                 field => field.value === field.initial
             )
         );
+
         this.isLocked = ko.pureComputed(
             () => Boolean(state()) && state().locked
         );
@@ -156,8 +161,8 @@ export default class FormViewModel extends Observer {
         obs.isValidating = ko.pureComputed(
             () => Boolean(
                 _state() &&
-                _state().validating &&
-                _state().validating.includes(fieldName)
+                _state().validatingAsync &&
+                _state().validatingAsync.includes(fieldName)
             )
         );
 
@@ -237,16 +242,16 @@ export default class FormViewModel extends Observer {
 
         // Dispatching while running inside a handler of subscribe
         // need to be asynchronous. (to prevent a recursive behavior)
-        runAsync(() => dispatch(setFormValidity(
+        dispatch(setFormValidity(
             this.name,
             {
                 fieldsValidity,
                 warnings,
                 syncErrors,
                 asyncErrors: shouldValidateAsync ? {} : undefined,
-                validating: canValidateAsync ? _asyncTriggers : undefined
+                validatingAsync: canValidateAsync ? _asyncTriggers : undefined
             }
-        )));
+        ));
 
         if (canValidateAsync) {
             this._validateAsync(values);
@@ -275,7 +280,7 @@ export default class FormViewModel extends Observer {
             {
                 fieldsValidity,
                 asyncErrors,
-                validating: null
+                validatingAsync: null
             }
         ));
     }

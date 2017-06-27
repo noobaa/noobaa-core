@@ -91,6 +91,7 @@ class MDStore {
                 bucket: bucket_id,
                 key: key,
                 deleted: null,
+                upload_started: null,
             }, compact_updates(set_updates))
             .then(res => mongo_utils.check_update_one(res, 'object'));
     }
@@ -117,6 +118,7 @@ class MDStore {
             bucket: bucket_id,
             key: key,
             deleted: null,
+            upload_started: null,
         }));
     }
 
@@ -129,13 +131,12 @@ class MDStore {
             bucket: bucket_id,
             key: key,
             deleted: null,
+            // allow filtering of uploading/non-uploading objects
+            upload_started: typeof upload_mode === 'boolean' ? {
+                $exists: upload_mode
+            } : undefined,
             create_time: max_create_time ? {
                 $lt: new Date(moment.unix(max_create_time).toISOString())
-            } : undefined,
-            // TODO: Should look at the upload_size or upload_completed?
-            // allow filtering of uploading/non-uploading objects
-            upload_mode: typeof upload_mode === 'boolean' ? {
-                $exists: upload_mode
             } : undefined,
         });
 
@@ -177,7 +178,7 @@ class MDStore {
                 $gt: marker
             },
             deleted: null,
-            upload_size: {
+            upload_started: {
                 $exists: Boolean(upload_mode)
             }
         };
@@ -234,8 +235,8 @@ class MDStore {
     has_any_completed_objects_in_bucket(bucket_id) {
         return this._objects.col().findOne({
                 bucket: bucket_id,
-                upload_started: null,
                 deleted: null,
+                upload_started: null,
             })
             .then(obj => Boolean(obj));
     }
@@ -331,6 +332,7 @@ class MDStore {
         return this._objects.col().find({
                 bucket: bucket_id,
                 deleted: null,
+                upload_started: null,
                 create_time: {
                     $exists: true
                 }
@@ -347,6 +349,7 @@ class MDStore {
         return this._objects.col().find({
                 bucket: bucket_id,
                 cloud_synced: false,
+                upload_started: null,
                 create_time: {
                     $exists: true
                 }

@@ -35,9 +35,6 @@ module.exports = {
                     xattr: {
                         $ref: '#/definitions/xattr',
                     },
-                    md_conditions: {
-                        $ref: '#/definitions/md_conditions',
-                    },
                     size: {
                         type: 'integer',
                     },
@@ -96,6 +93,9 @@ module.exports = {
                     },
                     etag: {
                         type: 'string',
+                    },
+                    md_conditions: {
+                        $ref: '#/definitions/md_conditions',
                     },
                     multiparts: {
                         type: 'array',

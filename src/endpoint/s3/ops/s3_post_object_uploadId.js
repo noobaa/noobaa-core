@@ -5,6 +5,7 @@ const _ = require('lodash');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
+const http_utils = require('../../../util/http_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
@@ -27,6 +28,7 @@ function post_object_uploadId(req) {
             obj_id: req.query.uploadId,
             bucket: req.params.bucket,
             key: req.params.key,
+            md_conditions: http_utils.get_md_conditions(req),
             multiparts
         })
         .then(reply => ({

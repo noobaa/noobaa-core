@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const util = require('util');
 const stream = require('stream');
 const crypto = require('crypto');
 
@@ -142,15 +143,17 @@ class ObjectIO {
             'size',
             'md5_b64',
             'sha256_b64',
-            'md_conditions',
             'xattr'
         );
         const complete_params = _.pick(params,
             'bucket',
-            'key'
+            'key',
+            'md_conditions'
         );
 
-        dbg.log0('upload_object: start upload', complete_params);
+        dbg.log0('upload_object: start upload',
+            util.inspect(create_params, { colors: true, depth: null, breakLength: Infinity }));
+
         return P.resolve()
             .then(() => this._load_copy_source_md(params, create_params))
             .then(() => params.client.object.create_object_upload(create_params))

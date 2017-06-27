@@ -23,7 +23,7 @@ const initialFormState = {
     warnings: {},
     syncErrors: {},
     asyncErrors: {},
-    validating: null,
+    validatingAsync: null,
     locked: false
 };
 
@@ -121,7 +121,7 @@ function onSetFormValidity(forms, { payload }) {
         warnings = form.warnings,
         syncErrors = form.syncErrors,
         asyncErrors = form.asyncErrors,
-        validating = form.validating
+        validatingAsync = form.validatingAsync
     } = payload;
 
     const fields = mapValues(
@@ -139,7 +139,7 @@ function onSetFormValidity(forms, { payload }) {
             warnings,
             syncErrors,
             asyncErrors,
-            validating
+            validatingAsync
         }
     };
 }

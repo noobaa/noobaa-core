@@ -12,9 +12,11 @@
             ko.preventBubble="'mousedown'"
             ko.text="$data"
         ></span>
-        <button class="icon-btn no-outline token-remove-btn"
+        <button type="button"
+            class="icon-btn no-outline token-remove-btn"
+            tabindex="-1"
             ko.click="() => $component.onRemoveToken($index())"
-            ko.disable="$component.disabeld
+            ko.disable="$component.disabled"
         ">
             <svg-icon params="name: 'x'"></svg-icon>
         </button>

@@ -14,6 +14,7 @@ module.exports = [{
             bucket: 1,
             key: 1,
             deleted: 1,
+            upload_started: 1,
         },
         options: {
             unique: true,

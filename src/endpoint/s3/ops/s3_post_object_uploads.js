@@ -2,7 +2,6 @@
 'use strict';
 
 const s3_utils = require('../s3_utils');
-const http_utils = require('../../../util/http_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadInitiate.html
@@ -13,7 +12,6 @@ function post_object_uploads(req) {
             bucket: req.params.bucket,
             key: req.params.key,
             content_type: req.headers['content-type'],
-            md_conditions: http_utils.get_md_conditions(req),
             xattr: s3_utils.get_request_xattr(req),
         })
         .then(reply => ({

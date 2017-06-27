@@ -1,9 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 /* eslint-env mongo */
-/* global setVerboseShell */
-/* global sleep */
-
+/* global setVerboseShell, sleep */
 'use strict';
+
 // the following params are set from outside the script
 // using mongo --eval 'var param_ip="..."' and we only declare them here for completeness
 var param_secret;
@@ -13,11 +12,12 @@ var param_client_subject;
 // This NooBaa epoch is used as initialization date value for md_aggregator
 const NOOBAA_EPOCH = 1430006400000;
 
-setVerboseShell(true);
-upgrade();
+mongo_upgrade_15();
 
 /* Upade mongo structures and values with new things since the latest version*/
-function upgrade() {
+function mongo_upgrade_15() {
+    print('\nMONGO UPGRADE 15 - START ...');
+    setVerboseShell(true);
     add_ssl_user();
     sync_cluster_upgrade();
     upgrade_systems();
@@ -33,7 +33,7 @@ function upgrade() {
     blocks_to_buckets_upgrade();
     upgrade_object_mds_total_parts();
     upgrade_server_hb();
-    print('\nUPGRADE DONE 15.');
+    print('\nMONGO UPGRADE 15 - DONE.');
 }
 
 function add_ssl_user() {

@@ -1,43 +1,24 @@
 /* Copyright (C) 2016 NooBaa */
 /* eslint-env mongo */
 /* global setVerboseShell */
-// /* global sleep */
-
 'use strict';
-// the following params are set from outside the script
-// using mongo --eval 'var param_ip="..."' and we only declare them here for completeness
-var param_secret;
-// var param_bcrypt_secret;
-// var param_client_subject;
 
 // This NooBaa epoch is used as initialization date value for md_aggregator
 const NOOBAA_EPOCH = 1430006400000;
 
-setVerboseShell(true);
-upgrade();
+mongo_upgrade_17();
 
 /* Upade mongo structures and values with new things since the latest version*/
-function upgrade() {
+function mongo_upgrade_17() {
+    print('\nMONGO UPGRADE 17 - START ...');
+    setVerboseShell(true);
     upgrade_buckets();
     upgrade_accounts();
     upgrade_pools();
     upgrade_nodes();
     upgrade_blocks();
     upgrade_tiering_policies();
-    // cluster upgrade: mark that upgrade is completed for this server
-    mark_completed(); // do not remove
-    print('\nUPGRADE DONE 17.');
-}
-
-function mark_completed() {
-    // mark upgrade status of this server as completed
-    db.clusters.update({
-        owner_secret: param_secret
-    }, {
-        $set: {
-            "upgrade.status": "COMPLETED"
-        }
-    });
+    print('\nMONGO UPGRADE 17 - DONE.');
 }
 
 function upgrade_buckets() {

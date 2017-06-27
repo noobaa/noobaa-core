@@ -8,31 +8,22 @@ bucket-summary {
             display: inline-block;
             flex-basis: 170px;
         }
-
-        &.available {
-            ul > li:first-child {
-                float: left;
-                margin-top: auto;
-                margin-right: @gutter;
-            }
-
-            .legend-item .legend-label {
-                display: inline-block;
-                flex-basis: 120px;
-                width: 75px;
-            }
-
-            .legend-item .legend-value {
-                text-align: start;
-            }
-        }
     }
 
     toggle-filter .toggle-btn {
-        min-width: 100px;
+        min-width: 90px;
+        flex-shrink: 1;
     }
 
-    canvas {
-        width: 100%;
+    bar-chart {
+        flex-basis: 1;
+    }
+
+    bar {
+        border-radius: 0;
+
+        &.disabled {
+            opacity: .2;
+        }
     }
 }

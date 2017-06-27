@@ -5,9 +5,8 @@ import Observer from 'observer';
 import ko from 'knockout';
 import style from 'style';
 import { deepFreeze } from 'utils/core-utils';
-import { toBytes, formatSize } from 'utils/size-utils';
+import { toBigInteger, fromBigInteger, bigInteger, toBytes, formatSize } from 'utils/size-utils';
 import { formatTime } from 'utils/string-utils';
-import { drawLine } from 'utils/canvas-utils';
 import { routeContext } from 'model';
 import { state$ } from 'state';
 
@@ -38,16 +37,93 @@ const availableForWriteTooltip = `This number is calculated according to the
     policy. <br><br> Note: This number is limited by quota if set.`;
 
 const quotaUnitMapping = deepFreeze({
-    GIGABYTE: 'GB',
-    TERABYTE: 'TB',
-    PETABYTE: 'PB'
+    GIGABYTE: { label: 'GB', inBytes: Math.pow(1024, 3) },
+    TERABYTE: { label: 'TB', inBytes: Math.pow(1024, 4) },
+    PETABYTE: { label: 'PB', inBytes: Math.pow(1024, 5) },
 });
 
 const graphOptions = deepFreeze([
     { value: 'available', label: 'Available' },
     { value: 'dataUsage', label: 'Data Usage' },
-    { value: 'rawUsage', label: 'Raw Usage'}
+    { value: 'rawUsage', label: 'Raw Usage' }
 ]);
+
+function quotaBigInt({ size, unit }) {
+    console.warn('unit', unit);
+    console.warn('size', size);
+    return toBigInteger(size).multiply(quotaUnitMapping[unit].inBytes);
+}
+
+const quotaSizeValidationMessage = 'Must be a number bigger or equal to 1';
+
+function getBarValues(values) {
+    return [
+        {
+            value: toBytes(values.used),
+            label: 'Used Data',
+            color: style['color8']
+        },
+        {
+            value: toBytes(values.overused),
+            label: 'Overused',
+            color: style['color10']
+        },
+        {
+            value: toBytes(values.availableToUpload),
+            label: 'Available to upload',
+            color: style['color7']
+        },
+        {
+            value: toBytes(values.availableSpillover),
+            label: 'Available spillover',
+            color: style['color6']
+        },
+        {
+            value: toBytes(values.availableOverQuota),
+            label: 'Potential',
+            color: style['color15']
+        },
+        {
+            value: toBytes(values.overallocated),
+            label: 'Overallocated',
+            color: style['color16']
+        }
+    ]
+        .filter(item => item.value > 0);
+}
+
+function calcDataBreakdown(data, spillover, quota) {
+    if (quota) {
+        const zero = bigInteger.zero;
+        const available = toBigInteger(data.free);
+        const quotaSize = quotaBigInt(quota);
+        const used = bigInteger.min(toBigInteger(data.size), quotaSize);
+        const availableSpillover = toBigInteger(spillover.free);
+        const overused = bigInteger.max(zero, toBigInteger(data.size).subtract(quotaSize));
+        const overallocated = bigInteger.max(zero, quotaSize.subtract(available.add(used)));
+        const availableToUpload = bigInteger.min(bigInteger.max(zero, quotaSize.subtract(used)), available);
+        const availableOverQuota = bigInteger.max(zero, available.subtract(availableToUpload));
+
+        return {
+            used: fromBigInteger(used),
+            overused: fromBigInteger(overused),
+            availableToUpload: fromBigInteger(availableToUpload),
+            availableSpillover: fromBigInteger(availableSpillover),
+            availableOverQuota: fromBigInteger(availableOverQuota),
+            overallocated: fromBigInteger(overallocated)
+        };
+
+    } else {
+        return {
+            used: data.size,
+            overused: 0,
+            availableToUpload: data.free,
+            availableSpillover: spillover.free,
+            availableOverQuota: 0,
+            overallocated: 0
+        };
+    }
+}
 
 class BucketSummrayViewModel extends Observer {
     constructor() {
@@ -127,8 +203,56 @@ class BucketSummrayViewModel extends Observer {
             () => this[`${this.viewType()}Values`]
         );
 
+        this.legendCss = ko.pureComputed(
+            () => this.viewType() === 'available' ? 'legend-row' : ''
+        );
+
         this.segments = ko.observable();
         this.redraw = ko.observable();
+
+        this.dataSize = ko.observable();
+        this.dataFree = ko.observable()
+        this.dataSpilloverFree = ko.observable();
+        this.quotaUnit = ko.observable();
+        this.quotaSize = ko.observable().extend({
+            required: {
+                onlyIf: this.isUsingQuota,
+                message: quotaSizeValidationMessage
+            },
+            number: {
+                onlyIf: this.isUsingQuota,
+                message: quotaSizeValidationMessage
+            },
+            min: {
+                onlyIf: this.isUsingQuota,
+                params: 1,
+                message: quotaSizeValidationMessage
+            }
+        });
+
+        this.barValues = ko.pureComputed(
+            () => getBarValues(
+                calcDataBreakdown(
+                    { size: this.dataSize(), free: this.dataFree() },
+                    { size: this.dataSize(), free: this.dataSpilloverFree() },
+                    { unit: this.quotaUnit(), size: this.quotaSize() }
+                )
+            )
+        );
+
+        this.quotaMarker = ko.pureComputed(
+            () => {
+                const quota = quotaBigInt({
+                    size: this.quotaSize(),
+                    unit: this.quotaUnit()
+                });
+
+                return {
+                    placement: toBytes(quota),
+                    label: `Quota: ${formatSize(fromBigInteger(quota))}`
+                };
+            }
+        );
 
         this.observe(state$.get('buckets'), this.onState);
     }
@@ -155,80 +279,35 @@ class BucketSummrayViewModel extends Observer {
         this.cloudSyncStatus(cloudSyncStatusMapping[cloudSyncStatus]);
 
         this.availableValues[0].value(toBytes(data.size));
-        this.availableValues[1].value(toBytes(data.available_for_upload) - toBytes(storage.spillover_free));
-        this.availableValues[2].value(toBytes(storage.spillover_free));
+        this.availableValues[1].value(toBytes(data.available_for_upload));
+        this.availableValues[2].value(toBytes(data.spillover_free));
 
         this.rawUsageValues[0].value(toBytes(storage.free));
         this.rawUsageValues[1].value(toBytes(storage.spillover_free));
         this.rawUsageValues[2].value(toBytes(storage.used));
         this.rawUsageValues[3].value(toBytes(storage.used_other));
+
         this.dataUsageValues[0].value(toBytes(data.size));
         this.dataUsageValues[1].value(toBytes(data.size_reduced));
 
         this.availableForWrite = ko.observable(formatSize(data.available_for_upload));
 
         this.bucketQuota(quota ?
-            `Set to ${quota.size}${quotaUnitMapping[quota.unit]}` :
+            `Set to ${quota.size}${quotaUnitMapping[quota.unit].label}` :
             'Disabled');
 
         this.lastAccess(formatTime(Math.max(stats.last_read, stats.last_write)));
+
+        this.dataSize(data.size);
+        this.dataFree(data.free);
+        this.dataSpilloverFree(data.spillover_free);
+        this.quotaUnit(quota ? quota.unit : 'GIGABYTE');
+        this.quotaSize(quota ? quota.size :  0);
         this.dataReady(true);
     }
 
-    drawChart(ctx, { width }) {
-        // Create a dependency on redraw allowing us to redraw every time,
-        // the value of redraw changed.
-        this.redraw();
-
-        const baseLine = 20;
-        const vpad = 4;
-        const pointRadius = 5;
-        const lineWidth = width - vpad * 2;
-        const minSegmentSize = 10;
-
-        const usedDataSize = this.availableValues[0].value();
-        const availableSize = this.availableValues[1].value();
-        const spilloverSize = this.availableValues[2].value();
-        const totalSize = usedDataSize + availableSize + spilloverSize;
-
-        let usedDataSegmentWidth = lineWidth * (usedDataSize/totalSize);
-        let availableSegmentWidth = lineWidth * (availableSize/totalSize);
-        let spilloverSegmentWidth = lineWidth * (spilloverSize/totalSize);
-
-        // min segment size correction
-        if(minSegmentSize > usedDataSegmentWidth) {
-            usedDataSegmentWidth = minSegmentSize;
-            availableSegmentWidth = lineWidth - minSegmentSize - spilloverSegmentWidth;
-        }
-
-        if(minSegmentSize > availableSegmentWidth) {
-            availableSegmentWidth = minSegmentSize;
-        }
-
-        if(minSegmentSize > spilloverSegmentWidth) {
-            spilloverSegmentWidth = minSegmentSize;
-            availableSegmentWidth = lineWidth - minSegmentSize - usedDataSegmentWidth;
-        }
-
-        ctx.strokeStyle = this.availableValues[0].color;
-        drawLine(ctx, vpad , baseLine, usedDataSegmentWidth, baseLine);
-        ctx.strokeStyle = this.availableValues[1].color;
-        drawLine(ctx, usedDataSegmentWidth, baseLine, usedDataSegmentWidth + availableSegmentWidth, baseLine);
-        ctx.strokeStyle = this.availableValues[2].color;
-        drawLine(ctx, usedDataSegmentWidth + availableSegmentWidth, baseLine, lineWidth, baseLine);
-
-        ctx.fillStyle = style['color7'];
-        ctx.font = `12px ${style['font-family1']}`;
-        ctx.textAlign = 'center';
-        ctx.fillText('0', vpad, 12);
-        drawLine(ctx, vpad , baseLine + pointRadius, vpad, baseLine - pointRadius);
-        drawLine(ctx, usedDataSegmentWidth , baseLine + pointRadius, usedDataSegmentWidth, baseLine - pointRadius);
-        drawLine(ctx, usedDataSegmentWidth + availableSegmentWidth , baseLine + pointRadius, usedDataSegmentWidth + availableSegmentWidth, baseLine - pointRadius);
-        drawLine(ctx, lineWidth , baseLine + pointRadius, lineWidth, baseLine -pointRadius);
-    }
-
-    triggerRedraw() {
-        this.redraw.toggle();
+    formatBarLabel(value) {
+        return value && formatSize(value);
     }
 }
 

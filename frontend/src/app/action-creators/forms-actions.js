@@ -48,7 +48,7 @@ export function setFormValidity(form, validity) {
             warnings: validity.warnings,
             syncErrors: validity.syncErrors,
             asyncErrors: validity.asyncErrors,
-            validating: validity.validating
+            validatingAsync: validity.validatingAsync
         }
     };
 }

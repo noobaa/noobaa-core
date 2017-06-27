@@ -4,7 +4,7 @@ import template from './account-s3-access-form.html';
 import { state$, dispatch } from 'state';
 import Observer from 'observer';
 import ko from 'knockout';
-import { openEditAccountS3AccessModal, opensetAccountIpRestrictions } from 'action-creators';
+import { openEditAccountS3AccessModal, openSetAccountIpRestrictions } from 'action-creators';
 
 const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
 
@@ -119,7 +119,7 @@ class AccountS3AccessFormViewModel extends Observer {
     }
 
     onSetIPRestrictions() {
-        dispatch(opensetAccountIpRestrictions(this.accountName()));
+        dispatch(openSetAccountIpRestrictions(this.accountName()));
     }
 
     showRegenerateAccountCredentialsModal() {

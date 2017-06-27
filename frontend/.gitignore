@@ -32,3 +32,6 @@ logs/
 
 ## Server configuratin for builds where the rpc server and web server are diffrent
 src/app/server-conf.json
+
+# Test form component.
+src/app/components/shared/test-form/

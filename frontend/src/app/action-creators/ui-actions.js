@@ -1,48 +1,48 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { dispatch } from 'state';
-import { OPEN_DRAWER, CLOSE_DRAWER, HIDE_NOTIFICATION, SHOW_NOTIFICATION } from 'action-types';
+import {
+    OPEN_DRAWER,
+    CLOSE_DRAWER,
+    HIDE_NOTIFICATION,
+    SHOW_NOTIFICATION
+} from 'action-types';
 
 // -------------------------------
-// Drawer action dispatchers
+// Drawer action creators
 // -------------------------------
 export function openAuditDrawer() {
-    dispatch({
+    return {
         type: OPEN_DRAWER,
         payload: { pane: 'audit-pane' }
-    });
+    };
 }
 
 export function openAlertsDrawer() {
-    dispatch({
+    return {
         type: OPEN_DRAWER,
         payload: { pane: 'alerts-pane' }
-    });
+    };
 }
 
 export function closeDrawer() {
-    dispatch({ type: CLOSE_DRAWER });
+    return { type: CLOSE_DRAWER };
 }
 
 // -------------------------------
-// Notificaitons action dispatchers
+// Notificaitons action creators
 // -------------------------------
 export function hideNotification(id) {
-    dispatch({
+    return {
         type: HIDE_NOTIFICATION,
         payload: { id }
-    });
+    };
 }
 
-// --------------------------------------------------------------------
-// REFACTOR: this is used for backword compatability where
-// that sender is an old architecture action
-// --------------------------------------------------------------------
 export function showNotification(message, severity = 'info') {
-    dispatch({
+    return {
         type: SHOW_NOTIFICATION,
         payload: { message, severity }
-    });
+    };
 }
 
 

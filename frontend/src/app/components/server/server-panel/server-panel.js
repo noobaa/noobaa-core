@@ -11,7 +11,10 @@ class ServerPanelViewModel extends BaseViewModel {
         super();
 
         this.serverSecret = ko.pureComputed(
-            () => lastSegment(routeContext().params.server, '-')
+            () => {
+                console.warn(routeContext());
+                return lastSegment(routeContext().params.server, '-');
+            }
         );
     }
 

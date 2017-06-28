@@ -1,10 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { parseQueryString } from 'utils/browser-utils';
-import { sessionInfo, routeContext } from 'model';
+import { sessionInfo } from 'model';
 import * as routes from 'routes';
 import * as actions from 'actions';
-import { changeLocation } from 'dispatchers';
+import { dispatch } from 'state';
+import { changeLocation } from 'action-creators';
+import { realizeUri } from 'utils/browser-utils';
 
 const { protocol } = location;
 
@@ -13,13 +15,12 @@ export default function routing(page) {
     function saveContext(ctx, next) {
         ctx.query = parseQueryString(ctx.querystring);
         ctx.protocol = protocol.substr(0, protocol.length - 1);
-        routeContext(ctx);
         next();
     }
 
     // General middleware that check for authorization redner login screen if neccecery.
     function authorize(ctx, next) {
-        if (!sessionInfo() || sessionInfo().mustChangePassword) {
+        if (!sessionInfo() || sessionInfo().passwordExpired) {
             actions.showLogin();
         } else {
             next();
@@ -34,13 +35,20 @@ export default function routing(page) {
 
     function registerRouteHandler(route, handler) {
         page(route, ctx => {
-            changeLocation({ ...ctx, route });
+            const { pathname, params: _params, query } = ctx;
+            const { ['0']: _, ...params } = _params;
+            dispatch(changeLocation({ route, pathname, params, query }));
 
             // TODO REFACTOR.
             handler(ctx);
         });
     }
 
+    function handleUnknownRoute() {
+        const system = sessionInfo().system;
+        const uri = realizeUri(routes.system, { system });
+        page.redirect(uri);
+    }
 
     // Global middlewares.
     page('*', saveContext, authorize);
@@ -65,5 +73,5 @@ export default function routing(page) {
     registerRouteHandler(routes.func, actions.showFunc);
 
     // Unknown paths
-    page('*', actions.handleUnknownRoute);
+    page('*', handleUnknownRoute);
 }

@@ -1,18 +1,20 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<ul class="list-no-style column" data-bind="foreach: properties">
-    <li class="row content-middle">
-        <div class="prop-name push-next" data-bind="
-            text: label + ':',
-            css: { disabled: $data.disabled }
+<ul class="list-no-style column" ko.foreach="properties">
+    <li class="row content-middle" ko.visible="ko.unwrap($data.visible) !== false">
+        <div class="prop-name push-next"
+            ko.text="label + ':'"
+            ko.css.disabled="$data.disabled"
+        ></div>
+
+        <div class="prop-value no-wrap greedy"
+            ko.html="value"
+            ko.css="{ disabled: $data.disabled, 'push-next': $data.allowCopy }"
         "></div>
 
-        <div class="prop-value no-wrap greedy" data-bind="
-            html: value,
-            css: { disabled: $data.disabled }
-        "></div>
-
-        <copy-to-clipboard-button params="value: value, disabled: $data.disabled"
-            data-bind="visible: $data.allowCopy"></copy-to-clipboard-button>
+        <copy-to-clipboard-button ko.visible="$data.allowCopy" params="
+            value: value,
+            disabled: $data.disabled
+        "></copy-to-clipboard-button>
     </li>
 </ul>

@@ -1,85 +1,125 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-s3-access-form.html';
-import BaseViewModel from 'components/base-view-model';
+import { state$, dispatch } from 'state';
+import Observer from 'observer';
 import ko from 'knockout';
-import { routeContext, systemInfo } from 'model';
-import { openEditAccountS3AccessModal } from 'dispatchers';
+import { openEditAccountS3AccessModal, openSetAccountIpRestrictions } from 'action-creators';
 
-class AccountS3AccessFormViewModel extends BaseViewModel {
+const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
+
+function _createIpBox(ip) {
+    return `<span class="ip-box">${ip}</span>`;
+}
+
+class AccountS3AccessFormViewModel extends Observer {
     constructor() {
         super();
 
-        const account = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return { access_keys: [] };
-                }
-
-                const email = routeContext().params.account;
-                return systemInfo().accounts.find(
-                    account => account.email === email
-                );
-            }
-        );
-
-        this.email = ko.pureComputed(
-            () => account().email
-        );
-
-        this.isS3AccessDisabled = ko.pureComputed(
-            () => !account().has_s3_access
-        );
-
-        const allowedBuckets = ko.pureComputed(
-            () => (account().allowed_buckets || []).join(', ') || '(none)'
-        );
+        this.accountName = ko.observable();
+        this.isS3AccessDisabled = ko.observable();
+        this.s3AccessLabel = ko.observable();
+        this.allowedBuckets = ko.observable();
+        this.defaultResource = ko.observable();
+        this.accessKey = ko.observable();
+        this.secretKey = ko.observable();
+        this.ipRestrictions = ko.observable();
+        this.allowedIps = ko.observable();
+        this.isAllowedIpVisible = ko.observable();
+        this.setIPRestrictionsButtonTooltip = ko.observable();
+        this.regenerateCredentialsButtonTooltip = ko.observable();
 
         this.s3AccessInfo = [
             {
                 label: 'S3 Access',
-                value: ko.pureComputed(
-                    () => this.isS3AccessDisabled() ? 'Disabled' : 'Enabled'
-                )
+                value: this.s3AccessLabel
             },
             {
                 label: 'Permitted buckets',
-                value: allowedBuckets,
+                value: this.allowedBuckets,
                 disabled: this.isS3AccessDisabled
             },
             {
                 label: 'Default resource for S3 applications',
-                value: ko.pureComputed(
-                    () => account().default_pool || '(not set)'
-                ),
+                value: this.defaultResource,
                 disabled: this.isS3AccessDisabled
+            },
+            {
+                label: 'IP Restrictions',
+                value: this.ipRestrictions,
+                disabled: this.isS3AccessDisabled
+            },
+            {
+                label: 'Allowed IPs',
+                value: this.allowedIps,
+                visible: this.isAllowedIpVisible
             }
-        ];
 
-        const keys = ko.pureComputed(
-            () => account().access_keys[0] || {}
-        );
+        ];
 
         this.credentials = [
             {
                 label: 'Access Key',
-                value: ko.pureComputed( () => keys().access_key ),
+                value: this.accessKey,
                 allowCopy: true,
                 disabled: this.isS3AccessDisabled
             },
             {
                 label: 'Secret Key',
-                value: ko.pureComputed( () => keys().secret_key ),
+                value: this.secretKey,
                 allowCopy: true,
                 disabled: this.isS3AccessDisabled
             }
         ];
 
+        this.observe(
+            state$.getMany('accounts', ['location', 'params', 'account']),
+            this.onAccount
+        );
+
+        // TODO: Move RegenerateAccountCredentialsModal into Modal Maneger
         this.isRegenerateAccountCredentialsModalVisible = ko.observable(false);
     }
 
+    onAccount([ accounts, accountName ]) {
+        const account = accounts[accountName];
+        if (!account) return;
+
+        const {
+            defaultResource,
+            hasS3Access,
+            hasAccessToAllBuckets,
+            allowedBuckets,
+            accessKeys,
+            allowedIps
+        } = account;
+
+        this.accountName(accountName);
+        this.defaultResource(defaultResource || '(not set)');
+        this.isS3AccessDisabled(!hasS3Access);
+        this.s3AccessLabel(hasS3Access ? 'Enabled' : 'Disabled');
+        this.allowedBuckets(hasAccessToAllBuckets ?
+            'All current and future buckets' :
+            (allowedBuckets.length ? allowedBuckets.join(', ') : '(none)')
+        );
+        this.accessKey(accessKeys.accessKey);
+        this.secretKey(accessKeys.secretKey);
+        this.ipRestrictions(allowedIps ? 'Enabled' : 'Not set');
+        this.isAllowedIpVisible(Boolean(hasS3Access && allowedIps));
+        this.allowedIps(
+            allowedIps &&
+            (allowedIps.length ? allowedIps.map(_createIpBox).join('') : 'No IP allowed')
+        );
+        this.setIPRestrictionsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
+        this.regenerateCredentialsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
+    }
+
     onEditS3Access() {
-        openEditAccountS3AccessModal(this.email());
+        dispatch(openEditAccountS3AccessModal(this.accountName()));
+    }
+
+    onSetIPRestrictions() {
+        dispatch(openSetAccountIpRestrictions(this.accountName()));
     }
 
     showRegenerateAccountCredentialsModal() {
@@ -89,6 +129,7 @@ class AccountS3AccessFormViewModel extends BaseViewModel {
     hideRegenerateAccountCredentialsModal() {
         this.isRegenerateAccountCredentialsModalVisible(false);
     }
+
 }
 
 export default {

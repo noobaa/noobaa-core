@@ -2,8 +2,16 @@
 
 import { createReducer } from 'utils/reducer-utils';
 import { pick, last } from 'utils/core-utils';
-import { OPEN_MODAL, UPDATE_MODAL, REPLACE_MODAL, LOCK_ACTIVE_MODAL, CLOSE_ACTIVE_MODAL,
-    START_UPGRADE_SYSTEM, CHANGE_LOCATION, COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
+import {
+    OPEN_MODAL,
+    UPDATE_MODAL,
+    REPLACE_MODAL,
+    LOCK_MODAL,
+    CLOSE_MODAL,
+    UPGRADE_SYSTEM,
+    CHANGE_LOCATION,
+    COMPLETE_FETCH_SYSTEM_INFO
+} from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -59,7 +67,7 @@ function onReplaceModal(modals, { payload }) {
     return _openModal(modals.slice(0, -1), payload);
 }
 
-function onLockActiveModal(modals) {
+function onLockModal(modals) {
     const backdropClose = false;
     const closeButton = 'disabled';
     return [
@@ -68,11 +76,11 @@ function onLockActiveModal(modals) {
     ];
 }
 
-function onCloseActiveModal(modals) {
+function onCloseModal(modals) {
     return modals.slice(0, -1);
 }
 
-function onStartUpgradeSystem(modals) {
+function onUpgradeSystem(modals) {
     return _openModal(modals, {
         component: {
             name: 'system-upgrade-modal'
@@ -146,9 +154,9 @@ export default createReducer(initialState, {
     [OPEN_MODAL]: onOpenModal,
     [UPDATE_MODAL]: onUpdateModal,
     [REPLACE_MODAL]: onReplaceModal,
-    [LOCK_ACTIVE_MODAL]: onLockActiveModal,
-    [CLOSE_ACTIVE_MODAL]: onCloseActiveModal,
-    [START_UPGRADE_SYSTEM]: onStartUpgradeSystem,
+    [LOCK_MODAL]: onLockModal,
+    [CLOSE_MODAL]: onCloseModal,
+    [UPGRADE_SYSTEM]: onUpgradeSystem,
     [CHANGE_LOCATION]: onChangeLocation,
     [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
 });

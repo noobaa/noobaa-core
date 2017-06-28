@@ -1,11 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { combineReducers } from 'utils/reducer-utils';
+import locationReducer from './location-reducer';
 import sessionReducer from './session-reducer';
 import drawerReducer from './drawer-reducer';
 import modalsReducer from './modals-reducer';
 import layoutReducer from './main-layout-reducer';
-import formsReducer from './forms-reducer-with-extenders';
+import formsReducer from './forms-reducer';
 import bucketsReducer from './buckets-reducer';
 import nodePoolsReducer from './node-pools-reducer';
 import cloudResourcesReducer from './cloud-resources-reducer';
@@ -15,6 +16,7 @@ import alertsReducer from './alerts-reducer';
 import notificationsReducer from './notificaitons-reducer';
 
 export default combineReducers({
+    location: locationReducer,
     session: sessionReducer,
     layout: layoutReducer,
     drawer: drawerReducer,

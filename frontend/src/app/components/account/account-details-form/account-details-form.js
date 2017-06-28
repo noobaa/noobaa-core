@@ -1,82 +1,72 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-details-form.html';
-import BaseViewModel from 'components/base-view-model';
+import { state$ } from 'state';
+import Observer from 'observer';
 import ko from 'knockout';
-import { routeContext, systemInfo, sessionInfo } from 'model';
 
-class AccountDetailsFormViewModel extends BaseViewModel {
+class AccountDetailsFormViewModel extends Observer {
     constructor() {
         super();
 
-        const account = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return;
-                }
-
-                const email = routeContext().params.account;
-                return systemInfo().accounts.find(
-                    account => account.email === email
-                );
-            }
-        );
-
-        this.email = ko.pureComputed(
-            () => account() && account().email
-        );
-
-        const systemName = ko.pureComputed(
-            () => systemInfo() ? systemInfo().name : ''
-        );
-
-        const isSystemOwner = ko.pureComputed(
-            () => systemInfo() && this.email() === systemInfo().owner.email
-        );
-
-        const role = ko.pureComputed(
-            () => {
-                if (!account() || !systemName()) {
-                    return '';
-                }
-
-                return isSystemOwner() ? 'owner' : account().systems.find(
-                    ({ name }) => name === systemName()
-                ).roles[0];
-            }
-        );
-
-        this.isCurrentUser = ko.pureComputed(
-            () => sessionInfo() && sessionInfo().user === this.email()
-        );
-
-        this.changePasswordButtonText = ko.pureComputed(
-            () => this.isCurrentUser() ? 'Change Password' : 'Reset Password'
-        );
+        this.accountName = ko.observable();
+        this.role = ko.observable();
+        this.isCurrentUser = ko.observable();
+        this.changePasswordButtonLabel = ko.observable();
+        this.disableChangePasswordButton = ko.observable();
+        this.changePasswordButtonTooltip = ko.observable();
 
         this.profileInfo = [
-            { label: 'Email address', value: this.email },
-            { label: 'Role', value: role }
+            {
+                label: 'Account name',
+                value: this.accountName
+            },
+            {
+                label: 'Role',
+                value: this.role
+            },
         ];
 
-        this.isResetPasswordModalVisible = ko.observable(false);
-        this.isChangePasswordModalVisible = ko.observable(false);
+        this.observe(
+            state$.getMany(
+                'accounts',
+                ['location', 'params', 'account'],
+                ['session', 'user']
+            ),
+            this.onAccount
+        );
+
+        // TODO: Move the modals into Modal Maneger
+        this.isPasswordModalVisible = ko.observable(false);
     }
 
-    changePasswordClickHandler() {
-        if (this.isCurrentUser()) {
-            this.isChangePasswordModalVisible(true);
-        } else {
-            this.isResetPasswordModalVisible(true);
-        }
+    onAccount([ accounts, accountName, currentUser ]) {
+        const account = accounts[accountName];
+        if (!account) return;
+
+        const { isOwner } = account;
+        const isCurrentUser = currentUser === accountName;
+        const role  = !isOwner ?
+            (account.hasLoginAccess ? 'Admin' : 'Application') :
+            'Owner';
+
+        this.accountName(accountName);
+        this.role(role);
+        this.isCurrentUser(isCurrentUser);
+        this.changePasswordButtonLabel(isCurrentUser ? 'Change Password' : 'Reset Password');
+        this.disableChangePasswordButton(!account.hasLoginAccess);
+        this.changePasswordButtonTooltip(!account.hasLoginAccess ?
+            'This action is unavailable for accounts without login access' :
+            ''
+        );
     }
 
-    hideResetPasswordModal() {
-        this.isResetPasswordModalVisible(false);
+    showPasswordModal() {
+        this.isPasswordModalVisible(true);
     }
 
-    hideChangePasswordModal() {
-        this.isChangePasswordModalVisible(false);
+    hidePasswordModal() {
+        this.isPasswordModalVisible(false);
     }
 }
 

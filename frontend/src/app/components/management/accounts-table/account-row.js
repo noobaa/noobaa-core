@@ -4,7 +4,8 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo, systemInfo } from 'model';
 import { stringifyAmount } from 'utils/string-utils';
-import { openDeleteCurrentAccountWarningModal } from 'dispatchers';
+import { dispatch } from 'state';
+import { openDeleteCurrentAccountWarningModal } from 'action-creators';
 import { deleteAccount } from 'actions';
 
 export default class AccountRowViewModel extends BaseViewModel {
@@ -61,15 +62,21 @@ export default class AccountRowViewModel extends BaseViewModel {
                     return '';
                 }
 
-                return  this.isSystemOwner() ? 'owner' : account().systems.find(
-                    ({ name }) => name === systemName()
-                ).roles[0];
+                return  !this.isSystemOwner() ?
+                 (account().has_login ? 'Admin' : 'Application') :
+                'Owner';
             }
         );
 
         this.s3Access = ko.pureComputed(
             () => account() ?
                 (account().has_s3_access ? 'enabled' : 'disabled') :
+                ''
+        );
+
+        this.loginAccess = ko.pureComputed(
+            () => account() ?
+                (account().has_login ? 'enabled' : 'disabled') :
                 ''
         );
 
@@ -95,7 +102,7 @@ export default class AccountRowViewModel extends BaseViewModel {
     onDelete() {
         const email = this.email();
         if (email === sessionInfo().user) {
-            openDeleteCurrentAccountWarningModal();
+            dispatch(openDeleteCurrentAccountWarningModal());
         } else {
             deleteAccount(email);
         }

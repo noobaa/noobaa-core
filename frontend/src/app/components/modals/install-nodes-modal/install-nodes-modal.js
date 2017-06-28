@@ -1,11 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './install-nodes-modal.html';
+import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
-import { state$ } from 'state';
-import { deepFreeze } from 'utils/core-utils';
+import { state$, dispatch } from 'state';
 import ko from 'knockout';
-import { fetchNodeInstallationCommands } from 'dispatchers';
+import { deepFreeze } from 'utils/core-utils';
+import { fetchNodeInstallationCommands } from 'action-creators';
 
 const steps = deepFreeze([
     'Assign',
@@ -25,69 +26,92 @@ const osTypes = deepFreeze([
 ]);
 
 const drivesInputPlaceholder =
-    `E.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
+    `e.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
 
-class InstallNodeWizardViewModel extends FormViewModel {
+
+const formName = 'installNodes';
+
+class InstallNodeWizardViewModel extends Observer {
     constructor({ onClose }) {
-        super('installNodes');
+        super();
 
+        this.close = onClose;
         this.steps = steps;
         this.osTypes = osTypes;
         this.drivesInputPlaceholder = drivesInputPlaceholder;
-        this.onClose = onClose;
-        this.pools = ko.observable();
-
-        this.initialize({
-            step: 0,
-            targetPool: undefined,
-            excludeDrives: false,
-            excludedDrives: [],
-            selectedOs: 'LINUX',
-            commands: { LINUX: '', WINDOWS: '' }
+        this.poolOptions = ko.observable();
+        this.form = new FormViewModel({
+            name: formName,
+            fields: {
+                step: 0,
+                targetPool: '',
+                excludeDrives: false,
+                excludedDrives: [],
+                selectedOs: 'LINUX',
+                commands: {
+                    LINUX: '',
+                    WINDOWS: ''
+                }
+            },
+            groups: {
+                0: ['targetPool']
+            },
+            onValidate: this.onValidate
         });
 
-        this.observe(state$.get('nodePools'), this.onPools);
+        this.observe(
+            state$.get('nodePools'),
+            this.onPools
+        );
     }
 
-    onPools(pools) {
-        this.pools(Object.keys(pools));
-    }
+    onValidate(values) {
+        const errors = {};
+        const { step, targetPool } = values;
 
-    validate(form) {
-        let errors = {};
-
-        const { step, targetPool } = form;
-        if (step === 0 && !targetPool) {
-            errors.targetPool = 'Please select a nodes pool';
+        if (step === 0) {
+            if (!targetPool) {
+                errors.targetPool = 'Please select a pool from the list';
+            }
         }
 
-        return { errors };
+        return errors;
     }
 
-    onTab(os) {
-        this.update('selectedOs', os);
-    }
+    onBeforeStep(step) {
+        const { form } = this;
 
-    onNext(next) {
-        if (!this.valid()) {
-            this.touchAll();
+        if (!form.isValid()) {
+            form.touch(step);
             return false;
         }
 
-        if (next === 2) {
-            const { targetPool, excludeDrives, excludedDrives } = this;
-            fetchNodeInstallationCommands(
-                targetPool(),
-                excludeDrives() ? excludedDrives() : []
-            );
+        if (step === 1) {
+            // If moving to last step, fetch the intallation commands.
+            dispatch(fetchNodeInstallationCommands(
+                form.targetPool(),
+                form.excludedDrives()
+            ));
         }
 
-        this.update('step', next);
+        return true;
     }
 
-    onPrev(prev) {
-        this.update('step', prev);
-        this.resetField('commands');
+    onTab(osType) {
+        this.form.selectedOs(osType);
+    }
+
+    onPools(pools) {
+        this.poolOptions(Object.keys(pools));
+    }
+
+    onDone() {
+        this.close();
+    }
+
+    dispose() {
+        this.form.dispose();
+        super.dispose();
     }
 }
 

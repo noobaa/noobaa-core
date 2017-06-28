@@ -2,167 +2,183 @@
 
 import { mapValues } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { INIT_FORM, UPDATE_FORM, RESET_FORM, RESET_FORM_FIELD,
-    SET_FORM_VALIDITY, TOUCH_FORM, DISPOSE_FORM } from 'action-types';
+import {
+    INIT_FORM,
+    UPDATE_FORM,
+    RESET_FORM,
+    TOUCH_FORM,
+    SET_FORM_VALIDITY,
+    LOCK_FORM,
+    UNLOCK_FORM,
+    DROP_FROM
+} from 'action-types';
 
 // ------------------------------
 // Initial State
 // ------------------------------
 const initialState = {};
 
+const initialFormState = {
+    fields: {},
+    warnings: {},
+    syncErrors: {},
+    asyncErrors: {},
+    validatingAsync: null,
+    locked: false
+};
+
 // ------------------------------
 // Action Handlers
 // ------------------------------
-
 function onInitForm(forms, { payload }) {
-    const { form: formName, values } = payload;
+    if (forms[payload.form]) return forms;
+
     const fields = mapValues(
-        values,
-        value => ({
-            initial: value,
-            value: value,
-            touched: false,
-            dirty: false
-        })
+        payload.values,
+        _initializeValue
     );
 
     return {
         ...forms,
-        [formName]: {
-            fields: fields,
-            errors: {},
-            warnings: {},
-            validated: false
+        [payload.form]: {
+            ...initialFormState,
+            fields
         }
     };
 }
 
 function onUpdateForm(forms, { payload }) {
-    const { form, field, value } = payload;
-    if (!forms[form]) return forms;
+    const form = forms[payload.form];
+    if (!form) return forms;
+
+    const updates = payload.values;
+    const fields = mapValues(
+        form.fields,
+        (field, name) => {
+            if (!updates.hasOwnProperty(name)) {
+                return field;
+            }
+
+            return {
+                ...field,
+                value: updates[name],
+                touched: true
+            };
+        }
+    );
+
     return {
         ...forms,
-        [form]: updateField(forms[form], field, value)
+        [payload.form]: { ...form, fields }
     };
 }
 
 function onResetForm(forms, { payload }) {
-    const { form } = payload;
-    if (!forms[form]) return forms;
-    return {
-        ...forms,
-        [form]: resetForm(forms[form])
-    };
-}
+    const form = forms[payload.form];
+    if (!form) return forms;
 
-function onResetFormField(forms, { payload }) {
-    const { form, field } = payload;
-    if (!forms[form]) return forms;
-    return {
-        ...forms,
-        [form]: resetField(forms[form], field)
-    };
-}
+    const fields = mapValues(
+        form.fields,
+        ({ initial }) => _initializeValue(initial)
+    );
 
-function onSetFormValidity(forms, { payload }) {
-    const { form, errors, warnings } = payload;
     return {
         ...forms,
-        [form]: setFormValidity(forms[form], errors, warnings)
+        [payload.form]: {
+            ...initialFormState,
+            fields
+        }
     };
 }
 
 function onTouchForm(forms, { payload }) {
-    const { form } = payload;
+    const form = forms[payload.form];
+    if (!form) return forms;
+
+    const touchList = payload.fields || Object.keys(form.fields);
+    const fields = mapValues(
+        form.fields,
+        (field, name) => touchList.includes(name) ?
+            ({ ...field, touched: true }) :
+            field
+    );
+
     return {
         ...forms,
-        [form]: touchForm(forms[form])
+        [payload.form]: {
+            ...form,
+            fields
+        }
     };
 }
 
-function onDisposeForm(forms, { payload }) {
-    return _removeKey(forms, payload.form);
+function onSetFormValidity(forms, { payload }) {
+    const form = forms[payload.form];
+    if (!form) return forms;
+
+    const {
+        fieldsValidity = {},
+        warnings = form.warnings,
+        syncErrors = form.syncErrors,
+        asyncErrors = form.asyncErrors,
+        validatingAsync = form.validatingAsync
+    } = payload;
+
+    const fields = mapValues(
+        form.fields,
+        (field, name) =>  fieldsValidity[name] ?
+            { ...field, validity: fieldsValidity[name] } :
+            field
+    );
+
+    return {
+        ...forms,
+        [payload.form]: {
+            ...form,
+            fields,
+            warnings,
+            syncErrors,
+            asyncErrors,
+            validatingAsync
+        }
+    };
 }
 
-// --------------------------------------------
-// Exported utils for manageing the forms state
-// --------------------------------------------
-export function updateField(form, name, value) {
-    const field = form.fields[name];
-    if (!field) return form;
+function onLockForm(forms, { payload }) {
+    const form = forms[payload.form];
+    if (!form) return forms;
 
-    const updatedField = {
-        initial: field.initial,
+    return {
+        ...forms,
+        [payload.form]: { ...form, locked: true }
+    };
+}
+
+function onUnlockForm(forms, { payload }) {
+    const form = forms[payload.form];
+    if (!form) return forms;
+
+    return {
+        ...forms,
+        [payload.form]: { ...form, locked: false }
+    };
+}
+
+function onDropForm(forms, { payload }) {
+    const { [payload.form]: _, ...other } = forms;
+    return other;
+}
+
+// ------------------------------
+// Local utils function
+// ------------------------------
+function _initializeValue(value) {
+    return {
+        initial: value,
         value: value,
-        touched: true,
-        dirty: value !== field.initial
-    };
-
-    return {
-        ...form,
-        fields: { ...form.fields, [name]: updatedField },
-        validated: false
-    };
-}
-
-export function resetField(form, name) {
-    const field = form.fields[name];
-    if (!field) return form;
-
-    const updatedField = {
-        initial: field.initial,
-        value: field.initial,
         touched: false,
-        dirty: false
+        validity: 'VALID',
     };
-
-    return {
-        ...form,
-        fields: { ...form.fields, [name]: updatedField }
-    };
-}
-
-export function resetForm(form) {
-    const fields = mapValues(form.fields, _restFieldState);
-    return {
-        ...form, fields,
-        errors: {},
-        warnings: {}
-    };
-}
-
-export function setFormValidity(form, errors, warnings) {
-    return {
-        ...form,
-        fields: form.fields,
-        errors,
-        warnings,
-        validated: true
-    };
-}
-
-export function touchForm(form) {
-    return {
-        ...form,
-        fields: mapValues(form.fields, field => ({ ...field, touched: true }))
-    };
-}
-
-// --------------------------------------------
-// Local util functions
-// --------------------------------------------
-function _restFieldState(field) {
-    return {
-        ...field,
-        value: field.initial,
-        touched: false,
-        dirty: false
-    };
-}
-
-function _removeKey(obj, key) {
-    const { [key]: _, ...rest } = obj;
-    return rest;
 }
 
 // ------------------------------
@@ -172,9 +188,10 @@ export default createReducer(initialState, {
     [INIT_FORM]: onInitForm,
     [UPDATE_FORM]: onUpdateForm,
     [RESET_FORM]: onResetForm,
-    [RESET_FORM_FIELD]: onResetFormField,
-    [SET_FORM_VALIDITY]: onSetFormValidity,
     [TOUCH_FORM]: onTouchForm,
-    [DISPOSE_FORM]: onDisposeForm
+    [SET_FORM_VALIDITY]: onSetFormValidity,
+    [LOCK_FORM]: onLockForm,
+    [UNLOCK_FORM]: onUnlockForm,
+    [DROP_FROM]: onDropForm,
 });
 

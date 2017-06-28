@@ -3,9 +3,13 @@
 import template from './change-password-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { resetAccountPassword, signOut, refresh } from 'actions';
+import { refresh } from 'actions';
+import { signOut } from 'action-creators';
 import { sessionInfo, resetPasswordState } from 'model';
 import { calcPasswordStrength } from 'utils/password-utils';
+import { dispatch } from 'state';
+import { changeAccountPassword } from 'action-creators';
+
 
 class ChangePasswordFormViewModel extends BaseViewModel {
     constructor() {
@@ -50,13 +54,11 @@ class ChangePasswordFormViewModel extends BaseViewModel {
 
         } else {
             this.touched(false);
-            resetAccountPassword(
+            dispatch(changeAccountPassword(
                 this.password(),
                 sessionInfo().user,
                 this.newPassword(),
-                false,
-                true
-            );
+            ));
         }
     }
 

@@ -1,10 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="content-middle" data-bind="
-    foreach: options,
-    css: $component.layoutClass
-">
-    <radio-btn class="push-next" params="
+<div class="radio-group-container" ko.css="css" ko.foreach="options">
+    <radio-btn ko.css="$component.buttonCss" params="
         group: $component.name,
         selected: $component.selected,
         label: label,

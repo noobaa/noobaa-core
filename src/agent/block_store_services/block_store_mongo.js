@@ -59,16 +59,16 @@ class BlockStoreMongo extends BlockStoreBase {
 
     init() {
         return mongo_client.instance().connect()
-            .then(() => this.read_usage_gridfs()
-                .then(usage_metadata => {
-                    if (usage_metadata) {
-                        this._usage = usage_metadata;
-                        dbg.log0('found usage data usage_data = ', this._usage);
-                    }
-                }, err => {
-                    dbg.error('got error on init:', err);
-                })
-            );
+            .then(() => this._gridfs())
+            .then(() => this.read_usage_gridfs())
+            .then(usage_metadata => {
+                if (usage_metadata) {
+                    this._usage = usage_metadata;
+                    dbg.log0('found usage data usage_data = ', this._usage);
+                }
+            }, err => {
+                dbg.error('got error on init:', err);
+            });
     }
 
     get_storage_info() {

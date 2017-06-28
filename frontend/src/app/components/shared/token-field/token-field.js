@@ -37,7 +37,7 @@ class TokenFieldViewModel {
         };
 
         this.tokens = tokens;
-        this.tokensSub = this.tokens.subscribe(
+        this.tokensSub = tokens.subscribe(
             tokens => this.list(Array.from(tokens))
         );
     }
@@ -46,14 +46,13 @@ class TokenFieldViewModel {
         this.hasFocus(true);
     }
 
-    onKeyPress(_, { which }) {
-        if (which !== enterKeyCode || !this.text()) {
+    onKeyPress(_, evt) {
+        if (evt.which !== enterKeyCode) {
             return true;
         }
 
-        this.list.push(this.text());
-        this.text('');
-        this.scroll(1);
+        this.commitText();
+        evt.preventDefault();
     }
 
     onKeyDown(_, { which }) {
@@ -65,9 +64,8 @@ class TokenFieldViewModel {
     }
 
     onBlur() {
-        this.tokens(
-            Array.from(this.list())
-        );
+        this.commitText();
+        this.tokens(Array.from(this.list()));
     }
 
     onPaste(_, { clipboardData }) {
@@ -97,6 +95,15 @@ class TokenFieldViewModel {
 
     dispose() {
         this.tokensSub.dispose();
+    }
+
+    commitText() {
+        const text = this.text().trim();
+        if (!text) return;
+
+        this.list.push(text);
+        this.text('');
+        this.scroll(1);
     }
 }
 

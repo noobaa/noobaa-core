@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <button class="btn" data-bind="
-    click: click.bind($parent),
+    click: $data.click && click.bind($parent),
     css: { inactive: working },
     disable: disabled
 ">

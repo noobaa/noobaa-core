@@ -5,7 +5,8 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo } from 'model';
 import { support } from 'config';
-import { signOut } from 'actions';
+import { dispatch } from 'state';
+import { signOut } from 'action-creators';
 
 class AccountMenuViewModel extends BaseViewModel {
     constructor() {
@@ -14,8 +15,10 @@ class AccountMenuViewModel extends BaseViewModel {
         this.isOpen = ko.observable(false);
         this.isLocalClick = ko.observable(false);
 
+        // TODO: A workaroun for rece between pureComputed that is depended on
+        // sessionInfo and state$ updates.
         this.userEmail = ko.pureComputed(
-            () => sessionInfo() && sessionInfo().user
+            () => sessionInfo() ? sessionInfo().user : 'WORKAROUND'
         );
 
         this.profileHref = {
@@ -44,7 +47,7 @@ class AccountMenuViewModel extends BaseViewModel {
     }
 
     signOut() {
-        signOut();
+        dispatch(signOut());
     }
 }
 

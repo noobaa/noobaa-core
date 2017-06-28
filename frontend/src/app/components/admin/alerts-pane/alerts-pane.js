@@ -3,17 +3,28 @@
 import template from './alerts-pane.html';
 import Observer from 'observer';
 import AlertRowViewModel from './alert-row';
-import { state$ } from 'state';
+import { state$, dispatch } from 'state';
 import ko from 'knockout';
-import { fetchAlerts, updateAlerts, dropAlertsState } from 'dispatchers';
 import { deepFreeze, last } from 'utils/core-utils';
 import { infinitScrollPageSize } from 'config';
+import { fetchAlerts, updateAlerts, dropAlerts } from 'action-creators';
 
 const severityOptions = deepFreeze([
-    { label: 'all', value: 'ALL' },
-    { label: 'critical', value: 'CRIT' },
-    { label: 'important', value: 'MAJOR' },
-    { label: 'minor', value: 'INFO' }
+    {
+        label: 'all',
+        value: 'ALL'
+    },
+    {
+        label: 'critical',
+        value: 'CRIT'
+    },
+    {
+        label: 'important',
+        value: 'MAJOR' },
+    {
+        label: 'minor',
+        value: 'INFO'
+    }
 ]);
 
 class AlertsPaneViewModel extends Observer {
@@ -72,7 +83,7 @@ class AlertsPaneViewModel extends Observer {
             undefined;
 
 
-        fetchAlerts({ severity, read }, infinitScrollPageSize);
+        dispatch(fetchAlerts({ severity, read }, infinitScrollPageSize));
         this.scroll(0);
     }
 
@@ -88,7 +99,7 @@ class AlertsPaneViewModel extends Observer {
 
     markRowAsRead(row) {
         const ids = [row.id()];
-        updateAlerts({ ids, read: false }, true);
+        dispatch(updateAlerts({ ids, read: false }, true));
     }
 
     markListAsRead() {
@@ -96,12 +107,12 @@ class AlertsPaneViewModel extends Observer {
             this.severityFilter() :
             undefined;
 
-        updateAlerts({ severity, read: false }, true);
+        dispatch(updateAlerts({severity, read: false }, true));
     }
 
     dispose() {
+        dispatch(dropAlerts());
         super.dispose();
-        dropAlertsState();
     }
 
     _loadMore() {
@@ -116,7 +127,7 @@ class AlertsPaneViewModel extends Observer {
             this.severityFilter() :
             undefined;
 
-        fetchAlerts({ severity, read, till }, infinitScrollPageSize);
+        dispatch(fetchAlerts({ severity, read, till }, infinitScrollPageSize));
     }
 }
 

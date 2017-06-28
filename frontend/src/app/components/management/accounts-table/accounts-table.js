@@ -8,7 +8,8 @@ import { systemInfo, routeContext } from 'model';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { inputThrottle } from 'config';
 import { navigateTo } from 'actions';
-import { openCreateAccountModal} from 'dispatchers';
+import { dispatch } from 'state';
+import { openCreateAccountModal } from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -17,20 +18,19 @@ const columns = deepFreeze([
         type: 'link',
         sortable: true
     },
-    // Hide until we have a conenction tab inside account page
-    // {
-    //     name: 'connections',
-    //     label: 'external connections',
-    //     sortable: true
-    // },
     {
-        name: 'role',
-        sortable: true
+        name: 'loginAccess',
+        label: 'Login Access',
+        sortable: 'login-access'
     },
     {
         name: 's3Access',
         label: 's3 access',
         sortable: 's3-access'
+    },
+    {
+        name: 'role',
+        sortable: true
     },
     {
         name: 'defaultResource',
@@ -45,9 +45,9 @@ const columns = deepFreeze([
 ]);
 
 function getAccountRole(account) {
-    return account.email === systemInfo().owner.email ?
-        'owner' :
-        account.systems[0].roles[0];
+    return account.email !== systemInfo().owner.email ?
+        (account.has_login ? 'admin' : 'application') :
+        'owner';
 }
 
 const compareAccessors = deepFreeze({
@@ -55,6 +55,7 @@ const compareAccessors = deepFreeze({
     connections: account => account.external_connections.count,
     role: account => getAccountRole(account),
     's3-access': account => account.has_s3_access,
+    'login-access': account => account.has_login,
     defaultResource: account => account.default_pool
 });
 
@@ -122,7 +123,7 @@ class AccountsTableViewModel extends BaseViewModel {
     }
 
     onCreateAccount() {
-        openCreateAccountModal();
+        dispatch(openCreateAccountModal());
     }
 }
 

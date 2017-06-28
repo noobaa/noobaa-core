@@ -18,7 +18,7 @@ class LoginLayoutViewModel extends BaseViewModel {
                 }
 
                 if (!serverInfo()) {
-                    return 'internet-connectivity-problem-form';
+                    return 'empty';
                 }
 
                 const { initialized, config } = serverInfo();
@@ -26,7 +26,7 @@ class LoginLayoutViewModel extends BaseViewModel {
                     if (!sessionInfo()) {
                         return 'signin-form';
 
-                    } else if(sessionInfo().mustChangePassword) {
+                    } else if(sessionInfo().passwordExpired) {
                         return 'change-password-form';
                     }
                 } else {

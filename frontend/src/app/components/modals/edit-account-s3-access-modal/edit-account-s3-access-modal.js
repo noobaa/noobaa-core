@@ -1,114 +1,136 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './edit-account-s3-access-modal.html';
+import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
-import { state$ } from 'state';
-import ko from 'knockout';
-import { deepFreeze, flatMap } from 'utils/core-utils';
+import { state$, dispatch } from 'state';
+import { updateAccountS3Access } from 'action-creators';
+import { flatMap, deepFreeze } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
-import { updateAccountS3Access } from 'dispatchers';
+import { getCloudServiceMeta } from 'utils/ui-utils';
+import ko from 'knockout';
 
-const storageTypes = deepFreeze({
-    AWS: {
-        icon: 'aws-s3-resource-dark',
-        selectedIcon: 'aws-s3-resource-colored'
+const bucketPermissionModes = deepFreeze([
+    {
+        label: 'Allow access to all buckets (including all future buckets)',
+        value: true
     },
-    AZURE: {
-        icon: 'azure-resource-dark',
-        selectedIcon: 'azure-resource-colored'
-    },
-    S3_COMPATIBLE: {
-        icon: 'cloud-resource-dark',
-        selectedIcon: 'cloud-resource-colored'
-    },
-    NODES_POOL: {
-        icon: 'nodes-pool'
+    {
+        label: 'Allow access to the following buckets only:',
+        value: false
     }
-});
+]);
 
-class EditAccountS3AccessModalViewModel extends FormViewModel {
-    constructor({ accountEmail, onClose }) {
-        super('editAccountS3Access');
+const formName = 'editAccountS3Access';
 
-        this.onClose = onClose;
-        this.email = accountEmail;
-        this.buckets = ko.observable();
-        this.resources = ko.observable();
+function mapResourceToOption({ type, name: value, storage }) {
+    const { total, free: available_free, unavailable_free } = storage;
+    const free = sumSize(available_free, unavailable_free);
+    const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
+    const icons = type ? getCloudServiceMeta(type) : { icon: 'nodes-pool' };
+    return { ...icons, value, remark };
+}
 
-        this.observe(state$.get('buckets'), this.onBuckets);
-        this.observe(state$.getMany('nodePools', 'cloudResources'), this.onResources);
-        this.observe(state$.get('accounts', accountEmail), this.onAccount);
-    }
+class EditAccountS3AccessModalViewModel extends Observer {
+    constructor({ accountName, onClose }) {
+        super();
 
-    onBuckets(buckets) {
-        this.buckets(Object.keys(buckets));
-    }
+        this.bucketPermissionModes = bucketPermissionModes;
+        this.close = onClose;
+        this.resourceOptions = ko.observable();
+        this.bucketOptions = ko.observable();
+        this.isBucketSelectionDisabled = ko.observable();
+        this.isAccountReady = ko.observable(false);
+        this.form = null;
 
-    onResources(resources) {
-        this.resources(
-            flatMap(
-                resources,
-                resourceGroup => Object.values(resourceGroup).map(
-                    ({ type = 'NODES_POOL', name: value, storage }) => {
-                        const { total, free: available_free, unavailable_free } = storage;
-                        const free = sumSize(available_free, unavailable_free);
-                        const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
-                        return { ...storageTypes[type], value, remark };
-                    }
-                )
-            )
+        this.observe(
+            state$.getMany(
+                ['accounts', accountName],
+                'nodePools',
+                'cloudResources',
+                'buckets'
+            ),
+            this.onState
         );
     }
 
-    onAccount(account) {
-        if (this.initialized()) {
-            return;
+    onState([ account, nodePools, cloudResources, buckets ]) {
+        if (account && !this.isAccountReady()) {
+            this.form = new FormViewModel({
+                name: formName,
+                fields: {
+                    accountName: account.name,
+                    hasS3Access: account.hasS3Access,
+                    hasAccessToAllBuckets: account.hasAccessToAllBuckets,
+                    allowedBuckets: account.allowedBuckets || [],
+                    defaultResource: account.defaultResource
+                },
+                onForm: this.onForm.bind(this),
+                onValidate: this.onValidate,
+                onSubmit: this.onSubmit.bind(this)
+            });
+            this.isAccountReady(true);
         }
 
-        this.initialize({
-            enableS3Access: account.hasS3Access,
-            selectedBuckets: account.allowedBuckets || [],
-            selectedResource: account.defaultResource
-        });
+        this.resourceOptions(flatMap(
+            [ nodePools, cloudResources ],
+            resources => Object.values(resources).map(mapResourceToOption)
+        ));
+
+        this.bucketOptions(Object.keys(buckets));
     }
 
-    validate({ enableS3Access, selectedResource }) {
-        let errors = {};
+    onForm(form) {
+        if (!form) return;
+        const { hasS3Access, hasAccessToAllBuckets } = form.fields;
+        this.isBucketSelectionDisabled(!hasS3Access.value || hasAccessToAllBuckets.value);
+    }
+
+    onValidate({ hasS3Access, defaultResource }) {
+        const errors = {};
 
         // Validate selected resource
-        if (enableS3Access && !selectedResource) {
-            errors.selectedResource = 'Please select a default resource for the account';
+        if (hasS3Access && !defaultResource) {
+            errors.defaultResource = 'Please select a default resource for the account';
         }
 
-        return { errors };
+        return errors;
     }
 
-    selectAllBuckets() {
-        this.update('selectedBuckets', this.buckets());
+    onSelectAllBuckets() {
+        this.form.allowedBuckets(this.bucketOptions());
     }
 
-    clearAllBuckets() {
-        this.update('selectedBuckets', []);
+    onClearSelectedBuckets() {
+        this.form.allowedBuckets([]);
     }
 
-    save() {
-        if (!this.valid()) {
-            this.touchAll();
-            return;
-        }
+    onSubmit({
+        accountName,
+        hasS3Access,
+        defaultResource,
+        hasAccessToAllBuckets,
+        allowedBuckets
+    }) {
 
-        updateAccountS3Access(
-            this.email,
-            this.enableS3Access(),
-            this.selectedResource(),
-            this.selectedBuckets()
-        );
+        dispatch(updateAccountS3Access(
+            accountName,
+            hasS3Access,
+            defaultResource,
+            hasAccessToAllBuckets,
+            allowedBuckets
+        ));
 
-        this.onClose();
+        this.close();
     }
 
-    cancel() {
-        this.onClose();
+    onCancel() {
+        this.close();
+    }
+
+    dispose() {
+        this.form && this.form.dispose();
+        super.dispose();
     }
 }
 

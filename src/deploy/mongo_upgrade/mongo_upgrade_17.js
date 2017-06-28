@@ -13,6 +13,7 @@ function mongo_upgrade_17() {
     print('\nMONGO UPGRADE 17 - START ...');
     setVerboseShell(true);
     upgrade_buckets();
+    upgrade_accounts();
     upgrade_pools();
     upgrade_nodes();
     upgrade_blocks();
@@ -28,6 +29,10 @@ function upgrade_blocks() {
     update_pools_of_blocks();
 }
 
+function upgrade_accounts() {
+    update_allowed_buckets_and_has_login();
+}
+
 function upgrade_tiering_policies() {
     fix_spillover_structure();
 }
@@ -39,6 +44,40 @@ function upgrade_pools() {
 
 function upgrade_nodes() {
     introduce_node_type();
+}
+
+function update_allowed_buckets_and_has_login() {
+    const owner_account = db.systems.find().toArray()[0].owner;
+    db.accounts.find({
+            has_login: {
+                $exists: false
+            }
+        })
+        .forEach(function(account) {
+            var set_update = {};
+            if (account.allowed_buckets) {
+                var allowed_buckets = {
+                    full_permission: false,
+                    permission_list: account.allowed_buckets
+                };
+
+                if (account._id === owner_account) {
+                    allowed_buckets = {
+                        full_permission: true
+                    };
+                }
+
+                set_update.allowed_buckets = allowed_buckets;
+            }
+
+            set_update.has_login = true;
+
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $set: set_update
+            });
+        });
 }
 
 function introduce_resource_and_pool_node_type() {

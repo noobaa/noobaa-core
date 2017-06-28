@@ -8,7 +8,8 @@ import { deepFreeze, throttle } from 'utils/core-utils';
 import ObjectRowViewModel from './object-row';
 import { navigateTo } from 'actions';
 import { routeContext, systemInfo, sessionInfo } from 'model';
-import { uploadObjects } from 'dispatchers';
+import { dispatch } from 'state';
+import { uploadObjects } from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -127,7 +128,7 @@ class BucketObjectsTableViewModel extends BaseViewModel {
 
     uploadFiles(files) {
         const { access_key, secret_key } = systemInfo().owner.access_keys[0];
-        uploadObjects(this.bucketName(), files, access_key, secret_key);
+        dispatch(uploadObjects(this.bucketName(), files, access_key, secret_key));
         this.fileSelectorExpanded(false);
     }
 

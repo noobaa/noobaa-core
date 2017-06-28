@@ -7,7 +7,7 @@ import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/ui-utils';
-import { openAddCloudConnectionModal } from 'dispatchers';
+import { openAddCloudConnectionModal } from 'action-creators';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 

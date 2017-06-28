@@ -50,7 +50,7 @@ export function isFalsy(value) {
     return !value;
 }
 
-export function pick(obj, ...keys) {
+export function pick(obj, keys) {
     return keys.reduce(
         (picked, key) => {
             if (obj.hasOwnProperty(key)) {
@@ -248,9 +248,41 @@ export function mergeBy(...arrays) {
     return Object.values(merge);
 }
 
-export function runAsync(callback) {
-    Promise.resolve().then(callback);
-}
+
+export const runAsync = (function(env)  {
+    if (env.setImmediate) {
+        return callback => env.setImmediate(callback);
+    }
+
+    if (env.postMessage) {
+        const messageKey = 'PROCESS_TICK';
+        const queue = [];
+
+        env.addEventListener('message', evt => {
+            const { source } = evt;
+            if ((source === env || source === null) && evt.data === messageKey) {
+                evt.stopPropagation();
+
+                if (queue.length > 0) {
+                    const callback = queue.shift();
+                    callback();
+                }
+            }
+        }, true);
+
+        return callback => {
+            queue.push(callback);
+            env.postMessage(messageKey, '*');
+        };
+    }
+
+    if (env.setTimeout) {
+        return callback => { env.setTimeout(callback, 0); };
+    }
+
+    throw new Error('No implementation method for run async is available');
+
+})(global);
 
 export function reverse(iterable) {
     return Array.from(iterable).reverse();

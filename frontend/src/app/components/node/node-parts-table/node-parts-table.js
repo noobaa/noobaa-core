@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import PartRowViewModel from './part-row';
 import { paginationPageSize } from 'config';
-import { redirectTo } from 'actions';
+import { navigateTo } from 'actions';
 import { routeContext } from 'model';
 
 const columns = deepFreeze([
@@ -45,7 +45,7 @@ class NodePartsViewModel extends BaseViewModel {
 
         this.page = ko.pureComputed({
             read: () => Number(routeContext().query.page) || 0,
-            write: page => redirectTo(undefined, undefined, { page })
+            write: page => navigateTo(undefined, undefined, { page })
         });
     }
 

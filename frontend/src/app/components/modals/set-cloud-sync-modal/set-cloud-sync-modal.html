@@ -11,10 +11,10 @@
             options: connectionOptions,
             selected: connection
         "></dropdown>
-        <div class="val-msg" ko.validationMessage="validationMessage: connection"></div>
+        <div class="val-msg" ko.validationMessage="connection"></div>
     </editor>
 
-     <editor params="label: 'Target Bucket', disabled: !targetBucketsOptions()">
+    <editor params="label: 'Target Bucket', disabled: !targetBucketsOptions()">
         <dropdown params="
             placeholder: 'Choose Bucket',
             disabled: !targetBucketsOptions(),

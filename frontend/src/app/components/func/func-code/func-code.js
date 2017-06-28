@@ -35,7 +35,7 @@ class FuncCodeViewModel extends Observer {
     onSave() {
         const code = this.files()
             .filter(file => file.content())
-            .map(file => ko.deepUnwrap(pick(file, 'path', 'content')));
+            .map(file => ko.deepUnwrap(pick(file, ['path', 'content'])));
 
         updateFuncCode(this.name(), this.version(), code);
     }

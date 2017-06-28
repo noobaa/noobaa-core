@@ -106,7 +106,7 @@ function _generateOverviewCrumbs(params) {
         {
             url: realizeUri(
                 routes.system,
-                pick(params, 'system')
+                pick(params, ['system'])
             ),
             label: 'Overview'
         }
@@ -118,7 +118,7 @@ function _generateBucketsCrumbs(params) {
         {
             url: realizeUri(
                 routes.buckets,
-                pick(params, 'system')
+                pick(params, ['system'])
             ),
             label: 'Buckets'
         }
@@ -131,7 +131,7 @@ function _generateBucketCrumbs(params) {
         {
             url: realizeUri(
                 routes.bucket,
-                pick(params, 'system', 'bucket')
+                pick(params, ['system', 'bucket'])
             ),
             label: params.bucket
         }
@@ -144,7 +144,7 @@ function _generateObjectCrumbs(params) {
         {
             url: realizeUri(
                 routes.object,
-                pick(params, 'system', 'bucket', 'object')
+                pick(params, ['system', 'bucket', 'object'])
             ),
             label: params.object
         }
@@ -156,7 +156,7 @@ function _generateResourcesCrumb(params) {
         {
             url: realizeUri(
                 routes.pools,
-                pick(params, 'system')
+                pick(params, ['system'])
             ),
             label: 'Resources'
         }
@@ -169,7 +169,7 @@ function _generatePoolCrumbs(params) {
         {
             url: realizeUri(
                 routes.pool,
-                pick(params, 'system', 'pool')
+                pick(params, ['system', 'pool'])
             ),
             label: params.pool
         }
@@ -182,7 +182,7 @@ function _generateNodeCrumbs(params) {
         {
             url: realizeUri(
                 routes.node,
-                pick(params, 'system', 'pool', 'node')
+                pick(params, ['system', 'pool', 'node'])
             ),
             label: params.node
         }
@@ -194,7 +194,7 @@ function _generateManagementCrumbs(params) {
         {
             url: realizeUri(
                 routes.management,
-                pick(params, 'system')
+                pick(params, ['system'])
             ),
             label: 'System Management'
         }
@@ -207,7 +207,7 @@ function _generateAccountCrumbs(params) {
         {
             url: realizeUri(
                 routes.account,
-                pick(params, 'system', 'account')
+                pick(params, ['system', 'account'])
             ),
             label: params.account
         }
@@ -219,7 +219,7 @@ function _generateClusterCrumbs(params) {
         {
             url: realizeUri(
                 routes.cluster,
-                pick(params, 'system')
+                pick(params, ['system'])
             ),
             label: 'Cluster'
         }
@@ -232,7 +232,7 @@ function _generateServerCrumbs(params) {
         {
             url: realizeUri(
                 routes.server,
-                pick(params, 'system', 'server')
+                pick(params, ['system', 'server'])
             ),
             label: params.server
         }
@@ -244,7 +244,7 @@ function _generateFunctionsCrumbs(params) {
         {
             url: realizeUri(
                 routes.funcs,
-                pick(params, 'system')
+                pick(params, ['system'])
             ),
             label: 'Functions'
         }
@@ -257,7 +257,7 @@ function _generateFunctionCrumbs(params) {
         {
             url: realizeUri(
                 routes.func,
-                pick(params, 'system', 'func')
+                pick(params, ['system', 'func'])
             ),
             label: params.func
         }

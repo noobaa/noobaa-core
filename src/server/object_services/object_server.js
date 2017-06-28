@@ -903,7 +903,7 @@ function check_quota(bucket) {
             system_store.data.systems[0]._id,
             `Bucket ${bucket.name} exceeded its configured quota of ${
                     size_utils.human_size(bucket.quota.value)
-                }. Uploads to this bucket will be denied`,
+                }, uploads to this bucket will be denied`,
             Dispatcher.rules.once_daily);
         dbg.error(message);
         throw new RpcError('FORBIDDEN', message);

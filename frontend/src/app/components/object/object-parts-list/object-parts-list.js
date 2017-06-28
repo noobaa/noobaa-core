@@ -5,7 +5,7 @@ import ObjectPartRowViewModel from './object-part-row';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
-import { redirectTo } from 'actions';
+import { navigateTo } from 'actions';
 import { deepFreeze, keyByProperty } from 'utils/core-utils';
 import { dispatch } from 'state';
 import { openObjectPreviewModal } from 'action-creators';
@@ -23,7 +23,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
 
         this.page = ko.pureComputed({
             read: parts.page,
-            write: page => redirectTo(undefined, undefined, { page })
+            write: page => navigateTo(undefined, undefined, { page })
         });
 
         const poolIconMapping = ko.pureComputed(

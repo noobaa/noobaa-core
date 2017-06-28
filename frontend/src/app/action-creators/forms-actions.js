@@ -44,11 +44,13 @@ export function setFormValidity(form, validity) {
         type: SET_FORM_VALIDITY,
         payload: {
             form,
+            values: validity.values,
             fieldsValidity: validity.fieldsValidity,
             warnings: validity.warnings,
             syncErrors: validity.syncErrors,
             asyncErrors: validity.asyncErrors,
-            validatingAsync: validity.validatingAsync
+            validatingAsync: validity.validatingAsync,
+            confirmValidity: validity.confirmValidity
         }
     };
 }

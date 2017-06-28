@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
-import { isDefined, mapValues, noop, keyBy, echo } from 'utils/core-utils';
+
+import { isDefined, mapValues, noop, runAsync, pick } from 'utils/core-utils';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$, dispatch } from 'state';
@@ -51,7 +52,7 @@ export default class FormViewModel extends Observer {
 
         this.isValid = ko.pureComputed(() =>
             Boolean(state()) &&
-            // state().validated &&
+            state().validated &&
             Object.values(state().fields).every(
                 field => field.validity === 'VALID'
             )
@@ -97,13 +98,17 @@ export default class FormViewModel extends Observer {
     }
 
     submit() {
-        if (!this.isValid()) {
-            dispatch(touchForm(this.name));
-            return;
-        }
+        // TODO: Need to replace a dispatch of START_SUBMIT_FORM
+        // that will be act upon in the onState handler.
+        runAsync(() => {
+            if (!this.isValid()) {
+                dispatch(touchForm(this.name));
+                return;
+            }
 
-        const values = _selectValues(this._state());
-        this._submitHandler(values);
+            const values = _selectValues(this._state());
+            this._submitHandler(values);
+        });
     }
 
     reset() {
@@ -245,16 +250,19 @@ export default class FormViewModel extends Observer {
         dispatch(setFormValidity(
             this.name,
             {
+                values,
                 fieldsValidity,
                 warnings,
                 syncErrors,
                 asyncErrors: shouldValidateAsync ? {} : undefined,
-                validatingAsync: canValidateAsync ? _asyncTriggers : undefined
+                validatingAsync: canValidateAsync ? _asyncTriggers : undefined,
+                confirmValidity: true
             }
         ));
 
         if (canValidateAsync) {
-            this._validateAsync(values);
+            const asyncValidatedValues = pick(values, _asyncTriggers);
+            this._validateAsync(asyncValidatedValues);
 
         } else if (shouldValidateAsync) {
             this._asyncValidationHandle = null;
@@ -262,22 +270,22 @@ export default class FormViewModel extends Observer {
     }
 
     async _validateAsync(values) {
-        const { _validateAsyncHandler, _asyncTriggers } = this;
+        const { _validateAsyncHandler } = this;
 
         // Gard the store update against stale validation state.
         const handle = this._asyncValidationHandle = {};
         const asyncErrors = await _validateAsyncHandler(values);
         if (this._asyncValidationHandle !== handle) return;
 
-        const fieldsValidity = keyBy(
-            _asyncTriggers,
-            echo,
-            name => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'VALID'
+        const fieldsValidity = mapValues(
+            values,
+            (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'VALID'
         );
 
         dispatch(setFormValidity(
             this.name,
             {
+                values,
                 fieldsValidity,
                 asyncErrors,
                 validatingAsync: null

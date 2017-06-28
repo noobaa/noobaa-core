@@ -24,6 +24,7 @@ const initialFormState = {
     syncErrors: {},
     asyncErrors: {},
     validatingAsync: null,
+    validated: false,
     locked: false
 };
 
@@ -69,7 +70,11 @@ function onUpdateForm(forms, { payload }) {
 
     return {
         ...forms,
-        [payload.form]: { ...form, fields }
+        [payload.form]: {
+            ...form,
+            fields,
+            validated: false
+        }
     };
 }
 
@@ -116,12 +121,18 @@ function onSetFormValidity(forms, { payload }) {
     const form = forms[payload.form];
     if (!form) return forms;
 
+    if (Object.keys(payload.values)
+        .some(name => form.fields[name].value !== payload.values[name])) {
+        return forms;
+    }
+
     const {
         fieldsValidity = {},
         warnings = form.warnings,
         syncErrors = form.syncErrors,
         asyncErrors = form.asyncErrors,
-        validatingAsync = form.validatingAsync
+        validatingAsync = form.validatingAsync,
+        confirmValidity
     } = payload;
 
     const fields = mapValues(
@@ -131,6 +142,8 @@ function onSetFormValidity(forms, { payload }) {
             field
     );
 
+    const validated = confirmValidity || form.validated;
+
     return {
         ...forms,
         [payload.form]: {
@@ -139,7 +152,8 @@ function onSetFormValidity(forms, { payload }) {
             warnings,
             syncErrors,
             asyncErrors,
-            validatingAsync
+            validatingAsync,
+            validated
         }
     };
 }

@@ -71,20 +71,20 @@ var noobaa_agent = {
 
 var basic_tar_uri = 'https://qaupgrade.blob.core.windows.net/tar-files/';
 var version_map_tar = {
-    '0.8.0': 'noobaa-NVA-0.8.0-8ac4edc.tar.gz',
-    '1.0.0': 'noobaa-NVA-1.0.0-92796da.tar.gz',
-    '1.1.0': 'noobaa-NVA-1.1.0-35ea489.tar.gz',
-    '1.2.4': 'noobaa-NVA-1.2.4-34cb335.tar.gz',
-    '1.3.6': 'noobaa-NVA-1.3.6-c9675dd.tar.gz',
-    '1.4.1': 'noobaa-NVA-1.4.1-e9ba76d.tar.gz',
-    '1.5.3': 'noobaa-NVA-1.5.3-bf522bf.tar.gz',
+    '1.4.1': 'noobaa-NVA-1.4.1-e9ba76d.tar.gz', //azure ver: 14.6.17
     '1.6.1': 'noobaa-NVA-1.6.1-d4a7fb7.tar.gz',
+    '1.7.0': 'noobaa-NVA-1.7.0-72af55b.tar.gz',
+    '1.9.4': 'noobaa-NVA-1.9.4-fc230d5.tar.gz',
 };
 
 var basic_vhd_uri = 'https://qaupgrade.blob.core.windows.net/vhd-images/';
+// the images of the installations.
 var version_map_vhd = {
     '0.8.0': 'NooBaa-0.8.0-demo.vhd',
-    '1.0.0': 'NooBaa-1.0.0-demo.vhd',
+    '1.4.1': 'NooBaa-1.4.1-demo.vhd',
+    '1.6.1': 'NooBaa-1.6.1-demo.vhd',
+    '1.7.0': 'NooBaa-1.7.0-demo.vhd',
+    '1.9.4': 'noobaa-1.9.4-demo.vhd',
 };
 
 var destroyOption = {
@@ -98,7 +98,19 @@ var destroyOption = {
 
 var procedure = [{
     "base_version": "0.8.0",
-    "versions_list": ["1.1.0"]
+    "versions_list": ["1.9.4"]
+},
+{
+    "base_version": "1.4.1",
+    "versions_list": ["1.9.4"]
+},
+{
+    "base_version": "1.6.1",
+    "versions_list": ["1.9.4"]
+},
+{
+    "base_version": "1.7.0",
+    "versions_list": ["1.9.4"]
 }];
 
 var test = './src/test/qa/agents_matrix.js';
@@ -110,7 +122,12 @@ var args = [
     '--skipsetup'
 ];
 
-var oses = ['ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2012', 'win2016'];
+const oses = [
+    'ubuntu12', 'ubuntu14', 'ubuntu16',
+    'centos6', 'centos7',
+    'redhat6', 'redhat7',
+    'win2008', 'win2012', 'win2016'
+];
 var errors = false;
 var file_path;
 var azf = new AzureFunctions(clientId, domain, secret, subscription, resourceGroup, location); // just for using one method
@@ -126,7 +143,8 @@ function clean_old_machines(machine_name) {
             console.log('Removing agents:', osname);
             var destroyVMagent = new cloudCD.DestroyVMAction(connection);
             var os = azf.getImagesfromOSname(osname);
-            noobaa_agent.name = (machine_name + os.offer.substring(0, 1) + os.sku.substring(0, 4)).replace(new RegExp('\\.', 'g'), '-').toLowerCase();
+            noobaa_agent.name = (machine_name + os.offer.substring(0, 1) + os.sku.substring(0, 4))
+                .replace(new RegExp('\\.', 'g'), '-').toLowerCase();
             return P.fromCallback(callback => destroyVMagent.perform(noobaa_agent, destroyOption, callback))
                 .catch(err => {
                     console.log('VM wasn\'t found', err.message);
@@ -182,7 +200,8 @@ return P.each(procedure, upgrade_procedure => {
                     console.log('Adding agent', osname);
                     var createVMagent = new cloudCD.CreateVMAction(connection);
                     var os = azf.getImagesfromOSname(osname);
-                    noobaa_agent.name = (machine_name + os.offer.substring(0, 1) + os.sku.substring(0, 4)).replace(new RegExp('\\.', 'g'), '-').toLowerCase();
+                    noobaa_agent.name = (machine_name + os.offer.substring(0, 1) + os.sku.substring(0, 4))
+                        .replace(new RegExp('\\.', 'g'), '-').toLowerCase();
                     noobaa_agent.storageOSDiskName = machine_name + osname + '-osdisk' + timestamp;
                     noobaa_agent.imagePublisher = os.publisher;
                     noobaa_agent.imageOffer = os.offer;

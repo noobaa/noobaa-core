@@ -386,14 +386,3 @@ export function openSetAccountIpRestrictions(accountName) {
     };
 }
 
-export function openTestFormModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'test-form',
-            options: {
-                title: 'Validation test form'
-            }
-        }
-    }
-}

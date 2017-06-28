@@ -30,7 +30,7 @@ export const state$ = action$
         action.payload
     ))
     .scan((state, action) => deepFreeze(appReducer(state, action)), {})
-    .switchMap(state => P.resolve(state))
+    .switchMap(state => Promise.resolve(state))
     .tap(state => console.log('UPDATING VIEW with', state))
     .shareReplay(1);
 

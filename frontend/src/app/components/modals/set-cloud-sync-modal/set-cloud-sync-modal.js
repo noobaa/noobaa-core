@@ -8,6 +8,7 @@ import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/ui-utils';
 import { openAddCloudConnectionModal } from 'action-creators';
+import { dispatch } from 'state';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 
@@ -114,7 +115,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
                     _connection(value);
                 } else {
                     _connection(_connection() || null);
-                    openAddCloudConnectionModal();
+                    dispatch(openAddCloudConnectionModal());
                 }
             }
         })
@@ -173,10 +174,9 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
             () => this.directionOption().rightSymbol
         );
 
-        this.targetBucketName = ko.pureComputed(() => {
-            console.log('this.targetBucket', this.targetBucket);
-            return this.targetBucket() ? this.targetBucket() : 'Not configured';
-        });
+        this.targetBucketName = ko.pureComputed(() =>
+            () => this.targetBucket() || 'Not configured'
+        );
 
         this.direction = ko.observable(3);
         this.directionOptions = directionOptions;

@@ -41,14 +41,13 @@ function onOpenModal(modals, { payload }) {
 
 function onUpdateModal(modals, { payload }) {
     if (modals.length > 0) {
-        const update = pick(
-            payload,
+        const update = pick(payload, [
             'title',
             'size',
             'severity',
             'closeButton',
-            'backdropClose',
-        );
+            'backdropClose'
+        ]);
 
         return [
             ...modals.slice(0, -1),

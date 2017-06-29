@@ -151,12 +151,14 @@ function configure_ntp_dialog {
       err_ntp_msg="\Z1NTP Server must be set.\Zn"
     fi
 
+    sudo unlink /etc/localtime
     if [ -z ${tz} ]; then #TZ was not supplied
       err_tz=0
       err_tz_msg=""
     elif [ -f "/usr/share/zoneinfo/${tz}" ]; then
       err_tz=0
       err_tz_msg=""
+      sudo ln -sf "/usr/share/zoneinfo/${tz}" /etc/localtime
     else
       err_tz_msg="\Z1Please enter a valid TZ value\Zn"
     fi
@@ -165,9 +167,6 @@ function configure_ntp_dialog {
     echo "${ntp_server}" > /tmp/ntp
 
     sudo sed -i "s/.*NooBaa Configured NTP Server.*/server ${ntp_server} iburst #NooBaa Configured NTP Server/" /etc/ntp.conf
-
-    echo "${tz}" > /tmp/tztz
-    sudo ln -sf "/usr/share/zoneinfo/${tz}" /etc/localtime
     sudo /sbin/chkconfig ntpd on 2345
     sudo /etc/init.d/ntpd restart
     sudo /etc/init.d/rsyslog restart

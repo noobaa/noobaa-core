@@ -8,8 +8,12 @@ import { openEditAccountS3AccessModal, openSetAccountIpRestrictions } from 'acti
 
 const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
 
-function _createIpBox(ip) {
-    return `<span class="ip-box">${ip}</span>`;
+function _createIpListHtml(ipList) {
+    return `<ul class="list-no-style row multiline">${
+        ipList
+            .map(ip => `<li class="ip-box">${ip}</li>`)
+            .join('')
+    }</ul>`;
 }
 
 class AccountS3AccessFormViewModel extends Observer {
@@ -52,7 +56,8 @@ class AccountS3AccessFormViewModel extends Observer {
             {
                 label: 'Allowed IPs',
                 value: this.allowedIps,
-                visible: this.isAllowedIpVisible
+                visible: this.isAllowedIpVisible,
+                multiline: true
             }
 
         ];
@@ -108,7 +113,7 @@ class AccountS3AccessFormViewModel extends Observer {
         this.isAllowedIpVisible(Boolean(hasS3Access && allowedIps));
         this.allowedIps(
             allowedIps &&
-            (allowedIps.length ? allowedIps.map(_createIpBox).join('') : 'No IP allowed')
+            (allowedIps.length ? _createIpListHtml(allowedIps) : 'No IP allowed')
         );
         this.setIPRestrictionsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
         this.regenerateCredentialsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);

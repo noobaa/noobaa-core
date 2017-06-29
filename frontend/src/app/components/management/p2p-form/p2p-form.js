@@ -51,7 +51,7 @@ class P2PFormViewModel extends BaseViewModel {
                 min: {
                     onlyIf: () => validateRangeMax(),
                     params: ko.pureComputed(
-                        () => this.rangeMin() + 1
+                        () => Number(this.rangeMin()) + 1
                     )
                 },
                 max: {
@@ -85,12 +85,8 @@ class P2PFormViewModel extends BaseViewModel {
             this.errors.showAllMessages();
 
         } else {
-            const min = parseInt(
-                this.rangeMin()
-            );
-            const max = parseInt(
-                this.portType() === 'single' ? this.rangeMin() : this.rangeMax()
-            );
+            const min = Number(this.rangeMin());
+            const max = Number(this.portType() === 'single' ? this.rangeMin() : this.rangeMax());
 
             updateP2PTcpPorts(min, max);
         }

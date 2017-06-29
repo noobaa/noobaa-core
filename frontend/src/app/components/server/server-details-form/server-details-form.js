@@ -158,7 +158,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         );
 
         const locationTag = ko.pureComputed(
-            () => this.server().location
+            () => this.server().location || 'Not Set'
         );
 
         const isMaster = ko.pureComputed(

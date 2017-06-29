@@ -1303,14 +1303,14 @@ function update_server_conf(req) {
             return cluster_server;
         })
         .then(() => {
-            if (req.rpc_params.location &&
-                req.rpc_params.location !== cluster_server.location) { //location supplied and actually changed
-                audit_desc += `Location tag set to ${req.rpc_params.location}.`;
+            if (req.rpc_params.location !== cluster_server.location) { //location supplied and actually changed
+                const new_name = req.rpc_params.location ? req.rpc_params.location : "''";
+                audit_desc += `Location tag set to ${new_name}.`;
                 return system_store.make_changes({
                     update: {
                         clusters: [{
                             _id: cluster_server._id,
-                            location: req.rpc_params.location
+                            location: req.rpc_params.location ? req.rpc_params.location : ''
                         }]
                     }
                 });

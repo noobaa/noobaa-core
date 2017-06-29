@@ -9,7 +9,7 @@ import { openEditAccountS3AccessModal, openSetAccountIpRestrictions } from 'acti
 const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
 
 function _createIpListHtml(ipList) {
-    return `<ul class="list-no-style row multiline">${
+    return `<ul class="allowed-ips list-no-style row multiline">${
         ipList
             .map(ip => `<li class="ip-box">${ip}</li>`)
             .join('')

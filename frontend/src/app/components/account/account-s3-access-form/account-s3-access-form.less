@@ -4,7 +4,10 @@ account-s3-access-form {
     .column();
 
     .s3-access-details {
+        overflow: scroll;
+
         .prop-name {
+            .align-start();
             width: 250px;
         }
 
@@ -13,6 +16,7 @@ account-s3-access-form {
             background-color: @color15;
             color: @color6;
             margin-right: @gutter/2;
+            margin-bottom: @gutter/2;
             padding: @gutter/4 @gutter/2;
         }
     }

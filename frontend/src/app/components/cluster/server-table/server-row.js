@@ -159,7 +159,7 @@ export default class ServerRowViewModel extends BaseViewModel {
         );
 
         this.location = ko.pureComputed(
-            () => server() ? server().location : 'No location tag'
+            () => server() && server().location || 'not set'
         );
     }
 }

@@ -6,12 +6,11 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
-import { isDefined, last, makeArray, deepFreeze, flatMap, groupBy } from 'utils/core-utils';
+import { last, makeArray, deepFreeze, flatMap, groupBy } from 'utils/core-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
 import { getModeFilterFromState } from 'utils/ui-utils';
-import { realizeUri, downloadFile, httpRequest, httpWaitForResponse,
-    toFormData } from 'utils/browser-utils';
+import { realizeUri, downloadFile, httpRequest, httpWaitForResponse, toFormData } from 'utils/browser-utils';
 import { Buffer } from 'buffer';
 
 // Action dispathers from refactored code.
@@ -20,7 +19,8 @@ import {
     restoreSession,
     fetchSystemInfo,
     signOut,
-    showNotification
+    showNotification,
+    closeModal
 } from 'action-creators';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
@@ -1512,16 +1512,16 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, 
 
     api.cluster_server.update_dns_servers({
         target_secret: serverSecret,
-        dns_servers: [primaryDNS, secondaryDNS].filter(isDefined),
+        dns_servers: [primaryDNS, secondaryDNS].filter(Boolean),
         search_domains: searchDomains
     })
-        .then(
-            () => sleep(config.serverRestartWaitInterval)
-        )
-        .then(
-            () => httpWaitForResponse('/version', 200)
-        )
+        .then(() => sleep(config.serverRestartWaitInterval))
+        .then(() => httpWaitForResponse('/version', 200))
         .then(reload)
+        .catch(() => {
+            dispatch(closeModal());
+            notify('Updating server DNS setting failed, Please try again later', 'error');
+        })
         .done();
 }
 

@@ -208,42 +208,52 @@ function authenticate_request(req, res) {
 }
 
 function parse_op_name(req) {
-    const m = req.method.toLowerCase();
-    const u = req.url;
+    // TODO S3_VIRTUAL_HOST_SUFFIX should get dns_name of the server and use '.'+dns_name
+    const virtual_host_suffix = process.env.S3_VIRTUAL_HOST_SUFFIX;
+    const method = req.method.toLowerCase();
+    const host = req.headers.host;
+    const url = req.url;
+
+    var bucket = '';
+    var key = '';
     var i;
 
+    // see http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html
+    if (host && virtual_host_suffix && host.endsWith(virtual_host_suffix)) {
+        bucket = host.slice(0, -virtual_host_suffix.length);
+        key = url.slice(1);
+    }
+
+    if (!bucket) {
+        const index = url.indexOf('/', 1);
+        const pos = index < 0 ? url.length : index;
+        bucket = url.slice(1, pos);
+        key = url.slice(pos + 1);
+    }
+
+    // decode and replace hadoop _$folder$ in key
+    bucket = decodeURIComponent(bucket);
+    key = decodeURIComponent(key).replace(/_\$folder\$/, '/');
+    req.params = { bucket, key };
+
     // service url
-    if (u === '/') {
-        req.params = {};
-        return `${m}_service`;
-    }
+    if (!bucket) return `${method}_service`;
 
-    const index = u.indexOf('/', 1);
-    const pos = index < 0 ? u.length : index;
-    const bucket = decodeURIComponent(u.slice(1, pos));
-    // replace hadoop _$folder$ in key
-    const key = decodeURIComponent(u.slice(pos + 1)).replace(/_\$folder\$/, '/');
-
-    if (key) {
-        // object url
-        req.params = {
-            bucket,
-            key,
-        };
+    // bucket url
+    if (!key) {
         const query_keys = Object.keys(req.query);
         for (i = 0; i < query_keys.length; ++i) {
-            if (OBJECT_SUB_RESOURCES[query_keys[i]]) return `${m}_object_${query_keys[i]}`;
+            if (BUCKET_SUB_RESOURCES[query_keys[i]]) return `${method}_bucket_${query_keys[i]}`;
         }
-        return `${m}_object`;
-    } else {
-        // bucket url
-        req.params = { bucket };
-        const query_keys = Object.keys(req.query);
-        for (i = 0; i < query_keys.length; ++i) {
-            if (BUCKET_SUB_RESOURCES[query_keys[i]]) return `${m}_bucket_${query_keys[i]}`;
-        }
-        return `${m}_bucket`;
+        return `${method}_bucket`;
     }
+
+    // object url
+    const query_keys = Object.keys(req.query);
+    for (i = 0; i < query_keys.length; ++i) {
+        if (OBJECT_SUB_RESOURCES[query_keys[i]]) return `${method}_object_${query_keys[i]}`;
+    }
+    return `${method}_object`;
 }
 
 function handle_error(req, res, err) {

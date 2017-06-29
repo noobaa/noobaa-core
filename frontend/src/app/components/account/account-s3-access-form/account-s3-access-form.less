@@ -3,13 +3,14 @@
 account-s3-access-form {
     .column();
 
-    .s3-access-details {
-        overflow: scroll;
+    .s3-access-details .prop-name {
+        .align-start();
+        width: 250px;
+    }
 
-        .prop-name {
-            .align-start();
-            width: 250px;
-        }
+    .allowed-ips {
+        max-height: 176px;
+        overflow: scroll;
 
         .ip-box {
             font-size: @font-size1;

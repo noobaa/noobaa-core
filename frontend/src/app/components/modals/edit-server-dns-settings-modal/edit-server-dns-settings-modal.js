@@ -78,8 +78,12 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
             this.errors.showAllMessages();
 
         } else {
-            const sdomains = (this.searchDomains() ? this.searchDomains().split(',') : []).map(d => d.trim());
-            updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), sdomains);
+            const searchDomains = (this.searchDomains() || '')
+                .split(',')
+                .map(domain => domain.trim())
+                .filter(Boolean);
+
+            updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), searchDomains);
 
             dispatch(lockModal());
             this.updating(true);

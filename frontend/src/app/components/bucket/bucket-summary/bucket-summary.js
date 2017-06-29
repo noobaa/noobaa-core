@@ -49,12 +49,8 @@ const graphOptions = deepFreeze([
 ]);
 
 function quotaBigInt({ size, unit }) {
-    console.warn('unit', unit);
-    console.warn('size', size);
     return toBigInteger(size).multiply(quotaUnitMapping[unit].inBytes);
 }
-
-const quotaSizeValidationMessage = 'Must be a number bigger or equal to 1';
 
 function getBarValues(values) {
     return [
@@ -79,11 +75,6 @@ function getBarValues(values) {
             color: style['color6']
         },
         {
-            value: toBytes(values.availableOverQuota),
-            label: 'Potential',
-            color: style['color15']
-        },
-        {
             value: toBytes(values.overallocated),
             label: 'Overallocated',
             color: style['color16']
@@ -92,37 +83,28 @@ function getBarValues(values) {
         .filter(item => item.value > 0);
 }
 
-function calcDataBreakdown(data, spillover, quota) {
-    if (quota) {
-        const zero = bigInteger.zero;
-        const available = toBigInteger(data.free);
-        const quotaSize = quotaBigInt(quota);
-        const used = bigInteger.min(toBigInteger(data.size), quotaSize);
-        const availableSpillover = toBigInteger(spillover.free);
-        const overused = bigInteger.max(zero, toBigInteger(data.size).subtract(quotaSize));
-        const overallocated = bigInteger.max(zero, quotaSize.subtract(available.add(used)));
-        const availableToUpload = bigInteger.min(bigInteger.max(zero, quotaSize.subtract(used)), available);
-        const availableOverQuota = bigInteger.max(zero, available.subtract(availableToUpload));
+function calcDataBreakdown({data, quota}) {
+    const zero = bigInteger.zero;
+    const spillover = toBigInteger(data.spillover_free);
+    const available = toBigInteger(data.free);
+    const quotaSize = quota ? quotaBigInt(quota) : Number.POSITIVE_INFINITY;
+    const dataSize = toBigInteger(data.size);
+    const used = bigInteger.min(dataSize, isFinite(quotaSize) ? quotaSize : dataSize);
+    const overused = bigInteger.max(zero, dataSize.subtract(isFinite(quotaSize) ? quotaSize : dataSize));
+    const availableToUpload = bigInteger.min(bigInteger.max(0, isFinite(quotaSize) ? quotaSize - used : available), available);
+    const availableSpillover = bigInteger.min(spillover, bigInteger.max(0, isFinite(quotaSize) ? quotaSize - used - available : spillover));
+    const overallocated = bigInteger.max(0, isFinite(quotaSize) ? quotaSize - available - used- spillover : 0);
 
-        return {
-            used: fromBigInteger(used),
-            overused: fromBigInteger(overused),
-            availableToUpload: fromBigInteger(availableToUpload),
-            availableSpillover: fromBigInteger(availableSpillover),
-            availableOverQuota: fromBigInteger(availableOverQuota),
-            overallocated: fromBigInteger(overallocated)
-        };
+    console.warn('availableToUpload', availableToUpload);
+    console.warn('availableSpillover', availableSpillover);
 
-    } else {
-        return {
-            used: data.size,
-            overused: 0,
-            availableToUpload: data.free,
-            availableSpillover: spillover.free,
-            availableOverQuota: 0,
-            overallocated: 0
-        };
-    }
+    return {
+        used: fromBigInteger(used),
+        overused: fromBigInteger(overused),
+        availableToUpload: fromBigInteger(availableToUpload),
+        availableSpillover: fromBigInteger(availableSpillover),
+        overallocated: fromBigInteger(overallocated)
+    };
 }
 
 class BucketSummrayViewModel extends Observer {
@@ -132,128 +114,27 @@ class BucketSummrayViewModel extends Observer {
         this.graphOptions = graphOptions;
         this.dataReady = ko.observable(false);
         this.state = ko.observable();
-
         this.dataPlacement  = ko.observable();
         this.cloudSyncStatus = ko.observable();
         this.viewType = ko.observable(this.graphOptions[0].value);
-
         this.totalStorage = ko.observable();
-
-        this.availableValues = [
-            {
-                label: 'Used data:',
-                color: style['color13'],
-                value: ko.observable()
-            },
-            {
-                label: 'Available to upload:',
-                color: style['color7'],
-                value: ko.observable()
-            },
-            {
-                label: 'Available spillover:',
-                color: style['color6'],
-                value: ko.observable(),
-            }
-        ];
-
-        this.rawUsageValues = [
-            {
-                label: 'Available from resources',
-                color: style['color5'],
-                value: ko.observable()
-            },
-            {
-                label: 'Available spillover',
-                color: style['color6'],
-                value: ko.observable()
-            },
-            {
-                label: 'Used by bucket (with replicas)',
-                color: style['color13'],
-                value: ko.observable()
-            },
-            {
-                label: 'Used (on shared resources)',
-                color: style['color14'],
-                value: ko.observable()
-            }
-        ];
-
-        this.dataUsageValues = [
-            {
-                label: 'Total Original Size',
-                value: ko.observable(),
-                color: style['color7']
-            },
-            {
-                label: 'Compressed & Deduped',
-                value: ko.observable(),
-                color: style['color13']
-            }
-        ];
-
-        this.legend = ko.observable();
+        this.availableValues = ko.observable();
+        this.rawUsageValues = ko.observable();
+        this.dataUsageValues = ko.observable();
         this.availableForWrite = ko.observable();
         this.availableForWriteTootlip = availableForWriteTooltip;
         this.bucketQuota = ko.observable();
         this.lastAccess = ko.observable();
 
         this.legend = ko.pureComputed(
-            () => this[`${this.viewType()}Values`]
+            () => this[`${this.viewType()}Values`]()
         );
 
         this.legendCss = ko.pureComputed(
             () => this.viewType() === 'available' ? 'legend-row' : ''
         );
 
-        this.segments = ko.observable();
-        this.redraw = ko.observable();
-
-        this.dataSize = ko.observable();
-        this.dataFree = ko.observable()
-        this.dataSpilloverFree = ko.observable();
-        this.quotaUnit = ko.observable();
-        this.quotaSize = ko.observable().extend({
-            required: {
-                onlyIf: this.isUsingQuota,
-                message: quotaSizeValidationMessage
-            },
-            number: {
-                onlyIf: this.isUsingQuota,
-                message: quotaSizeValidationMessage
-            },
-            min: {
-                onlyIf: this.isUsingQuota,
-                params: 1,
-                message: quotaSizeValidationMessage
-            }
-        });
-
-        this.barValues = ko.pureComputed(
-            () => getBarValues(
-                calcDataBreakdown(
-                    { size: this.dataSize(), free: this.dataFree() },
-                    { size: this.dataSize(), free: this.dataSpilloverFree() },
-                    { unit: this.quotaUnit(), size: this.quotaSize() }
-                )
-            )
-        );
-
-        this.quotaMarker = ko.pureComputed(
-            () => {
-                const quota = quotaBigInt({
-                    size: this.quotaSize(),
-                    unit: this.quotaUnit()
-                });
-
-                return {
-                    placement: toBytes(quota),
-                    label: `Quota: ${formatSize(fromBigInteger(quota))}`
-                };
-            }
-        );
-
+        this.quotaMarkers = ko.observable([]);
         this.observe(state$.get('buckets'), this.onState);
     }
 
@@ -262,6 +143,7 @@ class BucketSummrayViewModel extends Observer {
         const bucket = bucketsList.find(
             ({ name }) => routeContext().params.bucket === name
         );
+
         const { data, stats, quota, cloudSyncStatus, mode } = bucket;
         const storage = bucket.storage.values;
 
@@ -278,17 +160,41 @@ class BucketSummrayViewModel extends Observer {
         this.state(stateMapping[mode]);
         this.cloudSyncStatus(cloudSyncStatusMapping[cloudSyncStatus]);
 
-        this.availableValues[0].value(toBytes(data.size));
-        this.availableValues[1].value(toBytes(data.available_for_upload));
-        this.availableValues[2].value(toBytes(data.spillover_free));
+        this.rawUsageValues([
+            {
+                label: 'Available from resources',
+                color: style['color5'],
+                value: toBytes(storage.free)
+            },
+            {
+                label: 'Available spillover',
+                color: style['color6'],
+                value: toBytes(storage.spillover_free)
+            },
+            {
+                label: 'Used by bucket (with replicas)',
+                color: style['color13'],
+                value: toBytes(storage.used)
+            },
+            {
+                label: 'Used (on shared resources)',
+                color: style['color14'],
+                value: toBytes(storage.used_other)
+            }
+        ]);
 
-        this.rawUsageValues[0].value(toBytes(storage.free));
-        this.rawUsageValues[1].value(toBytes(storage.spillover_free));
-        this.rawUsageValues[2].value(toBytes(storage.used));
-        this.rawUsageValues[3].value(toBytes(storage.used_other));
-
-        this.dataUsageValues[0].value(toBytes(data.size));
-        this.dataUsageValues[1].value(toBytes(data.size_reduced));
+        this.dataUsageValues([
+            {
+                label: 'Total Original Size',
+                value: toBytes(data.size),
+                color: style['color7']
+            },
+            {
+                label: 'Compressed & Deduped',
+                value: toBytes(data.size_reduced),
+                color: style['color13']
+            }
+        ]);
 
         this.availableForWrite = ko.observable(formatSize(data.available_for_upload));
 
@@ -296,13 +202,25 @@ class BucketSummrayViewModel extends Observer {
             `Set to ${quota.size}${quotaUnitMapping[quota.unit].label}` :
             'Disabled');
 
-        this.lastAccess(formatTime(Math.max(stats.last_read, stats.last_write)));
+        this.availableValues(
+            getBarValues(
+                calcDataBreakdown(bucket)
+            )
+        );
 
-        this.dataSize(data.size);
-        this.dataFree(data.free);
-        this.dataSpilloverFree(data.spillover_free);
-        this.quotaUnit(quota ? quota.unit : 'GIGABYTE');
-        this.quotaSize(quota ? quota.size :  0);
+        if(quota) {
+            const quotaSize = quotaBigInt(quota);
+
+            this.quotaMarkers([{
+                placement: toBytes(quotaSize),
+                label: `Quota: ${formatSize(fromBigInteger(quotaSize))}`
+            }]);
+        } else {
+            this.quotaMarkers([]);
+        }
+
+
+        this.lastAccess(formatTime(Math.max(stats.last_read, stats.last_write)));
         this.dataReady(true);
     }
 

@@ -51,12 +51,12 @@
             </div>
             <!-- ko if: viewType() === 'available' -->
             <bar class="hpad" params="
-                values: barValues,
+                values: availableValues,
                 teeth: 5,
                 limits: formatBarLabel,
                 width: 500,
                 minRatio: 0,
-                markers: [quotaMarker()]
+                markers: quotaMarkers()
             "></bar>
             <!-- /ko -->
         </div>

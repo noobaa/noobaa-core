@@ -11,7 +11,34 @@ class PropertySheetViewModel extends BaseViewModel {
     constructor({ properties = [] }) {
         super();
 
-        this.properties = properties;
+        this.properties = ko.pureComputed(
+            () => properties.map(prop => {
+                const {
+                    label,
+                    value,
+                    visible = true,
+                    disabled = false,
+                    multiline = false,
+                    allowCopy = false,
+                } = ko.deepUnwrap(prop);
+
+                const labelText = `${label}:`;
+                const css = {
+                    'push-next': allowCopy,
+                    disabled: disabled,
+                };
+
+                return {
+                    labelText,
+                    value,
+                    css,
+                    visible,
+                    disabled,
+                    multiline,
+                    allowCopy
+                };
+            })
+        );
         this.tooltip = ko.observable();
     }
 

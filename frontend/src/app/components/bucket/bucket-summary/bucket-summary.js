@@ -143,15 +143,10 @@ class BucketSummrayViewModel extends Observer {
         );
 
         this.quotaMarkers = ko.observable([]);
-        this.observe(state$.get('buckets'), this.onState);
+        this.observe(state$.get('buckets', routeContext().params.bucket), this.onState);
     }
 
-    onState(buckets) {
-        const bucketsList = Object.values(buckets);
-        const bucket = bucketsList.find(
-            ({ name }) => routeContext().params.bucket === name
-        );
-
+    onState(bucket) {
         const { data, stats, quota, cloudSyncStatus, mode } = bucket;
         const storage = bucket.storage.values;
 

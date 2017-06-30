@@ -95,9 +95,6 @@ function calcDataBreakdown({data, quota}) {
     const availableSpillover = bigInteger.min(spillover, bigInteger.max(0, isFinite(quotaSize) ? quotaSize - used - available : spillover));
     const overallocated = bigInteger.max(0, isFinite(quotaSize) ? quotaSize - available - used- spillover : 0);
 
-    console.warn('availableToUpload', availableToUpload);
-    console.warn('availableSpillover', availableSpillover);
-
     return {
         used: fromBigInteger(used),
         overused: fromBigInteger(overused),

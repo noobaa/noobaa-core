@@ -87,13 +87,24 @@ function calcDataBreakdown({data, quota}) {
     const zero = bigInteger.zero;
     const spillover = toBigInteger(data.spillover_free);
     const available = toBigInteger(data.free);
-    const quotaSize = quota ? quotaBigInt(quota) : Number.POSITIVE_INFINITY;
     const dataSize = toBigInteger(data.size);
-    const used = bigInteger.min(dataSize, isFinite(quotaSize) ? quotaSize : dataSize);
-    const overused = bigInteger.max(zero, dataSize.subtract(isFinite(quotaSize) ? quotaSize : dataSize));
-    const availableToUpload = bigInteger.min(bigInteger.max(0, isFinite(quotaSize) ? quotaSize - used : available), available);
-    const availableSpillover = bigInteger.min(spillover, bigInteger.max(0, isFinite(quotaSize) ? quotaSize - used - available : spillover));
-    const overallocated = bigInteger.max(0, isFinite(quotaSize) ? quotaSize - available - used- spillover : 0);
+
+    let  used, overused, availableToUpload, availableSpillover, overallocated;
+    if (quota) {
+        const quotaSize = quotaBigInt(quota);
+
+        used = bigInteger.min(dataSize, quotaSize);
+        overused = bigInteger.max(zero, dataSize.subtract(quotaSize));
+        availableToUpload = bigInteger.min(bigInteger.max(zero, quotaSize - used), available);
+        availableSpillover = bigInteger.min(spillover, bigInteger.max(zero, quotaSize - used - available));
+        overallocated = bigInteger.max(zero, quotaSize.subtract(used.add(available.add(spillover))));
+    } else {
+        used = dataSize;
+        overused = zero;
+        availableToUpload = available;
+        availableSpillover = spillover;
+        overallocated = zero;
+    }
 
     return {
         used: fromBigInteger(used),

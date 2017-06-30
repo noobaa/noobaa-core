@@ -115,8 +115,6 @@ class CloudResourcesTableViewModel extends BaseViewModel {
 
         this.columns = columns;
 
-        this.columns = columns;
-
         const query = ko.pureComputed(
             () => routeContext().query || {}
         );

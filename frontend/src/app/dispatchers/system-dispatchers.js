@@ -8,7 +8,8 @@ import { START_FETCH_SYSTEM_INFO, COMPLETE_FETCH_SYSTEM_INFO, FAIL_FETCH_SYSTEM_
     FAIL_FETCH_NODE_INSTALLATION_COMMANDS, START_UPGRADE_SYSTEM,
     START_CREATE_ACCOUNT,  COMPLETE_CREATE_ACCOUNT, FAIL_CREATE_ACCOUNT,
     START_UPDATE_ACCOUNT_S3_ACCESS, COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
-    FAIL_UPDATE_ACCOUNT_S3_ACCESS } from 'action-types';
+    FAIL_UPDATE_ACCOUNT_S3_ACCESS, START_FETCH_RESOURCE_STORAGE_HISTORY,
+    COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY, FAIL_FETCH_RESOURCE_STORAGE_HISTORY} from 'action-types';
 
 export async function fetchSystemInfo() {
     dispatch({ type: START_FETCH_SYSTEM_INFO });
@@ -45,6 +46,25 @@ export async function fetchNodeInstallationCommands(targetPool, excludedDrives) 
     } catch (error) {
         dispatch({
             type: FAIL_FETCH_NODE_INSTALLATION_COMMANDS,
+            paylaod: { error }
+        });
+    }
+}
+
+export async function fetchResourceStorageHistory() {
+    dispatch({ type: START_FETCH_RESOURCE_STORAGE_HISTORY });
+
+    try {
+        const poolHistory = await api.pool.get_pool_history({});
+
+        dispatch({
+            type: COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY,
+            payload: poolHistory
+        });
+
+    } catch (error) {
+        dispatch({
+            type: FAIL_FETCH_RESOURCE_STORAGE_HISTORY,
             paylaod: { error }
         });
     }

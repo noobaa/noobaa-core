@@ -1,20 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-summary.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import style from 'style';
-import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
-import { toBytes } from 'utils/size-utils';
+import { toBigInteger, fromBigInteger, bigInteger, toBytes, formatSize } from 'utils/size-utils';
+import { formatTime } from 'utils/string-utils';
+import { routeContext } from 'model';
+import { state$ } from 'state';
 
 const stateMapping = deepFreeze({
-    true: {
+    OPTIMAL: {
         text: 'Healthy',
         css: 'success',
         icon: 'healthy'
     },
-    false: {
+    NOT_WRITABLE: {
         text: 'Not enough healthy resources',
         css: 'error',
         icon: 'problem'
@@ -35,152 +37,198 @@ const availableForWriteTooltip = `This number is calculated according to the
     policy. <br><br> Note: This number is limited by quota if set.`;
 
 const quotaUnitMapping = deepFreeze({
-    GIGABYTE: 'GB',
-    TERABYTE: 'TB',
-    PETABYTE: 'PB'
+    GIGABYTE: { label: 'GB', inBytes: Math.pow(1024, 3) },
+    TERABYTE: { label: 'TB', inBytes: Math.pow(1024, 4) },
+    PETABYTE: { label: 'PB', inBytes: Math.pow(1024, 5) },
 });
 
-class BucketSummrayViewModel extends BaseViewModel {
-    constructor({ bucket }) {
+const graphOptions = deepFreeze([
+    { value: 'available', label: 'Available' },
+    { value: 'dataUsage', label: 'Data Usage' },
+    { value: 'rawUsage', label: 'Raw Usage' }
+]);
+
+function quotaBigInt({ size, unit }) {
+    return toBigInteger(size).multiply(quotaUnitMapping[unit].inBytes);
+}
+
+function getBarValues(values) {
+    return [
+        {
+            value: toBytes(values.used),
+            label: 'Used Data',
+            color: style['color8']
+        },
+        {
+            value: toBytes(values.overused),
+            label: 'Overused',
+            color: style['color10']
+        },
+        {
+            value: toBytes(values.availableToUpload),
+            label: 'Available to upload',
+            color: style['color7']
+        },
+        {
+            value: toBytes(values.availableSpillover),
+            label: 'Available spillover',
+            color: style['color6']
+        },
+        {
+            value: toBytes(values.overallocated),
+            label: 'Overallocated',
+            color: style['color16']
+        }
+    ]
+        .filter(item => item.value > 0);
+}
+
+function calcDataBreakdown({data, quota}) {
+    const zero = bigInteger.zero;
+    const spillover = toBigInteger(data.spillover_free);
+    const available = toBigInteger(data.free);
+    const dataSize = toBigInteger(data.size);
+
+    let  used, overused, availableToUpload, availableSpillover, overallocated;
+    if (quota) {
+        const quotaSize = quotaBigInt(quota);
+
+        used = bigInteger.min(dataSize, quotaSize);
+        overused = bigInteger.max(zero, dataSize.subtract(quotaSize));
+        availableToUpload = bigInteger.min(bigInteger.max(zero, quotaSize - used), available);
+        availableSpillover = bigInteger.min(spillover, bigInteger.max(zero, quotaSize - used - available));
+        overallocated = bigInteger.max(zero, quotaSize.subtract(used.add(available.add(spillover))));
+    } else {
+        used = dataSize;
+        overused = zero;
+        availableToUpload = available;
+        availableSpillover = spillover;
+        overallocated = zero;
+    }
+
+    return {
+        used: fromBigInteger(used),
+        overused: fromBigInteger(overused),
+        availableToUpload: fromBigInteger(availableToUpload),
+        availableSpillover: fromBigInteger(availableSpillover),
+        overallocated: fromBigInteger(overallocated)
+    };
+}
+
+class BucketSummrayViewModel extends Observer {
+    constructor() {
         super();
 
-        this.graphOptions = [ 'data', 'storage' ];
+        this.graphOptions = graphOptions;
+        this.dataReady = ko.observable(false);
+        this.state = ko.observable();
+        this.dataPlacement  = ko.observable();
+        this.cloudSyncStatus = ko.observable();
+        this.viewType = ko.observable(this.graphOptions[0].value);
+        this.totalStorage = ko.observable();
+        this.availableValues = ko.observable();
+        this.rawUsageValues = ko.observable();
+        this.dataUsageValues = ko.observable();
+        this.availableForWrite = ko.observable();
+        this.availableForWriteTootlip = availableForWriteTooltip;
+        this.bucketQuota = ko.observable();
+        this.lastAccess = ko.observable();
 
-        this.dataReady = ko.pureComputed(
-            () => !!bucket()
+        this.legend = ko.pureComputed(
+            () => this[`${this.viewType()}Values`]()
         );
 
-        this.state = ko.pureComputed(
-            () => stateMapping[
-                Boolean(bucket() && bucket().writable)
-            ]
+        this.legendCss = ko.pureComputed(
+            () => this.viewType() === 'available' ? 'legend-row' : ''
         );
 
-        this.dataPlacement = ko.pureComputed(
-            () => {
-                if (!bucket() || !systemInfo()) {
-                    return;
-                }
+        this.quotaMarkers = ko.observable([]);
+        this.observe(state$.get('buckets', routeContext().params.bucket), this.onState);
+    }
 
-                const tierName = bucket().tiering.tiers[0].tier;
-                const { data_placement , attached_pools } = systemInfo().tiers.find(
-                    tier => tier.name === tierName
-                );
+    onState(bucket) {
+        const { data, stats, quota, cloudSyncStatus, mode } = bucket;
+        const storage = bucket.storage.values;
 
-                return `${
-                    data_placement === 'SPREAD' ? 'Spread' : 'Mirrored'
-                } on ${
-                    attached_pools.length
-                } pool${
-                    attached_pools.length !== 1 ? 's' : ''
-                }`;
-            }
+        this.dataPlacement(`${
+            bucket.backingResources.type === 'SPREAD' ? 'Spread' : 'Mirrored'
+            } on ${
+            bucket.backingResources.resources.length
+            } pool${
+            bucket.backingResources.resources.length !== 1 ? 's' : ''
+            }`
         );
 
-        this.cloudSyncStatus = ko.pureComputed(
-            () => {
-                if (!bucket()) {
-                    return;
-                }
+        this.totalStorage = ko.observable(formatSize(storage.total));
+        this.state(stateMapping[mode]);
+        this.cloudSyncStatus(cloudSyncStatusMapping[cloudSyncStatus]);
 
-                const { cloud_sync } = bucket();
-                return cloudSyncStatusMapping[
-                    cloud_sync ? cloud_sync.status : 'NOTSET'
-                ];
-            }
-        );
-
-        this.viewType = ko.observable(this.graphOptions[0]);
-
-        const storage = ko.pureComputed(
-            () => bucket() ? bucket().storage.values : {}
-        );
-
-        const data = ko.pureComputed(
-            () => bucket() ? bucket().data : {}
-        );
-
-        this.totalStorage = ko.pureComputed(
-            () => storage().total
-        ).extend({
-            formatSize: true
-        });
-
-        this.storageValues = [
+        this.rawUsageValues([
             {
-                label: 'Available',
+                label: 'Available from resources',
                 color: style['color5'],
-                value: ko.pureComputed(
-                    () => toBytes(storage().free)
-                )
+                value: toBytes(storage.free)
             },
             {
-                label: 'Used (this bucket)',
+                label: 'Available spillover',
+                color: style['color6'],
+                value: toBytes(storage.spillover_free)
+            },
+            {
+                label: 'Used by bucket (with replicas)',
                 color: style['color13'],
-                value: ko.pureComputed(
-                    () => toBytes(storage().used)
-                )
+                value: toBytes(storage.used)
             },
             {
-                label: 'Used (other buckets)',
+                label: 'Used (on shared resources)',
                 color: style['color14'],
-                value: ko.pureComputed(
-                    () => toBytes(storage().used_other)
-                )
+                value: toBytes(storage.used_other)
             }
-        ];
+        ]);
 
-        this.dataValues = [
+        this.dataUsageValues([
             {
                 label: 'Total Original Size',
-                value: ko.pureComputed(
-                    () => toBytes(data().size)
-                ),
+                value: toBytes(data.size),
                 color: style['color7']
             },
             {
                 label: 'Compressed & Deduped',
-                value: ko.pureComputed(
-                    () => toBytes(data().size_reduced)
-                ),
+                value: toBytes(data.size_reduced),
                 color: style['color13']
             }
-        ];
+        ]);
 
+        this.availableForWrite = ko.observable(formatSize(data.available_for_upload));
 
-        this.legend = ko.pureComputed(
-            () => this.viewType() === 'storage' ?
-                this.storageValues :
-                this.dataValues
+        this.bucketQuota(quota ?
+            `Set to ${quota.size}${quotaUnitMapping[quota.unit].label}` :
+            'Disabled');
+
+        this.availableValues(
+            getBarValues(
+                calcDataBreakdown(bucket)
+            )
         );
 
-        this.availableForWrite = ko.pureComputed(
-            () => data().available_for_upload
-        ).extend({
-            formatSize: true
-        });
+        if(quota) {
+            const quotaSize = quotaBigInt(quota);
 
-        this.availableForWriteTootlip = availableForWriteTooltip;
+            this.quotaMarkers([{
+                placement: toBytes(quotaSize),
+                label: `Quota: ${formatSize(fromBigInteger(quotaSize))}`
+            }]);
+        } else {
+            this.quotaMarkers([]);
+        }
 
-        const stats = ko.pureComputed(
-            () => bucket() ? bucket().stats : {}
-        );
 
-        this.bucketQuota = ko.pureComputed(
-            () => {
-                const quota = bucket() && bucket().quota;
-                return quota ?
-                    `Set to ${quota.size}${quotaUnitMapping[quota.unit]}` :
-                    'Disabled';
-            }
+        this.lastAccess(formatTime(Math.max(stats.last_read, stats.last_write)));
+        this.dataReady(true);
+    }
 
-        );
-
-        this.lastAccess = ko.pureComputed(
-            () => Math.max(stats().last_read, stats().last_write)
-        ).extend({
-            formatTime: true
-        });
+    formatBarLabel(value) {
+        return value && formatSize(value);
     }
 }
 

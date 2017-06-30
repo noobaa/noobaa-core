@@ -1947,7 +1947,7 @@ export function loadSystemUsageHistory() {
     api.pool.get_pool_history({})
         .then(history => history.map(
             ({ timestamp, pool_list }) => {
-                const { HOSTS: nodes = [], CLOUD: cloud = [] } = groupBy(
+                const { HOSTS: nodes = [], CLOUD: cloud = [], INTERNAL: internal = [] } = groupBy(
                     pool_list,
                     pool => pool.resource_type,
                     pool => pool.storage
@@ -1956,7 +1956,8 @@ export function loadSystemUsageHistory() {
                 return {
                     timestamp: timestamp,
                     nodes: aggregateStorage(...nodes),
-                    cloud: aggregateStorage(...cloud)
+                    cloud: aggregateStorage(...cloud),
+                    internal: aggregateStorage(...internal)
                 };
             }
         ))
@@ -2013,8 +2014,13 @@ function notifyUploadCompleted(uploaded, failed) {
 // TODO: Bridge between old and new architectures. will be removed after
 // appropriate sections are moved to the new architecture.
 // ----------------------------------------------------------------------
-import { COMPLETE_FETCH_SYSTEM_INFO, COMPLETE_CREATE_ACCOUNT,
-    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS, COMPLETE_UPDATE_BUCKET_QUOTA } from 'action-types';
+import {
+    COMPLETE_FETCH_SYSTEM_INFO,
+    COMPLETE_CREATE_ACCOUNT,
+    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
+    COMPLETE_UPDATE_BUCKET_QUOTA,
+    COMPLETE_UPDATE_BUCKET_SPILLOVER
+} from 'action-types';
 
 action$.subscribe(action => {
     switch(action.type) {
@@ -2024,9 +2030,11 @@ action$.subscribe(action => {
 
         case COMPLETE_CREATE_ACCOUNT:
         case COMPLETE_UPDATE_ACCOUNT_S3_ACCESS:
+        case COMPLETE_UPDATE_BUCKET_SPILLOVER:
         case COMPLETE_UPDATE_BUCKET_QUOTA:
             loadSystemInfo();
             break;
+
     }
 });
 // ----------------------------------------------------------------------

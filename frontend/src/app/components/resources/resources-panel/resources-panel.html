@@ -8,14 +8,20 @@
         <a data-bind="href: tabHref('cloud'), css: tabCss('cloud')">
             Cloud Storage
         </a>
+        <a data-bind="href: tabHref('internal'), css: tabCss('internal')">
+            Internal Storage
+        </a>
     </nav>
 
     <div class="tabs-row">
         <pools-table class="tab" data-bind="css: tabCss('pools')">
         </pools-table>
 
-        <cloud-resources-table class="tab" data-bind="css: tabCss('cloud')">|
-        </cloud-resoruces-table>
+        <cloud-resources-table class="tab" data-bind="css: tabCss('cloud')">
+        </cloud-resources-table>
+
+        <internal-resources-table class="tab" data-bind="css: tabCss('internal')">
+        </internal-resources-table>
     </div>
 </section>
 

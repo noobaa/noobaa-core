@@ -18,7 +18,7 @@ class PoolAssociatedAccountsListViewModel extends Observer {
         this.accountCount = ko.observable();
 
         this.observe(
-            state$.get('nodePools', ko.unwrap(poolName), 'associatedAccounts'),
+            state$.get('nodePools', 'pools', ko.unwrap(poolName), 'associatedAccounts'),
             this.onAccounts
         );
     }

@@ -2,21 +2,25 @@
 
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
+import { COMPLETE_FETCH_SYSTEM_INFO, COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY } from 'action-types';
 
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = {};
+const initialState = {
+    pools: {},
+    nodes: {},
+    storageHistory: []
+};
 
 // ------------------------------
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload }) {
-    const { pools, buckets, tiers } = payload;
+    const { pools, buckets, tiers, nodes } = payload;
     const nodePools = pools.filter(pool => pool.resource_type === 'HOSTS');
     const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
-    return keyByProperty(nodePools, 'name', pool => {
+    const poolsByName = keyByProperty(nodePools, 'name', pool => {
         const {
             name,
             mode,
@@ -27,6 +31,24 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 
         return { name, mode, storage, associatedAccounts, associatedBuckets };
     });
+
+    return { ...state, pools: poolsByName, nodes: nodes.by_mode };
+}
+
+function onCompleteFetchSystemUsageHistory(nodePools, { payload }) {
+    const history = payload;
+
+    const storageHistory = history.map(
+        ({timestamp, pool_list }) => {
+            const storages = pool_list
+                .filter(pool => pool.resource_type === 'HOSTS')
+                .map(pool => pool.storage);
+
+            return { timestamp, storages };
+        }
+    );
+
+    return { ...nodePools, storageHistory };
 }
 
 // ------------------------------
@@ -59,5 +81,6 @@ function _mapPoolsToBuckets(buckets, tiers) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
+    [COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY]: onCompleteFetchSystemUsageHistory
 });

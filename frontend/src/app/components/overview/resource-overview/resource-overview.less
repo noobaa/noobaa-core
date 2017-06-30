@@ -3,19 +3,20 @@
 resource-overview {
     display: block;
 
-    .resource-icon {
-        margin-bottom: @gutter/2;
-    }
-
-    .nodes-pool-icon {
-        fill: @color8;
-    }
-
-    .nodes-legend .legend-caption {
+    .legend-caption {
         font-size: @font-size3;
+        font-weight: @font-light;
     }
 
-    .nodes-chart {
-        margin: auto;
+    .resource-type-chooser .toggle-btn {
+        min-width: 52px;
+    }
+
+    vr {
+        background-color: @color7;
+    }
+
+    .legend-label {
+        flex-grow: 2;
     }
 }

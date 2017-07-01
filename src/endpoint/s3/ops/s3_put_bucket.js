@@ -5,9 +5,7 @@
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
  */
 function put_bucket(req, res) {
-    return req.rpc_client.bucket.create_bucket({
-            name: req.params.bucket
-        })
+    return req.object_sdk.create_bucket({ name: req.params.bucket })
         .then(() => {
             res.setHeader('Location', '/' + req.params.bucket);
         })

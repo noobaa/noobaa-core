@@ -5,7 +5,7 @@ const lambda_utils = require('../lambda_utils');
 
 function get_func(req, res) {
     console.log('read_func', req.params, req.query);
-    return req.rpc_client.func.read_func({
+    return req.func_sdk.read_func({
             name: req.params.func_name,
             version: req.query.Qualifier || '$LATEST'
         })

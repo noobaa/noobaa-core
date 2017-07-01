@@ -17,8 +17,7 @@ function put_object(req, res) {
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
         req.headers['x-amz-copy-source'] || '');
 
-    return req.object_io.upload_object({
-            client: req.rpc_client,
+    return req.object_sdk.upload_object({
             bucket: req.params.bucket,
             key: req.params.key,
             content_type: req.headers['content-type'],

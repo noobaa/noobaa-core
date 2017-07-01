@@ -741,16 +741,7 @@ module.exports = {
                     objects: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: ['key', 'info'],
-                            properties: {
-                                key: {
-                                    type: 'string',
-                                },
-                                info: {
-                                    $ref: '#/definitions/object_info'
-                                }
-                            }
+                            $ref: '#/definitions/object_info'
                         }
                     },
                     common_prefixes: {
@@ -824,16 +815,7 @@ module.exports = {
                     objects: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: ['key', 'info'],
-                            properties: {
-                                key: {
-                                    type: 'string',
-                                },
-                                info: {
-                                    $ref: '#/definitions/object_info'
-                                }
-                            }
+                            $ref: '#/definitions/object_info'
                         }
                     }
                 }

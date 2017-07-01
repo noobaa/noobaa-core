@@ -5,7 +5,7 @@ const _ = require('lodash');
 const lambda_utils = require('../lambda_utils');
 
 function list_funcs(req, res) {
-    return req.rpc_client.func.list_funcs()
+    return req.func_sdk.list_funcs()
         .then(reply => ({
             Functions: _.map(reply.functions, func => lambda_utils.get_func_config(func))
         }));

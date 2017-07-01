@@ -43,8 +43,9 @@ function set_response_xattr(res, xattr) {
 
 function parse_etag(etag, err) {
     const match = (/^\s*(?:"(\S*)"|(\S*))\s*$/).exec(etag);
-    if (!match) throw new S3Error(err);
-    return match[1] || match[2];
+    if (match) return match[1] || match[2];
+    if (err) throw new S3Error(err);
+    return etag;
 }
 
 function parse_content_length(req) {

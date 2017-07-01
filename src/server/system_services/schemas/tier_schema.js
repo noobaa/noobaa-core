@@ -60,14 +60,5 @@ module.exports = {
             }
         },
 
-        // // Each tier can be composed of pools OR nodes
-        // // This is done for ease of use in cases of small servers number (use nodes)
-        // // or large desktop numbers (use pools)
-        // pools: {
-        //     type: 'array',
-        //     items: {
-        //         format: 'objectid' // pool id
-        //     }
-        // },
     }
 };

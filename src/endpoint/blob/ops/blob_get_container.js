@@ -9,7 +9,7 @@ const time_utils = require('../../../util/time_utils');
  * https://docs.microsoft.com/en-us/rest/api/storageservices/get-container-properties
  */
 function get_container_properties(req, res) {
-    return req.rpc_client.bucket.read_bucket({ name: req.params.bucket })
+    return req.object_sdk.read_bucket({ name: req.params.bucket })
         .then(bucket_info => {
             res.setHeader('ETag', `"${req.params.bucket}"`);
             res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date()));

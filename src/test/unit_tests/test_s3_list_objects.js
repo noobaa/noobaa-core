@@ -12,7 +12,7 @@ let mocha = require('mocha');
 let P = require('../../util/promise');
 // let dbg = require('../../util/debug_module')(__filename);
 let promise_utils = require('../../util/promise_utils');
-let ObjectIO = require('../../api/object_io');
+let ObjectIO = require('../../sdk/object_io');
 let account_server = require('../../server/system_services/account_server');
 
 

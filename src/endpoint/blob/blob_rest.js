@@ -98,7 +98,7 @@ function authenticate_request(req) {
             role: 'admin',
             client_ip: http_utils.parse_client_ip(req),
         });
-        req.rpc_client.options.auth_token = auth_token;
+        req.object_sdk.set_auth_token(auth_token);
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
         throw new BlobError(BlobError.InternalError);

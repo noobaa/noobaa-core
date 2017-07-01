@@ -11,7 +11,7 @@ const dbg = require('../../../util/debug_module')(__filename);
 function post_bucket_delete(req) {
     let keys = _.map(req.body.Delete.Object, obj => obj.Key[0]);
     dbg.log3('post_bucket_delete: keys', keys);
-    return req.rpc_client.object.delete_multiple_objects({
+    return req.object_sdk.delete_multiple_objects({
             bucket: req.params.bucket,
             keys: keys
         })

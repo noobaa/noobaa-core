@@ -22,8 +22,9 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const api = require('../api');
 const config = require('../../config');
-const FuncIO = require('../api/func_io');
-const ObjectIO = require('../api/object_io');
+const FuncSDK = require('../sdk/func_sdk');
+const ObjectIO = require('../sdk/object_io');
+const ObjectSDK = require('../sdk/object_sdk');
 const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
 const http_utils = require('../util/http_utils');
@@ -124,7 +125,6 @@ function create_endpoint_handler(rpc, options) {
     const signal_client = rpc.new_client();
     const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
     n2n_agent.set_any_rpc_address();
-    const func_io = new FuncIO();
     const object_io = new ObjectIO();
     return endpoint_request_handler;
 
@@ -137,19 +137,19 @@ function create_endpoint_handler(rpc, options) {
         }-${
             Math.trunc(Math.random() * 65536).toString(36)
         }`;
-        req.func_io = func_io;
-        req.object_io = object_io;
-        req.rpc_client = rpc.new_client();
         http_utils.parse_url_query(req);
 
         if (req.url.startsWith('/2015-03-31/functions')) {
+            req.func_sdk = new FuncSDK(rpc.new_client());
             return lambda_rest_handler(req, res);
         }
 
         if (req.headers['x-ms-version']) {
+            req.object_sdk = new ObjectSDK(rpc.new_client(), object_io);
             return blob_rest_handler(req, res);
         }
 
+        req.object_sdk = new ObjectSDK(rpc.new_client(), object_io);
         return s3_rest_handler(req, res);
     }
 }
@@ -239,3 +239,4 @@ function setup_http_server(server) {
 }
 
 exports.start_all = start_all;
+exports.create_endpoint_handler = create_endpoint_handler;

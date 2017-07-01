@@ -36,6 +36,13 @@ function set_response_xattr(res, xattr) {
     });
 }
 
+function parse_etag(etag) {
+    const match = (/^\s*(?:"(\S*)"|(\S*))\s*$/).exec(etag);
+    if (match) return match[1] || match[2];
+    return etag;
+}
+
 exports.set_response_object_md = set_response_object_md;
 exports.get_request_xattr = get_request_xattr;
 exports.set_response_xattr = set_response_xattr;
+exports.parse_etag = parse_etag;

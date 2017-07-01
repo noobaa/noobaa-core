@@ -2,8 +2,7 @@
 'use strict';
 
 function invoke_func(req, res) {
-    return req.func_io.invoke({
-            rpc_client: req.rpc_client,
+    return req.func_sdk.invoke_func({
             name: req.params.func_name,
             version: req.query.Qualifier || '$LATEST',
             event: req.body,

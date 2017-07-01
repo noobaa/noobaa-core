@@ -7,7 +7,7 @@ const s3_utils = require('../s3_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGETacl.html
  */
 function get_object_acl(req) {
-    return req.rpc_client.object.read_object_md({
+    return req.object_sdk.read_object_md({
             bucket: req.params.bucket,
             key: req.params.key,
         })

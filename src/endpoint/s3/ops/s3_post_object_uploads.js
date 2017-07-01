@@ -8,7 +8,7 @@ const s3_utils = require('../s3_utils');
  * AKA Create Multipart Upload
  */
 function post_object_uploads(req) {
-    return req.rpc_client.object.create_object_upload({
+    return req.object_sdk.create_object_upload({
             bucket: req.params.bucket,
             key: req.params.key,
             content_type: req.headers['content-type'],

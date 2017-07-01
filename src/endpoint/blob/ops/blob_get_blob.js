@@ -1,8 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const stream = require('stream');
-
 const dbg = require('../../../util/debug_module')(__filename);
 const BlobError = require('../blob_errors').BlobError;
 const blob_utils = require('../blob_utils');
@@ -15,7 +13,7 @@ const http_utils = require('../../../util/http_utils');
  * GET  : https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob
  */
 function get_blob(req, res) {
-    return req.rpc_client.object.read_object_md({
+    return req.object_sdk.read_object_md({
             bucket: req.params.bucket,
             key: req.params.key,
             md_conditions: http_utils.get_md_conditions(req),
@@ -24,7 +22,7 @@ function get_blob(req, res) {
             blob_utils.set_response_object_md(res, object_md);
             const obj_size = object_md.size;
             const params = {
-                client: req.rpc_client,
+                object_md,
                 obj_id: object_md.obj_id,
                 bucket: req.params.bucket,
                 key: req.params.key,
@@ -38,6 +36,13 @@ function get_blob(req, res) {
             const ranges = http_utils.normalize_http_ranges(
                 http_utils.parse_http_range(req.headers.range),
                 obj_size);
+
+            if (!ranges) {
+                if (req.method === 'HEAD') return;
+                // stream the entire object to the response
+                dbg.log1('reading object', req.path, obj_size);
+                return req.object_sdk.read_object_stream(params);
+            }
 
             // return http 400 Bad Request
             if (ranges === 400) {
@@ -53,71 +58,39 @@ function get_blob(req, res) {
                 throw new BlobError(BlobError.InvalidRange);
             }
 
-
-            // stream the entire object to the response
-            if (!ranges) {
-                dbg.log1('reading object', req.path, obj_size);
-                if (req.method === 'HEAD') {
-                    res.end();
-                    return;
-                }
-                stream_reply(req, res, req.object_io.create_read_stream(params));
-                return;
-            }
-
             // reply with HTTP 206 Partial Content
-            const start = ranges[0].start;
-            const end = ranges[0].end + 1; // use exclusive end
-            const range_params = Object.assign({ start, end }, params);
-            const content_range = `bytes ${start}-${end - 1}/${obj_size}`;
+            params.start = ranges[0].start;
+            params.end = ranges[0].end + 1; // use exclusive end
+            const content_range = `bytes ${params.start}-${params.end - 1}/${obj_size}`;
             dbg.log1('reading object range', req.path, content_range, ranges);
             res.setHeader('Content-Range', content_range);
-            res.setHeader('Content-Length', end - start);
+            res.setHeader('Content-Length', params.end - params.start);
             // res.header('Cache-Control', 'max-age=0' || 'no-cache');
-            if (req.method === 'HEAD') {
+
+            if (req.method === 'HEAD') return;
+            res.statusCode = 206;
+            return req.object_sdk.read_object_stream(params);
+
+        })
+        .then(read_stream => {
+            if (!read_stream) {
+                // head response does not send body
                 res.end();
                 return;
             }
-
-            res.statusCode = 206;
-            stream_reply(req, res, req.object_io.create_read_stream(range_params));
-
-            // when starting to stream also prefrech the last part of the file
-            // since some video encodings put a chunk of video metadata in the end
-            // and it is often requested once doing a video time seek.
-            // see https://trac.ffmpeg.org/wiki/Encode/H.264#faststartforwebvideo
-            if (start === 0 &&
-                obj_size > 1024 * 1024 &&
-                object_md.content_type.startsWith('video')) {
-                dbg.log1('prefetch end of object', req.path, obj_size);
-                const prefetch_params = Object.assign({
-                    start: obj_size - 100,
-                    end: obj_size,
-                }, params);
-                // a writable sink that ignores the data
-                // just to pump the data through the cache
-                const dev_null = new stream.Writable({ write: discard_stream_writer });
-                req.object_io.create_read_stream(prefetch_params).pipe(dev_null);
-            }
+            // on http disconnection close the read stream to stop from buffering more data
+            req.on('aborted', () => {
+                dbg.log0('request aborted:', req.path);
+                if (read_stream.close) read_stream.close();
+            });
+            res.on('error', err => {
+                dbg.log0('response error:', err, req.path);
+                if (read_stream.close) read_stream.close();
+            });
+            read_stream.pipe(res);
         });
 }
 
-function stream_reply(req, res, read_stream) {
-    // on http disconnection close the read stream to stop from buffering more data
-    req.on('aborted', () => {
-        dbg.log0('request aborted:', req.path);
-        read_stream.close();
-    });
-    res.on('error', err => {
-        dbg.log0('response error:', err, req.path);
-        read_stream.close();
-    });
-    read_stream.pipe(res);
-}
-
-function discard_stream_writer(chunk, encoding, next) {
-    next();
-}
 
 module.exports = {
     handler: get_blob,

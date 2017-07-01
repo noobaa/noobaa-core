@@ -24,7 +24,7 @@ function post_object_uploadId(req) {
         throw new S3Error(S3Error.MalformedXML);
     }
 
-    return req.rpc_client.object.complete_object_upload({
+    return req.object_sdk.complete_object_upload({
             obj_id: req.query.uploadId,
             bucket: req.params.bucket,
             key: req.params.key,

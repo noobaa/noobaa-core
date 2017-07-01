@@ -11,8 +11,7 @@ const http_utils = require('../../../util/http_utils');
 function put_blob(req, res) {
     if (req.headers['x-ms-copy-source']) throw new BlobError(BlobError.NotImplemented);
 
-    return req.object_io.upload_object({
-            client: req.rpc_client,
+    return req.object_sdk.upload_object({
             bucket: req.params.bucket,
             key: req.params.key,
             content_type: req.headers['x-ms-blob-content-type'],

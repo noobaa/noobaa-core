@@ -5,7 +5,7 @@
 const http_utils = require('../../../util/http_utils');
 
 function delete_blob(req, res) {
-    return req.rpc_client.object.delete_object({
+    return req.object_sdk.delete_object({
             bucket: req.params.bucket,
             key: req.params.key,
             md_conditions: http_utils.get_md_conditions(req),

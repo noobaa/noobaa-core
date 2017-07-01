@@ -47,7 +47,7 @@ function get_signed_url(params) {
 
 function get_azure_connection_string(params) {
     let endpoint_url = url.parse(params.endpoint);
-    let protocol = (endpoint_url.protocol ? endpoint_url.protocol : 'http');
+    let protocol = (endpoint_url.protocol ? endpoint_url.protocol : 'http:');
     protocol = protocol.slice(0, protocol.length - 1);
     let connection_string = 'DefaultEndpointsProtocol=' + protocol + ';';
     connection_string += 'AccountName=' + params.access_key + ';';

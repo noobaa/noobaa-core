@@ -7,7 +7,7 @@ const _ = require('lodash');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETlifecycle.html
  */
 function get_bucket_lifecycle(req) {
-    return req.rpc_client.bucket.get_bucket_lifecycle_configuration_rules({ name: req.params.bucket })
+    return req.object_sdk.get_bucket_lifecycle_configuration_rules({ name: req.params.bucket })
         .then(reply => ({
             LifecycleConfiguration: _.map(reply, rule => ({
                 Rule: [{

@@ -29,7 +29,7 @@ function get_container_list(req, res) {
     }
     params.limit = Math.min(max_keys_received, 1000);
 
-    return req.rpc_client.object.list_objects_s3(params)
+    return req.object_sdk.list_objects(params)
         .then(reply => ({
             EnumerationResults: {
                 _attr: {
@@ -46,15 +46,15 @@ function get_container_list(req, res) {
                             Blob: {
                                 Name: obj.key,
                                 Properties: {
-                                    // ETag: `"${obj.info.etag}"`,
-                                    ETag: obj.info.etag,
+                                    // ETag: `"${obj.etag}"`,
+                                    ETag: obj.etag,
                                     BlobType: 'BlockBlob',
                                     LeaseStatus: 'unlocked',
                                     LeaseState: 'available',
                                     ServerEncrypted: false,
-                                    'Last-Modified': (new Date(obj.info.create_time)).toUTCString(),
-                                    'Content-Length': obj.info.size,
-                                    'Content-Type': obj.info.content_type,
+                                    'Last-Modified': (new Date(obj.create_time)).toUTCString(),
+                                    'Content-Length': obj.size,
+                                    'Content-Type': obj.content_type,
                                     // 'Content-Encoding': {},
                                     // 'Content-Language': {},
                                     // 'Content-MD5': {},

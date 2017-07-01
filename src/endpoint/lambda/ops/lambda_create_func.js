@@ -8,7 +8,7 @@ const lambda_utils = require('../lambda_utils');
 function create_func(req, res) {
     const fn = req.body;
     console.log('create_func', req.params, fn);
-    return req.rpc_client.func.create_func({
+    return req.func_sdk.create_func({
             config: _.omitBy({
                 name: fn.FunctionName,
                 version: '$LATEST',

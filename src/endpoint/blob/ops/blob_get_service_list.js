@@ -8,7 +8,7 @@ const _ = require('lodash');
  */
 function get_service_list(req, res) {
     const { prefix, marker, maxresults } = req.query;
-    return req.rpc_client.bucket.list_buckets()
+    return req.object_sdk.list_buckets()
         .then(reply => ({
             EnumerationResults: {
                 Prefix: prefix,

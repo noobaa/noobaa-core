@@ -2,7 +2,7 @@
 'use strict';
 
 function delete_func(req, res) {
-    return req.rpc_client.func.delete_func({
+    return req.func_sdk.delete_func({
         name: req.params.func_name,
         version: req.query.Qualifier || '$LATEST'
     });

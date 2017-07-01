@@ -72,7 +72,7 @@ function put_bucket_lifecycle(req) {
         }
         return current_rule;
     });
-    return req.rpc_client.bucket.set_bucket_lifecycle_configuration_rules({
+    return req.object_sdk.set_bucket_lifecycle_configuration_rules({
             name: req.params.bucket,
             rules: lifecycle_rules
         })

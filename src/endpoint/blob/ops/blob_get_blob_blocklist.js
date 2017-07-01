@@ -6,7 +6,7 @@ const _ = require('lodash');
 // const BlobError = require('../blob_errors').BlobError;
 
 function get_blob_blocklist(req, res) {
-    return req.rpc_client.object.read_object_md({
+    return req.object_sdk.read_object_md({
             bucket: req.params.bucket,
             key: req.params.key,
         })

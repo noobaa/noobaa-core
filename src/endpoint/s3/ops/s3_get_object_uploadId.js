@@ -23,7 +23,7 @@ function get_object_uploadId(req) {
         throw new S3Error(S3Error.InvalidArgument);
     }
 
-    return req.rpc_client.object.list_multiparts({
+    return req.object_sdk.list_multiparts({
             obj_id: req.query.uploadId,
             bucket: req.params.bucket,
             key: req.params.key,

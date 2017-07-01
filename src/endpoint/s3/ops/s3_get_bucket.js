@@ -34,7 +34,7 @@ function get_bucket(req) {
     }
     params.limit = Math.min(max_keys_received, 1000);
 
-    return req.rpc_client.object.list_objects_s3(params)
+    return req.object_sdk.list_objects(params)
         .then(reply => ({
             ListBucketResult: [{
                     'Name': req.params.bucket,
@@ -49,9 +49,9 @@ function get_bucket(req) {
                 _.map(reply.objects, obj => ({
                     Contents: {
                         Key: obj.key,
-                        LastModified: s3_utils.format_s3_xml_date(obj.info.create_time),
-                        ETag: `"${obj.info.etag}"`,
-                        Size: obj.info.size,
+                        LastModified: s3_utils.format_s3_xml_date(obj.create_time),
+                        ETag: `"${obj.etag}"`,
+                        Size: obj.size,
                         Owner: s3_utils.DEFAULT_S3_USER,
                         StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
                     }

@@ -4,7 +4,7 @@
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
-var ObjectIO = require('../api/object_io');
+var ObjectIO = require('../sdk/object_io');
 var dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5);
 
@@ -41,8 +41,8 @@ if (!bkt) {
         output.write('\nLIST OBJECTS:\n\n');
         res.objects.forEach(function(obj) {
             output.write('    ' +
-                ' ' + moment(new Date(obj.info.create_time)).format('YYYY MMM D HH:mm:ss') +
-                ', ' + size_utils.human_size(obj.info.size) +
+                ' ' + moment(new Date(obj.create_time)).format('YYYY MMM D HH:mm:ss') +
+                ', ' + size_utils.human_size(obj.size) +
                 ', ' + obj.key +
                 // JSON.stringify(obj)+
                 '\n');
@@ -52,7 +52,7 @@ if (!bkt) {
     });
 } else {
     init_api().then(function() {
-        return object_io.create_read_stream({
+        return object_io.read_object_stream({
                 client: client,
                 bucket: bkt,
                 key: key,

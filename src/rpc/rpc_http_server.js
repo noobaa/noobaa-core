@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
+// const _ = require('lodash');
 const http = require('http');
 const https = require('https');
 const events = require('events');
@@ -29,11 +29,13 @@ class RpcHttpServer extends events.EventEmitter {
     /**
      * install for http server without express app
      */
-    install_on_server(server) {
+    install_on_server(server, default_handler) {
         return server.on('request', (req, res) => {
-            if (_.startsWith(req.url, RpcHttpConnection.BASE_PATH)) {
-                return this.handle_request(req, res);
-            }
+            if (req.url.startsWith(RpcHttpConnection.BASE_PATH)) return this.handle_request(req, res);
+            if (default_handler) return default_handler(req, res);
+            dbg.warn('unrecognized http request (responding 404)', req.method, req.url, req.headers);
+            res.statusCode = 404;
+            res.end();
         });
     }
 
@@ -49,7 +51,7 @@ class RpcHttpServer extends events.EventEmitter {
         const server = secure ?
             https.createServer(native_core().x509()) :
             http.createServer();
-        this.install_on_server(server);
+        this.install_on_server(server, options.default_handler);
         return P.fromCallback(callback => server.listen(port, callback))
             .return(server);
     }

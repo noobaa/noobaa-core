@@ -18,15 +18,9 @@ class LRUCache {
         options = options || {};
         this.name = options.name;
         this.load = options.load;
-        this.validate = options.validate || function(item) {
-            return item;
-        };
-        this.make_key = options.make_key || function(k) {
-            return k;
-        };
-        this.make_val = options.make_val || function(data, params) {
-            return data;
-        };
+        this.validate = options.validate || ((data, params) => true);
+        this.make_key = options.make_key || (params => params);
+        this.make_val = options.make_val || ((data, params) => data);
         this.item_usage = options.item_usage;
         this.use_negative_cache = options.use_negative_cache;
         this.lru = new LRU({

@@ -181,9 +181,9 @@
       "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz"
     },
     "aws-sdk": {
-      "version": "2.73.0",
-      "from": "aws-sdk@2.73.0",
-      "resolved": "https://registry.npmjs.org/aws-sdk/-/aws-sdk-2.73.0.tgz",
+      "version": "2.80.0",
+      "from": "aws-sdk@2.80.0",
+      "resolved": "https://registry.npmjs.org/aws-sdk/-/aws-sdk-2.80.0.tgz",
       "dependencies": {
         "sax": {
           "version": "1.2.1",
@@ -209,7 +209,7 @@
     },
     "azure-storage": {
       "version": "2.2.1",
-      "from": "azure-storage@latest",
+      "from": "azure-storage@2.2.1",
       "resolved": "https://registry.npmjs.org/azure-storage/-/azure-storage-2.2.1.tgz",
       "dependencies": {
         "node-uuid": {
@@ -504,9 +504,9 @@
       "resolved": "https://registry.npmjs.org/balanced-match/-/balanced-match-0.4.2.tgz"
     },
     "base64-js": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "from": "base64-js@>=1.0.2 <2.0.0",
-      "resolved": "https://registry.npmjs.org/base64-js/-/base64-js-1.2.0.tgz"
+      "resolved": "https://registry.npmjs.org/base64-js/-/base64-js-1.2.1.tgz"
     },
     "base64url": {
       "version": "2.0.0",
@@ -624,9 +624,9 @@
       "resolved": "https://registry.npmjs.org/bson/-/bson-1.0.4.tgz"
     },
     "buffer": {
-      "version": "5.0.6",
-      "from": "buffer@5.0.6",
-      "resolved": "https://registry.npmjs.org/buffer/-/buffer-5.0.6.tgz"
+      "version": "4.9.1",
+      "from": "buffer@4.9.1",
+      "resolved": "https://registry.npmjs.org/buffer/-/buffer-4.9.1.tgz"
     },
     "buffer-crc32": {
       "version": "0.2.6",

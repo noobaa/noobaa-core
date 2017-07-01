@@ -566,12 +566,18 @@ function delete_multiple_objects(req) {
 function delete_multiple_objects_by_prefix(req) {
     dbg.log0('delete_multiple_objects_by_prefix (lifecycle): prefix =', req.params.prefix);
     load_bucket(req);
+    const key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
     // TODO: change it to perform changes in batch. Won't scale.
-    return list_objects(req)
-        .then(res => P.map(res.objects, obj => {
-            dbg.log0('delete_multiple_objects_by_prefix:', obj.key);
-            return map_deleter.delete_object(obj);
-        }))
+    return MDStore.instance().find_objects({
+            bucket_id: req.bucket._id,
+            key: key,
+            max_create_time: req.rpc_params.create_time,
+            // limit: ?,
+        })
+        .then(objects => {
+            dbg.log0('delete_multiple_objects_by_prefix:', _.map(objects, 'key'));
+            return map_deleter.delete_multiple_objects(objects);
+        })
         .return();
 }
 
@@ -639,12 +645,6 @@ function list_objects_s3(req) {
                 limit
             })
             .then(res => {
-                res = _.map(res, r => (
-                    r.obj ? {
-                        key: r.key,
-                        info: get_object_info(r.obj)
-                    } : r
-                ));
                 results = _.concat(results, res);
                 // This is the case when there are no more objects that apply to the query
                 if (!res || !res.length) {
@@ -669,17 +669,13 @@ function list_objects_s3(req) {
             })
         )
         .then(() => {
+            console.log(results);
             // Fetching common prefixes and returning them in appropriate property
-            reply.common_prefixes = _.compact(_.map(results, result => {
-                if (!result.info) {
-                    return result.key;
-                }
-            }));
-
+            reply.common_prefixes = _.map(_.filter(results, r => !r.obj), 'key');
             // Creating set of prefixes for an efficient look up
-            let prefixes_set = new Set(reply.common_prefixes);
+            const prefixes_set = new Set(reply.common_prefixes);
             // Filtering all of the prefixes and returning only objects
-            reply.objects = _.filter(results, obj => !prefixes_set.has(obj.key));
+            reply.objects = _.map(_.filter(results, r => r.obj && !prefixes_set.has(r.key)), r => get_object_info(r.obj));
 
             return reply;
         });
@@ -710,10 +706,7 @@ function list_objects(req) {
             pagination: req.rpc_params.pagination,
         })
         .then(res => {
-            res.objects = _.map(res.objects, obj => ({
-                key: obj.key,
-                info: get_object_info(obj),
-            }));
+            res.objects = _.map(res.objects, obj => get_object_info(obj));
             return res;
         });
 }
@@ -839,24 +832,24 @@ function get_obj_id(req, rpc_code) {
 function check_object_mode(req, obj, rpc_code) {
     if (!obj || obj.deleted) {
         throw new RpcError(rpc_code,
-            `No such object id: ${req.rpc_params.obj_id}`);
+            `No such object: obj_id ${req.rpc_params.obj_id} bucket ${req.rpc_params.bucket} key ${req.rpc_params.key}`);
     }
     if (String(req.system._id) !== String(obj.system)) {
         throw new RpcError(rpc_code,
-            `No such object id in system: ${req.rpc_params.obj_id}`);
+            `No such object in system: obj_id ${req.rpc_params.obj_id} bucket ${req.rpc_params.bucket} key ${req.rpc_params.key}`);
     }
     if (String(req.bucket._id) !== String(obj.bucket)) {
         throw new RpcError(rpc_code,
-            `No such object id in bucket: ${req.rpc_params.obj_id}`);
+            `No such object in bucket: obj_id ${req.rpc_params.obj_id} bucket ${req.rpc_params.bucket} key ${req.rpc_params.key}`);
     }
     if (req.rpc_params.key !== obj.key) {
         throw new RpcError(rpc_code,
-            `No such object id for key: ${obj.key} obj_id ${req.rpc_params.obj_id}`);
+            `No such object for key: ${obj.key} obj_id ${req.rpc_params.obj_id} bucket ${req.rpc_params.bucket} key ${req.rpc_params.key}`);
     }
     if (rpc_code === 'NO_SUCH_UPLOAD') {
         if (!obj.upload_started) {
             throw new RpcError(rpc_code,
-                `Object not in upload mode: ${obj.key} create_time ${obj.create_time}`);
+                `Object not in upload mode: obj_id ${req.rpc_params.obj_id} bucket ${req.rpc_params.bucket} key ${req.rpc_params.key}`);
         }
     }
     return obj;

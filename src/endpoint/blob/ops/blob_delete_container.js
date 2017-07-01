@@ -2,9 +2,7 @@
 'use strict';
 
 function delete_container(req, res) {
-    return req.rpc_client.bucket.delete_bucket({
-            name: req.params.bucket
-        })
+    return req.object_sdk.delete_bucket({ name: req.params.bucket })
         .then(() => {
             res.statusCode = 202;
         });

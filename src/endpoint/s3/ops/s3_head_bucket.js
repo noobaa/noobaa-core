@@ -5,7 +5,7 @@
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketHEAD.html
  */
 function head_bucket(req) {
-    return req.rpc_client.bucket.read_bucket({ name: req.params.bucket })
+    return req.object_sdk.read_bucket({ name: req.params.bucket })
         .then(bucket_info => {
             // only called to check for existance
             // no headers or reply needed

@@ -4,7 +4,7 @@
 // const BlobError = require('../blob_errors').BlobError;
 
 function put_blob_lease(req, res) {
-    return req.rpc_client.bucket.read_bucket({ name: req.params.bucket })
+    return req.object_sdk.read_bucket({ name: req.params.bucket })
         .then(bucket_info => {
             // TODO implement put_blob_lease
             // throw new BlobError(BlobError.NotImplemented);

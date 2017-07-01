@@ -44,9 +44,9 @@ const BUCKET_SUB_RESOURCES = Object.freeze({
 
 const OBJECT_SUB_RESOURCES = Object.freeze({
     acl: 1,
-    // restore: 1,
-    // tagging: 1,
-    // torrent: 1,
+    restore: 1,
+    tagging: 1,
+    torrent: 1,
     uploads: 1,
     uploadId: 1,
 });
@@ -199,7 +199,7 @@ function authenticate_request(req, res) {
     try {
         const auth_token = signature_utils.authenticate_request(req);
         auth_token.client_ip = http_utils.parse_client_ip(req);
-        req.rpc_client.options.auth_token = auth_token;
+        req.object_sdk.set_auth_token(auth_token);
         signature_utils.check_expiry(req);
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
@@ -302,10 +302,10 @@ function new_usage_report() {
 }
 
 function submit_usage_report(req) {
-    // We check we've passed authenticate_request and have an rpc_client.
+    // We check we've passed authenticate_request and have a valid token.
     // Errors prior to authenticate_request or bad signature will not be reported and even fail on the report call itself
     // TODO use appropriate auth for usage report instead of piggybacking the s3 request
-    if (!req.rpc_client) return;
+    if (!req.object_sdk.get_auth_token()) return;
 
     // TODO: Maybe we should plus both total_calls and total_errors and check their limit?
     if (usage_report.s3_usage_info.total_calls < 10 &&
@@ -324,7 +324,7 @@ function submit_usage_report(req) {
     usage_report = new_usage_report();
 
     // submit to background
-    req.rpc_client.object.add_s3_usage_report({
+    req.object_sdk.rpc_client.object.add_s3_usage_report({
             s3_usage_info: report_to_send.s3_usage_info,
             s3_errors_info: report_to_send.s3_errors_info
         })

@@ -5,7 +5,7 @@
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETlocation.html
  */
 function get_bucket_location(req) {
-    return req.rpc_client.bucket.read_bucket({ name: req.params.bucket })
+    return req.object_sdk.read_bucket({ name: req.params.bucket })
         .then(bucket_info => ({
             LocationConstraint: '' // default US East
         }));

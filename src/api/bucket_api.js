@@ -496,6 +496,35 @@ module.exports = {
                 name: {
                     type: 'string',
                 },
+                namespace: {
+                    type: 'object',
+                    properties: {
+                        list: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    endpoint_type: {
+                                        type: 'string',
+                                        enum: ['NOOBAA', 'AWS', 'AZURE', 'S3_COMPATIBLE']
+                                    },
+                                    endpoint: {
+                                        type: 'string'
+                                    },
+                                    target_bucket: {
+                                        type: 'string'
+                                    },
+                                    access_key: {
+                                        type: 'string'
+                                    },
+                                    secret_key: {
+                                        type: 'string'
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
                 tiering: {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
                 },

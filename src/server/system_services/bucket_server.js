@@ -975,18 +975,37 @@ function find_bucket(req) {
 }
 
 function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) {
-    var info = _.pick(bucket, 'name');
-    if (bucket.tiering) {
-        // We always have tiering so this if is irrelevant
-        info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool, aggregate_data_free_by_tier);
-    }
+    const info = {
+        name: bucket.name,
+        namespace: bucket.namespace ? {
+            list: _.map(bucket.namespace.list,
+                it => _.pick(it,
+                    'endpoint_type',
+                    'endpoint',
+                    'target_bucket',
+                    'access_key',
+                    'secret_key'
+                )
+            ),
+        } : undefined,
+        tiering: tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool, aggregate_data_free_by_tier),
+        tag: bucket.tag ? bucket.tag : '',
+        num_objects: num_of_objects || 0,
+        writable: false,
+        spillover_enabled: false,
+        storage: undefined,
+        data: undefined,
+        usage_by_pool: undefined,
+        quota: undefined,
+        stats: undefined,
+        cloud_sync: undefined,
+    };
 
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
     const tiering_pools_used_agg = [0];
     let spillover_allowed_in_policy = false;
     let spillover_tier_in_policy;
 
-    info.writable = false;
     _.each(bucket.tiering.tiers, tier_and_order => {
         if (tier_and_order.spillover) {
             if (tier_and_order.disabled) {
@@ -1017,10 +1036,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
     };
 
-    info.tag = bucket.tag ? bucket.tag : '';
     info.spillover_enabled = spillover_allowed_in_policy;
-
-    info.num_objects = num_of_objects || 0;
 
     const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
     const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity') || 0);

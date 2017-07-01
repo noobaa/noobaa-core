@@ -5,9 +5,7 @@
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETE.html
  */
 function delete_bucket(req, res) {
-    return req.rpc_client.bucket.delete_bucket({
-        name: req.params.bucket
-    });
+    return req.object_sdk.delete_bucket({ name: req.params.bucket });
 }
 
 module.exports = {

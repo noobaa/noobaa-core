@@ -12,7 +12,7 @@ let argv = require('minimist')(process.argv);
 
 let P = require('../../util/promise');
 // let dbg = require('../../util/debug_module')(__filename);
-let ObjectIO = require('../../api/object_io');
+let ObjectIO = require('../../sdk/object_io');
 let SliceReader = require('../../util/slice_reader');
 let promise_utils = require('../../util/promise_utils');
 

@@ -14,6 +14,7 @@ require('./test_host_server');
 require('./test_agent');
 require('./test_object_io');
 require('./test_map_utils');
+require('./test_s3_ops');
 require('./test_s3_list_objects');
 require('./test_md_store');
 require('./test_nodes_store');

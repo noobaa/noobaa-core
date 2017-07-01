@@ -41,9 +41,7 @@ class BucketObjectsTableViewModel extends BaseViewModel {
         this.pageSize = paginationPageSize;
 
         this.objects = ko.pureComputed(
-            () => objectList() && objectList().objects.map(
-                pair => pair.info
-            )
+            () => objectList() && objectList().objects
         );
 
         this.bucketName = ko.pureComputed(

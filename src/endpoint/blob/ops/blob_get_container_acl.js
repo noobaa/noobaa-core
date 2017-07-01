@@ -7,7 +7,7 @@
  * https://docs.microsoft.com/en-us/rest/api/storageservices/get-container-acl
  */
 function get_container_acl(req, res) {
-    return req.rpc_client.bucket.read_bucket({ name: req.params.bucket })
+    return req.object_sdk.read_bucket({ name: req.params.bucket })
         .then(bucket_info => {
             return {
                 SignedIdentifiers: {}

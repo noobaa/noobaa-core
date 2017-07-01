@@ -24,6 +24,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 
 const api = require('../../api');
+const endpoint = require('../../endpoint/endpoint');
 const server_rpc = require('../../server/server_rpc');
 const NodesStore = require('../../server/node_services/nodes_store').NodesStore;
 const node_server = require('../../server/node_services/node_server');
@@ -31,6 +32,7 @@ const mongo_client = require('../../util/mongo_client');
 const core_agent_control = require('./core_agent_control');
 
 let base_address;
+let http_address;
 let http_server;
 let _setup = false;
 let _incomplete_rpc_coverage;
@@ -71,6 +73,12 @@ function setup({ incomplete_rpc_coverage } = {}) {
     _.each(server_rpc.rpc._services,
         (service, srv) => api_coverage.add(srv));
 
+    const endpoint_request_handler = endpoint.create_endpoint_handler(server_rpc.rpc, {
+        s3: true,
+        blob: true,
+        lambda: true,
+    });
+
     mocha.before('coretest-before', function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(10000);
@@ -84,6 +92,7 @@ function setup({ incomplete_rpc_coverage } = {}) {
                 port: 0,
                 protocol: 'ws:',
                 logging: true,
+                default_handler: endpoint_request_handler,
             }))
             .then(http_server_arg => {
                 // the http/ws port is used by the agents
@@ -91,6 +100,7 @@ function setup({ incomplete_rpc_coverage } = {}) {
                 const http_port = http_server.address().port;
                 console.log('CORETEST HTTP SERVER', http_port);
                 base_address = `ws://127.0.0.1:${http_port}`;
+                http_address = `http://127.0.0.1:${http_port}`;
 
                 // update the nodes_monitor n2n_rpc to find the base_address correctly for signals
                 node_server.get_local_monitor().n2n_rpc.router.default = base_address;
@@ -164,8 +174,13 @@ function clear_test_nodes() {
         });
 }
 
+function get_http_address() {
+    return http_address;
+}
+
 exports.setup = setup;
 exports.client = new_test_client();
 exports.new_test_client = new_test_client;
 exports.init_test_nodes = init_test_nodes;
 exports.clear_test_nodes = clear_test_nodes;
+exports.get_http_address = get_http_address;

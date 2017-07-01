@@ -8,7 +8,7 @@ const s3_utils = require('../s3_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETreplication.html
  */
 function get_bucket_replication(req) {
-    return req.rpc_client.bucket.read_bucket({ name: req.params.bucket })
+    return req.object_sdk.read_bucket({ name: req.params.bucket })
         .then(bucket_info => {
             if (!bucket_info.cloud_sync ||
                 bucket_info.cloud_sync.status === 'NOTSET') {

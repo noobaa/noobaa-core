@@ -8,7 +8,7 @@ const s3_utils = require('../s3_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTServiceGET.html
  */
 function list_buckets(req) {
-    return req.rpc_client.bucket.list_buckets()
+    return req.object_sdk.list_buckets()
         .then(reply => {
             let date = s3_utils.format_s3_xml_date(new Date());
             return {

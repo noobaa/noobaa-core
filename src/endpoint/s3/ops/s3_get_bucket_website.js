@@ -7,9 +7,7 @@ const S3Error = require('../s3_errors').S3Error;
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETwebsite.html
  */
 function get_bucket_website(req) {
-    return req.rpc_client.bucket.read_bucket({
-            name: req.params.bucket
-        })
+    return req.object_sdk.read_bucket({ name: req.params.bucket })
         .then(bucket_info => {
             throw new S3Error(S3Error.NoSuchWebsiteConfiguration);
         });

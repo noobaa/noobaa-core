@@ -8,7 +8,7 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
  */
 function delete_object(req) {
-    return req.rpc_client.object.delete_object({
+    return req.object_sdk.delete_object({
         bucket: req.params.bucket,
         key: req.params.key,
         md_conditions: http_utils.get_md_conditions(req),

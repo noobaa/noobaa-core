@@ -32,7 +32,7 @@ function get_bucket_uploads(req) {
     }
     params.limit = Math.min(max_keys_received, 1000);
 
-    return req.rpc_client.object.list_objects_s3(params)
+    return req.object_sdk.list_objects(params)
         .then(reply => ({
             ListMultipartUploadsResult: [{
                     'Bucket': req.params.bucket,
@@ -48,8 +48,8 @@ function get_bucket_uploads(req) {
                 _.map(reply.objects, obj => ({
                     Upload: {
                         Key: obj.key,
-                        UploadId: obj.info.obj_id,
-                        Initiated: s3_utils.format_s3_xml_date(obj.info.upload_started),
+                        UploadId: obj.obj_id,
+                        Initiated: s3_utils.format_s3_xml_date(obj.upload_started),
                         Initiator: s3_utils.DEFAULT_S3_USER,
                         Owner: s3_utils.DEFAULT_S3_USER,
                         StorageClass: s3_utils.STORAGE_CLASS_STANDARD,

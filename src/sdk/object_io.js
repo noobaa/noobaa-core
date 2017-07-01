@@ -18,7 +18,7 @@ const time_utils = require('../util/time_utils');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
 const promise_utils = require('../util/promise_utils');
-const dedup_options = require("./dedup_options");
+const dedup_options = require('./dedup_options');
 
 // dbg.set_level(5, 'core');
 
@@ -236,7 +236,7 @@ class ObjectIO {
 
     _upload_copy(params, complete_params) {
         if (params.copy_source.bucket !== params.bucket) {
-            params.source_stream = this.create_read_stream({
+            params.source_stream = this.read_object_stream({
                 client: params.client,
                 obj_id: params.copy_source.obj_id,
                 bucket: params.copy_source.bucket,
@@ -719,7 +719,7 @@ class ObjectIO {
      *
      */
     read_entire_object(params) {
-        return buffer_utils.read_stream_join(this.create_read_stream(params));
+        return buffer_utils.read_stream_join(this.read_object_stream(params));
     }
 
 
@@ -729,7 +729,7 @@ class ObjectIO {
      * see ObjectReader.
      *
      */
-    create_read_stream(params) {
+    read_object_stream(params) {
         var pos = Number(params.start) || 0;
         const end = _.isUndefined(params.end) ? Infinity : Number(params.end);
         const reader = new stream.Readable({
@@ -787,6 +787,27 @@ class ObjectIO {
                     reader.emit('error', err || 'reader error');
                 });
         };
+
+        // when starting to stream also prefrech the last part of the file
+        // since some video encodings put a chunk of video metadata in the end
+        // and it is often requested once doing a video time seek.
+        // see https://trac.ffmpeg.org/wiki/Encode/H.264#faststartforwebvideo
+        if (!params.start &&
+            params.object_md &&
+            params.object_md.size > 1024 * 1024 &&
+            params.object_md.content_type.startsWith('video')) {
+            P.delay(10)
+                .then(() => this.read_object({
+                    client: params.client,
+                    obj_id: params.obj_id,
+                    bucket: params.bucket,
+                    key: params.key,
+                    start: params.object_md.size - 1024,
+                    end: params.object_md.size,
+                }))
+                .catch(err => dbg.error('prefetch end of file error', err));
+        }
+
         return reader;
     }
 

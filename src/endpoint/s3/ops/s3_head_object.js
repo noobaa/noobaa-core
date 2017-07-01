@@ -9,7 +9,7 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
  */
 function head_object(req, res) {
-    return req.rpc_client.object.read_object_md({
+    return req.object_sdk.read_object_md({
             bucket: req.params.bucket,
             key: req.params.key,
             md_conditions: http_utils.get_md_conditions(req),

@@ -7,7 +7,7 @@ const api = require('../../api');
 const ops = require('./basic_server_ops');
 const config = require('../../../config.js');
 const dotenv = require('../../util/dotenv');
-const ObjectIO = require('../../api/object_io');
+const ObjectIO = require('../../sdk/object_io');
 const test_utils = require('./test_utils');
 const promise_utils = require('../../util/promise_utils');
 

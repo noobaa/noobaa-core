@@ -18,8 +18,7 @@ function put_object_uploadId(req, res) {
     dbg.log0('PUT OBJECT PART', req.params.bucket, req.params.key, num,
         req.headers['x-amz-copy-source'] || '');
 
-    return req.object_io.upload_multipart({
-            client: req.rpc_client,
+    return req.object_sdk.upload_multipart({
             obj_id: req.query.uploadId,
             bucket: req.params.bucket,
             key: req.params.key,

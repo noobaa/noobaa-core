@@ -178,18 +178,17 @@ function check_MD5_all_objects(ip, bucket, prefix) {
     promise_utils.pwhile(
         () => !stop,
         () => P.ninvoke(s3bucket, 'listObjects', params)
-        .then(function(res) {
-            let list = res.Contents;
-            if (list.length === 0) {
-                stop = true;
-            } else {
-                params.Marker = list[list.length - 1].Key;
-                stop = true;
-                return P.each(list, obj => get_file_check_md5(ip, bucket, obj.Key));
-            }
-        }));
+            .then(res => {
+                let list = res.Contents;
+                if (list.length === 0) {
+                    stop = true;
+                } else {
+                    params.Marker = list[list.length - 1].Key;
+                    stop = true;
+                    return P.each(list, obj => get_file_check_md5(ip, bucket, obj.Key));
+                }
+            }));
 }
-
 
 function get_a_random_file(ip, bucket, prefix) {
     var rest_endpoint = 'http://' + ip + ':80';
@@ -207,7 +206,7 @@ function get_a_random_file(ip, bucket, prefix) {
     };
 
     return P.ninvoke(s3bucket, 'listObjects', params)
-        .then(function(res) {
+        .then(res => {
             let list = res.Contents;
             if (list.length === 0) {
                 throw new Error('No files with prefix in bucket');
@@ -237,7 +236,7 @@ function get_file_number(ip, bucket, prefix) {
     };
 
     return P.ninvoke(s3bucket, 'listObjects', params)
-        .then(function(res) {
+        .then(res => {
             let list = res.Contents;
             return list.length;
         })
@@ -265,7 +264,7 @@ function delete_file(ip, bucket, file_name) {
     var start_ts = Date.now();
     console.log('>>> DELETE - About to delete object...' + file_name);
     return P.ninvoke(s3bucket, 'deleteObject', params)
-        .then(function() {
+        .then(() => {
             console.log('Delete object took', (Date.now() - start_ts) / 1000, 'seconds');
             console.log('file ' + file_name + ' successfully deleted');
         })
@@ -275,11 +274,103 @@ function delete_file(ip, bucket, file_name) {
         });
 }
 
-exports.get_file_number = get_file_number;
+function get_file_size(ip, bucket, file_name) {
+    let rest_endpoint = 'http://' + ip + ':80';
+    let s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    let params = {
+        Bucket: bucket,
+        Key: file_name,
+    };
+
+    return P.ninvoke(s3bucket, 'headObject', params)
+        .then(res => res.ContentLength / 1024 / 1024)
+        .catch(err => {
+            console.error('get file size failed!', err);
+            throw err;
+        });
+}
+
+function set_file_attribute(ip, bucket, file_name) {
+    let rest_endpoint = 'http://' + ip + ':80';
+    let s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    let params = {
+        Bucket: bucket,
+        Key: file_name,
+        Tagging: {
+            TagSet: [
+                {
+                    Key: 's3ops',
+                    Value: 'set_file_attribute'
+                }
+            ]
+        }
+    };
+
+    return P.ninvoke(s3bucket, 'putObjectTagging', params)
+        .catch(err => {
+            console.error('set file attribute failed!', err);
+            throw err;
+        });
+}
+
+function set_file_attribute_with_copy(ip, bucket, file_name) {
+    let rest_endpoint = 'http://' + ip + ':80';
+    let s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    let params = {
+        Bucket: bucket,
+        Key: file_name,
+    };
+
+    return P.ninvoke(s3bucket, 'getObject', params)
+        .then(res => {
+            params = {
+                Bucket: bucket,
+                CopySource: bucket + '/' + file_name,
+                Key: file_name,
+                MetadataDirective: 'REPLACE',
+                Metadata: {
+                    md5: crypto.createHash('md5').update(res.Body)
+                        .digest('hex'),
+                    s3ops: 's3ops_set_file_attribute_with_copy'
+                }
+            };
+        })
+        .then(() => P.ninvoke(s3bucket, 'copyObject', params))
+        .catch(err => {
+            console.error('set file attribute failed!', err);
+            throw err;
+        });
+}
+
 exports.put_file_with_md5 = put_file_with_md5;
-exports.upload_file_with_md5 = upload_file_with_md5;
 exports.copy_file_with_md5 = copy_file_with_md5;
+exports.upload_file_with_md5 = upload_file_with_md5;
 exports.get_file_check_md5 = get_file_check_md5;
 exports.check_MD5_all_objects = check_MD5_all_objects;
 exports.get_a_random_file = get_a_random_file;
+exports.get_file_number = get_file_number;
 exports.delete_file = delete_file;
+exports.get_file_size = get_file_size;
+exports.set_file_attribute = set_file_attribute;
+exports.set_file_attribute_with_copy = set_file_attribute_with_copy;

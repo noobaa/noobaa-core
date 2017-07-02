@@ -11,30 +11,57 @@ import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
 import page from 'page';
 import configureRouter from 'routing';
+import { action$, dispatch } from 'state';
+import { api, AWS } from 'services';
 import { start } from 'actions';
+import actionsModelBridge from 'actions-model-bridge';
+import rootEpic from 'epics';
 
+function configureKnockout(ko) {
+    // Enable knockout 3.4 deferred updates.
+    ko.options.deferUpdates = true;
 
-// Enable knockout 3.4 deferred updates.
-ko.options.deferUpdates = true;
+    // Setup validation policy.
+    ko.validation.init({
+        errorMessageClass: 'val-msg',
+        decorateInputElement: true,
+        errorElementClass: 'invalid',
+        errorsAsTitle: false,
+        messagesOnModified: true,
+        writeInputAttributes: true
+    });
 
-// Setup validation policy.
-ko.validation.init({
-    errorMessageClass: 'val-msg',
-    decorateInputElement: true,
-    errorElementClass: 'invalid',
-    errorsAsTitle: false,
-    messagesOnModified: true,
-    writeInputAttributes: true
-});
+    // Register custom extenders, bindings, components and validation rules.
+    registerExtenders(ko);
+    registerBindings(ko);
+    registerValidationRules(ko);
+    registerComponents(ko);
+}
 
-// Register custom extenders, bindings, components and validation rules.
-registerExtenders(ko);
-registerBindings(ko);
-registerValidationRules(ko);
-registerComponents(ko);
+function registerEpics(action$, dispatch) {
+    const injectedServices = {
+        random: Math.random,
+        getTime: Date.now,
+        localStorage: localStorage,
+        sessionStorage: sessionStorage,
+        fetch: fetch,
+        S3: AWS.S3,
+        api: api
+    };
+
+    rootEpic(action$, injectedServices)
+        .subscribe(dispatch);
+}
+
+configureKnockout(ko);
 
 // Configure the appliction router.
 configureRouter(page);
+
+registerEpics(action$, dispatch);
+
+// Bridge between the action stream and the old model
+actionsModelBridge(action$);
 
 // Bind the ui to the
 ko.applyBindings(null);

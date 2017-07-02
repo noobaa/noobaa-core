@@ -31,7 +31,7 @@ export function completeRestoreSession(token, sessionInfo) {
     };
 }
 
-export function failResotreSession(token, error) {
+export function failRestoreSession(token, error) {
     return {
         type: FAIL_RESTORE_SESSION,
         payload: { token, error }

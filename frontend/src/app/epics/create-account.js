@@ -1,11 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { sleep, all } from 'utils/promise-utils';
 import { CREATE_ACCOUNT } from 'action-types';
 import { completeCreateAccount, failCreateAccount } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(CREATE_ACCOUNT)
         .flatMap(async action => {

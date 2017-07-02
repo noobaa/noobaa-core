@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { FETCH_UNREAD_ALERTS_COUNT } from 'action-types';
 import { completeFetchUnreadAlertsCount, failFetchUnreadAlertsCount } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(FETCH_UNREAD_ALERTS_COUNT)
         .flatMap(async () => {

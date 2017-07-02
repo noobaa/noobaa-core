@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { SET_ACCOUNT_IP_RESTRICTIONS } from 'action-types';
 import { completeSetAccountIpRestrictions, failSetAccountIpRestrictions } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(SET_ACCOUNT_IP_RESTRICTIONS)
         .flatMap(async action => {

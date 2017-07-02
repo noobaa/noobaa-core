@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { FETCH_ALERTS } from 'action-types';
 import { completeFetchAlerts, failFetchAlerts } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(FETCH_ALERTS)
         .flatMap(async action => {

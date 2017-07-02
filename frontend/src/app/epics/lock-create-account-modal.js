@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { CREATE_ACCOUNT, } from 'action-types';
+import { CREATE_ACCOUNT } from 'action-types';
 import { lockForm, lockModal } from 'action-creators';
 
 export default function(action$) {

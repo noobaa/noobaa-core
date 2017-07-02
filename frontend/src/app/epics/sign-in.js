@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { SIGN_IN } from 'action-types';
 import { completeSignIn, failSignIn } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(SIGN_IN)
         .flatMap(async action => {

@@ -273,6 +273,14 @@ gulp.task('watch-assets', ['copy'], () => {
 });
 
 // ----------------------------------
+// Test tasks
+// ----------------------------------
+gulp.task('test', () => {
+    return gulp.src('src/tests/index.js')
+        .pipe($.mocha({ reporter: 'spec' }));
+});
+
+// ----------------------------------
 // Helper functions
 // ----------------------------------
 function createBundler(useWatchify) {

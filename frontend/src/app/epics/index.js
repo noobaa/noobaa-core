@@ -24,9 +24,9 @@ import changeAccountPasswordEpic from './change-account-password';
 
 // A utility that combine multiple epics into one epic.
 function combineEpics(epics) {
-    return action$ => {
+    return (action$, injected) => {
         return Rx.Observable
-            .fromArray(epics.map(epic => epic(action$)))
+            .fromArray(epics.map(epic => epic(action$, injected)))
             .mergeAll();
     };
 }

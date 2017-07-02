@@ -7,6 +7,7 @@ const fs = require('fs');
 const uuid = require('uuid/v4');
 const moment = require('moment-timezone');
 const node_df = require('node-df');
+const blockutils = require('linux-blockutils');
 var spawn = require('child_process').spawn;
 
 const P = require('./promise');
@@ -89,6 +90,14 @@ function read_drives() {
     } else {
         return read_mac_linux_drives();
     }
+}
+
+function get_raw_storage() {
+    return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
+        .then(res => _.find(res, function(disk) {
+            return disk.NAME === 'sda';
+        }))
+        .then(disk => parseInt(disk.SIZE,10));
 }
 
 function get_main_drive_name() {
@@ -663,6 +672,7 @@ function is_valid_hostname(hostname_string) {
 // EXPORTS
 exports.os_info = os_info;
 exports.read_drives = read_drives;
+exports.get_raw_storage = get_raw_storage;
 exports.remove_linux_readonly_drives = remove_linux_readonly_drives;
 exports.get_main_drive_name = get_main_drive_name;
 exports.get_mount_of_path = get_mount_of_path;

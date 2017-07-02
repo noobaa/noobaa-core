@@ -1,11 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 
-import Rx from 'rx';
+import { Subject } from 'rx';
 import { deepFreeze, isObject } from 'utils/core-utils';
 import reducer from 'reducers';
 
 // Actions stream.
-export const action$ = new Rx.Subject();
+export const action$ = new Subject();
+action$.ofType = function(...types) {
+    return this.filter(action => types.includes(action.type));
+};
 
 // Dispatch helper.
 export function dispatch(action) {

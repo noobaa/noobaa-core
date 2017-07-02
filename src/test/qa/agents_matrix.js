@@ -19,13 +19,25 @@ shasum.update(Date.now().toString());
 
 // Sample Config
 var argv = require('minimist')(process.argv);
-console.log(argv);
-const location = argv.location || 'westus2';
-var resourceGroupName = argv.resource;
-var storageAccountName = argv.storage;
-var vnetName = argv.vnet;
-const serverName = argv.server_ip;
-const upgrade_pack = argv.upgrade_pack;
+console.log(JSON.stringify(argv));
+// const location = argv.location || 'westus2';
+// var resource = argv.resource;
+// var storage = argv.storage;
+// var vnet = argv.vnet;
+// const server_ip = argv.server_ip;
+// const upgrade_pack = argv.upgrade_pack;
+let {
+    resource,
+    storage,
+    vnet,
+    skipsetup = false
+} = argv;
+
+const {
+    location = 'westus2',
+    server_ip,
+    upgrade_pack,
+} = argv;
 
 //define colors
 const Yellow = "\x1b[33;1m";
@@ -34,7 +46,7 @@ const NC = "\x1b[0m";
 
 //noobaa rpc
 var api = require('../../api');
-var rpc = api.new_rpc('wss://' + serverName + ':8443');
+var rpc = api.new_rpc('wss://' + server_ip + ':8443');
 rpc.disable_validation();
 var client = rpc.new_client({});
 const oses = [
@@ -51,7 +63,7 @@ let agentConf;
 let node_number_after_create;
 let initial_node_number;
 
-var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourceGroupName, location);
+var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
 function saveErrorAndResume(err) {
     errors.push(err.message);
@@ -77,12 +89,12 @@ function createAgents(isInclude) {
         .then(() => {
             if (isInclude) {
                 return P.map(oses, osname => azf.createAgent(
-                    osname, storageAccountName, vnetName,
-                    azf.getImagesfromOSname(osname), serverName, agentConf
+                    osname, storage, vnet,
+                    azf.getImagesfromOSname(osname), server_ip, agentConf
                 ).catch(saveErrorAndResume));
 
             } else {
-                return runExtensions('init_agent', `${serverName} ${agentConf}`)
+                return runExtensions('init_agent', `${server_ip} ${agentConf}`)
                     .catch(saveErrorAndResume);
             }
         })
@@ -92,7 +104,7 @@ function createAgents(isInclude) {
 }
 
 function runCreateAgents(isInclude) {
-    if (!argv.skipsetup) {
+    if (!skipsetup) {
         return createAgents(isInclude);
     }
     return P.resolve(client.node.list_nodes({
@@ -112,8 +124,8 @@ function runCreateAgents(isInclude) {
 
 function verifyAgent() {
     console.log(`starting the verify agents stage`);
-    return s3ops.put_file_with_md5(serverName, 'files', '100MB_File', 100)
-        .then(() => s3ops.get_file_check_md5(serverName, 'files', '100MB_File'))
+    return s3ops.put_file_with_md5(server_ip, 'files', '100MB_File', 100)
+        .then(() => s3ops.get_file_check_md5(server_ip, 'files', '100MB_File'))
         // .then(() => {
         //     console.warn(`Will take diagnostics from all the agents`);
         //     return P.map(nodes, name => client.node.collect_agent_diagnostics({ name })
@@ -169,10 +181,10 @@ function upgradeAgent() {
     console.log('starting the upgrade agents stage');
     return runExtensions('replace_version_on_agent')
         .then(() => client.system.read_system({})
-            .then(result => ops.upload_and_upgrade(serverName, upgrade_pack))
+            .then(result => ops.upload_and_upgrade(server_ip, upgrade_pack))
             .then(() => {
                 console.log(`Upgrade successful, waiting on agents to upgrade`);
-                return ops.wait_on_agents_upgrade(serverName);
+                return ops.wait_on_agents_upgrade(server_ip);
             }));
 }
 
@@ -210,7 +222,7 @@ function addDisksToMachine(diskSize) {
     console.log(`adding disks to the agents machine`);
     return P.map(oses, osname => {
         console.log(`adding data disk to vm ${osname} of size ${diskSize}`);
-        return azf.addDataDiskToVM(osname, diskSize, storageAccountName);
+        return azf.addDataDiskToVM(osname, diskSize, storage);
     });
 }
 
@@ -351,7 +363,7 @@ function includeExcludeCycle(isInclude) {
         // // //verifying write, read, diag and debug level after the upgrade.
         .then(verifyAgent)
         // Cleaning the machine Extention and installing new one that remove nodes.
-        .then(() => argv.skipsetup || deleteAgent());
+        .then(() => skipsetup || deleteAgent());
 }
 
 function main() {
@@ -362,9 +374,13 @@ function main() {
             password: 'DeMo1',
             system: 'demo'
         })))
+        .then(() => {
+            console.log(`saemek!`);
+            return azf.getNemeByIp(server_ip);
+        })
         //deleting the VM machines with the same name as the OS we want to install.
         .then(() => {
-            if (!argv.skipsetup) {
+            if (!skipsetup) {
                 return P.map(oses, osname => azf.deleteVirtualMachine(osname)
                     .catch(err => console.log('VM not found - skipping...', err))
                 );
@@ -372,7 +388,7 @@ function main() {
         })
         //running all all the VM machines and deleating all the disks.
         .then(() => {
-            if (!argv.skipsetup) {
+            if (!skipsetup) {
                 return P.map(oses, osname => azf.deleteBlobDisks(osname)
                     .catch(saveErrorAndResume)
                 );
@@ -387,7 +403,7 @@ function main() {
         .then(() => {
             console.warn('End of Test, cleaning.');
             if (errors.length === 0) {
-                if (!argv.skipsetup) {
+                if (!skipsetup) {
                     console.log('deleing the virtual machines.');
                     return P.map(oses, osname => azf.deleteVirtualMachine(osname));
                 }

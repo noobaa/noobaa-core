@@ -3,13 +3,20 @@
 MONGO_PROGRAM="mongo_wrapper"
 MONGO_SHELL="/usr/bin/mongo nbcore"
 LOG_FILE="/var/log/noobaa_deploy_wrapper.log"
+LOG_TOPIC="UPGRADE"
 
 function deploy_log {
 	if [ "$1" != "" ]; then
         local now=$(date)
-        echo "${now} ${1}" >> ${LOG_FILE}
-        logger -t UPGRADE -p local0.warn "${1}"
+        echo "${now} ${LOG_TOPIC} ${1}" >> ${LOG_FILE}
+        logger -t ${LOG_TOPIC} -p local0.warn "${1}"
 	fi
+}
+
+function set_deploy_log_topic {
+    if [ "$1" != "" ]; then
+        LOG_TOPIC=${1}
+    fi
 }
 
 function set_mongo_cluster_mode {

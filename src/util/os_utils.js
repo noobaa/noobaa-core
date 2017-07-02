@@ -97,7 +97,7 @@ function get_raw_storage() {
         .then(res => _.find(res, function(disk) {
             return disk.NAME === 'sda';
         }))
-        .then(disk => parseInt(disk.SIZE,10));
+        .then(disk => parseInt(disk.SIZE, 10));
 }
 
 function get_main_drive_name() {

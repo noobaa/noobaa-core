@@ -53,9 +53,13 @@ function do_heartbeat() {
                         dbg.log0('server is not part of a cluster. skipping rs status');
                     }
                 }),
-                os_utils.read_drives()))
-            .spread((mongo_status, drives) => {
+                os_utils.read_drives(),
+                os_utils.get_raw_storage()))
+            .spread((mongo_status, drives, raw_storage) => {
                 let root = drives.find(drive => drive.mount === '/');
+                if (root) {
+                    root.total = raw_storage;
+                }
                 return {
                     mongo_status: mongo_status,
                     storage: root.storage

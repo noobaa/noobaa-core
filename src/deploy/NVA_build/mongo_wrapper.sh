@@ -2,6 +2,7 @@
 
 COMMON_FUNCS_PATH="/root/node_modules"
 . ${COMMON_FUNCS_PATH}/noobaa-core/src/deploy/NVA_build/common_funcs.sh
+set_deploy_log_topic "mongo_wrapper"
 MONGO_SHELL="/usr/bin/mongo nbcore"
 MONGO_EXEC="$@"
 deploy_log "MONGO_EXEC is: ${MONGO_EXEC}"

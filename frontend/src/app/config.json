@@ -8,6 +8,7 @@
     "upgradePackageSuffix": ".gz",
     "serverRestartWaitInterval": 20000,
     "readAuthRetryCount": 2,
+    "readAuthRetryDelay": 1000,
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {
@@ -31,15 +32,9 @@
         "minTimeOnScreen": 3200,
         "charTimeContribution": 50
     },
-    // Uncommect browser codes after enabling support and QA
     "supportedBrowsers": [
         "chrome",
-        "firefox",
-        // "chromium",
-        // "edge",
-        // "msie",
-        // "safari",
-        // "opr"
+        "firefox"
     ],
     "support":  {
         "email": "support@noobaa.com",

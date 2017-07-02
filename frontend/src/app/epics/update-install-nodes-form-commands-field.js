@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { COMPLETE_FETCH_NODE_INSTALLATION_COMMANDS } from 'action-types';
 import { updateForm } from 'action-creators';
 

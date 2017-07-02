@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { FETCH_SYSTEM_INFO } from 'action-types';
 import { completeFetchSystemInfo, failFetchSystemInfo } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(FETCH_SYSTEM_INFO)
         .switchMap(async () => {

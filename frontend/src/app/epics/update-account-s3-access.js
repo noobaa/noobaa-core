@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { UPDATE_ACCOUNT_S3_ACCESS } from 'action-types';
 import { completeUpdateAccountS3Access, failUpdateAccountS3Access } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(UPDATE_ACCOUNT_S3_ACCESS)
         .flatMap(async action => {

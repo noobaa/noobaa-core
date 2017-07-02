@@ -3,10 +3,12 @@
 import { new_rpc_default_only } from 'nb-api';
 import * as notifications from './notifications';
 
-const rpc_proto = window.WebSocket ?
-    (window.location.protocol === 'https:' ? 'wss:' : 'ws:') :
-    window.location.protocol;
-const base_address = `${rpc_proto}//${window.location.host}`;
+const { location, WebSocket } = global;
+const rpc_proto = WebSocket ?
+    (location.protocol === 'https:' ? 'wss:' : 'ws:') :
+    location.protocol;
+
+const base_address = `${rpc_proto}//${location.host}`;
 const rpc = new_rpc_default_only(base_address);
 
 rpc.set_request_logger(
@@ -22,5 +24,5 @@ rpc.register_service(
 const api = rpc.new_client();
 rpc.on('reconnect', () => api.redirector.register_for_alerts());
 
-export default window.api = api;
+export default global.api = api;
 

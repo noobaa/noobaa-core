@@ -1,13 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { FETCH_NODE_INSTALLATION_COMMANDS } from 'action-types';
 import {
     completeFetchNodeInstallationCommands,
     failFetchNodeInstallationCommands
 } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(FETCH_NODE_INSTALLATION_COMMANDS)
         .flatMap(async action => {

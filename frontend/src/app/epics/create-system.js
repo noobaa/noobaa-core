@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { CREATE_SYSTEM } from 'action-types';
 import { completeCreateSystem, failCreateSystem } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(CREATE_SYSTEM)
         .flatMap(async action => {

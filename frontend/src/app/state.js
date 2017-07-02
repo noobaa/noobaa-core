@@ -2,9 +2,7 @@
 
 import Rx from 'rx';
 import { deepFreeze, isObject } from 'utils/core-utils';
-import appReducer from 'reducers/app-reducer';
-import rootEpic from 'epics';
-import actionsModelBridge from 'actions-model-bridge';
+import reducer from 'reducers';
 
 // Actions stream.
 export const action$ = new Rx.Subject();
@@ -26,10 +24,11 @@ export function dispatch(action) {
 export const state$ = action$
     .tap(action => console.log(
         `DISPATCHING %c${action.type}`,
-        'color: #08955b', 'with',
+        'color: #08955b',
+        'with',
         action.payload
     ))
-    .scan((state, action) => deepFreeze(appReducer(state, action)), {})
+    .scan((state, action) => deepFreeze(reducer(state, action)), {})
     .switchMap(state => Promise.resolve(state))
     .tap(state => console.log('UPDATING VIEW with', state))
     .shareReplay(1);
@@ -39,13 +38,3 @@ state$.subscribe(
     error => console.error('STATE STREAM ERROR:', error),
     () => console.error('STATE STREAM TERMINATED')
 );
-
-// Register epic.
-action$.ofType = function(...types) {
-    return this.filter(action => types.includes(action.type));
-};
-rootEpic(action$)
-    .subscribe(dispatch);
-
-// Register a bridge between the action stream and the old model.
-actionsModelBridge(action$);

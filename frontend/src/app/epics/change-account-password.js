@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import api from 'services/api';
 import { CHANGE_ACCOUNT_PASSWORD } from 'action-types';
 import { completeChangeAccountPassword, failChangeAccountPassword } from 'action-creators';
 
-export default function(action$) {
+export default function(action$, { api }) {
     return action$
         .ofType(CHANGE_ACCOUNT_PASSWORD)
         .flatMap(async action => {

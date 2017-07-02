@@ -1,6 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
 
-import AWS from 'services/aws';
 import Rx from 'rx';
 import { UPLOAD_OBJECTS } from 'action-types';
 import { updateObjectUpload, completeObjectUpload, failObjectUpload } from 'action-creators';
@@ -12,12 +11,12 @@ const s3UploadOptions = deepFreeze({
     queueSize: 4
 });
 
-export default function(action$) {
+export default function(action$, { S3 }) {
     return action$
         .ofType(UPLOAD_OBJECTS)
         .flatMap(action => {
             const { objects, accessKey, secretKey } = action.payload;
-            const s3 = _createS3Client(endpoint, accessKey, secretKey);
+            const s3 = _createS3Client(S3, endpoint, accessKey, secretKey);
             const uploadEvent$ = new Rx.Subject();
 
             let uploading = objects.length;
@@ -50,8 +49,8 @@ export default function(action$) {
         });
 }
 
-function _createS3Client(endpoint, accessKey, secretKey) {
-    return new AWS.S3({
+function _createS3Client(S3, endpoint, accessKey, secretKey) {
+    return new S3({
         endpoint: endpoint,
         credentials: {
             accessKeyId: accessKey,

@@ -9,7 +9,7 @@ import { formatSize } from 'utils/size-utils';
 import { loadServerTime } from 'actions';
 import { timeLongFormat } from 'config';
 import ko from 'knockout';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openEditServerDetailsModal } from 'action-creators';
 
 const icons = deepFreeze({
@@ -498,7 +498,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
     }
 
     onEditServerDetails() {
-        dispatch(openEditServerDetailsModal(this.secret));
+        action$.onNext(openEditServerDetailsModal(this.secret));
     }
 }
 

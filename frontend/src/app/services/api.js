@@ -24,5 +24,5 @@ rpc.register_service(
 const api = rpc.new_client();
 rpc.on('reconnect', () => api.redirector.register_for_alerts());
 
-export default global.api = api;
+export default api;
 

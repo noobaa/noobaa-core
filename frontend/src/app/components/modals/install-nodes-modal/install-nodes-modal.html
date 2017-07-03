@@ -67,14 +67,14 @@
 
             <div class="greedy tabs push-next-half">
                 <nav ko.foreach="osTypes">
-                    <a ko.css.selected="$parent.form.selectedOs.is(value)"
+                    <a ko.css.selected="$parent.form.selectedOs.eq(value)"
                         ko.click="() => $parent.onTab(value)"
                     >{{label}}</a>
                 </nav>
 
                 <div class="tabs-row alt-bg" ko.foreach="osTypes">
                     <div class="tab pad row config-box"
-                        ko.css.selected="$parent.form.selectedOs.is(value)"
+                        ko.css.selected="$parent.form.selectedOs.eq(value)"
                         ko.let.command="($parent.form.commands() || {})[value]"
                     >
                         <p class="text-tech greedy">{{command}}</p>

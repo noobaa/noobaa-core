@@ -9,7 +9,7 @@
 
 <div class="content-wrapper column greedy">
     <header class="main-header push-next">
-        <a class="link no-outline logo" data-bind="href: { route: 'system' }">
+        <a class="link no-outline logo" ko.attr.href="logoHref">
             <svg-icon params="name: 'logo'"></svg-icon>
         </a>
 
@@ -26,10 +26,7 @@
         </div>
 
         <!-- ko if: panel -->
-        <main class="column greedy bounded" data-bind="
-            component: panel,
-            css: panel
-        "></main>
+        <main class="column greedy bounded" ko.component="panel" ko.css="panel""></main>
         <!-- /ko -->
     </div>
     <notification-box></notification-box>

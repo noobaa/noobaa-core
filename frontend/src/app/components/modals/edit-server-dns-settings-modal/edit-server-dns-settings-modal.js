@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateServerDNSSettings } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { lockModal } from 'action-creators';
 
 const warnings = deepFreeze({
@@ -85,7 +85,7 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
 
             updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), searchDomains);
 
-            dispatch(lockModal());
+            action$.onNext(lockModal());
             this.updating(true);
         }
     }

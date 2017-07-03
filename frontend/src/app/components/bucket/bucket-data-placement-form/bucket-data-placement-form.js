@@ -6,7 +6,7 @@ import PlacementRowViewModel from './placement-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import {
     openEditBucketQuotaModal,
     openBucketPlacementPolicyModal
@@ -96,11 +96,11 @@ class BucketDataPlacementFormViewModel extends BaseViewModel {
     }
 
     onEditBucketQuota() {
-        dispatch(openEditBucketQuotaModal(this.bucketName()));
+        action$.onNext(openEditBucketQuotaModal(this.bucketName()));
     }
 
     onEditDataPlacement() {
-        dispatch(openBucketPlacementPolicyModal(this.bucketName()));
+        action$.onNext(openBucketPlacementPolicyModal(this.bucketName()));
     }
 
 }

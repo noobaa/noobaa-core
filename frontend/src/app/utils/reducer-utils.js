@@ -12,13 +12,10 @@ export function createReducer(initialState, handlers) {
 // Combine a map of slice reducers into a master reducer.
 export function combineReducers(reducers) {
     return function(state = {}, action) {
-        return {
-            ...state,
-            ...mapValues(
-                reducers,
-                (reducer, key) => reducer(state[key], action)
-            )
-        };
+        return mapValues(
+            reducers,
+            (reducer, key) => reducer(state[key], action)
+        );
     };
 }
 

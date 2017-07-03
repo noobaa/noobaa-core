@@ -4,7 +4,7 @@ import template from './management-panel.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import * as routes from 'routes';
-import { uiState, routeContext } from 'model';
+import { routeContext } from 'model';
 import { navigateTo } from 'actions';
 
 class ManagementPanelViewModel extends BaseViewModel {
@@ -12,7 +12,7 @@ class ManagementPanelViewModel extends BaseViewModel {
         super();
 
         this.selectedTab = ko.pureComputed(
-            () => uiState().tab
+            () => routeContext().params.tab || 'accounts'
         );
 
         this.section = ko.pureComputed({

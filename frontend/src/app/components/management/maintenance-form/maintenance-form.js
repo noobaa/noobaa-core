@@ -7,7 +7,7 @@ import moment from 'moment';
 import { systemInfo } from 'model';
 import { exitMaintenanceMode } from 'actions';
 import { pad } from 'utils/string-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openStartMaintenanceModal } from 'action-creators';
 
 class MaintenanceFormViewModel extends BaseViewModel {
@@ -68,7 +68,7 @@ class MaintenanceFormViewModel extends BaseViewModel {
         if (this.state()) {
             exitMaintenanceMode();
         } else {
-            dispatch(openStartMaintenanceModal());
+            action$.onNext(openStartMaintenanceModal());
         }
     }
 }

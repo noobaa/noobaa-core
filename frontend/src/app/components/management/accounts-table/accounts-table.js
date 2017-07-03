@@ -8,7 +8,7 @@ import { systemInfo, routeContext } from 'model';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { inputThrottle } from 'config';
 import { navigateTo } from 'actions';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openCreateAccountModal } from 'action-creators';
 
 const columns = deepFreeze([
@@ -123,7 +123,7 @@ class AccountsTableViewModel extends BaseViewModel {
     }
 
     onCreateAccount() {
-        dispatch(openCreateAccountModal());
+        action$.onNext(openCreateAccountModal());
     }
 }
 

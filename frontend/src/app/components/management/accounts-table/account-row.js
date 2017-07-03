@@ -4,7 +4,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo, systemInfo } from 'model';
 import { stringifyAmount } from 'utils/string-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openDeleteCurrentAccountWarningModal } from 'action-creators';
 import { deleteAccount } from 'actions';
 
@@ -102,7 +102,7 @@ export default class AccountRowViewModel extends BaseViewModel {
     onDelete() {
         const email = this.email();
         if (email === sessionInfo().user) {
-            dispatch(openDeleteCurrentAccountWarningModal());
+            action$.onNext(openDeleteCurrentAccountWarningModal());
         } else {
             deleteAccount(email);
         }

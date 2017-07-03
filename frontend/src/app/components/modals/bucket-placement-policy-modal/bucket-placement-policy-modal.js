@@ -8,7 +8,7 @@ import ko from 'knockout';
 import { deepFreeze, noop, keyByProperty } from 'utils/core-utils';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { updateModal } from 'action-creators';
 
 const screenModalMetaMapping = deepFreeze({
@@ -39,7 +39,7 @@ class BacketPlacementPolicyModalViewModel extends BaseViewModel {
 
         this.screen = ko.observable(0);
         this.screen.subscribe(
-            screen => dispatch(updateModal(screenModalMetaMapping[screen]))
+            screen => action$.onNext(updateModal(screenModalMetaMapping[screen]))
         );
 
         this.tierName = ko.pureComputed(

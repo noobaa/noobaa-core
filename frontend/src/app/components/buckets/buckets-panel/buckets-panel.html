@@ -2,17 +2,28 @@
 
 <section class="column greedy tabs">
     <nav>
-        <a data-bind="
-            href: tabHref('buckets'),
-            css: tabCss('buckets')
-        ">
+        <a ko.href="tabHref('data-buckets')"
+            ko.css.selected="selectedTab.eq('data-buckets')"
+        >
             Data Buckets
+        </a>
+        <a class="preview-only"
+            ko.href="tabHref('namespace-buckets')"
+            ko.css.selected="selectedTab.eq('namespace-buckets')"
+        >
+            Namespace Buckets
+            <span class="beta-tag"></span>
         </a>
     </nav>
 
     <div class="tabs-row">
-        <buckets-table class="column greedy" data-bind="css: tabCss('buckets')">
-        </buckets-table>
+        <buckets-table class="tab"
+            ko.css.selected="selectedTab.eq('data-buckets')"
+        ></buckets-table>
+
+        <ns-buckets-table class="tab preview-only"
+            ko.css.selected="selectedTab.eq('namespace-buckets')"
+        ></ns-buckets-table>
     </div>
 </section>
 

@@ -14,9 +14,8 @@ import { realizeUri, downloadFile, httpRequest, httpWaitForResponse, toFormData 
 import { Buffer } from 'buffer';
 
 // Action dispathers from refactored code.
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import {
-    restoreSession,
     fetchSystemInfo,
     signOut,
     showNotification,
@@ -37,22 +36,6 @@ function logAction(action, payload) {
     } else {
         console.info(`${prefix} ${action}`);
     }
-}
-
-// -----------------------------------------------------
-// Applicaiton start action
-// -----------------------------------------------------
-
-export function start() {
-    logAction('start');
-
-    model.previewMode(localStorage.getItem('previewMode'));
-
-    const token =
-        sessionStorage.getItem('sessionToken') ||
-        localStorage.getItem('sessionToken');
-
-    dispatch(restoreSession(token));
 }
 
 // -----------------------------------------------------
@@ -108,83 +91,28 @@ export function refresh() {
 export function showLogin() {
     logAction('showLogin');
 
-    model.uiState({
-        layout: 'login-layout'
-    });
-
     loadServerInfo();
-}
-
-export function showOverview() {
-    logAction('showOverview');
-
-    model.uiState({
-        layout: 'main-layout'
-    });
-}
-
-export function showBuckets() {
-    logAction('showBuckets');
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: 'buckets'
-    });
-}
-
-export function showBucket() {
-    logAction('showBucket');
-
-    const ctx = model.routeContext();
-    const { tab = 'data-placement' } = ctx.params;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
 }
 
 export function showObject() {
     logAction('showObject');
 
     const ctx = model.routeContext();
-    const { object, bucket, tab = 'parts' } = ctx.params;
+    const { object, bucket } = ctx.params;
     const { page = 0 } = ctx.query;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
 
     loadObjectMetadata(bucket, object);
     loadObjectPartList(bucket, object, parseInt(page));
-}
-
-export function showResources() {
-    logAction('showResources');
-
-    const ctx = model.routeContext();
-    const { tab = 'pools' } = ctx.params;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
 }
 
 export function showPool() {
     logAction('showPool');
 
     const ctx = model.routeContext();
-    const { pool, tab = 'nodes' } = ctx.params;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
-
+    const { pool } = ctx.params;
     const { filter, state, sortBy = 'name', order = 1, page = 0 } = ctx.query;
     const mode = state && getModeFilterFromState(state);
+
     loadPoolNodeList(pool, filter, mode, sortBy, parseInt(order), parseInt(page));
 }
 
@@ -192,74 +120,15 @@ export function showNode() {
     logAction('showNode');
 
     const ctx = model.routeContext();
-    const { node, tab = 'details' } = ctx.params;
+    const { node } = ctx.params;
     const { page = 0 } = ctx.query;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
 
     loadNodeInfo(node);
     loadNodeStoredPartsList(node, parseInt(page));
 }
 
-export function showManagement() {
-    logAction('showManagement');
-
-    const { tab = 'accounts', section } = model.routeContext().params;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab,
-        section: section,
-        working: model.uiState().working
-    });
-}
-
-export function showAccount() {
-    logAction('showAccount');
-
-    const ctx = model.routeContext();
-    const { tab = 's3-access' } = ctx.params;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
-}
-
-export function showCluster() {
-    logAction('showCluster');
-
-    const ctx = model.routeContext();
-    const { tab = 'servers' } = ctx.params;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
-}
-
-export function showServer() {
-    logAction('showServer');
-
-    const ctx = model.routeContext();
-    const { tab = 'details' } = ctx.params;
-
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
-}
-
 export function showFuncs() {
     logAction('showFuncs');
-
-    model.uiState({
-        layout: 'main-layout'
-    });
 
     loadFuncs();
 }
@@ -268,12 +137,7 @@ export function showFunc() {
     logAction('showFunc');
 
     const ctx = model.routeContext();
-    const { func, tab = 'monitoring' } = ctx.params;
-
-    model.uiState({
-        layout: 'main-layout',
-        tab: tab
-    });
+    const { func } = ctx.params;
 
     loadFunc(func);
 }
@@ -452,7 +316,7 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
 // ----------------------------------------------------------------------
 export function loadSystemInfo() {
     logAction('loadSystemInfo');
-    dispatch(fetchSystemInfo());
+    action$.onNext(fetchSystemInfo());
 }
 
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
@@ -689,7 +553,7 @@ export function deleteAccount(email) {
             () => {
                 const user = model.sessionInfo() && model.sessionInfo().user;
                 if (email === user) {
-                    dispatch(signOut());
+                    action$.onNext(signOut());
                 } else {
                     loadSystemInfo();
                 }
@@ -1503,7 +1367,7 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, 
         .then(() => httpWaitForResponse('/version', 200))
         .then(reload)
         .catch(() => {
-            dispatch(closeModal());
+            action$.onNext(closeModal());
             notify('Updating server DNS setting failed, Please try again later', 'error');
         })
         .done();
@@ -1574,7 +1438,7 @@ export function attemptResolveNTPServer(ntpServerAddress, serverSecret) {
 export function notify(message, severity = 'info') {
     logAction('notify', { message, severity });
 
-    dispatch(showNotification(message, severity));
+    action$.onNext(showNotification(message, severity));
 }
 
 export function validateActivation(code, email) {

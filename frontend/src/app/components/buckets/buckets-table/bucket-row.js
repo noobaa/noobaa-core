@@ -85,7 +85,13 @@ export default class BucketRowViewModel extends BaseViewModel {
                 const { name } = bucket();
                 return {
                     text: name,
-                    href: { route: 'bucket', params: { bucket: name } }
+                    href: {
+                        route: 'bucket',
+                        params: {
+                            bucket: name,
+                            tab: null
+                        }
+                    }
                 };
             }
         );

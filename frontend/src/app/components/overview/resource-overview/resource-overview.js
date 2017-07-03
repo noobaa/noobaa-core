@@ -10,7 +10,7 @@ import { stringifyAmount} from 'utils/string-utils';
 import { countNodesByState } from 'utils/ui-utils';
 import { toBytes } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openInstallNodesModal } from 'action-creators';
 
 const allCounters = deepFreeze({
@@ -146,7 +146,7 @@ class ResourceOverviewViewModel extends BaseViewModel {
     }
 
     onInstallNodes() {
-        dispatch(openInstallNodesModal());
+        action$.onNext(openInstallNodesModal());
     }
 }
 

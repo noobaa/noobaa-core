@@ -4,7 +4,7 @@ import template from './set-account-ip-restrictions-modal.html';
 import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import { isIP } from 'validations';
 import { setAccountIpRestrictions } from 'action-creators';
 // import numeral from 'numeral';
@@ -56,7 +56,7 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
     }
 
     onSubmit({ accountName, usingIpRestrictions, allowedIps }) {
-        dispatch(setAccountIpRestrictions(
+        action$.onNext(setAccountIpRestrictions(
             accountName,
             usingIpRestrictions ? allowedIps : null
         ));

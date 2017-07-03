@@ -3,7 +3,7 @@
 import template from './object-panel.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { uiState, objectInfo, objectPartList } from 'model';
+import { routeContext, objectInfo, objectPartList } from 'model';
 
 class ObjectPanelViewModel extends BaseViewModel {
     constructor() {
@@ -17,7 +17,7 @@ class ObjectPanelViewModel extends BaseViewModel {
         );
 
         this.selectedTab = ko.pureComputed(
-            () => uiState().tab
+            () => routeContext().params.tab || 'parts'
         );
     }
 

@@ -9,7 +9,7 @@ import { deepFreeze, throttle} from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { routeContext } from 'model';
 import { countNodesByState } from 'utils/ui-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openAssignNodesModal } from 'action-creators';
 
 const columns = deepFreeze([
@@ -196,7 +196,7 @@ class PoolNodesTableViewModel extends BaseViewModel {
     }
 
     onAssignNodes() {
-        dispatch(openAssignNodesModal(this.poolName()));
+        action$.onNext(openAssignNodesModal(this.poolName()));
     }
 }
 

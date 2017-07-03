@@ -3,7 +3,7 @@
 import template from './bucket-panel.html';
 import Observer from 'observer';
 import ko from 'knockout';
-import { uiState, systemInfo, routeContext, bucketObjectList } from 'model';
+import { systemInfo, routeContext, bucketObjectList } from 'model';
 import { loadBucketObjectList } from 'actions';
 
 class BucketPanelViewModel extends Observer {
@@ -39,7 +39,7 @@ class BucketPanelViewModel extends Observer {
 
     tabCss(tab) {
         return {
-            selected: uiState().tab === tab
+            selected: (routeContext().params.tab || 'data-placement') === tab
         };
     }
 

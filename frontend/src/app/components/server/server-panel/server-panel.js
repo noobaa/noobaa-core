@@ -2,7 +2,7 @@
 
 import template from './server-panel.html';
 import BaseViewModel from 'components/base-view-model';
-import { routeContext, uiState } from 'model';
+import { routeContext } from 'model';
 import { lastSegment } from 'utils/string-utils';
 import ko from 'knockout';
 
@@ -24,7 +24,7 @@ class ServerPanelViewModel extends BaseViewModel {
 
     tabCss(tab) {
         return {
-            selected: uiState().tab === tab
+            selected: (routeContext().params.tab || 'details') === tab
         };
     }
 }

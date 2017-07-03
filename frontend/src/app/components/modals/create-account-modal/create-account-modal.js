@@ -3,7 +3,7 @@
 import template from './create-account-modal.html';
 import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze, flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
@@ -177,7 +177,7 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     async onSubmit(values) {
-        dispatch(createAccount(
+        action$.onNext(createAccount(
             values.accountName.trim(),
             values.hasLoginAccess,
             this.password,

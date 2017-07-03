@@ -3,7 +3,7 @@
 import { isDefined, mapValues, noop, runAsync, pick } from 'utils/core-utils';
 import Observer from 'observer';
 import ko from 'knockout';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import {
     initializeForm,
     updateForm,
@@ -87,7 +87,7 @@ export default class FormViewModel extends Observer {
         }
 
         // Initialze the form.
-        dispatch(initializeForm(name, fields));
+        action$.onNext(initializeForm(name, fields));
 
         // listen for state changes.
         this.observe(state$.get('forms', name), this._onState);
@@ -98,11 +98,11 @@ export default class FormViewModel extends Observer {
     }
 
     submit() {
-        // TODO: Need to replace a dispatch of START_SUBMIT_FORM
+        // TODO: Need to replace a dispatching of a START_SUBMIT_FORM
         // that will be act upon in the onState handler.
         runAsync(() => {
             if (!this.isValid()) {
-                dispatch(touchForm(this.name));
+                action$.onNext(touchForm(this.name));
                 return;
             }
 
@@ -112,30 +112,30 @@ export default class FormViewModel extends Observer {
     }
 
     reset() {
-        dispatch(resetForm(this.name));
+        action$.onNext(resetForm(this.name));
     }
 
     lock() {
-        dispatch(lockForm(this.name));
+        action$.onNext(lockForm(this.name));
     }
 
     unlock() {
-        dispatch(unlockForm(this.name));
+        action$.onNext(unlockForm(this.name));
     }
 
     touch(group) {
         if (isDefined(group)) {
             const fields = this._groups[group];
             if (!fields) throw new Error(`Invalid group name ${group}`);
-            dispatch(touchForm(this.name, fields));
+            action$.onNext(touchForm(this.name, fields));
 
         } else {
-            dispatch(touchForm(this.name));
+            action$.onNext(touchForm(this.name));
         }
     }
 
     dispose() {
-        dispatch(dropForm(this.name));
+        action$.onNext(dropForm(this.name));
         super.dispose();
     }
 
@@ -148,7 +148,7 @@ export default class FormViewModel extends Observer {
 
         const set = function(value, touch = true) {
             if (_state() && !_state.locked) {
-                dispatch(updateForm(formName, { [fieldName]: value }, touch));
+                action$.onNext(updateForm(formName, { [fieldName]: value }, touch));
             }
         };
 
@@ -258,7 +258,7 @@ export default class FormViewModel extends Observer {
 
         // Dispatching while running inside a handler of subscribe
         // need to be asynchronous. (to prevent a recursive behavior)
-        dispatch(setFormValidity(
+        action$.onNext(setFormValidity(
             this.name,
             {
                 values,
@@ -292,7 +292,7 @@ export default class FormViewModel extends Observer {
             mapValues(values, (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'UNKNOWN') :
             mapValues(values, () => 'VALID');
 
-        dispatch(setFormValidity(
+        action$.onNext(setFormValidity(
             this.name,
             {
                 values,

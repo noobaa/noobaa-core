@@ -3,7 +3,7 @@
 import template from './node-panel.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { uiState, nodeInfo, nodeStoredPartList } from 'model';
+import { routeContext, nodeInfo, nodeStoredPartList } from 'model';
 
 class NodePanelViewModel extends BaseViewModel {
     constructor() {
@@ -26,7 +26,7 @@ class NodePanelViewModel extends BaseViewModel {
 
     tabCss(tab) {
         return {
-            selected: uiState().tab === tab
+            selected: (routeContext().params.tab || 'details') === tab
         };
     }
 }

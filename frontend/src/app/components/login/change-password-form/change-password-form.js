@@ -7,7 +7,7 @@ import { refresh } from 'actions';
 import { signOut } from 'action-creators';
 import { sessionInfo, resetPasswordState } from 'model';
 import { calcPasswordStrength } from 'utils/password-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { changeAccountPassword } from 'action-creators';
 
 
@@ -54,7 +54,7 @@ class ChangePasswordFormViewModel extends BaseViewModel {
 
         } else {
             this.touched(false);
-            dispatch(changeAccountPassword(
+            action$.onNext(changeAccountPassword(
                 this.password(),
                 sessionInfo().user,
                 this.newPassword(),

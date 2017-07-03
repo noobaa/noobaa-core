@@ -1,30 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { Subject } from 'rx';
-import { deepFreeze, isObject } from 'utils/core-utils';
+import { deepFreeze, isObject, noop } from 'utils/core-utils';
 import reducer from 'reducers';
 
 // Actions stream.
-export const action$ = new Subject();
+export const action$ = global.action$ = new Subject();
 action$.ofType = function(...types) {
     return this.filter(action => types.includes(action.type));
 };
 
-// Dispatch helper.
-export function dispatch(action) {
+function _filterMishapedActions(action) {
     if (!isObject(action)) {
-        throw TypeError('Invalid action, not an object');
+        console.warn('Invalid action:', action, 'is not an object');
+        return false;
     }
 
     if (!action.type) {
-        throw TypeError('Invalid action, missing a type property');
+        console.warn('Invalid action:', action, 'is missing a type property');
+        return false;
     }
 
-    action$.onNext(deepFreeze(action));
+    return true;
 }
 
 // Project action stream into a state stream.
 export const state$ = action$
+    .filter(_filterMishapedActions)
     .tap(action => console.log(
         `DISPATCHING %c${action.type}`,
         'color: #08955b',
@@ -37,7 +39,7 @@ export const state$ = action$
     .shareReplay(1);
 
 state$.subscribe(
-    state => global.state = state,
+    noop,
     error => console.error('STATE STREAM ERROR:', error),
     () => console.error('STATE STREAM TERMINATED')
 );

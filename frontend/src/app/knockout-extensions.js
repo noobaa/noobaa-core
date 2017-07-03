@@ -101,7 +101,7 @@ ko.subscribable.fn.debug = function(prefix) {
     );
 };
 
-ko.subscribable.fn.is = function(value) {
+ko.subscribable.fn.eq = function(value) {
     return ko.pureComputed(() => this() === value);
 };
 

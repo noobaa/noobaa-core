@@ -2,20 +2,35 @@
 
 <section class="greedy tabs">
     <nav>
-        <a data-bind="href: tabHref('pools'), css: tabCss('pools')">
+        <a ko.href="tabHref('pools')"
+            ko.css.selected="selectedTab.eq('pools')">
             Node Pools
         </a>
-        <a data-bind="href: tabHref('cloud'), css: tabCss('cloud')">
+        <a ko.href="tabHref('cloud')"
+            ko.css.selected="selectedTab.eq('cloud')">
             Cloud Storage
+        </a>
+        <a class="preview-only"
+            ko.href="tabHref('external')"
+            ko.css.selected="selectedTab.eq('external')"
+        >
+            External Resources
+            <span class="beta-tag"></span>
         </a>
     </nav>
 
     <div class="tabs-row">
-        <pools-table class="tab" data-bind="css: tabCss('pools')">
-        </pools-table>
+         <pools-table class="tab"
+            ko.css.selected="selectedTab.eq('pools')"
+        ></pools-table>
 
-        <cloud-resources-table class="tab" data-bind="css: tabCss('cloud')">|
-        </cloud-resoruces-table>
+        <cloud-resources-table class="tab"
+            ko.css.selected="selectedTab.eq('cloud')"
+        ></cloud-resources-table>
+
+        <external-resources-table class="tab preview-only"
+            ko.css.selected="selectedTab.eq('external')"
+        ></external-resources-table>
     </div>
 </section>
 

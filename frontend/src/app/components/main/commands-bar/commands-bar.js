@@ -2,7 +2,7 @@
 
 import template from './commands-bar.html';
 import Observer from 'observer';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { refresh } from 'actions';
 import { sleep } from 'utils/promise-utils';
@@ -22,7 +22,7 @@ class CommandBarViewModel extends Observer {
 
         this.observe(state$.get('alerts', 'unreadCounts'), this.onUnreadCounts);
 
-        dispatch(fetchUnreadAlertsCount());
+        action$.onNext(fetchUnreadAlertsCount());
     }
 
     onUnreadCounts(counts) {
@@ -38,11 +38,11 @@ class CommandBarViewModel extends Observer {
     }
 
     showAuditLog() {
-        dispatch(openAuditDrawer());
+        action$.onNext(openAuditDrawer());
     }
 
     showAlerts() {
-        dispatch(openAlertsDrawer());
+        action$.onNext(openAlertsDrawer());
     }
 }
 

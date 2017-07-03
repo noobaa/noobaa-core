@@ -10,11 +10,10 @@
     </button>
 </div>
 
-<data-table class="s3-access-data-table" params="
+<data-table class="accounts-table" params="
     columns: columns,
     data: accounts,
     rowFactory: accessRow => createS3AccessRow(accessRow),
     sorting: sorting,
     emptyMessage: 'No accounts were granted access for this bucket'
-">
-</data-table>
+"></data-table>

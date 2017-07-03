@@ -7,7 +7,7 @@ import ko from 'knockout';
 import { resetPasswordState } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { changeAccountPassword } from 'action-creators';
 
 const screenTitleMapping = deepFreeze({
@@ -86,7 +86,7 @@ class RestPasswordModalViewModel extends BaseViewModel {
         if (this.errors().length) {
             this.errors.showAllMessages();
         } else {
-            dispatch(changeAccountPassword(
+            action$.onNext(changeAccountPassword(
                  this.verificationPassword(),
                 ko.unwrap(this.email),
                 this.password,

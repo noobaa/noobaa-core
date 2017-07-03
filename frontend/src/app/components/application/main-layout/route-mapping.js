@@ -2,13 +2,11 @@
 
 import { deepFreeze, pick } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { createReducer } from 'utils/reducer-utils';
 import * as routes from 'routes';
-import { CHANGE_LOCATION } from 'action-types';
 
-const routeMapping = deepFreeze({
+export default deepFreeze({
     [routes.system]: {
-        area: 'overview',
+        area: 'system',
         panel: 'overview',
         crumbsGenerator: _generateOverviewCrumbs
     },
@@ -19,6 +17,11 @@ const routeMapping = deepFreeze({
     },
     [routes.bucket]: {
         panel: 'bucket',
+        area: 'buckets',
+        crumbsGenerator: _generateBucketCrumbs
+    },
+    [routes.nsBucket]: {
+        panel: 'ns-bucket',
         area: 'buckets',
         crumbsGenerator: _generateBucketCrumbs
     },
@@ -73,34 +76,7 @@ const routeMapping = deepFreeze({
         crumbsGenerator: _generateFunctionCrumbs
     }
 });
-// ------------------------------
-// Initial State
-// ------------------------------
-const initialState = {
-    name: 'main',
-    panel: '',
-    area: '',
-    breadcrumbs: []
-};
 
-// ------------------------------
-// Action Handlers
-// ------------------------------
-function onChangeLocation(state, { payload } ) {
-    const { route, params } = payload;
-    const { panel, area, crumbsGenerator } = routeMapping[route] || {};
-    if (panel) {
-        const breadcrumbs = crumbsGenerator(params);
-        return { ...state, area, panel, breadcrumbs };
-
-    } else {
-        return initialState;
-    }
-}
-
-// ------------------------------
-// Breadcrumbs generators
-// ------------------------------
 function _generateOverviewCrumbs(params) {
     return [
         {
@@ -263,10 +239,3 @@ function _generateFunctionCrumbs(params) {
         }
     ];
 }
-
-// ------------------------------
-// Exported reducer function
-// ------------------------------
-export default createReducer(initialState, {
-    [CHANGE_LOCATION]: onChangeLocation
-});

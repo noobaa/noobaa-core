@@ -66,6 +66,7 @@ class Agent {
 
         this.connect_attempts = 0;
         this._test_connection_timeout = null;
+        this.permission_tempering = params.permission_tempering;
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
@@ -669,6 +670,7 @@ class Agent {
             host_name: this.host_name,
             rpc_address: this.rpc_address || '',
             base_address: this.base_address,
+            permission_tempering: this.permission_tempering,
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             enabled: this.enabled,
             geolocation: this.geolocation,

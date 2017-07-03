@@ -1001,7 +1001,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
             let has_valid_pool = false;
             _.compact((mirror_object.spread_pools || []).map(pool => {
                     const spread_pool = system_store.data.pools.find(pool_rec => String(pool_rec._id) === String(pool._id));
-                    tiering_pools_used_agg.push(_.get(spread_pool, 'storage_stats.blocks_size', 0));
+                    tiering_pools_used_agg.push(_.get(spread_pool, 'storage_stats.blocks_size') || 0);
                     return tiering_pools_status[tier_and_order.tier._id].pools[pool._id];
                 }))
                 .forEach(pool_status => {
@@ -1023,10 +1023,10 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     info.num_objects = num_of_objects || 0;
 
     const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
-    const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
-    const bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size', 0));
+    const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity') || 0);
+    const bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size') || 0);
     const bucket_used_other = BigInteger.max(used_of_pools_in_policy.minus(bucket_used), BigInteger.zero);
-    const bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
+    const bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free') || 0);
     const spillover_tier_storage = spillover_tier_in_policy && _.mapValues(_.get(tier_server.get_tier_info(
             spillover_tier_in_policy,
             nodes_aggregate_pool,
@@ -1053,7 +1053,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         last_update: _.get(bucket, 'storage_stats.last_update')
     };
 
-    const actual_free = size_utils.json_to_bigint(_.get(info, 'tiering.data.free', 0));
+    const actual_free = size_utils.json_to_bigint(_.get(info, 'tiering.data.free') || 0);
     let available_for_upload = actual_free.plus(spillover_storage.free);
     if (bucket.quota) {
         info.quota = _.omit(bucket.quota, 'value');
@@ -1080,7 +1080,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     };
 
     info.usage_by_pool.pools = [];
-    _.mapKeys(_.get(bucket, 'storage_stats.pools', {}), function(storage, pool_id) {
+    _.mapKeys(_.get(bucket, 'storage_stats.pools') || {}, function(storage, pool_id) {
         const pool = system_store.data.get_by_id(pool_id);
         if (pool) {
             info.usage_by_pool.pools.push({

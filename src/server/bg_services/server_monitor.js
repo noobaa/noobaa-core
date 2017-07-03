@@ -131,6 +131,9 @@ function _verify_remote_syslog_cluster_config() {
         .then(platform_syslog_server => {
             if (!_are_platform_and_cluster_conf_equal(platform_syslog_server, cluster_conf)) {
                 dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', cluster_conf);
+                if (cluster_conf) {
+                    cluster_conf.enabled = true;
+                }
                 return os_utils.reload_syslog_configuration(cluster_conf);
             }
         })

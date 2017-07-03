@@ -29,6 +29,8 @@ def serverLocalIP = '10.0.0.5'
 
 
 node('jenkins-slave1-centos') {
+   try {
+    notifyBuild('STARTED')
     stage('Get code from GIT') {
         echo 'Checkouting from git!'
         checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '7df4e257-eb85-4243-9dc3-568d6127f752', url: 'https://tamireran@github.com/noobaa/noobaa-core']]])
@@ -114,7 +116,40 @@ node('jenkins-slave1-centos') {
                 fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
                 node $WORKSPACE/src/test/qa/cluster_test.js --servers 3 --upgrade_pack \$fname --timeout '${aging_time}' --storage '${agentsStorage}' --resource '${agentsResource}' --vnet '${agentsVnet}' --breakonerror
             """
-          }
+			}
       )
+		}  
+	} catch (e) {
+     currentBuild.result = "FAILED"
+     throw e
+	 } finally {
+     notifyBuild(currentBuild.result)
+	}
    }
-}
+ 
+	def notifyBuild(String buildStatus = 'STARTED') {
+		buildStatus =  buildStatus ?: 'SUCCESSFUL'
+		def fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
+		def colorName = 'RED'
+		def colorCode = '#FF0000'
+		def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' VERSION: ${fname}"
+		def summary = "${subject} (${env.BUILD_URL})"
+		def details = """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' VERSION: ${fname}:</p>
+		<p>Check console output at "<a href="${env.BUILD_URL}">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>"</p>"""
+	if (buildStatus == 'STARTED') {
+     color = 'YELLOW'
+     colorCode = '#FFFF00'
+		} else if (buildStatus == 'SUCCESSFUL') {
+     color = 'GREEN'
+     colorCode = '#00FF00'
+		} else {
+     color = 'RED'
+     colorCode = '#FF0000'
+		}
+	emailext ( 
+       subject: subject, 
+       body: details,
+       to:  'yuliia.kovalenko@noobaa.com; liran.mauda@noobaa.com; nimrod.becker@noobaa.com',
+	   attachLog: true,
+			)
+	}

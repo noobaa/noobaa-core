@@ -126,7 +126,7 @@ function _verify_server_certificate() {
 
 function _verify_remote_syslog_cluster_config() {
     dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
-    let cluster_conf = system_store.data.systems[0].remote_syslog_config;
+    let cluster_conf = _.clone(system_store.data.systems[0].remote_syslog_config);
     return os_utils.get_syslog_server_configuration()
         .then(platform_syslog_server => {
             if (!_are_platform_and_cluster_conf_equal(platform_syslog_server, cluster_conf)) {

@@ -340,6 +340,7 @@ AgentCLI.prototype.load = function(added_storage_paths) {
 };
 
 AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
+    var self = this;
     dbg.log0('os:', os.type());
     if (os.type().indexOf('Windows') >= 0) {
         var current_path = current_storage_path;
@@ -348,18 +349,50 @@ AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
 
         //hiding storage folder
         return child_process.execAsync('attrib +H ' + current_path)
-            .then(function() {
-                //Setting system full permissions and remove builtin users permissions.
-                //TODO: remove other users
-                return child_process.execAsync(
-                    'icacls ' + current_path +
-                    ' /grant:r administrators:(oi)(ci)F' +
-                    ' /grant:r system:F' +
-                    ' /remove:g BUILTIN\\Users' +
-                    ' /inheritance:r');
+            .then(() => P.join(
+                promise_utils.exec(`icacls ${current_path}`, false, true),
+                fs.readdirAsync(current_path)
+            ))
+            .spread(function(folder_permissions, agent_storage_initialization) {
+                if (!_is_folder_permissions_already_configured(folder_permissions, current_path)) {
+                    if (_.isEmpty(agent_storage_initialization)) {
+                        dbg.log0('First time icacls configuration');
+                        //Setting system full permissions and remove builtin users permissions.
+                        //TODO: remove other users
+                        child_process.execAsync(
+                            'icacls ' + current_path +
+                            ' /grant:r administrators:(oi)(ci)F' +
+                            ' /grant:r system:F' +
+                            ' /remove:g BUILTIN\\Users' +
+                            ' /inheritance:r')
+                            .then(() => {
+                                dbg.log0('Icacls configuration success');
+                            })
+                            .catch(function(err) {
+                                dbg.error('Icacls configuration failed with:', err);
+                            });
+                    } else {
+                        dbg.log0('Icacls configurations were touched');
+                        self.permission_tempering = Date.now();
+                    }
+                }
             });
     }
 };
+
+function _is_folder_permissions_already_configured(get_acl_response, current_path) {
+    dbg.log0('_is_icacls_already_configured called with:', get_acl_response, current_path);
+    const path_removed = get_acl_response.replace(current_path, '');
+    const cut_index = path_removed.indexOf('Successfully processed');
+    if (cut_index < 0) return false;
+    const omited_response = path_removed.substring(0, cut_index);
+    if (omited_response.indexOf('NT AUTHORITY\\SYSTEM:(F)') < 0 &&
+        omited_response.indexOf('BUILTIN\\Administrators:(OI)(CI)(F)') < 0) return false;
+    const omited_system = omited_response.replace('NT AUTHORITY\\SYSTEM:(F)', '');
+    const omited_final = omited_system.replace('BUILTIN\\Administrators:(OI)(CI)(F)', '');
+    if (!_.isEmpty(omited_final.trim())) return false;
+    return true;
+}
 
 AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");
@@ -576,6 +609,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             storage_path: node_path,
             cloud_info: self.cloud_info,
             mongo_info: self.mongo_info,
+            permission_tempering: self.permission_tempering,
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
             agent_conf: self.agent_conf,

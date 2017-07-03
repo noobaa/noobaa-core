@@ -57,6 +57,7 @@ const AGENT_INFO_FIELDS = [
     's3_agent',
     'node_type',
     'host_name',
+    'permission_tempering'
 ];
 const MONITOR_INFO_FIELDS = [
     'has_issues',
@@ -1433,6 +1434,8 @@ class NodesMonitor extends EventEmitter {
         // to decide the node trusted status we check the reported issues
         item.trusted = true;
         let io_detention_recent_issues = 0;
+
+        if (item.node.permission_tempering) item.trusted = false;
 
         if (item.node.issues_report) {
             // only print to log if the node had issues in the last hour

@@ -420,7 +420,7 @@ function _prepare_auth_request(req) {
         if (req.auth_token && typeof req.auth_token === 'object') {
             return _.get(account, 'allowed_buckets.full_permission', false) ||
                 _.find(
-                    _.get(account, 'allowed_buckets.permission_list', []),
+                    _.get(account, 'allowed_buckets.permission_list') || [],
                     allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
                 );
         } else {

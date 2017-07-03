@@ -22,7 +22,7 @@ function background_worker() {
 
     let bucket_groups_by_update_time =
         _.groupBy(system_store.data.buckets, g_bucket =>
-            _.get(g_bucket, 'storage_stats.last_update', config.NOOBAA_EPOCH));
+            _.get(g_bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH);
 
     const sorted_group_update_times = _.keysIn(bucket_groups_by_update_time)
         .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));

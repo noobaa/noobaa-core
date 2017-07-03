@@ -60,8 +60,9 @@ function select_prefered_mirrors(tier, tiering_status) {
             }
         });
 
+        const spread_pools_length = _.get(mirror, 'spread_pools.length') || 1;
         // Normalize the weight according to number of pools in spread
-        return pool_weight ? (pool_weight / _.get(mirror.spread_pools, 'length', 1)) : pool_weight;
+        return pool_weight ? (pool_weight / spread_pools_length) : pool_weight;
     });
 
     let best_spread = _.first(sorted_spread_tiers);
@@ -73,7 +74,8 @@ function select_prefered_mirrors(tier, tiering_status) {
 // For each chunk we randomize where we prefer to allocate (mongo/cloud or on premise)
 // This decision may be changed when we actually check the status of the blocks
 function select_pool_type(tier, spread_pools, tiering_status) {
-    if (!_.get(spread_pools, 'length', 0)) {
+    const spread_pools_length = (spread_pools && spread_pools.length) || 0;
+    if (!spread_pools_length) {
         console.warn('select_pool_type:: There are no pools in current mirror');
     }
 
@@ -86,7 +88,7 @@ function select_pool_type(tier, spread_pools, tiering_status) {
     };
 
     // Currently we just randomly get 1 pool for the spread and decide to allocate using his type
-    let selected_pool_type = spread_pools[Math.max(_.random(_.get(spread_pools, 'length', 0) - 1), 0)];
+    let selected_pool_type = spread_pools[Math.max(_.random(spread_pools_length - 1), 0)];
 
     let pools_partitions = _.partition(spread_pools,
         pool => !pool.cloud_pool_info && !pool.mongo_pool_info);
@@ -101,8 +103,8 @@ function select_pool_type(tier, spread_pools, tiering_status) {
         pool => _.get(tiering_status, `${tier._id}.pools.${pool._id}.valid_for_allocation`, false));
 
     // Checking what type of a pool we've selected above
-    if (_.get(selected_pool_type, 'cloud_pool_info', false) ||
-        _.get(selected_pool_type, 'mongo_pool_info', false)) {
+    if ((selected_pool_type && selected_pool_type.cloud_pool_info) ||
+        (selected_pool_type && selected_pool_type.mongo_pool_info)) {
         // In case that we don't have any valid pools from that type we return the other type
         mirror_status.picked_pools = mirror_status.mongo_or_cloud_pools_valid ?
             mirror_status.mongo_or_cloud_pools : mirror_status.regular_pools;
@@ -134,11 +136,11 @@ function _handle_under_policy_threshold(decision_params) {
     // We will always prefer to allocate on premise pools
     // In case that we did not have any blocks on cloud/mongo pools
     if (num_of_allocated_blocks > 0 && only_on_premise_blocks) {
-        if (_.get(decision_params.mirror_status, 'regular_pools_valid', false)) {
+        if (_.get(decision_params, 'mirror_status.regular_pools_valid', false)) {
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.regular_pools);
-        } else if (_.get(decision_params.mirror_status, 'mongo_or_cloud_pools_valid', false)) {
-            if (_.get(decision_params.blocks_partitions, 'good_on_premise_blocks.length', 0)) {
+        } else if (_.get(decision_params, 'mirror_status.mongo_or_cloud_pools_valid', false)) {
+            if (_.get(decision_params, 'blocks_partitions.good_on_premise_blocks.length', 0)) {
                 spill_status.deletions = _.concat(spill_status.deletions,
                     decision_params.blocks_partitions.good_on_premise_blocks);
             }
@@ -148,7 +150,7 @@ function _handle_under_policy_threshold(decision_params) {
             console.warn('_handle_under_policy_threshold:: Cannot allocate without valid pools');
             spill_status.allocations = _.concat(spill_status.allocations, ['']);
         }
-    } else if (_.get(decision_params.mirror_status, 'picked_pools.length', 0)) {
+    } else if (_.get(decision_params, 'mirror_status.picked_pools.length', 0)) {
         spill_status.allocations = _.concat(spill_status.allocations,
             decision_params.mirror_status.picked_pools);
     } else {
@@ -171,7 +173,7 @@ function _handle_over_policy_threshold(decision_params) {
 
     // Sorting blocks by their creation timestamp in mongodb
     let sorted_blocks = _.sortBy(
-        _.get(decision_params, 'blocks_partitions.good_blocks', []),
+        _.get(decision_params, 'blocks_partitions.good_blocks') || [],
         block => block._id.getTimestamp().getTime()
     );
 
@@ -237,7 +239,7 @@ function _get_chunk_status_in_tier(chunk, tier, additional_params) {
 
     // When allocating we will pick the best mirror using weights algorithm
     const participating_mirrors = _.get(additional_params, 'async_mirror', false) ?
-        select_prefered_mirrors(tier, _.get(additional_params, 'tiering_status', {})) :
+        select_prefered_mirrors(tier, _.get(additional_params, 'tiering_status') || {}) :
         tier.mirrors || [];
 
     let used_blocks = [];
@@ -248,7 +250,7 @@ function _get_chunk_status_in_tier(chunk, tier, additional_params) {
         // Selecting the allocating pool for the current mirror
         // Notice that this is only relevant to the current chunk
         let mirror_status = select_pool_type(tier, mirror.spread_pools,
-            _.get(additional_params, 'tiering_status', {}));
+            _.get(additional_params, 'tiering_status') || {});
         let status_result = _get_mirror_chunk_status(chunk, tier, mirror_status,
             mirror.spread_pools, additional_params);
         chunk_status.allocations = _.concat(chunk_status.allocations, status_result.allocations);
@@ -637,7 +639,7 @@ function block_access_sort(block1, block2) {
 
 
 function get_tiering_prefered_tier(tiering, additional_params, tier_chunk_statuses) {
-    const tiering_status = _.get(additional_params, 'tiering_status', {});
+    const tiering_status = _.get(additional_params, 'tiering_status') || {};
 
     const tiering_alloc = _.compact(_.map(tiering.tiers, tier_and_order => {
         // Disabled spillover tiers are not removed from policy

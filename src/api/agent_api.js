@@ -57,6 +57,9 @@ module.exports = {
                     rpc_address: {
                         type: 'string'
                     },
+                    permission_tempering: {
+                        format: 'idate'
+                    },
                     n2n_config: {
                         $ref: 'common_api#/definitions/n2n_config'
                     },

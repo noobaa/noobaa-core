@@ -93,11 +93,23 @@ function read_drives() {
 }
 
 function get_raw_storage() {
-    return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
-        .then(res => _.find(res, function(disk) {
-            return disk.NAME === 'sda';
-        }))
-        .then(disk => parseInt(disk.SIZE, 10));
+    if (os.type() === 'Linux') {
+        return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
+            .then(res => _.find(res, function (disk) {
+                return disk.NAME === 'sda';
+            }))
+            .then(disk => parseInt(disk.SIZE, 10));
+    } else {
+        return read_drives()
+            .then(drives => {
+                let root = drives.find(drive => drive.mount === '/');
+                if (root) {
+                    return root.total;
+                } else {
+                    return 0;
+                }
+            });
+    }
 }
 
 function get_main_drive_name() {

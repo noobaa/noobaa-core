@@ -36,7 +36,7 @@ function run() {
         dbg.log0('waiting for system store to load');
         return;
     }
-    server_conf = system_store.get_local_cluster_info();
+    server_conf = system_store.get_local_cluster_info(true);
     return system_store.refresh()
         .then(() => _verify_cluster_configuration())
         .then(() => _check_ntp())
@@ -330,11 +330,15 @@ function _check_internal_ips() {
 
 function _check_disk_space() {
     dbg.log2('_check_disk_space');
-    // right now not doing anything with this. Should alert to user
-    //    return fs_utils.disk_usage()
-    //        .then(res => {
-    //            monitoring_status.disk_usage = res.size;
-    //        });
+    //Alert on low disk space
+    if (server_conf.health.free < 10 * 1024 * 1024 * 1024 * 1024) {
+        Dispatcher.instance().alert('MAJOR',
+            system_store.data.systems[0]._id,
+            `Server is running low on disk space, it is recommended to increase the disk size of the VM and then perform the 
+                    increase option from the linux installer by logging into the machine with the noobaa user`,
+            Dispatcher.rules.once_weekly);
+    }
+    return os_utils.handle_unreleased_fds();
 }
 
 // EXPORTS

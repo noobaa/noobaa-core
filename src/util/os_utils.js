@@ -610,11 +610,11 @@ function reload_syslog_configuration(conf) {
                 return fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf',
                     data + '\n' + add_destination);
             })
-            .then(() => promise_utils.exec('service rsyslog restart'));
+            .then(() => restart_rsyslogd());
     } else {
         return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
             .then(data => fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf', data))
-            .then(() => promise_utils.exec('service rsyslog restart'));
+            .then(() => restart_rsyslogd());
     }
 }
 
@@ -669,6 +669,21 @@ function is_valid_hostname(hostname_string) {
     return Boolean(hostname_regex.exec(hostname_string));
 }
 
+function handle_unreleased_fds() {
+    if (os.type() !== 'Linux') {
+        return P.resolve();
+    }
+
+    //print deleted un-released file descriptors
+    return promise_utils.exec('lsof -n | grep deleted | grep REG', true, true)
+        .then(res => {
+            if (res) {
+                dbg.log0('Deleted FDs which were not released', res);
+            }
+            return;
+        });
+}
+
 // EXPORTS
 exports.os_info = os_info;
 exports.read_drives = read_drives;
@@ -697,3 +712,4 @@ exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
 exports.get_disk_mount_points = get_disk_mount_points;
 exports.get_distro = get_distro;
+exports.handle_unreleased_fds = handle_unreleased_fds;

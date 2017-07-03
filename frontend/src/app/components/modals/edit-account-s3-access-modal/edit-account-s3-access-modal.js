@@ -3,7 +3,7 @@
 import template from './edit-account-s3-access-modal.html';
 import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import { updateAccountS3Access } from 'action-creators';
 import { flatMap, deepFreeze } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
@@ -113,7 +113,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
         allowedBuckets
     }) {
 
-        dispatch(updateAccountS3Access(
+        action$.onNext(updateAccountS3Access(
             accountName,
             hasS3Access,
             defaultResource,

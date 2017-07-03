@@ -3,7 +3,7 @@
 import template from './pool-panel.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { poolNodeList, systemInfo, routeContext, uiState } from 'model';
+import { poolNodeList, systemInfo, routeContext } from 'model';
 
 class PoolPanelViewModel extends BaseViewModel {
     constructor() {
@@ -31,7 +31,7 @@ class PoolPanelViewModel extends BaseViewModel {
 
     tabCss(tab) {
         return {
-            selected: uiState().tab === tab
+            selected: (routeContext().params.tab || 'nodes') === tab
         };
     }
 }

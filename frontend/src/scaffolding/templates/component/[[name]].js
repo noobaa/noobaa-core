@@ -1,12 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './[[name]].html';
-import BaseViewModel from 'components/base-view-model';
-// import ko from 'knockout';
-// import numeral from 'numeral';
-// import moment from 'moment';
+import Observer from 'observer';
+import ko from 'knockout';
 
-class [[nameCammelCased]]ViewModel extends BaseViewModel {
+class [[nameCammelCased]]ViewModel extends Observer {
     constructor() {
         super();
 

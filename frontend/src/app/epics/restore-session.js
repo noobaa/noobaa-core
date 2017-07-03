@@ -3,11 +3,21 @@
 import { RESTORE_SESSION } from 'action-types';
 import { completeRestoreSession, failRestoreSession } from 'action-creators';
 import { readAuthRetryCount, readAuthRetryDelay } from 'config';
+import { sessionTokenKey } from 'config';
 import Rx from 'rx';
 
 const UNAUTHORIZED = 'UNAUTHORIZED';
 const RPC_CONNECT_TIMEOUT = 'RPC_CONNECT_TIMEOUT';
 
+function _loadStoredToken(key, localStorage, sessionStorage) {
+    const localToken = localStorage.getItem(key);
+    const sessionToken = sessionStorage.getItem(key);
+
+    return {
+        token: sessionToken || localToken,
+        persistent: Boolean(localToken)
+    };
+}
 
 function _createUnauthorizedException(message) {
     const error = new Error(message);
@@ -15,14 +25,15 @@ function _createUnauthorizedException(message) {
     return error;
 }
 
-export default function(action$, { api }) {
+export default function(action$, { api, localStorage, sessionStorage }) {
     return action$
         .ofType(RESTORE_SESSION)
-        .flatMap(action => {
-            const { token } = action.payload;
+        .flatMap(() => {
+            const { token, persistent } = _loadStoredToken(sessionTokenKey, localStorage, sessionStorage);
+
             if (!token) {
                 const error = _createUnauthorizedException('Token not available');
-                throw { token, error };
+                return Rx.Observable.of(failRestoreSession(token, error));
             }
 
             api.options.auth_token = token;
@@ -32,7 +43,7 @@ export default function(action$, { api }) {
                         throw _createUnauthorizedException('Account not found');
                     }
 
-                    return completeRestoreSession(token, sessionInfo);
+                    return completeRestoreSession(token, sessionInfo, persistent);
                 })
                 .retryWhen(errors => {
                     return errors
@@ -46,11 +57,8 @@ export default function(action$, { api }) {
                         .delay(readAuthRetryDelay);
                 })
                 .catch(error => {
-                    throw { token, error };
+                    if (error.rpc_code !== UNAUTHORIZED) throw error;
+                    return Rx.Observable.of(failRestoreSession(token, error));
                 });
-        })
-        .catch(({ token, error }) => {
-            if (error.rpc_code !== UNAUTHORIZED) throw error;
-            return Rx.Observable.of(failRestoreSession(token, error));
         });
 }

@@ -7,7 +7,7 @@ import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { navigateTo } from 'actions';
 import { deepFreeze, keyByProperty } from 'utils/core-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openObjectPreviewModal } from 'action-creators';
 import { systemInfo, sessionInfo } from 'model';
 import { getResourceTypeIcon } from 'utils/ui-utils';
@@ -66,7 +66,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
     }
 
     onPreviewFile() {
-        dispatch(openObjectPreviewModal(this.s3SignedUrl()));
+        action$.onNext(openObjectPreviewModal(this.s3SignedUrl()));
     }
 
     onDownloadClick() {

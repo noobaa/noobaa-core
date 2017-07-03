@@ -8,7 +8,7 @@ import { loadCloudBucketList, createCloudResource } from 'actions';
 import nameValidationRules from 'name-validation-rules';
 import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/ui-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openAddCloudConnectionModal } from 'action-creators';
 
 const addConnectionOption = deepFreeze({
@@ -65,7 +65,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
                     _connection(value);
                 } else {
                     _connection(_connection() || null);
-                    dispatch(openAddCloudConnectionModal());
+                    action$.onNext(openAddCloudConnectionModal());
                 }
             }
         })

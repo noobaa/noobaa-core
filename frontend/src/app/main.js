@@ -11,11 +11,13 @@ import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
 import page from 'page';
 import configureRouter from 'routing';
-import { action$, dispatch } from 'state';
+import { action$, state$ } from 'state';
 import { api, AWS } from 'services';
-import { start } from 'actions';
+import { restoreSession } from 'action-creators';
+import devCLI from 'dev-cli';
 import actionsModelBridge from 'actions-model-bridge';
 import rootEpic from 'epics';
+import installStateSideEffects from 'state-side-effects';
 
 function configureKnockout(ko) {
     // Enable knockout 3.4 deferred updates.
@@ -38,7 +40,7 @@ function configureKnockout(ko) {
     registerComponents(ko);
 }
 
-function registerEpics(action$, dispatch) {
+function registerSideEffects(action$, state$) {
     const injectedServices = {
         random: Math.random,
         getTime: Date.now,
@@ -50,7 +52,10 @@ function registerEpics(action$, dispatch) {
     };
 
     rootEpic(action$, injectedServices)
-        .subscribe(dispatch);
+        .filter(Boolean)
+        .subscribe(action$);
+
+    installStateSideEffects(state$, injectedServices);
 }
 
 configureKnockout(ko);
@@ -58,13 +63,17 @@ configureKnockout(ko);
 // Configure the appliction router.
 configureRouter(page);
 
-registerEpics(action$, dispatch);
+registerSideEffects(action$, state$);
 
 // Bridge between the action stream and the old model
 actionsModelBridge(action$);
 
+// Mount dev cli on the global scope.
+global.nb = devCLI;
+
 // Bind the ui to the
 ko.applyBindings(null);
 
-// start the application.
-start();
+action$.onNext(restoreSession());
+
+

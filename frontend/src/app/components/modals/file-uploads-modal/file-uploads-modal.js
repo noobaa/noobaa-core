@@ -2,7 +2,7 @@
 
 import template from './file-uploads-modal.html';
 import Observer from 'observer';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import UploadRowViewModel from './upload-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
@@ -67,7 +67,7 @@ class FileUploadsModalViewModel extends Observer {
     }
 
     onClearCompeleted() {
-        dispatch(clearCompletedObjectUploads());
+        action$.onNext(clearCompletedObjectUploads());
     }
 
     _getCurrentUploadProgressText({ uploading, batchSize, batchLoaded }) {

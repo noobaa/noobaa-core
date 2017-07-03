@@ -290,7 +290,7 @@ export function reverse(iterable) {
 
 export function get(val, path) {
     for (const part of path) {
-        if (isUndefined(val)) break;
+        if (val == null) break;
         val = val[part];
     }
     return val;

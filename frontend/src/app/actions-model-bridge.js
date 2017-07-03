@@ -29,8 +29,6 @@ function onCompleteFetchSystemInfo(payload) {
 }
 
 function onCompleteSignIn(payload) {
-    const storage = payload.persistent ? localStorage : sessionStorage;
-    storage.setItem('sessionToken', payload.token);
     model.sessionInfo(payload);
     model.loginInfo({ retryCount: 0 });
     refresh();
@@ -55,8 +53,6 @@ function onCompleteRestoreSession(payload) {
 function onFailRestoreSession({ error }) {
     if (error.rpc_code === 'UNAUTHORIZED') {
         if (api.options.auth_token) {
-            sessionStorage.removeItem('sessionToken');
-            localStorage.removeItem('sessionToken');
             api.options.auth_token = undefined;
         }
 
@@ -67,8 +63,6 @@ function onFailRestoreSession({ error }) {
 }
 
 function onSignOut() {
-    sessionStorage.removeItem('sessionToken');
-    localStorage.removeItem('sessionToken');
     api.options.auth_token = undefined;
     model.sessionInfo(null);
     refresh();
@@ -77,7 +71,6 @@ function onSignOut() {
 function onCompleteCreateSystem(payload) {
     const { token, system } = payload;
     api.options.auth_token = token;
-    sessionStorage.setItem('sessionToken', token);
     model.sessionInfo(payload);
     redirectTo(routes.system, { system }, { welcome: true });
 }

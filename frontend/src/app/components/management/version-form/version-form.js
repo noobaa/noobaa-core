@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { upgradeSystem as upgradeSystemAction } from 'actions';
 import { upgradeSystem } from 'action-creators';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { upgradePackageSuffix } from 'config';
 
 const licenseInfoLink =
@@ -71,7 +71,7 @@ class AboutFormViewModel extends BaseViewModel {
 
     onUpgrade(upgradePackage) {
         // REFACTOR - should be merged into one dispatcher (upgradeSystem)
-        dispatch(upgradeSystem(upgradePackage));
+        action$.onNext(upgradeSystem(upgradePackage));
         upgradeSystemAction(upgradePackage);
     }
 }

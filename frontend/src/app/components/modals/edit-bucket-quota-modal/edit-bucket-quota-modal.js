@@ -6,7 +6,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, formatSize, toBytes } from 'utils/size-utils';
 import style from 'style';
 import ko from 'knockout';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import { updateBucketQuota } from 'action-creators';
 
 const units = deepFreeze({
@@ -201,7 +201,7 @@ class EditBucketQuotaModalViewModel extends Observer {
                 { unit: this.quotaUnit(), size: Number(this.quotaSize()) } :
                 null;
 
-            dispatch(updateBucketQuota(this.bucketName, quota));
+            action$.onNext(updateBucketQuota(this.bucketName, quota));
             this.close();
         }
     }

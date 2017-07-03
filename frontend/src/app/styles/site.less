@@ -94,10 +94,6 @@ pre {
     border-color: transparent;
 }
 
-body:not(.preview) .preview-only {
-    display: none !important;
-}
-
 .text-center {
     text-align: center;
 }
@@ -367,4 +363,17 @@ body:not(.preview) .preview-only {
     -ms-user-select: none; /* Internet Explorer/Edge */
     user-select: none; /* Non-prefixed version, currently
     not supported by any browser */
+}
+
+.beta-tag::after {
+    content: 'BETA';
+    display: inline-block;
+    background: @color16;
+    border-radius: 6px;
+    font-size: 10px;
+    padding: 2px;
+    opacity: 1;
+    line-height: 1.1;
+    color: @color5;
+    font-weight: 500;
 }

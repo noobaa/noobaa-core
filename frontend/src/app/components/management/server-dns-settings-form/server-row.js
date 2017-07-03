@@ -4,7 +4,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openEditServerDNSSettingsModal } from 'action-creators';
 
 const stateIconMapping = deepFreeze({
@@ -67,7 +67,7 @@ export default class ServerRowViewModel extends BaseViewModel {
 
         this.actions = {
             text: 'Edit',
-            click: () => dispatch(openEditServerDNSSettingsModal(server().secret))
+            click: () => action$.onNext(openEditServerDNSSettingsModal(server().secret))
         };
     }
 }

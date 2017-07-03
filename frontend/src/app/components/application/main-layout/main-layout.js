@@ -7,88 +7,89 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { registerForAlerts } from 'actions';
-import { sessionInfo } from 'model';
 import * as routes from 'routes';
+import routeMapping from './route-mapping';
 
 const navItems = deepFreeze([
     /*{
-        name: 'name',
-        route: routes.<route>, (see routes.js)
+        route: 'route name', (see routes.js)
         icon: 'icon',
         label: 'label', (display name, optional)
-        beta: true/false, (show beta label)
+        beta: true/false, (shows a beta label)
         preview: true/false (hide when browser not in preview mode)
     },*/
     {
-        name: 'overview',
-        route: routes.system,
+        route: 'system',
         icon: 'overview',
         label: 'Overview'
     },
     {
-        name: 'resources',
-        route: routes.pools,
+        route: 'pools',
         icon: 'resources',
         label: 'Resources'
     },
     {
-        name: 'buckets',
-        route: routes.buckets,
+        route: 'buckets',
         icon: 'buckets',
         label: 'Buckets'
     },
     {
-        name: 'funcs',
-        route: routes.funcs,
+        route: 'funcs',
         icon: 'functions',
         label: 'Functions',
         beta: true
     },
     {
-        name: 'cluster',
-        route: routes.cluster,
+        route: 'cluster',
         icon: 'cluster',
         label: 'Cluster'
     },
     {
-        name: 'management',
-        route: routes.management,
+        route: 'management',
         icon: 'manage',
         label: 'Management'
     }
 ]);
 
+function _mapNavItem(item) {
+    const { icon, label, beta, preview, route: name } = item;
+    const url = ko.observable();
+    return { name, url, icon, label, beta, preview };
+}
+
 class MainLayoutViewModel extends Observer {
     constructor() {
         super();
 
-        this.navItems = navItems.map(
-            item => ({
-                ...item,
-                url: realizeUri(item.route, { system: sessionInfo().system })
-            })
-        );
-        this.breadcrumbs = ko.observable([]);
+        this.logoHref = ko.observable();
+        this.navItems = navItems.map(_mapNavItem);
+        this.breadcrumbs = ko.observableArray();
         this.area = ko.observable();
-        this.panel = ko.observable('');
+        this.panel = ko.observable();
         this.isUploadButtonVisible = ko.observable(false);
 
 
-        this.observe(state$.get('layout'), this.onLayout);
-        this.observe(state$.get('accounts', sessionInfo().user), this.onAccount);
+        this.observe(state$.get('location'), this.onLocation);
+        this.observe(state$.getMany('accounts', ['session', 'user']), this.onAccount);
+
         registerForAlerts();
     }
 
-    onLayout(layout) {
-        const { breadcrumbs, area, panel } = layout;
+    onLocation(location) {
+        const { route, params } = location;
+        const { system } = params;
+        const { panel, area, crumbsGenerator } = routeMapping[route] || {};
 
-        this.breadcrumbs(breadcrumbs);
+        this.logoHref(realizeUri(routes.system, { system }));
+        this.breadcrumbs(crumbsGenerator(params));
+        this.navItems.forEach(item => item.url(realizeUri(routes[item.name], { system })));
         this.area(area);
         this.panel(panel ? `${panel}-panel` : 'empty');
 
     }
 
-    onAccount(account) {
+    onAccount([ accounts, user ]) {
+        const account = accounts[user];
         this.isUploadButtonVisible(account && account.isOwner);
     }
 }

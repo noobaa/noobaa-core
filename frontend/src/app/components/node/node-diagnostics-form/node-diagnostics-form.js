@@ -5,7 +5,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { collectDiagnosticsState } from 'model';
 import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openTestNodeModal } from 'action-creators';
 
 class NodeDiagnosticsFormViewModel extends BaseViewModel {
@@ -87,7 +87,7 @@ class NodeDiagnosticsFormViewModel extends BaseViewModel {
     }
 
     onRunTest() {
-        dispatch(openTestNodeModal(this.rpcAddress()));
+        action$.onNext(openTestNodeModal(this.rpcAddress()));
     }
 }
 

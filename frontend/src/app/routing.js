@@ -1,17 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { parseQueryString } from 'utils/browser-utils';
+import { noop } from 'utils/core-utils';
+import { parseQueryString, realizeUri } from 'utils/browser-utils';
 import { sessionInfo } from 'model';
 import * as routes from 'routes';
 import * as actions from 'actions';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { changeLocation } from 'action-creators';
-import { realizeUri } from 'utils/browser-utils';
 
 const { protocol } = location;
 
-// General midlleware that saves the current route contexts.
-function saveContext(ctx, next) {
+// General midlleware that enhance the current route contexts.
+function enhanceContext(ctx, next) {
     ctx.query = parseQueryString(ctx.querystring);
     ctx.protocol = protocol.substr(0, protocol.length - 1);
     next();
@@ -20,7 +20,6 @@ function saveContext(ctx, next) {
 // General middleware that check for authorization redner login screen if neccecery.
 function authorize(ctx, next) {
     if (!sessionInfo() || sessionInfo().passwordExpired) {
-
         actions.showLogin();
     } else {
         next();
@@ -33,23 +32,23 @@ function ensureSystemInfo(ctx, next) {
     next();
 }
 
-// General middleware to dispatch an action about the changed location.
+// General middleware to generate an action about the changed location.
 function updateStateAboutLocation(route, ctx, next) {
     const { pathname, params: _params, query } = ctx;
     const { ['0']: _, ...params } = _params;
-    dispatch(changeLocation({ route, pathname, params, query }));
+    action$.onNext(changeLocation({ route, pathname, params, query }));
 
     next();
 }
 
 // Register
-function registerRouteHandler(page, route, handler) {
+function registerRouteHandler(page, route, extra = noop) {
     page(
         route,
         (ctx, next) => updateStateAboutLocation(route, ctx, next),
         authorize,
         ensureSystemInfo,
-        handler
+        extra
     );
 }
 
@@ -71,20 +70,21 @@ function registerUnknownRouteHandler(page) {
 export default function routing(page) {
 
     // Global general middlewares.
-    page('*', saveContext);
+    page('*', enhanceContext);
 
     // Screens handlers.
-    registerRouteHandler(page, routes.system, actions.showOverview);
-    registerRouteHandler(page, routes.buckets, actions.showBuckets);
-    registerRouteHandler(page, routes.bucket, actions.showBucket);
+    registerRouteHandler(page, routes.system);
+    registerRouteHandler(page, routes.buckets);
+    registerRouteHandler(page, routes.bucket);
+    registerRouteHandler(page, routes.nsBucket);
     registerRouteHandler(page, routes.object, actions.showObject);
-    registerRouteHandler(page, routes.pools,  actions.showResources);
+    registerRouteHandler(page, routes.pools);
     registerRouteHandler(page, routes.pool, actions.showPool);
     registerRouteHandler(page, routes.node, actions.showNode);
-    registerRouteHandler(page, routes.account, actions.showAccount);
-    registerRouteHandler(page, routes.management, actions.showManagement);
-    registerRouteHandler(page, routes.cluster, actions.showCluster);
-    registerRouteHandler(page, routes.server, actions.showServer);
+    registerRouteHandler(page, routes.account);
+    registerRouteHandler(page, routes.management);
+    registerRouteHandler(page, routes.cluster);
+    registerRouteHandler(page, routes.server);
     registerRouteHandler(page, routes.funcs, actions.showFuncs);
     registerRouteHandler(page, routes.func, actions.showFunc);
 

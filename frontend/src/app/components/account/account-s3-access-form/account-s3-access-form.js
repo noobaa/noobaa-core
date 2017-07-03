@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-s3-access-form.html';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import Observer from 'observer';
 import ko from 'knockout';
 import { openEditAccountS3AccessModal, openSetAccountIpRestrictions } from 'action-creators';
@@ -120,11 +120,11 @@ class AccountS3AccessFormViewModel extends Observer {
     }
 
     onEditS3Access() {
-        dispatch(openEditAccountS3AccessModal(this.accountName()));
+        action$.onNext(openEditAccountS3AccessModal(this.accountName()));
     }
 
     onSetIPRestrictions() {
-        dispatch(openSetAccountIpRestrictions(this.accountName()));
+        action$.onNext(openSetAccountIpRestrictions(this.accountName()));
     }
 
     showRegenerateAccountCredentialsModal() {

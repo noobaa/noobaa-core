@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+export * from './env-actions';
 export * from './ui-actions';
 export * from './common-actions';
 export * from './session-actions';

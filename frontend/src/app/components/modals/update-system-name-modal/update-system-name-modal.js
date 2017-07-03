@@ -4,7 +4,7 @@ import template from './update-system-name-modal.html';
 import BaseViewModel from 'components/base-view-model';
 import { updateHostname } from 'actions';
 import ko from 'knockout';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { lockModal } from 'action-creators';
 
 class UpdatingSystemNameModalViewModel extends BaseViewModel {
@@ -18,7 +18,7 @@ class UpdatingSystemNameModalViewModel extends BaseViewModel {
 
     update() {
         this.updating(true);
-        dispatch(lockModal());
+        action$.onNext(lockModal());
         updateHostname(ko.unwrap(this.name));
     }
 

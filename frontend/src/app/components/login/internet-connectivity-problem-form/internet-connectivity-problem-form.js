@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { serverInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { loadServerInfo } from 'actions';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openUnableToActivateModal } from 'action-creators';
 
 const hasConnectivityOptions = deepFreeze([
@@ -86,7 +86,7 @@ class LoadingServerInformationFormViewModel extends BaseViewModel {
     }
 
     onMoreDetails() {
-        dispatch(openUnableToActivateModal(this.faliureReason()));
+        action$.onNext(openUnableToActivateModal(this.faliureReason()));
     }
 }
 

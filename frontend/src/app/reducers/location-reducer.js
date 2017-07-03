@@ -6,7 +6,7 @@ import { CHANGE_LOCATION } from 'action-types';
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = null;
+const initialState = undefined;
 
 // ------------------------------
 // Action Handlers

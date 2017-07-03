@@ -3,7 +3,7 @@
 import template from './func-panel.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { funcInfo, uiState } from 'model';
+import { funcInfo, routeContext } from 'model';
 
 class FuncPanelViewModel extends BaseViewModel {
     constructor() {
@@ -12,7 +12,7 @@ class FuncPanelViewModel extends BaseViewModel {
         this.func = funcInfo;
 
         this.selectedTab = ko.pureComputed(
-            () => uiState().tab
+            () => routeContext().params.tab || 'monitoring'
         );
     }
 

@@ -10,14 +10,11 @@ import {
     FAIL_RESTORE_SESSION
 } from 'action-types';
 
-export function restoreSession(token) {
-    return {
-        type: RESTORE_SESSION,
-        payload: { token }
-    };
+export function restoreSession() {
+    return { type: RESTORE_SESSION };
 }
 
-export function completeRestoreSession(token, sessionInfo) {
+export function completeRestoreSession(token, sessionInfo, persistent = false) {
     const { account, system } = sessionInfo;
     return {
         type: COMPLETE_RESTORE_SESSION,
@@ -26,7 +23,7 @@ export function completeRestoreSession(token, sessionInfo) {
             user: account.email,
             system: system.name,
             passwordExpired: Boolean(account.must_change_password),
-            persistent: true
+            persistent: persistent
         }
     };
 }
@@ -38,14 +35,14 @@ export function failRestoreSession(token, error) {
     };
 }
 
-export function signIn(email, password, keepSessionAlive = false) {
+export function signIn(email, password, persistent = false) {
     return {
         type: SIGN_IN,
-        payload: { email, password, keepSessionAlive }
+        payload: { email, password, persistent }
     };
 }
 
-export function completeSignIn(token, sessionInfo) {
+export function completeSignIn(token, sessionInfo, persistent) {
     const { account, system } = sessionInfo;
     return {
         type: COMPLETE_SIGN_IN,
@@ -54,7 +51,7 @@ export function completeSignIn(token, sessionInfo) {
             user: account.email,
             system: system.name,
             passwordExpired: Boolean(account.must_change_password),
-            persistent: true
+            persistent: persistent
         }
     };
 }

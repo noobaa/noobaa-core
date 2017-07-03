@@ -1,13 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './bucket-s3-access-list.html';
+import template from './bucket-s3-access-table.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo, routeContext } from 'model';
-import S3AccessRowViewModel from './s3-access-row';
+import AccountRowViewModel from './account-row';
 import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openBucketS3AccessModal } from 'action-creators';
 
 const columns = deepFreeze([
@@ -80,13 +80,13 @@ class BucketS3AccessListViewModel extends BaseViewModel {
     }
 
     onEditS3Access() {
-        dispatch(openBucketS3AccessModal(
+        action$.onNext(openBucketS3AccessModal(
             ko.unwrap(this.bucketName)
         ));
     }
 
-    createS3AccessRow(accessRow) {
-        return new S3AccessRowViewModel(accessRow);
+    createS3AccessRow(accountRow) {
+        return new AccountRowViewModel(accountRow);
     }
 }
 

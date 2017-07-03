@@ -2,7 +2,7 @@
 
 import template from './cluster-panel.html';
 import BaseViewModel from 'components/base-view-model';
-import { uiState } from 'model';
+import { routeContext } from 'model';
 
 class ClusterPanelViewModel extends BaseViewModel {
     tabHref(tab) {
@@ -14,7 +14,7 @@ class ClusterPanelViewModel extends BaseViewModel {
 
     tabCss(tab) {
         return {
-            selected: uiState().tab === tab
+            selected: (routeContext().params.tab  || 'servers') === tab
         };
     }
 }

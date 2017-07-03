@@ -8,7 +8,7 @@ import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/ui-utils';
 import { openAddCloudConnectionModal } from 'action-creators';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 
@@ -115,7 +115,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
                     _connection(value);
                 } else {
                     _connection(_connection() || null);
-                    dispatch(openAddCloudConnectionModal());
+                    action$.onNext(openAddCloudConnectionModal());
                 }
             }
         })

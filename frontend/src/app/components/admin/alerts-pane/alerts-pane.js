@@ -3,7 +3,7 @@
 import template from './alerts-pane.html';
 import Observer from 'observer';
 import AlertRowViewModel from './alert-row';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze, last } from 'utils/core-utils';
 import { infinitScrollPageSize } from 'config';
@@ -83,7 +83,7 @@ class AlertsPaneViewModel extends Observer {
             undefined;
 
 
-        dispatch(fetchAlerts({ severity, read }, infinitScrollPageSize));
+        action$.onNext(fetchAlerts({ severity, read }, infinitScrollPageSize));
         this.scroll(0);
     }
 
@@ -99,7 +99,7 @@ class AlertsPaneViewModel extends Observer {
 
     markRowAsRead(row) {
         const ids = [row.id()];
-        dispatch(updateAlerts({ ids, read: false }, true));
+        action$.onNext(updateAlerts({ ids, read: false }, true));
     }
 
     markListAsRead() {
@@ -107,11 +107,11 @@ class AlertsPaneViewModel extends Observer {
             this.severityFilter() :
             undefined;
 
-        dispatch(updateAlerts({severity, read: false }, true));
+        action$.onNext(updateAlerts({severity, read: false }, true));
     }
 
     dispose() {
-        dispatch(dropAlerts());
+        action$.onNext(dropAlerts());
         super.dispose();
     }
 
@@ -127,7 +127,7 @@ class AlertsPaneViewModel extends Observer {
             this.severityFilter() :
             undefined;
 
-        dispatch(fetchAlerts({ severity, read, till }, infinitScrollPageSize));
+        action$.onNext(fetchAlerts({ severity, read, till }, infinitScrollPageSize));
     }
 }
 

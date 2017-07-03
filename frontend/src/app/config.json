@@ -9,6 +9,8 @@
     "serverRestartWaitInterval": 20000,
     "readAuthRetryCount": 2,
     "readAuthRetryDelay": 1000,
+    "sessionTokenKey": "sessionToken",
+    "previewContentKey": "previewContent",
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

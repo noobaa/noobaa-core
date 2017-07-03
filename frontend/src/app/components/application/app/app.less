@@ -3,4 +3,8 @@
 app {
     display: block;
     height: 100%;
+
+    > :not(.preview) .preview-only {
+        display: none !important;
+    }
 }

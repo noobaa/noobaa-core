@@ -10,7 +10,7 @@ import moment from 'moment';
 import { deepFreeze } from 'utils/core-utils';
 import { sleep } from 'utils/promise-utils';
 import { calcPasswordStrength } from 'utils/password-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 
 const activationFaliureReasonMapping = deepFreeze({
     ACTIVATION_CODE_IN_USE: 'Activation code is already in use',
@@ -28,7 +28,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
         this.step = ko.observable(0);
         this.wasValidated = ko.observable(false);
         this.creatingSystem = ko.observable(false);
-        
+
         let serverConfig = ko.pureComputed(
             () => serverInfo() ? serverInfo().config : {}
         );
@@ -210,7 +210,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
         };
 
         if (this.validateStep(this.step())) {
-            dispatch(createSystem(
+            action$.onNext(createSystem(
                 this.activationCode(),
                 this.email(),
                 this.password(),

@@ -7,7 +7,7 @@ export default function(action$, { api }) {
     return action$
         .ofType(SIGN_IN)
         .flatMap(async action => {
-            const { email, password } = action.payload;
+            const { email, password, persistent } = action.payload;
 
             try {
                 await api.create_auth_token({ email, password });
@@ -15,7 +15,7 @@ export default function(action$, { api }) {
                 const { name: system } = systems[0];
                 const { token, info } = await api.create_auth_token({ system, email, password });
 
-                return completeSignIn(token, info);
+                return completeSignIn(token, info, persistent);
 
             } catch (error) {
                 return failSignIn(email, error);

@@ -7,7 +7,7 @@ import moment from 'moment';
 import { removeCloudSyncPolicy, toogleCloudSync } from 'actions';
 import { bitsToNumber } from 'utils/core-utils';
 import { formatDuration } from 'utils/string-utils';
-import { dispatch } from 'state';
+import { action$ } from 'state';
 import { openSetCloudSyncModal, openEditCloudSyncModal } from 'action-creators';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
@@ -168,13 +168,13 @@ class BucketCloudSyncFormViewModel extends BaseViewModel {
     }
 
     onSetPolicy() {
-        dispatch(openSetCloudSyncModal(
+        action$.onNext(openSetCloudSyncModal(
             ko.unwrap(this.bucketName())
         ));
     }
 
     onEditPolicy() {
-        dispatch(openEditCloudSyncModal(
+        action$.onNext(openEditCloudSyncModal(
             ko.unwrap(this.bucketName())
         ));
     }

@@ -3,7 +3,7 @@
 import template from './install-nodes-modal.html';
 import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
-import { state$, dispatch } from 'state';
+import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { fetchNodeInstallationCommands } from 'action-creators';
@@ -99,7 +99,7 @@ class InstallNodeWizardViewModel extends Observer {
 
         if (step === 1) {
             // If moving to last step, fetch the intallation commands.
-            dispatch(fetchNodeInstallationCommands(
+            action$.onNext(fetchNodeInstallationCommands(
                 form.targetPool(),
                 form.excludedDrives()
             ));

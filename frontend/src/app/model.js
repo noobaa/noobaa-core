@@ -2,13 +2,6 @@
 
 import ko from 'knockout';
 
-export const previewMode = ko.observable(false);
-
-// Hold the current ui state.
-export const uiState = ko.observable({
-    layout: 'empty'
-});
-
 // Hold the current route context. The rate limit delay the route context change notification
 // in order to let knockout time t teardown and dispose view models that may be depended on
 // the route context value (mainly it's parameters).
@@ -31,9 +24,6 @@ export const systemInfo = ko.observable();
 
 // Hold the current bucket object list.
 export const bucketObjectList = ko.observable();
-
-// Hold the current bucket S3 access permissions.
-export const bucketS3ACL = ko.observableArray();
 
 // Hold the current cloud sync information.
 export const cloudBucketList = ko.observableArray();

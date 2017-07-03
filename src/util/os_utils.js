@@ -95,7 +95,7 @@ function read_drives() {
 function get_raw_storage() {
     if (os.type() === 'Linux') {
         return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
-            .then(res => _.find(res, function (disk) {
+            .then(res => _.find(res, function(disk) {
                 return disk.NAME === 'sda';
             }))
             .then(disk => parseInt(disk.SIZE, 10));

@@ -8,8 +8,20 @@ var steps = [
         common: 'clean_server_for_run',
     },
     {
-        //Run unit tests
-        name: 'Unit Tests',
+        //Run FE Unit tests
+        name: 'FE Unit Tests',
+        action: 'gulp',
+        params: [{
+            arg: '--cwd'
+        }, {
+            arg: 'frontend'
+        }, {
+            arg: 'test'
+        }]
+    },
+    {
+        //Run BE Unit tests
+        name: 'BE Unit Tests',
         action: 'npm',
         params: [{
             arg: 'run',

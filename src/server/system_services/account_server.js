@@ -377,14 +377,14 @@ function update_account(req) {
         allowed_ips: params.ips === null ? true : undefined
     };
 
-    //Create the event description according to the changes performed    
+    //Create the event description according to the changes performed
     let event_desc = '';
     if (params.new_email && params.new_email !== params.email) {
         event_desc += `Email address changed from ${params.email} to ${params.new_email}. `;
     }
     if (account.allowed_ips !== params.ips) {
         if (params.ips === null) {
-            event_desc += `Restriction for IPs were removed`
+            event_desc += `Restriction for IPs were removed`;
         } else {
             event_desc += `Allowed IPs were changed to ` + params.ips.toString().replace(/,/g, ', ');
         }

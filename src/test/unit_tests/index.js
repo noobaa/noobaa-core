@@ -34,5 +34,5 @@ require('./test_http_utils');
 require('./test_v8_optimizations');
 require('./test_native_core_crypto');
 require('./test_zip_utils');
-// require('./test_wait_queue');
+require('./test_wait_queue');
 // require('./test_debug_module');

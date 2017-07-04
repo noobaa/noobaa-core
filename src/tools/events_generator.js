@@ -120,9 +120,14 @@ EventsGenerator.prototype.init = function() {
     //Init all ObjectIDs of the entities in the system, ndoes and objects don't have to exist
     return promise_utils.exec('mongo nbcore --eval "db.systems.findOne({},{_id:1})" --quiet | grep _id', false, true)
         .then(res => {
-            const location = res.indexOf('Obj') + 10;
-            sysid = new ObjectId(res.substring(location, location + 24));
-            return promise_utils.exec('mongo nbcore --eval "db.buckets.findOne({},{_id:1})" --quiet | grep _id', false, true);
+            if (res) {
+                const location = res.indexOf('Obj') + 10;
+                sysid = new ObjectId(res.substring(location, location + 24));
+                return promise_utils.exec('mongo nbcore --eval "db.buckets.findOne({},{_id:1})" --quiet | grep _id', false, true);
+            } else {
+                console.info('No system, aborting...');
+                process.exit(0);
+            }
         })
         .then(bucket => {
             const location = bucket.indexOf('Obj') + 10;
@@ -248,10 +253,31 @@ EventsGenerator.prototype.generate_audit = function(num, cat) {
             count += 1;
             const chosen = Math.floor(Math.random() * (logs_size));
             return P.resolve()
-                .then(() => console.warn('NBNB:: Audit', events_pool[chosen]))
                 .then(() => Dispatcher.instance().activity(events_pool[chosen]))
                 .delay(1000);
         });
+};
+EventsGenerator.prototype.send_alert = function(alert, sev, rule) {
+    return P.resolve()
+        .then(() => {
+            if (rule) {
+                if (!Dispatcher.rules[rule]) {
+                    console.warn('No such rule implemented', rule);
+                    process.exit(1);
+                }
+                return Dispatcher.instance().alert(sev,
+                    sysid,
+                    alert,
+                    Dispatcher.rules[rule]
+                );
+            } else {
+                return Dispatcher.instance().alert(sev,
+                    sysid,
+                    alert
+                );
+            }
+        })
+        .delay(500);
 };
 
 EventsGenerator.prototype.print_usage = function() {
@@ -263,6 +289,7 @@ EventsGenerator.prototype.print_usage = function() {
     console.info('\t--alert\t\tGenerate random alerts');
     console.info('\t\t\t--alnum number of alerts, default is 10');
     console.info('\t\t\t--alpri <CRIT/MAJOR/INFO/ALL>, default is ALL\n');
+    console.info('\t--sendalert\tSend an alert to the dispatcher --msg <text> --sev <severity> [--rule suppression_rule_name]');
     process.exit(0);
 };
 
@@ -319,6 +346,9 @@ function main() {
             if (argv.alert) {
                 return events.generate_alerts(argv.alnum ? argv.alnum : 10,
                     argv.alpri ? argv.alpri.toString() : 'ALL');
+            }
+            if (argv.sendalert) {
+                return events.send_alert(argv.msg, argv.sev, argv.rule);
             }
         })
         .then(() => process.exit(0));

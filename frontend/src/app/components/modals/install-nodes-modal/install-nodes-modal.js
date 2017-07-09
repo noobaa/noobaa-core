@@ -17,12 +17,15 @@ const steps = deepFreeze([
 const osTypes = deepFreeze([
     {
         value: 'LINUX',
-        label: 'Linux'
+        label: 'Linux',
+        hint: 'Run using a privileged user'
     },
     {
         value: 'WINDOWS',
-        label: 'Windows'
+        label: 'Windows',
+        hint: 'Run using PowerShell'
     }
+
 ]);
 
 const drivesInputPlaceholder =
@@ -40,6 +43,7 @@ class InstallNodeWizardViewModel extends Observer {
         this.osTypes = osTypes;
         this.drivesInputPlaceholder = drivesInputPlaceholder;
         this.poolOptions = ko.observable();
+        this.osHint = ko.observable();
         this.form = new FormViewModel({
             name: formName,
             fields: {
@@ -56,7 +60,8 @@ class InstallNodeWizardViewModel extends Observer {
             groups: {
                 0: ['targetPool']
             },
-            onValidate: this.onValidate
+            onValidate: this.onValidate,
+            onForm: this.onForm.bind(this)
         });
 
         this.observe(
@@ -76,6 +81,12 @@ class InstallNodeWizardViewModel extends Observer {
         }
 
         return errors;
+    }
+
+    onForm({ fields })  {
+        const { value: selectedOs } = fields.selectedOs;
+        const { hint } = osTypes.find(os => os.value === selectedOs);
+        this.osHint(hint);
     }
 
     onBeforeStep(step) {

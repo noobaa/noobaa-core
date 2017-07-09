@@ -4,11 +4,12 @@ import {
     FAIL_CREATE_ACCOUNT,
     COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
     FAIL_UPDATE_ACCOUNT_S3_ACCESS,
-    FAIL_UPDATE_BUCKET_QUOTA,
     COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
     FAIL_SET_ACCOUNT_IP_RESTRICTIONS,
     COMPLETE_CHANGE_ACCOUNT_PASSWORD,
-    FAIL_CHANGE_ACCOUNT_PASSWORD
+    FAIL_CHANGE_ACCOUNT_PASSWORD,
+    COMPLETE_UPDATE_BUCKET_QUOTA,
+    FAIL_UPDATE_BUCKET_QUOTA
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -24,11 +25,6 @@ const actionToNotification = deepFreeze({
 
     [FAIL_UPDATE_ACCOUNT_S3_ACCESS]: ({ accountName }) => ({
         message: `Updating ${accountName} S3 access failed`,
-        severity: 'error'
-    }),
-
-    [FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
-        message: `Updating quota for ${bucket} failed`,
         severity: 'error'
     }),
 
@@ -49,6 +45,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_CHANGE_ACCOUNT_PASSWORD]: ({ accountName }) => ({
         message: `Changing ${accountName} password failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
+        message: `${bucket} quota updated successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
+        message: `Updating quota for ${bucket} failed`,
         severity: 'error'
     })
 });

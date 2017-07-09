@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 2800] */
+/* eslint max-lines: ['error', 3000] */
 'use strict';
 
 const _ = require('lodash');
@@ -869,7 +869,17 @@ class NodesMonitor extends EventEmitter {
                         // to prevent collisions.
                         if (item.node_from_store) {
                             if (info.host_id !== item.node.host_id) {
-                                dbg.error(`inconsistent host_id sent by agent. original is ${item.node.host_id} now received ${info.host_id}`);
+                                dbg.warn(`agent sent different host_id than the one stored in DB. updating from ${item.node.host_id} to ${info.host_id}`);
+                                // if host id changed then we should change it for all agents of this host for consistnecy
+                                const host_nodes = this._map_host_id.get(item.node.host_id);
+                                if (host_nodes) {
+                                    for (const update_item of host_nodes) {
+                                        update_item.node.host_id = info.host_id;
+                                        this._add_node_to_hosts_map(info.host_id, update_item);
+                                        this._set_need_update.add(update_item);
+                                    }
+                                    this._map_host_id.delete(item.node.host_id);
+                                }
                             }
                         } else {
                             updates.name = info.name;
@@ -894,7 +904,8 @@ class NodesMonitor extends EventEmitter {
                                 (!info.s3_agent && use_storage && this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drives));
                             dbg.log0(`first call to get_agent_info. ${info.s3_agent ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
                             if (!should_start_service) {
-                                item.node.decommissioning = item.node.decommissioned = Date.now();
+                                item.node.decommissioned = Date.now();
+                                item.node.decommissioning = item.node.decommissioned;
                             }
                         }
                     })

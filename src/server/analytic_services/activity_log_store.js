@@ -63,9 +63,9 @@ class ActivityLogStore {
 
         let time;
         if (till) {
-            time = { $lt: till };
+            time = { $lt: new Date(till) };
         } else if (since) {
-            time = { $gt: since };
+            time = { $gt: new Date(since) };
         }
 
         let event_regex;

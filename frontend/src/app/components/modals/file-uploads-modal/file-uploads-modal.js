@@ -56,14 +56,13 @@ class FileUploadsModalViewModel extends Observer {
         this.uploaded(stats.uploaded);
         this.progress(stats.batchLoaded / stats.batchSize);
         this.progressText(progressText);
-        this.rows(
-            Array.from(objects).reverse().map(
-                (obj, i) => {
-                    const row = this.rows()[i] || new UploadRowViewModel();
-                    row.update(obj);
-                    return row;
-                }
-            )
+        this.rows(Array.from(objects)
+            .reverse()
+            .map((obj, i) => {
+                const row = this.rows()[i] || new UploadRowViewModel();
+                row.update(obj);
+                return row;
+            })
         );
     }
 

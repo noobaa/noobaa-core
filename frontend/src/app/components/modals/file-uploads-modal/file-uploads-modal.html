@@ -4,17 +4,17 @@
     <div class="column greedy">
         <h2 class="heading3">Upload progress</h2>
 
-        <div class="row" data-bind="visible: uploading">
-            <span class ="remark" data-bind="text: progressText"></span>
+        <div class="row" ko.visible="uploading">
+            <span class ="remark" ko.text="progressText"></span>
             <bar class="progress-bar push-prev align-middle" params="values: barValues"></bar>
         </div>
 
-        <span data-bind="visible: !uploading()">
+        <span ko.visible="!uploading()">
             No uploads running
         </span>
     </div>
 
-    <button class="btn" data-bind="click: onClearCompeleted">
+    <button class="btn" ko.click="onClearCompeleted">
         Clear Completed
     </button>
 </div>
@@ -29,35 +29,26 @@
     <span class="row success push-next content-middle">
         <svg-icon params="name: 'healthy'" class="success icon-small">
         </svg-icon>
-        <span>
-            Uploaded
-            <span data-bind="text: uploaded"></span>
-        </span>
+        <span>Uploaded {{uploaded}}</span>
     </span>
 
     <span class="row content-middle error push-both"
-        data-bind="css: { disabled: failed() === 0 }">
+        ko.css.disabled="failed() === 0">
         <svg-icon params="name: 'problem'" class="error icon-small">
         </svg-icon>
-        <span>
-            Failed
-            <span data-bind="text: failed"></span>
-        </span>
+        <span>Failed {{failed}}</span>
     </span>
 
-    <span class="row content-middle push-prev" data-bind="visible: uploading">
+    <span class="row content-middle push-prev" ko.visible="uploading">
         <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
-        <span>
-            Uploading
-            <span data-bind="text: uploading"></span>
-        </span>
+        <span>Uploading {{uploading}}</span>
     </span>
 
 
-    <span class="file-counter content-middle" data-bind="text: countText">
+    <span class="file-counter content-middle" ko.text="countText">
     </span>
 </section>
 
-<button class="btn align-end" data-bind="click: onClose">
+<button class="btn align-end" ko.click="onClose">
     Close
 </button>

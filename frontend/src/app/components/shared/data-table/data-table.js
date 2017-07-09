@@ -6,7 +6,7 @@ import ColumnViewModel from './column';
 import * as cellTemplates from './cell-templates';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { echo, isFunction } from 'utils/core-utils';
+import { isFunction } from 'utils/core-utils';
 
 const scrollThrottle = 750;
 
@@ -22,7 +22,9 @@ class DataTableViewModel extends BaseViewModel {
 
         const {
             columns = [],
-            rowFactory = echo,
+            // The default is used to strip the accessor in case the
+            // data array is the actual rows view model array
+            rowFactory = d => d(),
             data,
             sorting,
             scroll = ko.observable(),
@@ -99,57 +101,44 @@ class DataTableViewModel extends BaseViewModel {
         // Update the table rows on data change event.
         if (ko.isObservable(data)) {
             this.addToDisposeList(
-                data.subscribe(
-                    () => this.updateRows(data)
-                )
+                data.subscribe(() => this.updateRows(data))
             );
         }
     }
 
     updateRows(data) {
-        const curr = this.rows().length;
-        const target = (ko.unwrap(data) || []).length;
-        let diff = curr - target;
+        const currLen = this.rows().length;
+        const nextLen = (ko.unwrap(data) || []).length;
+        let diff = currLen - nextLen;
 
         if (diff < 0) {
-            for (let i = curr; i < target; ++i) {
-                const viewModel = this.rowFactory(
-                    () => (ko.unwrap(data) || [])[i]
-                );
-                const metaData = this.newRowMetaData(viewModel);
-
-                this.rows.push({
-                    vm: viewModel,
-                    md: metaData
-                });
+            for (let i = currLen; i < nextLen; ++i) {
+                const vm = this.rowFactory(() => (ko.unwrap(data) || [])[i]);
+                const md = this.newRowMetaData(vm);
+                this.rows.push({ vm, md });
             }
-
         } else if (diff > 0) {
             while(diff-- > 0) {
-                const viewModel = this.rows.pop().vm;
-                isFunction(viewModel.dispose) && viewModel.dispose();
+                const { vm } = this.rows.pop();
+                isFunction(vm.dispose) && vm.dispose();
             }
         }
     }
 
-    newRowMetaData(viewModel) {
+    newRowMetaData(rowVM) {
         return {
             template: this.rowTemplate,
             subRowTemplate: this.subRowTemplate,
             columnCount: this.columnCount,
-            css: ko.pureComputed(
-                () => ko.unwrap(viewModel[this.rowCssProp])
-            ),
+            css: ko.pureComputed(() => ko.unwrap(rowVM[this.rowCssProp])),
             isExpanded: ko.observable(false),
-            clickHandler: this.rowClick ?
-                () => this.rowClick(viewModel) :
-                undefined
+            clickHandler: this.rowClick && (() => this.rowClick(rowVM))
         };
     }
 
     dispose() {
         this.rows().forEach(
-            ({ vm }) => isFunction(vm.dispose) && vm.dispose()
+            row => isFunction(row.vm.dispose) && row.vm.dispose()
         );
 
         super.dispose();
@@ -158,18 +147,13 @@ class DataTableViewModel extends BaseViewModel {
 
 function viewModelFactory(params, info) {
     const templates = info.templateNodes
-        .filter(
-            ({ nodeType }) => nodeType === 1
-        )
-        .reduce(
-            (templates, template) => {
-                const name = template.getAttribute('name');
-                const html = template.innerHTML;
-                templates[name] = html;
-                return templates;
-            },
-            {}
-        );
+        .filter(({ nodeType }) => nodeType === 1)
+        .reduce((templates, template) => {
+            const name = template.getAttribute('name');
+            const html = template.innerHTML;
+            templates[name] = html;
+            return templates;
+        }, {});
 
     return new DataTableViewModel(params, templates);
 }

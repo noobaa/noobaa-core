@@ -673,7 +673,7 @@ export function loadCloudBucketList(connection) {
     })
         .then(
             model.cloudBucketList,
-            () => model.CloudBucketList(null)
+            () => model.cloudBucketList(null)
         )
         .done();
 }

@@ -13,7 +13,7 @@ export default class ColumnViewModel extends BaseViewModel {
     constructor(config, templates, sorting) {
         super();
 
-        config = isObject(config) ? config : { name: config.toString() };
+        const normalized = isObject(config) ? config : { name: config.toString() };
         const {
             name,
             label = addSpaces(name),
@@ -21,7 +21,7 @@ export default class ColumnViewModel extends BaseViewModel {
             accessor = noop,
             css = `${toDashedCase(name)}-col`,
             sortable = false
-        } = config;
+        } = normalized;
 
         this.name = name;
         this.label = label;
@@ -31,10 +31,7 @@ export default class ColumnViewModel extends BaseViewModel {
 
         this.sorting = sorting;
         this.sortKey = sortable && (isString(sortable) ? sortable : name);
-
-        this.sortCss = ko.pureComputed(
-            () => this.getSortCss()
-        );
+        this.sortCss = ko.pureComputed(() => this.getSortCss());
     }
 
     getSortCss() {
@@ -64,7 +61,7 @@ export default class ColumnViewModel extends BaseViewModel {
 
     generateCellTemplate() {
         const { css, name, template } = this;
-        return `<td data-bind="css:'${css}',let:{ $data: $data.${name}, $rawData: $data.${name} }">${
+        return `<td ko.css="'${css}'" ko.let="{ $data: $data.${name}, $rawData: $data.${name} }">${
             template
         }</td>`;
     }

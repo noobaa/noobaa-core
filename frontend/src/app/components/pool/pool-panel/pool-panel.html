@@ -7,13 +7,13 @@
         <a ko.href="tabHref('nodes')" ko.css="tabCss('nodes')">
             Nodes
         </a>
+        <a ko.href="tabHref('connected-buckets')"
+            ko.css="tabCss('connected-buckets')">
+            Connected Buckets
+        </a>
         <a ko.href="tabHref('associated-accounts')"
             ko.css="tabCss('associated-accounts')">
             Associated Accounts
-        </a>
-        <a ko.href="tabHref('associated-buckets')"
-            ko.css="tabCss('associated-buckets')">
-            Associated Buckets
         </a>
     </nav>
 
@@ -24,17 +24,17 @@
         "></pool-nodes-table>
 
         <!-- ko if: pool -->
+        <pool-connected-buckets-list
+            class="tab greedy"
+            ko.css="tabCss('connected-buckets')"
+            params="poolName: pool().name"
+        ></pool-connected-buckets-list>
+
         <pool-associated-accounts-list
             class="tab greedy"
             ko.css="tabCss('associated-accounts')"
             params="poolName: pool().name"
         ></pool-associated-accounts-list>
- 
-        <pool-associated-buckets-list
-            class="tab greedy"
-            ko.css="tabCss('associated-buckets')"
-            params="poolName: pool().name"
-        ></pool-associated-buckets-list>
         <!-- /ko -->
     </div>
 </div>

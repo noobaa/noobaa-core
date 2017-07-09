@@ -43,7 +43,7 @@ export function randomString(len = 8) {
     ).join('');
 }
 
-export function equalNoCase(str1, str2) {
+export function equalIgnoreCase(str1, str2) {
     return str1.toLowerCase() === str2.toLowerCase();
 }
 

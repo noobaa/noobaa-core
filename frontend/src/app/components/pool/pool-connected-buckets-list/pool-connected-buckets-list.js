@@ -1,30 +1,30 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './pool-associated-buckets-list.html';
+import template from './pool-connected-buckets-list.html';
 import Observer from 'observer';
 import { state$ } from 'state';
 import * as routes from 'routes';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 
-// TODO: Replace with data from the state$ when available.
-import { routeContext } from 'model';
-
-class PoolAssociatedBucketsListViewModel extends Observer {
+class PoolConnectedBucketsListViewModel extends Observer {
     constructor({ poolName }) {
         super();
 
-        this.buckets = ko.observable();
+        this.buckets = ko.observableArray();
         this.bucketCount = ko.observable();
 
         this.observe(
-            state$.get('nodePools', ko.unwrap(poolName), 'associatedBuckets'),
+            state$.getMany(
+                ['nodePools', ko.unwrap(poolName), 'associatedBuckets'],
+                ['location', 'params', 'system']
+            ),
             this.onBuckets
         );
     }
 
-    onBuckets(buckets) {
-        const system = routeContext().params.system;
+    onBuckets([ buckets, system ]) {
+        if (!buckets) return;
 
         this.buckets(
             buckets.map(bucket => ({
@@ -37,6 +37,6 @@ class PoolAssociatedBucketsListViewModel extends Observer {
 }
 
 export default {
-    viewModel: PoolAssociatedBucketsListViewModel,
+    viewModel: PoolConnectedBucketsListViewModel,
     template: template
 };

@@ -111,7 +111,7 @@ class BucketsTableViewModel extends BaseViewModel {
         );
 
         this.hasSingleBucket = ko.pureComputed(
-            () => this.buckets().length === 1
+            () => systemInfo() && systemInfo().buckets.length === 1
         );
 
         this.deleteGroup = ko.observable();

@@ -66,6 +66,7 @@ class AlertsLogStore {
 
     read_alerts(sysid, query, skip, limit) {
         const selector = this._create_selector(sysid, query);
+        console.warn('NBNB:: read_alerts', selector, 'skip', skip, 'limit', limit);
         return this._alertslogs.col().find(selector)
             .skip(skip)
             .limit(limit)
@@ -93,9 +94,9 @@ class AlertsLogStore {
             let obj_ids = ids.map(id => new mongodb.ObjectID(id));
             _id = { $in: obj_ids };
         } else if (till) {
-            _id = { $lt: till };
+            _id = { $lt: new mongodb.ObjectID(till) };
         } else if (since) {
-            _id = { $gt: since };
+            _id = { $gt: new mongodb.ObjectID(since) };
         }
 
         return _.omitBy({

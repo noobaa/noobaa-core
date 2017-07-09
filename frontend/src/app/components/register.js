@@ -131,7 +131,7 @@ export default function register(ko) {
     ko.components.register('pool-summary',                  require('./pool/pool-summary/pool-summary').default);
     ko.components.register('pool-nodes-table',              require('./pool/pool-nodes-table/pool-nodes-table').default);
     ko.components.register('pool-associated-accounts-list', require('./pool/pool-associated-accounts-list/pool-associated-accounts-list').default);
-    ko.components.register('pool-associated-buckets-list',  require('./pool/pool-associated-buckets-list/pool-associated-buckets-list').default);
+    ko.components.register('pool-connected-buckets-list',   require('./pool/pool-connected-buckets-list/pool-connected-buckets-list').default);
     /** INJECT:pool **/
 
     // -------------------------------

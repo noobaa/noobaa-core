@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isFunction } from './core-utils';
+import { deepFreeze, isFunction, isUndefined } from './core-utils';
 import { toBytes, formatSize } from './size-utils';
 import numeral from 'numeral';
 
@@ -174,13 +174,13 @@ export function getPoolStateIcon(pool) {
         HOSTS: poolStateIconMapping,
         CLOUD: resourceStateIconMapping
     }[resource_type];
-    
+
     if (!mapping) {
         throw new Error(`Pool state type icon is not supported for resource of type ${resource_type}`);
     }
 
     const state = mapping[mode];
-    return isFunction(state) ? state(pool) : state; 
+    return isFunction(state) ? state(pool) : state;
 }
 
 const resourceTypeIconMapping = deepFreeze({
@@ -293,7 +293,7 @@ export function getPoolCapacityBarValues(resource) {
     const { total, used, used_other, reserved } = storage;
 
     const usage = {
-        HOSTS: [ 
+        HOSTS: [
             { value: used, label: 'Used (Noobaa)' },
             { value: used_other, label: 'Used (other)' },
             { value: reserved, label: 'Reserved' }
@@ -301,7 +301,7 @@ export function getPoolCapacityBarValues(resource) {
         CLOUD: used
     }[resource.resource_type];
 
-    if (!usage) {
+    if (isUndefined(usage)) {
         throw new Error(`Capacity bar values are not supported for resource of type ${resource.resource_type}`);
     }
 

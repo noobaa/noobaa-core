@@ -7,24 +7,24 @@ import * as routes from 'routes';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 
-// TODO: Replace with data from the state$ when available.
-import { routeContext } from 'model';
-
 class PoolAssociatedAccountsListViewModel extends Observer {
     constructor({ poolName }) {
         super();
 
-        this.accounts = ko.observable();
+        this.accounts = ko.observableArray();
         this.accountCount = ko.observable();
 
         this.observe(
-            state$.get('nodePools', ko.unwrap(poolName), 'associatedAccounts'),
+            state$.getMany(
+                ['nodePools', ko.unwrap(poolName), 'associatedAccounts'],
+                ['location', 'params', 'system']
+            ),
             this.onAccounts
         );
     }
 
-    onAccounts(accounts) {
-        const system = routeContext().params.system;
+    onAccounts([ accounts, system ]) {
+        if (!accounts) return;
 
         this.accounts(
             accounts.map(account => ({

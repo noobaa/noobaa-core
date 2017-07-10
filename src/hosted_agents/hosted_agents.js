@@ -14,6 +14,7 @@ const fs_utils = require('../util/fs_utils');
 const Agent = require('../agent/agent');
 const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
+const config = require('../../config');
 
 class HostedAgents {
 
@@ -86,7 +87,7 @@ class HostedAgents {
         }
 
         const port = process.env.SSL_PORT || 5443;
-        const host_id = uuid();
+        const host_id = config.HOSTED_AGENTS_HOST_ID + pool_id;
         const storage_path = path.join(process.cwd(), 'agent_storage', node_name);
         const pool_property_path = pool.resource_type === 'INTERNAL' ?
             'mongo_pool_info.agent_info.mongo_path' : 'cloud_pool_info.agent_info.cloud_path';

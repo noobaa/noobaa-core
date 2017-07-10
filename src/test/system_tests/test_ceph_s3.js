@@ -214,13 +214,9 @@ module.exports = {
 };
 
 function deploy_ceph() {
-    var command = `chmod a+x ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_deploy}`;
+    console.log('Starting Deployment Of Ceph Tests...');
+    let command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} > /tmp/ceph_deploy.log`;
     return promise_utils.exec(command, false, true)
-        .then(function(res) {
-            console.log('Starting Deployment Of Ceph Tests...');
-            command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} > /tmp/ceph_deploy.log`;
-            return promise_utils.exec(command, false, true);
-        })
         .then(function(res) {
             return console.log(res);
         })
@@ -255,10 +251,10 @@ function s3_ceph_test() {
                     });
             })
         .then(() => {
-            if (!had_errors) {
-                console.log('Finished Running Ceph S3 Tests');
-            } else {
+            if (had_errors) {
                 throw new Error('Failed Running Ceph S3 Tests (' + fail_count + ' failed )');
+            } else {
+                console.log('Finished Running Ceph S3 Tests');
             }
         });
 }
@@ -286,10 +282,10 @@ function system_ceph_test() {
                     });
             })
         .then(() => {
-            if (!had_errors) {
-                console.log('Finished Running System Ceph S3 Tests');
-            } else {
+            if (had_errors) {
                 throw new Error('Failed Running System Ceph S3 Tests (' + fail_count + ' failed )');
+            } else {
+                console.log('Finished Running System Ceph S3 Tests');
             }
         });
 }

@@ -124,7 +124,7 @@ function runCreateAgents(isInclude) {
 
 function verifyAgent() {
     console.log(`starting the verify agents stage`);
-    return s3ops.put_file_with_md5(server_ip, 'files', '100MB_File', 100)
+    return s3ops.put_file_with_md5(server_ip, 'files', '100MB_File', 100, 1048576)
         .then(() => s3ops.get_file_check_md5(server_ip, 'files', '100MB_File'))
         // .then(() => {
         //     console.warn(`Will take diagnostics from all the agents`);

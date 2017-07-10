@@ -8,15 +8,51 @@ const argv = require('minimist')(process.argv);
 const {
     server = '127.0.0.1', // local run on noobaa server
     bucket = 'first.bucket', // default bucket
-    file_size_low = 50, // minimum 50MB
-    file_size_high = 200, // maximum 200Mb
-    dataset_size = 10240, // DS of 10GB
     part_num_low = 2, // minimum 2 part - up to 100MB
     part_num_high = 10, // maximum 10 parts - down to 5MB - s3 minimum
     aging_timeout = 0, // time running in minutes
     max_depth = 1, // the maximum depth
     min_depth = 1, // the minimum depth
+    size_units = 'MB' // the default units of the size is MB
 } = argv;
+
+let {
+    file_size_low = 50, // minimum 50MB
+    file_size_high = 200, // maximum 200Mb
+    dataset_size = 10, // DS of 10GB
+} = argv;
+
+const baseUnit = 1024;
+const unit_mapping = {
+    KB: {
+        data_multiplier: Math.pow(baseUnit, 1),
+        dataset_multiplier: Math.pow(baseUnit, 2)
+    },
+    MB: {
+        data_multiplier: Math.pow(baseUnit, 2),
+        dataset_multiplier: Math.pow(baseUnit, 1)
+    },
+    GB: {
+        data_multiplier: Math.pow(baseUnit, 3),
+        dataset_multiplier: Math.pow(baseUnit, 0)
+    }
+};
+
+const { data_multiplier, dataset_multiplier } = unit_mapping[size_units.toUpperCase()] || unit_mapping.MB;
+
+//getting the default dataset size to the proper units.
+if (dataset_size === 10) {
+    dataset_size = Math.floor(dataset_size * dataset_multiplier);
+}
+
+if (file_size_high <= file_size_low) {
+    file_size_low = 1;
+} else if (file_size_low >= file_size_high) {
+    file_size_high = dataset_size;
+} else if (file_size_high >= dataset_size || file_size_low >= dataset_size) {
+    file_size_low = 50;
+    file_size_high = 200;
+}
 
 const actionTypeToFuncCall = {
     0: (...args) => upload_new(...args, true),
@@ -35,7 +71,6 @@ let count = 0;
 
 //define colors
 const Yellow = "\x1b[33;1m";
-const Red = "\x1b[31m";
 const NC = "\x1b[0m";
 
 // returning a file name with the proper depth
@@ -80,7 +115,10 @@ function set_depth(dataset, file_count) {
 function set_fileSize() {
     let rand_size = Math.floor((Math.random() * (file_size_high - file_size_low)) + file_size_low);
     if (dataset_size - current_size === 0) {
-        rand_size = current_size;
+        // rand_size = current_size;
+        rand_size = 1;
+        //if we choose file size grater then the remaining space for the dataset,
+        //set it to be in the size that complet the dataset size.
     } else if (rand_size > dataset_size - current_size) {
         rand_size = dataset_size - current_size;
     }
@@ -106,20 +144,22 @@ function upload_new(server_ip, bucket_name, dataset, isAging) {
                     console.log(`running upload new - multi-part`);
                 } else {
                     console.log(`Loading... currently uploaded ${
-                        current_size} MB from desired ${dataset_size} MB`);
+                        current_size} ${size_units} from desired ${
+                        dataset_size} ${size_units}`);
                 }
                 count += 1;
                 let file_name = set_depth(dataset, count);
-                return s3ops.upload_file_with_md5(server_ip, bucket_name, file_name, rand_size, rand_parts)
+                console.log(`uploading ${file_name} with size: ${rand_size}${size_units}`);
+                return s3ops.upload_file_with_md5(server_ip, bucket_name, file_name, rand_size, rand_parts, data_multiplier)
                     .then(res => {
                         console.log(`file multi-part uploaded was ${
                             file_name} with ${rand_parts} parts`);
                         current_size += rand_size;
                     });
             } else {
-                console.log(`${Red}size parts are ${
+                console.warn(`size parts are ${
                     rand_size / rand_parts
-                    }, parts must bet larger then 5MB, skipping upload overwrite - multi-part${NC}`);
+                    }, parts must bet larger then 5MB, skipping upload overwrite - multi-part`);
             }
             // running put new
         } else {
@@ -127,22 +167,24 @@ function upload_new(server_ip, bucket_name, dataset, isAging) {
                 console.log(`running upload new`);
             } else {
                 console.log(`Loading... currently uploaded ${
-                    current_size} MB from desired ${dataset_size} MB`);
+                    current_size} ${size_units} from desired ${
+                    dataset_size} ${size_units}`);
 
             }
             count += 1;
             let file_name = set_depth(dataset, count);
-            return s3ops.put_file_with_md5(server_ip, bucket_name, file_name, rand_size)
+            console.log(`uploading ${file_name} with size: ${rand_size}${size_units}`);
+            return s3ops.put_file_with_md5(server_ip, bucket_name, file_name, rand_size, data_multiplier)
                 .then(res => {
                     console.log(`file uploaded was ${file_name}`);
                     current_size += rand_size;
                 });
         }
     } else if (is_multi_part) {
-        console.log(`${Red}dataset size is ${
-            current_size}, skipping upload new - multi-part${NC}`);
+        console.warn(`dataset size is ${
+            current_size}, skipping upload new - multi-part`);
     } else {
-        console.log(`${Red}dataset size is ${current_size}, skipping upload new${NC}`);
+        console.warn(`dataset size is ${current_size}, skipping upload new`);
     }
 }
 
@@ -155,8 +197,8 @@ function upload_overwrite(server_ip, bucket_name, dataset) {
             console.log(`running upload overwrite - multi-part`);
             return s3ops.get_a_random_file(server_ip, bucket_name, dataset)
                 .then(res => {
-                    current_size -= Math.floor(res.Size / 1024 / 1024);
-                    return s3ops.upload_file_with_md5(server_ip, bucket_name, res.Key, rand_size, rand_parts)
+                    current_size -= Math.floor(res.Size / data_multiplier);
+                    return s3ops.upload_file_with_md5(server_ip, bucket_name, res.Key, rand_size, rand_parts, data_multiplier)
                         .then(() => res.key);
                 })
                 .tap(name => console.log(`file upload overwritten was ${
@@ -165,16 +207,16 @@ function upload_overwrite(server_ip, bucket_name, dataset) {
                     current_size += rand_size;
                 });
         } else {
-            console.log(`${Red}size parts are ${
+            console.warn(`size parts are ${
                 rand_size / rand_parts
-                }, parts must bet larger then 5MB, skipping upload overwrite - multi-part${NC}`);
+                }, parts must bet larger then 5MB, skipping upload overwrite - multi-part`);
         }
     } else {
         console.log(`running upload overwrite`);
         return s3ops.get_a_random_file(server_ip, bucket_name, dataset)
             .then(res => {
-                current_size -= Math.floor(res.Size / 1024 / 1024);
-                return s3ops.put_file_with_md5(server_ip, bucket_name, res.Key, rand_size)
+                current_size -= Math.floor(res.Size / data_multiplier);
+                return s3ops.put_file_with_md5(server_ip, bucket_name, res.Key, rand_size, data_multiplier)
                     .then(() => res.key);
             })
             .tap(name => console.log(`file upload overwritten was ${name}`))
@@ -226,10 +268,10 @@ function set_attribute(server_ip, bucket_name, dataset) {
             let useCopy = Math.floor(Math.random() * 2) === 0;
             useCopy = true; //currently doing only copy due to bug #3228
             if (useCopy) {
-                console.log(`setting attribute using putObjectTagging`);
+                console.log(`setting attribute using copyObject`);
                 return s3ops.set_file_attribute_with_copy(server_ip, bucket_name, res.Key);
             } else {
-                console.log(`setting attribute using copyObject`);
+                console.log(`setting attribute using putObjectTagging`);
                 return s3ops.set_file_attribute(server_ip, bucket_name, res.Key);
             }
         });
@@ -243,7 +285,7 @@ function run_delete(server_ip, bucket_name, dataset) {
             if (object_number > 1) {
                 return s3ops.get_a_random_file(server_ip, bucket_name, dataset)
                     .then(res => {
-                        current_size -= Math.floor(res.Size / 1024 / 1024);
+                        current_size -= Math.floor(res.Size / data_multiplier);
                         return s3ops.delete_file(server_ip, bucket_name, res.Key);
                     });
             } else {
@@ -261,7 +303,8 @@ promise_utils.pwhile(() => current_size < dataset_size, () => upload_new(server,
             console.log(`will run aging for ${aging_timeout} minutes`);
         }
         return promise_utils.pwhile(() => (aging_timeout === 0 || ((Date.now() - start) / (60 * 1000)) < aging_timeout), () => {
-            console.log(`Aging... currently uploaded ${current_size} MB from desired ${dataset_size} MB`);
+            console.log(`Aging... currently uploaded ${current_size} ${
+                size_units} from desired ${dataset_size} ${size_units}`);
             // true - read / false - change
             let read_or_change = Math.floor(Math.random() * 2) === 0;
             // read_or_change = false;
@@ -274,11 +317,11 @@ promise_utils.pwhile(() => current_size < dataset_size, () => upload_new(server,
                 let action_type;
                 if (current_size > dataset_size) {
                     console.log(`${Yellow}the current dataset size is ${
-                        current_size}MB and the reqested dataset size is ${
-                        dataset_size}MB, going to delete${NC}`);
+                        current_size}${size_units} and the reqested dataset size is ${
+                        dataset_size}${size_units}, going to delete${NC}`);
                     action_type = 20;
                 } else {
-                    action_type = Math.floor(Math.random() * 10);
+                    action_type = Math.floor(Math.random() * 7);
                 }
                 const action = actionTypeToFuncCall[action_type] || actionTypeToFuncCall.default;
                 return action(server, bucket, dataset_name);
@@ -293,14 +336,3 @@ promise_utils.pwhile(() => current_size < dataset_size, () => upload_new(server,
         console.error(`Errors during test`, err);
         process.exit(1);
     });
-
-// const params = { server, bucket, dataset_name, flag: true };
-
-// func1(params);
-
-// function func1(params) {
-//     const { server, bucket, dataset_name } = params;
-
-//     func2(params);
-
-// }

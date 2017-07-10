@@ -207,7 +207,7 @@ return P.each(procedure, upgrade_procedure => {
                 .delay(120000)
                 .then(() => P.each(upgrade_procedure.versions_list, version => {
                     console.log('Upgrading to', version);
-                    return s3ops.put_file_with_md5(machine_ip, 'first.bucket', '20MBFile-' + version, 5)
+                    return s3ops.put_file_with_md5(machine_ip, 'first.bucket', '20MBFile-' + version, 5, 1048576)
                         .then(filepath => {
                             file_path = filepath;
                             var file = fs.createWriteStream(version_map_tar[version]);

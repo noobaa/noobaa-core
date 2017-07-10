@@ -126,9 +126,13 @@ function rolling_hash(str, roll_context) {
     return c.hash;
 }
 
+function equal_case_insensitive(str1, str2) {
+    return str1.toLowerCase() === str2.toLowerCase();
+}
 
 exports.ALPHA_NUMERIC_CHARSET = ALPHA_NUMERIC_CHARSET;
 exports.crypto_random_string = crypto_random_string;
 exports.left_pad_zeros = left_pad_zeros;
 exports.levenshtein_distance = levenshtein_distance;
 exports.rolling_hash = rolling_hash;
+exports.equal_case_insensitive = equal_case_insensitive;

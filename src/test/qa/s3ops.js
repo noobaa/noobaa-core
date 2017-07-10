@@ -9,9 +9,14 @@ let P = require('../../util/promise');
 const accessKeyDefault = '123';
 const secretKeyDefault = 'abc';
 
+function validate_multiplier(multiplier) {
+    if (!multiplier % 1024) throw new Error(`multiplier must be in multiples of 1024`);
+}
+
 // copy_file_with_md5('127.0.0.1', 'first.bucket', 'DataSet1470756819/file1', 'DataSet1470756819/file45');
 
-function put_file_with_md5(ip, bucket, file_name, data_size) {
+function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
+    validate_multiplier(multiplier);
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -23,7 +28,7 @@ function put_file_with_md5(ip, bucket, file_name, data_size) {
     bucket = bucket || 'first.bucket';
     data_size = data_size || 50;
 
-    var actual_size = data_size * 1024 * 1024;
+    var actual_size = data_size * multiplier;
 
     var data = crypto.randomBytes(actual_size);
     let md5 = crypto.createHash('md5').update(data)
@@ -79,7 +84,8 @@ function copy_file_with_md5(ip, bucket, source, destination) {
         });
 }
 
-function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
+function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multiplier) {
+    validate_multiplier(multiplier);
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -91,7 +97,7 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num) {
     bucket = bucket || 'first.bucket';
     data_size = data_size || 50;
 
-    var actual_size = data_size * 1024 * 1024;
+    var actual_size = data_size * multiplier;
 
     var data = crypto.randomBytes(actual_size);
     let md5 = crypto.createHash('md5').update(data)

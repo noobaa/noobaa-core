@@ -28,6 +28,8 @@ config.NODE_IO_DETENTION_RECENT_ISSUES = 5;
 // Picked two because minimum of nodes per pool is three
 config.NODE_IO_DETENTION_TEST_NODES = 2;
 
+config.HOSTED_AGENTS_HOST_ID = 'hosted_agents';
+
 ////////////////
 // RPC CONFIG //
 ////////////////

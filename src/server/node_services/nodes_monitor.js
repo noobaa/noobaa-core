@@ -898,10 +898,8 @@ class NodesMonitor extends EventEmitter {
                             this._add_node_to_hosts_map(updates.host_id, item);
 
                             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
-                            let { use_s3 = false, use_storage = true, exclude_drives = [] } = agent_config;
                             // on first call to get_agent_info enable\disable the node according to the configuration
-                            let should_start_service = (info.s3_agent && use_s3) ||
-                                (!info.s3_agent && use_storage && this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drives));
+                            let should_start_service = this._should_enable_agent(info, agent_config);
                             dbg.log0(`first call to get_agent_info. ${info.s3_agent ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
                             if (!should_start_service) {
                                 item.node.decommissioned = Date.now();
@@ -1402,6 +1400,19 @@ class NodesMonitor extends EventEmitter {
         return !current_clustering || // no cluster info => treat as master
             !current_clustering.is_clusterized || // not clusterized => treat as master
             system_store.is_cluster_master; // clusterized and is master
+    }
+
+    _should_enable_agent(info, agent_config) {
+        let { use_s3 = false, use_storage = true, exclude_drives = [] } = agent_config;
+        if (info.node_type === 'ENDPOINT_S3') {
+            // if endpoint than enable according to configuration
+            return use_s3;
+        } else if (info.node_type === 'BLOCK_STORE_FS') {
+            if (!use_storage) return false; // if storage disable if configured to exclud storage
+            if (info.storage.total < config.MINIMUM_AGENT_TOTAL_STORAGE) return false; // disable if not enough storage
+            return this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drives);
+        }
+        return true;
     }
 
     _should_include_drives(mount, os_info, exclude_drives) {
@@ -1993,7 +2004,10 @@ class NodesMonitor extends EventEmitter {
         // for now we take the first storage node, and use it as the host_item, with some modifications
         // TODO: once we have better understanding of what the host status should be
         // as a result of the status of the nodes we need to change it.
-        let root_item = storage_nodes.find(item => item.node.drives[0].mount === '/' || item.node.drives[0].mount.toLowerCase() === 'c:');
+        let root_item = storage_nodes.find(item =>
+            item.node.drives && item.node.drives[0] &&
+            (item.node.drives[0].mount === '/' || item.node.drives[0].mount.toLowerCase() === 'c:')
+        );
         if (!root_item) {
             // if for some reason root node not found, take the first one.
             dbg.log0(`could not find node for root path, taking the first in the list. drives = ${storage_nodes.map(item => item.node.drives[0])}`);

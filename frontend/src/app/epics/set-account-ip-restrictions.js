@@ -12,7 +12,7 @@ export default function(action$, { api }) {
             try {
                 await api.account.update_account({
                     email: accountName,
-                    ips: allowedIps
+                    ips: allowedIps.map(ip => ({ start: ip, end: ip }))
                 });
 
                 return completeSetAccountIpRestrictions(accountName);

@@ -327,24 +327,6 @@ function update_account_s3_access(req) {
         .return();
 }
 
-function validate_ip_permission(req) {
-    const account = _.find(system_store.data.accounts, function(acc) {
-        if (acc.access_keys) {
-            return acc.access_keys[0].access_key.toString() === req.rpc_params.access_key.toString();
-        } else {
-            return false;
-        }
-    });
-
-    if (!account) {
-        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account access_key: ' + req.rpc_params.access_key);
-    }
-
-    if (account.allowed_ips &&
-        account.allowed_ips.indexOf(req.rpc_params.ip) === -1) {
-        throw new RpcError('NO_SUCH_IP_ALLOWED', 'No such ip allowed: ' + req.rpc_params.ip);
-    }
-}
 
 /**
  *
@@ -364,7 +346,7 @@ function update_account(req) {
     if (account.is_support) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
-    if (params.ips && !_.every(params.ips, ip => net.isIP(ip))) {
+    if (params.ips && !_.every(params.ips, ip_range => (net.isIP(ip_range.start) && net.isIP(ip_range.end)))) {
         throw new RpcError('FORBIDDEN', 'Non valid IPs');
     }
 
@@ -1010,7 +992,6 @@ function _list_connection_usage(account, credentials) {
 // EXPORTS
 exports.create_account = create_account;
 exports.read_account = read_account;
-exports.validate_ip_permission = validate_ip_permission;
 exports.update_account = update_account;
 exports.reset_password = reset_password;
 exports.delete_account = delete_account;

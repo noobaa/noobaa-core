@@ -4,6 +4,8 @@
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const ip_module = require('ip');
+
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -402,11 +404,22 @@ function _prepare_auth_request(req) {
         // check ip restrictions on the account
         if (req.account && req.account.allowed_ips) {
             const client_ip = net_utils.unwrap_ipv6(req.auth.client_ip);
-            if (client_ip && !req.account.allowed_ips.includes(client_ip)) {
-                throw new RpcError('UNAUTHORIZED', 'Client IP not allowed ' + client_ip);
+            if (client_ip) {
+                let is_allowed = false;
+                const client_ip_val = ip_module.toLong(client_ip);
+                for (const ip_range of req.account.allowed_ips) {
+                    const start = ip_module.toLong(ip_range.start);
+                    const end = ip_module.toLong(ip_range.start);
+                    if (client_ip_val >= start && client_ip_val <= end) {
+                        is_allowed = true;
+                        break;
+                    }
+                }
+                if (!is_allowed) {
+                    throw new RpcError('UNAUTHORIZED', 'Client IP not allowed ' + client_ip);
+                }
             }
         }
-
         dbg.log3('load auth system:', req.system);
     };
 

@@ -27,7 +27,8 @@ function onCompleteFetchSystemInfo(_, { payload }) {
             has_s3_access,
             default_pool,
             allowed_buckets,
-            allowed_ips
+            allowed_ips,
+            external_connections
         } = account;
 
         const {
@@ -40,6 +41,14 @@ function onCompleteFetchSystemInfo(_, { payload }) {
              (hasAccessToAllBuckets ? allBuckets : allowed_buckets.permission_list) :
              [];
 
+        const externalConnections = external_connections
+            .connections.map(conn => ({
+                name: conn.name,
+                service: conn.endpoint_type,
+                endpoint: conn.endpoint,
+                identity: conn.identity
+            }));
+
         return {
             name: email,
             isOwner: email === owner.email,
@@ -49,7 +58,8 @@ function onCompleteFetchSystemInfo(_, { payload }) {
             allowedBuckets,
             defaultResource: default_pool,
             accessKeys: { accessKey, secretKey },
-            allowedIps: allowed_ips
+            allowedIps: allowed_ips,
+            externalConnections
         };
     });
 }

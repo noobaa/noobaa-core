@@ -9,7 +9,9 @@ import {
     COMPLETE_CHANGE_ACCOUNT_PASSWORD,
     FAIL_CHANGE_ACCOUNT_PASSWORD,
     COMPLETE_UPDATE_BUCKET_QUOTA,
-    FAIL_UPDATE_BUCKET_QUOTA
+    FAIL_UPDATE_BUCKET_QUOTA,
+    COMPLETE_ADD_EXTERNAL_CONNECTION,
+    FAIL_ADD_EXTERNAL_CONNECTION
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -55,6 +57,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
         message: `Updating quota for ${bucket} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
+        message: `Adding ${connection} completed successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
+        message: `Adding ${connection} failed`,
         severity: 'error'
     })
 });

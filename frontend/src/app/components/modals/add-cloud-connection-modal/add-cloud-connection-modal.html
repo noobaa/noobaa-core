@@ -1,49 +1,70 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="column greedy">
+<form class="column greedy" ko.if="isFormInitialized" ko.submit="form.submit">
     <editor params="label: 'Connection Name'">
-        <input type="text" placeholder="Enter name"
-            data-bind="value: name, hasFocus: true"/>
+        <input type="text"
+            placeholder="Enter name"
+            ko.value="form.connectionName",
+            ko.hasFocus="true"
+            ko.validationCss="form.connectionName"
+        />
+        <validation-message params="field: form.connectionName"></validation-message>
     </editor>
 
     <editor params="label: 'Service'">
         <dropdown params="
             options: serviceOptions,
-            selected: service
+             selected: form.service
         "></dropdown>
     </editor>
 
     <editor params="label: 'Endpoint'">
-        <input type="text" placeholder="Enter endpoint" data-bind="value: endpoint" />
+        <div class="row">
+            <input type="text"
+                class="push-next-half"
+                placeholder="Enter endpoint"
+                ko.value="form.endpoint"
+                ko.validationCss="form.endpoint"
+            />
+            <validation-indicator params="field: form.endpoint"></validation-indicator>
+        </div>
+        <validation-message params="field: form.endpoint"></validation-message>
     </editor>
 
     <editor params="label: identityLabel">
-        <input type="text" data-bind="
-            textInput: identity,
-            attr: { placeholder: identityPlaceholder }
-        "/>
+        <div class="row">
+            <input type="text"
+                class="push-next-half"
+                ko.value="form.identity"
+                ko.attr.placeholder="identityPlaceholder"
+                ko.validationCss="form.identity"
+            />
+            <validation-indicator params="field: form.identity"></validation-indicator>
+        </div>
+
+        <validation-message params="field: form.identity"></validation-message>
     </editor>
 
     <editor params="label: secretLabel">
-        <input type="password" autocomplete="off" data-bind="
-            textInput: secret,
-            attr: { placeholder: secretPlaceholder }
-        "/>
+        <div class="row">
+            <input type="password"
+                class="push-next-half"
+                autocomplete="off"
+                ko.value="form.secret"
+                ko.attr.placeholder="secretPlaceholder"
+                ko.validationCss="form.secret"
+            />
+            <validation-indicator params="field: form.secret"></validation-indicator>
+        </div>
+        <validation-message params="field: form.secret"></validation-message>
     </editor>
-</section>
 
-<div class="row content-middle">
-    <div class="greedy">
-        <input type="hidden" data-bind="value: isValidConnection"></input>
+    <div class="row content-middle align-end push-prev">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">
+            Save
+        </button>
     </div>
-
-    <button class="link alt-colors push-next" data-bind="click: cancel">
-        Cancel
-    </button>
-    <button class="btn" data-bind="
-        click: tryConnection,
-        shakeOnClick: errors().length
-    ">
-        Save
-    </button>
-</div>
+</form>

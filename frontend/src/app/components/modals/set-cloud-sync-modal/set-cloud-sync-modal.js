@@ -196,22 +196,11 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
             write: _syncDeletions
         });
 
-        this.isAddCloudConnectionModalVisible = ko.observable(false);
-
         this.errors = ko.validation.group(this);
     }
 
     loadBucketsList() {
         loadCloudBucketList(this.connection().name);
-    }
-
-    showAddCloudConnectionModal() {
-        this.connection.isModified(false);
-        this.isAddCloudConnectionModalVisible(true);
-    }
-
-    hideAddCloudConnectionModal() {
-        this.isAddCloudConnectionModalVisible(false);
     }
 
     cancel() {

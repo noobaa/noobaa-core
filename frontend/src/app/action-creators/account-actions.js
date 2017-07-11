@@ -12,7 +12,10 @@ import {
     FAIL_SET_ACCOUNT_IP_RESTRICTIONS,
     CHANGE_ACCOUNT_PASSWORD,
     COMPLETE_CHANGE_ACCOUNT_PASSWORD,
-    FAIL_CHANGE_ACCOUNT_PASSWORD
+    FAIL_CHANGE_ACCOUNT_PASSWORD,
+    ADD_EXTERNAL_CONNECTION,
+    COMPLETE_ADD_EXTERNAL_CONNECTION,
+    FAIL_ADD_EXTERNAL_CONNECTION
 } from 'action-types';
 
 export function createAccount(
@@ -135,5 +138,26 @@ export function failChangeAccountPassword(accountName, error) {
     return {
         type: FAIL_CHANGE_ACCOUNT_PASSWORD,
         payload: { accountName, error }
+    };
+}
+
+export function addExternalConnection(name, service, endpoint, identity, secret) {
+    return {
+        type: ADD_EXTERNAL_CONNECTION,
+        payload: { name, service, endpoint, identity, secret }
+    };
+}
+
+export function completeAddExternalConnection(connection) {
+    return {
+        type: COMPLETE_ADD_EXTERNAL_CONNECTION,
+        payload: { connection }
+    };
+}
+
+export function failAddExternalConnection(connection, error) {
+    return {
+        type: FAIL_ADD_EXTERNAL_CONNECTION,
+        payload: { connection, error }
     };
 }

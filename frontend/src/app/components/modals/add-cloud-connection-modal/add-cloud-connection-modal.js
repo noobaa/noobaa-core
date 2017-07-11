@@ -1,243 +1,186 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './add-cloud-connection-modal.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
+import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
-import { systemInfo, sessionInfo, isCloudConnectionValid } from 'model';
-import { checkCloudConnection, addCloudConnection } from 'actions';
-import { deepFreeze } from 'utils/core-utils';
+import { addExternalConnection } from 'action-creators';
+import services from './services';
+import { state$, action$ } from 'state';
+import { isURI } from 'validations';
+import api from 'services/api';
 
-const serviceMapping = deepFreeze({
-    AWS: {
-        option: {
-            label: 'AWS S3',
-            icon: 'aws-s3-resource-dark',
-            selectedIcon: 'aws-s3-resource-colored'
-        },
-        identity: {
-            label: 'Access Key',
-            placeholder: 'Enter key',
-            requiredMessage: 'Please enter an AWS access key',
-            duplicateMessage: 'Access key already used in another AWS connection'
-        },
-        secret: {
-            label: 'Secret Key',
-            placeholder: 'Enter secret',
-            requiredMessage: 'Please enter an AWS secret key'
-        },
-        defaultEndpoint: 'https://s3.amazonaws.com'
-    },
-    AZURE: {
-        option: {
-            label: 'Microsoft Azure',
-            icon: 'azure-resource-dark',
-            selectedIcon: 'azure-resource-colored'
-        },
-        identity: {
-            label: 'Account Name',
-            placeholder: 'Enter name',
-            requiredMessage: 'Please enter an Azure acount name',
-            duplicateMessage: 'Account name already used in another azure connection'
-        },
-        secret: {
-            label: 'Account Key',
-            placeholder: 'Enter key',
-            requiredMessage: 'Please enter an Azure account key'
-        },
-        defaultEndpoint: 'https://blob.core.windows.net'
-    },
-    S3_COMPATIBLE: {
-        option: {
-            label: 'Generic S3 Compatible Service',
-            icon: 'cloud-resource-dark',
-            selectedIcon: 'cloud-resource-colored'
-        },
-        identity: {
-            label: 'Access Key',
-            placeholder: 'Enter key',
-            requiredMessage: 'Please enter an access key',
-            duplicateMessage: 'Access key already used in another S3 compatible connection'
-        },
-        secret: {
-            label: 'Secret Key',
-            placeholder: 'Enter secret',
-            requiredMessage: 'Please enter a secret key'
-        }
-    }
-});
+const formName = 'addCloudConnection';
+const nameRegExp = /^Connection (\d+)$/;
+const defaultService = 'AWS';
+const allServices = Object.keys(services);
 
-class AddCloudConnectionModalViewModel extends BaseViewModel {
-    constructor({
-        onClose,
-        allowedServices =  Object.keys(serviceMapping)
-    }) {
+function _mapServiceOption(service) {
+    const { option, defaultEndpoint = 'No default endpoint' } = services[service];
+    return {
+        ...option,
+        value: service,
+        remark: defaultEndpoint
+    };
+}
+
+function _generateConnectionName(existing) {
+    const suffix = existing
+        .map(({ name }) => {
+            const match = name.match(nameRegExp);
+            return match ? parseInt(match[1]) : 0;
+        })
+        .reduce(Math.max, 0);
+
+    return `Connection ${suffix + 1}`;
+}
+
+class addCloudConnectionModalViewModel extends Observer {
+    constructor({ onClose, allowedServices = allServices }){
         super();
 
-        isCloudConnectionValid(true);
-        this.onClose = onClose;
+        this.close = onClose;
+        this.serviceOptions = allowedServices.map(_mapServiceOption);
+        this.serviceMeta = null;
+        this.identityLabel = ko.observable();
+        this.identityPlaceholder = ko.observable();
+        this.blackList = ko.observableArray();
+        this.secretLabel = ko.observable();
+        this.secretPlaceholder = ko.observable();
+        this.existingConnections = null;
+        this.form = null;
+        this.isFormInitialized = ko.observable(false);
 
-        const cloudConnections = ko.pureComputed(
-            () => {
-                const user = (systemInfo() ? systemInfo().accounts : []).find(
-                    account => account.email === sessionInfo().user
-                );
-
-                return user.external_connections.connections;
-            }
+        this.observe(
+            state$.getMany('accounts', ['session', 'user']),
+            this.onAccounts
         );
-
-        const existingNames = ko.pureComputed(
-            () => cloudConnections().map(
-                ({ name }) => name
-            )
-        );
-
-        this.name = ko.observableWithDefault(
-            () => {
-                const highest = existingNames()
-                    .map(
-                        name => {
-                            const match = name.match(/^Connection (\d+)$/);
-                            return match ? parseInt(match[1]) : 0;
-                        }
-                    )
-                    .reduce(
-                        (a, b) => a > b ? a : b,
-                        0
-                    );
-
-                return `Connection ${highest + 1}`;
-            }
-        )
-        .extend({
-            required: { message: 'Please enter valid connection name' },
-            notIn: {
-                params: { list: existingNames },
-                message: 'Name already in use'
-            }
-        });
-
-        this.serviceOptions = allowedServices.map(
-            type => {
-                const { option, defaultEndpoint = 'No default endpoint' } = serviceMapping[type];
-                return Object.assign(
-                    {}, option, { value: type, remark: defaultEndpoint }
-                );
-            }
-        );
-
-        this.service = ko.observable('AWS');
-
-        const serviceInfo = ko.pureComputed(
-            () => serviceMapping[this.service()]
-        );
-
-        this.endpoint = ko.observableWithDefault(
-            () => serviceInfo().defaultEndpoint
-        )
-            .extend({
-                required: { message: 'Please enter valid URI endpoint' },
-                isURI: true
-            });
-
-        this.identityLabel = ko.pureComputed(
-            () => serviceInfo().identity.label
-        );
-
-        this.identityPlaceholder = ko.pureComputed(
-            () => serviceInfo().identity.placeholder
-        );
-
-        const identityBlackList = ko.pureComputed(
-            () => cloudConnections().map(
-                ({ endpoint_type, access_key }) => `${endpoint_type}:${access_key}`
-            )
-        );
-
-        this.identity = ko.observable()
-            .extend({
-                required: {
-                    message: () => serviceInfo().identity.requiredMessage
-                },
-
-                validation: {
-                    validator: val => !identityBlackList().includes(
-                        `${this.service()}:${val}`
-                    ),
-                    message: () => serviceInfo().identity.duplicateMessage
-                }
-            });
-
-        this.secretLabel = ko.pureComputed(
-            () => serviceInfo().secret.label
-        );
-
-        this.secretPlaceholder = ko.pureComputed(
-            () => serviceInfo().secret.placeholder
-        );
-
-        this.secret = ko.observable()
-            .extend({
-                required: {
-                    message: () => serviceInfo().secret.requiredMessage
-                }
-            });
-
-        this.isValidConnection = isCloudConnectionValid
-            .extend({
-                equal: {
-                    params: true,
-                    message: 'Invalid endpoint or credentials'
-                }
-            });
-
-        this.addToDisposeList(
-            isCloudConnectionValid.subscribe(
-                isValid => isValid && this.save()
-            )
-        );
-
-        // Dont use 'this' as argument because we want to exclude this.isValidConnection
-        this.errors = ko.validation.group([
-            this.endpoint,
-            this.identity,
-            this.secret
-        ]);
     }
 
-    tryConnection() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
+    onAccounts([ accounts, user ]) {
+        if (this.isFormInitialized()) return;
 
-        } else {
-            checkCloudConnection(
-                this.service(),
-                this.endpoint(),
-                this.identity(),
-                this.secret()
-            );
+        const { externalConnections } = accounts[user];
+        const name = _generateConnectionName(externalConnections);
+
+        this.existingConnections = externalConnections;
+        this.form = new FormViewModel({
+            name: formName,
+            fields: {
+                connectionName: name,
+                service: defaultService,
+                endpoint: services[defaultService].defaultEndpoint,
+                identity: '',
+                secret: ''
+            },
+            onForm: this.onForm.bind(this),
+            onValidate: this.onValidate.bind(this),
+            onValidateAsync: this.onValidateAsync.bind(this),
+            asyncTriggers: ['service', 'endpoint', 'identity', 'secret'],
+            onSubmit: this.onSubmit.bind(this)
+        });
+        this.isFormInitialized(true);
+    }
+
+    onValidate({ connectionName, service, endpoint, identity, secret }) {
+        const { existingConnections, serviceMeta: meta } = this;
+        const errors = {};
+
+        if (!connectionName) {
+            errors.connectionName = 'Please enter valid connection name';
+
+        } else if (existingConnections
+            .map(connection => connection.name)
+            .includes(connectionName)
+        ) {
+            errors.connectionName = 'Name already in use';
+        }
+
+        if (!endpoint) {
+            errors.endpoint = 'Please enter valid endpoint URI';
+
+        } else if (!isURI(endpoint)) {
+            errors.endpoint = 'Please enter valid endpoint URI';
+        }
+
+        if (!identity) {
+            errors.identity = meta.identity.requiredMessage;
+
+        } else if (existingConnections
+            .some(connection =>
+                connection.service === service &&
+                connection.endpoint === endpoint &&
+                connection.identity === identity)
+        ) {
+            errors.identity = 'A similar connection already exists';
+        }
+
+        if (!secret) {
+            errors.secret = meta.secret.requiredMessage;
+        }
+
+        return errors;
+    }
+
+    async onValidateAsync({ service, endpoint, identity, secret }) {
+        const result = await api.account.check_external_connection({
+            endpoint_type: service,
+            endpoint: endpoint,
+            identity: identity,
+            secret: secret
+        });
+
+        const errors = {};
+
+        if (result === 'TIMEOUT') {
+            errors.endpoint = 'Endpoint communication timed out';
+
+        } else if (result === 'INVALID_ENDPOINT') {
+            errors.endpoint = 'Please enter a valid endpoint';
+
+        } else if (result === 'INVALID_CREDENTIALS') {
+            errors.secret = errors.identity = 'Credentials does not match';
+
+        } else if (result === 'NOT_SUPPORTED') {
+            errors.identity = 'Account type is not supported';
+        }
+        else if (result === 'UNKNOWN_FAILURE') {
+            errors.endpoint = 'Something went wrong';
+        }
+
+        return errors;
+    }
+
+    onForm() {
+        const { service, endpoint } = this.form;
+        const meta = this.serviceMeta = services[service()];
+
+        this.identityLabel(meta.identity.label);
+        this.identityPlaceholder(meta.identity.placeholder);
+        this.secretLabel(meta.secret.label);
+        this.secretPlaceholder(meta.secret.placeholder);
+
+        if (!endpoint.wasTouched()) {
+            endpoint.set(meta.defaultEndpoint);
         }
     }
 
-    save() {
-        addCloudConnection(
-            this.name(),
-            this.service(),
-            this.endpoint(),
-            this.identity(),
-            this.secret()
-        );
-
-        this.onClose(false);
+    onSubmit({ connectionName, service, endpoint, identity, secret }) {
+        action$.onNext(addExternalConnection(connectionName, service, endpoint, identity, secret));
+        this.close();
     }
 
-    cancel() {
-        isCloudConnectionValid(false);
-        this.onClose(true);
+    onCancel() {
+        this.close();
+    }
+
+    dispose() {
+        this.form.dispose();
+        super.dispose();
     }
 }
 
 export default {
-    viewModel: AddCloudConnectionModalViewModel,
+    viewModel: addCloudConnectionModalViewModel,
     template: template
 };

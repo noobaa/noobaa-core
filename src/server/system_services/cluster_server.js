@@ -24,7 +24,6 @@ const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const RpcError = require('../../rpc/rpc_error');
-const net_utils = require('../../util/net_utils');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const server_rpc = require('../server_rpc');
 const cluster_hb = require('../bg_services/cluster_hb');

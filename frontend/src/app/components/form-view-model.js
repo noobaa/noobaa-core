@@ -140,60 +140,71 @@ export default class FormViewModel extends Observer {
     }
 
     _createFieldObservable(fieldName) {
-        const { _state } = this;
+        const { _state, name: formName, } = this;
 
         const field = this[fieldName] = ko.pureComputed(
             () => _state() ? _state().fields[fieldName] : {}
         );
 
+        const set = function(value, touch = true) {
+            if (_state() && !_state.locked) {
+                dispatch(updateForm(formName, { [fieldName]: value }, touch));
+            }
+        };
+
         const obs = ko.pureComputed({
             read: () => field().value,
-            write: value => {
-                if (_state() && !_state.locked) {
-                    dispatch(updateForm(this.name, { [fieldName]: value }));
-                }
-            }
+            write: set
         });
 
-        obs.isDirty = ko.pureComputed(
-            () => field().value !== field().initial
-        );
+        return Object.assign(obs, {
+            set: (value, touch = false) => {
+                if (field().value !== value) {
+                    set(value, touch);
+                }
+            },
 
-        obs.wasTouched = ko.pureComputed(
-            () => field().touched
-        );
+            isDirty: ko.pureComputed(
+                () => field().value !== field().initial
+            ),
 
-        obs.isValidating = ko.pureComputed(
-            () => Boolean(
-                _state() &&
-                _state().validatingAsync &&
-                _state().validatingAsync.includes(fieldName)
+            wasTouched: ko.pureComputed(
+                () => field().touched
+            ),
+
+            isValidating: ko.pureComputed(
+                () => Boolean(
+                    _state() &&
+                    _state().validatingAsync &&
+                    _state().validatingAsync.includes(fieldName)
+                )
+            ),
+
+            isValid: ko.pureComputed(
+                () => field().validity === 'VALID'
+            ),
+
+            isInvalid: ko.pureComputed(
+                () => field().validity === 'INVALID'
+            ),
+
+            isInvalidTouched: ko.pureComputed(
+                () => obs.isInvalid() && obs.wasTouched()
+            ),
+
+            warning: ko.pureComputed(
+                () => (_state() && _state().warnings[fieldName]) || ''
+            ),
+
+            error: ko.pureComputed(
+                () => {
+                    if (!_state()) return '';
+                    return _state().syncErrors[fieldName] ||
+                        _state().asyncErrors[fieldName] ||
+                        '';
+                }
             )
-        );
-
-        obs.isValid = ko.pureComputed(
-            () => field().validity === 'VALID'
-        );
-
-        obs.isInvalid = ko.pureComputed(
-            () => field().validity === 'INVALID'
-        );
-
-        obs.isInvalidTouched = ko.pureComputed(
-            () => obs.isInvalid() && obs.wasTouched()
-        );
-
-        obs.warning = ko.pureComputed(
-            () => (_state() && _state().warnings[fieldName]) || ''
-        );
-
-        obs.error = ko.pureComputed(
-            () => (_state() && (
-                _state().syncErrors[fieldName] || _state().asyncErrors[fieldName]
-            )) || ''
-        );
-
-        return obs;
+        });
     }
 
     _onState(state){
@@ -206,11 +217,11 @@ export default class FormViewModel extends Observer {
             Object.keys(values);
 
         this._state(state);
+        this._formCallback(state);
+
         if (changes.length > 0) {
             this._validate(values, changes);
         }
-
-        this._formCallback(state);
     }
 
     _validate(values, changed) {
@@ -277,10 +288,9 @@ export default class FormViewModel extends Observer {
         const asyncErrors = await _validateAsyncHandler(values);
         if (this._asyncValidationHandle !== handle) return;
 
-        const fieldsValidity = mapValues(
-            values,
-            (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'VALID'
-        );
+        const fieldsValidity = Object.keys(asyncErrors).length > 0 ?
+            mapValues(values, (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'UNKNOWN') :
+            mapValues(values, () => 'VALID');
 
         dispatch(setFormValidity(
             this.name,
@@ -288,7 +298,8 @@ export default class FormViewModel extends Observer {
                 values,
                 fieldsValidity,
                 asyncErrors,
-                validatingAsync: null
+                validatingAsync: null,
+                touch: true
             }
         ));
     }

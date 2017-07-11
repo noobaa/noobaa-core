@@ -18,10 +18,10 @@ export function initializeForm(form, values = {}) {
     };
 }
 
-export function updateForm(form, values) {
+export function updateForm(form, values, touch = true) {
     return {
         type: UPDATE_FORM,
-        payload: { form, values }
+        payload: { form, values, touch }
     };
 }
 
@@ -50,7 +50,8 @@ export function setFormValidity(form, validity) {
             syncErrors: validity.syncErrors,
             asyncErrors: validity.asyncErrors,
             validatingAsync: validity.validatingAsync,
-            confirmValidity: validity.confirmValidity
+            confirmValidity: validity.confirmValidity,
+            touch: validity.touch
         }
     };
 }

@@ -1356,22 +1356,6 @@ export function checkCloudConnection(endpointType, endpoint, identity, secret) {
         .done();
 }
 
-export function addCloudConnection(name, endpointType, endpoint, identity, secret) {
-    logAction('addCloudConnection', { name, endpointType, endpoint, identity, secret });
-
-    const connection = {
-        name: name,
-        endpoint_type: endpointType,
-        endpoint: endpoint,
-        identity: identity,
-        secret: secret
-    };
-
-    api.account.add_external_connection(connection)
-        .then(loadSystemInfo)
-        .done();
-}
-
 export function loadBucketS3ACL(bucketName) {
     logAction('loadBucketS3ACL', { bucketName });
 

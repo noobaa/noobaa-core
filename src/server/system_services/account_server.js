@@ -11,6 +11,7 @@ const _ = require('lodash');
 const net = require('net');
 const AWS = require('aws-sdk');
 const azure = require('azure-storage');
+const { StorageError } = require('azure-storage/lib/common/errors/errors');
 const bcrypt = require('bcrypt');
 
 // const dbg = require('../../util/debug_module')(__filename);
@@ -29,6 +30,8 @@ const demo_access_keys = Object.freeze({
     access_key: '123',
     secret_key: 'abc'
 });
+
+const check_connection_timeout = 15 * 1000;
 
 /**
  *
@@ -644,53 +647,96 @@ function add_external_connection(req) {
 }
 
 function check_external_connection(req) {
-    var params = _.pick(req.rpc_params, 'endpoint', 'identity', 'secret', 'endpoint_type');
+    const { endpoint_type } = req.rpc_params;
+    const params = _.pick(req.rpc_params, 'endpoint', 'identity', 'secret');
 
-    return P.fcall(function() {
-        if (params.endpoint_type === 'AZURE') {
-            let conn_str = cloud_utils.get_azure_connection_string({
-                endpoint: params.endpoint,
-                access_key: params.identity,
-                secret_key: params.secret
-            });
-            let blob_svc = azure.createBlobService(conn_str);
-            return P.fromCallback(callback => blob_svc.listContainersSegmented(null, callback))
-                .catch(err => {
-                    dbg.warn(`got error on listContainersSegmented with params`, params, ` error: ${err}`);
-                    err.ret = 'INVALID_CREDENTIALS';
-                    throw err;
-                })
-                .then(() =>
-                    P.fromCallback(callback => blob_svc.getServiceProperties(callback))
-                    .catch(err => {
-                        dbg.warn(`got error on getServiceProperties with params`, params, ` error: ${err}`);
-                        err.ret = 'NOT_SUPPORTED';
-                        throw err;
-                    })
-                );
-        } else {
-            var s3 = new AWS.S3({
-                endpoint: params.endpoint,
-                accessKeyId: params.identity,
-                secretAccessKey: params.secret,
-                httpOptions: {
-                    agent: http_utils.get_unsecured_http_agent(params.endpoint)
+    return P.resolve()
+        .then(() => {
+            switch (endpoint_type) {
+                case 'AZURE': {
+                    return check_azure_connection(params);
                 }
-            });
-            return P.fromCallback(callback => s3.listBuckets(callback))
-                .catch(err => {
-                    dbg.warn(`got error on listBuckets with params`, params, ` error: ${err}`);
-                    err.ret = 'INVALID_CREDENTIALS';
-                    throw err;
-                });
+
+                case 'AWS':
+                case 'S3_COMPATIBLE': {
+                    return check_aws_connection(params);
+                }
+
+                default: {
+                    throw new Error('Unknown endpoint type');
+                }
+            }
+        });
+}
+
+function check_azure_connection(params) {
+    const conn_str = cloud_utils.get_azure_connection_string({
+        endpoint: params.endpoint,
+        access_key: params.identity,
+        secret_key: params.secret
+    });
+
+    return P.resolve()
+        .then(() => P.resolve()
+            .then(() => azure.createBlobService(conn_str))
+            .catch(err => {
+                dbg.warn(`got error on createBlobService with params`, params, ` error: ${err}`);
+                throw new Error(err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');
+            })
+        )
+        .then(blob_svc => P.fromCallback(callback => blob_svc.listContainersSegmented(null, callback))
+            .then(() => blob_svc)
+            .catch(err => {
+                dbg.warn(`got error on listContainersSegmented with params`, params, ` error: ${err}`);
+                throw new Error(err instanceof StorageError ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
+            })
+        )
+        .then(blob_svc => P.fromCallback(callback => blob_svc.getServiceProperties(callback))
+            .catch(err => {
+                dbg.warn(`got error on getServiceProperties with params`, params, ` error: ${err}`);
+                throw new Error('NOT_SUPPORTED');
+            })
+        )
+        .timeout(check_connection_timeout, new Error('TIMEOUT'))
+        .then(
+            () => 'SUCCESS',
+            err => err.message
+        );
+}
+
+const aws_error_mapping = Object.freeze({
+    OperationTimeout: 'TIMEOUT',
+    UnknownEndpoint: 'INVALID_ENDPOINT',
+    NetworkingError: 'INVALID_ENDPOINT',
+    XMLParserError: 'INVALID_ENDPOINT',
+    InvalidAccessKeyId: 'INVALID_CREDENTIALS',
+    SignatureDoesNotMatch: 'INVALID_CREDENTIALS'
+});
+
+function check_aws_connection(params) {
+    const s3 = new AWS.S3({
+        endpoint: params.endpoint,
+        accessKeyId: params.identity,
+        secretAccessKey: params.secret,
+        httpOptions: {
+            agent: http_utils.get_unsecured_http_agent(params.endpoint)
         }
-    }).then(
-        () => 'SUCCESS',
-        err => {
-            dbg.warn('got error:', err);
-            return err.ret || 'INVALID_CREDENTIALS';
-        }
+    });
+
+    const timeoutError = Object.assign(
+        new Error('Operation timeout'),
+        { code: 'OperationTimeout' }
     );
+
+    return P.fromCallback(callback => s3.listBuckets(callback))
+        .timeout(check_connection_timeout, timeoutError)
+        .then(
+            ret => 'SUCCESS',
+            err => {
+                dbg.warn(`got error on listBuckets with params`, params, ` error: ${err}`);
+                return aws_error_mapping[err.code] || 'UNKNOWN_FAILURE';
+            }
+        );
 }
 
 function delete_external_connection(req) {

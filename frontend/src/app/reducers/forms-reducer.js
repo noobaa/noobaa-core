@@ -63,7 +63,7 @@ function onUpdateForm(forms, { payload }) {
             return {
                 ...field,
                 value: updates[name],
-                touched: true
+                touched: field.touched || payload.touch
             };
         }
     );
@@ -132,14 +132,17 @@ function onSetFormValidity(forms, { payload }) {
         syncErrors = form.syncErrors,
         asyncErrors = form.asyncErrors,
         validatingAsync = form.validatingAsync,
-        confirmValidity
+        confirmValidity,
+        touch = false
     } = payload;
 
     const fields = mapValues(
         form.fields,
-        (field, name) =>  fieldsValidity[name] ?
-            { ...field, validity: fieldsValidity[name] } :
-            field
+        (field, name) =>  fieldsValidity[name] ? {
+            ...field,
+            validity: fieldsValidity[name],
+            touched: field.touched || touch
+        } : field
     );
 
     const validated = confirmValidity || form.validated;

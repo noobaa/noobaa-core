@@ -339,7 +339,14 @@ module.exports = {
             },
             reply: {
                 type: 'string',
-                enum: ['SUCCESS', 'INVALID_CREDENTIALS', 'NOT_SUPPORTED']
+                enum: [
+                    'SUCCESS',
+                    'TIMEOUT',
+                    'INVALID_ENDPOINT',
+                    'INVALID_CREDENTIALS',
+                    'NOT_SUPPORTED',
+                    'UNKNOWN_FAILURE'
+                ]
             },
             auth: {
                 system: 'admin'

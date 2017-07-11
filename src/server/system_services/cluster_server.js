@@ -613,9 +613,9 @@ function update_time_config(req) {
     return P.resolve()
         .then(() => {
             if (time_config.ntp_server) {
-                return net_utils.ping(time_config.ntp_server)
+                return os_utils.verify_ntp_server(time_config.ntp_server)
                     .catch(err => {
-                        throw new RpcError(`Failed pinging ${time_config.ntp_server} with ${err}`);
+                        throw new RpcError(`Failed testing NTP ${time_config.ntp_server} with ${err}`);
                     });
             }
             return P.resolve();

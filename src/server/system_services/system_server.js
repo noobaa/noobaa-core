@@ -305,22 +305,6 @@ function create_system(req) {
                 return;
             }
 
-            //Time config, if supplied
-            if (!req.rpc_params.time_config) {
-                return;
-            }
-            let time_config = req.rpc_params.time_config;
-            time_config.target_secret = owner_secret;
-            return server_rpc.client.cluster_server.update_time_config(time_config, {
-                auth_token: reply_token
-            });
-        })
-        .then(() => {
-            //DNS servers, if supplied
-            if (_.isEmpty(req.rpc_params.dns_servers)) {
-                return;
-            }
-
             return server_rpc.client.cluster_server.update_dns_servers({
                 target_secret: owner_secret,
                 dns_servers: req.rpc_params.dns_servers

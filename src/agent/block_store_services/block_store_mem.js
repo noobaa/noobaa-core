@@ -21,7 +21,8 @@ class BlockStoreMem extends BlockStoreBase {
     }
 
     get_storage_info() {
-        const total = 1024 * 1024 * 1024;
+        // below 15 GB the node is deactivated, so we report 16 GB here
+        const total = 16 * 1024 * 1024 * 1024;
         //from some reason we don't init this value. I can't find it now.
         //TODO: init correctly.
         if (!this._used) {

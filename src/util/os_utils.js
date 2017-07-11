@@ -404,6 +404,22 @@ function set_manual_time(time_epoch, timez) {
     }
 }
 
+function verify_ntp_server(srv) {
+    return P.resolve()
+        .then(() => {
+            if (os.type() === 'Linux') {
+                return promise_utils.exec(`ntpdate -q ${srv}`)
+                    .then(() => _.noop)
+                    .catch(err => {
+                        dbg.warn(`Failed NTP verification for ${srv}`);
+                        throw err;
+                    });
+            } else {
+                dbg.log0('Not supporting verification of NTP on non-Linux systems');
+            }
+        });
+}
+
 function get_ntp() {
     if (os.type() === 'Linux') {
         return promise_utils.exec("cat /etc/ntp.conf | grep NooBaa", false, true)
@@ -708,6 +724,7 @@ exports.top_single = top_single;
 exports.netstat_single = netstat_single;
 exports.ss_single = ss_single;
 exports.set_manual_time = set_manual_time;
+exports.verify_ntp_server = verify_ntp_server;
 exports.set_ntp = set_ntp;
 exports.get_ntp = get_ntp;
 exports.get_time_config = get_time_config;

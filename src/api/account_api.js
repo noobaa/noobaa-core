@@ -126,7 +126,7 @@ module.exports = {
                         }, {
                             type: 'array',
                             items: {
-                                type: 'string'
+                                $ref: 'common_api#/definitions/ip_range'
                             }
                         }]
                     }
@@ -201,26 +201,6 @@ module.exports = {
                     },
                     default_pool: {
                         type: 'string'
-                    }
-                },
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        validate_ip_permission: {
-            doc: 'Validate that ip allowed to access',
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['access_key', 'ip'],
-                properties: {
-                    access_key: {
-                        type: 'string',
-                    },
-                    ip: {
-                        type: 'string',
                     }
                 },
             },
@@ -419,7 +399,7 @@ module.exports = {
                 allowed_ips: {
                     type: 'array',
                     items: {
-                        type: 'string'
+                        $ref: 'common_api#/definitions/ip_range'
                     }
                 },
                 default_pool: {

@@ -30,13 +30,13 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
     onAccount(account) {
         if (!account || this.isAccountReady()) return;
 
-        const { name, allowedIps} = account;
+        const { name, allowedIps } = account;
         this.form = new FormViewModel({
             name: 'setAccountIPRestriction',
             fields: {
                 accountName: name,
                 usingIpRestrictions: Boolean(allowedIps),
-                allowedIps: allowedIps || [],
+                allowedIps: (allowedIps || []).map(ip => ip.start),
             },
             onValidate: this.onValidate,
             onSubmit: this.onSubmit.bind(this)

@@ -356,6 +356,18 @@ module.exports = {
             }
         },
 
+        ip_range: {
+            type: 'object',
+            required: ['start', 'end'],
+            properties: {
+                start: {
+                    type: 'string',
+                },
+                end: {
+                    type: 'string',
+                }
+            }
+        },
         agent_roles_enum: {
             type: 'string',
             enum: ['STORAGE', 'S3']

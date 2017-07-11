@@ -68,7 +68,16 @@ module.exports = {
         allowed_ips: {
             type: 'array',
             items: {
-                type: 'string'
+                type: 'object',
+                required: ['start', 'end'],
+                properties: {
+                    start: {
+                        type: 'string'
+                    },
+                    end: {
+                        type: 'string'
+                    }
+                }
             }
         },
         default_pool: {

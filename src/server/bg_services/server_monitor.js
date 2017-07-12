@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const net = require('net');
 const url = require('url');
 const moment = require('moment');
@@ -254,6 +255,7 @@ function _check_dns_and_phonehome() {
 
 function _check_network_configuration() {
     dbg.log2('check_network_configuration');
+    if (os.type() === 'Darwin') return;
     let ips = os_utils.get_local_ipv4_ips();
     if (server_conf.is_clusterized && !_.find(ips, ip => ip === server_conf.owner_address)) {
         Dispatcher.instance().alert('MAJOR',

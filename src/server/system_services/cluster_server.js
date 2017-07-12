@@ -31,6 +31,7 @@ const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const upgrade_utils = require('../../util/upgrade_utils');
+const net_utils = require('../../util/net_utils');
 const phone_home_utils = require('../../util/phone_home');
 
 

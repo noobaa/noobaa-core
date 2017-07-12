@@ -115,18 +115,7 @@ class Dispatcher {
                             this.send_syslog({
                                 description: alert
                             });
-                            return P.resolve()
-                                .then(() => {
-                                    let current_clustering = system_store.get_local_cluster_info();
-                                    if (current_clustering && current_clustering.is_clusterized) {
-                                        return server_rpc.client.cluster_internal.redirect_to_cluster_master();
-                                    }
-                                })
-                                .then(ip => server_rpc.client.redirector.publish_alerts({
-                                    request_params: { ids: [res._id] }
-                                }, {
-                                    address: server_rpc.get_base_address(ip)
-                                }));
+                            return this.publish_fe_notifications({ ids: [res._id] }, 'alert');
                         });
                 }
                 dbg.log3('Suppressed', alert);
@@ -140,10 +129,7 @@ class Dispatcher {
     update_alerts_state(req) {
         const { query, state } = req.rpc_params;
         return AlertsLogStore.instance().update_alerts_state(req.system._id, query, state)
-            .then(() => server_rpc.client.redirector.publish_alerts({
-                request_params: req.rpc_params.query
-            }));
-
+            .then(() => this.publish_fe_notifications(req.rpc_params.query, 'alert'));
     }
 
     read_alerts(req) {
@@ -157,6 +143,22 @@ class Dispatcher {
                     time: alert_item.time.getTime(),
                     read: alert_item.read
                 };
+            }));
+    }
+
+    publish_fe_notifications(params, api) {
+        return P.resolve()
+            .then(() => {
+                let current_clustering = system_store.get_local_cluster_info();
+                if (current_clustering && current_clustering.is_clusterized) {
+                    return server_rpc.client.cluster_internal.redirect_to_cluster_master();
+                }
+            })
+            .then(ip => server_rpc.client.redirector.publish_fe_notifications({
+                request_params: params,
+                api_name: api
+            }, {
+                address: server_rpc.get_base_address(ip)
             }));
     }
 

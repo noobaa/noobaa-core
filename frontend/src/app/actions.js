@@ -1452,8 +1452,8 @@ export function attachServerToCluster(serverAddress, serverSecret, hostname, loc
         new_hostname: hostname || undefined
     })
         .then(
-            () => notify(`${name} attached to cluster successfully`, 'success'),
-            () => notify(`Adding ${name} to cluster failed`, 'error')
+            () => notify(`Attaching ${name} to the cluster, this might take a few moments`, 'info'),
+            () => notify(`Attaching ${name} to cluster failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

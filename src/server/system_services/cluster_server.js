@@ -86,11 +86,16 @@ function add_member_to_cluster(req) {
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
 
+    return pre_add_member_to_cluster(req)
+        .then(my_address => {
+            add_member_to_cluster_invoke(req, my_address);
+        });
+}
+
+function pre_add_member_to_cluster(req) {
     const topology = cutil.get_topology();
-    const id = topology.cluster_id;
     const is_clusterized = topology.is_clusterized;
     let my_address;
-    let first_server = !is_clusterized;
 
     dbg.log0('validating member request');
     return _validate_member_request(req)
@@ -136,7 +141,16 @@ function add_member_to_cluster(req) {
                 }
             }
         })
-        .then(() => P.fcall(function() {
+        .then(() => my_address);
+}
+
+function add_member_to_cluster_invoke(req, my_address) {
+    const topology = cutil.get_topology();
+    const id = topology.cluster_id;
+    const is_clusterized = topology.is_clusterized;
+    const first_server = !is_clusterized;
+
+    return P.fcall(function() {
             //If this is the first time we are adding to the cluster, special handling is required
             if (!is_clusterized) {
                 dbg.log0('Current server is first on cluster and has single mongo running, updating');
@@ -150,7 +164,7 @@ function add_member_to_cluster(req) {
                 //If adding shard, and current server does not have config on it, add
                 //This is the case on the addition of the first shard
             }
-        }))
+        })
         .then(() => {
             dbg.log0(`read mongo certs from /etc/mongo_ssl/`);
             return P.join(
@@ -223,6 +237,19 @@ function add_member_to_cluster(req) {
             if (first_server) {
                 return MongoCtrl.add_mongo_monitor_program();
             }
+        })
+        .then(() => Dispatcher.instance().publish_fe_notifications({
+                secret: req.rpc_params.secret,
+                result: true
+            }, 'add_memeber_to_cluster') //send notification API on newly added member
+        )
+        .catch(err => {
+            console.error(`Caught err in add_member_to_cluster_invoke ${err}`);
+            return Dispatcher.instance().publish_fe_notifications({
+                secret: req.rpc_params.secret,
+                result: false,
+                reason: err.toString()
+            }, 'add_memeber_to_cluster');
         })
         .return();
 }

@@ -21,7 +21,28 @@ module.exports = {
                 system: false
             }
         },
+
+        add_memeber_to_cluster: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['secret', 'result'],
+                properties: {
+                    secret: {
+                        type: 'string'
+                    },
+                    result: {
+                        type: 'boolean'
+                    },
+                    reason: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
     },
-    definitions: {
-    }
+    definitions: {}
 };

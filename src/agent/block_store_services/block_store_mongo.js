@@ -73,11 +73,11 @@ class BlockStoreMongo extends BlockStoreBase {
 
     get_storage_info() {
         // Actually will be used 30GB since we have 10GB reserve
-        const GIGABYTE_40 = 40 * 1024 * 1024 * 1024;
+        const GIGABYTE_30 = 30 * 1024 * 1024 * 1024;
         return P.resolve(this._get_usage())
             .then(usage => ({
-                total: Math.max(GIGABYTE_40, usage.size),
-                free: Math.max(GIGABYTE_40 - usage.size, 0),
+                total: Math.max(GIGABYTE_30, usage.size),
+                free: Math.max(GIGABYTE_30 - usage.size, 0),
                 used: usage.size
             }));
     }

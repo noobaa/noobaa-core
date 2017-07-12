@@ -1533,10 +1533,11 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_item_storage_full(item) {
+        const reserve = item.node.node_type === 'BLOCK_STORE_FS' ? config.NODES_FREE_SPACE_RESERVE : 0;
         if (!item.node.storage) return true;
         return item.node.storage.limit ?
             (item.node.storage.used >= item.node.storage.limit) :
-            (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
+            (item.node.storage.free <= reserve);
     }
 
     _get_item_io_detention(item) {

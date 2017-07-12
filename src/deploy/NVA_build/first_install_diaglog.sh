@@ -54,8 +54,13 @@ function configure_interface_ip() {
     #Choice of Static IP
     if [ "${dynamic}" -eq "1" ]; then
       #sudo echo "First Install Chose Static IP" >> /var/log/noobaa_deploy.log
-      dialog --colors --nocancel --backtitle "NooBaa First Install" --title "IP Configuration" --form "\nPlease enter the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis IP address should be associated with noobaa.local in the DNS (Use \Z4\ZbUp/Down\Zn to navigate)." 12 70 4 "IP Address:" 1 1 "" 1 25 25 30 "Netmask:" 2 1 "" 2 25 25 30 "Default Gateway:" 3 1 "" 3 25 25 30 2> answer_ip
+      dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\nPlease enter the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis IP address should be associated with noobaa.local in the DNS (Use \Z4\ZbUp/Down\Zn to navigate)." 12 70 4 "IP Address:" 1 1 "" 1 25 25 30 "Netmask:" 2 1 "" 2 25 25 30 "Default Gateway:" 3 1 "" 3 25 25 30 2> answer_ip
 
+      #check if cancel was selected
+      if [ $? -ne 0 ]; then
+        return
+      fi
+      
       local ip=$(head -1 answer_ip)
       local mask=$(head -2 answer_ip | tail -1)
       local gw=$(tail -1 answer_ip)

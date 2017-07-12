@@ -586,6 +586,7 @@ module.exports = {
                 'DELETING',
                 'DELETED',
                 'STORAGE_NOT_EXIST',
+                'AUTH_FAILED',
                 'DECOMMISSIONED',
                 'DECOMMISSIONING',
                 'MIGRATING',
@@ -657,6 +658,9 @@ module.exports = {
                     type: 'integer'
                 },
                 STORAGE_NOT_EXIST: {
+                    type: 'integer'
+                },
+                AUTH_FAILED: {
                     type: 'integer'
                 },
                 DATA_ACTIVITY: {

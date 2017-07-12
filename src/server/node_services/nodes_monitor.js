@@ -150,6 +150,7 @@ const MODE_COMPARE_ORDER = [
     'DELETING',
     'DECOMMISSIONED',
     'STORAGE_NOT_EXIST',
+    'AUTH_FAILED', // authentication to cloud storage failed
     'DELETED',
     'N2N_ERRORS',
     'GATEWAY_ERRORS',
@@ -1065,11 +1066,19 @@ class NodesMonitor extends EventEmitter {
                     dbg.warn('agent storage is available again after agent reported it does not exist. ', item.node.name);
                     delete item.storage_not_exist;
                 }
+                if (item.auth_failed) {
+                    // authentication in aws\azure succeeded after it failed before
+                    dbg.warn('authentication in aws\\azure succeeded after it failed before ', item.node.name);
+                    delete item.auth_failed;
+                }
             })
             .catch(err => {
                 if (err.rpc_code === 'STORAGE_NOT_EXIST' && !item.storage_not_exist) {
                     dbg.error('got STORAGE_NOT_EXIST error from node', item.node.name, err.message);
                     item.storage_not_exist = Date.now();
+                } else if (err.rpc_code === 'AUTH_FAILED' && !item.auth_failed) {
+                    dbg.error('got AUTH_FAILED error from node', item.node.name, err.message);
+                    item.auth_failed = Date.now();
                 }
                 if (!item.io_test_errors) {
                     dbg.log0('_test_store_perf:: node has io_test_errors', item.node.name);
@@ -1572,6 +1581,7 @@ class NodesMonitor extends EventEmitter {
             item.node_from_store &&
             item.node.rpc_address &&
             !item.storage_not_exist &&
+            !item.auth_failed &&
             !item.io_detention &&
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
@@ -1586,6 +1596,7 @@ class NodesMonitor extends EventEmitter {
             item.node_from_store &&
             item.node.rpc_address &&
             !item.storage_not_exist &&
+            !item.auth_failed &&
             !item.io_detention &&
             !item.storage_full &&
             !item.node.migrating_to_pool &&
@@ -1618,6 +1629,7 @@ class NodesMonitor extends EventEmitter {
             (item.node.deleting && 'DELETING') ||
             (item.node.deleted && 'DELETED') ||
             (item.storage_not_exist && 'STORAGE_NOT_EXIST') ||
+            (item.auth_failed && 'AUTH_FAILED') ||
             (item.node.decommissioned && 'DECOMMISSIONED') ||
             (item.node.decommissioning && 'DECOMMISSIONING') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
@@ -1706,7 +1718,6 @@ class NodesMonitor extends EventEmitter {
         }
 
         if (!act.stage.done) return;
-
 
         if (act.stage.name === STAGE_REBUILDING) {
             dbg.log1('_update_data_activity_stage: DONE REBUILDING',

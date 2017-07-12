@@ -106,6 +106,7 @@ export default function register(ko) {
     ko.components.register('bucket-data-placement-form',    require('./bucket/bucket-data-placement-form/bucket-data-placement-form').default);
     ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
     ko.components.register('bucket-s3-access-table',        require('./bucket/bucket-s3-access-table/bucket-s3-access-table').default);
+    ko.components.register('bucket-namespace-form',         require('./bucket/bucket-namespace-form/bucket-namespace-form').default);
     /** INJECT:bucket **/
 
     // -------------------------------

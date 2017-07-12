@@ -1,8 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { getPoolStateIcon, getResourceTypeIcon, 
-    getPoolCapacityBarValues } from 'utils/ui-utils';
+import { getPoolStateIcon, getResourceTypeIcon, getPoolCapacityBarValues } from 'utils/ui-utils';
 
 export default class PlacementRowViewModel {
     constructor(pool) {

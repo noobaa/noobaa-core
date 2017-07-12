@@ -105,6 +105,8 @@ class BlockStoreS3 extends BlockStoreBase {
                 dbg.error('_read_block failed:', err, this.cloud_info);
                 if (err.code === 'NoSuchBucket') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+                } else if (err.code === 'AccessDenied') {
+                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
                 }
                 throw err;
             });
@@ -151,6 +153,8 @@ class BlockStoreS3 extends BlockStoreBase {
                 dbg.error('_read_block failed:', err, this.cloud_info);
                 if (err.code === 'NoSuchBucket') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+                } else if (err.code === 'AccessDenied') {
+                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
                 }
                 throw err;
             });

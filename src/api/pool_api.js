@@ -359,8 +359,8 @@ module.exports = {
                 'LOW_CAPACITY',
                 'HIGH_DATA_ACTIVITY',
                 'IO_ERRORS',
-                'BUCKET_NOT_EXIST',
-                'CONTAINER_NOT_EXIST',
+                'STORAGE_NOT_EXIST',
+                'AUTH_FAILED',
                 'INITALIZING',
                 'OPTIMAL'
             ]

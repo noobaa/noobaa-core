@@ -146,13 +146,19 @@ const resourceStateIconMapping = deepFreeze({
         css: 'error',
         name: 'problem',
     },
-    BUCKET_NOT_EXIST: {
-        tooltip: 'Target AWS bucket does not exist',
-        css: 'error',
-        name: 'problem',
+    STORAGE_NOT_EXIST: resource => {
+        const tooltip = resource.cloud_info.endpoint_type === 'AZURE' ?
+            'Target Azure container does not exist' :
+            'Target S3 bucket does not exist';
+
+        return {
+            tooltip,
+            css: 'error',
+            name: 'problem',
+        };
     },
-    CONTAINER_NOT_EXIST: {
-        tooltip: 'Target Azure container does not exist',
+    AUTH_FAILED: {
+        tooltip: 'Authentication failure',
         css: 'error',
         name: 'problem',
     },
@@ -320,13 +326,12 @@ export function countNodesByState(modeCoutners) {
                 counters.hasIssues += value;
             }
             return counters;
-        },
-        { all: 0, healthy: 0, offline: 0, hasIssues: 0 }
+        }, { all: 0, healthy: 0, offline: 0, hasIssues: 0 }
     );
 }
 
 export function getModeFilterFromState(state) {
-    switch(state) {
+    switch (state) {
         case 'HEALTHY':
             return ['OPTIMAL'];
 

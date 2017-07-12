@@ -57,6 +57,8 @@ class BlockStoreAzure extends BlockStoreBase {
                     this.container_name, block_key, err);
                 if (err.code === 'ContainerNotFound') {
                     throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
+                } else if (err.code === 'AuthenticationFailed') {
+                    throw new RpcError('AUTH_FAILED', `access denied to the azure container ${this.container_name}. got error ${err}`);
                 }
                 throw err;
             });
@@ -107,10 +109,13 @@ class BlockStoreAzure extends BlockStoreBase {
             })
             .catch(err => {
                 dbg.error('BlockStoreAzure _write_block failed:',
-                    this.container_name, block_key, err);
+                    this.container_name, block_key, err.code, err);
                 if (err.code === 'ContainerNotFound') {
                     throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
+                } else if (err.code === 'AuthenticationFailed') {
+                    throw new RpcError('AUTH_FAILED', `access denied to the azure container ${this.container_name}. got error ${err}`);
                 }
+
                 throw err;
             });
     }

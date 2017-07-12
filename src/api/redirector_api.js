@@ -46,16 +46,20 @@ module.exports = {
             }
         },
 
-        publish_alerts: {
+        publish_fe_notifications: {
             method: 'POST',
             params: {
                 type: 'object',
+                required: ['api_name'],
                 properties: {
                     request_params: {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}
                     },
+                    api_name: {
+                        type: 'string'
+                    }
                 }
             },
             auth: {

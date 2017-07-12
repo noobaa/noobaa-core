@@ -48,13 +48,17 @@ function unregister_from_alerts(req) {
     alerts_conn_set.remove(req.connection);
 }
 
-function publish_alerts(req) {
+function publish_fe_notifications(req) {
     const connections = alerts_conn_set.list();
-    dbg.log3('publish_alerts:',
+    dbg.log3('publish_fe_notifications:',
         req.rpc_params.request_params,
+        req.rpc_params.api_name,
         _.map(connections, 'connid'));
+    if (!server_rpc.client.frontend_notifications[req.rpc_params.api_name]) {
+        throw new Error(`No such API defined ${req.rpc_params.api_name} under frontend_notifications`);
+    }
     return P.map(connections, conn =>
-            server_rpc.client.frontend_notifications.alert(req.rpc_params.request_params, {
+            server_rpc.client.frontend_notifications[req.rpc_params.api_name](req.rpc_params.request_params, {
                 connection: conn,
             })
         )
@@ -69,4 +73,4 @@ exports.register_for_alerts = register_for_alerts;
 exports.unregister_from_alerts = unregister_from_alerts;
 exports.register_to_cluster = register_to_cluster;
 exports.publish_to_cluster = publish_to_cluster;
-exports.publish_alerts = publish_alerts;
+exports.publish_fe_notifications = publish_fe_notifications;

@@ -5,13 +5,11 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { state$, dispatch } from 'state';
-import { isIP } from 'validations';
+import { isIPOrIPRange } from 'utils/net-utils';
 import { setAccountIpRestrictions } from 'action-creators';
-// import numeral from 'numeral';
-// import moment from 'moment';
 
 const allowedIpsPlaceholder =
-    `e.g., 10.5.3.2 or 10.2.253.5 and click enter ${String.fromCodePoint(0x23ce)}`;
+    `e.g., 10.5.3.2 or 10.2.253.5 - 24 and click enter ${String.fromCodePoint(0x23ce)}`;
 
 class setAccountIpRestrictionsModalViewModel extends Observer {
     constructor({ onClose, accountName }) {
@@ -30,13 +28,15 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
     onAccount(account) {
         if (!account || this.isAccountReady()) return;
 
-        const { name, allowedIps } = account;
+        const allowedIps = (account.allowedIps || [])
+            .map(({ start, end }) => start === end ? start : `${start} - ${end}`);
+
         this.form = new FormViewModel({
             name: 'setAccountIPRestriction',
             fields: {
-                accountName: name,
+                accountName: account.name,
                 usingIpRestrictions: Boolean(allowedIps),
-                allowedIps: (allowedIps || []).map(ip => ip.start),
+                allowedIps: allowedIps,
             },
             onValidate: this.onValidate,
             onSubmit: this.onSubmit.bind(this)
@@ -48,7 +48,7 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
     onValidate({ usingIpRestrictions, allowedIps }) {
         const errors = {};
 
-        if (usingIpRestrictions && !allowedIps.every(isIP)) {
+        if (usingIpRestrictions && !allowedIps.every(isIPOrIPRange)) {
             errors.allowedIps = 'All values must be of the IPv4 format';
         }
 

@@ -215,7 +215,10 @@ MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
     let mongo_shell_command = `mongo nbcore --port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT}` +
         ` --eval "rs.initiate({_id: 'shard1',members: [{_id: 0,host: '${host}'}]})"`;
     dbg.log0(`init replica set: running command ${mongo_shell_command}`);
-    return promise_utils.exec(mongo_shell_command, false, false);
+    return promise_utils.exec(mongo_shell_command, {
+        ignore_rc: false,
+        return_stdout: false
+    });
 };
 
 
@@ -321,7 +324,10 @@ MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
         ` --eval "var host='${host}', user='${process.env.MONGO_SSL_USER}'"` +
         ' /root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_init_rs.js';
     dbg.log0(`running command ${mongo_shell_command}`);
-    return promise_utils.exec(mongo_shell_command, false, false);
+    return promise_utils.exec(mongo_shell_command, {
+        ignore_rc: false,
+        return_stdout: false
+    });
 };
 
 MongoCtrl.prototype._add_new_config_program = function() {

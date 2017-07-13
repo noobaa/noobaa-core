@@ -29,7 +29,7 @@ const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const net_utils = require('../../util/net_utils');
-const upgrade_utils = require('../../util/upgrade_utils');
+const upgrade_utils = require('../../upgrade/upgrade_utils');
 const phone_home_utils = require('../../util/phone_home');
 
 
@@ -1220,7 +1220,7 @@ function upgrade_cluster(req) {
             });
         })
         // after all secondaries are upgraded it is safe to upgrade the primary.
-        // secondaries should wait (in upgrade.sh) for primary to complete upgrade and perform mongo_upgrade
+        // secondaries should wait (in upgrade.js) for primary to complete upgrade and perform mongo_upgrade
         .then(() => {
             dbg.log0('UPGRADE:', 'calling do_upgrade on master');
             return server_rpc.client.cluster_internal.do_upgrade({

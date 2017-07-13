@@ -26,19 +26,35 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected supervisor logs successfully'))
                 .catch(err => diag_log('collect_supervisor_logs failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR, {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected noobaa_deploy logs successfully'))
                 .catch(err => diag_log('collecting noobaa_deploy.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR, {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected noobaa.log files successfully'))
                 .catch(err => diag_log('collecting noobaa.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/client_noobaa.log* ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('cp -f /var/log/client_noobaa.log* ' + TMP_WORK_DIR, {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected client_noobaa.log files successfully'))
                 .catch(err => diag_log('collecting client_noobaa.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('cp -f ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected .env successfully'))
                 .catch(err => diag_log('collecting .env failed with error: ' + err)),
 
@@ -47,25 +63,45 @@ function collect_server_diagnostics(req) {
                 .catch(err => diag_log('collecting top.out failed with error: ' + err)),
 
 
-                () => promise_utils.exec('cp -f /etc/noobaa* ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('cp -f /etc/noobaa* ' + TMP_WORK_DIR, {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected /etc/noobaa files successfully'))
                 .catch(err => diag_log('collecting /etc/noobaa files failed with error: ' + err)),
 
 
-                () => promise_utils.exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out', false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out', {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected lsof.out successfully'))
                 .catch(err => diag_log('collecting lsof.out failed with error: ' + err)),
 
 
-                () => promise_utils.exec('chkconfig &> ' + TMP_WORK_DIR + '/chkconfig.out', false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('chkconfig &> ' + TMP_WORK_DIR + '/chkconfig.out', {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected chkconfig.out successfully'))
                 .catch(err => diag_log('collecting chkconfig.out failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/messages* ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('cp -f /var/log/messages* ' + TMP_WORK_DIR, {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected /var/log/messages files successfully'))
                 .catch(err => diag_log('collecting /etc/noobaa files failed with error: ' + err)),
 
-                () => promise_utils.exec('dmesg &> ' + TMP_WORK_DIR + '/dmesg.out', false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('dmesg &> ' + TMP_WORK_DIR + '/dmesg.out', {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected dmesg successfully'))
                 .catch(err => diag_log('collecting dmesg failed with error: ' + err)),
 
@@ -73,11 +109,19 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected ntp diagnostics successfully'))
                 .catch(err => diag_log('collect_ntp_diagnostics failed with error: ' + err)),
 
-                () => promise_utils.exec('df -h &> ' + TMP_WORK_DIR + '/df.out', false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('df -h &> ' + TMP_WORK_DIR + '/df.out', {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected df.out successfully'))
                 .catch(err => diag_log('collecting df.out failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /tmp/noobaa_wizard.log ' + TMP_WORK_DIR + '/noobaa_wizard.log', false, false, LONG_EXEC_TIMEOUT)
+                () => promise_utils.exec('cp -f /tmp/noobaa_wizard.log ' + TMP_WORK_DIR + '/noobaa_wizard.log', {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
                 .then(() => diag_log('collected noobaa_wizard.log successfully'))
                 .catch(err => diag_log('collecting noobaa_wizard.log failed with error: ' + err)),
 
@@ -112,19 +156,71 @@ function collect_ntp_diagnostics() {
         return P.resolve();
     }
     let ntp_diag = TMP_WORK_DIR + '/ntp.diag';
-    return promise_utils.exec('echo "### NTP diagnostics ###" >' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT)
-        .then(() => promise_utils.exec('echo "\ncontent of /etc/ntp.conf:" &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('cat /etc/ntp.conf &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('echo "\n\n" &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('ls -l /etc/localtime &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('echo "\n\nntpstat:" &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('ntpstat &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('echo "\n\ndate:" &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('date &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('echo "\n\nntpdate:" &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('ntpdate &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('echo "\n\nntptime:" &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT))
-        .then(() => promise_utils.exec('ntptime &>>' + ntp_diag, false, false, SHORT_EXEC_TIMEOUT));
+    return promise_utils.exec('echo "### NTP diagnostics ###" >' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        })
+        .then(() => promise_utils.exec('echo "\ncontent of /etc/ntp.conf:" &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('cat /etc/ntp.conf &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('echo "\n\n" &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('ls -l /etc/localtime &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('echo "\n\nntpstat:" &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('ntpstat &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('echo "\n\ndate:" &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('date &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('echo "\n\nntpdate:" &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('ntpdate &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('echo "\n\nntptime:" &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }))
+        .then(() => promise_utils.exec('ntptime &>>' + ntp_diag, {
+            ignore_rc: false,
+            return_stdout: false,
+            timeout: SHORT_EXEC_TIMEOUT
+        }));
 }
 
 //Collect supervisor logs, only do so on linux platforms and not on OSX (WA for local server run)
@@ -134,7 +230,11 @@ function collect_supervisor_logs() {
             if (process.platform === 'linux') {
                 // compress supervisor logs to the destination directory with compression level 1 (fastest).
                 // it appears to be faster than copying and then compressing
-                return promise_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /tmp/supervisor/* ', false, false, LONG_EXEC_TIMEOUT)
+                return promise_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /tmp/supervisor/* ', {
+                        ignore_rc: false,
+                        return_stdout: false,
+                        timeout: LONG_EXEC_TIMEOUT
+                    })
                     .catch(function(err) {
                         console.error('Error in collecting supervisor logs', err);
                         throw new Error('Error in collecting supervisor logs ' + err);

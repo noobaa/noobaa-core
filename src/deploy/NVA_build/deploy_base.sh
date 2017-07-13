@@ -246,6 +246,8 @@ function general_settings {
     echo "alias zless='zless -R'" >> ~/.bashrc
     echo "alias nlog='logger -p local0.warn -t NooBaaBash[1]'"
     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
+    echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm' >> ~/.bashrc
 
     #Fix file descriptor limits, tcp timeout
     echo "root hard nofile 102400" >> /etc/security/limits.conf

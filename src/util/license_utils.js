@@ -104,10 +104,10 @@ class LicenseScanner extends events.EventEmitter {
 
     scan_rpms() {
         return promise_utils.exec(
-                `rpm -qa --qf "%{NAME}|%{VERSION}|%{URL}|%{LICENSE}\n"`,
-                false, // dont ignore rc
-                true // return stdout
-            )
+                `rpm -qa --qf "%{NAME}|%{VERSION}|%{URL}|%{LICENSE}\n"`, {
+                    ignore_rc: false,
+                    return_stdout: true,
+                })
             .then(text => text.split('\n'))
             .map(l => {
                 this._increase_scanned_count();

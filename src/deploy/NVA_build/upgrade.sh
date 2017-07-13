@@ -125,11 +125,11 @@ function mongo_upgrade {
   sleep 3
 }
 
-function setup_users {
-	deploy_log "setting up mongo users for admin and nbcore databases"
-	/usr/bin/mongo admin ${CORE_DIR}/src/deploy/NVA_build/mongo_setup_users.js
-	deploy_log "setup_users done"
-}
+# function setup_users {
+# 	deploy_log "setting up mongo users for admin and nbcore databases"
+# 	/usr/bin/mongo admin ${CORE_DIR}/src/deploy/NVA_build/mongo_setup_users.js
+# 	deploy_log "setup_users done"
+# }
 
 function restart_s3rver {
     ${SUPERCTL} restart s3rver
@@ -201,7 +201,7 @@ function do_upgrade {
     fi
   fi
 
-  unalias cp
+  # unalias cp
   deploy_log "Tar extracted successfully, Running pre upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} pre ${FSUFFIX}
 
@@ -227,13 +227,13 @@ function do_upgrade {
   # Re-setup Repos
   setup_repos
 
-   if [ ! -d  /var/lib/mongo/cluster/shard1 ] || [ ! "$(ls -A /var/lib/mongo/cluster/shard1)" ]; then
-        deploy_log "Moving mongo db files into new location"
-        mkdir -p /var/lib/mongo/cluster/shard1
-        chmod +x /var/lib/mongo/cluster/shard1
-        cp -r /data/db/* /var/lib/mongo/cluster/shard1/
-        mv /data/db /backup/old_db
-    fi
+  #  if [ ! -d  /var/lib/mongo/cluster/shard1 ] || [ ! "$(ls -A /var/lib/mongo/cluster/shard1)" ]; then
+  #       deploy_log "Moving mongo db files into new location"
+  #       mkdir -p /var/lib/mongo/cluster/shard1
+  #       chmod +x /var/lib/mongo/cluster/shard1
+  #       cp -r /data/db/* /var/lib/mongo/cluster/shard1/
+  #       mv /data/db /backup/old_db
+  #   fi
 
   deploy_log "Running post upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post ${FSUFFIX}
@@ -242,26 +242,26 @@ function do_upgrade {
   mongo_upgrade
   wait_for_mongo
 
-  #Update Mongo Upgrade status
-  deploy_log "Updating system.upgrade on success"
-  local id=$(${MONGO_SHELL} --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
-  ${MONGO_SHELL} --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
+  # #Update Mongo Upgrade status
+  # deploy_log "Updating system.upgrade on success"
+  # local id=$(${MONGO_SHELL} --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
+  # ${MONGO_SHELL} --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
 
   rm -rf ${EXTRACTION_PATH}/*
   deploy_log "Upgrade finished successfully!"
 }
 
-function verify_supported_upgrade {
-    local current_ver=$(grep version /root/node_modules/noobaa-core/package.json  | cut -f 2 -d':' | cut -f 2 -d'"')
-    local second_digit=$(echo ${current_ver} | cut -f 2 -d'.')
+# function verify_supported_upgrade {
+#     local current_ver=$(grep version /root/node_modules/noobaa-core/package.json  | cut -f 2 -d':' | cut -f 2 -d'"')
+#     local second_digit=$(echo ${current_ver} | cut -f 2 -d'.')
 
-    if [ ${second_digit} == "0" or ${second_digit} == "3" ]; then
-        deploy_log "Unspported upgrade path from ${current_version}"
-        #delibaratly no auth, this is an old version!
-        #/usr/bin/mongo nbcore --eval "db.activitylogs.insert({level: 'info', desc: 'Upgrade is not supported from this version, please contact support'})"
-        exit 1
-    fi
-}
+#     if [ ${second_digit} == "0" or ${second_digit} == "3" ]; then
+#         deploy_log "Unspported upgrade path from ${current_version}"
+#         #delibaratly no auth, this is an old version!
+#         #/usr/bin/mongo nbcore --eval "db.activitylogs.insert({level: 'info', desc: 'Upgrade is not supported from this version, please contact support'})"
+#         exit 1
+#     fi
+# }
 
 #Node.js Cluster chnages the .spawn behavour. On a normal spawn FDs are not inherited,
 #on a node cluster they are, which meand the listening ports of the webserver are inherited by this upgrade.
@@ -307,7 +307,7 @@ else
 
 
     deploy_log "upgrade.sh called with ${allargs}"
-    verify_supported_upgrade #verify upgrade from ver > 0.4.5
+    # verify_supported_upgrade #verify upgrade from ver > 0.4.5
     do_upgrade
     exit 0
   else

@@ -82,7 +82,10 @@ function _calculate_free_mem(count_mongo_reserved_as_free) {
 
 function _exec_and_extract_num(command, regex_line) {
     const regex = new RegExp(regex_line + '[\\s]*([\\d]*)[\\s]');
-    return promise_utils.exec(command, true, true)
+    return promise_utils.exec(command, {
+            ignore_rc: true,
+            return_stdout: true,
+        })
         .then(res => {
             const regex_res = regex.exec(res);
             return (regex_res && regex_res[1] && parseInt(regex_res[1], 10)) || 0;
@@ -262,7 +265,10 @@ function get_drive_of_path(path) {
 function remove_linux_readonly_drives(volumes) {
     // grep command to get read only filesystems from /proc/mount
     let grep_command = 'grep "\\sro[\\s,]" /proc/mounts';
-    return promise_utils.exec(grep_command, true, true)
+    return promise_utils.exec(grep_command, {
+            ignore_rc: true,
+            return_stdout: true,
+        })
         .then(grep_res => {
             let ro_drives = grep_res.split('\n').map(drive => drive.split(' ')[0]);
             // only use volumes that are not one of the ro_drives.
@@ -358,7 +364,10 @@ function windows_volume_to_drive(vol) {
 }
 
 function wmic(topic) {
-    return promise_utils.exec('wmic ' + topic + ' get /value', /*ignore_rc= */ false, /*return_stdout= */ true)
+    return promise_utils.exec('wmic ' + topic + ' get /value', {
+            ignore_rc: false,
+            return_stdout: true,
+        })
         .then(function(res) {
             return wmic_parse_list(res);
         });
@@ -452,7 +461,10 @@ function verify_ntp_server(srv) {
 
 function get_ntp() {
     if (os.type() === 'Linux') {
-        return promise_utils.exec("cat /etc/ntp.conf | grep NooBaa", false, true)
+        return promise_utils.exec("cat /etc/ntp.conf | grep NooBaa", {
+                ignore_rc: false,
+                return_stdout: true,
+            })
             .then(res => {
                 let regex_res = (/server (.*) iburst #NooBaa Configured NTP Server/).exec(res);
                 return regex_res ? regex_res[1] : "";
@@ -481,7 +493,10 @@ function set_ntp(server, timez) {
 
 function get_yum_proxy() {
     if (os.type() === 'Linux') {
-        return promise_utils.exec("cat /etc/yum.conf | grep NooBaa", false, true)
+        return promise_utils.exec("cat /etc/yum.conf | grep NooBaa", {
+                ignore_rc: false,
+                return_stdout: true,
+            })
             .then(res => {
                 let regex_res = (/proxy=(.*) #NooBaa Configured Proxy Server/).exec(res);
                 return regex_res ? regex_res[1] : "";
@@ -514,7 +529,10 @@ function get_dns_servers() {
     };
 
     if (os.type() === 'Linux') {
-        return promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured DNS Servers'  | awk '{print $3}'", true, true)
+        return promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured DNS Servers'  | awk '{print $3}'", {
+                ignore_rc: true,
+                return_stdout: true,
+            })
             .then(cmd_res => {
                 dns_config.dns_servers = cmd_res.trim().split(',');
             })
@@ -608,12 +626,18 @@ function get_time_config() {
     };
 
     if (os.type() === 'Linux') {
-        return promise_utils.exec('/usr/bin/ntpstat | head -1', false, true)
+        return promise_utils.exec('/usr/bin/ntpstat | head -1', {
+                ignore_rc: false,
+                return_stdout: true,
+            })
             .then(res => {
                 if (res.indexOf('synchronized to') !== -1) {
                     reply.status = true;
                 }
-                return promise_utils.exec('ls -l /etc/localtime', false, true);
+                return promise_utils.exec('ls -l /etc/localtime', {
+                    ignore_rc: false,
+                    return_stdout: true,
+                });
             })
             .then(tzone => {
                 if (tzone && !tzone.split('>')[1]) {
@@ -629,7 +653,10 @@ function get_time_config() {
             });
     } else if (os.type() === 'Darwin') {
         reply.status = true;
-        return promise_utils.exec('ls -l /etc/localtime', false, true)
+        return promise_utils.exec('ls -l /etc/localtime', {
+                ignore_rc: false,
+                return_stdout: true,
+            })
             .then(tzone => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
                 reply.srv_time = moment().tz(symlink)
@@ -664,7 +691,10 @@ function get_networking_info() {
 }
 
 function get_all_network_interfaces() {
-    return promise_utils.exec('ifconfig -a | grep ^en | awk -F":" \'{print $1}\'', false, true)
+    return promise_utils.exec('ifconfig -a | grep ^en | awk -F":" \'{print $1}\'', {
+            ignore_rc: false,
+            return_stdout: true,
+        })
         .then(nics => {
             nics = nics.substring(0, nics.length - 1);
             return nics.split('\n');
@@ -678,7 +708,10 @@ function is_folder_permissions_set(current_path) {
     let administrators_has_inheritance = false;
     let system_has_full_control = false;
     let found_other_permissions = false;
-    return promise_utils.exec(`icacls ${current_path}`, false, true)
+    return promise_utils.exec(`icacls ${current_path}`, {
+            ignore_rc: false,
+            return_stdout: true
+        })
         .then(acl_response => {
             dbg.log0('is_folder_permissions_set called with:', acl_response, current_path);
             const path_removed = acl_response.replace(current_path, '');
@@ -836,7 +869,10 @@ function handle_unreleased_fds() {
     }
 
     //print deleted un-released file descriptors
-    return promise_utils.exec('lsof -n | grep deleted | grep REG', true, true)
+    return promise_utils.exec('lsof -n | grep deleted | grep REG', {
+            ignore_rc: true,
+            return_stdout: true,
+        })
         .then(res => {
             if (res) {
                 dbg.log0('Deleted FDs which were not released', res);

@@ -264,21 +264,23 @@ function _check_network_configuration() {
             please update the server IP in Cluster->${server_conf.heartbeat.health.os_info.hostname}->Change IP`);
         dbg.log0('server ip was changed, IP:', server_conf.owner_address, 'not in the ip list:', ips);
     }
-    let interfaces = os_utils.get_all_network_interfaces();
     let data = "";
-    dbg.log2('current network interfaces are', interfaces);
-    return P.map(interfaces, inter => {
-            data += inter + '\n';
-            return fs_utils.find_line_in_file('/etc/noobaa_network', inter)
-                .then(line => {
-                    if (!line) { // if didn't found the interface in the file
-                        Dispatcher.instance().alert('MAJOR',
-                            system_store.data.systems[0]._id,
-                            `Net interface ${inter} was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
+    return os_utils.get_all_network_interfaces()
+        .then(interfaces => {
+            dbg.log2('current network interfaces are', interfaces);
+            return P.map(interfaces, inter => {
+                data += inter + '\n';
+                return fs_utils.find_line_in_file('/etc/noobaa_network', inter)
+                    .then(line => {
+                        if (!line) { // if didn't found the interface in the file
+                            Dispatcher.instance().alert('MAJOR',
+                                system_store.data.systems[0]._id,
+                                `Net interface ${inter} was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
                             please configure it using the server console`);
-                        dbg.log0('found new interface', inter);
-                    }
-                });
+                            dbg.log0('found new interface', inter);
+                        }
+                    });
+            });
         })
         .then(() => fs_utils.replace_file('/etc/noobaa_network', data));
 }

@@ -345,6 +345,8 @@ function post_upgrade {
   if grep -q MONGO_SSL_USER /backup/.env; then
       local mongo_user=$(grep MONGO_SSL_USER /backup/.env)
       echo "${mongo_user}" >> ${CORE_DIR}/.env
+  else 
+      /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_mongo_ssl.sh
   fi
 
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)

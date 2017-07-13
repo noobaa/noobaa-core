@@ -217,7 +217,10 @@ module.exports = {
 function deploy_ceph() {
     console.log('Starting Deployment Of Ceph Tests...');
     let command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} > /tmp/ceph_deploy.log`;
-    return promise_utils.exec(command, false, true)
+    return promise_utils.exec(command, {
+            ignore_rc: false,
+            return_stdout: true
+        })
         .then(function(res) {
             return console.log(res);
         })
@@ -239,7 +242,10 @@ function s3_ceph_test() {
             },
             function() {
                 var command = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests ${S3_CEPH_TEST_WHITELIST[i]}`;
-                return promise_utils.exec(command, false, true)
+                return promise_utils.exec(command, {
+                        ignore_rc: false,
+                        return_stdout: true
+                    })
                     .then(() => {
                         console.log('Test Passed:', S3_CEPH_TEST_WHITELIST[i]);
                     })
@@ -272,7 +278,10 @@ function system_ceph_test() {
             },
             function() {
                 var command = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests -w ${process.cwd()}/${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir} ${SYSTEM_CEPH_TEST_WHITELIST[i]}`;
-                return promise_utils.exec(command, false, true)
+                return promise_utils.exec(command, {
+                        ignore_rc: false,
+                        return_stdout: true
+                    })
                     .then(() => {
                         console.log('Test Passed:', SYSTEM_CEPH_TEST_WHITELIST[i]);
                     })
@@ -309,9 +318,15 @@ function run_test() {
     return P.fcall(function() {
             return deploy_ceph();
         })
-        .then(() => promise_utils.exec(createAccountCommand, false, true))
+        .then(() => promise_utils.exec(createAccountCommand, {
+            ignore_rc: false,
+            return_stdout: true
+        }))
         .then(res => console.log(res))
-        .then(() => promise_utils.exec(readSystemCommand, false, true))
+        .then(() => promise_utils.exec(readSystemCommand, {
+            ignore_rc: false,
+            return_stdout: true
+        }))
         .then(res => {
             console.log(res);
 

@@ -44,7 +44,10 @@ function create_auth() {
 // Services is an array of strings for each service or ['all']
 // Command: stop, start, restart
 function control_services(command, services) {
-    return promise_utils.exec(`supervisorctl ${command} ${(services || []).join(' ')}`, false, true)
+    return promise_utils.exec(`supervisorctl ${command} ${(services || []).join(' ')}`, {
+            ignore_rc: false,
+            return_stdout: true
+        })
         .then(res => {
             console.log('control_services response:', res);
         })
@@ -120,13 +123,19 @@ function init_system_to_ntp() {
         .delay(10000)
         .then(() => {
             console.log('shutdown supervisorctl');
-            return promise_utils.exec('supervisorctl shutdown', false, false);
+            return promise_utils.exec('supervisorctl shutdown', {
+                ignore_rc: false,
+                return_stdout: false
+            });
         })
         .delay(15000)
         .finally(() => P.resolve()
             .then(() => {
                 console.log('start supervisord');
-                return promise_utils.exec('/etc/init.d/supervisord start', false, false);
+                return promise_utils.exec('/etc/init.d/supervisord start', {
+                    ignore_rc: false,
+                    return_stdout: false
+                });
             })
             .delay(10000)
             .then(() => {
@@ -298,7 +307,10 @@ function wait_for_mongodb_to_start(max_seconds_to_wait) {
                 return isNotListening;
             },
             function() {
-                return promise_utils.exec('supervisorctl status mongo_wrapper', false, true)
+                return promise_utils.exec('supervisorctl status mongo_wrapper', {
+                        ignore_rc: false,
+                        return_stdout: true
+                    })
                     .then(function(res) {
                         if (String(res).indexOf('RUNNING') > -1) {
                             console.log('mongodb started after ' + wait_counter + ' seconds');

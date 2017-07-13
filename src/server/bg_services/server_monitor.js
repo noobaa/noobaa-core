@@ -200,7 +200,10 @@ function _check_ntp() {
                 Dispatcher.rules.once_daily);
             throw err;
         })
-        .then(() => promise_utils.exec(`ntpstat`, true, true))
+        .then(() => promise_utils.exec(`ntpstat`, {
+            ignore_rc: true,
+            return_stdout: true
+        }))
         .then(ntpstat_res => {
             if (ntpstat_res.startsWith('unsynchronised')) {
                 Dispatcher.instance().alert('MAJOR',

@@ -270,7 +270,11 @@ function fork(command, input_args, opts, ignore_rc) {
     });
 }
 
-function exec(command, ignore_rc, return_stdout, timeout) {
+function exec(command, options) {
+    const ignore_rc = (options && options.ignore_rc) || false;
+    const return_stdout = (options && options.return_stdout) || false;
+    const timeout = (options && options.timeout) || false;
+    const trim_stdout = (options && options.trim_stdout) || false;
     return new P((resolve, reject) => {
         dbg.log2('promise exec', command, ignore_rc);
         child_process.exec(command, {
@@ -282,6 +286,7 @@ function exec(command, ignore_rc, return_stdout, timeout) {
                     dbg.warn(command + " exited with error " + error + " and ignored");
                 }
                 if (return_stdout) {
+                    if (trim_stdout) stdout = stdout.trim();
                     resolve(stdout);
                 } else {
                     resolve();

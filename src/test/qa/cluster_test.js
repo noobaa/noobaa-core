@@ -33,20 +33,21 @@ let agentConf;
 //defining the required parameters
 const {
     location = 'westus2',
-    configured_ntp = 'pool.ntp.org',
-    configured_timezone = 'US/Pacific',
-    prefix = 'Server',
-    timeout = 10,
-    breakonerror = false,
-    resource,
-    storage,
-    vnet,
-    upgrade_pack,
-    clean = false
+        configured_ntp = 'pool.ntp.org',
+        configured_timezone = 'US/Pacific',
+        prefix = 'Server',
+        timeout = 10,
+        breakonerror = false,
+        resource,
+        storage,
+        vnet,
+        upgrade_pack,
+        clean = false
 } = argv;
 
 const oses = [
-    'ubuntu12', 'ubuntu14', 'ubuntu16'];
+    'ubuntu12', 'ubuntu14', 'ubuntu16'
+];
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -69,7 +70,7 @@ function isSecretChanged(isMasterDown, oldSecret, masterSecret) {
     } else {
         saveErrorAndResume(`Error - The master has moved from secret: ${oldSecret} to: ${
             masterSecret} and shouldn't.`);
-            failures_in_test = true;
+        failures_in_test = true;
     }
 }
 
@@ -140,7 +141,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
         .then(() => {
             console.log('Is master changed: ', isMasterDown);
             if (isMasterDown === true) {
-               return P.resolve(azf.listVirtualMachines('Server', 'VM running'))
+                return P.resolve(azf.listVirtualMachines('Server', 'VM running'))
                     .then(res => {
                         connectedServers = res;
                         const connectedMaster = res[0];
@@ -158,11 +159,11 @@ function checkClusterStatus(servers, oldMasterNumber) {
             console.log('Master index is ', masterIndex, 'Master ip is ', servers[masterIndex].ip);
             if (connectedServers.length > 0) {
                 return promise_utils.exec('curl http://' + servers[masterIndex].ip + ':8080 2> /dev/null ' +
-                    '| grep -o \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'', false, true)
+                        '| grep -o \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'', false, true)
                     .catch(() => azf.getIpAddress(servers[masterIndex].name + '_pip')
-                                .then(res => {
-                                    master_ip = res;
-                                }))
+                        .then(res => {
+                            master_ip = res;
+                        }))
                     .then(ip => {
                         master_ip = master_ip || ip.trim();
                         console.log('Master ip', master_ip);
@@ -212,6 +213,7 @@ function setNTPConfig(serverIndex) {
     rpc.disable_validation();
     console.log('Secret is ', servers[serverIndex].secret, 'for server ip ', servers[serverIndex].ip);
     return P.fcall(() => {
+<<<<<<< HEAD
         let auth_params = {
             email: 'demo@noobaa.com',
             password: 'DeMo1',
@@ -223,6 +225,30 @@ function setNTPConfig(serverIndex) {
             console.log('Setting ntp config');
             return client.cluster_server.update_time_config({
                 target_secret: servers[serverIndex].secret,
+=======
+            let auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo1',
+                system: 'demo'
+            };
+            return client.create_auth_token(auth_params);
+        })
+        .then(() => client.system.read_system({}))
+        .then(result => {
+            secretVm = result.cluster.master_secret;
+            console.log('Secret is ', secretVm, 'for server ip ', serverIp);
+        })
+        .then(() => { // time configuration - ntp
+            console.log('Checking connection before setup ntp', configured_ntp);
+            return client.system.attempt_server_resolve({
+                server_name: configured_ntp
+            });
+        })
+        .then(() => {
+            console.log('Setting ntp config');
+            return client.cluster_server.update_time_config({
+                target_secret: secretVm,
+>>>>>>> a8d0d92fb...  This is a combination of 2 commits.
                 timezone: configured_timezone,
                 ntp_server: configured_ntp
             });
@@ -263,6 +289,7 @@ function prepareServers(requestedServers) {
         })
     );
 }
+
 function delayInSec(sec) {
     console.log(`Waiting ${sec} seconds for cluster to stable...`);
     return P.delay(sec * 1000);
@@ -303,23 +330,23 @@ function getAgentConf() {
     client = rpc.new_client({});
     rpc.disable_validation();
     return P.fcall(() => {
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    })
+            let auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo1',
+                system: 'demo'
+            };
+            return client.create_auth_token(auth_params);
+        })
         .then(() => client.system.get_node_installation_string({
                 pool: "first.pool",
                 exclude_drives: []
             })
-                .then(installationString => {
-                    agentConf = installationString.LINUX;
-                    const index = agentConf.indexOf('config');
-                    agentConf = agentConf.substring(index + 7);
-                    console.log(agentConf);
-                }))
+            .then(installationString => {
+                agentConf = installationString.LINUX;
+                const index = agentConf.indexOf('config');
+                agentConf = agentConf.substring(index + 7);
+                console.log(agentConf);
+            }))
         .then(() => rpc.disconnect_all());
 }
 
@@ -387,13 +414,13 @@ function createAgents() {
         .then(() => P.map(oses, osname => azf.createAgent(
                     osname, storage, vnet,
                     azf.getImagesfromOSname(osname), master_ip, agentConf)
-                    .then(() => {
-                        //get IP
-                        let ip;
-                        hostExternalIP[osname] = ip;
-                    })
-                )
-                    .catch(saveErrorAndResume))
+                .then(() => {
+                    //get IP
+                    let ip;
+                    hostExternalIP[osname] = ip;
+                })
+            )
+            .catch(saveErrorAndResume))
         .tap(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
         .delay(120000)
         .then(() => isIncluded(test_nodes_names.length, oses.length, 'create agent'));
@@ -401,12 +428,12 @@ function createAgents() {
 
 function runCreateAgents() {
     return createAgents()
-            .then(() => P.resolve(list_nodes())
-                .then(res => {
-            let node_number_after_create = res.length;
-            console.log(`${YELLOW}Num nodes after create is: ${node_number_after_create}${NC}`);
-            console.warn(`Node names are ${res.map(node => node.name)}`);
-                }));
+        .then(() => P.resolve(list_nodes())
+            .then(res => {
+                let node_number_after_create = res.length;
+                console.log(`${YELLOW}Num nodes after create is: ${node_number_after_create}${NC}`);
+                console.warn(`Node names are ${res.map(node => node.name)}`);
+            }));
 }
 
 function list_nodes() {
@@ -435,7 +462,7 @@ function verifyS3Server() {
             }
         })
         .then(() => s3ops.put_file_with_md5(master_ip, bucket, '100MB_File', 100, 1048576)
-        .then(() => s3ops.get_file_check_md5(master_ip, bucket, '100MB_File')))
+            .then(() => s3ops.get_file_check_md5(master_ip, bucket, '100MB_File')))
         .catch(err => {
             saveErrorAndResume(`${master_ip} FAILED verification s3 server`, err);
             failures_in_test = true;
@@ -445,7 +472,7 @@ function verifyS3Server() {
 
 function cleanEnv() {
     return P.map(servers, server => azf.deleteVirtualMachine(server.name)
-        .catch(err => console.log('Can\'t delete old server', err.message)))
+            .catch(err => console.log('Can\'t delete old server', err.message)))
         .then(() => deleteAgents());
 }
 
@@ -488,23 +515,23 @@ function runFirstFlow() {
 function runSecondFlow() {
     console.log(`${RED}<==== Starting second flow ====>${NC}`);
     return azf.stopVirtualMachine(servers[1].name)
-    .then(() => delayInSec(90))
-    .then(() => checkClusterStatus(servers, masterIndex))
-    .then(() => verifyS3Server())
-    .then(() => azf.stopVirtualMachine(servers[2].name))
-    .then(() => delayInSec(90))
-    .then(() => {
-        let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
-        return s3ops.create_bucket(master_ip, bucket)
-            .catch(err => console.log('Couldn\'t create bucket with 2 disconnected clusters - as should ', err.message));
-    })
-    .then(() => azf.startVirtualMachine(servers[1].name))
-    .then(() => delayInSec(180))
-    .then(() => verifyS3Server())
-    .then(() => azf.startVirtualMachine(servers[2].name))
-    .then(() => delayInSec(180))
-    .then(() => checkClusterStatus(servers, masterIndex))
-    .then(() => verifyS3Server());
+        .then(() => delayInSec(90))
+        .then(() => checkClusterStatus(servers, masterIndex))
+        .then(() => verifyS3Server())
+        .then(() => azf.stopVirtualMachine(servers[2].name))
+        .then(() => delayInSec(90))
+        .then(() => {
+            let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
+            return s3ops.create_bucket(master_ip, bucket)
+                .catch(err => console.log('Couldn\'t create bucket with 2 disconnected clusters - as should ', err.message));
+        })
+        .then(() => azf.startVirtualMachine(servers[1].name))
+        .then(() => delayInSec(180))
+        .then(() => verifyS3Server())
+        .then(() => azf.startVirtualMachine(servers[2].name))
+        .then(() => delayInSec(180))
+        .then(() => checkClusterStatus(servers, masterIndex))
+        .then(() => verifyS3Server());
 }
 
 function runThirdFlow() {
@@ -542,7 +569,7 @@ function runForthFlow() {
 }
 
 return azf.authenticate()
-        .then(() => {
+    .then(() => {
         for (let i = 0; i < serversincluster; ++i) {
             servers.push({
                 name: prefix + i,
@@ -570,31 +597,31 @@ return azf.authenticate()
     .then(() => runThirdFlow())
     .then(() => runForthFlow())
 
-  /*
-    .then(() => {
-        const start = Date.now();
-        let cycle = 0;
-        return promise_utils.pwhile(() => (timeout === 0 || (Date.now() - start) < timeInMin), () => {
-            let rand = Math.floor(Math.random() * serversincluster);
-            console.log(`${RED}<==== Starting a new cycle ${cycle}... ====>${NC}`);
-            let prom;
-            if (servers[rand].status === 'CONNECTED') {
-                servers[rand].status = 'DISCONNECTED';
-                prom = azf.stopVirtualMachine(servers[rand].name); // turn the server off
-            } else {
-                servers[rand].status = 'CONNECTED';
-                prom = azf.startVirtualMachine(servers[rand].name); // turn the server back on
-            }
-            cycle += 1;
-            return prom
-                .then(() => delayInSec(180))
-                .then(() => checkClusterStatus(servers, masterIndex))
-                .then(newMaster => {
-                    masterIndex = newMaster;
-                });
-        });
-    })
-    */
+    /*
+      .then(() => {
+          const start = Date.now();
+          let cycle = 0;
+          return promise_utils.pwhile(() => (timeout === 0 || (Date.now() - start) < timeInMin), () => {
+              let rand = Math.floor(Math.random() * serversincluster);
+              console.log(`${RED}<==== Starting a new cycle ${cycle}... ====>${NC}`);
+              let prom;
+              if (servers[rand].status === 'CONNECTED') {
+                  servers[rand].status = 'DISCONNECTED';
+                  prom = azf.stopVirtualMachine(servers[rand].name); // turn the server off
+              } else {
+                  servers[rand].status = 'CONNECTED';
+                  prom = azf.startVirtualMachine(servers[rand].name); // turn the server back on
+              }
+              cycle += 1;
+              return prom
+                  .then(() => delayInSec(180))
+                  .then(() => checkClusterStatus(servers, masterIndex))
+                  .then(newMaster => {
+                      masterIndex = newMaster;
+                  });
+          });
+      })
+      */
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;

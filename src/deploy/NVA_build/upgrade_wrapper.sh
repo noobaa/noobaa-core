@@ -97,38 +97,42 @@ function fix_iptables {
     iptables -A INPUT -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
   fi
 
+  # #If logging rules exist, remove them
+  # /sbin/iptables -D INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+  # /sbin/iptables -D OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+
   #CVE-1999-0524
-  local exist=$(iptables -L -n | grep icmp | wc -l)
-  if [ "${exist}" == "0" ]; then
- 	iptables -A INPUT -p ICMP --icmp-type timestamp-request -j DROP
-	iptables -A INPUT -p ICMP --icmp-type timestamp-reply -j DROP
-  fi
+  # local exist=$(iptables -L -n | grep icmp | wc -l)
+  # if [ "${exist}" == "0" ]; then
+ 	# iptables -A INPUT -p ICMP --icmp-type timestamp-request -j DROP
+	# iptables -A INPUT -p ICMP --icmp-type timestamp-reply -j DROP
+  # fi
   service iptables save
 }
 
-function fix_bashrc {
-  fixbashrc=$(grep servicesstatus ~/.bashrc | wc -l)
-  if [ ${fixbashrc} -eq 0 ]; then
-    deploy_log "Fixing .bashrc"
-    #set locale
-    echo "export LC_ALL=C" >> ~/.bashrc
+# function fix_bashrc {
+#   fixbashrc=$(grep servicesstatus ~/.bashrc | wc -l)
+#   if [ ${fixbashrc} -eq 0 ]; then
+#     deploy_log "Fixing .bashrc"
+#     #set locale
+#     echo "export LC_ALL=C" >> ~/.bashrc
 
-    #helper aliases
-    echo "alias servicesstatus='/usr/bin/supervisorctl status'" >> ~/.bashrc
-		echo "alias reloadservices='/usr/bin/supervisorctl reread && /usr/bin/supervisorctl reload'" >> ~/.bashrc
-    echo "alias ll='ls -lha'" >> ~/.bashrc
-    echo "alias less='less -R'" >> ~/.bashrc
-    echo "alias zless='zless -R'" >> ~/.bashrc
-    echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
-  fi
+#     #helper aliases
+#     echo "alias servicesstatus='/usr/bin/supervisorctl status'" >> ~/.bashrc
+# 		echo "alias reloadservices='/usr/bin/supervisorctl reread && /usr/bin/supervisorctl reload'" >> ~/.bashrc
+#     echo "alias ll='ls -lha'" >> ~/.bashrc
+#     echo "alias less='less -R'" >> ~/.bashrc
+#     echo "alias zless='zless -R'" >> ~/.bashrc
+#     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
+#   fi
 
-  fixfornvm=$(grep NVM_DIR ~/.bashrc | wc -l)
-  if [ ${fixfornvm} -eq 0 ]; then
-    deploy_log "Adding NVM to .bashrc"
-		echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
-		echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm' >> ~/.bashrc
-  fi
-}
+#   fixfornvm=$(grep NVM_DIR ~/.bashrc | wc -l)
+#   if [ ${fixfornvm} -eq 0 ]; then
+#     deploy_log "Adding NVM to .bashrc"
+# 		echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
+# 		echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm' >> ~/.bashrc
+#   fi
+# }
 
 function disable_autostart {
   deploy_log "disable_autostart"
@@ -209,55 +213,55 @@ function setup_mongo_ssl {
 }
 
 function pre_upgrade {
-	if getent passwd noobaa > /dev/null 2>&1; then
-		echo "noobaa user exists"
-	else
-		useradd noobaa
-		echo Passw0rd | passwd noobaa --stdin
-	fi
+	# if getent passwd noobaa > /dev/null 2>&1; then
+	# 	echo "noobaa user exists"
+	# else
+	# 	useradd noobaa
+	# 	echo Passw0rd | passwd noobaa --stdin
+	# fi
 
-	if getent passwd noobaaroot > /dev/null 2>&1; then
-		echo "noobaaroot user exists"
-	else
-    #add noobaaroot user
-    t=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
-    if [ $t -ne 0 ]; then
-      deploy_log "adding noobaaroot to sudoers"
-      echo "noobaaroot ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
-      tt=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
-      if [ $tt -ne 0 ]; then
-        deploy_log "failed to add noobaaroot to sudoers"
-      fi
-    fi
+	# if getent passwd noobaaroot > /dev/null 2>&1; then
+	# 	echo "noobaaroot user exists"
+	# else
+  #   #add noobaaroot user
+  #   t=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
+  #   if [ $t -ne 0 ]; then
+  #     deploy_log "adding noobaaroot to sudoers"
+  #     echo "noobaaroot ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+  #     tt=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
+  #     if [ $tt -ne 0 ]; then
+  #       deploy_log "failed to add noobaaroot to sudoers"
+  #     fi
+  #   fi
 
-    # add noobaaroot with temp password - will be changed in fix_etc_issue
-	useradd noobaaroot
-	echo Passw0rd | passwd noobaaroot --stdin
-	fi
+  #   # add noobaaroot with temp password - will be changed in fix_etc_issue
+	# useradd noobaaroot
+	# echo Passw0rd | passwd noobaaroot --stdin
+	# fi
   
   update_noobaa_net
 
   fix_iptables
 
-  fix_bashrc
+  # fix_bashrc
 
   mkdir -p /tmp/supervisor
 
-  if grep -Fxq "root hard nofile" /etc/security/limits.conf
-  then
-    deploy_log "hard limit already exists"
-  else
-    deploy_log "fixing hard limit"
-    echo "root hard nofile 102400" >> /etc/security/limits.conf
-  fi
+  # if grep -Fxq "root hard nofile" /etc/security/limits.conf
+  # then
+  #   deploy_log "hard limit already exists"
+  # else
+  #   deploy_log "fixing hard limit"
+  #   echo "root hard nofile 102400" >> /etc/security/limits.conf
+  # fi
 
-  if grep -Fxq "root soft nofile" /etc/security/limits.conf
-  then
-    deploy_log "fixing soft limit"
-    deploy_log "soft limit already exists"
-  else
-    echo "root soft nofile 102400" >> /etc/security/limits.conf
-  fi
+  # if grep -Fxq "root soft nofile" /etc/security/limits.conf
+  # then
+  #   deploy_log "fixing soft limit"
+  #   deploy_log "soft limit already exists"
+  # else
+  #   echo "root soft nofile 102400" >> /etc/security/limits.conf
+  # fi
 
   # CVE-2016-5696
   if ! grep -q 'net.ipv4.tcp_challenge_ack_limit = 999999999' /etc/sysctl.conf; then
@@ -265,18 +269,18 @@ function pre_upgrade {
   fi
 
   echo "64000" > /proc/sys/kernel/threads-max
-  sysctl -w fs.file-max=102400
+  # sysctl -w fs.file-max=102400
   sysctl -w net.ipv4.tcp_keepalive_time=120
   sysctl -e -p
-  agent_conf=${CORE_DIR}/agent_conf.json
-  if [ -f "$agent_conf" ]
-  then
-      deploy_log "$agent_conf found. Save to /tmp and restore"
-      rm -f /tmp/agent_conf.json
-      cp ${agent_conf} /tmp/agent_conf.json
-  else
-      deploy_log "$agent_conf not found."
-  fi
+  # agent_conf=${CORE_DIR}/agent_conf.json
+  # if [ -f "$agent_conf" ]
+  # then
+  #     deploy_log "$agent_conf found. Save to /tmp and restore"
+  #     rm -f /tmp/agent_conf.json
+  #     cp ${agent_conf} /tmp/agent_conf.json
+  # else
+  #     deploy_log "$agent_conf not found."
+  # fi
 
 	# copy fix_server_plat
   if ! grep -q 'fix_server_plat' /etc/rc.local; then
@@ -325,9 +329,9 @@ function post_upgrade {
   # setup crontab to run logrotate every 15 minutes.
   echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
 
-  if [ -f /tmp/agent_conf.json ]; then
-    cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
-  fi
+  # if [ -f /tmp/agent_conf.json ]; then
+  #   cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
+  # fi
 
   # same as setup_repos in upgrade.sh. do we really need to perform it again?
   rm -f ${CORE_DIR}/.env
@@ -352,8 +356,6 @@ function post_upgrade {
   if grep -q MONGO_SSL_USER /backup/.env; then
       local mongo_user=$(grep MONGO_SSL_USER /backup/.env)
       echo "${mongo_user}" >> ${CORE_DIR}/.env
-  else 
-      /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_mongo_ssl.sh
   fi
 
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)

@@ -11,7 +11,10 @@ const disabledActionTooltip = 'This option is unavailable for accounts without S
 function _createIpListHtml(ipList) {
     return `<ul class="allowed-ips list-no-style row multiline">${
         ipList
-            .map(ip => `<li class="ip-box">${ip.start}</li>`)
+            .map(({ start, end }) => {
+                const token = start === end ? start : `${start} - ${end}`;
+                return `<li class="ip-box">${token}</li>`;
+            })
             .join('')
     }</ul>`;
 }

@@ -41,12 +41,10 @@ function _mapPoolsToBuckets(buckets, tiers) {
 
     const pairs = flatMap(
         tiers,
-        tier => tier.attached_pools.map(
-            poolName => ({
-                bucket: bucketsByTierName[tier.name],
-                pool: poolName
-            })
-        )
+        tier => tier.attached_pools.map(pool => ({
+            bucket: bucketsByTierName[tier.name],
+            pool
+        }))
     );
 
     return groupBy(

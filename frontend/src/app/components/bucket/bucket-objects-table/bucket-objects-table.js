@@ -104,7 +104,7 @@ class BucketObjectsTableViewModel extends BaseViewModel {
                 const { sortBy, order } = query();
                 const canSort = Object.keys(compareAccessors).includes(sortBy);
                 return {
-                    sortBy: (canSort && sortBy) || 'name',
+                    sortBy: (canSort && sortBy) || 'key',
                     order: (canSort && Number(order)) || 1
                 };
             },

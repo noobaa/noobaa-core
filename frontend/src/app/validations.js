@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
+import { isIP, isDNSName, isIPOrDNSName } from 'utils/net-utils';
 
 export function matchPattern(value, regExp) {
     return !value || regExp.test(value);
@@ -21,22 +22,6 @@ export function notIn(value, params) {
 
 export function hasNoLeadingOrTrailingSpaces(value) {
     return value.trim() === value;
-}
-
-export function isIP(value) {
-    const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    return matchPattern(value, regExp);
-}
-
-export function isDNSName(value) {
-    const regExp = /^[A-Za-z0-9][A-Za-z0-9-\.]*[A-Za-z0-9]$/;
-
-    return !value || (value.length < 63 && regExp.test(value));
-}
-
-export function isIPOrDNSName(value) {
-    let a = isIP(value) || isDNSName(value);
-    return a;
 }
 
 export function isURI(value) {
@@ -137,17 +122,17 @@ export default function register(ko) {
         },
 
         isDNSName: {
-            validator: isDNSName,
+            validator: val => !val || isDNSName(val),
             message: 'Please enter a valid DNS name'
         },
 
         isIP: {
-            validator: isIP,
+            validator: val => !val || isIP(val),
             message: 'Please enter a valid IP address'
         },
 
         isIPOrDNSName: {
-            validator: isIPOrDNSName,
+            validator: val => !val || isIPOrDNSName(val),
             message: 'Please enter a valid IP or DNS name'
         },
 

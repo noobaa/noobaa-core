@@ -58,7 +58,7 @@ function do_heartbeat() {
             .spread((mongo_status, drives, raw_storage) => {
                 let root = drives.find(drive => drive.mount === '/');
                 if (root) {
-                    root.total = raw_storage;
+                    root.storage.total = raw_storage;
                 }
                 return {
                     mongo_status: mongo_status,

@@ -1,27 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './func-panel.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
-import { funcInfo, routeContext } from 'model';
+import { state$ } from 'state';
+import { funcInfo } from 'model';
+import { realizeUri } from 'utils/browser-utils';
 
-class FuncPanelViewModel extends BaseViewModel {
+class FuncPanelViewModel extends Observer {
     constructor() {
         super();
 
         this.func = funcInfo;
+        this.selectedTab = ko.observable();
+        this.baseRoute = '';
 
-        this.selectedTab = ko.pureComputed(
-            () => routeContext().params.tab || 'monitoring'
-        );
+        this.observe(state$.get('location'), this.onLocation);
+    }
+
+    onLocation({ route, params }) {
+        const { system, func, tab = 'monitoring' } = params;
+
+        this.baseRoute = realizeUri(route, { system, func }, {}, true);
+        this.selectedTab(tab);
     }
 
     tabHref(tab) {
-        return { route: 'func', params: { tab } };
-    }
-
-    tabCss(tab) {
-        return { selected: this.selectedTab() === tab };
+        return realizeUri(this.baseRoute, { tab });
     }
 }
 

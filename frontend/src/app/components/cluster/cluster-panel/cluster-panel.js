@@ -1,21 +1,30 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './cluster-panel.html';
-import BaseViewModel from 'components/base-view-model';
-import { routeContext } from 'model';
+import Observer from 'observer';
+import { state$ } from 'state';
+import { realizeUri } from 'utils/browser-utils';
+import ko from 'knockout';
 
-class ClusterPanelViewModel extends BaseViewModel {
-    tabHref(tab) {
-        return {
-            route: 'cluster',
-            params: { tab }
-        };
+class ClusterPanelViewModel extends Observer {
+    constructor() {
+        super();
+
+        this.baseRoute = '';
+        this.selectedTab = ko.observable();
+
+        this.observe(state$.get('location'), this.onLocation);
     }
 
-    tabCss(tab) {
-        return {
-            selected: (routeContext().params.tab  || 'servers') === tab
-        };
+    onLocation({ route, params }) {
+        const { system, tab = 'servers' } = params;
+
+        this.baseRoute = realizeUri(route, { system }, {}, true);
+        this.selectedTab(tab);
+    }
+
+    tabHref(tab) {
+        return realizeUri(this.baseRoute, { tab });
     }
 }
 

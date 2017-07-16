@@ -4,13 +4,16 @@
 
 <section class="column greedy tabs">
     <nav>
-        <a data-bind="href: tabHref('servers'), css: tabCss('servers')">
+        <a ko.css.selected="selectedTab.eq('servers')"
+            ko.attr.href="tabHref('servers')"
+        >
             Servers
         </a>
     </nav>
     <div class="tabs-row">
-        <server-table class="column greedy" data-bind="css: tabCss('servers')">
-        </server-table>
+        <server-table class="tab"
+            ko.css.selected="selectedTab.eq('servers')"
+        ></server-table>
     </div>
 </section>
 

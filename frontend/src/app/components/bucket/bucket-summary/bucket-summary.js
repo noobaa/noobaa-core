@@ -41,8 +41,14 @@ const quotaUnitMapping = deepFreeze({
 });
 
 class BucketSummrayViewModel extends BaseViewModel {
-    constructor({ bucket }) {
+    constructor({ bucketName }) {
         super();
+
+        const bucket = ko.pureComputed(
+            () => systemInfo() && systemInfo().buckets.find(
+                bucket => bucket.name === ko.unwrap(bucketName)
+            )
+        );
 
         this.graphOptions = [ 'data', 'storage' ];
 

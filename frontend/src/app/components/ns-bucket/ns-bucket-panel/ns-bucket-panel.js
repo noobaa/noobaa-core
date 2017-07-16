@@ -4,6 +4,7 @@ import template from './ns-bucket-panel.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$ } from 'state';
+import  { realizeUri } from 'utils/browser-utils';
 
 class NsBucketPanelViewModel extends Observer {
     constructor() {
@@ -12,25 +13,18 @@ class NsBucketPanelViewModel extends Observer {
         this.selectedTab = ko.observable();
         this.bucketName = ko.observable();
 
-        this.observe(state$.get('location', 'params'), this.onLocationParams);
+        this.observe(state$.get('location'), this.onLocation);
     }
 
-    onLocationParams({ bucket, tab = 'data-placement' }) {
-        this.bucketName(bucket);
+    onLocationParams({ route, params }) {
+        const { system, tab = 'data-placement' } = params;
+
+        this.baseRoute = realizeUri(route, { system }, {}, true);
         this.selectedTab(tab);
     }
 
     tabHref(tab) {
-        const bucket = this.bucketName();
-        return {
-            route: 'nsBucket',
-            params: { bucket, tab }
-        };
-    }
-
-    tabCss(tab) {
-        const selected = this.selectedTab() === tab;
-        return { selected };
+        return realizeUri(this.baseRoute, { tab });
     }
 }
 

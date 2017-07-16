@@ -1,57 +1,51 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: ready -->
-<bucket-summary class="push-next" params="bucket: bucket"></bucket-summary>
+<bucket-summary class="push-next" params="bucketName: bucket"></bucket-summary>
 
 <div class="tabs greedy">
     <nav>
-        <a data-bind="
-            href: tabHref('data-placement'),
-            css: tabCss('data-placement')
-        ">
+        <a ko.css.selected="selectedTab.eq('data-placement')"
+            ko.attr.href="tabHref('data-placement')"
+        >
             Data Placement
         </a>
-        <a data-bind="
-            href: tabHref('objects'),
-            css: tabCss('objects')
-        ">
+        <a ko.css.selected="selectedTab.eq('objects')"
+            ko.attr.href="tabHref('objects')"
+        >
             Files
         </a>
-       <a data-bind="
-            href: tabHref('s3-access'),
-            css: tabCss('s3-access')
-        ">
+        <a ko.css.selected="selectedTab.eq('s3-access')"
+            ko.attr.href="tabHref('s3-access')"
+        >
             S3 Access
         </a>
 
-        <a data-bind="
-            href: tabHref('cloud-sync'),
-            css: tabCss('cloud-sync')
-        ">
+        <a ko.css.selected="selectedTab.eq('cloud-sync')"
+            ko.attr.href="tabHref('cloud-sync')"
+        >
             Cloud sync
         </a>
     </nav>
 
     <div class="tabs-row">
         <bucket-data-placement-form class="tab"
-            params="bucket: bucket"
-            data-bind="css: tabCss('data-placement')">
-        </bucket-data-placement-form>
+            ko.css.selected="selectedTab.eq('data-placement')"
+            params="bucketName: bucket"
+        ></bucket-data-placement-form>
 
         <bucket-objects-table class="tab"
-            params="bucket: bucket, objectList: objectList"
-            data-bind="css: tabCss('objects')">
-        </bucket-objects-table>
+            ko.css.selected="selectedTab.eq('objects')"
+            params="bucketName: bucket"
+        ></bucket-objects-table>
 
         <bucket-s3-access-table class="tab"
-            params="bucketName: bucketName"
-            data-bind="css: tabCss('s3-access')">
-        </bucket-s3-access-table>
+            ko.css.selected="selectedTab.eq('s3-access')"
+            params="bucketName: bucket"
+        ></bucket-s3-access-table>
 
         <bucket-cloud-sync-form class="tab"
-            params="bucket: bucket"
-            data-bind="css: tabCss('cloud-sync')">
-        </bucket-cloud-sync-form>
+            ko.css.selected="selectedTab.eq('cloud-sync')"
+            params="bucketName: bucket"
+        ></bucket-cloud-sync-form>
     </div>
 </div>
-<!-- /ko -->

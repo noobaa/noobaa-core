@@ -5,43 +5,37 @@
 
 <div class="tabs greedy">
     <nav>
-        <a class="selected" data-bind="
-            href: tabHref('details'),
-            css: tabCss('details')
-        ">
+        <a ko.css.selected="selectedTab.eq('details')"
+            ko.attr.href="tabHref('details')"
+        >
             Services &amp; Information
         </a>
-        <a class="selected" data-bind="
-            href: tabHref('communication'),
-            css: tabCss('communication')
-        ">
+        <a ko.css.selected="selectedTab.eq('communication')"
+            ko.attr.href="tabHref('communication')"
+        >
             Internal Cluster Communication
         </a>
-        <a class="selected" data-bind="
-            href: tabHref('diagnostics'),
-            css: tabCss('diagnostics')
-        ">
+        <a ko.css.selected="selectedTab.eq('diagnostics')"
+            ko.attr.href="tabHref('diagnostics')"
+        >
             Diagnostics
         </a>
     </nav>
 
     <div class="tabs-row">
-        <server-details-form
-            class="tab"
+        <server-details-form class="tab"
+            ko.css.selected="selectedTab.eq('details')"
             params="serverSecret: serverSecret"
-            data-bind="css: tabCss('details')
         "></server-details-form>
 
-        <server-communication-form
-            class="tab"
+        <server-communication-form class="tab"
+            ko.css.selected="selectedTab.eq('communication')"
             params="serverSecret: serverSecret"
-            data-bind="css: tabCss('communication')
         "></server-communication-form>
 
-        <server-diagnostics-form
-                class="tab"
+        <server-diagnostics-form class="tab"
+                ko.css.selected="selectedTab.eq('diagnostics')"
                 params="serverSecret: serverSecret"
-                data-bind="css: tabCss('diagnostics')
         "></server-diagnostics-form>
     </div>
 </div>

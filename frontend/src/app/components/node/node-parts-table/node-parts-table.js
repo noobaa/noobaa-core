@@ -7,7 +7,7 @@ import { deepFreeze } from 'utils/core-utils';
 import PartRowViewModel from './part-row';
 import { paginationPageSize } from 'config';
 import { navigateTo } from 'actions';
-import { routeContext } from 'model';
+import { routeContext, nodeStoredPartList } from 'model';
 
 const columns = deepFreeze([
     {
@@ -29,8 +29,10 @@ const columns = deepFreeze([
 ]);
 
 class NodePartsViewModel extends BaseViewModel {
-    constructor({ partList }) {
+    constructor() {
         super();
+
+        const partList = nodeStoredPartList;
 
         this.pageSize = paginationPageSize;
         this.columns = columns;

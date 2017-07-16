@@ -85,7 +85,6 @@ class MainLayoutViewModel extends Observer {
         this.navItems.forEach(item => item.url(realizeUri(routes[item.name], { system })));
         this.area(area);
         this.panel(panel ? `${panel}-panel` : 'empty');
-
     }
 
     onAccount([ accounts, user ]) {

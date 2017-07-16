@@ -1,40 +1,40 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<pool-summary class="push-next" params="pool: pool"></pool-summary>
+<pool-summary class="push-next" params="poolName: pool"></pool-summary>
 
 <div class="tabs greedy">
     <nav>
-        <a ko.href="tabHref('nodes')" ko.css="tabCss('nodes')">
+        <a ko.css.selected="selectedTab.eq('nodes')"
+            ko.attr.href="tabHref('nodes')"
+        >
             Nodes
         </a>
-        <a ko.href="tabHref('connected-buckets')"
-            ko.css="tabCss('connected-buckets')">
+        <a ko.css.selected="selectedTab.eq('connected-buckets')"
+            ko.attr.href="tabHref('connected-buckets')"
+        >
             Connected Buckets
         </a>
-        <a ko.href="tabHref('associated-accounts')"
-            ko.css="tabCss('associated-accounts')">
+        <a ko.css.selected="selectedTab.eq('associated-accounts')"
+            ko.attr.href="tabHref('associated-accounts')"
+        >
             Associated Accounts
         </a>
     </nav>
 
     <div class="tabs-row">
-        <pool-nodes-table class="tab greedy" ko.css="tabCss('nodes')" params="
-            pool: pool,
-            nodeList: nodes
-        "></pool-nodes-table>
+        <pool-nodes-table class="tab"
+            ko.css.selected="selectedTab.eq('nodes')"
+            params="poolName: pool"
+        ></pool-nodes-table>
 
-        <!-- ko if: pool -->
-        <pool-connected-buckets-list
-            class="tab greedy"
-            ko.css="tabCss('connected-buckets')"
-            params="poolName: pool().name"
+        <pool-connected-buckets-list class="tab"
+            ko.css.selected="selectedTab.eq('connected-buckets')"
+            params="poolName: pool"
         ></pool-connected-buckets-list>
 
-        <pool-associated-accounts-list
-            class="tab greedy"
-            ko.css="tabCss('associated-accounts')"
-            params="poolName: pool().name"
+        <pool-associated-accounts-list class="tab"
+            ko.css.selected="selectedTab.eq('associated-accounts')"
+            params="poolName: pool"
         ></pool-associated-accounts-list>
-        <!-- /ko -->
     </div>
 </div>

@@ -7,7 +7,7 @@ import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import ObjectRowViewModel from './object-row';
 import { navigateTo } from 'actions';
-import { routeContext, systemInfo, sessionInfo } from 'model';
+import { routeContext, systemInfo, sessionInfo, bucketObjectList } from 'model';
 import { action$ } from 'state';
 import { uploadObjects } from 'action-creators';
 
@@ -34,11 +34,19 @@ const compareAccessors = deepFreeze({
 });
 
 class BucketObjectsTableViewModel extends BaseViewModel {
-    constructor({ bucket, objectList }) {
+    constructor({ bucketName }) {
         super();
 
         this.columns = columns;
         this.pageSize = paginationPageSize;
+        this.bucketName = bucketName;
+
+        const objectList = bucketObjectList;
+        const bucket = ko.pureComputed(
+            () => systemInfo() && systemInfo().buckets.find(
+                bucket => bucket.name === ko.unwrap(bucketName)
+            )
+        );
 
         this.objects = ko.pureComputed(
             () => objectList() && objectList().objects.map(
@@ -46,16 +54,12 @@ class BucketObjectsTableViewModel extends BaseViewModel {
             )
         );
 
-        this.bucketName = ko.pureComputed(
-            () => bucket() && bucket().name
-        );
-
         const notWritable = ko.pureComputed(
             () => !bucket() || !bucket().writable
         );
 
         const notOwner = ko.pureComputed(
-            () => systemInfo().owner.email !== sessionInfo().user
+            () => !systemInfo() || systemInfo().owner.email !== sessionInfo().user
         );
 
         const httpsNoCert = ko.pureComputed(
@@ -128,7 +132,7 @@ class BucketObjectsTableViewModel extends BaseViewModel {
 
     uploadFiles(files) {
         const { access_key, secret_key } = systemInfo().owner.access_keys[0];
-        action$.onNext(uploadObjects(this.bucketName(), files, access_key, secret_key));
+        action$.onNext(uploadObjects(ko.unwrap(this.bucketName), files, access_key, secret_key));
         this.fileSelectorExpanded(false);
     }
 

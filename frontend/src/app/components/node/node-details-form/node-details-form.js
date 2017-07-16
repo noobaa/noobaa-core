@@ -4,7 +4,7 @@ import template from './node-details-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
-import { systemInfo } from 'model';
+import { systemInfo, nodeInfo } from 'model';
 import { decommissionNode, recommissionNode } from 'actions';
 
 const conactivityTypeMapping = Object.freeze({
@@ -17,9 +17,11 @@ function addToAverage(avg, value, i) {
     return avg + (value - avg) / (i + 1);
 }
 
-class NodeInfoViewModel extends BaseViewModel {
-    constructor({ node  }) {
+class NodeDetailsViewModel extends BaseViewModel {
+    constructor() {
         super();
+
+        const node = nodeInfo;
 
         this.dataReady = ko.pureComputed(
             () => !!node()
@@ -211,6 +213,6 @@ class NodeInfoViewModel extends BaseViewModel {
 }
 
 export default {
-    viewModel: NodeInfoViewModel,
+    viewModel: NodeDetailsViewModel,
     template: template
 };

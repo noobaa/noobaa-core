@@ -7,6 +7,7 @@ import moment from 'moment';
 import { deepFreeze } from 'utils/core-utils';
 import { formatSize, toBytes } from 'utils/size-utils';
 import style from 'style';
+import { nodeInfo } from 'model';
 
 const stateMapping = deepFreeze({
     OFFLINE: {
@@ -192,8 +193,10 @@ const trustTooltip = `A reliability check that verifies that this node has no di
     corruption or malicious activity`;
 
 class NodeSummaryViewModel extends BaseViewModel {
-    constructor({ node }) {
+    constructor() {
         super();
+
+        const node = nodeInfo;
 
         this.dataReady = ko.pureComputed(
             () => Boolean(node())

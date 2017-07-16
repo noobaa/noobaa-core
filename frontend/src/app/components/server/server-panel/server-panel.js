@@ -1,31 +1,35 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './server-panel.html';
-import BaseViewModel from 'components/base-view-model';
-import { routeContext } from 'model';
+import Observer from 'observer';
+import { state$ } from 'state';
 import { lastSegment } from 'utils/string-utils';
+import { realizeUri } from 'utils/browser-utils';
 import ko from 'knockout';
 
-class ServerPanelViewModel extends BaseViewModel {
+class ServerPanelViewModel extends Observer {
     constructor() {
         super();
 
-        this.serverSecret = ko.pureComputed(
-            () => lastSegment(routeContext().params.server, '-')
-        );
+        this.selectedTab = ko.observable();
+        this.serverSecret = ko.observable();
+        this.baseRoute = '';
+
+        this.observe(state$.get('location'), this.onLocation);
     }
+
+    onLocation({ route, params }) {
+        const { system, server, tab = 'details' } = params;
+        if (!server) return;
+
+        this.baseRoute = realizeUri(route, { system, server }, {}, true);
+        this.selectedTab(tab);
+        this.serverSecret(server && lastSegment(server, '-'));
+    }
+
 
     tabHref(tab) {
-        return {
-            route: 'server',
-            params: { tab }
-        };
-    }
-
-    tabCss(tab) {
-        return {
-            selected: (routeContext().params.tab || 'details') === tab
-        };
+        return realizeUri(this.baseRoute, { tab });
     }
 }
 

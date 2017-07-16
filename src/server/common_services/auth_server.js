@@ -409,7 +409,7 @@ function _prepare_auth_request(req) {
                 const client_ip_val = ip_module.toLong(client_ip);
                 for (const ip_range of req.account.allowed_ips) {
                     const start = ip_module.toLong(ip_range.start);
-                    const end = ip_module.toLong(ip_range.start);
+                    const end = ip_module.toLong(ip_range.end);
                     if (client_ip_val >= start && client_ip_val <= end) {
                         is_allowed = true;
                         break;

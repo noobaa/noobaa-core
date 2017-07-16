@@ -256,12 +256,14 @@ function _check_dns_and_phonehome() {
 function _check_network_configuration() {
     dbg.log2('check_network_configuration');
     if (os.type() === 'Darwin') return;
+    if (!server_conf.heartbeat) return;
     let ips = os_utils.get_local_ipv4_ips();
     if (server_conf.is_clusterized && !_.find(ips, ip => ip === server_conf.owner_address)) {
         Dispatcher.instance().alert('MAJOR',
             system_store.data.systems[0]._id,
             `IP address change was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
-            please update the server IP in Cluster->${server_conf.heartbeat.health.os_info.hostname}->Change IP`);
+            please update the server IP in Cluster->${server_conf.heartbeat.health.os_info.hostname}->Change IP`,
+            Dispatcher.rules.once_daily);
         dbg.log0('server ip was changed, IP:', server_conf.owner_address, 'not in the ip list:', ips);
     }
     let data = "";

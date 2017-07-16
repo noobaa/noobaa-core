@@ -70,6 +70,8 @@ if (argv.help) {
     list_buckets();
 } else if (argv.ls || argv.ll) {
     list_objects();
+} else if (argv.ls_v2 || argv.ll_v2) {
+    list_objects_v2();
 } else if (argv.head) {
     if (_.isString(argv.head)) {
         head_object();
@@ -130,6 +132,49 @@ function list_objects() {
                 let mtime = moment(new Date(obj.LastModified)).format('MMM D HH:mm');
                 let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
                 if (argv.ll) {
+                    delete obj.Key;
+                    delete obj.Size;
+                    delete obj.Owner;
+                    delete obj.LastModified;
+                    console.log(owner, size, mtime, key, JSON.stringify(obj));
+                } else {
+                    console.log(owner, size, mtime, key);
+                }
+            });
+        })
+        .catch(err => console.error('LIST ERROR:', _.omit(err, 'stack')));
+}
+
+function list_objects_v2() {
+    const params = {
+        Prefix: argv.prefix,
+        Delimiter: argv.delimiter,
+        MaxKeys: argv.maxkeys,
+        ContinuationToken: argv.token,
+        StartAfter: argv.start,
+        FetchOwner: argv.owner
+    };
+    const req = s3.listObjectsV2(params);
+    if (argv.presign) return console.log(req.presign(argv.presign));
+    return req.promise()
+        .then(data => {
+            let contents = data.Contents;
+            let prefixes = data.CommonPrefixes;
+            delete data.Contents;
+            delete data.CommonPrefixes;
+            if (argv.ll_v2) {
+                console.log('List:', JSON.stringify(data));
+            }
+            _.each(prefixes, prefix => {
+                console.log('Prefix:', prefix.Prefix);
+            });
+            _.each(contents, obj => {
+                let key = obj.Key;
+                let size = size_utils.human_size(obj.Size);
+                size = '        '.slice(size.length) + size;
+                let mtime = moment(new Date(obj.LastModified)).format('MMM D HH:mm');
+                let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
+                if (argv.ll_v2) {
                     delete obj.Key;
                     delete obj.Size;
                     delete obj.Owner;

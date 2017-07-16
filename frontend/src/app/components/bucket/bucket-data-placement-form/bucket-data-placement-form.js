@@ -42,22 +42,26 @@ const placementTypeMapping = deepFreeze({
 });
 
 class BucketDataPlacementFormViewModel extends BaseViewModel {
-    constructor({ bucket }) {
+    constructor({ bucketName }) {
         super();
+
+        const bucket = ko.pureComputed(
+            () => systemInfo() && systemInfo().buckets.find(
+                bucket => bucket.name === ko.unwrap(bucketName)
+            )
+        );
+
+        this.bucketName = bucketName;
 
         this.placementTableColumns = placementTableColumns;
 
-        this.bucketName = ko.pureComputed(
-            () => ko.unwrap(bucket) && ko.unwrap(bucket).name
-        );
-
         let tier = ko.pureComputed(
             () => {
-                if (!systemInfo() || !ko.unwrap(bucket)) {
+                if (!systemInfo() || !bucket()) {
                     return;
                 }
 
-                let tierName = ko.unwrap(bucket).tiering.tiers[0].tier;
+                let tierName = bucket().tiering.tiers[0].tier;
                 return systemInfo().tiers.find(
                     ({ name }) =>  tierName === name
                 );
@@ -96,11 +100,15 @@ class BucketDataPlacementFormViewModel extends BaseViewModel {
     }
 
     onEditBucketQuota() {
-        action$.onNext(openEditBucketQuotaModal(this.bucketName()));
+        action$.onNext(openEditBucketQuotaModal(
+            ko.unwrap(this.bucketName)
+        ));
     }
 
     onEditDataPlacement() {
-        action$.onNext(openBucketPlacementPolicyModal(this.bucketName()));
+        action$.onNext(openBucketPlacementPolicyModal(
+            ko.unwrap(this.bucketName)
+        ));
     }
 
 }

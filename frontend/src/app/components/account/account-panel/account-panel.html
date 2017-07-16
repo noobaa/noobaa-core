@@ -2,20 +2,28 @@
 
 <div class="greedy tabs">
     <nav>
-        <a ko.href="tabHref('s3-access')" ko.css="tabCss('s3-access')">
+        <a ko.attr.href="tabHref('s3-access')"
+            ko.css.selected="selectedTab.eq('s3-access')"
+        >
             S3 Access &amp; Permissions
         </a>
-        <a ko.href="tabHref('details')" ko.css="tabCss('details')">
+        <a ko.attr.href="tabHref('details')"
+            ko.css.selected="selectedTab.eq('details')"
+        >
             Account Details
         </a>
     </nav>
 
     <div class="tabs-row">
-        <account-s3-access-form ko.css="tabCss('s3-access')">
-        </account-s3-access-form>
+        <account-s3-access-form class="tab"
+            ko.css.selected="selectedTab.eq('s3-access')"
+            params="accountName: account"
+        ></account-s3-access-form>
 
-        <account-details-form  ko.css="tabCss('details')">
-        </account-details-form>
+        <account-details-form class="tab"
+            ko.css.selected="selectedTab.eq('details')"
+            params="accountName: account"
+        ></account-details-form>
     </div>
 </div>
 

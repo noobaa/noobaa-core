@@ -6,7 +6,7 @@ import Observer from 'observer';
 import ko from 'knockout';
 
 class AccountDetailsFormViewModel extends Observer {
-    constructor() {
+    constructor({ accountName }) {
         super();
 
         this.accountName = ko.observable();
@@ -29,8 +29,7 @@ class AccountDetailsFormViewModel extends Observer {
 
         this.observe(
             state$.getMany(
-                'accounts',
-                ['location', 'params', 'account'],
+                ['accounts', ko.unwrap(accountName)],
                 ['session', 'user']
             ),
             this.onAccount
@@ -40,17 +39,16 @@ class AccountDetailsFormViewModel extends Observer {
         this.isPasswordModalVisible = ko.observable(false);
     }
 
-    onAccount([ accounts, accountName, currentUser ]) {
-        const account = accounts[accountName];
+    onAccount([ account, currentUser ]) {
         if (!account) return;
 
         const { isOwner } = account;
-        const isCurrentUser = currentUser === accountName;
+        const isCurrentUser = currentUser === account.name;
         const role  = !isOwner ?
             (account.hasLoginAccess ? 'Admin' : 'Application') :
             'Owner';
 
-        this.accountName(accountName);
+        this.accountName(account.name);
         this.role(role);
         this.isCurrentUser(isCurrentUser);
         this.changePasswordButtonLabel(isCurrentUser ? 'Change Password' : 'Reset Password');

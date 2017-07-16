@@ -9,6 +9,7 @@ import { bitsToNumber } from 'utils/core-utils';
 import { formatDuration } from 'utils/string-utils';
 import { action$ } from 'state';
 import { openSetCloudSyncModal, openEditCloudSyncModal } from 'action-creators';
+import { systemInfo } from 'model';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
@@ -26,8 +27,14 @@ const directionMapping = Object.freeze({
 });
 
 class BucketCloudSyncFormViewModel extends BaseViewModel {
-    constructor({ bucket }) {
+    constructor({ bucketName }) {
         super();
+
+        const bucket = ko.pureComputed(
+            () => systemInfo() && systemInfo().buckets.find(
+                bucket => bucket.name === ko.unwrap(bucketName)
+            )
+        );
 
         const cloudSyncInfo = ko.pureComputed(
             () => bucket() && bucket().cloud_sync

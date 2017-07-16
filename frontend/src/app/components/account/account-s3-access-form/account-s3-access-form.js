@@ -20,7 +20,7 @@ function _createIpListHtml(ipList) {
 }
 
 class AccountS3AccessFormViewModel extends Observer {
-    constructor() {
+    constructor({ accountName }) {
         super();
 
         this.accountName = ko.observable();
@@ -81,7 +81,7 @@ class AccountS3AccessFormViewModel extends Observer {
         ];
 
         this.observe(
-            state$.getMany('accounts', ['location', 'params', 'account']),
+            state$.get('accounts', ko.unwrap(accountName)),
             this.onAccount
         );
 
@@ -89,8 +89,7 @@ class AccountS3AccessFormViewModel extends Observer {
         this.isRegenerateAccountCredentialsModalVisible = ko.observable(false);
     }
 
-    onAccount([ accounts, accountName ]) {
-        const account = accounts[accountName];
+    onAccount(account) {
         if (!account) return;
 
         const {
@@ -102,7 +101,7 @@ class AccountS3AccessFormViewModel extends Observer {
             allowedIps
         } = account;
 
-        this.accountName(accountName);
+        this.accountName(account.name);
         this.defaultResource(defaultResource || '(not set)');
         this.isS3AccessDisabled(!hasS3Access);
         this.s3AccessLabel(hasS3Access ? 'Enabled' : 'Disabled');

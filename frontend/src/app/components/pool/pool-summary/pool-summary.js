@@ -9,6 +9,7 @@ import style from 'style';
 import { deepFreeze, isNumber } from 'utils/core-utils';
 import { getPoolStateIcon, countNodesByState } from 'utils/ui-utils';
 import { toBytes } from 'utils/size-utils';
+import { systemInfo } from 'model';
 
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
@@ -31,11 +32,17 @@ function activityETA(time) {
 }
 
 class PoolSummaryViewModel extends BaseViewModel {
-    constructor({ pool }) {
+    constructor({ poolName }) {
         super();
 
+        const pool = ko.pureComputed(
+            () => systemInfo() && systemInfo().pools.find(
+                pool => pool.name === ko.unwrap(poolName)
+            )
+        );
+
         this.dataReady = ko.pureComputed(
-            () => !!pool()
+            () => Boolean(pool())
         );
 
         const dataActivities = ko.pureComputed(

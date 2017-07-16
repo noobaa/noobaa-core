@@ -33,7 +33,7 @@ export function stringifyQueryString(query) {
         .join('&');
 }
 
-export function realizeUri(template, params = {}, query = {}) {
+export function realizeUri(template, params = {}, query = {}, partial = false) {
     let search = stringifyQueryString(query);
     let base = template
         .split('/')
@@ -44,10 +44,12 @@ export function realizeUri(template, params = {}, query = {}) {
 
                 if (isParam) {
                     let name = part.substr(1, part.length - 1 - Number(isOptional));
-                    let value = params[name ];
+                    let value = params[name];
 
                     if (value) {
                         return encodeURIComponent(value);
+                    } else if (partial) {
+                        return part;
                     } else if (isOptional) {
                         return null;
                     } else {

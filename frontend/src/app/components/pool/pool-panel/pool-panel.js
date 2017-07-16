@@ -1,38 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pool-panel.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
-import { poolNodeList, systemInfo, routeContext } from 'model';
+import { state$ } from 'state';
+import { realizeUri } from 'utils/browser-utils';
 
-class PoolPanelViewModel extends BaseViewModel {
+class PoolPanelViewModel extends Observer {
     constructor() {
         super();
 
-        this.pool = ko.pureComputed(
-            () => systemInfo() && systemInfo().pools.find(
-                ({ name }) => routeContext().params.pool === name
-            )
-        );
+        this.selectedTab = ko.observable();
+        this.pool = ko.observable();
 
-        this.nodes = poolNodeList;
+        this.observe(state$.get('location'), this.onLocation);
+    }
 
-        this.ready = ko.pureComputed(
-            () => !!this.pool()
-        );
+    onLocation({ route, params }) {
+        const { system, pool, tab = 'nodes' } = params;
+        if (!pool) return;
+
+        this.baseRoute = realizeUri(route, { system, pool }, {}, true);
+        this.pool(pool);
+        this.selectedTab(tab);
     }
 
     tabHref(tab) {
-        return {
-            route: 'pool',
-            params: { tab }
-        };
-    }
-
-    tabCss(tab) {
-        return {
-            selected: (routeContext().params.tab || 'nodes') === tab
-        };
+        return realizeUri(this.baseRoute, { tab });
     }
 }
 

@@ -2,76 +2,93 @@
 
 <div class="greedy tabs">
     <nav>
-        <a data-bind="href: tabHref('accounts'), css: tabCss('accounts')">
+        <a ko.css.selected="selectedTab.eq('accounts')"
+            ko.attr.href="tabHref('accounts')"
+        >
             Accounts
         </a>
-        <a data-bind="href: tabHref('settings'), css: tabCss('settings')">
+        <a ko.css.selected="selectedTab.eq('settings')"
+            ko.attr.href="tabHref('settings')"
+        >
             Configuration
         </a>
-        <a data-bind="href: tabHref('diagnostics'), css: tabCss('diagnostics')">
+        <a ko.css.selected="selectedTab.eq('diagnostics')"
+            ko.attr.href="tabHref('diagnostics')"
+        >
             Support &amp; Diagnostics
         </a>
-        <a data-bind="href: tabHref('version'), css: tabCss('version')">
+        <a ko.css.selected="selectedTab.eq('version')"
+            ko.attr.href="tabHref('version')"
+        >
             Version
         </a>
-        <a data-bind="href: tabHref('advanced-options'), css: tabCss('advanced-options')">
+        <a ko.css.selected="selectedTab.eq('advanced-options')"
+            ko.attr.href="tabHref('advanced-options')"
+        >
             Advanced Options
         </a>
     </nav>
 
     <div class="tabs-row">
-        <accounts-table class="tab" data-bind="css: tabCss('accounts')">
-        </accounts-table>
+        <accounts-table class="tab"
+            ko.css.selected="selectedTab.eq('accounts')"
+        ></accounts-table>
 
-        <section class="tab" data-bind="css: tabCss('settings')">
-            <server-time-form class="pad" params="
-                isCollapsed: isSectionCollapsed('server-time')
-            "></server-time-form>
+        <section class="tab"
+            ko.css.selected="selectedTab.eq('settings')"
+        >
+            <server-time-form class="pad"
+                params="isCollapsed: sectionToggle('server-time')"
+            ></server-time-form>
 
             <hr />
 
             <server-dns-form class="pad" params="
-                isCollapsed: isSectionCollapsed('server-dns')
+                isCollapsed: sectionToggle('server-dns')
             "></server-dns-form>
 
             <hr />
 
             <server-dns-settings-form class="pad" params="
-                isCollapsed: isSectionCollapsed('dns-settings')
+                isCollapsed: sectionToggle('dns-settings')
             "></server-dns-settings-form>
 
             <hr />
 
             <phone-home-form class="pad" params="
-                isCollapsed: isSectionCollapsed('phone-home')
+                isCollapsed: sectionToggle('phone-home')
             "></phone-home-form>
 
             <hr />
 
             <remote-syslog-form class="pad" params="
-                isCollapsed: isSectionCollapsed('remote-syslog')
+                isCollapsed: sectionToggle('remote-syslog')
             "></remote-syslog-form>
 
             <hr />
 
-            <server-ssl-form class="pad" params="isCollapsed: isSectionCollapsed('server-ssl')"></server-ssl-form>
+            <server-ssl-form class="pad" params="isCollapsed: sectionToggle('server-ssl')"></server-ssl-form>
         </section>
 
-        <diagnostics-form class="tab" data-bind="css: tabCss('diagnostics')">
-        </diagnostics-form>
+        <diagnostics-form class="tab"
+            ko.css.selected="selectedTab.eq('diagnostics')"
+        ></diagnostics-form>
 
-        <version-form class="tab" data-bind="css: tabCss('version')">
-        </version-form>
+        <version-form class="tab"
+            ko.css.selected="selectedTab.eq('version')"
+        ></version-form>
 
-        <section class="tab" data-bind="css: tabCss('advanced-options')">
+        <section class="tab"
+            ko.css.selected="selectedTab.eq('advanced-options')"
+        >
             <maintenance-form class="pad" params="
-                isCollapsed: isSectionCollapsed('maintenance')
+                isCollapsed: sectionToggle('maintenance')
             "></maintenance-form>
 
             <hr />
 
             <p2p-form class="pad" params="
-                isCollapsed: isSectionCollapsed('p2p')
+                isCollapsed: sectionToggle('p2p')
             "></p2p-form>
         </section>
     </div>

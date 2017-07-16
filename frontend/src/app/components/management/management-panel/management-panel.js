@@ -1,43 +1,48 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './management-panel.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
+import { state$ } from 'state';
 import ko from 'knockout';
-import * as routes from 'routes';
-import { routeContext } from 'model';
+import { realizeUri } from 'utils/browser-utils';
 import { navigateTo } from 'actions';
 
-class ManagementPanelViewModel extends BaseViewModel {
+class ManagementPanelViewModel extends Observer {
     constructor() {
         super();
 
-        this.selectedTab = ko.pureComputed(
-            () => routeContext().params.tab || 'accounts'
-        );
+        this.baseRoute = '';
+        this.selectedTab = ko.observable();
+        this.selectedSection = ko.observable();
 
-        this.section = ko.pureComputed({
-            read: () => routeContext().params.section,
-            write: section => navigateTo(routes.management, { section })
-        });
+        this.observe(state$.get('location'), this.onLocation);
+    }
+
+    onLocation({ route, params }) {
+        const { system, tab = 'accounts', section } = params;
+
+        this.baseRoute = realizeUri(route, { system }, {}, true);
+        this.selectedTab(tab);
+        this.selectedSection(section);
+    }
+
+    onSection(section) {
+        const tab = this.selectedTab();
+        const uri = realizeUri(this.baseRoute, { tab, section });
+
+        // TODO: replace with an action creator and push to action$ stream.
+        navigateTo(uri);
     }
 
     tabHref(tab) {
-        return {
-            route: 'management',
-            params: { tab, section: null }
-        };
+        return realizeUri(this.baseRoute, { tab });
     }
 
-    tabCss(tab) {
-        return {
-            selected: this.selectedTab() === tab
-        };
-    }
 
-    isSectionCollapsed(section) {
+    sectionToggle(section) {
         return ko.pureComputed({
-            read: () => this.section() !== section,
-            write: val => this.section(val ? null : section)
+            read: () => this.selectedSection() !== section,
+            write: val => this.onSection(val ? null : section)
         });
     }
 }

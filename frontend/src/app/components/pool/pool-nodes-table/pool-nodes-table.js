@@ -7,7 +7,7 @@ import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle} from 'utils/core-utils';
 import { navigateTo } from 'actions';
-import { routeContext } from 'model';
+import { systemInfo, routeContext, poolNodeList } from 'model';
 import { countNodesByState } from 'utils/ui-utils';
 import { action$ } from 'state';
 import { openAssignNodesModal } from 'action-creators';
@@ -42,11 +42,23 @@ const columns = deepFreeze([
 ]);
 
 class PoolNodesTableViewModel extends BaseViewModel {
-    constructor({ pool, nodeList }) {
+    constructor({ poolName }) {
         super();
+
+        const nodeList = poolNodeList;
+
+        const pool = ko.pureComputed(
+            () => systemInfo() && systemInfo().pools.find(
+                pool => pool.name === ko.unwrap(poolName)
+            )
+        );
 
         const query = ko.pureComputed(
             () => routeContext().query
+        );
+
+        this.dataReady = ko.pureComputed(
+            () => Boolean(pool() && nodeList())
         );
 
         this.poolName = ko.pureComputed(
@@ -64,12 +76,12 @@ class PoolNodesTableViewModel extends BaseViewModel {
             write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
         });
 
-
         this.stateOptions = ko.pureComputed(
             () => nodeList() ?
                 this.getStateOptions(nodeList().filter_counts.by_mode) :
                 []
         );
+
         this.stateFilter = ko.pureComputed({
             read: () => query().state || 'ALL',
             write: value => this.selectState(value)

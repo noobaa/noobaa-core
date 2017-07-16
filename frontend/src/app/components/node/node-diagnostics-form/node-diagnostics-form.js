@@ -3,14 +3,16 @@
 import template from './node-diagnostics-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { collectDiagnosticsState } from 'model';
+import { nodeInfo, collectDiagnosticsState } from 'model';
 import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
 import { action$ } from 'state';
 import { openTestNodeModal } from 'action-creators';
 
 class NodeDiagnosticsFormViewModel extends BaseViewModel {
-    constructor({ node }) {
+    constructor() {
         super();
+
+        const node = nodeInfo;
 
         this.nodeName = ko.pureComputed(
             () => node() && node().name

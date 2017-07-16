@@ -4,42 +4,31 @@ import template from './resources-panel.html';
 import Observer  from 'observer';
 import { state$ } from 'state';
 import ko from 'knockout';
+import  { realizeUri } from 'utils/browser-utils';
 
-
-class PoolsPanelViewModel extends Observer  {
+class ResourcesPanelViewModel extends Observer  {
     constructor() {
         super();
 
         this.selectedTab = ko.observable();
-        this.isCreatePoolWizardVisible = ko.observable(false);
+        this.baseRoute = '';
 
-        this.observe(
-            state$.get('location', 'params', 'tab'),
-            this.onTab
-        );
+        this.observe(state$.get('location'), this.onLocation);
     }
 
-    onTab(tab = 'pools') {
+    onLocation({ route, params }) {
+        const { system, tab = 'pools' } = params;
+
+        this.baseRoute = realizeUri(route, { system }, {}, true);
         this.selectedTab(tab);
     }
 
     tabHref(tab) {
-        return {
-            route: 'pools',
-            params: { tab }
-        };
-    }
-
-    showCreatePoolWizard() {
-        this.isCreatePoolWizardVisible(true);
-    }
-
-    hideCreatePoolWizard() {
-        this.isCreatePoolWizardVisible(false);
+        return realizeUri(this.baseRoute, { tab });
     }
 }
 
 export default {
-    viewModel: PoolsPanelViewModel,
+    viewModel: ResourcesPanelViewModel,
     template: template
 };

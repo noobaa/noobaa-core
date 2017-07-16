@@ -3,56 +3,38 @@
 import template from './bucket-panel.html';
 import Observer from 'observer';
 import ko from 'knockout';
-import { systemInfo, routeContext, bucketObjectList } from 'model';
+import { state$ } from 'state';
+import { realizeUri } from 'utils/browser-utils';
 import { loadBucketObjectList } from 'actions';
 
 class BucketPanelViewModel extends Observer {
     constructor() {
         super();
 
-        this.bucket = ko.pureComputed(
-            () => systemInfo() && systemInfo().buckets.find(
-                ({ name }) => routeContext().params.bucket === name
-            )
-        );
+        this.baseRoute = '';
+        this.selectedTab = ko.observable();
+        this.bucket = ko.observable();
 
-        this.objectList = bucketObjectList;
-
-        this.ready = ko.pureComputed(
-            () => !!this.bucket()
-        );
-
-        this.bucketName = ko.pureComputed(
-            () => this.bucket() && this.bucket().name
-        );
-
-        if(routeContext()) this.onRoute(routeContext());
-        this.observe(routeContext, this.onRoute);
+        this.observe(state$.get('location'), this.onLocation);
     }
 
-    tabHref(tab) {
-        return {
-            route: 'bucket',
-            params: { tab }
-        };
-    }
+    onLocation({ route, params, query }) {
+        const { system, bucket, tab = 'data-placement' } = params;
+        if (!bucket) return;
 
-    tabCss(tab) {
-        return {
-            selected: (routeContext().params.tab || 'data-placement') === tab
-        };
-    }
-
-    onRoute({ params, query }) {
-        const { bucket, tab } = params;
+        this.baseRoute = realizeUri(route, { system, bucket }, {}, true);
+        this.selectedTab(tab);
+        this.bucket(bucket);
 
         if (tab === 'objects') {
             const { filter, sortBy = 'key', order = 1, page = 0 } = query;
-
             loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));
         }
     }
 
+    tabHref(tab) {
+        return realizeUri(this.baseRoute, { tab });
+    }
 }
 
 export default {

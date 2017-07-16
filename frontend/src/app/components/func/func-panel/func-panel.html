@@ -4,44 +4,50 @@
 
 <div class="tabs greedy">
     <nav>
-        <a data-bind="href: tabHref('monitoring'), css: tabCss('monitoring')">
+        <a ko.css.selected="selectedTab.eq('monitoring')"
+            ko.attr.href="tabHref('monitoring')"
+        >
             Monitoring
         </a>
 
-        <a data-bind="href: tabHref('code'), css: tabCss('code')">
+        <a ko.css.selected="selectedTab.eq('code')"
+            ko.attr.href="tabHref('code')"
+        >
             Code
         </a>
 
-        <a data-bind="href: tabHref('config'), css: tabCss('config')">
+        <a ko.css.selected="selectedTab.eq('config')"
+            ko.attr.href="tabHref('config')"
+        >
             Configuration
         </a>
 
-        <a data-bind="href: tabHref('invoke'), css: tabCss('invoke')">
+        <a ko.css.selected="selectedTab.eq('invoke')"
+            ko.attr.href="tabHref('invoke')"
+        >
             Invoke
         </a>
-
     </nav>
 
     <div class="tabs-row">
         <func-monitoring class="tab"
+            ko.css.selected="selectedTab.eq('monitoring')"
             params="func: func"
-            data-bind="css: tabCss('monitoring')">
-        </func-monitoring>
+        ></func-monitoring>
 
         <func-code class="tab"
+            ko.css.selected="selectedTab.eq('code')"
             params="func: func"
-            data-bind="css: tabCss('code')">
-        </func-code>
+        ></func-code>
 
         <func-config class="tab"
+            ko.css.selected="selectedTab.eq('config')"
             params="func: func"
-            data-bind="css: tabCss('config')">
-        </func-config>
+        ></func-config>
 
         <func-invoke class="tab"
+            ko.css.selected="selectedTab.eq('invoke')"
             params="func: func"
-            data-bind="css: tabCss('invoke')">
-        </func-invoke>
-
+        ></func-invoke>
     </div>
 </div>

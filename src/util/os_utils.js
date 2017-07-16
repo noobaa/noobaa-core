@@ -104,7 +104,7 @@ function get_raw_storage() {
             .then(drives => {
                 let root = drives.find(drive => drive.mount === '/');
                 if (root) {
-                    return root.total;
+                    return root.storage.total;
                 } else {
                     return 0;
                 }

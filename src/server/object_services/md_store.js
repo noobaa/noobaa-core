@@ -629,8 +629,7 @@ class MDStore {
         return this._chunks.col().find({
                 _id: {
                     $in: chunk_ids
-                },
-                deleted: null,
+                }
             })
             .toArray();
     }

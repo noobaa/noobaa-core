@@ -47,9 +47,9 @@ class MapBuilder {
             .then(() => system_store.refresh())
             .then(() => P.join(
                 MDStore.instance().load_blocks_for_chunks(this.chunks),
-                P.resolve(MDStore.instance().load_parts_objects_for_chunks(this.chunks))
-                .then(res => this.prepare_and_fix_chunks(res))
+                MDStore.instance().load_parts_objects_for_chunks(this.chunks)
             ))
+            .spread((_ignore_res, parts_objects_res) => this.prepare_and_fix_chunks(parts_objects_res))
             .then(() => this.refresh_alloc())
             .then(() => this.analyze_chunks())
             .then(() => this.allocate_blocks())
@@ -77,6 +77,20 @@ class MapBuilder {
     }
 
     prepare_and_fix_chunks({ parts, objects }) {
+        // first look for deleted chunks, and set it's blocks for deletion
+        const [deleted_chunks, live_chunks] = _.partition(this.chunks, chunk => chunk.deleted);
+        // set this.chunks to only hold live chunks
+        this.chunks = live_chunks;
+
+        // mark all live blocks of deleted chunks for deletion
+        _.each(deleted_chunks, chunk => {
+            const live_blocks = chunk.blocks.filter(block => !block.deleted);
+            if (live_blocks.length) {
+                dbg.log0('identified undeleted blocks of a deleted chunk. chunk =', chunk._id, 'blocks =', live_blocks);
+                this.delete_blocks = this.delete_blocks || [];
+                js_utils.array_push_all(this.delete_blocks, live_blocks);
+            }
+        });
         const parts_by_chunk = _.groupBy(parts, 'chunk');
         const objects_by_id = _.keyBy(objects, '_id');
         return P.map(this.chunks, chunk => {

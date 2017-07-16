@@ -30,8 +30,8 @@ const cluster_hb = require('../bg_services/cluster_hb');
 const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
-const upgrade_utils = require('../../util/upgrade_utils');
 const net_utils = require('../../util/net_utils');
+const upgrade_utils = require('../../util/upgrade_utils');
 const phone_home_utils = require('../../util/phone_home');
 
 
@@ -635,6 +635,7 @@ function redirect_to_cluster_master(req) {
 
 function update_time_config(req) {
     dbg.log0('update_time_config called with', req.rpc_params);
+    const local_info = system_store.get_local_cluster_info(true);
     var time_config = req.rpc_params;
     var target_servers = [];
     let audit_desc = 'Server date and time successfully updated to: ';
@@ -667,6 +668,13 @@ function update_time_config(req) {
 
             if (time_config.ntp_server && time_config.epoch) {
                 throw new RpcError('DUAL_CONFIG', 'Dual configuration provided (ntp_server and epoch)');
+            }
+
+            if (!target_servers.every(server => {
+                    let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
+                    return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
+                })) {
+                throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
             }
 
             let config_to_update = {
@@ -736,6 +744,7 @@ function apply_updated_time_config(req) {
 function update_dns_servers(req) {
     var dns_servers_config = req.rpc_params;
     var target_servers = [];
+    const local_info = system_store.get_local_cluster_info(true);
     return P.fcall(function() {
             if (dns_servers_config.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[dns_servers_config.target_secret];
@@ -764,6 +773,12 @@ function update_dns_servers(req) {
             }
             if (!dns_servers_config.search_domains.every(net_utils.is_fqdn)) {
                 throw new RpcError('MALFORMED_FQDN', 'Malformed dns configuration');
+            }
+            if (!target_servers.every(server => {
+                    let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
+                    return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
+                })) {
+                throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
             }
             let updates = _.map(target_servers, server => _.omitBy({
                 _id: server._id,

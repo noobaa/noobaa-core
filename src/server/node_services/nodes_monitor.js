@@ -1886,10 +1886,11 @@ class NodesMonitor extends EventEmitter {
                 // increase the completed size only if succeeded
                 act.stage.size.completed += blocks_size;
                 if (!act.stage.marker) {
-                    if (act.stage.error_marker) {
+                    if (act.stage.rebuild_error) {
                         dbg.log0('_rebuild_node: HAD ERRORS. RESTART', item.node.name, act);
                         act.stage.marker = act.stage.error_marker;
                         act.stage.size.completed = act.stage.error_marker_completed || 0;
+                        act.stage.rebuild_error = 0;
                         act.stage.error_marker = null;
                         act.stage.error_marker_completed = 0;
                     } else {
@@ -1902,7 +1903,8 @@ class NodesMonitor extends EventEmitter {
             .catch(err => {
                 act.running = false;
                 dbg.warn('_rebuild_node: ERROR', item.node.name, err.stack || err);
-                if (!act.stage.error_marker) {
+                if (!act.stage.rebuild_error) {
+                    act.stage.rebuild_error = Date.now();
                     act.stage.error_marker = start_marker;
                     act.stage.error_marker_completed = act.stage.size.completed || 0;
                 }

@@ -97,10 +97,6 @@ function fix_iptables {
     iptables -A INPUT -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
   fi
 
-  #If logging rules exist, remove them
-  /sbin/iptables -D INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
-  /sbin/iptables -D OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
-
   #CVE-1999-0524
   local exist=$(iptables -L -n | grep icmp | wc -l)
   if [ "${exist}" == "0" ]; then

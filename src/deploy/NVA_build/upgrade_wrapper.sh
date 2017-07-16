@@ -27,67 +27,67 @@ function fix_iptables {
     iptables -I INPUT 1  -p tcp --dport 80 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 443 | grep eth0 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':443 ' | grep eth0 | wc -l)
   if [ "${exist}" == "1" ]; then
     iptables -D INPUT -i eth0 -p tcp --dport 443 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 443 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':443 ' | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1  -p tcp --dport 443 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 8080 | grep eth0 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':8080 ' | grep eth0 | wc -l)
   if [ "${exist}" == "1" ]; then
     iptables -D INPUT -i eth0 -p tcp --dport 8080 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 8080 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':8080 ' | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1  -p tcp --dport 8080 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 8443 | grep eth0 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':8443 ' | grep eth0 | wc -l)
   if [ "${exist}" == "1" ]; then
     iptables -D INPUT -i eth0 -p tcp --dport 8443 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 8443 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':8443 ' | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1  -p tcp --dport 8443 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 8444 | grep eth0 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':8444 ' | grep eth0 | wc -l)
   if [ "${exist}" == "1" ]; then
     iptables -D INPUT -i eth0 -p tcp --dport 8444 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 8444 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':8444 ' | wc -l)
   if [ "${exist}" == "0" ]; then
 	  iptables -I INPUT 1  -p tcp --dport 8444 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v| grep 26050 | grep eth0 | wc -l)
+  local exist=$(iptables -L -n -v| grep ':26050 ' | grep eth0 | wc -l)
   if [ "${exist}" == "1" ]; then
     iptables -D INPUT -i eth0 -p tcp --dport 26050 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v| grep 26050| wc -l)
+  local exist=$(iptables -L -n -v| grep ':26050 ' | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1  -p tcp --dport 26050 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 27000 | grep eth0 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':27000 ' | grep eth0 | wc -l)
   if [ "${exist}" == "1" ]; then
     iptables -D INPUT -i eth0 -p tcp --dport 27000 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n -v | grep 27000 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':27000 ' | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1  -p tcp --dport 27000 -j ACCEPT
   fi
 
-  local exist=$(iptables -L -n | grep 60100 | wc -l)
+  local exist=$(iptables -L -n -v | grep ':60100 ' | wc -l)
   if [ "${exist}" == "1" ]; then
     iptables -D INPUT -i eth0 -p tcp --dport 60100 -j ACCEPT
   fi
@@ -96,10 +96,6 @@ function fix_iptables {
   if [ "${exist}" == "0" ]; then
     iptables -A INPUT -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
   fi
-
-  #If logging rules exist, remove them
-  /sbin/iptables -D INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
-  /sbin/iptables -D OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
 
   #CVE-1999-0524
   local exist=$(iptables -L -n | grep icmp | wc -l)

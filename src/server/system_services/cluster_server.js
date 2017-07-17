@@ -670,7 +670,7 @@ function update_time_config(req) {
                 throw new RpcError('DUAL_CONFIG', 'Dual configuration provided (ntp_server and epoch)');
             }
 
-            if (!target_servers.every(server => {
+            if (local_info.is_clusterized && !target_servers.every(server => {
                     let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
                     return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
                 })) {
@@ -774,7 +774,7 @@ function update_dns_servers(req) {
             if (!dns_servers_config.search_domains.every(net_utils.is_fqdn)) {
                 throw new RpcError('MALFORMED_FQDN', 'Malformed dns configuration');
             }
-            if (!target_servers.every(server => {
+            if (local_info.is_clusterized && !target_servers.every(server => {
                     let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
                     return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
                 })) {

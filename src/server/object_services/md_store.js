@@ -108,8 +108,7 @@ class MDStore {
 
     find_object_by_id(obj_id) {
         return this._objects.col().findOne({
-            _id: obj_id,
-            deleted: null,
+            _id: obj_id
         });
     }
 

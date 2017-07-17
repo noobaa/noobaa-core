@@ -771,7 +771,7 @@ function update_dns_servers(req) {
             if (!dns_servers_config.dns_servers.every(net.isIPv4)) {
                 throw new RpcError('MALFORMED_IP', 'Malformed dns configuration');
             }
-            if (!dns_servers_config.search_domains.every(net_utils.is_fqdn)) {
+            if (dns_servers_config.search_domains && !dns_servers_config.search_domains.every(net_utils.is_fqdn)) {
                 throw new RpcError('MALFORMED_FQDN', 'Malformed dns configuration');
             }
             if (local_info.is_clusterized && !target_servers.every(server => {

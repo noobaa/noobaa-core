@@ -60,6 +60,11 @@ const nodeStateIconMapping = deepFreeze({
         css: 'warning',
         tooltip: 'Read/Write problems'
     },
+    STORAGE_NOT_EXIST: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Unmounted'
+    },
     LOW_CAPACITY: {
         name: 'problem',
         css: 'warning',

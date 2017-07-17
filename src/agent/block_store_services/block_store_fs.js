@@ -12,6 +12,7 @@ const os_utils = require('../../util/os_utils');
 const string_utils = require('../../util/string_utils');
 const promise_utils = require('../../util/promise_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
+const RpcError = require('../../rpc/rpc_error');
 
 class BlockStoreFs extends BlockStoreBase {
 
@@ -65,12 +66,24 @@ class BlockStoreFs extends BlockStoreBase {
     get_storage_info() {
         return P.join(
                 this._get_usage(),
-                os_utils.get_drive_of_path(this.root_path))
+                os_utils.get_drive_of_path(this.root_path)
+                .catch(err => {
+                    dbg.error('got error from get_drive_of_path. checking if root_path exists', err.message);
+                    this._test_root_path_exists();
+                    throw err;
+                })
+            )
             .spread((usage, drive) => {
                 const storage = drive.storage;
                 storage.used = usage.size;
                 return storage;
             });
+    }
+
+    _test_root_path_exists() {
+        if (!fs.existsSync(this.root_path)) {
+            throw new RpcError('STORAGE_NOT_EXIST', `could not find the root path ${this.root_path}`);
+        }
     }
 
     _read_block(block_md) {
@@ -83,7 +96,14 @@ class BlockStoreFs extends BlockStoreBase {
             .spread((data_file, meta_file) => ({
                 block_md: block_md,
                 data: data_file,
-            }));
+            }))
+            .catch(err => {
+                if (err.code === 'ENOENT') {
+                    dbg.error('got error when reading', block_md, '. checking if root_path exists', err.message);
+                    this._test_root_path_exists();
+                }
+                throw err;
+            });
     }
 
     _write_block(block_md, data) {
@@ -103,6 +123,13 @@ class BlockStoreFs extends BlockStoreBase {
                 return P.join(
                     fs.writeFileAsync(block_path, data),
                     fs.writeFileAsync(meta_path, block_md_data));
+            })
+            .catch(err => {
+                if (err.code === 'ENOENT') {
+                    dbg.error('got error when writing', block_md, '. checking if root_path exists', err.message);
+                    this._test_root_path_exists();
+                }
+                throw err;
             })
             .then(() => {
                 if (overwrite_stat) {

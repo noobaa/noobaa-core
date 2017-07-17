@@ -915,6 +915,10 @@ class NodesMonitor extends EventEmitter {
                     });
             })
             .catch(err => {
+                if (err.rpc_code === 'STORAGE_NOT_EXIST' && !item.storage_not_exist) {
+                    dbg.error('got STORAGE_NOT_EXIST error from node', item.node.name, err.message);
+                    item.storage_not_exist = Date.now();
+                }
                 if (item.node.deleting) {
                     dbg.warn('got error in _get_agent_info on a deleting node, ignoring error. node name', item.node.name, err.message);
                     return;

@@ -1,23 +1,23 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row" data-bind="if: dataReady">
+<div class="fill row" ko.visible="!poolLoaded()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
+
+<div class="row summary" ko.css.visible="poolLoaded">
     <section class="c3 column borders pad">
-        <div class="row heading3 content-middle">
-            <svg-icon class="push-next" params="name: state().icon"
-                data-bind="css: state().css">
-            </svg-icon>
-            <span  class="greedy" data-bind="text: state().text"></span>
-        </div>
+        <p class="row heading3 content-middle">
+            <svg-icon class="push-next" ko.css="state().css" params="name: state().name"></svg-icon>
+            {{state().tooltip}}
+        </p>
         <hr />
         <div class="row greedy content-middle">
-            <div class="greedy">
-                <chart-legend class="node-counters" params="
-                    items: nodeCounters
-                "></chart-legend>
+            <div class="greedy ">
+                <chart-legend class="host-counters" params="items: hostCounters"></chart-legend>
             </div>
             <vr></vr>
             <div class="greedy align-middle text-center">
-                <p class="node-counter" data-bind="text: nodeCount"></p>
+                <p class="host-count" ko.text="hostCount"></p>
                 <p> Nodes</p>
             </div>
         </div>
@@ -33,36 +33,30 @@
 
             <pie-chart class="align-middle push-prev" params="
                 values: pieValues,
-                primaryText: formattedTotal,
+                primaryText: totalCapacity,
                 secondaryText: 'Total'
             "></pie-chart>
         </div>
     </section>
 
-
     <section class="column c3 borders pad">
-        <h3 class="heading3" data-bind="text: activityTitle"></h3>
-
+        <h3 class="heading3">{{activitiesTitle}}</h3>
         <hr>
+        <p class="remark push-next">{{activityText}}</p>
+        <!-- ko if: hasActivities -->
+        <bar class="push-next-half" params="
+            values: activityBar.values,
+            markers: hasActivities() ? [activityBar.marker] : []
+        "></bar>
+        <p class="remark align-end">ETA: {{activityEta}}</p>
 
-        <p data-bind="visible: !hasActivities()">
-            Pool is in optimal condition
-        </p>
-
-        <div class="column progress-bar greedy" data-bind="if: hasActivities">
-            <bar params="values: activityProgressBarValues"></bar>
-            <div class="text-right">
-                ETA:
-                <span data-bind="text: activityETA"></span>
-            </div>
-        </div>
-
-        <div class="column" data-bind="if: hasAdditionalActivities">
+        <!-- ko if: hasAdditionalActivities -->
             <hr>
-            <p class="align-start" data-bind="
-                text: additionalActivitiesMessage,
-                tooltip: additionalActivitiesTooltip
-            "></p>
-        </div>
+            <p class="align-start"
+                ko.text="additionalActivitiesMessage"
+                ko.tooltip="additionalActivitiesTooltip"
+            ></p>
+        <!-- /ko -->
+        <!-- /ko -->
     </section>
 </div>

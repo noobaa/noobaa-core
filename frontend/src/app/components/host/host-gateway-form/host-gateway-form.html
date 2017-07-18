@@ -1,0 +1,22 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row pad alt-bg content-middle">
+    <h2 class="heading3 greedy push-next">S3 Gateway Details</h2>
+    <button class="btn"
+        ko.text="toggleGatewayButtonText"
+        ko.click="onToggleGateway"
+        ko.enable="hostLoaded"
+    ></button>
+</div>
+
+<property-sheet class="pad" params="
+    properties: details,
+    loading: !hostLoaded()
+">
+    <template name="state">
+        <p class="row content-middle" ko.if="$data">
+            <svg-icon class="icon-small push-next-half" ko.css="css" params="name: name"></svg-icon>
+            {{tooltip}}
+        </p>
+    </template>
+</property-sheet>

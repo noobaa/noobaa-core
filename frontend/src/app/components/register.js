@@ -69,13 +69,14 @@ export default function register(ko) {
     ko.components.register('edit-server-time-settings-modal',       require('./modals/edit-server-time-settings-modal/edit-server-time-settings-modal').default);
     ko.components.register('edit-account-s3-access-modal',          require('./modals/edit-account-s3-access-modal/edit-account-s3-access-modal').default);
     ko.components.register('edit-server-details-modal',             require('./modals/edit-server-details-modal/edit-server-details-modal').default);
-    ko.components.register('assign-nodes-modal',                    require('./modals/assign-nodes-modal/assign-nodes-modal').default);
+    ko.components.register('assign-hosts-modal',                    require('./modals/assign-hosts-modal/assign-hosts-modal').default);
     ko.components.register('update-system-name-modal',              require('./modals/update-system-name-modal/update-system-name-modal').default);
     ko.components.register('system-upgrade-modal',                  require('./modals/system-upgrade-modal/system-upgrade-modal').default);
     ko.components.register('create-account-modal',                  require('./modals/create-account-modal/create-account-modal').default);
     ko.components.register('account-created-modal',                 require('./modals/account-created-modal/account-created-modal').default);
     ko.components.register('edit-bucket-quota-modal',               require('./modals/edit-bucket-quota-modal/edit-bucket-quota-modal').default);
     ko.components.register('set-account-ip-restrictions-modal',     require('./modals/set-account-ip-restrictions-modal/set-account-ip-restrictions-modal').default);
+    ko.components.register('create-pool-modal',                     require('./modals/create-pool-modal/create-pool-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -132,7 +133,6 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('resources-panel',           require('./resources/resources-panel/resources-panel').default);
     ko.components.register('pools-table',               require('./resources/pools-table/pools-table').default);
-    ko.components.register('create-pool-wizard',        require('./resources/create-pool-wizard/create-pool-wizard').default);
     ko.components.register('cloud-resources-table',     require('./resources/cloud-resources-table/cloud-resources-table').default);
     ko.components.register('external-resources-table',  require('./resources/external-resources-table/external-resources-table').default);
     /** INJECT:resources **/
@@ -142,20 +142,22 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('pool-panel',                    require('./pool/pool-panel/pool-panel').default);
     ko.components.register('pool-summary',                  require('./pool/pool-summary/pool-summary').default);
-    ko.components.register('pool-nodes-table',              require('./pool/pool-nodes-table/pool-nodes-table').default);
+    ko.components.register('pool-hosts-table',              require('./pool/pool-hosts-table/pool-hosts-table').default);
     ko.components.register('pool-associated-accounts-list', require('./pool/pool-associated-accounts-list/pool-associated-accounts-list').default);
     ko.components.register('pool-connected-buckets-list',   require('./pool/pool-connected-buckets-list/pool-connected-buckets-list').default);
     /** INJECT:pool **/
 
     // -------------------------------
-    // Node
+    // Host
     // -------------------------------
-    ko.components.register('node-panel',            require('./node/node-panel/node-panel').default);
-    ko.components.register('node-summary',          require('./node/node-summary/node-summary').default);
-    ko.components.register('node-parts-table',      require('./node/node-parts-table/node-parts-table').default);
-    ko.components.register('node-details-form',     require('./node/node-details-form/node-details-form').default);
-    ko.components.register('node-diagnostics-form', require('./node/node-diagnostics-form/node-diagnostics-form').default);
-    /** INJECT:node **/
+    ko.components.register('host-panel',            require('./host/host-panel/host-panel').default);
+    ko.components.register('host-summary',          require('./host/host-summary/host-summary').default);
+    ko.components.register('host-details-form',     require('./host/host-details-form/host-details-form').default);
+    ko.components.register('host-gateway-form',     require('./host/host-gateway-form/host-gateway-form').default);
+    ko.components.register('host-storage-form',     require('./host/host-storage-form/host-storage-form').default);
+    ko.components.register('node-parts-table',      require('./host/node-parts-table/node-parts-table').default);
+    ko.components.register('host-diagnostics-form', require('./host/host-diagnostics-form/host-diagnostics-form').default);
+    /** INJECT:host **/
 
     // -------------------------------
     // Management
@@ -261,7 +263,6 @@ export default function register(ko) {
     ko.components.register('pie-chart',                 require('./shared/pie-chart/pie-chart').default);
     ko.components.register('bar-chart',                 require('./shared/bar-chart/bar-chart').default);
     ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table').default);
-    ko.components.register('node-selection-table',      require('./shared/node-selection-table/node-selection-table').default);
     ko.components.register('chart-legend',              require('./shared/chart-legend/chart-legend').default);
     ko.components.register('copy-to-clipboard-button',  require('./shared/copy-to-clipboard-button/copy-to-clipboard-button').default);
     ko.components.register('password-field',            require('./shared/password-field/password-field').default);
@@ -275,5 +276,6 @@ export default function register(ko) {
     ko.components.register('validation-message',        require('./shared/validation-message/validation-message').default);
     ko.components.register('validation-rules-list',     require('./shared/validation-rules-list/validation-rules-list').default);
     ko.components.register('validation-indicator',      require('./shared/validation-indicator/validation-indicator').default);
+    ko.components.register('loading-indicator',         require('./shared/loading-indicator/loading-indicator').default);
     /** INJECT:shared **/
 }

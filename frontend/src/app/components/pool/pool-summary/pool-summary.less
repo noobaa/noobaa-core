@@ -1,9 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 
 pool-summary {
+    position: relative;
     display: block;
 
-    .node-counter {
+    .summary  {
+        opacity: 0;
+
+        &.visible {
+            opacity: 1;
+            transition: opacity 250ms ease-out;
+        }
+    }
+
+    .host-count {
         .highlight();
         font-size: @font-size5;
         line-height: 1.7;
@@ -17,7 +27,7 @@ pool-summary {
         }
     }
 
-    .node-counters {
+    .host-counters {
         min-width: unset;
     }
 }

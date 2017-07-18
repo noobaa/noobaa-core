@@ -9,7 +9,6 @@ import JSZip from 'jszip';
 import { last, makeArray, deepFreeze, flatMap, groupBy } from 'utils/core-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
-import { getModeFilterFromState } from 'utils/ui-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse, toFormData } from 'utils/browser-utils';
 import { Buffer } from 'buffer';
 
@@ -101,26 +100,15 @@ export function showObject() {
     loadObjectPartList(bucket, object, parseInt(page));
 }
 
-export function showPool() {
-    logAction('showPool');
-
-    const ctx = model.routeContext();
-    const { pool } = ctx.params;
-    const { filter, state, sortBy = 'name', order = 1, page = 0 } = ctx.query;
-    const mode = state && getModeFilterFromState(state);
-
-    loadPoolNodeList(pool, filter, mode, sortBy, parseInt(order), parseInt(page));
-}
-
 export function showNode() {
-    logAction('showNode');
+    // logAction('showNode');
 
-    const ctx = model.routeContext();
-    const { node } = ctx.params;
-    const { page = 0 } = ctx.query;
+    // const ctx = model.routeContext();
+    // const { node } = ctx.params;
+    // const { page = 0 } = ctx.query;
 
-    loadNodeInfo(node);
-    loadNodeStoredPartsList(node, parseInt(page));
+    // loadNodeInfo(node);
+    // loadNodeStoredPartsList(node, parseInt(page));
 }
 
 export function showFuncs() {
@@ -635,47 +623,6 @@ export function updateBucketPlacementPolicy(tierName, placementType, attachedPoo
         .done();
 }
 
-export function createPool(name, nodes) {
-    logAction('createPool', { name, nodes });
-
-    nodes = nodes.map(name => ({ name }));
-
-    api.pool.create_nodes_pool({ name, nodes })
-        .then(
-            () => notify(`Pool ${name} created successfully`, 'success'),
-            () => notify(`Pool ${name} creation failed`, 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
-export function deletePool(name) {
-    logAction('deletePool', { name });
-
-    api.pool.delete_pool({ name })
-        .then(
-            () => notify(`Pool ${name} deleted successfully`, 'success'),
-            () => notify(`Pool ${name} deletion failed`, 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
-export function assignNodes(name, nodes) {
-    logAction('assignNodes', { name, nodes });
-
-    api.pool.assign_nodes_to_pool({
-        name: name,
-        nodes: nodes.map(name => ({ name }))
-    })
-        .then(
-            () => notify(`${nodes.length} nodes has been assigend to pool ${name}`, 'success'),
-            () => notify(`Assinging nodes to pool ${name} failed`, 'error')
-        )
-        .then(refresh)
-        .done();
-}
-
 export function createCloudResource(name, connection, cloudBucket) {
     logAction('createCloudResource', { name, connection, cloudBucket });
 
@@ -697,8 +644,8 @@ export function deleteCloudResource(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Cloud resource ${name} deleted successfully`, 'success'),
-            () => notify(`Cloud resource ${name} deletion failed`, 'error')
+            () => notify(`Resource ${name} deleted successfully`, 'success'),
+            () => notify(`Resource ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -987,39 +934,6 @@ export function uploadSSLCertificate(SSLCertificate) {
         );
 }
 
-export function downloadNodeDiagnosticPack(nodeName) {
-    logAction('downloadDiagnosticFile', { nodeName });
-
-    const currentNodeKey = `node:${nodeName}`;
-    if(model.collectDiagnosticsState[currentNodeKey] === true) {
-        return;
-    }
-
-    model.collectDiagnosticsState.assign({
-        [currentNodeKey]: true
-    });
-
-    api.system.diagnose_node({ name: nodeName })
-        .catch(
-            err => {
-                notify(`Packing diagnostic file for ${nodeName} failed`, 'error');
-                model.collectDiagnosticsState.assign({
-                    [currentNodeKey]: false
-                });
-                throw err;
-            }
-        )
-        .then(
-            url => {
-                downloadFile(url);
-                model.collectDiagnosticsState.assign({
-                    [currentNodeKey]: false
-                });
-            }
-        )
-        .done();
-}
-
 export function downloadServerDiagnosticPack(secret, hostname) {
     logAction('downloadServerDiagnosticPack', { secret, hostname });
 
@@ -1071,34 +985,6 @@ export function downloadSystemDiagnosticPack() {
                 downloadFile(url);
                 model.collectDiagnosticsState.assign({ system: false });
             }
-        )
-        .done();
-}
-
-export function setNodeDebugLevel(node, level) {
-    logAction('setNodeDebugLevel', { node, level });
-
-    api.node.read_node({ name: node })
-        .then(
-            node => api.node.set_debug_node({
-                node: {
-                    name: node.name
-                },
-                level: level
-            })
-        )
-        .then(
-            () => notify(
-                `Debug mode was turned ${level === 0 ? 'off' : 'on'} for node ${node}`,
-                'success'
-            ),
-            () => notify(
-                `Could not turn ${level === 0 ? 'off' : 'on'} debug mode for node ${node}`,
-                'error'
-            )
-        )
-        .then(
-            () => loadNodeInfo(node)
         )
         .done();
 }

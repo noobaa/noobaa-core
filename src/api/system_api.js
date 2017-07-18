@@ -235,19 +235,6 @@ module.exports = {
             }
         },
 
-        diagnose_node: {
-            method: 'GET',
-            params: {
-                $ref: 'node_api#/definitions/node_identity'
-            },
-            reply: {
-                type: 'string',
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         get_node_installation_string: {
             method: 'GET',
             params: {

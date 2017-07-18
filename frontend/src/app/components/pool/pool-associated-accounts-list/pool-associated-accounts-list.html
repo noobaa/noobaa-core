@@ -5,7 +5,9 @@
     <p>The following accounts were associated to this pool. Each new bucket created by these accounts via an S3 application will have a data placement policy containing this pool</p>
 </div>
 
-<section class="column greedy accounts-list push-both-half">
+<loading-indicator class="greedy push-prev" ko.visible="!accountsLoaded()"></loading-indicator>
+
+<section class="column greedy accounts-list push-both-half" ko.visible="accountsLoaded">
     <ul class="list-no-style column" ko.foreach="accounts">
         <li class="pad-half hpad">
             <a class="link" ko.text="email" ko.attr.href="href"></a>

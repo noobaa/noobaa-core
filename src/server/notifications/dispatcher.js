@@ -21,7 +21,7 @@ var NotificationTypes = Object.freeze({
     ACTIVITYLOG: 3,
 });
 
-const NODE_POPULATE_FIELDS = Object.freeze(['name']);
+const NODE_POPULATE_FIELDS = Object.freeze(['name', 'os_info', 'host_seq']);
 const OBJECT_POPULATE_FIELDS = Object.freeze({
     key: 1
 });
@@ -172,6 +172,7 @@ class Dispatcher {
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
                     if (l.node.name) {
+                        l.node.name = `${log_item.node.os_info.hostname}#${log_item.node.host_seq}`;
                         l.node.linkable = true;
                     } else {
                         l.node.linkable = false;

@@ -33,6 +33,12 @@ const POOL_NODES_INFO_DEFAULTS = Object.freeze({
     by_mode: {},
 });
 
+const POOL_HOSTS_INFO_DEFAULTS = Object.freeze({
+    count: 0,
+    by_mode: {},
+    by_service: {},
+});
+
 const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
 const LOW_CAPACITY_HARD_LIMIT = 50 * Math.pow(1024, 3); // 50GB
 
@@ -76,6 +82,32 @@ function create_nodes_pool(req) {
         });
 }
 
+function create_hosts_pool(req) {
+    const { rpc_params, auth_token } = req;
+    const { name, hosts } = rpc_params;
+
+    if (name !== config.NEW_SYSTEM_POOL_NAME && hosts.length < config.NODES_MIN_COUNT) {
+        throw new RpcError(
+            'NOT ENOUGH HOSTS',
+            `cannot create a pool with less than ${config.NODES_MIN_COUNT} nodes`
+        );
+    }
+
+    const pool = new_pool_defaults(name, req.system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    const pool_id = String(pool._id);
+    dbg.log0('Creating new pool', pool);
+
+    return P.resolve()
+        .then(() => system_store.make_changes({
+            insert: {
+                pools: [pool]
+            }
+        }))
+        .then(() => server_rpc.client.host.migrate_hosts_to_pool(
+            { pool_id, hosts },
+            { auth_token }
+        ));
+}
 
 function create_cloud_pool(req) {
     var name = req.rpc_params.name;
@@ -296,14 +328,16 @@ function assign_nodes_to_pool(req) {
 
 
 function assign_hosts_to_pool(req) {
-    dbg.log0('Adding hosts to pool', req.rpc_params.name, 'hosts:', req.rpc_params.hosts);
-    var pool = find_pool_by_name(req);
-    return server_rpc.client.host.migrate_hosts_to_pool({
-        hosts: req.rpc_params.hosts,
-        pool_id: String(pool._id)
-    }, {
-        auth_token: req.auth_token
-    });
+    const { auth_token, rpc_params } = req;
+    const { hosts, name } = rpc_params;
+    dbg.log0('Adding hosts to pool', name, 'hosts:', hosts);
+
+    const pool = find_pool_by_name(req);
+    const pool_id = String(pool._id);
+    return server_rpc.client.host.migrate_hosts_to_pool(
+        { pool_id, hosts },
+        { auth_token }
+    );
 }
 
 
@@ -355,18 +389,19 @@ function find_pool_by_name(req) {
     return pool;
 }
 
-function get_pool_info(pool, nodes_aggregate_pool) {
-    var p = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
+function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
+    const p_nodes = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
+    const p_hosts = _.get(hosts_aggregate_pool, ['groups', String(pool._id)], { nodes: {} });
     var info = {
         name: pool.name,
         resource_type: pool.resource_type,
         pool_node_type: pool.pool_node_type,
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier
-        storage: _.defaults(size_utils.to_bigint_storage(p.storage), POOL_STORAGE_DEFAULTS)
+        storage: _.defaults(size_utils.to_bigint_storage(p_hosts.storage), POOL_STORAGE_DEFAULTS)
     };
-    if (p.data_activities) {
-        info.data_activities = p.data_activities;
+    if (p_nodes.data_activities) {
+        info.data_activities = p_nodes.data_activities;
     }
     if (_is_cloud_pool(pool)) {
         info.cloud_info = {
@@ -375,41 +410,16 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             target_bucket: pool.cloud_pool_info.target_bucket
         };
         info.undeletable = check_resrouce_pool_deletion(pool);
-        let nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
-        if (!p.nodes) {
-            info.mode = 'INITALIZING';
-        } else if (nodes.by_mode.OPTIMAL) {
-            info.mode = 'OPTIMAL';
-        } else if (nodes.by_mode.STORAGE_NOT_EXIST) {
-            info.mode = 'STORAGE_NOT_EXIST';
-        } else if (nodes.by_mode.AUTH_FAILED) {
-            info.mode = 'AUTH_FAILED';
-        } else if (nodes.by_mode.IO_ERRORS) {
-            info.mode = 'IO_ERRORS';
-        } else if (nodes.by_mode.INITALIZING) {
-            info.mode = 'INITALIZING';
-        } else {
-            info.mode = 'ALL_NODES_OFFLINE';
-        }
+        info.mode = calc_cloud_pool_mode(p_nodes);
     } else if (_is_mongo_pool(pool)) {
         info.mongo_info = {};
         info.undeletable = check_resrouce_pool_deletion(pool);
-        let nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
-        if (!p.nodes) {
-            info.mode = 'INITALIZING';
-        } else if (nodes.by_mode.OPTIMAL) {
-            info.mode = 'OPTIMAL';
-        } else if (nodes.by_mode.IO_ERRORS) {
-            info.mode = 'IO_ERRORS';
-        } else if (nodes.by_mode.INITALIZING) {
-            info.mode = 'INITALIZING';
-        } else {
-            info.mode = 'ALL_NODES_OFFLINE';
-        }
+        info.mode = calc_mongo_pool_mode(p_nodes);
     } else {
-        info.nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+        info.nodes = _.defaults({}, p_nodes.nodes, POOL_NODES_INFO_DEFAULTS);
+        info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
-        info.mode = calc_pool_mode(info);
+        info.mode = calc_hosts_pool_mode(info);
     }
 
     //Get associated accounts
@@ -418,10 +428,30 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     return info;
 }
 
-function calc_pool_mode(pool_info) {
-    const { nodes, storage, data_activities = [] } = pool_info;
-    const { count } = nodes;
-    const offline = nodes.by_mode.OFFLINE;
+function calc_cloud_pool_mode(p) {
+    const { by_mode } = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+    return (!p.nodes && 'INITALIZING') ||
+        (by_mode.OPTIMAL && 'OPTIMAL') ||
+        (by_mode.STORAGE_NOT_EXIST && 'STORAGE_NOT_EXIST') ||
+        (by_mode.AUTH_FAILED && 'AUTH_FAILED') ||
+        (by_mode.IO_ERRORS && 'IO_ERRORS') ||
+        (by_mode.INITALIZING && 'INITALIZING') ||
+        'ALL_NODES_OFFLINE';
+}
+
+function calc_mongo_pool_mode(p) {
+    const { by_mode } = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+    return (!p.nodes && 'INITALIZING') ||
+        (by_mode.OPTIMAL && 'OPTIMAL') ||
+        (by_mode.IO_ERRORS && 'IO_ERRORS') ||
+        (by_mode.INITALIZING && 'INITALIZING') ||
+        'ALL_NODES_OFFLINE';
+}
+
+function calc_hosts_pool_mode(pool_info) {
+    const { hosts, storage, data_activities = [] } = pool_info;
+    const { count, by_mode } = hosts;
+    const { OFFLINE: offline, OPTIMAL: optimal } = by_mode;
     const offline_ratio = (offline / count) * 100;
     const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
@@ -433,7 +463,7 @@ function calc_pool_mode(pool_info) {
     return (count === 0 && 'HAS_NO_NODES') ||
         (offline === count && 'ALL_NODES_OFFLINE') ||
         (count < 3 && 'NOT_ENOUGH_NODES') ||
-        (nodes.by_mode.OPTIMAL < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
+        (optimal < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
         (offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
         (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
@@ -499,6 +529,7 @@ exports.get_internal_mongo_pool = get_internal_mongo_pool;
 exports.new_pool_defaults = new_pool_defaults;
 exports.get_pool_info = get_pool_info;
 exports.create_nodes_pool = create_nodes_pool;
+exports.create_hosts_pool = create_hosts_pool;
 exports.create_cloud_pool = create_cloud_pool;
 exports.create_mongo_pool = create_mongo_pool;
 exports.list_pool_nodes = list_pool_nodes;

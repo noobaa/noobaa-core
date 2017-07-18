@@ -142,8 +142,8 @@ export default class FormViewModel extends Observer {
     _createFieldObservable(fieldName) {
         const { _state, name: formName, } = this;
 
-        const field = this[fieldName] = ko.pureComputed(
-            () => _state() ? _state().fields[fieldName] : {}
+        const field = ko.pureComputed(
+            () =>  _state() ? _state().fields[fieldName] : {}
         );
 
         const set = function(value, touch = true) {

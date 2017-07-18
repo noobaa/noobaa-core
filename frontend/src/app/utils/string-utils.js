@@ -88,7 +88,13 @@ export function isDigit(str) {
 }
 
 export function pluralize(word, amount) {
-    return `${word}${amount === 1 ? '' : 's'}`;
+    if (amount === 1) {
+        return word;
+    }
+
+    return word.slice(-1) === 'y' ?
+        `${word.slice(0, -1)}ies`:
+        `${word}s`;
 }
 
 export function stringifyAmount(subject, amount, zeroMoniker = '0') {

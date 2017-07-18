@@ -141,6 +141,30 @@ function get_distro() {
         });
 }
 
+// calculate cpu)
+function calc_cpu_usage(current_cpus, previous_cpus) {
+    if (previous_cpus) {
+        for (let i = 0; i < current_cpus.length; ++i) {
+            if (previous_cpus[i]) {
+                _.keys(previous_cpus[i].times).forEach(key => {
+                    current_cpus[i].times[key] -= previous_cpus[i].times[key];
+                });
+            }
+        }
+    }
+
+    let usage = 0;
+    for (let i = 0; i < current_cpus.length; ++i) {
+        let total = 0;
+        _.keys(current_cpus[i].times).forEach(key => {
+            total += current_cpus[i].times[key];
+        });
+        usage += (total - current_cpus[i].times.idle) / total;
+    }
+    return usage;
+}
+
+
 function get_disk_mount_points() {
     return read_drives()
         .then(drives => remove_linux_readonly_drives(drives))
@@ -797,3 +821,4 @@ exports.is_valid_hostname = is_valid_hostname;
 exports.get_disk_mount_points = get_disk_mount_points;
 exports.get_distro = get_distro;
 exports.handle_unreleased_fds = handle_unreleased_fds;
+exports.calc_cpu_usage = calc_cpu_usage;

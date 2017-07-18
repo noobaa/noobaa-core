@@ -11,7 +11,17 @@ import {
     COMPLETE_UPDATE_BUCKET_QUOTA,
     FAIL_UPDATE_BUCKET_QUOTA,
     COMPLETE_ADD_EXTERNAL_CONNECTION,
-    FAIL_ADD_EXTERNAL_CONNECTION
+    FAIL_ADD_EXTERNAL_CONNECTION,
+    COMPLETE_DELETE_RESOURCE,
+    FAIL_DELETE_RESOURCE,
+    COLLECT_HOST_DIAGNOSTICS,
+    FAIL_COLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_SET_HOST_DEBUG_MODE,
+    FAIL_SET_HOST_DEBUG_MODE,
+    COMPLETE_CREATE_HOSTS_POOL,
+    FAIL_CREATE_HOSTS_POOL,
+    COMPLETE_ASSIGN_HOSTS_TO_POOL,
+    FAIL_ASSIGN_HOSTS_TO_POOL
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -68,6 +78,56 @@ const actionToNotification = deepFreeze({
     [FAIL_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
         message: `Adding ${connection} failed`,
         severity: 'error'
+    }),
+
+    [COMPLETE_DELETE_RESOURCE]: ({ resource }) => ({
+        message: `Resource ${resource} deleted successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_DELETE_RESOURCE]: ({ resource }) => ({
+        message: `Resource ${resource} deletion failed`,
+        severity: 'error'
+    }),
+
+    [COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
+        message: `Collecting diagnostic for ${host}, it may take a few seconds`,
+        severity: 'success'
+    }),
+
+    [FAIL_COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
+        message: `Collecting diagnostic file for ${host} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
+        message: `Debug mode was turned ${on ? 'on' : 'off'} for node ${host}`,
+        severity: 'success'
+    }),
+
+    [FAIL_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
+        message: `Could not turn ${on ? 'on' : 'off'} debug mode for node ${host}`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_CREATE_HOSTS_POOL]: ({ name }) => ({
+        message: `Pool ${name} created successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_CREATE_HOSTS_POOL]: ({ name }) => ({
+        message: `Pool ${name} creation failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_ASSIGN_HOSTS_TO_POOL]: ({ pool, hosts }) => ({
+        message: `${hosts.length} nodes has been assigend to pool ${pool}`,
+        severity: 'success'
+    }),
+
+    [FAIL_ASSIGN_HOSTS_TO_POOL]: ({ pool }) => ({
+        message: `Assinging nodes to pool ${pool} failed`,
+        severity: 'error'
     })
 });
 
@@ -79,6 +139,5 @@ export default function(action$) {
                 const { message, severity } = notif(action.payload);
                 return showNotification(message, severity);
             }
-        })
-        .filter(Boolean);
+        });
 }

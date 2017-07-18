@@ -18,9 +18,9 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['host_id'],
+                required: ['name'],
                 properties: {
-                    host_id: {
+                    name: {
                         type: 'string'
                     },
                 },
@@ -48,9 +48,6 @@ module.exports = {
                     limit: {
                         type: 'integer'
                     },
-                    pagination: {
-                        type: 'boolean'
-                    },
                     sort: {
                         type: 'string',
                         enum: [
@@ -62,11 +59,17 @@ module.exports = {
                             'accessibility',
                             'connectivity',
                             'data_activity',
-                            'mode'
+                            'mode',
+                            'pool',
+                            'services',
+                            'recommended'
                         ]
                     },
                     order: {
                         type: 'integer',
+                    },
+                    recommended_hint: {
+                        type: 'string'
                     }
                 }
             },
@@ -74,11 +77,16 @@ module.exports = {
                 type: 'object',
                 required: ['hosts'],
                 properties: {
-                    total_count: {
-                        type: 'integer'
-                    },
-                    filter_counts: {
-                        $ref: '#/definitions/hosts_aggregate_info'
+                    counters: {
+                        type: 'object',
+                        properties: {
+                            non_paginated: {
+                                type: 'integer'
+                            },
+                            by_mode: {
+                                $ref: 'node_api#/definitions/mode_counters'
+                            }
+                        }
                     },
                     hosts: {
                         type: 'array',
@@ -97,17 +105,37 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['host_id', 'storage_updates', 's3_updates'],
+                required: ['name'],
                 properties: {
-                    host_id: {
+                    name: {
                         type: 'string'
                     },
-                    storage_updates: {
-                        $ref: '#/definitions/host_service_update'
+                    services: {
+                        type: 'object',
+                        properties: {
+                            storage: {
+                                type: 'boolean'
+                            },
+                            s3: {
+                                type: 'boolean'
+                            }
+                        }
                     },
-                    s3_updates: {
-                        $ref: '#/definitions/host_service_update'
-                    },
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['name', 'enabled'],
+                            properties: {
+                                name: {
+                                    type: 'string',
+                                },
+                                enabled: {
+                                    type: 'boolean'
+                                }
+                            }
+                        }
+                    }
                 }
             },
             auth: {
@@ -157,9 +185,9 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['host_id', 'rpc_address'],
+                    required: ['name', 'rpc_address'],
                     properties: {
-                        host_id: {
+                        name: {
                             type: 'string'
                         },
                         rpc_address: {
@@ -177,9 +205,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['host_id', 'level'],
+                required: ['name', 'level'],
                 properties: {
-                    host_id: {
+                    name: {
                         type: 'string'
                     },
                     level: {
@@ -191,6 +219,25 @@ module.exports = {
                 system: 'admin',
             }
         },
+
+        diagnose_host: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'string'
+            },
+            auth: {
+                system: 'admin',
+            }
+        }
 
     },
 
@@ -214,6 +261,9 @@ module.exports = {
                     type: 'string'
                 },
                 ip: {
+                    type: 'string'
+                },
+                base_address: {
                     type: 'string'
                 },
                 version: {
@@ -240,11 +290,23 @@ module.exports = {
                 latency_to_server: {
                     $ref: 'node_api#/definitions/latency_array'
                 },
-                debug_level: {
-                    type: 'integer',
+                debug: {
+                    type: 'object',
+                    required: ['level'],
+                    properties: {
+                        level: {
+                            type: 'integer',
+                        },
+                        time_left: { // in ms
+                            type: 'integer'
+                        },
+                    },
                 },
                 rpc_address: {
                     type: 'string'
+                },
+                port_range: {
+                    $ref: 'common_api#/definitions/port_range_config'
                 },
                 suggested_pool: {
                     type: 'string'
@@ -266,6 +328,9 @@ module.exports = {
                             items: {
                                 $ref: 'node_api#/definitions/node_info'
                             }
+                        },
+                        data_activities: {
+                            $ref: 'node_api#/definitions/data_activities'
                         }
                     }
                 },
@@ -322,6 +387,7 @@ module.exports = {
             type: 'string',
             enum: [
                 'OFFLINE',
+                'UNTRUSTED',
                 'DECOMMISSIONED',
                 'DECOMMISSIONING',
                 'DATA_ACTIVITY',
@@ -334,36 +400,60 @@ module.exports = {
 
 
         host_service_update: {
-            anyOf: [{
-                type: 'null'
-            }, {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    required: ['node', 'enabled'],
-                    properties: {
-                        node: {
-                            $ref: 'node_api#/definitions/node_identity'
-                        },
-                        enabled: {
-                            type: 'boolean'
+            type: 'object',
+            properties: {
+                enabled: {
+                    type: 'boolean'
+                },
+                nodes: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['name', 'enabled'],
+                        properties: {
+                            name: {
+                                type: 'string',
+                            },
+                            enabled: {
+                                type: 'string'
+                            }
                         }
                     }
                 }
-            }]
+            }
         },
 
         hosts_query: {
-            $ref: 'node_api#/definitions/nodes_query'
+            type: 'object',
+            properties: {
+                hosts: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    }
+                },
+                pools: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                },
+                filter: {
+                    // regexp on name & ip
+                    type: 'string'
+                },
+                mode: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/host_mode'
+                    }
+                }
+            },
         },
 
         hosts_aggregate_info: {
             $ref: 'node_api#/definitions/nodes_aggregate_info'
         }
-
-
-
-
     }
 
 };

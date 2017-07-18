@@ -11,12 +11,13 @@ class PoolConnectedBucketsListViewModel extends Observer {
     constructor({ poolName }) {
         super();
 
+        this.bucketsLoaded = ko.observable(false);
         this.buckets = ko.observableArray();
         this.bucketCount = ko.observable();
 
         this.observe(
             state$.getMany(
-                ['nodePools', ko.unwrap(poolName), 'associatedBuckets'],
+                ['hostPools', 'items', ko.unwrap(poolName), 'connectedBuckets'],
                 ['location', 'params', 'system']
             ),
             this.onBuckets
@@ -24,7 +25,10 @@ class PoolConnectedBucketsListViewModel extends Observer {
     }
 
     onBuckets([ buckets, system ]) {
-        if (!buckets) return;
+        if (!buckets) {
+            this.bucketCount('');
+            return;
+        }
 
         this.buckets(
             buckets.map(bucket => ({
@@ -32,7 +36,8 @@ class PoolConnectedBucketsListViewModel extends Observer {
                 href: realizeUri(routes.bucket, { system, bucket })
             }))
         );
-        this.bucketCount(buckets.length);
+        this.bucketCount(buckets.length.toString());
+        this.bucketsLoaded(true);
     }
 }
 

@@ -1,0 +1,79 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<form class="column greedy" ko.submit="form.submit">
+    <div class="row push-next content-middle">
+        <input type="search"
+            placeholder="Filter by node name or ip"
+            ko.textInput="throttledNameFilter"/>
+
+        <span class="push-both-half">in</span>
+
+        <dropdown class="push-next" params="
+            placeholder: 'All Pools',
+            options: poolOptions,
+            selected: form.selectedPools
+        "></dropdown>
+
+        <div class="highlight row">
+            <span class="push-next">Show:</span>
+            <checkbox class="push-next" params="
+                checked: form.showHealthy,
+                label: 'Healthy'
+            "></checkbox>
+            <checkbox class="push-next" params="
+                checked: form.showIssues,
+                label: 'Issues'
+            "></checkbox>
+            <checkbox class="push-next" params="
+                checked: form.showOffline,
+                label: 'Offline'
+            "></checkbox>
+        </div>
+    </div>
+
+     <div class="row content-middle">
+        <h2 class="heading3 greedy">
+            Select nodes you wish to move into this pool
+        </h2>
+
+        <div>
+            <button class="link alt-colors" ko.click="onSelectAll">
+                Select all
+            </button>
+            |
+            <button class="link alt-colors" ko.click="onClearAll">
+                Clear all
+            </button>
+        </div>
+    </div>
+
+    <data-table class="greedy host-table" params="
+        columns: columns,
+        data: rows,
+        loading: fetching,
+        sorting: form.sorting,
+        emptyMessage: emptyMessage
+    "></data-table>
+
+    <div class="row content-middle alt-bg push-next">
+        <span class="selection-text push-prev" ko.text="selectedMessage"></span>
+        <span class="push-both-half">|</span>
+        <button class="link alt-colors" ko.click="onClearSelection">
+            Clear
+        </button>
+        <paginator class="greedy push-prev" params="
+            itemCount: filteredHostCount,
+            pageSize: pageSize,
+            page: form.page
+        "></paginator>
+    </div>
+
+    <div class="row align-end ">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn">
+            Assign
+        </button>
+    </div>
+</form>

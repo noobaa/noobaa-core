@@ -23,6 +23,29 @@ module.exports = {
             }
         },
 
+        create_hosts_pool: {
+            doc: 'Create Hosts Pool',
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    name: {
+                         type: 'string'
+                    },
+                    hosts: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+                }
+
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         create_cloud_pool: {
             doc: 'Create Cloud Pool',
             method: 'POST',
@@ -156,12 +179,7 @@ module.exports = {
                     hosts: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            properties: {
-                                host_id: {
-                                    type: 'string'
-                                },
-                            },
+                            type: 'string'
                         }
                     }
                 }
@@ -272,6 +290,32 @@ module.exports = {
                 },
                 nodes: {
                     $ref: 'node_api#/definitions/nodes_aggregate_info'
+                },
+                hosts: {
+                    type: 'object',
+                    properties: {
+                        count: {
+                            type: 'integer',
+                        },
+                        by_mode: {
+                            type: 'object',
+                            additionalProperties: true,
+                            properties: {},
+                        },
+                        by_service: {
+                            type: 'object',
+                            properties: {
+                                STORAGE: {
+                                    type: 'integer',
+                                },
+                                GATEWAY: {
+                                    type: 'integer',
+                                }
+                            }
+                        }
+
+                    }
+
                 },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'

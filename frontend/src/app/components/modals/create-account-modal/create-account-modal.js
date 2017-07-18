@@ -75,16 +75,16 @@ class CreateAccountWizardViewModel extends Observer {
         });
 
         this.observe(
-            state$.getMany('accounts', 'nodePools', 'cloudResources', 'buckets'),
+            state$.getMany('accounts', ['hostPools', 'items'], 'cloudResources', 'buckets'),
             this.onState
         );
     }
 
-    onState([accounts, nodePools, cloudResources, buckets]) {
+    onState([accounts, hostPools, cloudResources, buckets]) {
         this.accountNames = Object.keys(accounts);
 
         this.resourceOptions(flatMap(
-            [ nodePools, cloudResources ],
+            [ hostPools, cloudResources ],
             resources => Object.values(resources).map(mapResourceToOptions)
         ));
 

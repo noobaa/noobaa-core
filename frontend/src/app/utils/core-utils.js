@@ -302,5 +302,29 @@ export function equalItems(arr1, arr2) {
 }
 
 export function ensureArray(val) {
-    return (isString(val) || !isFunction(val[Symbol.iterator])) ? [val] : Array.from(val);
+    if ((isString(val) || !isFunction(val[Symbol.iterator]))) {
+        return [val];
+    }
+
+    if (!Array.isArray(val)) {
+        return Array.from(val);
+    }
+
+    return val;
+}
+
+export function union(...arrays) {
+    const merged = [];
+    for (const arr of arrays) {
+        merged.push(...arr);
+    }
+    return Array.from(new Set(merged).values());
+
+}
+
+export function hashCode(value) {
+    return Array.from(JSON.stringify(value)).reduce(
+        (hash, char) => (((hash << 5) - hash) + char.charCodeAt(0)) | 0,
+        0
+    );
 }

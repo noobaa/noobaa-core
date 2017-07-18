@@ -11,12 +11,13 @@ class PoolAssociatedAccountsListViewModel extends Observer {
     constructor({ poolName }) {
         super();
 
+        this.accountsLoaded = ko.observable(false);
         this.accounts = ko.observableArray();
-        this.accountCount = ko.observable();
+        this.accountCount = ko.observable('');
 
         this.observe(
             state$.getMany(
-                ['nodePools', ko.unwrap(poolName), 'associatedAccounts'],
+                ['hostPools', 'items', ko.unwrap(poolName), 'associatedAccounts'],
                 ['location', 'params', 'system']
             ),
             this.onAccounts
@@ -32,7 +33,8 @@ class PoolAssociatedAccountsListViewModel extends Observer {
                 href: realizeUri(routes.account, { system, account })
             }))
         );
-        this.accountCount(accounts.length);
+        this.accountCount(accounts.length.toString());
+        this.accountsLoaded(true);
     }
 }
 

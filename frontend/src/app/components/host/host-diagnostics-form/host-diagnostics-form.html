@@ -1,0 +1,57 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="column push-next">
+    <div class="row pad alt-bg content-middle">
+        <h3 class="greedy heading3">Diagnostics</h3>
+
+        <div class="push-next" ko.tooltip="actionsTooltip">
+            <button class="btn"
+                ko.disable="areActionsDisabled"
+                ko.click="onToggleDebugMode"
+                ko.text="debugModeToggleText"
+            "></button>
+        </div>
+
+        <div ko.tooltip="actionsTooltip">
+            <working-button params="
+                working: isCollectingDiagnostics,
+                workingLabel: 'Collecting Data...',
+                click: onDownloadDiagnostics,
+                disabled: areActionsDisabled
+            ">
+                Download Diagnostics
+            </working-button>
+        </div>
+    </div>
+
+    <property-sheet class="pad" params="
+        properties: debugDetails,
+        loading: !hostLoaded()
+    ">
+        <template name="debugMode">
+            <p ko.visible="$data">
+                On <span class="warning">(May cause node slowdown)</span>
+            </p>
+            <p ko.visible="!$data">Off</p>
+        </template>
+    </property-sheet>
+</section>
+
+<section class="column push-prev">
+    <div class="row pad alt-bg content-middle">
+        <h3 class="greedy heading3">Node's connectivity</h3>
+
+        <div ko.tooltip="actionsTooltip">
+            <button class="btn"
+                ko.disable="areActionsDisabled"
+                ko.click="onRunTest"
+            ">
+                Run Test
+            </button>
+        </div>
+    </div>
+
+    <p class="pad" ko.css.disabled="!hostLoaded()">
+        Testing a node allows you the verify peer to peer connectivity and bandwidth between this node and several of its peers
+    </p>
+</section>

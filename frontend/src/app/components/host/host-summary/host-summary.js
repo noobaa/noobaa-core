@@ -1,0 +1,182 @@
+/* Copyright (C) 2016 NooBaa */
+
+import template from './host-summary.html';
+import Observer from 'observer';
+import ko from 'knockout';
+import { state$, action$ } from 'state';
+import { fetchHosts, dropHostsView } from 'action-creators';
+import { isNumber } from 'utils/core-utils';
+import { formatSize, toBytes } from 'utils/size-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import style from 'style';
+import moment from 'moment';
+import numeral from 'numeral';
+import {
+    getHostServiceState,
+    getHostStateIcon,
+    getHostTrustIcon,
+    getHostAccessibilityIcon,
+    getNodeActivityName
+} from 'utils/host-utils';
+
+const trustTooltip = `A reliability check that verifies that this node has no disk
+    corruption or malicious activity`;
+
+function _getActivityText(type, nodeCount) {
+    return `${getNodeActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
+}
+
+function _getActivityEta(eta) {
+    return isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
+}
+
+function _getActivityTooltipRow({ type, nodeCount, progress, eta }) {
+    return `
+        <p>${_getActivityText(type, nodeCount)} ${numeral(progress).format('%')}</p>
+        <p class="remark push-next-half">ETA: ${_getActivityEta(eta)}</p>
+    `;
+}
+
+class HostSummaryViewModel extends Observer {
+    constructor({ name }) {
+        super();
+
+        this.viewName = this.constructor.name;
+        this.hostLoaded  = ko.observable(false);
+
+        // State observables.
+        this.trustTooltip = trustTooltip;
+        this.storageServiceState = ko.observable();
+        this.gatewayServiceState = ko.observable();
+        this.stateIcon = ko.observable({});
+        this.trustIcon = ko.observable({});
+        this.accessibilityIcon = ko.observable({});
+
+        // Capacity observables.
+        this.availableCapacity = ko.observable(0);
+        this.usedByNoobaaCapacity = ko.observable(0);
+        this.usedByOthersCapacity = ko.observable(0);
+        this.reservedCapacity = ko.observable(0);
+        this.totalCapacity = ko.observable(0);
+        this.pieValues = [
+            {
+                label: 'Available',
+                color: style['color5'],
+                value: this.availableCapacity
+            },
+            {
+                label: 'NooBaa Usage',
+                color: style['color13'],
+                value: this.usedByNoobaaCapacity
+            },
+            {
+                label: 'Other Usage',
+                color: style['color14'],
+                value: this.usedByOthersCapacity
+            },
+            {
+                label: 'Reserved',
+                color: style['color7'],
+                value: this.reservedCapacity
+            }
+        ];
+
+        // Data activity observables.
+        this.hasActivities = ko.observable();
+        this.activitiesTitle = ko.observable();
+        this.activityText = ko.observable();
+        this.activityDone = ko.observable();
+        this.activityLeft = ko.observable();
+        this.activityPrecentage = ko.observable();
+        this.activityEta = ko.observable();
+        this.hasAdditionalActivities = ko.observable();
+        this.additionalActivitiesMessage = ko.observable();
+        this.additionalActivitiesTooltip = ko.observable();
+        this.activityBar = {
+            values: [
+                {
+                    value: this.activityDone,
+                    color: style['color8']
+                },
+                {
+                    value: this.activityLeft,
+                    color: style['color15']
+                }
+            ],
+            marker: {
+                placement: this.activityDone,
+                label: this.activityPrecentage
+            }
+        };
+
+        this.observe(state$.get('hosts', 'items', ko.unwrap(name)), this.onHost);
+
+        // Load/update the host data.
+        action$.onNext(fetchHosts(this.viewName, { hosts: [ko.unwrap(name)] }));
+    }
+
+    onHost(host) {
+        if (!host) return;
+        this.hostLoaded(true);
+
+        { // Update host state
+            const serviceState = getHostServiceState(host);
+
+            this.storageServiceState(serviceState.storage);
+            this.gatewayServiceState(serviceState.gateway);
+            this.stateIcon(getHostStateIcon(host));
+            this.trustIcon(getHostTrustIcon(host));
+            this.accessibilityIcon(getHostAccessibilityIcon(host) || {});
+        }
+
+        { // Update host stroage and usage
+            const { free, used, used_other, reserved, total } = host.storage;
+
+            this.availableCapacity(toBytes(free));
+            this.usedByNoobaaCapacity(toBytes(used));
+            this.usedByOthersCapacity(toBytes(used_other));
+            this.reservedCapacity(toBytes(reserved));
+            this.totalCapacity(formatSize(total));
+        }
+
+        { // Update host data activity summary
+            const list = host.activities;
+            if (list.length > 0) {
+                const { type, nodeCount, progress, eta } = list[0] || {};
+                this.hasActivities(true);
+                this.activitiesTitle(`${stringifyAmount('Drive', nodeCount)} in Process`);
+                this.activityText(_getActivityText(type, nodeCount));
+                this.activityDone(progress);
+                this.activityLeft(1 - progress);
+                this.activityPrecentage(numeral(progress).format('%'));
+                this.activityEta(_getActivityEta(eta));
+
+                const additionalActivities = list.slice(1);
+                if (additionalActivities.length > 0) {
+                    const message = `${stringifyAmount('More activity', additionalActivities.length)} running`;
+
+                    this.hasAdditionalActivities(true);
+                    this.additionalActivitiesMessage(message);
+                    this.additionalActivitiesTooltip(additionalActivities.map(_getActivityTooltipRow));
+
+                } else {
+                    this.hasAdditionalActivities(false);
+                }
+
+            } else {
+                this.hasActivities(false);
+                this.activitiesTitle('No Activities');
+                this.activityText('Node has no activity');
+            }
+        }
+    }
+
+    dispose() {
+        action$.onNext(dropHostsView(this.viewName));
+    }
+}
+
+export default {
+    viewModel: HostSummaryViewModel,
+    template: template
+};

@@ -1,31 +1,97 @@
 /* Copyright (C) 2016 NooBaa */
 
 import Rx from 'rx';
-import notifyEpic from './notify';
-import createSystemEpic from './create-system';
-import restoreSessionEpic from './restore-session';
+import notify from './notify';
+import createSystem from './create-system';
+import restoreSession from './restore-session';
 import handleLocationRequests from './handle-location-requests';
-import signInEpic from './sign-in';
-import fetchSystemInfoEpic from './fetch-system-info';
-import createAccountEpic from './create-account';
-import triggerFetchSystemInfoEpic from './trigger-fetch-system-info';
-import lockCreateAccountModalEpic from './lock-create-account-modal';
-import showAccountCreatedMessageEpic from './show-account-created-message';
-import closeCreateAccountOnFaliureEpic from './close-create-account-on-faliure';
-import updateAccountS3AccessEpic from './update-account-s3-access';
-import fetchAlertsEpic from './fetch-alerts';
-import updateAlertsEpic from './update-alerts';
-import fetchUnreadAlertsCountEpic from './fetch-unread-alerts-count';
-import updateBucketQuotaEpic from './update-bucket-quota';
-import fetchNodeInstallationCommandsEpic from './fetch-node-installation-commands';
-import uploadObjectsEpic from './upload-objects';
-import setAccountIpRestrictionsEpic from './set-account-ip-restrictions';
-import updateInstallNodesFormCommandsFieldEpic from './update-install-nodes-form-commands-field';
-import changeAccountPasswordEpic from './change-account-password';
-import addExternalConnectionEpic from './add-external-connection';
+import signIn from './sign-in';
+import fetchSystemInfo from './fetch-system-info';
+import createAccount from './create-account';
+import triggerFetchSystemInfo from './trigger-fetch-system-info';
+import lockCreateAccountModal from './lock-create-account-modal';
+import showAccountCreatedMessage from './show-account-created-message';
+import closeCreateAccountOnFaliure from './close-create-account-on-faliure';
+import updateAccountS3Access from './update-account-s3-access';
+import fetchAlerts from './fetch-alerts';
+import updateAlerts from './update-alerts';
+import fetchUnreadAlertsCount from './fetch-unread-alerts-count';
+import updateBucketQuota from './update-bucket-quota';
+import fetchNodeInstallationCommands from './fetch-node-installation-commands';
+import uploadObjects from './upload-objects';
+import setAccountIpRestrictions from './set-account-ip-restrictions';
+import updateInstallNodesFormCommandsField from './update-install-nodes-form-commands-field';
+import changeAccountPassword from './change-account-password';
+import addExternalConnection from './add-external-connection';
+import deleteResource from './delete-resource';
+import createHostsPool from './create-hosts-pool';
+import assignHostsToPool from './assign-hosts-to-pool';
+import fetchHosts from './fetch-hosts';
+import collectHostDiagnostics from './collect-host-diagnostics';
+import setHostDebugMode from './set-host-debug-mode';
+import toggleHostServices from './toggle-host-services';
+import downloadFile from './download-file';
+
+
+const generalEpics = [
+    handleLocationRequests,
+    notify,
+    downloadFile
+];
+
+const sessionRelatedEpics = [
+    restoreSession,
+    signIn
+];
+
+const systemRelatedEpics = [
+    createSystem,
+    fetchSystemInfo,
+    triggerFetchSystemInfo,
+    fetchNodeInstallationCommands,
+    updateInstallNodesFormCommandsField
+];
+
+const alertsRelatedEpics = [
+    fetchAlerts,
+    updateAlerts,
+    fetchUnreadAlertsCount
+];
+
+const accountRelatedEpics = [
+    createAccount,
+    lockCreateAccountModal,
+    showAccountCreatedMessage,
+    closeCreateAccountOnFaliure,
+    updateAccountS3Access,
+    setAccountIpRestrictions,
+    changeAccountPassword,
+    addExternalConnection
+];
+
+const bucketRelatedEpics = [
+    updateBucketQuota
+];
+
+const objectRelatedEpics = [
+    uploadObjects
+];
+
+const resourceRelatedEpics = [
+    createHostsPool,
+    deleteResource,
+    assignHostsToPool
+];
+
+const hostRelatedEpics = [
+    fetchHosts,
+    collectHostDiagnostics,
+    setHostDebugMode,
+    toggleHostServices
+];
 
 // A utility that combine multiple epics into one epic.
-function combineEpics(epics) {
+function _combineEpics(epics) {
     return (action$, injected) => {
         return Rx.Observable
             .fromArray(epics.map(epic => epic(action$, injected)))
@@ -33,27 +99,15 @@ function combineEpics(epics) {
     };
 }
 
-export default combineEpics([
-    notifyEpic,
-    createSystemEpic,
-    restoreSessionEpic,
-    handleLocationRequests,
-    signInEpic,
-    fetchSystemInfoEpic,
-    triggerFetchSystemInfoEpic,
-    createAccountEpic,
-    lockCreateAccountModalEpic,
-    showAccountCreatedMessageEpic,
-    closeCreateAccountOnFaliureEpic,
-    updateAccountS3AccessEpic,
-    fetchAlertsEpic,
-    updateAlertsEpic,
-    fetchUnreadAlertsCountEpic,
-    updateBucketQuotaEpic,
-    fetchNodeInstallationCommandsEpic,
-    uploadObjectsEpic,
-    setAccountIpRestrictionsEpic,
-    updateInstallNodesFormCommandsFieldEpic,
-    changeAccountPasswordEpic,
-    addExternalConnectionEpic
+/// Create the root epic by combining all epics into one.
+export default _combineEpics([
+    ...generalEpics,
+    ...sessionRelatedEpics,
+    ...systemRelatedEpics,
+    ...alertsRelatedEpics,
+    ...accountRelatedEpics,
+    ...bucketRelatedEpics,
+    ...objectRelatedEpics,
+    ...resourceRelatedEpics,
+    ...hostRelatedEpics
 ]);

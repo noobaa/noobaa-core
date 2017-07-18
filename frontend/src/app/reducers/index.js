@@ -9,7 +9,7 @@ import modalsReducer from './modals-reducer';
 import formsReducer from './forms-reducer';
 import bucketsReducer from './buckets-reducer';
 import nsBucketsReducer from './ns-buckets-reducer';
-import nodePoolsReducer from './node-pools-reducer';
+import hostPoolsReducer from './node-pools-reducer';
 import cloudResourcesReducer from './cloud-resources-reducer';
 import externalResourcesReducer from './external-resources-reducer';
 import accountsReducer from './accounts-reducer';
@@ -28,7 +28,7 @@ export default combineReducers({
     alerts: alertsReducer,
     buckets: bucketsReducer,
     nsBuckets: nsBucketsReducer,
-    nodePools: nodePoolsReducer,
+    hostPools: hostPoolsReducer,
     cloudResources: cloudResourcesReducer,
     externalResources: externalResourcesReducer,
     accounts: accountsReducer,

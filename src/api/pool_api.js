@@ -273,6 +273,9 @@ module.exports = {
                 nodes: {
                     $ref: 'node_api#/definitions/nodes_aggregate_info'
                 },
+                hosts: {
+                    $ref: 'node_api#/definitions/nodes_aggregate_info'
+                },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },

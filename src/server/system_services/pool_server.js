@@ -355,18 +355,19 @@ function find_pool_by_name(req) {
     return pool;
 }
 
-function get_pool_info(pool, nodes_aggregate_pool) {
-    var p = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
+function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
+    const p_nodes = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
+    const p_hosts = _.get(hosts_aggregate_pool, ['groups', String(pool._id)], {});
     var info = {
         name: pool.name,
         resource_type: pool.resource_type,
         pool_node_type: pool.pool_node_type,
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier
-        storage: _.defaults(size_utils.to_bigint_storage(p.storage), POOL_STORAGE_DEFAULTS)
+        storage: _.defaults(size_utils.to_bigint_storage(p_hosts.storage), POOL_STORAGE_DEFAULTS)
     };
-    if (p.data_activities) {
-        info.data_activities = p.data_activities;
+    if (p_nodes.data_activities) {
+        info.data_activities = p_nodes.data_activities;
     }
     if (_is_cloud_pool(pool)) {
         info.cloud_info = {
@@ -375,41 +376,16 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             target_bucket: pool.cloud_pool_info.target_bucket
         };
         info.undeletable = check_resrouce_pool_deletion(pool);
-        let nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
-        if (!p.nodes) {
-            info.mode = 'INITALIZING';
-        } else if (nodes.by_mode.OPTIMAL) {
-            info.mode = 'OPTIMAL';
-        } else if (nodes.by_mode.STORAGE_NOT_EXIST) {
-            info.mode = 'STORAGE_NOT_EXIST';
-        } else if (nodes.by_mode.AUTH_FAILED) {
-            info.mode = 'AUTH_FAILED';
-        } else if (nodes.by_mode.IO_ERRORS) {
-            info.mode = 'IO_ERRORS';
-        } else if (nodes.by_mode.INITALIZING) {
-            info.mode = 'INITALIZING';
-        } else {
-            info.mode = 'ALL_NODES_OFFLINE';
-        }
+        info.mode = calc_cloud_pool_mode(p_nodes);
     } else if (_is_mongo_pool(pool)) {
         info.mongo_info = {};
         info.undeletable = check_resrouce_pool_deletion(pool);
-        let nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
-        if (!p.nodes) {
-            info.mode = 'INITALIZING';
-        } else if (nodes.by_mode.OPTIMAL) {
-            info.mode = 'OPTIMAL';
-        } else if (nodes.by_mode.IO_ERRORS) {
-            info.mode = 'IO_ERRORS';
-        } else if (nodes.by_mode.INITALIZING) {
-            info.mode = 'INITALIZING';
-        } else {
-            info.mode = 'ALL_NODES_OFFLINE';
-        }
+        info.mode = calc_mongo_pool_mode(p_nodes);
     } else {
-        info.nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+        info.nodes = _.defaults({}, p_nodes.nodes, POOL_NODES_INFO_DEFAULTS);
+        info.hosts = _.defaults({}, p_hosts.nodes, POOL_NODES_INFO_DEFAULTS);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
-        info.mode = calc_pool_mode(info);
+        info.mode = calc_hosts_pool_mode(info);
     }
 
     //Get associated accounts
@@ -418,10 +394,30 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     return info;
 }
 
-function calc_pool_mode(pool_info) {
-    const { nodes, storage, data_activities = [] } = pool_info;
-    const { count } = nodes;
-    const offline = nodes.by_mode.OFFLINE;
+function calc_cloud_pool_mode(p) {
+    const { by_mode } = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+    return (!p.nodes && 'INITALIZING') ||
+        (by_mode.OPTIMAL && 'OPTIMAL') ||
+        (by_mode.STORAGE_NOT_EXIST && 'STORAGE_NOT_EXIST') ||
+        (by_mode.AUTH_FAILED && 'AUTH_FAILED') ||
+        (by_mode.IO_ERRORS && 'IO_ERRORS') ||
+        (by_mode.INITALIZING && 'INITALIZING') ||
+        'ALL_NODES_OFFLINE';
+}
+
+function calc_mongo_pool_mode(p) {
+    const { by_mode } = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+    return (!p.nodes && 'INITALIZING') ||
+        (by_mode.OPTIMAL && 'OPTIMAL') ||
+        (by_mode.IO_ERRORS && 'IO_ERRORS') ||
+        (by_mode.INITALIZING && 'INITALIZING') ||
+        'ALL_NODES_OFFLINE';
+}
+
+function calc_hosts_pool_mode(pool_info) {
+    const { hosts, storage, data_activities = [] } = pool_info;
+    const { count, by_mode } = hosts;
+    const { OFFLINE: offline, OPTIMAL: optimal } = by_mode;
     const offline_ratio = (offline / count) * 100;
     const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
@@ -433,7 +429,7 @@ function calc_pool_mode(pool_info) {
     return (count === 0 && 'HAS_NO_NODES') ||
         (offline === count && 'ALL_NODES_OFFLINE') ||
         (count < 3 && 'NOT_ENOUGH_NODES') ||
-        (nodes.by_mode.OPTIMAL < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
+        (optimal < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
         (offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
         (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
@@ -441,7 +437,6 @@ function calc_pool_mode(pool_info) {
         (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
         'OPTIMAL';
 }
-
 function check_pool_deletion(pool, nodes_aggregate_pool) {
     // Check if there are nodes till associated to this pool
     const nodes_count = _.get(nodes_aggregate_pool, [

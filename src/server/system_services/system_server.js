@@ -336,6 +336,7 @@ function create_system(req) {
         })
         .then(() => _create_system_internal_storage(system_changes, reply_token))
         .then(() => _init_system())
+        .then(() => system_utils.mongo_wrapper_system_created())
         .then(() => ({
             token: reply_token
         }))

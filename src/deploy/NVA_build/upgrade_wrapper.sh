@@ -369,6 +369,13 @@ function post_upgrade {
   if [ ${BG} -eq 1 ] || [ ${MONGO_DB} -eq 1 ] || [ ${LOG_LIMIT} -eq 0 ] ; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
+  #add --systemcheck and --syslog to mongo_wrapper
+  if ! grep -q "--syslog --syslogFacility local0" /etc/noobaa_supervisor.conf; then
+    local newcmd=$(grep mongo_wrapper.sh /etc/noobaa_supervisor.conf | sed 's:command=\(.*\):\1:')
+    newcmd=$newcmd" --syslog --syslogFacility local0"
+    newcmd=$(echo $newcmd | sed 's:\(.*mongo_wrapper.sh \)\(.*\):command=\1--testsystem \2:')
+    sed -i "s:.*mongo_wrapper.sh.*:$newcmd:" /etc/noobaa_supervisor.conf
+  fi
 
   #fix and upgrade security
   fix_security_issues

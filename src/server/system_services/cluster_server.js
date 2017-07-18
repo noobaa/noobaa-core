@@ -910,6 +910,7 @@ function _set_debug_level_internal(req, level) {
         }, {
             auth_token: req.auth_token
         })
+        .then(() => MongoCtrl.set_debug_level(level ? 5 : 0))
         .then(() => {
             var update_object = {};
             if (req.rpc_params.target_secret) {

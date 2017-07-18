@@ -55,12 +55,19 @@ UPGRADE_SCRIPTS=(
 upgrade_failed=0
 for script in "${UPGRADE_SCRIPTS[@]}"; do 
     deploy_log "Running Mongo Upgrade Script ${script}"
+    #set mongo audit and debug
+    ${MONGO_SHELL} --quiet --eval 'db.setLogLevel(5)'
+    
+
     ${MONGO_SHELL} --eval "var param_secret='${param_secret}', param_bcrypt_secret='${param_bcrypt_secret}', param_ip='${param_ip}', param_client_subject='${param_client_subject}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}
     rc=$?
     if [ $rc -ne 0 ]; then
         upgrade_failed=1
-        deploy_log "Failed Mongo Upgrade Script ${script}"
+        deploy_log "Failed Mongo Upgrade Script ${script}"        
     fi
 done
+
+#Set mongo audit and debug back to normal
+${MONGO_SHELL} --quiet --eval 'db.setLogLevel(0)'
 
 exit $upgrade_failed

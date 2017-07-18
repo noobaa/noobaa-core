@@ -44,6 +44,16 @@ function check_mongo_status {
         return 1
     fi
 
+    #if test system is checked, verify system exists in our db
+    local sysnumber
+    if [ $1 -eq "--testsystem" ]; then
+        sysnumber=$(${MONGO_SHELL} --quiet --eval 'db.systems.count()')
+        if [ $sysnumber -ne 1 ]
+        then
+            deploy_log "check_mongo_status: Failed verify system exists"
+            return 1
+        fi 
+    fi
     return 0
 }
 

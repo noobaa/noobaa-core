@@ -75,18 +75,20 @@ describe('Restore session', () => {
         });
 
         it('should try to retrieve the token from sessionStorage before trying localStorage', () => {
-            let visitedLocalSotrage = false;
+            const shouldBeTheToken = 'shouldBeTheToken';
+            const shouldNotBeTheToken = 'shouldNotBeTheToken';
 
             const services = mockServices(
                 () => Promise.resolve({}),
-                () => { visitedLocalSotrage = true; },
-                () => assert(
-                    visitedLocalSotrage,
-                    'localStorage.getItem was called before sessionStorage.getItem'
-                )
+                () => shouldBeTheToken,
+                () => shouldNotBeTheToken
             );
 
-            return test(services);
+            return test(services)
+                .then(({ payload }) => assert(
+                    payload.token === shouldBeTheToken,
+                    'Token was taken from localStorage instead of sessionStorage'
+                ));
         });
     });
 
@@ -215,7 +217,7 @@ describe('Restore session', () => {
             return test(services).then(
                 action => assert.deepEqual(
                     action,
-                    completeRestoreSession(token, sessionInfo),
+                    completeRestoreSession(token, sessionInfo, true),
                     'Returned action does not match expected action'
                 )
             );
@@ -255,7 +257,7 @@ describe('Restore session', () => {
             return test(services).then(
                 action => assert.deepEqual(
                     action,
-                    completeRestoreSession(token, sessionInfo),
+                    completeRestoreSession(token, sessionInfo, true),
                     'Returned action does not match expected action'
                 )
             );

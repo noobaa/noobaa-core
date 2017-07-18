@@ -10,20 +10,19 @@ const P = require('../../util/promise');
 const _ = require('lodash');
 const net = require('net');
 const AWS = require('aws-sdk');
-const azure = require('azure-storage');
-const { StorageError } = require('azure-storage/lib/common/errors/errors');
 const bcrypt = require('bcrypt');
+const { StorageError } = require('azure-storage/lib/common/errors/errors');
 
-// const dbg = require('../../util/debug_module')(__filename);
+const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
-const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
+const http_utils = require('../../util/http_utils');
+const cloud_utils = require('../../util/cloud_utils');
+const auth_server = require('../common_services/auth_server');
 const mongo_utils = require('../../util/mongo_utils');
 const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
-const cloud_utils = require('../../util/cloud_utils');
-const http_utils = require('../../util/http_utils');
-const dbg = require('../../util/debug_module')(__filename);
+const azure_storage = require('../../util/azure_storage_wrap');
 
 
 const demo_access_keys = Object.freeze({
@@ -660,7 +659,7 @@ function check_azure_connection(params) {
 
     return P.resolve()
         .then(() => P.resolve()
-            .then(() => azure.createBlobService(conn_str))
+            .then(() => azure_storage.createBlobService(conn_str))
             .catch(err => {
                 dbg.warn(`got error on createBlobService with params`, params, ` error: ${err}`);
                 throw new Error(err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');

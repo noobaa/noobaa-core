@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const net = require('net');
-const azure = require('azure-storage');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -25,6 +24,7 @@ const system_server = require('../system_services/system_server');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
+const azure_storage = require('../../util/azure_storage_wrap');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -912,7 +912,7 @@ function get_cloud_buckets(req) {
                 req.rpc_params.connection
             );
             if (connection.endpoint_type === 'AZURE') {
-                let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
+                let blob_svc = azure_storage.createBlobService(cloud_utils.get_azure_connection_string(connection));
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE', system_store.data.buckets, system_store.data.pools);
                 return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
                     .timeout(EXTERNAL_BUCKET_LIST_TO)

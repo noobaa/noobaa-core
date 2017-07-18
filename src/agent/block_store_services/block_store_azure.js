@@ -2,11 +2,11 @@
 'use strict';
 
 // const _ = require('lodash');
-const azure = require('azure-storage');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
+const azure_storage = require('../../util/azure_storage_wrap');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const RpcError = require('../../rpc/rpc_error');
 
@@ -19,7 +19,7 @@ class BlockStoreAzure extends BlockStoreBase {
         this.blocks_path = this.base_path + '/blocks_tree';
         this.usage_path = this.base_path + '/usage';
         this.usage_md_key = 'noobaa_usage';
-        this.blob = azure.createBlobService(this.cloud_info.azure.connection_string);
+        this.blob = azure_storage.createBlobService(this.cloud_info.azure.connection_string);
         this.container_name = this.cloud_info.azure.container;
     }
 

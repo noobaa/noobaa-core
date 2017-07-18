@@ -1,7 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
-var azure = require('azure-storage');
-var AWS = require('aws-sdk');
 
 /* sample event:
 {
@@ -16,6 +14,9 @@ var AWS = require('aws-sdk');
 }
 */
 
+var AWS = require('aws-sdk');
+var azure_storage = require('azure-storage');
+
 module.exports.handler = (event, context, callback) => {
     var s3_bucket = event.s3.bucket;
     var azure_container = event.azure.container;
@@ -24,7 +25,7 @@ module.exports.handler = (event, context, callback) => {
     var max_keys = event.max_keys || 10;
 
     var s3 = new AWS.S3();
-    var blob = azure.createBlobService(
+    var blob = azure_storage.createBlobService(
         `DefaultEndpointsProtocol=https;` +
         `AccountName=${azure_account_name};` +
         `AccountKey=${azure_account_key}`);

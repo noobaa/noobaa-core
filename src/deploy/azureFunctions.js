@@ -1,14 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const util = require('util');
 const msRestAzure = require('ms-rest-azure');
 const ComputeManagementClient = require('azure-arm-compute');
 const NetworkManagementClient = require('azure-arm-network');
-const azureStorage = require('azure-storage');
-const util = require('util');
+
 const P = require('../util/promise');
-const promise_utils = require('../util/promise_utils');
 const api = require('../api');
+const promise_utils = require('../util/promise_utils');
+const azure_storage = require('../util/azure_storage_wrap');
+
 require('../util/dotenv').load();
 
 const adminUsername = 'notadmin';
@@ -29,7 +31,7 @@ const system = {
     activation_code: DEV_ACTIVATION_KEY
 };
 
-const blobSvc = azureStorage.createBlobService();
+const blobSvc = azure_storage.createBlobService();
 
 function _makeArray(size, handler) {
     return [...Array(30).keys()].map(handler);

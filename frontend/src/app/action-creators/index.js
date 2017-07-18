@@ -10,4 +10,6 @@ export * from './alerts-actions';
 export * from './system-actions';
 export * from './upload-actions';
 export * from './bucket-actions';
+export * from './resource-actions';
+export * from './host-actions';
 export * from './account-actions';

@@ -59,6 +59,7 @@ class Agent {
         this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
         dbg.log0(`this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
+        this.test_host = params.test_host;
         this.host_name = os.hostname();
 
         this.agent_conf = params.agent_conf || new json_utils.JsonObjectWrapper();
@@ -653,7 +654,7 @@ class Agent {
             name: this.node_name || '',
             ip: ip,
             host_id: this.host_id,
-            host_name: this.host_name,
+            host_name: this.test_host || this.host_name,
             rpc_address: this.rpc_address || '',
             base_address: this.base_address,
             permission_tempering: this.permission_tempering,
@@ -677,6 +678,9 @@ class Agent {
         return P.resolve()
             .then(() => extended_hb && os_utils.os_info()
                 .then(os_info => {
+                    if (this.test_host) {
+                        os_info.hostname = this.test_host;
+                    }
                     reply.os_info = os_info;
                 })
                 .then(() => os_utils.get_distro().then(res => {

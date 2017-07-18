@@ -1,13 +1,21 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<ul class="list-no-style column" ko.foreach="properties">
+<loading-indicator ko.visible="loading"></loading-indicator>
+
+<ul class="list-no-style column"
+    ko.css.visible="!ko.unwrap(loading)"
+    ko.foreach="properties"
+>
     <li class="row content-middle" ko.visible="visible">
         <div class="prop-name push-next"
             ko.text="labelText"
             ko.css.disabled="disabled"
         ></div>
 
-        <div class="prop-value no-wrap greedy" ko.html="value" ko.css="css"></div>
+        <div class="prop-value no-wrap greedy"
+            ko.template="{ html: template, data: value }"
+            ko.css="css"></div>
+
         <copy-to-clipboard-button ko.visible="allowCopy"
             params="value: value, disabled: disabled
         "></copy-to-clipboard-button>

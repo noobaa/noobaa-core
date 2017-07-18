@@ -1,116 +1,98 @@
 /* Copyright (C) 2016 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
-import ko from 'knockout';
-import { deletePool } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
-import { getPoolStateIcon, getPoolCapacityBarValues,
-    countNodesByState } from 'utils/ui-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { realizeUri } from 'utils/browser-utils';
+import { summrizeHostModeCounters } from 'utils/host-utils';
+import ko from 'knockout';
+import numeral from 'numeral';
 
 const undeletableReasons = deepFreeze({
-    DEMO_POOL: 'Demo pools cannot be deleted',
     SYSTEM_ENTITY: 'Cannot delete system defined default pool',
     NOT_EMPTY: 'Cannot delete a pool which contains nodes',
     IN_USE: 'Cannot delete a pool that is assigned to a bucket policy',
     DEFAULT_RESOURCE: 'Cannot delete a pool that is used as a default resource by an account'
 });
 
-export default class PoolRowViewModel extends BaseViewModel {
-    constructor(pool, deleteGroup, poolsToBuckets) {
-        super();
+export default class PoolRowViewModel {
+    constructor({ baseRoute, onDelete }) {
 
-        this.state = ko.pureComputed(
-            () => pool() ? getPoolStateIcon(pool()) : {}
-        );
+        this.baseRoute = baseRoute;
+        this.id = '';
+        this.state = ko.observable();
+        this.name = ko.observable();
+        this.buckets = ko.observable();
+        this.hostCount = ko.observable();
+        this.healthyCount = ko.observable();
+        this.issuesCount = ko.observable();
+        this.offlineCount = ko.observable();
+        this.totalCapacity = ko.observable();
+        this.usedByNoobaaCapacity = ko.observable();
+        this.usedByOthersCapacity = ko.observable();
+        this.reservedCapacity = ko.observable();
 
-        this.name = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return {};
+        this.capacity = {
+            total: this.totalCapacity,
+            used: [
+                {
+                    label: 'Used (Noobaa)',
+                    value: this.usedByNoobaaCapacity
+                },
+                {
+                    label: 'Used (other)',
+                    value: this.usedByOthersCapacity
+                },
+                {
+                    label: 'Reserved',
+                    value: this.reservedCapacity
                 }
-
-                return {
-                    text: pool().name,
-                    href: { route: 'pool', params: { pool: pool().name, tab: null } }
-                };
-            }
-        );
-
-        this.buckets = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return '';
-                }
-
-                const buckets = poolsToBuckets()[pool().name] || [];
-                const count = buckets.length;
-
-                return {
-                    text: `${count} bucket${count != 1 ? 's' : ''}`,
-                    tooltip: count ? buckets : null
-                };
-            }
-        );
-
-        const nodeCoutners = ko.pureComputed(
-            () => pool() ? countNodesByState(pool().nodes.by_mode) : {}
-        );
-
-
-        this.nodeCount = ko.pureComputed(
-            () => nodeCoutners().all
-        ).extend({
-            formatNumber: true
-        });
-
-        this.healthyCount = ko.pureComputed(
-            () => nodeCoutners().healthy
-        ).extend({
-            formatNumber: true
-        });
-
-        this.issuesCount = ko.pureComputed(
-            () => nodeCoutners().hasIssues
-        ).extend({
-            formatNumber: true
-        });
-
-        this.offlineCount = ko.pureComputed(
-            () => nodeCoutners().offline
-        ).extend({
-            formatNumber: true
-        });
-
-        this.capacity = ko.pureComputed(
-            () => getPoolCapacityBarValues(pool() || {})
-        );
-
-        const isDemoPool = ko.pureComputed(
-            () => Boolean(pool() && pool().demo_pool)
-        );
-
-        const isUndeletable = ko.pureComputed(
-            () => Boolean(pool() && pool().undeletable)
-        );
+            ]
+        };
 
         this.deleteButton = {
             subject: 'pool',
-            group: deleteGroup,
-            undeletable: isUndeletable,
-            tooltip: ko.pureComputed(
-                () => {
-                    if (!pool()) {
-                        return;
-                    }
-
-                    return undeletableReasons[
-                        (isDemoPool() && 'DEMO_POOL') ||
-                        pool().undeletable ||
-                        ''
-                    ];
-                }
-            ),
-            onDelete: () => deletePool(pool().name)
+            undeletable: ko.observable(),
+            tooltip: ko.observable(),
+            onDelete: () => onDelete(this.id)
         };
+    }
+
+    onPool(pool) {
+        if (!pool) return;
+        const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
+
+        // Save the name to identify the pool in delete operations.
+        this.id = name;
+
+        // TODO: calc pool icon based on mode.
+        this.state({
+            tooltip: 'Healthy',
+            css: 'success',
+            name: 'healthy'
+        });
+
+        const uri = realizeUri(this.baseRoute, { pool: name });
+        this.name({ text: name, href: uri });
+
+        const bucketCount = connectedBuckets.length;
+        this.buckets({
+            text: stringifyAmount('bucket',  bucketCount),
+            tooltip: bucketCount ? connectedBuckets : null
+        });
+
+        const { all, healthy, hasIssues, offline } = summrizeHostModeCounters(hostsByMode);
+        this.hostCount(numeral(all).format('0,0'));
+        this.healthyCount(numeral(healthy).format('0,0'));
+        this.issuesCount(numeral(hasIssues).format('0,0'));
+        this.offlineCount(numeral(offline).format('0,0'));
+
+        const { total, used, used_other, reserved } = storage;
+        this.totalCapacity(total);
+        this.usedByNoobaaCapacity(used);
+        this.usedByOthersCapacity(used_other);
+        this.reservedCapacity(reserved);
+
+        this.deleteButton.undeletable(Boolean(undeletable));
+        this.deleteButton.tooltip(undeletableReasons[undeletable]);
     }
 }

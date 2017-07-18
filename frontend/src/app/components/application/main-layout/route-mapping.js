@@ -2,6 +2,7 @@
 
 import { deepFreeze, pick } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getHostDisplayName } from 'utils/host-utils';
 import * as routes from 'routes';
 
 export default deepFreeze({
@@ -30,7 +31,7 @@ export default deepFreeze({
         panel: 'object',
         crumbsGenerator: _generateObjectCrumbs
     },
-    [routes.pools]: {
+    [routes.resources]: {
         area: 'resources',
         panel: 'resources',
         crumbsGenerator: _generateResourcesCrumb
@@ -40,10 +41,10 @@ export default deepFreeze({
         panel: 'pool',
         crumbsGenerator: _generatePoolCrumbs
     },
-    [routes.node]: {
+    [routes.host]: {
         area: 'resources',
-        panel: 'node',
-        crumbsGenerator: _generateNodeCrumbs
+        panel: 'host',
+        crumbsGenerator: _generateHostCrumbs
     },
     [routes.management]: {
         area: 'management',
@@ -131,7 +132,7 @@ function _generateResourcesCrumb(params) {
     return [
         {
             url: realizeUri(
-                routes.pools,
+                routes.resources,
                 pick(params, ['system'])
             ),
             label: 'Resources'
@@ -152,15 +153,15 @@ function _generatePoolCrumbs(params) {
     ];
 }
 
-function _generateNodeCrumbs(params) {
+function _generateHostCrumbs(params) {
     return [
         ..._generatePoolCrumbs(params),
         {
             url: realizeUri(
-                routes.node,
-                pick(params, ['system', 'pool', 'node'])
+                routes.host,
+                pick(params, ['system', 'pool', 'host'])
             ),
-            label: params.node
+            label: getHostDisplayName(params.host)
         }
     ];
 }

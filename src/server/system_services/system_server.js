@@ -18,7 +18,6 @@ const moment = require('moment');
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
-const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
@@ -365,9 +364,7 @@ function read_system(req) {
         nodes_aggregate_pool_with_cloud_no_mongo: nodes_client.instance()
             .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false, /*skip_mongo_nodes=*/ true),
 
-        // TODO: when UI is changed from nodes to hosts (multidrive) we need to pass hosts_aggregate_pool
-        // to get_pool_info instead of nodes_aggregate_pool_with_cloud
-        // hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
+        hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
 
         obj_count_per_bucket: MDStore.instance().count_objects_per_bucket(system._id),
 
@@ -397,7 +394,7 @@ function read_system(req) {
         nodes_aggregate_pool_no_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_no_mongo,
-        // hosts_aggregate_pool,
+        hosts_aggregate_pool,
         obj_count_per_bucket,
         cloud_sync_by_bucket,
         accounts,
@@ -470,7 +467,7 @@ function read_system(req) {
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.filter(system.pools_by_name,
                     pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
-                .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo)),
+                .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo, hosts_aggregate_pool)),
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier,
                     nodes_aggregate_pool_with_cloud_and_mongo,
@@ -785,31 +782,6 @@ function set_last_stats_report_time(req) {
         }
     }).return();
 }
-
-function diagnose_node(req) {
-    dbg.log0('Recieved diag with agent req', req.rpc_params);
-    var out_path = '/public/node_' + req.rpc_params.name + '_diagnostics.tgz';
-    var inner_path = process.cwd() + '/build' + out_path;
-    return P.resolve()
-        .then(() => diag.collect_server_diagnostics(req))
-        .then(() => nodes_client.instance().collect_agent_diagnostics({
-            name: req.rpc_params.name
-        }, req.system._id))
-        .then(res => diag.write_agent_diag_file(res.data))
-        .then(() => diag.pack_diagnostics(inner_path))
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'dbg.diagnose_node',
-                level: 'info',
-                system: req.system && req.system._id,
-                actor: req.account && req.account._id,
-                node: req.rpc_params && req.rpc_params.id,
-                desc: `${req.rpc_params.name} diagnostics package was exported by ${req.account && req.account.email}`,
-            });
-            return out_path;
-        });
-}
-
 
 function update_n2n_config(req) {
     var n2n_config = req.rpc_params;
@@ -1297,7 +1269,6 @@ exports.list_systems_int = list_systems_int;
 exports.add_role = add_role;
 exports.remove_role = remove_role;
 
-exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.log_client_console = log_client_console;

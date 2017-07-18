@@ -1,57 +1,67 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pools-table.html';
-import BaseViewModel from 'components/base-view-model';
-import ko from 'knockout';
+import Observer from 'observer';
 import PoolRowViewModel from './pool-row';
-import { deepFreeze, throttle, createCompareFunc, keyByProperty } from 'utils/core-utils';
-import { countNodesByState } from 'utils/ui-utils';
-import { navigateTo } from 'actions';
-import { routeContext, systemInfo } from 'model';
-import { inputThrottle } from 'config';
+import { state$, action$ } from 'state';
+import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
+import { realizeUri } from 'utils/browser-utils';
+import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
+import ko from 'knockout';
+import * as routes from 'routes';
+import { inputThrottle, paginationPageSize } from 'config';
 
 const columns = deepFreeze([
     {
         name: 'state',
         type: 'icon',
-        sortable: true
+        sortable: true,
+        compareKey: pool => pool.mode
     },
     {
         name: 'name',
         label: 'pool name',
-        type: 'link',
-        sortable: true
+        type: 'newLink',
+        sortable: true,
+        compareKey: pool => pool.name
     },
     {
         name: 'buckets',
-        label: 'buckets using pool',
-        sortable: true
+        label: 'buckets using resource',
+        sortable: true,
+        compareKey: () => 1
     },
     {
-        name: 'nodeCount',
+        name: 'hostCount',
         label: 'nodes',
-        sortable: true
+        sortable: true,
+        compareKey: () => 1
     },
     {
         name: 'healthyCount',
         label: 'healthy',
-        sortable: true
+        sortable: true,
+        compareKey: () => 1
     },
     {
         name: 'issuesCount',
         label: 'issues',
-        sortable: true
+        sortable: true,
+        compareKey: () => 1
     },
     {
         name: 'offlineCount',
         label: 'offline',
-        sortable: true
+        sortable: true,
+        compareKey: () => 1
     },
     {
         name: 'capacity',
         label: 'used capacity',
+        type: 'capacity',
         sortable: true,
-        type: 'capacity'
+        compareKey: pool => pool.storage.used
+
     },
     {
         name: 'deleteButton',
@@ -61,137 +71,116 @@ const columns = deepFreeze([
     }
 ]);
 
-const poolsToBuckets = ko.pureComputed(
-    () => {
-        if (!systemInfo()) {
-            return {};
-        }
+const notEnoughHostsTooltip = 'Not enough nodes to create a new pool, please install at least 3 nodes';
 
-        return systemInfo().buckets.reduce(
-            (mapping, bucket) => systemInfo().tiers
-                .find(
-                    tier => tier.name === bucket.tiering.tiers[0].tier
-                )
-                .attached_pools.reduce(
-                    (mapping, pool) => {
-                        mapping[pool] = mapping[pool] || [];
-                        mapping[pool].push(bucket.name);
-                        return mapping;
-                    },
-                    mapping
-                ),
-            {}
-        );
-    }
-);
-
-const poolsNodeCounters = ko.pureComputed(
-    () => {
-        const nodePools = (systemInfo() ? systemInfo().pools : [])
-            .filter(pool => pool.resource_type === 'HOSTS');
-
-        return keyByProperty(
-            nodePools,
-            'name',
-            pool => countNodesByState(pool.nodes.by_mode)
-        );
-    }
-);
-
-const compareAccessors = deepFreeze({
-    state: pool => pool.mode,
-    name: pool => pool.name,
-    buckets: pool => (poolsToBuckets()[pool.name] || []).length,
-    nodeCount: pool => poolsNodeCounters()[pool.name].all,
-    healthyCount: pool => poolsNodeCounters()[pool.name].healthy,
-    issuesCount: pool => poolsNodeCounters()[pool.name].hasIssues,
-    offlineCount: pool => poolsNodeCounters()[pool.name].offline,
-    capacity: pool => pool.storage.used
-});
-
-class PoolsTableViewModel extends BaseViewModel {
+class PoolsTableViewModel extends Observer {
     constructor() {
         super();
 
-        this.isCreatePoolDisabled = ko.pureComputed(
-            () => Boolean(systemInfo()) && systemInfo().nodes.count < 3
-        );
-
-        this.createPoolTooltip = ko.pureComputed(
-            () => this.isCreatePoolDisabled() ?
-                'Not enough nodes to create a new pool, please install at least 3 nodes' :
-                ''
-        );
-
+        this.baseRoute = '';
         this.columns = columns;
-
-        const query = ko.pureComputed(
-            () => routeContext().query || {}
-        );
-
-        this.filter = ko.pureComputed({
-            read: () => query().filter,
-            write: throttle(phrase => this.filterPools(phrase), inputThrottle)
-        });
-
-        this.sorting = ko.pureComputed({
-            read: () => {
-                const { sortBy, order } = query();
-                const canSort = Object.keys(compareAccessors).includes(sortBy);
-                return {
-                    sortBy: (canSort && sortBy) || 'name',
-                    order: (canSort && Number(order)) || 1
-                };
-            },
-            write: value => this.orderBy(value)
-        });
-
-        const allNodePools = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : [])
-                .filter(pool => pool.resource_type === 'HOSTS')
-        );
-
-        this.pools = ko.pureComputed(
-            () => {
-                const { sortBy, order } = this.sorting();
-                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
-                const filter = (this.filter() || '').toLowerCase();
-
-                return allNodePools()
-                    .filter(({ name }) => name.toLowerCase().includes(filter))
-                    .sort(compareOp);
-            }
-        );
-
+        this.poolsLoaded = ko.observable(false);
+        this.isCreatePoolDisabled = ko.observable();
+        this.createPoolTooltip = ko.observable();
+        this.filter = ko.observable();
+        this.sorting = ko.observable();
+        this.pageSize = paginationPageSize;
+        this.page = ko.observable();
+        this.poolCount = ko.observable();
+        this.rows = ko.observableArray();
         this.deleteGroup = ko.observable();
-        this.isCreatePoolWizardVisible = ko.observable(false);
+        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+
+        this.observe(
+            state$.getMany('hostPools', 'location'),
+            this.onPools
+        );
     }
 
-    newPoolRow(pool) {
-        return new PoolRowViewModel(pool, this.deleteGroup, poolsToBuckets);
+    onPools([ pools, location ]) {
+        const { system, tab } = location.params;
+        if ((tab && tab !== 'pools') || !pools.items) return;
+
+        const { filter = '', sortBy = 'name', order = 1, page = 0 } = location.query;
+        const { compareKey } = columns.find(column => column.name === sortBy);
+
+        const poolList = Object.values(pools.items);
+        const hostCount = poolList.reduce((sum, pool) => sum + pool.hostCount, 0);
+        const compareOp = createCompareFunc(compareKey, order);
+        const pageStart = Number(page) * this.pageSize;
+        const rowParams = {
+            baseRoute: realizeUri(routes.pool, { system }, {}, true),
+            onDelete: this.onDeletePool
+        };
+
+        const rows = poolList
+            .filter(pool => !filter || pool.name.includes(filter.toLowerCase()))
+            .sort(compareOp)
+            .slice(pageStart, pageStart + this.pageSize)
+            .map((pool, i) => {
+                const row = this.rows.get(i) || new PoolRowViewModel(rowParams);
+                row.onPool(pool);
+                return row;
+            });
+
+        this.baseRoute = realizeUri(location.route, { system, tab }, {}, true);
+        this.isCreatePoolDisabled(hostCount <= 3);
+        this.createPoolTooltip(hostCount > 3 ? '' : notEnoughHostsTooltip);
+        this.filter(filter);
+        this.sorting({ sortBy, order: Number(order) });
+        this.page(Number(page));
+        this.poolCount(poolList.length);
+        this.rows(rows);
+        this.poolsLoaded(true);
     }
 
-    orderBy({ sortBy, order }) {
-        this.deleteGroup(null);
+    onFilter(filter) {
+        const { sortBy, order } = this.sorting();
+        const query = {
+            filter: filter || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: 0
+        };
 
-        const filter = this.filter() || undefined;
-        navigateTo(undefined, undefined, { filter, sortBy, order });
+        action$.onNext(requestLocation(
+            realizeUri(this.baseRoute, {}, query)
+        ));
     }
 
-    filterPools(phrase) {
-        this.deleteGroup(null);
+    onSort({ sortBy, order }) {
+        const query = {
+            filter: this.filter() || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: 0
+        };
 
-        const filter = phrase || undefined;
-        const { sortBy, order } = this.sorting() || {};
-        navigateTo(undefined, undefined, { filter, sortBy, order });
+        action$.onNext(requestLocation(
+            realizeUri(this.baseRoute, {}, query)
+        ));
     }
 
-    showCreatePoolWizard() {
-        this.isCreatePoolWizardVisible(true);
+    onPage(page) {
+        const { sortBy, order } = this.sorting();
+        const query = {
+            filter: this.filter() || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: page
+        };
+
+        action$.onNext(requestLocation(
+            realizeUri(this.baseRoute, {}, query)
+        ));
     }
 
-    hideCreatePoolWizard() {
-        this.isCreatePoolWizardVisible(false);
+    onCreatePool() {
+        action$.onNext(openCreatePoolModal());
+    }
+
+    onDeletePool(poolName) {
+        action$.onNext(deleteResource(poolName));
     }
 }
 
@@ -199,3 +188,4 @@ export default {
     viewModel: PoolsTableViewModel,
     template: template
 };
+

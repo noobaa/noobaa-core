@@ -18,6 +18,7 @@ import devCLI from 'dev-cli';
 import actionsModelBridge from 'actions-model-bridge';
 import rootEpic from 'epics';
 import installStateSideEffects from 'state-side-effects';
+import { downloadFile } from 'utils/browser-utils';
 
 function configureKnockout(ko) {
     // Enable knockout 3.4 deferred updates.
@@ -49,7 +50,8 @@ function registerSideEffects(action$, state$) {
         fetch: fetch,
         S3: AWS.S3,
         api: api,
-        router: page
+        router: page,
+        downloadFile: downloadFile
     };
 
     rootEpic(action$, injectedServices)

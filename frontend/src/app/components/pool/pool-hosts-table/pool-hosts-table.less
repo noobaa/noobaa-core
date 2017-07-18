@@ -1,0 +1,65 @@
+/* Copyright (C) 2016 NooBaa */
+
+pool-hosts-table {
+    .column();
+
+    .filter-by-editor {
+        padding: 0;
+
+        .editor-label {
+            line-height: 42px;
+            width: auto;
+            min-width: unset;
+        }
+    }
+
+    > data-table {
+        .state-col {
+            min-width: 70px;
+        }
+
+        .hostname-col {
+            text-align: left;
+            min-width: 7em;
+            width: 100%;
+        }
+
+        .ip-col {
+            min-width: 120px;
+        }
+
+        .services-col {
+            min-width: 80px;
+
+            > .indicator {
+                display: inline-block;;
+                border-radius: @gutter/2;
+                line-height: @gutter;
+                height: @gutter;
+                width: @gutter;
+                font-size: @font-size1;
+                text-align: center;
+                color: @color15;
+                background-color: @color4;
+                margin: 0 2px;
+
+                &.lighted {
+                    color: @color6;
+                    background-color: @color15;
+                }
+            }
+        }
+
+        .capacity-col {
+            min-width: 120px;
+        }
+
+        .data-activity-col {
+            min-width: 178px;
+        }
+    }
+
+    > .state-filter {
+        display: inline-block;
+    }
+}

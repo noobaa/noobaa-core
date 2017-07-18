@@ -46,7 +46,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
         this.observe(
             state$.getMany(
                 ['accounts', accountName],
-                'nodePools',
+                ['hostPools', 'items'],
                 'cloudResources',
                 'buckets'
             ),
@@ -54,7 +54,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
         );
     }
 
-    onState([ account, nodePools, cloudResources, buckets ]) {
+    onState([ account, hostPools, cloudResources, buckets ]) {
         if (account && !this.isAccountReady()) {
             this.form = new FormViewModel({
                 name: formName,
@@ -73,7 +73,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
         }
 
         this.resourceOptions(flatMap(
-            [ nodePools, cloudResources ],
+            [ hostPools, cloudResources ],
             resources => Object.values(resources).map(mapResourceToOption)
         ));
 

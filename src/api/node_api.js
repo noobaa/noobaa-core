@@ -490,6 +490,9 @@ module.exports = {
                 host_id: {
                     type: 'string'
                 },
+                host_seq: {
+                    type: 'string'
+                },
                 version: {
                     type: 'string'
                 },
@@ -547,11 +550,8 @@ module.exports = {
                 storage_full: {
                     type: 'boolean',
                 },
-                drives: {
-                    type: 'array',
-                    items: {
-                        $ref: 'common_api#/definitions/drive_info'
-                    }
+                drive: {
+                    $ref: 'common_api#/definitions/drive_info'
                 },
                 os_info: {
                     $ref: 'common_api#/definitions/os_info'

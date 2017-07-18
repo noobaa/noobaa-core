@@ -3,11 +3,15 @@
 <div class="column alt-bg pad">
     <div class="row content-middle push-next">
         <div class="greedy">
-            <input type="search" placeholder="Filter by pool name" ko.textInput="filter"/>
+            <input type="search"
+                placeholder="Filter by pool name"
+                ko.textInput="ko.pc(filter, onFilterThrottled)" />
         </div>
-        <div class="column align-start" ko.tooltip="createPoolTooltip">
+        <div class="column align-start"
+            ko.tooltip="createPoolTooltip"
+        >
             <button class="btn"
-                    ko.click="showCreatePoolWizard"
+                    ko.click="onCreatePool"
                     ko.disable="isCreatePoolDisabled">
                 Create Pool
             </button>
@@ -18,13 +22,15 @@
 
 <data-table class="greedy" params="
     columns: columns,
-    data: pools,
-    rowFactory: pool => newPoolRow(pool),
-    sorting: sorting,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !poolsLoaded(),
     emptyMessage: 'The current filter does not match any nodes pool'
 "></data-table>
 
-<!-- ko if: isCreatePoolWizardVisible -->
-<create-pool-wizard params="onClose: () => hideCreatePoolWizard()">
-</create-pool-wizard>
-<!-- /ko -->
+<paginator params="
+    itemCount: poolCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>
+

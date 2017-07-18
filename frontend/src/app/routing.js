@@ -78,9 +78,9 @@ export default function routing(page) {
     registerRouteHandler(page, routes.bucket);
     registerRouteHandler(page, routes.nsBucket);
     registerRouteHandler(page, routes.object, actions.showObject);
-    registerRouteHandler(page, routes.pools);
-    registerRouteHandler(page, routes.pool, actions.showPool);
-    registerRouteHandler(page, routes.node, actions.showNode);
+    registerRouteHandler(page, routes.resources);
+    registerRouteHandler(page, routes.pool);
+    registerRouteHandler(page, routes.host);
     registerRouteHandler(page, routes.account);
     registerRouteHandler(page, routes.management);
     registerRouteHandler(page, routes.cluster);

@@ -21,7 +21,7 @@ class PaginatorViewModel extends BaseViewModel {
         this.rangeText = ko.pureComputed(
             () => {
                 const count = this.count() || 0;
-                const start = (this.page() || 0) * pageSize + 1;
+                const start = count !== 0 ? (this.page() || 0) * pageSize + 1 : 0;
                 const end = Math.min(start + pageSize - 1, count);
                 return `${start} - ${end} of ${count}`;
             }
@@ -36,13 +36,13 @@ class PaginatorViewModel extends BaseViewModel {
         );
     }
 
-    pageForward() {
+    onPageForward() {
         if (!this.isLastPage()) {
             this.page(this.page() + 1);
         }
     }
 
-    pageBackward() {
+    onPageBackward() {
         if (!this.isFirstPage()) {
             this.page(this.page() - 1);
         }

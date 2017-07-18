@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { isObject, isUndefined, deepFreeze, isNumber } from 'utils/core-utils';
+import { isObject, isUndefined, deepFreeze, isNumber, throttle } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 
 // -----------------------------------------
@@ -66,6 +66,10 @@ ko.group = function(...observables) {
     );
 };
 
+ko.pc = function(read, write, owner) {
+    return ko.pureComputed({ read, write, owner });
+};
+
 
 // -----------------------------------------
 // Knockout subscribable extnesions
@@ -119,6 +123,14 @@ ko.subscribable.fn.when = function(condition = Boolean) {
             });
         });
     }
+};
+
+ko.subscribable.fn.throttle = function(duration, owner) {
+    return ko.pureComputed({
+        read: this,
+        write: throttle(val => this(val), duration),
+        owner: owner
+    });
 };
 
 ko.observable.fn.map = function(mapOp) {

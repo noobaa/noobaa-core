@@ -1,231 +1,189 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pool-summary.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
+import { state$ } from 'state';
 import ko from 'knockout';
 import numeral from 'numeral';
 import moment from 'moment';
+import { isNumber } from 'utils/core-utils';
+import { toBytes, formatSize } from 'utils/size-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { getNodeActivityName } from 'utils/host-utils';
 import style from 'style';
-import { deepFreeze, isNumber } from 'utils/core-utils';
-import { getPoolStateIcon, countNodesByState } from 'utils/ui-utils';
-import { toBytes } from 'utils/size-utils';
-import { systemInfo } from 'model';
 
-const activityNameMapping = deepFreeze({
-    RESTORING: 'Restoring',
-    MIGRATING: 'Migrating',
-    DECOMMISSIONING: 'Deactivating',
-    DELETING: 'Deleting'
-});
-
-function activityLabel(reason, count) {
-    const activityName = activityNameMapping[reason];
-    return  `${activityName} ${count} Node${count !== 1 ? 's' : ''}`;
+function _getActivityText(type, nodeCount) {
+    return `${getNodeActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
 }
 
-function activityETA(time) {
-    if (!isNumber(time && time.end)){
-        return 'calculating...';
-    }
-
-    return moment(time.end).fromNow();
+function _getActivityEta(eta) {
+    return isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
 }
 
-class PoolSummaryViewModel extends BaseViewModel {
+function _getActivityTooltipRow({ type, nodeCount, progress, eta }) {
+    return `
+        <p>${_getActivityText(type, nodeCount)} ${numeral(progress).format('%')}</p>
+        <p class="remark push-next-half">ETA: ${_getActivityEta(eta)}</p>
+    `;
+}
+
+class PoolSummaryViewModel extends Observer {
     constructor({ poolName }) {
         super();
 
-        const pool = ko.pureComputed(
-            () => systemInfo() && systemInfo().pools.find(
-                pool => pool.name === ko.unwrap(poolName)
-            )
-        );
+        this.poolLoaded = ko.observable(false);
 
-        this.dataReady = ko.pureComputed(
-            () => Boolean(pool())
-        );
-
-        const dataActivities = ko.pureComputed(
-            () => pool().data_activities || []
-        );
-
-        this.state = ko.pureComputed(
-            () => {
-                const { name, css, tooltip } = getPoolStateIcon(pool());
-                return {
-                    icon: name,
-                    css: css,
-                    text: tooltip
-                };
-            }
-        );
-
-        const nodeCoutners = ko.pureComputed(
-            () => countNodesByState(pool().nodes.by_mode)
-        );
-
-        this.nodeCount = ko.pureComputed(
-            () => nodeCoutners().all
-        ).extend({
-            formatNumber: true
-        });
-
-        const healthyCount = ko.pureComputed(
-            () => nodeCoutners().healthy
-        ).extend({
-            formatNumber: true
-        });
-
-        const offlineCount = ko.pureComputed(
-            () => nodeCoutners().offline
-        ).extend({
-            formatNumber: true
-        });
-
-        const issueCount = ko.pureComputed(
-            () => nodeCoutners().hasIssues
-        ).extend({
-            formatNumber: true
-        });
-
-        this.nodeCounters = [
+        // State observables.
+        this.state = ko.observable({});
+        this.hostCount = ko.observable();
+        this.healthyCount = ko.observable();
+        this.issuesCount= ko.observable();
+        this.offlineCount = ko.observable();
+        this.hostCounters = [
             {
-                label: 'Online',
+                label: 'Healthy',
                 color: style['color12'],
-                value: healthyCount
+                value: this.healthyCount
             },
             {
-                label: 'Has issues',
+                label: 'Issues',
                 color: style['color11'],
-                value: issueCount
+                value: this.issuesCount
             },
             {
                 label: 'Offline',
                 color: style['color10'],
-                value: offlineCount
+                value: this.offlineCount
             }
         ];
 
-        const storage = ko.pureComputed(
-            () => pool().storage
-        );
-
-        this.formattedTotal = ko.pureComputed(
-            () => storage().total
-        ).extend({
-            formatSize: true
-        });
-
+        // Capacity observables.
+        this.totalCapacity = ko.observable();
+        this.availableCapacity = ko.observable();
+        this.unavailableCapacity = ko.observable();
+        this.usedByNoobaaCapacity = ko.observable();
+        this.usedByOthersCapacity = ko.observable();
+        this.reservedCapacity = ko.observable();
+        this.inProcessHotsts = ko.observable();
         this.pieValues = [
             {
                 label: 'Currently Available',
                 color: style['color5'],
-                value: ko.pureComputed(
-                    () => toBytes(storage().free)
-                )
+                value: this.availableCapacity
             },
             {
-                label: 'Unavailable',
+                label: 'Unavailable Nodes',
                 color: style['color17'],
-                value: ko.pureComputed(
-                    () => toBytes(storage().unavailable_free)
-                )
+                value: this.unavailableCapacity
             },
             {
                 label: 'Used (NooBaa)',
                 color: style['color13'],
-                value: ko.pureComputed(
-                    () => toBytes(storage().used)
-                )
+                value: this.usedByNoobaaCapacity
             },
             {
                 label: 'Used (Other)',
                 color: style['color14'],
-                value: ko.pureComputed(
-                    () => toBytes(storage().used_other)
-                )
-
+                value: this.usedByOthersCapacity
             },
             {
                 label: 'Reserved',
                 color: style['color7'],
-                value: ko.pureComputed(
-                    () => toBytes(storage().reserved)
-                )
+                value: this.reservedCapacity
             }
         ];
 
-        const firstActivity = ko.pureComputed(
-            () => dataActivities()[0]
-        );
+        // Data activity observables.
+        this.hasActivities = ko.observable();
+        this.activitiesTitle = ko.observable();
+        this.activityText = ko.observable();
+        this.activityDone = ko.observable();
+        this.activityLeft = ko.observable();
+        this.activityPrecentage = ko.observable();
+        this.activityEta = ko.observable();
+        this.hasAdditionalActivities = ko.observable();
+        this.additionalActivitiesMessage = ko.observable();
+        this.additionalActivitiesTooltip = ko.observable();
+        this.activityBar = {
+            values: [
+                {
+                    value: this.activityDone,
+                    color: style['color8']
+                },
+                {
+                    value: this.activityLeft,
+                    color: style['color15']
+                }
+            ],
+            marker: {
+                placement: this.activityDone,
+                label: this.activityPrecentage
+            }
+        };
 
-        const additionalActivities = ko.pureComputed(
-            () => dataActivities().filter(
-                (_, i) => i >= 1
-            )
-        );
+        this.observe(state$.get('hostPools', 'items', ko.unwrap(poolName)), this.onPool);
+    }
 
-        this.hasActivities = ko.pureComputed(
-            () => dataActivities().length > 0
-        );
+    onPool(pool) {
+        if (!pool) return;
+        const { hostCount, hostsByMode, storage, activities } = pool;
 
-        this.activityTitle = ko.pureComputed(
-            () => {
-                if (!this.hasActivities()) {
-                    return 'No Activities';
+        { // Update pool state and counters
+            const { OPTIMAL = 0, OFFLINE = 0 } = hostsByMode;
+            this.state({
+                name: 'healthy',
+                css: 'success',
+                tooltip: 'Healthy'
+            });
+            this.hostCount(numeral(hostCount).format('0,0'));
+            this.healthyCount(numeral(OPTIMAL).format('0,0'));
+            this.offlineCount(numeral(OFFLINE).format('0,0'));
+            this.issuesCount(numeral(hostCount - OPTIMAL - OFFLINE).format('0,0'));
+        }
+
+        { // Update pool stroage and usage
+            const { total, free, unavailable_free, used, used_other, reserved } = storage;
+            this.totalCapacity(formatSize(total));
+            this.availableCapacity(toBytes(free));
+            this.unavailableCapacity(toBytes(unavailable_free));
+            this.usedByNoobaaCapacity(toBytes(used));
+            this.usedByOthersCapacity(toBytes(used_other));
+            this.reservedCapacity(toBytes(reserved));
+        }
+
+        { // Update pool data activity summary
+            const { hostCount, list } = activities;
+            if (list.length > 0) {
+                const { type, nodeCount, progress, eta } = list[0] || {};
+                this.hasActivities(true);
+                this.activitiesTitle(`${stringifyAmount('Node', hostCount)} in Process`);
+                this.activityText(_getActivityText(type, nodeCount));
+                this.activityDone(progress);
+                this.activityLeft(1 - progress);
+                this.activityPrecentage(numeral(progress).format('%'));
+                this.activityEta(_getActivityEta(eta));
+
+                const additionalActivities = list.slice(1);
+                if (additionalActivities.length > 0) {
+                    const message = `${stringifyAmount('More activity', additionalActivities.length)} running`;
+
+                    this.hasAdditionalActivities(true);
+                    this.additionalActivitiesMessage(message);
+                    this.additionalActivitiesTooltip(additionalActivities.map(_getActivityTooltipRow));
+
+                } else {
+                    this.hasAdditionalActivities(false);
                 }
 
-                const { reason, count } = firstActivity();
-                return activityLabel(reason, count);
+            } else {
+                this.hasActivities(false);
+                this.activitiesTitle('No Activities');
+                this.activityText('Pool has no activity');
             }
-        );
+        }
 
-        this.activityProgressBarValues = [
-            {
-                value: ko.pureComputed(
-                    () => firstActivity() ? firstActivity().progress : 0
-                ),
-                color: style['color8']
-            },
-            {
-                value: ko.pureComputed(
-                    () => firstActivity() ? 1 - firstActivity().progress : 1
-                ),
-                color: style['color15']
-            }
-        ];
-
-        this.activityETA = ko.pureComputed(
-            () => activityETA(firstActivity() && firstActivity().time)
-        );
-
-        this.hasAdditionalActivities = ko.pureComputed(
-            () => additionalActivities().length > 0
-        );
-
-        this.additionalActivitiesMessage = ko.pureComputed(
-            () => {
-                const count = additionalActivities().length;
-                if (count > 0) {
-                    return `${count} more ${count === 1 ? 'activity' : 'activities'} running`;
-                }
-            }
-        );
-
-        this.additionalActivitiesTooltip = ko.pureComputed(
-            () => additionalActivities().map(
-                activity => {
-                    const { reason, count, progress, time } = activity;
-                    return `${
-                        activityLabel(reason, count)
-                    } (${
-                        numeral(progress).format('0%')
-                    })<div class="remark">ETA: ${
-                        activityETA(time)
-                    }</div>`;
-                }
-            )
-        );
+        // Mark the pool as loaded
+        this.poolLoaded(true);
     }
 }
 

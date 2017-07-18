@@ -276,13 +276,13 @@ export function openEditServerDetailsModal(serverSecret) {
     };
 }
 
-export function openAssignNodesModal(poolName) {
+export function openAssignHostsModal(targetPool) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'assign-nodes-modal',
-                params: { poolName }
+                name: 'assign-hosts-modal',
+                params: { targetPool }
             },
             options: {
                 size: 'auto-height',
@@ -386,3 +386,15 @@ export function openSetAccountIpRestrictions(accountName) {
     };
 }
 
+export function openCreatePoolModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'create-pool-modal',
+            options: {
+                size: 'auto-height',
+                title: 'Create Pool Resource'
+            }
+        }
+    };
+}

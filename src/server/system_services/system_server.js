@@ -365,9 +365,7 @@ function read_system(req) {
         nodes_aggregate_pool_with_cloud_no_mongo: nodes_client.instance()
             .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false, /*skip_mongo_nodes=*/ true),
 
-        // TODO: when UI is changed from nodes to hosts (multidrive) we need to pass hosts_aggregate_pool
-        // to get_pool_info instead of nodes_aggregate_pool_with_cloud
-        // hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
+        hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
 
         obj_count_per_bucket: MDStore.instance().count_objects_per_bucket(system._id),
 
@@ -397,7 +395,7 @@ function read_system(req) {
         nodes_aggregate_pool_no_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_no_mongo,
-        // hosts_aggregate_pool,
+        hosts_aggregate_pool,
         obj_count_per_bucket,
         cloud_sync_by_bucket,
         accounts,
@@ -470,7 +468,7 @@ function read_system(req) {
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.filter(system.pools_by_name,
                     pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
-                .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo)),
+                .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo, hosts_aggregate_pool)),
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier,
                     nodes_aggregate_pool_with_cloud_and_mongo,

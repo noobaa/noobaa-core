@@ -23,9 +23,9 @@ function onCompleteFetchSystemInfo(state, { payload }) {
             storage,
             associated_accounts: associatedAccounts,
         } = pool;
-        const associatedBuckets = bucketMapping[pool.name] || [];
+        const connectedBuckets = bucketMapping[pool.name] || [];
 
-        return { name, mode, storage, associatedAccounts, associatedBuckets };
+        return { name, mode, storage, associatedAccounts, connectedBuckets };
     });
 }
 

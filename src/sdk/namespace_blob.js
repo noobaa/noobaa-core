@@ -5,11 +5,11 @@ const _ = require('lodash');
 const util = require('util');
 const stream = require('stream');
 const crypto = require('crypto');
-const azure_storage = require('azure-storage');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const blob_utils = require('../endpoint/blob/blob_utils');
+const azure_storage = require('../util/azure_storage_wrap');
 
 class NamespaceBlob {
 

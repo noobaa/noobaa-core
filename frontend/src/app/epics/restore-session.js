@@ -10,8 +10,8 @@ const UNAUTHORIZED = 'UNAUTHORIZED';
 const RPC_CONNECT_TIMEOUT = 'RPC_CONNECT_TIMEOUT';
 
 function _loadStoredToken(key, localStorage, sessionStorage) {
-    const localToken = localStorage.getItem(key);
     const sessionToken = sessionStorage.getItem(key);
+    const localToken = localStorage.getItem(key);
 
     return {
         token: sessionToken || localToken,

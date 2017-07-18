@@ -2,12 +2,12 @@
 
 COMMON_FUNCS_PATH="/root/node_modules"
 . ${COMMON_FUNCS_PATH}/noobaa-core/src/deploy/NVA_build/common_funcs.sh
-set_deploy_log_topic "mongo_wrapper"
+set_deploy_log_topic "mongo_wrapper[]"
 MONGO_SHELL="/usr/bin/mongo nbcore"
-MONGO_EXEC="$@"
 deploy_log "MONGO_EXEC is: ${MONGO_EXEC}"
 MONGO_PORT=$(echo $@ | sed -n -e 's/^.*port //p' | awk '{print $1}')
 deploy_log "MONGO_PORT is: ${MONGO_PORT}"
+BACKOFF_FILE="/tmp/mongo_wrapper_backoff"
 #Mongo uses two ports
 #27000 is currently the port for cluster
 #27015 is the port for a single server
@@ -38,11 +38,15 @@ function kill_services_on_mongo_ports {
 #Testing mongo for sanity every 10 seconds
 #TODO: Maybe change the time?!
 function mongo_sanity_check {
-  while check_mongo_status
+  while check_mongo_status $1
   do
+    echo 1 > ${BACKOFF_FILE}
     sleep 10
   done
   deploy_log "mongo_sanity_check: Failed"
+  if [ ${backoff} -lt 512 ]; then
+    echo $((backoff*2)) > ${BACKOFF_FILE}
+  fi
   return 1
 }
 
@@ -56,12 +60,26 @@ function run_mongo {
   deploy_log "run_mongo: Mongo started"
 }
 
+case $1 in
+  --testsystem)
+    testsys="--testsystem"
+    shift
+    ;;
+  *)
+    ;;
+esac
+
+MONGO_EXEC="$@"
+deploy_log "mongo_wrapper was run with args ${MONGO_EXEC}"
+backoff=$(cat $BACKOFF_FILE)
+deploy_log "backoff is ${backoff}, sleeping"
+sleep ${backoff}
 #First of all we kill proc that hold the desired port
 kill_services_on_mongo_ports
 #Limit run time so it won't get stuck in infinite loop on waiting for mongo
 timeout --signal=SIGINT 60 cat <( run_mongo )
 #Test sanity of mongo in order to catch problems and reload
-mongo_sanity_check
+mongo_sanity_check ${testsys}
 if [ $? -eq 1 ]; then
   deploy_log "mongo_sanity_check failure: Killing services"
   kill_services_on_mongo_ports

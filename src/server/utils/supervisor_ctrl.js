@@ -207,5 +207,3 @@ SupervisorCtrl.prototype._parse_config = function(data) {
     });
 };
 
-
-//function reload_services

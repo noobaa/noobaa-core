@@ -158,6 +158,55 @@ MongoCtrl.prototype.get_hb_rs_status = function() {
         });
 };
 
+MongoCtrl.prototype.add_mongo_monitor_program = function() {
+    let program_obj = {};
+    program_obj.name = 'mongo_monitor';
+    program_obj.stopsignal = 'KILL';
+    program_obj.killasgroup = 'true';
+    program_obj.stopasgroup = 'true';
+    program_obj.autostart = 'true';
+    program_obj.directory = '/root/node_modules/noobaa-core';
+    program_obj.command = '/usr/local/bin/node src/server/mongo_services/mongo_monitor.js';
+    dbg.log0('adding mongo_monitor program:', program_obj);
+    return SupervisorCtl.add_program(program_obj)
+        .then(() => SupervisorCtl.apply_changes());
+};
+
+MongoCtrl.prototype.update_dotenv = function(name, IPs) {
+    if (!process.env.MONGO_SSL_USER) {
+        throw new Error('MONGO_SSL_USER is missing in .env');
+    }
+    let user_name = encodeURIComponent(process.env.MONGO_SSL_USER) + '@';
+    dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
+    let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
+    let url = 'mongodb://' + user_name + servers_str + '/nbcore?replicaSet=' + name +
+        '&readPreference=primaryPreferred&authMechanism=MONGODB-X509';
+    let old_url = process.env.MONGO_RS_URL || '';
+    dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);
+    dotenv.set({
+        key: 'MONGO_RS_URL',
+        value: url
+    });
+    // update all processes in the current server of the change in connection string
+    return this._publish_rs_name_current_server({
+        rs_name: name,
+        skip_load_system_store: true
+    });
+
+};
+
+MongoCtrl.prototype.update_wrapper_sys_check = function() {
+    let new_mongo_wrapper = _.clone(_.find(this._mongo_services, prog => prog.name === 'mongo_wrapper'));
+    new_mongo_wrapper.command = new_mongo_wrapper.command.replace(new RegExp('mongod'), 'mongod --testsystem ');
+    return this._remove_single_mongo_program()
+        .then(() => SupervisorCtl.add_program(new_mongo_wrapper))
+        .then(() => SupervisorCtl.apply_changes());
+};
+
+MongoCtrl.prototype.set_debug_level = function(level) {
+    return mongo_client.instance().set_debug_level(level);
+};
+
 //
 //Internals
 //
@@ -179,6 +228,7 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
     let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_server ? '' : 'rs');
     program_obj.name = 'mongo_wrapper';
     program_obj.command = '/root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_wrapper.sh' +
+        ' --testsystem ' +
         ' mongod' +
         ' --replSet ' + name +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
@@ -186,7 +236,9 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
         ' --sslMode requireSSL --clusterAuthMode x509 --sslAllowInvalidHostnames' +
         ' --sslCAFile ' + config.MONGO_DEFAULTS.ROOT_CA_PATH +
         ' --sslPEMKeyFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH +
-        ' --sslClusterFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH;
+        ' --sslClusterFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH +
+        '--syslog ' +
+        '--syslogFacility local0';
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.stopsignal = 'KILL';
@@ -207,20 +259,6 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
     }
 };
 
-MongoCtrl.prototype.add_mongo_monitor_program = function() {
-    let program_obj = {};
-    program_obj.name = 'mongo_monitor';
-    program_obj.stopsignal = 'KILL';
-    program_obj.killasgroup = 'true';
-    program_obj.stopasgroup = 'true';
-    program_obj.autostart = 'true';
-    program_obj.directory = '/root/node_modules/noobaa-core';
-    program_obj.command = '/usr/local/bin/node src/server/mongo_services/mongo_monitor.js';
-    dbg.log0('adding mongo_monitor program:', program_obj);
-    return SupervisorCtl.add_program(program_obj)
-        .then(() => SupervisorCtl.apply_changes());
-};
-
 MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');
@@ -232,7 +270,9 @@ MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
     program_obj.command = 'mongod  --shardsvr' +
         ' --replSet ' + name +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
-        ' --dbpath ' + dbpath;
+        ' --dbpath ' + dbpath +
+        '--syslog ' +
+        '--syslogFacility local0';
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.autostart = 'true';
@@ -291,7 +331,9 @@ MongoCtrl.prototype._add_new_config_program = function() {
     program_obj.command = 'mongod --configsvr ' +
         ' --replSet ' + config.MONGO_DEFAULTS.CFG_RSET_NAME +
         ' --port ' + config.MONGO_DEFAULTS.CFG_PORT +
-        ' --dbpath ' + dbpath;
+        ' --dbpath ' + dbpath +
+        '--syslog ' +
+        '--syslogFacility local0';
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.autostart = 'true';
@@ -311,29 +353,6 @@ MongoCtrl.prototype._refresh_services_list = function() {
         .then(mongo_services => {
             this._mongo_services = mongo_services;
         });
-};
-
-MongoCtrl.prototype.update_dotenv = function(name, IPs) {
-    if (!process.env.MONGO_SSL_USER) {
-        throw new Error('MONGO_SSL_USER is missing in .env');
-    }
-    let user_name = encodeURIComponent(process.env.MONGO_SSL_USER) + '@';
-    dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
-    let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
-    let url = 'mongodb://' + user_name + servers_str + '/nbcore?replicaSet=' + name +
-        '&readPreference=primaryPreferred&authMechanism=MONGODB-X509';
-    let old_url = process.env.MONGO_RS_URL || '';
-    dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);
-    dotenv.set({
-        key: 'MONGO_RS_URL',
-        value: url
-    });
-    // update all processes in the current server of the change in connection string
-    return this._publish_rs_name_current_server({
-        rs_name: name,
-        skip_load_system_store: true
-    });
-
 };
 
 MongoCtrl.prototype._publish_rs_name_current_server = function(params) {

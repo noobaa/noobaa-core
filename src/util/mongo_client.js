@@ -359,6 +359,18 @@ class MongoClient extends EventEmitter {
 
     }
 
+    set_debug_level(level) {
+        var self = this;
+        var command = {
+            setLogLevel: level
+        };
+
+        return P.fcall(function() {
+            return P.resolve(self.db.command(command))
+                .then(res => dbg.log0(`Recieved ${res} from setLogLevel command (${level})`));
+        });
+    }
+
     _update_ssl_options() {
         let ca;
         let cert;

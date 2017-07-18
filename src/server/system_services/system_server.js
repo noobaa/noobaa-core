@@ -335,6 +335,7 @@ function create_system(req) {
             });
         })
         .then(() => _init_system())
+        .then(() => system_utils.mongo_wrapper_system_created())
         .then(() => ({
             token: reply_token
         }))

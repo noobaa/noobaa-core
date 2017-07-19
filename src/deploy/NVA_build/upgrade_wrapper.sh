@@ -380,6 +380,8 @@ function post_upgrade {
   sed -i 's:logfile_backups=.*:logfile_backups=5:' /etc/supervisord.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
+  chkconfig --level 2 supervisord off
+  chkconfig mongod off
   deploy_log "first install wizard"
   #First Install Wizard
   cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/

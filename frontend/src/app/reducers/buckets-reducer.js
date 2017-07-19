@@ -16,7 +16,7 @@ const initialState = {};
 function onCompleteFetchSystemInfo(state, { payload }) {
     return keyByProperty(payload.buckets, 'name', bucket => ({
         name: bucket.name,
-        mode: _clacBucketMode(bucket),
+        mode: bucket.mode,
         storage: bucket.storage,
         data: bucket.data,
         quota: bucket.quota
@@ -26,9 +26,6 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _clacBucketMode({ writable }) {
-    return writable = writable ? 'OPTIMAL' : 'NOT_WRITABLE';
-}
 
 // ------------------------------
 // Exported reducer function

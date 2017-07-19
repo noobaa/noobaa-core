@@ -2,10 +2,10 @@
 
 import template from './management-panel.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
-import { navigateTo } from 'actions';
+import { requestLocation } from 'action-creators';
 
 class ManagementPanelViewModel extends Observer {
     constructor() {
@@ -30,8 +30,7 @@ class ManagementPanelViewModel extends Observer {
         const tab = this.selectedTab();
         const uri = realizeUri(this.baseRoute, { tab, section });
 
-        // TODO: replace with an action creator and push to action$ stream.
-        navigateTo(uri);
+        action$.onNext(requestLocation(uri));
     }
 
     tabHref(tab) {

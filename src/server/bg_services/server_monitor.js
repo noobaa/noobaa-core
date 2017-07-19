@@ -280,7 +280,8 @@ function _check_network_configuration() {
                     }
                 });
         })
-        .then(() => fs_utils.replace_file('/etc/noobaa_network', data));
+        .then(() => fs_utils.replace_file('/etc/noobaa_network', data))
+        .catch(err => dbg.error(`_check_network_configuration caught ${err}`));
 }
 
 function _check_proxy_configuration() {

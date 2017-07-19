@@ -635,18 +635,21 @@ function check_external_connection(req) {
     return P.resolve()
         .then(() => {
             switch (endpoint_type) {
-                case 'AZURE': {
-                    return check_azure_connection(params);
-                }
+                case 'AZURE':
+                    {
+                        return check_azure_connection(params);
+                    }
 
                 case 'AWS':
-                case 'S3_COMPATIBLE': {
-                    return check_aws_connection(params);
-                }
+                case 'S3_COMPATIBLE':
+                    {
+                        return check_aws_connection(params);
+                    }
 
-                default: {
-                    throw new Error('Unknown endpoint type');
-                }
+                default:
+                    {
+                        throw new Error('Unknown endpoint type');
+                    }
             }
         });
 }
@@ -706,8 +709,7 @@ function check_aws_connection(params) {
     });
 
     const timeoutError = Object.assign(
-        new Error('Operation timeout'),
-        { code: 'OperationTimeout' }
+        new Error('Operation timeout'), { code: 'OperationTimeout' }
     );
 
     return P.fromCallback(callback => s3.listBuckets(callback))
@@ -782,12 +784,14 @@ function delete_external_connection(req) {
 
 function get_account_info(account, include_connection_cache) {
     var info = _.pick(account, 'name', 'email', 'access_keys');
-    if (account.is_support) {
-        info.is_support = true;
-    }
 
     info.has_login = account.has_login;
     info.allowed_ips = account.allowed_ips;
+
+    if (account.is_support) {
+        info.is_support = true;
+        info.has_login = true;
+    }
 
     if (account.next_password_change) {
         info.next_password_change = account.next_password_change.getTime();

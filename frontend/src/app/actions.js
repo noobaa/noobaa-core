@@ -19,7 +19,8 @@ import {
     fetchSystemInfo,
     signOut,
     showNotification,
-    closeModal
+    closeModal,
+    requestLocation
 } from 'action-creators';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
@@ -44,21 +45,16 @@ function logAction(action, payload) {
 export function navigateTo(route = model.routeContext().pathname, params = {},  query = {}) {
     logAction('navigateTo', { route, params, query });
 
-    page.show(
-        realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
-    );
+    const uri = realizeUri(route, Object.assign({}, model.routeContext().params, params), query);
+    action$.onNext(requestLocation(uri));
+
 }
 
 export function redirectTo(route = model.routeContext().pathname, params = {}, query = {}) {
     logAction('redirectTo', { route, params, query });
 
-    route = route || model.routeContext().pathname;
-
-    page.redirect(
-        encodeURI(
-            realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
-        )
-    );
+    const uri = realizeUri(route, Object.assign({}, model.routeContext().params, params), query);
+    action$.onNext(requestLocation(uri, true));
 }
 
 export function reload() {

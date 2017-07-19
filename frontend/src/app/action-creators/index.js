@@ -2,7 +2,7 @@
 
 export * from './env-actions';
 export * from './ui-actions';
-export * from './common-actions';
+export * from './location-actions';
 export * from './session-actions';
 export * from './modals-actions';
 export * from './forms-actions';

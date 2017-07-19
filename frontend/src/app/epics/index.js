@@ -4,6 +4,7 @@ import Rx from 'rx';
 import notifyEpic from './notify';
 import createSystemEpic from './create-system';
 import restoreSessionEpic from './restore-session';
+import handleLocationRequests from './handle-location-requests';
 import signInEpic from './sign-in';
 import fetchSystemInfoEpic from './fetch-system-info';
 import createAccountEpic from './create-account';
@@ -36,6 +37,7 @@ export default combineEpics([
     notifyEpic,
     createSystemEpic,
     restoreSessionEpic,
+    handleLocationRequests,
     signInEpic,
     fetchSystemInfoEpic,
     triggerFetchSystemInfoEpic,

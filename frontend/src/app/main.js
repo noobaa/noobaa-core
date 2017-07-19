@@ -48,7 +48,8 @@ function registerSideEffects(action$, state$) {
         sessionStorage: sessionStorage,
         fetch: fetch,
         S3: AWS.S3,
-        api: api
+        api: api,
+        router: page
     };
 
     rootEpic(action$, injectedServices)

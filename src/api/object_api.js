@@ -1181,6 +1181,9 @@ module.exports = {
                         node_name: {
                             type: 'string',
                         },
+                        host_name: {
+                            type: 'string',
+                        },
                         pool_name: {
                             type: 'string'
                         },

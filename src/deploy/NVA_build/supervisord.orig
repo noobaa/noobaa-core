@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# chkconfig: - 15 15
+# chkconfig: 345 15 15
 
 . /etc/rc.d/init.d/functions
 

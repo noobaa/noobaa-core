@@ -355,6 +355,8 @@ function setup_mongodb {
 	# setting up mongodb users for admin and nbcore databases
     /usr/bin/mongo admin ${CORE_DIR}/src/deploy/NVA_build/mongo_setup_users.js
 
+    chkconfig mongod off
+
 	deploy_log "----> setup_mongodb done"
 }
 

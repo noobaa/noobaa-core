@@ -564,6 +564,7 @@ function get_block_info(block, adminfo) {
         ret.adminfo = {
             pool_name: pool.name,
             node_name: node.name,
+            host_name: node.os_info.hostname,
             node_ip: node.ip,
             in_cloud_pool: Boolean(node.is_cloud_node),
             in_mongo_pool: Boolean(node.is_mongo_node),

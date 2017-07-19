@@ -7,19 +7,7 @@ import style from 'style';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
-
-const stateMapping = deepFreeze({
-    true: {
-        text: 'Healthy',
-        css: 'success',
-        icon: 'healthy'
-    },
-    false: {
-        text: 'Not enough healthy resources',
-        css: 'error',
-        icon: 'problem'
-    }
-});
+import { getBucketStateIcon } from 'utils/ui-utils';
 
 const cloudSyncStatusMapping = deepFreeze({
     PENDING: 'Waiting for sync',
@@ -57,9 +45,7 @@ class BucketSummrayViewModel extends BaseViewModel {
         );
 
         this.state = ko.pureComputed(
-            () => stateMapping[
-                Boolean(bucket() && bucket().writable)
-            ]
+           () => bucket() ? getBucketStateIcon(bucket().mode) : {}
         );
 
         this.dataPlacement = ko.pureComputed(

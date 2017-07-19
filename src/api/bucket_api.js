@@ -491,7 +491,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'writable'],
+            required: ['name', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'writable', 'mode'],
             properties: {
                 name: {
                     type: 'string',
@@ -645,7 +645,10 @@ module.exports = {
                             format: 'idate'
                         },
                     },
-                }
+                },
+                mode: {
+                    $ref: '#/definitions/bucket_mode'
+                },
             }
         },
 
@@ -754,5 +757,17 @@ module.exports = {
                 }
             }
         },
+        bucket_mode: {
+            type: 'string',
+            enum: [
+                'NO_RESOURCES',
+                'NOT_ENOUGH_HEALTHY_RESOURCES',
+                'NO_CAPACITY',
+                'LOW_CAPACITY',
+                'APPROUCHING_QOUTA',
+                'EXCEEDING_QOUTA',
+                'OPTIMAL'
+            ]
+        }
     },
 };

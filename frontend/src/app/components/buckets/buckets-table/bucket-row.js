@@ -6,20 +6,7 @@ import { systemInfo } from 'model';
 import { deleteBucket } from'actions';
 import { deepFreeze, keyByProperty } from 'utils/core-utils';
 import { capitalize, stringifyAmount } from 'utils/string-utils';
-
-const stateIconMapping = deepFreeze({
-    true: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    },
-
-    false: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Not enough healthy storage resources'
-    }
-});
+import { getBucketStateIcon } from 'utils/ui-utils';
 
 const cloudSyncStatusMapping = deepFreeze({
     NOTSET: {
@@ -71,9 +58,7 @@ export default class BucketRowViewModel extends BaseViewModel {
         super();
 
         this.state = ko.pureComputed(
-            () => stateIconMapping[
-                Boolean(bucket() && bucket().writable)
-            ]
+           () => bucket() ? getBucketStateIcon(bucket().mode) : ''
         );
 
         this.name = ko.pureComputed(

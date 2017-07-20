@@ -334,7 +334,6 @@ function create_system(req) {
                 auth_token: reply_token
             });
         })
-        .then(() => _create_system_internal_storage(system_changes, reply_token))
         .then(() => _init_system())
         .then(() => ({
             token: reply_token
@@ -1203,52 +1202,6 @@ function _ensure_spillover_structure(system) {
                 return system_store.make_changes(changes);
             }
         });
-}
-
-function _create_system_internal_storage(system_changes, auth_token) {
-    // TODO: Disabled spillover untill the UI will support the feature
-    // const default_tiering_policy = system_changes.insert.tieringpolicies[0];
-    const default_system = system_changes.insert.systems[0];
-    return P.fcall(function() {
-            if (!pool_server.get_internal_mongo_pool(default_system._id)) {
-                return server_rpc.client.pool.create_mongo_pool({
-                    name: `${config.INTERNAL_STORAGE_POOL_NAME}-${default_system._id}`
-                }, {
-                    auth_token: auth_token
-                });
-            }
-        })
-        .then(() => {
-            const mongo_pool = pool_server.get_internal_mongo_pool(default_system._id);
-            if (!mongo_pool) throw new Error('Could not find mongo pool');
-
-            let internal_tier = tier_server.get_internal_storage_tier(default_system._id);
-            if (!internal_tier) {
-                internal_tier = create_internal_tier(default_system._id, mongo_pool._id);
-            }
-
-            return {
-                // TODO: Disabled spillover untill the UI will support the feature
-                // update: {
-                //     tieringpolicies: [{
-                //         _id: default_tiering_policy._id,
-                //         $push: {
-                //             tiers: {
-                //                 tier: internal_tier._id,
-                //                 order: 1,
-                //                 spillover: true,
-                //                 disabled: false
-                //             }
-                //         }
-                //     }]
-                // },
-                insert: {
-                    tiers: [internal_tier]
-                }
-            };
-        })
-        .then(changes => system_store.make_changes(changes))
-        .return();
 }
 
 

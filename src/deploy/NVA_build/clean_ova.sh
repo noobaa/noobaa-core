@@ -8,8 +8,12 @@ function clean_ifcfg() {
         sudo sed -i 's:.*GATEWAY=.*::' /etc/sysconfig/network-scripts/ifcfg-${eth}
         sudo sed -i 's:.*BOOTPROTO=.*::' /etc/sysconfig/network-scripts/ifcfg-${eth}
     done
+    rm -rf /etc/udev/rules.d/70-persistent-net.rules
 }
-if [ "$1" == "azure" ]; then
+
+isAzure=${1}
+
+if [ "${isAzure}" == "azure" ] ; then
     echo "make sure no swap entry in fstab!"
     cat /etc/fstab
 else
@@ -40,7 +44,11 @@ sudo sysctl kernel.hostname=noobaa
 #reduce VM size
 set +e
 /sbin/swapoff -a
-dd if=/dev/zero of=zeroFile.tmp
-rm -f zeroFile.tmp
+if [ "${isAzure}" == "azure" ] ; then
+   echo "Azure - will not try to compress HD"
+else
+    dd if=/dev/zero of=zeroFile.tmp bs=1M
+    rm -f zeroFile.tmp
+fi
 history -c
 history -w

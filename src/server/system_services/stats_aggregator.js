@@ -301,7 +301,7 @@ function get_cloud_sync_stats(req) {
 function get_object_usage_stats(req) {
     let new_req = req;
     new_req.rpc_params.from_time = req.system.last_stats_report;
-    return object_server.read_s3_usage_report(new_req)
+    return object_server.read_endpoint_usage_report(new_req)
         .then(res => _.map(res.reports, report => ({
             system: String(report.system),
             time: report.time,
@@ -494,7 +494,7 @@ function add_sample_point(opname, duration) {
 function object_usage_scrubber(req) {
     let new_req = req;
     new_req.rpc_params.till_time = req.system.last_stats_report;
-    return object_server.remove_s3_usage_reports(new_req)
+    return object_server.remove_endpoint_usage_reports(new_req)
         .then(() => {
             new_req.rpc_params.last_stats_report = Date.now();
             return system_server.set_last_stats_report_time(new_req);

@@ -41,8 +41,18 @@ function post_object_uploadId(req) {
         }));
 }
 
+function get_bucket_usage(req, res) {
+    return {
+        bucket: req.params.bucket,
+        access_key: req.object_sdk.get_auth_token().access_key,
+        write_count: 1
+    };
+}
+
+
 module.exports = {
     handler: post_object_uploadId,
+    get_bucket_usage,
     body: {
         type: 'xml',
     },

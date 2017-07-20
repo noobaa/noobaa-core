@@ -45,8 +45,21 @@ function put_object(req, res) {
         });
 }
 
+
+function get_bucket_usage(req, res) {
+    // don't count usage for copy
+    const write_bytes = req.headers['x-amz-copy-source'] ? 0 : s3_utils.parse_content_length(req);
+    return {
+        bucket: req.params.bucket,
+        access_key: req.object_sdk.get_auth_token().access_key,
+        write_bytes,
+        write_count: 1
+    };
+}
+
 module.exports = {
     handler: put_object,
+    get_bucket_usage,
     body: {
         type: 'raw',
     },

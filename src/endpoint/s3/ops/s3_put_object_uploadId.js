@@ -43,8 +43,20 @@ function put_object_uploadId(req, res) {
         });
 }
 
+function get_bucket_usage(req, res) {
+    // don't count usage for copy
+    if (req.headers['x-amz-copy-source']) return;
+    return {
+        bucket: req.params.bucket,
+        access_key: req.object_sdk.get_auth_token().access_key,
+        write_bytes: s3_utils.parse_content_length(req),
+    };
+}
+
+
 module.exports = {
     handler: put_object_uploadId,
+    get_bucket_usage,
     body: {
         type: 'raw',
     },

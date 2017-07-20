@@ -32,6 +32,8 @@ const DETECT_NEW_DRIVES_INTERVAL = 60 * 1000;
 
 const S3_AGENT_NAME_PREFIX = 's3-agent-';
 
+let first_create_flag = true;
+
 /**
  *
  * AgentCLI
@@ -311,6 +313,9 @@ AgentCLI.prototype.load = function(added_storage_paths) {
             dbg.log0('AGENTS SCALE TO', nodes_scale);
             dbg.log0('AGENTS EXISTING', existing_nodes_count);
             dbg.log0('AGENTS NEW PATHS', number_of_new_paths);
+            if (existing_nodes_count > 0) {
+                first_create_flag = false;
+            }
             if (number_of_new_paths > 0 &&
                 paths_to_work_on.length > number_of_new_paths) {
                 dbg.log0('Introducing new HD, while other exist. Adding only one node for these new drives');
@@ -397,7 +402,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, options
     return P.fcall(function() {
         dbg.log0('create_node_helper called with self.params', self.params);
         var current_node_path = current_node_path_info.mount;
-        let name_prefix = is_s3_agent ? S3_AGENT_NAME_PREFIX : '';
+        const name_prefix = is_s3_agent ? S3_AGENT_NAME_PREFIX : '';
         var node_name = internal_node_name || name_prefix + os.hostname();
         var path_modification = current_node_path.replace('/agent_storage/', '').replace(/\//g, '')
             .replace('.', '');
@@ -413,8 +418,13 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, options
 
         if (!internal_node_name) {
             if (self.params.scale || !use_host_id) {
-                // when running with scale use new uuid for each node
-                node_name = node_name + '-' + uuid().split('-')[0];
+                if (self.params.scale && first_create_flag && !is_s3_agent) {
+                    node_name += '-0';
+                    first_create_flag = false;
+                } else {
+                    // when running with scale use new uuid for each node
+                    node_name = node_name + '-' + uuid().split('-')[0];
+                }
             } else {
                 node_name += '-' + self.params.host_id.split('-')[0];
             }
@@ -589,8 +599,10 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             })
         };
 
-        // if running with --scale simulate different hosts by adding the node name as suffix to the host id
-        const host_id = self.params.scale ? self.params.host_id + node_name : self.params.host_id;
+        let host_id = self.params.host_id;
+        if (self.params.scale && !self._is_s3_agent(node_name) && !node_name.endsWith('-0')) {
+            host_id = self.params.host_id + '-' + node_name;
+        }
 
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,

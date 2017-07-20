@@ -886,7 +886,8 @@ function ensure_support_account() {
 }
 
 function bcrypt_password(password) {
-    return P.resolve(password && bcrypt.hash(password, 10));
+    return P.resolve()
+        .then(() => password && bcrypt.hash(password, 10));
 }
 
 function is_support_or_admin_or_me(system, account, target_account) {
@@ -938,7 +939,8 @@ function generate_access_keys() {
 }
 
 function verify_authorized_account(req) {
-    return bcrypt.compare(req.rpc_params.verification_password, req.account.password)
+    return P.resolve()
+        .then(() => bcrypt.compare(req.rpc_params.verification_password, req.account.password))
         .then(match => {
             if (!match) {
                 throw new RpcError('UNAUTHORIZED', 'Invalid verification password');

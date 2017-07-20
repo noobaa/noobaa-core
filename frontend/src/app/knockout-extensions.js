@@ -66,6 +66,10 @@ ko.group = function(...observables) {
     );
 };
 
+ko.pc = function(read, write, owner) {
+    return ko.pureComputed({ read, write, owner });
+};
+
 
 // -----------------------------------------
 // Knockout subscribable extnesions

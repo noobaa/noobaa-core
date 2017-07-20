@@ -16,17 +16,16 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     const { pools, buckets, tiers } = payload;
     const nodePools = pools.filter(pool => pool.resource_type === 'HOSTS');
     const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
-    return keyByProperty(nodePools, 'name', pool => {
-        const {
-            name,
-            mode,
-            storage,
-            associated_accounts: associatedAccounts,
-        } = pool;
-        const connectedBuckets = bucketMapping[pool.name] || [];
-
-        return { name, mode, storage, associatedAccounts, connectedBuckets };
-    });
+    return keyByProperty(nodePools, 'name', pool => ({
+        name: pool.name,
+        mode: pool.mode,
+        storage: pool.storage,
+        associatedAccounts: pool.associated_accounts,
+        connectedBuckets: bucketMapping[pool.name] || [],
+        hostCount: pool.hosts.count,
+        hostsByMode: pool.hosts.by_mode,
+        undeletable: pool.undeletable
+    }));
 }
 
 // ------------------------------

@@ -864,17 +864,26 @@ module.exports = {
             }
         },
 
-        add_s3_usage_report: {
+        add_endpoint_usage_report: {
             method: 'PUT',
             params: {
                 type: 'object',
                 properties: {
+                    start_time: {
+                        format: 'idate',
+                    },
+                    end_time: {
+                        format: 'idate',
+                    },
                     s3_usage_info: {
                         $ref: '#/definitions/s3_usage_info',
                     },
                     s3_errors_info: {
                         $ref: '#/definitions/s3_errors_info'
                     },
+                    bandwidth_usage_info: {
+                        $ref: '#/definitions/bandwidth_usage_info'
+                    }
                 }
             },
             auth: {
@@ -882,14 +891,14 @@ module.exports = {
             }
         },
 
-        remove_s3_usage_reports: {
+        remove_endpoint_usage_reports: {
             method: 'DELETE',
             auth: {
                 system: 'admin',
             }
         },
 
-        read_s3_usage_report: {
+        read_endpoint_usage_report: {
             method: 'GET',
             reply: {
                 type: 'object',
@@ -1218,6 +1227,32 @@ module.exports = {
             patternProperties: {
                 ".+": {
                     type: 'integer'
+                }
+            }
+        },
+        bandwidth_usage_info: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    bucket: {
+                        type: 'string'
+                    },
+                    access_key: {
+                        type: 'string'
+                    },
+                    read_bytes: {
+                        type: 'integer',
+                    },
+                    write_bytes: {
+                        type: 'integer',
+                    },
+                    read_count: {
+                        type: 'integer',
+                    },
+                    write_count: {
+                        type: 'integer',
+                    },
                 }
             }
         }

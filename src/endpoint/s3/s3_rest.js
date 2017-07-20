@@ -132,7 +132,7 @@ function handle_request(req, res) {
         .then(() => http_utils.read_and_parse_body(req, options))
         .then(() => op.handler(req, res))
         .then(reply => http_utils.send_reply(req, res, reply, options))
-        .then(() => submit_usage_report(req));
+        .then(() => submit_usage_report(op, req, res));
 }
 
 function check_headers(req, res) {
@@ -297,21 +297,51 @@ function new_usage_report() {
         s3_errors_info: {
             total_errors: 0,
         },
+        bandwidth_usage_info: new Map(),
         start_time: Date.now(),
     };
 }
 
-function submit_usage_report(req) {
+function submit_usage_report(op, req, res) {
     // We check we've passed authenticate_request and have a valid token.
     // Errors prior to authenticate_request or bad signature will not be reported and even fail on the report call itself
     // TODO use appropriate auth for usage report instead of piggybacking the s3 request
     if (!req.object_sdk.get_auth_token()) return;
+    const bucket_usage = op.get_bucket_usage && op.get_bucket_usage(req, res);
+    if (bucket_usage) {
+        const {
+            bucket,
+            access_key = '',
+            read_bytes = 0,
+            write_bytes = 0,
+            read_count = 0,
+            write_count = 0,
+        } = bucket_usage;
+        const bucket_and_access_key = bucket + '#' + access_key;
+        let bucket_usage_info = usage_report.bandwidth_usage_info.get(bucket_and_access_key);
+        if (!bucket_usage_info) {
+            bucket_usage_info = {
+                bucket,
+                access_key,
+                read_count: 0,
+                read_bytes: 0,
+                write_count: 0,
+                write_bytes: 0,
+            };
+            usage_report.bandwidth_usage_info.set(bucket_and_access_key, bucket_usage_info);
+        }
+        bucket_usage_info.read_bytes += read_bytes;
+        bucket_usage_info.read_count += read_count;
+        bucket_usage_info.write_bytes += write_bytes;
+        bucket_usage_info.write_count += write_count;
+    }
 
     // TODO: Maybe we should plus both total_calls and total_errors and check their limit?
     if (usage_report.s3_usage_info.total_calls < 10 &&
         usage_report.s3_errors_info.total_errors < 10) {
         return;
     }
+
 
     // TODO: Maybe we should change from 30 seconds to a higher number cycle? Like minutes/hours?
     const now = Date.now();
@@ -324,12 +354,16 @@ function submit_usage_report(req) {
     usage_report = new_usage_report();
 
     // submit to background
-    req.object_sdk.rpc_client.object.add_s3_usage_report({
+    dbg.log1(`sending report`, report_to_send);
+    req.object_sdk.rpc_client.object.add_endpoint_usage_report({
+            start_time: report_to_send.start_time,
+            end_time: report_to_send.end_time,
             s3_usage_info: report_to_send.s3_usage_info,
-            s3_errors_info: report_to_send.s3_errors_info
+            s3_errors_info: report_to_send.s3_errors_info,
+            bandwidth_usage_info: Array.from(report_to_send.bandwidth_usage_info.values())
         })
         .catch(err => {
-            console.log('add_s3_usage_report did not succeed:', err);
+            console.log('add_endpoint_usage_report did not succeed:', err);
         });
 }
 

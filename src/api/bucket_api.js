@@ -160,6 +160,31 @@ module.exports = {
             }
         },
 
+        export_bucket_bandwidth_usage: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name', 'since', 'till'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    since: {
+                        format: 'idate'
+                    },
+                    till: {
+                        format: 'idate'
+                    },
+                }
+            },
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_cloud_sync: {
             method: 'GET',
             params: {

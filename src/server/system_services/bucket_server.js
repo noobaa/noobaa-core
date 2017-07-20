@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const net = require('net');
+const fs = require('fs');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -25,6 +26,8 @@ const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
+const usage_aggregator = require('../bg_services/usage_aggregator');
+const fs_utils = require('../../util/fs_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -507,6 +510,49 @@ function list_buckets(req) {
         })
     };
 }
+
+
+/**
+ *
+ * EXPORT BUCKET BANDWIDTH USAGE
+ *
+ */
+function export_bucket_bandwidth_usage(req) {
+    dbg.log0(`DZDZ: export_bucket_bandwidth_usage with params`, req.rpc_params);
+    const bucket = find_bucket(req);
+    const { since, till, name } = req.rpc_params;
+
+    if (since > till) {
+        dbg.error('since is larger than till. since =', since, 'till =', till);
+        throw new RpcError('BAD_REQUEST', 'since must be less than till for export time range');
+    }
+
+    // generate csv file name:
+    const since_str = (new Date(since)).toLocaleDateString()
+        .replace(new RegExp('/', 'g'), '-');
+    const till_str = (new Date(till)).toLocaleDateString()
+        .replace(new RegExp('/', 'g'), '-');
+    const file_name = `${name}_usage_${since_str}_to_${till_str}.csv`;
+    const out_path = `/public/${file_name}`;
+    const inner_path = `${process.cwd()}/build${out_path}`;
+    return fs_utils.file_delete(inner_path)
+        .then(() => fs_utils.create_path(`${process.cwd()}/build/public`))
+        .then(() => usage_aggregator.get_daily_reports_for_bucket({ bucket: bucket._id, since, till }))
+        .then(entries => {
+            const out_lines = entries.reduce((lines, entry) => {
+                lines.push(`${entry.date}, ${entry.read_count}, ${entry.read_bytes}, ${entry.write_count}, ${entry.write_bytes}`);
+                return lines;
+            }, [`Date, Read Count, Bytes Read, Write Count, Bytes Written`]);
+            return fs.writeFileAsync(inner_path, out_lines.join('\n'));
+        })
+        .then(() => out_path)
+        .catch(err => {
+            dbg.error('received error when writing to bucket usage csv file:', inner_path, err);
+            throw err;
+        });
+
+}
+
 
 /**
  *
@@ -1271,3 +1317,4 @@ exports.update_cloud_sync = update_cloud_sync;
 exports.toggle_cloud_sync = toggle_cloud_sync;
 //Temporary - TODO: move to new server
 exports.get_cloud_buckets = get_cloud_buckets;
+exports.export_bucket_bandwidth_usage = export_bucket_bandwidth_usage;

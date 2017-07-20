@@ -84,8 +84,19 @@ function get_object(req, res) {
         });
 }
 
+
+function get_bucket_usage(req, res) {
+    return {
+        bucket: req.params.bucket,
+        access_key: req.object_sdk.get_auth_token().access_key,
+        read_bytes: res.getHeader('Content-Length'),
+        read_count: 1,
+    };
+}
+
 module.exports = {
     handler: get_object,
+    get_bucket_usage,
     body: {
         type: 'empty',
     },

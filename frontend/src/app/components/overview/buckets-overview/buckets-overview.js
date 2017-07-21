@@ -5,14 +5,12 @@ import Observer from 'observer';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
-import { routeContext } from 'model';
-import { redirectTo } from 'actions';
 import { hexToRgb } from 'utils/color-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
 import { aggregateStorage, interpolateStorage } from 'utils/storage-utils';
 import { deepFreeze, isFunction } from 'utils/core-utils';
-import { fetchResourceStorageHistory } from 'dispatchers';
+import { fetchResourceStorageHistory } from 'action-creators';
 import { state$ } from 'state';
 
 
@@ -33,7 +31,6 @@ const durationOptions = deepFreeze([
 
 const durationSettings = deepFreeze({
     day: {
-
         duration: 24,
         stepSize: 4,
         stepUnit: 'hour',
@@ -41,7 +38,6 @@ const durationSettings = deepFreeze({
         pointRadius: 1
     },
     week: {
-
         duration: 7,
         stepSize: 1,
         stepUnit: 'day',
@@ -63,21 +59,21 @@ const chartDatasets = deepFreeze([
         key: 'pools',
         label: 'Used on nodes',
         labelPadding: 10,
-        color: hexToRgb(style['color8']),
+        color: style['color8'],
         fill: hexToRgb(style['color8'], .3)
     },
     {
         key: 'cloud',
         label: 'Used on cloud',
         labelPadding: 10,
-        color: hexToRgb(style['color6']),
+        color: style['color6'],
         fill: hexToRgb(style['color6'], .3)
     },
     {
         key: 'internal',
         label: 'Used on internal',
         labelPadding: 10,
-        color: hexToRgb(style['color16']),
+        color: style['color16'],
         fill: hexToRgb(style['color16'], .3)
     }
 ]);
@@ -149,7 +145,8 @@ function filterSamples(samples, start, end) {
 function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat, timezone) {
     const gutter = parseInt(style['gutter']);
 
-    const useFixedMax = samples.pools.every(
+    const allSamples = [...samples.pools, ...samples.cloud, ...samples.internal];
+    const useFixedMax = allSamples.every(
         ({ storage }) => toBytes(toBytes(storage.used || 0) === 0)
     );
 
@@ -238,7 +235,6 @@ function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat, ti
 }
 
 function getChartData(samples, pointRadius) {
-    console.warn('samples', samples);
     const datasets = chartDatasets.map(
         ({ key, color, fill }) => ({
             lineTension: 0,
@@ -256,26 +252,18 @@ function getChartData(samples, pointRadius) {
             )
         })
     );
-    console.warn('datasets', datasets);
+
     return { datasets };
 }
 
 
 class BucketsOverviewViewModel extends Observer {
-    constructor() {
+    constructor({ selectedDuration , onDuration }) {
         super();
 
-        const query = ko.pureComputed(
-            () => routeContext().query || {}
-        );
-
-        this.selectedDuration = ko.pureComputed({
-            read: () => query().duration || durationOptions[0].value,
-            write: value => this.selectDuration(value)
-        });
-
+        this.selectedDuration = selectedDuration;
+        this.onDuration = onDuration;
         this.bucketsCount = ko.observable();
-
         this.durationOptions = durationOptions;
         this.poolsUsageHistory = ko.observable([]);
         this.cloudUsageHistory = ko.observable([]);
@@ -343,8 +331,11 @@ class BucketsOverviewViewModel extends Observer {
         this.isConnectApplicationWizardVisible(false);
     }
 
-    selectDuration(duration) {
-        redirectTo(undefined, undefined, { ...routeContext().query, duration });
+    durationSelectorToggle() {
+        return ko.pureComputed({
+            read: this.selectedDuration,
+            write: val => this.onDuration(val)
+        });
     }
 }
 

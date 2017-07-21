@@ -31,7 +31,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 
         return { name, mode, storage, associatedAccounts, associatedBuckets };
     });
-    
+
     return { ...state, pools: poolsByName, nodes: nodes.by_mode };
 }
 

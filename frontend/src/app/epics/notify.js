@@ -11,7 +11,9 @@ import {
     COMPLETE_UPDATE_BUCKET_QUOTA,
     FAIL_UPDATE_BUCKET_QUOTA,
     COMPLETE_ADD_EXTERNAL_CONNECTION,
-    FAIL_ADD_EXTERNAL_CONNECTION
+    FAIL_ADD_EXTERNAL_CONNECTION,
+    COMPLETE_UPDATE_BUCKET_SPILLOVER,
+    FAIL_UPDATE_BUCKET_SPILLOVER
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -57,6 +59,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
         message: `Updating quota for ${bucket} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_UPDATE_BUCKET_SPILLOVER]: ({ bucket }) => ({
+        message: `${bucket} spillover updated successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_UPDATE_BUCKET_SPILLOVER]: ({ bucket }) => ({
+        message: `Updating spillover for ${bucket} failed`,
         severity: 'error'
     }),
 

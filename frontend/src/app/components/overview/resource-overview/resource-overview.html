@@ -17,14 +17,14 @@
     </div>
     <section class="column greedy"
         ko.visible="selectedResourceType.eq('HOSTS')"
-        ko.template="{ html: poolsOverviewTemplate }"
+        ko.template="{ html: poolsTemplate }"
     ></section>
     <section class="column greedy"
         ko.visible="selectedResourceType.eq('CLOUD')"
-        ko.template="{ html: cloudOverviewTemplate }"
+        ko.template="{ html: cloudTemplate }"
     ></section>
     <section class="column greedy preview-only"
         ko.visible="selectedResourceType.eq('INTERNAL')"
-        ko.template="{ html: internalOverviewTemplate }">
+        ko.template="{ html: internalTemplate }">
     </section>
 </section>

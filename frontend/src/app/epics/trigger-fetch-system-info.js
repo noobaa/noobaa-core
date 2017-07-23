@@ -5,7 +5,8 @@ import {
     COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
     COMPLETE_UPDATE_BUCKET_QUOTA,
     COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
-    COMPLETE_ADD_EXTERNAL_CONNECTION
+    COMPLETE_ADD_EXTERNAL_CONNECTION,
+    COMPLETE_DELETE_RESOURCE
 } from 'action-types';
 import { fetchSystemInfo } from 'action-creators';
 
@@ -16,7 +17,8 @@ export default function(action$) {
             COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
             COMPLETE_UPDATE_BUCKET_QUOTA,
             COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
-            COMPLETE_ADD_EXTERNAL_CONNECTION
+            COMPLETE_ADD_EXTERNAL_CONNECTION,
+            COMPLETE_DELETE_RESOURCE
         )
         .map(() => fetchSystemInfo());
 }

@@ -11,7 +11,9 @@ import {
     COMPLETE_UPDATE_BUCKET_QUOTA,
     FAIL_UPDATE_BUCKET_QUOTA,
     COMPLETE_ADD_EXTERNAL_CONNECTION,
-    FAIL_ADD_EXTERNAL_CONNECTION
+    FAIL_ADD_EXTERNAL_CONNECTION,
+    COMPLETE_DELETE_RESOURCE,
+    FAIL_DELETE_RESOURCE
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -67,6 +69,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
         message: `Adding ${connection} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_DELETE_RESOURCE] : ({ resource }) => ({
+        message: `Resource ${resource} deleted successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_DELETE_RESOURCE] : ({ resource }) => ({
+        message: `Resource ${resource} deletion failed`,
         severity: 'error'
     })
 });

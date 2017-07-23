@@ -187,7 +187,7 @@ class RpcN2NAgent extends EventEmitter {
     }
 
     accept_signal(params) {
-        dbg.log0('N2N AGENT accept_signal:', params, 'my rpc_address', this.rpc_address);
+        dbg.log1('N2N AGENT accept_signal:', params, 'my rpc_address', this.rpc_address);
 
         // target address is me, source is you.
         // the special case if rpc_address='*' allows testing code to accept for any target

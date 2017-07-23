@@ -2588,6 +2588,7 @@ class NodesMonitor extends EventEmitter {
         if (!item && allow_missing !== 'allow_missing') {
             dbg.log0('Nodes ids:', Array.from(this._map_node_id.keys()));
             dbg.log0('Nodes names:', Array.from(this._map_node_name.keys()));
+            dbg.error('NO_SUCH_NODE', JSON.stringify(node_identity));
             throw new RpcError('NO_SUCH_NODE',
                 'No node ' + JSON.stringify(node_identity));
         }

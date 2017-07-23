@@ -109,7 +109,7 @@ RPC.prototype.register_service = function(api, server, options) {
 
     //Service was registered, call _init (if exists)
     if (server._init) {
-        dbg.log0('RPC register_service: calling _init() for', api.id);
+        dbg.log2('RPC register_service: calling _init() for', api.id);
         server._init();
     }
 };

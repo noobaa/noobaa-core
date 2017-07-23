@@ -40,7 +40,7 @@ class RpcN2NConnection extends RpcBaseConnection {
         this.ice.once('connect', session => {
             this.session = session;
             if (session.tcp) {
-                dbg.log0('N2N CONNECTED TO TCP',
+                dbg.log1('N2N CONNECTED TO TCP',
                     // session.tcp.localAddress + ':' + session.tcp.localPort, '=>',
                     session.tcp.remoteAddress + ':' + session.tcp.remotePort);
                 this._send = msg => session.tcp.frame_stream.send_message(msg);
@@ -50,20 +50,20 @@ class RpcN2NConnection extends RpcBaseConnection {
                 this._send = msg => P.ninvoke(this.ice.udp, 'send', msg);
                 this.ice.udp.on('message', msg => this.emit('message', msg));
                 if (this.controlling) {
-                    dbg.log0('N2N CONNECTING NUDP', session.key);
+                    dbg.log1('N2N CONNECTING NUDP', session.key);
                     P.fromCallback(callback => this.ice.udp.connect(
                             session.remote.port,
                             session.remote.address,
                             callback))
                         .then(() => {
-                            dbg.log0('N2N CONNECTED TO NUDP', session.key);
+                            dbg.log1('N2N CONNECTED TO NUDP', session.key);
                             this.emit('connect');
                         })
                         .catch(err => {
                             this.emit('error', err);
                         });
                 } else {
-                    dbg.log0('N2N ACCEPTING NUDP');
+                    dbg.log1('N2N ACCEPTING NUDP');
                     this.emit('connect');
                     // TODO need to wait for NUDP accept event...
                 }

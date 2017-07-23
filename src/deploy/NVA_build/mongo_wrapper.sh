@@ -63,7 +63,7 @@ function run_mongo {
 case $1 in
   --testsystem)
     testsys="--testsystem"
-    shift
+    shift 2
     ;;
   *)
     ;;

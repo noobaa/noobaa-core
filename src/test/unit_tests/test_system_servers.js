@@ -47,7 +47,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
             .then(() => account_server.ensure_support_account())
-            .then(() => client.system.create_system({
+            .then(() => coretest.create_system(client, {
                 activation_code: '1111',
                 name: SYS,
                 email: EMAIL,
@@ -190,7 +190,7 @@ mocha.describe('system_servers', function() {
                 // reset the token after delete system, because it is invalid
                 client.options.auth_token = '';
             })
-            .then(() => client.system.create_system({
+            .then(() => coretest.create_system(client, {
                 activation_code: '1111',
                 name: SYS,
                 email: EMAIL1,

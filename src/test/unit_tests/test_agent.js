@@ -23,7 +23,7 @@ mocha.describe('agent', function() {
         self.timeout(20000);
 
         return P.resolve()
-            .then(() => client.system.create_system({
+            .then(() => coretest.create_system(client, {
                 activation_code: '1111',
                 name: SYS,
                 email: EMAIL,

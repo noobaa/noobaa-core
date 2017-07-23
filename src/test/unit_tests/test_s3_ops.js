@@ -25,7 +25,7 @@ mocha.describe('s3_ops', function() {
         self.timeout(60000);
 
         return P.resolve()
-            .then(() => client.system.create_system({
+            .then(() => coretest.create_system(client, {
                 activation_code: '1111',
                 name: SYS,
                 email: EMAIL,

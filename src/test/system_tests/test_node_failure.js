@@ -46,7 +46,7 @@ function authenticate() {
 
 
 // function create_system() {
-//     return P.resolve(client.system.create_system({
+//     return P.resolve(coretest({
 //         activation_code: 'bla',
 //         email: 'demo@noobaa.com',
 //         password: 'DeMo1',

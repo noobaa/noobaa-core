@@ -2,6 +2,7 @@
 'use strict';
 
 const size_utils = require('../../util/size_utils');
+const os_utils = require('../../util/os_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const MongoCtrl = require('./mongo_ctrl');
 
@@ -37,8 +38,10 @@ function get_bucket_quota_usage_percent(bucket, bucket_quota) {
 // Update mongo_wrapper on system created
 // This will cause more tests to be run in mongo_wrapper
 function mongo_wrapper_system_created() {
-    return MongoCtrl.init()
-        .then(() => MongoCtrl.update_wrapper_sys_check());
+    if (os_utils.is_supervised_env()) {
+        return MongoCtrl.init()
+            .then(() => MongoCtrl.update_wrapper_sys_check());
+    }
 }
 
 exports.system_in_maintenance = system_in_maintenance;

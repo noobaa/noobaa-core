@@ -649,18 +649,6 @@ export function createPool(name, nodes) {
         .done();
 }
 
-export function deletePool(name) {
-    logAction('deletePool', { name });
-
-    api.pool.delete_pool({ name })
-        .then(
-            () => notify(`Pool ${name} deleted successfully`, 'success'),
-            () => notify(`Pool ${name} deletion failed`, 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
 export function assignNodes(name, nodes) {
     logAction('assignNodes', { name, nodes });
 
@@ -697,8 +685,8 @@ export function deleteCloudResource(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Cloud resource ${name} deleted successfully`, 'success'),
-            () => notify(`Cloud resource ${name} deletion failed`, 'error')
+            () => notify(`Resource ${name} deleted successfully`, 'success'),
+            () => notify(`Resource ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

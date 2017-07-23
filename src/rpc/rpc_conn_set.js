@@ -18,10 +18,10 @@ class RpcConnSet {
             return;
         }
         if (this.set.has(conn)) {
-            dbg.log0(this.name, 'already registered', conn.connid);
+            dbg.log1(this.name, 'already registered', conn.connid);
             return;
         }
-        dbg.log0(this.name, 'adding connection', conn.connid);
+        dbg.log1(this.name, 'adding connection', conn.connid);
         this.set.add(conn);
         const close_listener = () => this.remove(conn);
         conn[CLOSE_LISTENER_SYMBOL] = close_listener;

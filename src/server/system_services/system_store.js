@@ -391,7 +391,7 @@ class SystemStore extends EventEmitter {
         // serializing load requests since we have to run a fresh load after the previous one will finish
         // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(() => {
-            dbg.log0('SystemStore: loading ...');
+            dbg.log3('SystemStore: loading ...');
             let new_data = new SystemStoreData();
             let millistamp = time_utils.millistamp();
             return P.resolve()
@@ -407,7 +407,7 @@ class SystemStore extends EventEmitter {
                     }));
                     millistamp = time_utils.millistamp();
                     new_data.rebuild();
-                    dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
+                    dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
                     this.data = new_data;
                     this.emit('load');
                     this.is_finished_initial_load = true;

@@ -42,7 +42,7 @@ class RpcBaseConnection extends EventEmitter {
         // and already considered connected.
         this.once('connect', () => {
             if (!this.transient) {
-                dbg.log0('RPC CONN CONNECTED state', this._state, this.connid);
+                dbg.log1('RPC CONN CONNECTED state', this._state, this.connid);
             }
             if (this._state === STATE_CONNECTING || this._state === STATE_INIT) {
                 this._state = STATE_CONNECTED;

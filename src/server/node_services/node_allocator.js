@@ -40,7 +40,7 @@ function refresh_pool_alloc(pool) {
             nodes: [],
         };
 
-    dbg.log1('refresh_pool_alloc: checking pool', pool._id, 'group', group);
+    dbg.log2('refresh_pool_alloc: checking pool', pool._id, 'group', group);
 
     // cache the nodes for some time before refreshing
     if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
@@ -55,7 +55,7 @@ function refresh_pool_alloc(pool) {
             group.last_refresh = Date.now();
             group.promise = null;
             group.nodes = res.nodes;
-            dbg.log0('refresh_pool_alloc: updated pool', pool._id,
+            dbg.log1('refresh_pool_alloc: updated pool', pool._id,
                 'nodes', _.map(group.nodes, 'name'));
             _.each(alloc_group_by_pool_set, (g, pool_set) => {
                 if (_.includes(pool_set, String(pool._id))) {

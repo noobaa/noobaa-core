@@ -138,9 +138,9 @@ class BarViewModel extends BaseViewModel {
         const markers = ko.unwrap(this.markers);
 
         for (const { placement, label } of markers) {
-            const offset = Math.floor(clamp(placement / total, 0, 1) * width);
+            const offset = Math.floor(clamp(ko.unwrap(placement) / total, 0, 1) * width);
 
-            const boxWidth = ctx.measureText(label).width + 8;
+            const boxWidth = ctx.measureText(ko.unwrap(label)).width + 8;
             const boxHeight = markersHeight - markersMargin;
             const x = Math.floor(clamp(offset - boxWidth / 2, 0, width - boxWidth));
 
@@ -163,7 +163,7 @@ class BarViewModel extends BaseViewModel {
             ctx.closePath();
             ctx.textAlign = 'left';
             ctx.fillStyle = markersTextColor;
-            ctx.fillText(label, x + 4, 2);
+            ctx.fillText(ko.unwrap(label), x + 4, 2);
         }
     }
 }

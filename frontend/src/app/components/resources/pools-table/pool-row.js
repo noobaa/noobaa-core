@@ -17,6 +17,7 @@ export default class PoolRowViewModel {
     constructor({ baseRoute, onDelete }) {
 
         this.baseRoute = baseRoute;
+        this.id = '';
         this.state = ko.observable();
         this.name = ko.observable();
         this.buckets = ko.observable();
@@ -24,21 +25,25 @@ export default class PoolRowViewModel {
         this.healthyCount = ko.observable();
         this.issuesCount = ko.observable();
         this.offlineCount = ko.observable();
+        this.totalCapacity = ko.observable();
+        this.usedByNoobaaCapacity = ko.observable();
+        this.usedByOthersCapacity = ko.observable();
+        this.reservedCapacity = ko.observable();
 
         this.capacity = {
-            total: ko.observable(),
+            total: this.totalCapacity,
             used: [
                 {
                     label: 'Used (Noobaa)',
-                    value: ko.observable()
+                    value: this.usedByNoobaaCapacity
                 },
                 {
                     label: 'Used (other)',
-                    value: ko.observable()
+                    value: this.usedByOthersCapacity
                 },
                 {
                     label: 'Reserved',
-                    value: ko.observable()
+                    value: this.reservedCapacity
                 }
             ]
         };
@@ -47,7 +52,7 @@ export default class PoolRowViewModel {
             subject: 'pool',
             undeletable: ko.observable(),
             tooltip: ko.observable(),
-            onDelete: () => onDelete(this.name())
+            onDelete: () => onDelete(this.id)
         };
     }
 
@@ -55,6 +60,9 @@ export default class PoolRowViewModel {
         if (!pool) return;
         const { name, connectedBuckets, hostCount, hostsByMode,
             storage, undeletable } = pool;
+
+        // Save the name to identify the pool in delete operations.
+        this.id = name;
 
         // TODO: calc pool icon based on mode.
         this.state({
@@ -79,10 +87,10 @@ export default class PoolRowViewModel {
         this.issuesCount(numeral(hostCount - OPTIMAL - OFFLINE).format('0,0'));
 
         const { total, used, used_other, reserved } = storage;
-        this.capacity.total(total);
-        this.capacity.used[0].value(used);
-        this.capacity.used[1].value(used_other);
-        this.capacity.used[2].value(reserved);
+        this.totalCapacity(total);
+        this.usedByNoobaaCapacity(used);
+        this.usedByOthersCapacity(used_other);
+        this.reservedCapacity(reserved);
 
         this.deleteButton.undeletable(Boolean(undeletable));
         this.deleteButton.tooltip(undeletableReasons[undeletable]);

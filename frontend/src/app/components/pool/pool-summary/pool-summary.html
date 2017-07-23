@@ -38,8 +38,8 @@
     <section class="column c3 borders pad">
         <h3 class="heading3">{{activitiesTitle}}</h3>
         <hr>
-        <!-- ko if: hasActivities -->
         <p class="remark push-next">{{activityText}}</p>
+        <!-- ko if: hasActivities -->
         <bar class="push-next-half" params="
             values: activityBar.values,
             markers: hasActivities() ? [activityBar.marker] : []

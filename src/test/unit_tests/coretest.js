@@ -10,6 +10,8 @@ process.env.MONGODB_URL =
     process.env.CORETEST_MONGODB_URL || 'mongodb://localhost/coretest';
 
 const config = require('../../../config.js');
+const system_store = require('../../server/system_services/system_store').get_instance();
+
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 
@@ -178,9 +180,43 @@ function get_http_address() {
     return http_address;
 }
 
+// This was coded for tests that create multiple systems (not nessesary parallel, could be creation of system after deletion of system)
+// Webserver's init happens only one time (upon init of process), it is crucial in order to ensure internal storage structures
+// When we create systems without doing the init, we encounter a problem regarding failed internal storage structures
+function create_system(client, params) {
+    return P.resolve()
+        .then(() => client.system.create_system(params))
+        .then(token => {
+            const system = _.find(system_store.data.systems, system_rec => String(system_rec.name) === String(params.name));
+            const internal_pool = _.find(system_store.data.pools, pools_rec => pools_rec.name.indexOf(config.INTERNAL_STORAGE_POOL_NAME) > -1);
+            const internal_tier = _.find(system_store.data.tiers, tier_rec => tier_rec.name.indexOf(config.SPILLOVER_TIER_NAME) > -1);
+            if (!internal_pool || !internal_tier) {
+                console.error('ASSUME THAT FIRST SYSTEM');
+                return P.resolve(token);
+            }
+            const changes = {
+                update: {
+                    pools: [{
+                        _id: internal_pool._id,
+                        name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`,
+                        system: system._id
+                    }],
+                    tiers: [{
+                        _id: internal_tier._id,
+                        name: `${config.SPILLOVER_TIER_NAME}-${system._id}`,
+                        system: system._id
+                    }]
+                }
+            };
+            return system_store.make_changes(changes)
+                .return(token);
+        });
+}
+
 exports.setup = setup;
 exports.client = new_test_client();
 exports.new_test_client = new_test_client;
 exports.init_test_nodes = init_test_nodes;
+exports.create_system = create_system;
 exports.clear_test_nodes = clear_test_nodes;
 exports.get_http_address = get_http_address;

@@ -33,7 +33,7 @@ mocha.describe('s3_list_objects', function() {
 
         return P.resolve()
             .then(() => account_server.ensure_support_account())
-            .then(() => client.system.create_system({
+            .then(() => coretest.create_system(client, {
                 activation_code: 'rainbow',
                 name: SYS,
                 email: EMAIL,

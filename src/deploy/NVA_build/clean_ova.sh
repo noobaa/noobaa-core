@@ -3,12 +3,9 @@ set -e
 function clean_ifcfg() {
     eths=$(ifconfig | grep eth | awk '{print $1}')
     for eth in ${eths}; do
-        sudo sed -i 's:.*IPADDR=.*::' /etc/sysconfig/network-scripts/ifcfg-${eth}
-        sudo sed -i 's:.*NETMASK=.*::' /etc/sysconfig/network-scripts/ifcfg-${eth}
-        sudo sed -i 's:.*GATEWAY=.*::' /etc/sysconfig/network-scripts/ifcfg-${eth}
-        sudo sed -i 's:.*BOOTPROTO=.*::' /etc/sysconfig/network-scripts/ifcfg-${eth}
+        sudo rm /etc/sysconfig/network-scripts/ifcfg-${eth}
+        sudo sed -i "s:.*${eth}.*::" /etc/udev/rules.d/70-persistent-net.rules
     done
-    rm -rf /etc/udev/rules.d/70-persistent-net.rules
 }
 
 isAzure=${1}

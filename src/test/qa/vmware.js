@@ -11,14 +11,14 @@ var ssh2 = require('ssh2');
 var argv = require('minimist')(process.argv);
 
 var ssh_client = new ssh2.Client();
-var host_ip = argv.host || '10.25.12.80';
+var host_ip = argv.host || '10.25.12.113';
 var host_user = argv.host_user || 'root';
 var host_password = argv.host_password || 'roonoobaa';
-var vm_name = argv.guest || 'NooBaa-1.2.4';
-var vm_ip = argv.guest_ip || '10.25.12.70';
+var vm_name = argv.guest || 'NooBaa-1.9.2';
+var vm_ip = argv.guest_ip || '10.25.12.56';
 var vm_user = argv.guest_user || 'noobaaroot';
-var vm_password = argv.guest_password || 'f1fc4fa2';
-var snap_name = argv.base_snapshot || 'NooBaa-Basic';
+var vm_password = argv.guest_password || '875b43f6';
+var snap_name = argv.base_snapshot || '1.9.2';
 var upgrade_file = argv.upgrade_package;
 var full_build = get_build_number(upgrade_file);
 var mainversion = full_build.split('-')[0];
@@ -133,6 +133,7 @@ vsphere.vimService(host_ip)
     .then(() => ssh_client.end())
     .then(() => console.log('cleaned the OVA'))
     .then(() => console.log('powering machine OFF'))
+    .then(() => vimPort.login(sessionManager, host_user, host_password))
     .then(() => vimPort.powerOffVMTask(vm_obj, null))
     .then(() => console.log('machine is OFF'))
     .then(() => P.delay(5000))
@@ -142,6 +143,6 @@ vsphere.vimService(host_ip)
     .then(() => console.log('All done.'))
     .then(() => process.exit(0))
     .catch(function(err) {
-        console.log('jacky !', err.stack);
+        console.log('Error in script !', err.stack);
         process.exit(1);
     });

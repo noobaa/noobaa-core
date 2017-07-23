@@ -16,16 +16,31 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     const { pools, buckets, tiers } = payload;
     const nodePools = pools.filter(pool => pool.resource_type === 'HOSTS');
     const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
-    return keyByProperty(nodePools, 'name', pool => ({
-        name: pool.name,
-        mode: pool.mode,
-        storage: pool.storage,
-        associatedAccounts: pool.associated_accounts,
-        connectedBuckets: bucketMapping[pool.name] || [],
-        hostCount: pool.hosts.count,
-        hostsByMode: pool.hosts.by_mode,
-        undeletable: pool.undeletable
-    }));
+
+    return keyByProperty(nodePools, 'name', pool => {
+        const activityList = pool.data_activities
+            .map(activity => ({
+                type: activity.reason,
+                nodeCount: activity.count,
+                progress: activity.progress,
+                eta: activity.time.end
+            }));
+
+        return {
+            name: pool.name,
+            mode: pool.mode,
+            storage: pool.storage,
+            associatedAccounts: pool.associated_accounts,
+            connectedBuckets: bucketMapping[pool.name] || [],
+            hostCount: pool.hosts.count,
+            hostsByMode: pool.hosts.by_mode,
+            undeletable: pool.undeletable,
+            activities: {
+                hostCount: 2,
+                list: activityList
+            }
+        };
+    });
 }
 
 // ------------------------------

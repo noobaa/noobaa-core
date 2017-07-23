@@ -33,7 +33,6 @@ const BlockStoreAzure = require('./block_store_services/block_store_azure').Bloc
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
 const json_utils = require('../util/json_utils');
-const fs_utils = require('../util/fs_utils');
 
 const TEST_CONNECTION_TIMEOUT_DELAY = 2 * 60 * 1000; // test connection 2 ninutes after nodes_monitor stopped communicating
 const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
@@ -388,12 +387,12 @@ class Agent {
                 if (err.rpc_code === 'NODE_NOT_FOUND') {
                     dbg.error('This agent appears to be using an old token.',
                         'cleaning this agent agent_storage directory', this.storage_path);
-                    return this._start_new_agent()
-                        .catch(new_agent_err => {
-                            // Failed cleaning and starting a new node. should we do anything here?
-                            dbg.error(`failed starting a new node after previous NODE_NOT_FOUND: ${new_agent_err}`);
-                            throw new_agent_err;
-                        });
+                    if (this.cloud_info || this.mongo_info) {
+                        dbg.error(`shouldnt be here. node not found for cloud pool or mongo pool!!`);
+                        throw new Error('node not found cloud or mongo node');
+                    } else {
+                        process.exit(69); // 69 is 'E' in ascii
+                    }
                 }
                 return P.delay(3000)
                     .then(() => {
@@ -402,19 +401,6 @@ class Agent {
                     });
 
             });
-    }
-
-    _start_new_agent() {
-        const dbg = this.dbg;
-        dbg.log0(`cleaning old node data and starting a new agent`);
-
-        // const token_path = path.join(this.storage_path, 'token');
-        this.stop();
-        return fs_utils.folder_delete(this.storage_path)
-            .then(() => fs_utils.create_path(this.storage_path))
-            .then(() => this.create_node_token_wrapper.read())
-            .then(create_node_token => this.token_wrapper.write(create_node_token))
-            .then(() => this.start());
     }
 
     _start_stop_server() {

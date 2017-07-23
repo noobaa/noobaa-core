@@ -20,6 +20,7 @@ const path = require('path');
 
 
 const DUPLICATE_RET_CODE = 68;
+const NOTFOUND_RET_CODE = 69;
 const EXECUTABLE_MOD_VAL = 511;
 
 const CONFIGURATION = {
@@ -50,6 +51,9 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
         if (err.code && err.code === DUPLICATE_RET_CODE) {
             dbg.log0('Duplicate token');
             return promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--duplicate'], { stdio: 'ignore' });
+        } else if (err.code && err.code === NOTFOUND_RET_CODE) {
+            dbg.log0('Agent not found');
+            return promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--notfound'], { stdio: 'ignore' });
         }
         throw err;
     })

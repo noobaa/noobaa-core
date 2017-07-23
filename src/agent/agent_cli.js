@@ -133,9 +133,10 @@ AgentCLI.prototype.init = function() {
                         .replace('.', '');
                     return fs_utils.folder_delete(path_modification);
                 }));
-            } else if (self.params.duplicate) {
-                let target_agent_storage = 'duplicate_agent_storage_' + Date.now();
-                dbg.log0('got duplicate flag - renaming agent_storage to', target_agent_storage);
+            } else if (self.params.duplicate || self.params.notfound) {
+                let reason = self.params.duplicate ? 'duplicate' : 'notfound';
+                let target_agent_storage = reason + '_agent_storage_' + Date.now();
+                dbg.log0(`got ${reason} flag - renaming agent_storage to ${target_agent_storage}`);
                 return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
                         // move agent_storage in all drives to an alternate location
                         let storage_path = storage_path_info.mount;

@@ -13,7 +13,7 @@ const Pipeline = require('../util/pipeline');
 const Speedometer = require('../util/speedometer');
 const RandStream = require('../util/rand_stream');
 const native_core = require('../util/native_core')();
-const dedup_options = require('../endpoint/sdk/dedup_options');
+const dedup_options = require('../sdk/dedup_options');
 
 argv.forks = argv.forks || 1;
 argv.size = argv.size || 1024;

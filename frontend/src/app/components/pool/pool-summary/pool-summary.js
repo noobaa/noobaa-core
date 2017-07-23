@@ -183,7 +183,8 @@ class PoolSummaryViewModel2 extends Observer {
 
             } else {
                 this.hasActivities(false);
-                this.activitiesTitle('No data activities');
+                this.activitiesTitle('No Activities');
+                this.activityText('Pool has no activity');
             }
         }
 

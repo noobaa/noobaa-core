@@ -36,7 +36,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
             hostsByMode: pool.hosts.by_mode,
             undeletable: pool.undeletable,
             activities: {
-                hostCount: 2,
+                hostCount: 0, // TODO: replace with read number when provided.
                 list: activityList
             }
         };

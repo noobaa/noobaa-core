@@ -4,7 +4,7 @@ import template from './pools-table.html';
 import Observer from 'observer';
 import PoolRowViewModel from './pool-row';
 import { state$, action$ } from 'state';
-import { requestLocation } from 'action-creators';
+import { requestLocation, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import ko from 'knockout';
@@ -101,7 +101,7 @@ class PoolsTableViewModel extends Observer {
 
     onPools([ pools, location ]) {
         const { system, tab } = location.params;
-        if (tab !== 'pools') return;
+        if (tab && tab !== 'pools') return;
 
         const { filter = '', sortBy = 'name', order = 1, page = 0 } = location.query;
         const { compareKey } = columns.find(column => column.name === sortBy);
@@ -177,7 +177,7 @@ class PoolsTableViewModel extends Observer {
     }
 
     onDeletePool(poolName) {
-        console.warn('DELETING POOL', poolName);
+        action$.onNext(deleteResource(poolName));
     }
 
     showCreatePoolWizard() {

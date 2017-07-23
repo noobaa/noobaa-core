@@ -276,7 +276,7 @@ class NamespaceS3 {
 }
 
 function inspect(x) {
-    return util.inspect(x, true, null, true);
+    return util.inspect(x, true, 5, true);
 }
 
 module.exports = NamespaceS3;

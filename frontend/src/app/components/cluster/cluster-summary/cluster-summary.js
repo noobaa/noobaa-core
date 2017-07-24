@@ -134,7 +134,7 @@ class ClusterSummaryViewModel extends BaseViewModel {
         );
 
         this.HAText = ko.pureComputed(
-            () => isHighlyAvailable() ? 'Yes' : 'No'
+            () => isHighlyAvailable() ? 'Highly Available' : 'Not Highly Available'
         );
 
         this.HATooltip = HATooltip;

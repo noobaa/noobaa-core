@@ -157,12 +157,16 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => this.server().hostname
         );
 
+        const serverName = ko.pureComputed(
+            () => this.server().hostname + this.server().secret
+        );
+
         const locationTag = ko.pureComputed(
             () => this.server().location || 'Not Set'
         );
 
         const isMaster = ko.pureComputed(
-            () => this.isMaster() ? 'yes' : 'no'
+            () => this.isMaster() ? 'Yes' : 'No'
         );
 
         const totalMemory = ko.pureComputed(
@@ -201,6 +205,10 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 value: address
             },
             {
+                label: 'Server Name',
+                value: serverName
+            },
+            {
                 label: 'Hostname',
                 value: hostname
             },
@@ -209,7 +217,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 value: locationTag
             },
             {
-                label: 'Is Currently Master',
+                label: 'Is Master',
                 value: isMaster
             },
             {

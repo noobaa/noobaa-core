@@ -36,25 +36,28 @@ const statusMapping = deepFreeze({
 
 const highAvailabiltyMapping = deepFreeze({
     NO_ENOUGH_SERVERS: {
-        text: 'High Availability: Not enough servers',
+        text: 'Not Highly Available',
         icon:  {
             name: 'problem',
             css: 'disabled'
-        }
+        },
+        tooltip: 'Not enough servers connected to the cluster for high availability'
     },
     ENABLED: {
-        text: 'High Availability: Yes',
+        text: 'Highly Available',
         icon: {
             name: 'healthy',
             css: 'success'
-        }
+        },
+        tooltip: ''
     },
     DISABLED: {
-        text: 'High Availability: Not enough servers',
+        text: 'Not Highly Available',
         icon:  {
             name: 'problem',
             css: 'error'
-        }
+        },
+        tooltip: 'Too many servers disconnected from the cluster'
     }
 });
 
@@ -121,6 +124,10 @@ class SystemHealthViewModel extends Observer {
 
         this.clusterHAIcon = ko.pureComputed(
             () => highAvailabiltyMapping[clusterHAMode()].icon
+        );
+
+        this.clusterHATooltip = ko.pureComputed(
+            () => highAvailabiltyMapping[clusterHAMode()].tooltip
         );
 
         this.storageStatus = ko.pureComputed(

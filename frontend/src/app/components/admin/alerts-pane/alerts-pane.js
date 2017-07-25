@@ -5,9 +5,9 @@ import Observer from 'observer';
 import AlertRowViewModel from './alert-row';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
-import { deepFreeze, last } from 'utils/core-utils';
+import { deepFreeze, last, sumBy } from 'utils/core-utils';
 import { infinitScrollPageSize } from 'config';
-import { fetchAlerts, updateAlerts, dropAlerts } from 'action-creators';
+import { fetchAlerts, updateAlerts, dropAlerts, fetchUnreadAlertsCount } from 'action-creators';
 
 const severityOptions = deepFreeze([
     {
@@ -41,21 +41,25 @@ class AlertsPaneViewModel extends Observer {
         this.severityFilter = ko.observable();
         this.unreadOnlyFilter = ko.observable();
         this.scroll = ko.observable();
-
+        this.unreadCheckboxLabel = ko.observable();
+        
         ko.group(this.severityFilter, this.unreadOnlyFilter)
             .subscribe(() => this.onFilter());
 
         this.scroll.subscribe(() => this.onScroll());
 
         this.observe(state$.get('alerts'), this.onAlerts);
+
+        action$.onNext(fetchUnreadAlertsCount());
     }
 
     onAlerts(alerts) {
-        const { filter, loading, endOfList, list, loadError } = alerts;
-        const { severity, read } = filter;
+        const { filter, loading, endOfList, list, loadError, unreadCounts } = alerts;
+        const { severity = 'ALL', read } = filter;
+        //un
 
         // Update the view model state.
-        this.severityFilter(severity || 'ALL');
+        this.severityFilter(severity);
         this.unreadOnlyFilter(read === false);
         this.loading(loading);
         this.loadFailed(Boolean(loadError));
@@ -70,6 +74,10 @@ class AlertsPaneViewModel extends Observer {
                 }
             )
         );
+
+        const totalCount = sumBy(Object.values(unreadCounts));
+        const { [severity.toLowerCase()]: count = totalCount } = unreadCounts;
+        this.unreadCheckboxLabel(`Show Unread Only (${count})`);
     }
 
     onX() {

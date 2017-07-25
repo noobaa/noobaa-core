@@ -30,7 +30,7 @@ export default deepFreeze({
         panel: 'object',
         crumbsGenerator: _generateObjectCrumbs
     },
-    [routes.pools]: {
+    [routes.resources]: {
         area: 'resources',
         panel: 'resources',
         crumbsGenerator: _generateResourcesCrumb
@@ -131,7 +131,7 @@ function _generateResourcesCrumb(params) {
     return [
         {
             url: realizeUri(
-                routes.pools,
+                routes.resources,
                 pick(params, ['system'])
             ),
             label: 'Resources'
@@ -144,7 +144,7 @@ function _generatePoolCrumbs(params) {
         ..._generateResourcesCrumb(params),
         {
             url: realizeUri(
-                routes.pool,
+                routes.resources,
                 pick(params, ['system', 'pool'])
             ),
             label: params.pool
@@ -157,7 +157,7 @@ function _generateNodeCrumbs(params) {
         ..._generatePoolCrumbs(params),
         {
             url: realizeUri(
-                routes.node,
+                routes.resources,
                 pick(params, ['system', 'pool', 'node'])
             ),
             label: params.node

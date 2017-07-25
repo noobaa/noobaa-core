@@ -11,7 +11,7 @@
     <hr>
     <div class="row push-both">
         <a class="column content-middle greedy" data-bind="
-                href: { route: 'pools', params: { tab: 'pools' } }
+                href: { route: 'resources', params: { tab: 'pools' } }
             ">
             <svg-icon class="resource-icon nodes-pool-icon"
                 params="name: 'nodes-pool'"
@@ -22,7 +22,7 @@
 
         <a class="column content-middle greedy" data-bind="
                 href: {
-                    route: 'pools',
+                    route: 'resources',
                     params: { tab: 'cloud' },
                     query: { resourceType: 'AWS' }
                 }
@@ -36,7 +36,7 @@
 
         <a class="column content-middle greedy" data-bind="
                 href: {
-                    route: 'pools',
+                    route: 'resources',
                     params: { tab: 'cloud' },
                     query: { resourceType: 'AZURE' }
                 }
@@ -50,7 +50,7 @@
 
         <a class="column content-middle greedy" data-bind="
                 href: {
-                    route: 'pools',
+                    route: 'resources',
                     params: { tab: 'cloud' },
                     query: { resourceType: 'S3_COMPATIBLE' }
                 }

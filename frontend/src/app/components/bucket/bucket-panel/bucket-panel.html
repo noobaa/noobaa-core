@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<bucket-summary class="push-next" params="bucketName: bucket"></bucket-summary>
+<bucket-summary class="push-next" params="bucketName: bucketName"></bucket-summary>
 
 <div class="tabs greedy">
     <nav>
@@ -25,27 +25,42 @@
         >
             Cloud sync
         </a>
+
+        <!-- ko if: bucket() && bucket().namespace -->
+        <a ko.css.selected="selectedTab.eq('namespace')"
+            ko.attr.href="tabHref('namespace')"
+        >
+            Namespace
+        </a>
+        <!-- /ko -->
     </nav>
 
     <div class="tabs-row">
         <bucket-data-placement-form class="tab"
             ko.css.selected="selectedTab.eq('data-placement')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-data-placement-form>
 
         <bucket-objects-table class="tab"
             ko.css.selected="selectedTab.eq('objects')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-objects-table>
 
         <bucket-s3-access-table class="tab"
             ko.css.selected="selectedTab.eq('s3-access')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-s3-access-table>
 
         <bucket-cloud-sync-form class="tab"
             ko.css.selected="selectedTab.eq('cloud-sync')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-cloud-sync-form>
+
+        <!-- ko if: bucket() && bucket().namespace -->
+        <bucket-namespace-form class="tab"
+            ko.css.selected="selectedTab.eq('namespace')"
+            params="bucketName: bucketName"
+        ></bucket-namespace-form>
+        <!-- /ko -->
     </div>
 </div>

@@ -6,6 +6,7 @@ import ko from 'knockout';
 import { state$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
 import { loadBucketObjectList } from 'actions';
+import { systemInfo } from 'model';
 
 class BucketPanelViewModel extends Observer {
     constructor() {
@@ -13,7 +14,13 @@ class BucketPanelViewModel extends Observer {
 
         this.baseRoute = '';
         this.selectedTab = ko.observable();
-        this.bucket = ko.observable();
+        this.bucketName = ko.observable();
+
+        this.bucket = ko.pureComputed(
+            () => this.bucketName() && systemInfo() && systemInfo().buckets.find(
+                bucket => bucket.name === ko.unwrap(this.bucketName())
+            )
+        );
 
         this.observe(state$.get('location'), this.onLocation);
     }
@@ -24,7 +31,7 @@ class BucketPanelViewModel extends Observer {
 
         this.baseRoute = realizeUri(route, { system, bucket }, {}, true);
         this.selectedTab(tab);
-        this.bucket(bucket);
+        this.bucketName(bucket);
 
         if (tab === 'objects') {
             const { filter, sortBy = 'key', order = 1, page = 0 } = query;

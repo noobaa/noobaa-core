@@ -233,6 +233,7 @@ function _aws_request(req, region, service) {
         headers: headers_for_sdk,
         search: () => search_string,
         pathname: () => pathname,
+        virtualHostedBucket: req.virtual_hosted_bucket,
     };
     return aws_request;
 }

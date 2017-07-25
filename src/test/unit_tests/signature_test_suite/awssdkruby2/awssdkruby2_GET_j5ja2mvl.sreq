@@ -1,0 +1,10 @@
+GET /?acl HTTP/1.1
+Content-Type: 
+Accept-Encoding: 
+User-Agent: aws-sdk-ruby2/2.10.12 ruby/2.4.1 x86_64-darwin16
+Date: Tue, 25 Jul 2017 07:46:45 GMT
+Authorization: AWS 123:oUrC/EWtrZe56xQUssMubkuKwmw=
+Content-Length: 0
+Accept: */*
+Host: movies.noobaademo.westus2.cloudapp.azure.com
+

@@ -104,10 +104,9 @@ function handle_request(req, res) {
     }
 
     check_headers(req);
+    const op_name = parse_op_name(req);
     authenticate_request(req);
 
-    // resolve the op to call
-    const op_name = parse_op_name(req);
     dbg.log0('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;
@@ -222,6 +221,7 @@ function parse_op_name(req) {
     if (host && virtual_host_suffix && host.endsWith(virtual_host_suffix)) {
         bucket = host.slice(0, -virtual_host_suffix.length);
         key = url.slice(1);
+        req.virtual_hosted_bucket = bucket;
     }
 
     if (!bucket) {

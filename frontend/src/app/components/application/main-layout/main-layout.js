@@ -24,7 +24,7 @@ const navItems = deepFreeze([
         label: 'Overview'
     },
     {
-        route: 'pools',
+        route: 'resources',
         icon: 'resources',
         label: 'Resources'
     },

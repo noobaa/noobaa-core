@@ -174,7 +174,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
             () => this.directionOption().rightSymbol
         );
 
-        this.targetBucketName = ko.pureComputed(() =>
+        this.targetBucketName = ko.pureComputed(
             () => this.targetBucket() || 'Not configured'
         );
 

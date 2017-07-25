@@ -19,46 +19,33 @@ const statusMapping = deepFreeze({
         }
     },
     WITH_ISSUES: {
-        text: 'Cluster has a high number of issues',
+        text: 'Has Issues',
         icon: {
             name: 'problem',
-            css: 'warning'
+            css: 'warning',
+            tooltip: {
+                text: 'Cluster has a high number of issues',
+                position: 'above'
+            }
         }
     },
     UNHEALTHY: {
-        text: 'Not enough connected servers',
+        text: 'HA Problems',
         icon:  {
             name: 'problem',
             css: 'error'
+        },
+        tooltip: {
+            text: 'Not enough connected servers',
+            position: 'above'
         }
     }
 });
 
 const highAvailabiltyMapping = deepFreeze({
-    NO_ENOUGH_SERVERS: {
-        text: 'Not Highly Available',
-        icon:  {
-            name: 'problem',
-            css: 'disabled'
-        },
-        tooltip: 'Not enough servers connected to the cluster for high availability'
-    },
-    ENABLED: {
-        text: 'Highly Available',
-        icon: {
-            name: 'healthy',
-            css: 'success'
-        },
-        tooltip: ''
-    },
-    DISABLED: {
-        text: 'Not Highly Available',
-        icon:  {
-            name: 'problem',
-            css: 'error'
-        },
-        tooltip: 'Too many servers disconnected from the cluster'
-    }
+    NO_ENOUGH_SERVERS: 'HA never configured',
+    ENABLED: 'HA configured',
+    DISABLED: 'Not highly available'
 });
 
 const alertStatusMapping = deepFreeze({
@@ -119,15 +106,7 @@ class SystemHealthViewModel extends Observer {
         );
 
         this.clusterHAText = ko.pureComputed(
-            () => highAvailabiltyMapping[clusterHAMode()].text
-        );
-
-        this.clusterHAIcon = ko.pureComputed(
-            () => highAvailabiltyMapping[clusterHAMode()].icon
-        );
-
-        this.clusterHATooltip = ko.pureComputed(
-            () => highAvailabiltyMapping[clusterHAMode()].tooltip
+            () => highAvailabiltyMapping[clusterHAMode()]
         );
 
         this.storageStatus = ko.pureComputed(

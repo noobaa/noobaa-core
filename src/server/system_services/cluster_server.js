@@ -1271,6 +1271,7 @@ function _upload_package(pkg_path, ip) {
 
 function read_server_config(req) {
     const { test_ph_connectivity = false, ph_proxy } = req.rpc_params;
+    const proxy = ph_proxy && `http://${ph_proxy.address}:${ph_proxy.port}`;
     let using_dhcp = false;
     let srvconf = {};
 
@@ -1297,7 +1298,6 @@ function read_server_config(req) {
                 return 'CONNECTED';
             }
 
-            const proxy = ph_proxy && `http://${ph_proxy.address}:${ph_proxy.port}`;
             return phone_home_utils.verify_connection_to_phonehome({ proxy },
                 test_ph_connectivity
             );
@@ -1307,6 +1307,13 @@ function read_server_config(req) {
                 (test_ph_connectivity && connection_reply) ||
                 (connection_reply !== 'CONNECTED' && 'WAS_NOT_TESTED') ||
                 'CONNECTED';
+
+            if (phone_home_connectivity_status === 'CONNECTED' && ph_proxy) {
+                dotenv.set({
+                    key: 'PH_PROXY',
+                    value: proxy
+                });
+            }
 
             const { dns_servers, search_domains, ntp = {} } = srvconf;
             const { timezone, ntp_server } = ntp;

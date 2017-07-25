@@ -232,7 +232,7 @@ function create_system(req) {
                 system_info: _.omit(req.rpc_params, ['access_keys', 'password']),
                 command: 'perform_activation'
             };
-            return _communicate_license_server(params, req.rpc_params.proxy_address);
+            return _communicate_license_server(params, process.env.PH_PROXY);
         })
         .then(() => {
             // Attempt to resolve DNS name, if supplied
@@ -324,12 +324,12 @@ function create_system(req) {
             });
         })
         .then(() => {
-            if (!req.rpc_params.proxy_address) {
+            if (!process.env.PH_PROXY) {
                 return;
             }
 
             return server_rpc.client.system.update_phone_home_config({
-                proxy_address: req.rpc_params.proxy_address
+                proxy_address: process.env.PH_PROXY
             }, {
                 auth_token: reply_token
             });
@@ -1140,7 +1140,7 @@ function validate_activation(req) {
                 command: 'validate_creation'
             });
             // Method is used both for license code validation with and without business email
-            return _communicate_license_server(params, req.rpc_params.proxy_address);
+            return _communicate_license_server(params, process.env.PH_PROXY);
         })
         .return({
             valid: true

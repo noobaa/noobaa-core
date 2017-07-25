@@ -6,102 +6,92 @@ const _ = require('lodash');
 
 class NamespaceNB {
 
-    constructor(rpc_client, object_io, target_bucket) {
-        this.rpc_client = rpc_client;
-        this.object_io = object_io;
+    constructor(target_bucket) {
         this.target_bucket = target_bucket;
-    }
-
-    set_auth_token(auth_token) {
-        this.rpc_client.options.auth_token = auth_token;
-    }
-
-    get_auth_token() {
-        return this.rpc_client.options.auth_token;
     }
 
     /////////////////
     // OBJECT LIST //
     /////////////////
 
-    list_objects(params) {
+    list_objects(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return this.rpc_client.object.list_objects_s3(params);
+        return object_sdk.rpc_client.object.list_objects_s3(params);
     }
 
     /////////////////
     // OBJECT READ //
     /////////////////
 
-    read_object_md(params) {
+    read_object_md(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return this.rpc_client.object.read_object_md(params);
+        return object_sdk.rpc_client.object.read_object_md(params);
     }
 
-    read_object_stream(params) {
+    read_object_stream(params, object_sdk) {
         params = _.defaults({
-            client: this.rpc_client,
+            client: object_sdk.rpc_client,
             bucket: this.target_bucket,
         }, params);
-        return this.object_io.read_object_stream(params);
+        return object_sdk.object_io.read_object_stream(params);
     }
 
     ///////////////////
     // OBJECT UPLOAD //
     ///////////////////
 
-    upload_object(params) {
+    upload_object(params, object_sdk) {
         params = _.defaults({
-            client: this.rpc_client,
+            client: object_sdk.rpc_client,
             bucket: this.target_bucket,
         }, params);
-        return this.object_io.upload_object(params);
+        return object_sdk.object_io.upload_object(params);
     }
 
     /////////////////////////////
     // OBJECT MULTIPART UPLOAD //
     /////////////////////////////
 
-    create_object_upload(params) {
+    create_object_upload(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return this.rpc_client.object.create_object_upload(params);
+        return object_sdk.rpc_client.object.create_object_upload(params);
     }
 
-    upload_multipart(params) {
+    upload_multipart(params, object_sdk) {
         params = _.defaults({
-            client: this.rpc_client,
+            client: object_sdk.rpc_client,
             bucket: this.target_bucket,
         }, params);
-        return this.object_io.upload_multipart(params);
+        return object_sdk.object_io.upload_multipart(params);
     }
 
-    list_multiparts(params) {
+    list_multiparts(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return this.rpc_client.object.list_multiparts(params);
+        return object_sdk.rpc_client.object.list_multiparts(params);
     }
 
-    complete_object_upload(params) {
+    complete_object_upload(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return this.rpc_client.object.complete_object_upload(params);
+        return object_sdk.rpc_client.object.complete_object_upload(params);
     }
 
-    abort_object_upload(params) {
+    abort_object_upload(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return this.rpc_client.object.abort_object_upload(params);
+        return object_sdk.rpc_client.object.abort_object_upload(params);
     }
 
     ///////////////////
     // OBJECT DELETE //
     ///////////////////
 
-    delete_object(params) {
+    delete_object(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return this.rpc_client.object.delete_object(params);
+        return object_sdk.rpc_client.object.delete_object(params);
     }
 
-    delete_multiple_objects(params) {
+    delete_multiple_objects(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return this.rpc_client.object.delete_multiple_objects(params);
+        return object_sdk.rpc_client.object.delete_multiple_objects(params);
     }
 
 }

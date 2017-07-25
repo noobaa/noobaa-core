@@ -29,7 +29,7 @@ class ObjectSDK {
     constructor(rpc_client, object_io) {
         this.rpc_client = rpc_client;
         this.object_io = object_io;
-        this.nb = new NamespaceNB(this.rpc_client, this.object_io);
+        this.nb = new NamespaceNB();
     }
 
     _get_bucket_namespace(name) {
@@ -41,6 +41,7 @@ class ObjectSDK {
     }
 
     _load_bucket_namespace(params) {
+        // params.bucket might be added by _validate_bucket_namespace
         return P.resolve(params.bucket || this.rpc_client.bucket.read_bucket({ name: params.name }))
             .then(bucket => this._setup_bucket_namespace(bucket));
     }
@@ -50,12 +51,15 @@ class ObjectSDK {
         if (time <= data.valid_until) return true;
         return this.rpc_client.bucket.read_bucket({ name: params.name })
             .then(bucket => {
-                if (!_.isEqual(bucket.namespace, data.bucket.namespace)) {
-                    params.bucket = bucket;
-                    return false;
-                } else {
+                if (_.isEqual(bucket.namespace, data.bucket.namespace)) {
+                    // namespace unchanged - extend validity for another period
                     data.valid_until = time + NAMESPACE_CACHE_EXPIRY;
                     return true;
+                } else {
+                    // namespace changed - _load_bucket_namespace will be called by the cache
+                    // hang the new bucket on the cache params to reuse it
+                    params.bucket = bucket;
+                    return false;
                 }
             });
     }
@@ -95,7 +99,7 @@ class ObjectSDK {
     _setup_single_namespace(ns_info) {
         if (ns_info.endpoint_type === 'NOOBAA') {
             if (ns_info.target_bucket) {
-                return new NamespaceNB(this.rpc_client, this.object_io, ns_info.target_bucket);
+                return new NamespaceNB(ns_info.target_bucket);
             } else {
                 return this.nb;
             }
@@ -185,7 +189,7 @@ class ObjectSDK {
 
     list_objects(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.list_objects(params));
+            .then(ns => ns.list_objects(params, this));
     }
 
     /////////////////
@@ -194,12 +198,12 @@ class ObjectSDK {
 
     read_object_md(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.read_object_md(params));
+            .then(ns => ns.read_object_md(params, this));
     }
 
     read_object_stream(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.read_object_stream(params));
+            .then(ns => ns.read_object_stream(params, this));
     }
 
     ///////////////////
@@ -208,7 +212,7 @@ class ObjectSDK {
 
     upload_object(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.upload_object(params));
+            .then(ns => ns.upload_object(params, this));
     }
 
     /////////////////////////////
@@ -217,27 +221,27 @@ class ObjectSDK {
 
     create_object_upload(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.create_object_upload(params));
+            .then(ns => ns.create_object_upload(params, this));
     }
 
     upload_multipart(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.upload_multipart(params));
+            .then(ns => ns.upload_multipart(params, this));
     }
 
     list_multiparts(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.list_multiparts(params));
+            .then(ns => ns.list_multiparts(params, this));
     }
 
     complete_object_upload(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.complete_object_upload(params));
+            .then(ns => ns.complete_object_upload(params, this));
     }
 
     abort_object_upload(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.abort_object_upload(params));
+            .then(ns => ns.abort_object_upload(params, this));
     }
 
     ///////////////////
@@ -246,12 +250,12 @@ class ObjectSDK {
 
     delete_object(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.delete_object(params));
+            .then(ns => ns.delete_object(params, this));
     }
 
     delete_multiple_objects(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.delete_multiple_objects(params));
+            .then(ns => ns.delete_multiple_objects(params, this));
     }
 
 }

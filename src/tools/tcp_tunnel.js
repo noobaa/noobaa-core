@@ -109,7 +109,7 @@ function tunnel_port({
                 record_http,
             }))
         .on('error', err => console.error(name, 'server error', err.stack || err))
-        .on('listening', () => console.log(name, 'listening ...'))
+        .on('listening', () => console.log(name, 'listening ...', record_http ? '(Recording HTTP)' : ''))
         .listen(source_port);
 }
 

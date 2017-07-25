@@ -42,6 +42,7 @@ mocha.describe('signature_utils', function() {
     add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkjs'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'awssdknodejs'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkjava'), '.sreq');
+    add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkruby2'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'cyberduck'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'postman'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'presigned'), '.sreq');
@@ -132,6 +133,10 @@ mocha.describe('signature_utils', function() {
         const parsed_url = url.parse(req.originalUrl, true);
         req.url = parsed_url.pathname;
         req.query = parsed_url.query;
+        const virtual_hosted_bucket = req.headers.host.split('.', 1)[0];
+        if (/[a-zA-Z][a-zA-Z0-9]*/.test(virtual_hosted_bucket)) {
+            req.virtual_hosted_bucket = virtual_hosted_bucket;
+        }
         res.setHeader('Connection', 'close');
         if (req.method === 'OPTIONS') return res.end();
         console.log(

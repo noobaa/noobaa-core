@@ -14,7 +14,7 @@ class NamespaceMerge {
     // OBJECT LIST //
     /////////////////
 
-    list_objects(params) {
+    list_objects(params, object_sdk) {
         return P.map(this.namespaces, ns => ns.list_objects(params))
             .then(res => {
                 if (res.length === 1) return res[0];
@@ -67,7 +67,7 @@ class NamespaceMerge {
     // OBJECT READ //
     /////////////////
 
-    read_object_md(params) {
+    read_object_md(params, object_sdk) {
         return this._ns_get(ns => P.resolve(ns.read_object_md(params))
             .then(res => {
                 // save the ns in the response for optimizing read_object_stream
@@ -76,7 +76,7 @@ class NamespaceMerge {
             }));
     }
 
-    read_object_stream(params) {
+    read_object_stream(params, object_sdk) {
         // use the saved ns from read_object_md
         if (params.object_md && params.object_md.ns) return params.object_md.ns.read_object_stream(params);
         return this._ns_get(ns => ns.read_object_stream(params));
@@ -86,7 +86,7 @@ class NamespaceMerge {
     // OBJECT UPLOAD //
     ///////////////////
 
-    upload_object(params) {
+    upload_object(params, object_sdk) {
         return this._ns_put(ns => ns.upload_object(params));
     }
 
@@ -94,23 +94,23 @@ class NamespaceMerge {
     // OBJECT MULTIPART UPLOAD //
     /////////////////////////////
 
-    create_object_upload(params) {
+    create_object_upload(params, object_sdk) {
         return this._ns_put(ns => ns.create_object_upload(params));
     }
 
-    upload_multipart(params) {
+    upload_multipart(params, object_sdk) {
         return this._ns_put(ns => ns.upload_multipart(params));
     }
 
-    list_multiparts(params) {
+    list_multiparts(params, object_sdk) {
         return this._ns_put(ns => ns.list_multiparts(params));
     }
 
-    complete_object_upload(params) {
+    complete_object_upload(params, object_sdk) {
         return this._ns_put(ns => ns.complete_object_upload(params));
     }
 
-    abort_object_upload(params) {
+    abort_object_upload(params, object_sdk) {
         return this._ns_put(ns => ns.abort_object_upload(params));
     }
 
@@ -120,11 +120,11 @@ class NamespaceMerge {
 
     // TODO should we: (1) delete from all ns ? (2) delete from writable ns ? (3) create a "delete marker" on writable ns
 
-    delete_object(params) {
+    delete_object(params, object_sdk) {
         return this._ns_put(ns => ns.delete_object(params));
     }
 
-    delete_multiple_objects(params) {
+    delete_multiple_objects(params, object_sdk) {
         return this._ns_put(ns => ns.delete_multiple_objects(params));
     }
 

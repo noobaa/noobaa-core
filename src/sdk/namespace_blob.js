@@ -23,7 +23,7 @@ class NamespaceBlob {
     // OBJECT LIST //
     /////////////////
 
-    list_objects(params) {
+    list_objects(params, object_sdk) {
         dbg.log0('NamespaceBlob.list_objects:',
             this.container,
             inspect(params)
@@ -84,7 +84,7 @@ class NamespaceBlob {
     // OBJECT READ //
     /////////////////
 
-    read_object_md(params) {
+    read_object_md(params, object_sdk) {
         dbg.log0('NamespaceBlob.read_object_md:',
             this.container,
             inspect(params)
@@ -110,7 +110,7 @@ class NamespaceBlob {
             });
     }
 
-    read_object_stream(params) {
+    read_object_stream(params, object_sdk) {
         dbg.log0('NamespaceBlob.read_object_stream:',
             this.container,
             inspect(_.omit(params, 'object_md.ns'))
@@ -181,7 +181,7 @@ class NamespaceBlob {
     // OBJECT UPLOAD //
     ///////////////////
 
-    upload_object(params) {
+    upload_object(params, object_sdk) {
         dbg.log0('NamespaceBlob.upload_object:',
             this.container,
             inspect(_.omit(params, 'source_stream'))
@@ -218,7 +218,7 @@ class NamespaceBlob {
     // OBJECT MULTIPART UPLOAD //
     /////////////////////////////
 
-    create_object_upload(params) {
+    create_object_upload(params, object_sdk) {
         // azure blob does not have start upload operation
         // instead starting multipart upload is implicit
         // TODO how to handle xattr that s3 sends in the create command
@@ -233,7 +233,7 @@ class NamespaceBlob {
         });
     }
 
-    upload_multipart(params) {
+    upload_multipart(params, object_sdk) {
         // generating block ids in the form: '95342c3f-000005'
         // this is needed mostly since azure requires all the block_ids to have the same fixed length
         const block_id = this.blob.getBlockId(this.blob.generateBlockIdPrefix(), params.num);
@@ -269,7 +269,7 @@ class NamespaceBlob {
             });
     }
 
-    list_multiparts(params) {
+    list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceBlob.list_multiparts:',
             this.container,
             inspect(params)
@@ -299,7 +299,7 @@ class NamespaceBlob {
             });
     }
 
-    complete_object_upload(params) {
+    complete_object_upload(params, object_sdk) {
         dbg.log0('NamespaceBlob.complete_object_upload:',
             this.container,
             inspect(params)
@@ -331,7 +331,7 @@ class NamespaceBlob {
             });
     }
 
-    abort_object_upload(params) {
+    abort_object_upload(params, object_sdk) {
         // azure blob does not have abort upload operation
         // instead it will garbage collect blocks after 7 days
         // so we simply ignore the abort operation
@@ -347,7 +347,7 @@ class NamespaceBlob {
     // OBJECT DELETE //
     ///////////////////
 
-    delete_object(params) {
+    delete_object(params, object_sdk) {
         dbg.log0('NamespaceBlob.delete_object:',
             this.container,
             inspect(params)
@@ -367,7 +367,7 @@ class NamespaceBlob {
             });
     }
 
-    delete_multiple_objects(params) {
+    delete_multiple_objects(params, object_sdk) {
         dbg.log0('NamespaceBlob.delete_multiple_objects:',
             this.container,
             params

@@ -8,7 +8,6 @@ import { createSystem } from 'action-creators';
 import { activationState, nameResolutionState, serverInfo } from 'model';
 import moment from 'moment';
 import { deepFreeze } from 'utils/core-utils';
-import { sleep } from 'utils/promise-utils';
 import { calcPasswordStrength } from 'utils/password-utils';
 import { action$ } from 'state';
 
@@ -190,13 +189,12 @@ class CreateSystemFormViewModel extends BaseViewModel {
     }
 
     prev() {
-        this.step(this.step() -1);
+        this.step(this.step() - 1);
     }
 
     createSystem() {
         let serverConfig = serverInfo().config;
         this.creatingSystem(true);
-        sleep(25 * 1000, false).then(this.creatingSystem);
 
         let dnsServers = [];
         if (!serverConfig.using_dhcp && serverConfig.dns_servers) {

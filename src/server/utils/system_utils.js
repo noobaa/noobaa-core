@@ -40,7 +40,7 @@ function get_bucket_quota_usage_percent(bucket, bucket_quota) {
 function mongo_wrapper_system_created() {
     if (os_utils.is_supervised_env()) {
         return MongoCtrl.init()
-            .then(() => MongoCtrl.update_wrapper_sys_check());
+            .then(() => console.log('Skipping mongo_wrapper update')); /*MongoCtrl.update_wrapper_sys_check()*/
     }
 }
 

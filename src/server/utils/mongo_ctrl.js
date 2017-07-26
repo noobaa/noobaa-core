@@ -57,10 +57,10 @@ MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     let self = this;
-    return P.resolve(self._add_new_mongos_program(cfg_array))
+    return P.resolve()
+        .then(() => self._add_new_mongos_program(cfg_array))
         .then(() => SupervisorCtl.apply_changes())
         .delay(5000); // TODO: find better solution
-
 };
 
 MongoCtrl.prototype.add_new_config = function() {
@@ -309,7 +309,8 @@ MongoCtrl.prototype._add_new_mongos_program = function(cfg_array) {
     program_obj.autostart = 'true';
     program_obj.priority = '1';
 
-    return P.resolve(SupervisorCtl.remove_program('mongos')) //remove old mongos with old cfg_array
+    return P.resolve()
+        .then(() => SupervisorCtl.remove_program('mongos')) //remove old mongos with old cfg_array
         .then(() => SupervisorCtl.add_program(program_obj));
 };
 
@@ -344,12 +345,14 @@ MongoCtrl.prototype._add_new_config_program = function() {
 };
 
 MongoCtrl.prototype._remove_single_mongo_program = function() {
-    return P.resolve(SupervisorCtl.remove_program('mongo_wrapper'));
+    return P.resolve()
+        .then(() => SupervisorCtl.remove_program('mongo_wrapper'));
 };
 
 MongoCtrl.prototype._refresh_services_list = function() {
     //TODO:: add real status form mongo per each
-    return P.resolve(SupervisorCtl.get_mongo_services())
+    return P.resolve()
+        .then(() => SupervisorCtl.get_mongo_services())
         .then(mongo_services => {
             this._mongo_services = mongo_services;
         });

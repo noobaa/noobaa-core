@@ -50,7 +50,9 @@ function AgentCLI(params) {
     this.client = rpc.new_client();
     this.s3 = new S3Auth();
     this.agents = {};
-    this.agent_conf = new json_utils.JsonFileWrapper('agent_conf.json');
+    this.params.hostname = this.params.test_host || os.hostname();
+    const agent_conf_name = this.params.test_host ? 'agent_conf_' + this.params.test_host + '.json' : 'agent_conf.json';
+    this.agent_conf = new json_utils.JsonFileWrapper(agent_conf_name);
 }
 
 /**
@@ -122,7 +124,12 @@ AgentCLI.prototype.init = function() {
         })
         .then(() => os_utils.get_disk_mount_points())
         .then(function(mount_points) {
-            self.params.root_path = mount_points[0].mount;
+            if (self.params.test_host) {
+                self.params.root_path = './agent_storage_' + self.params.test_host;
+                mount_points[0].mount = self.params.root_path;
+            } else {
+                self.params.root_path = mount_points[0].mount;
+            }
 
             dbg.log0('root path:', self.params.root_path);
             self.params.all_storage_paths = mount_points;
@@ -404,11 +411,12 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, options
         dbg.log0('create_node_helper called with self.params', self.params);
         var current_node_path = current_node_path_info.mount;
         const name_prefix = is_s3_agent ? S3_AGENT_NAME_PREFIX : '';
-        var node_name = internal_node_name || name_prefix + os.hostname();
-        var path_modification = current_node_path.replace('/agent_storage/', '').replace(/\//g, '')
+        var node_name = internal_node_name || name_prefix + self.params.hostname;
+        const agent_storage_dir_name = self.params.test_host ? 'agent_storage_' + self.params.test_host : 'agent_storage';
+        var path_modification = current_node_path.replace('/' + agent_storage_dir_name + '/', '').replace(/\//g, '')
             .replace('.', '');
         //windows
-        path_modification = path_modification.replace('\\agent_storage\\', '');
+        path_modification = path_modification.replace('\\' + agent_storage_dir_name + '\\', '');
         dbg.log0('create_node_helper with path_modification', path_modification, 'node:',
             node_name, 'current_node_path', current_node_path, 'exists');
         if (os.type().indexOf('Windows') >= 0) {
@@ -609,6 +617,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             address: self.params.address,
             servers: self.params.servers,
             node_name: node_name,
+            test_host: self.params.test_host,
             host_id: host_id,
             storage_path: node_path,
             cloud_info: self.cloud_info,

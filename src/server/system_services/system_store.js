@@ -532,7 +532,6 @@ class SystemStore extends EventEmitter {
                         let updates = _.omit(item, '_id');
                         if (_.isEmpty(updates)) return;
                         let keys = _.keys(updates);
-
                         if (_.first(keys)[0] === '$') {
                             for (const key of keys) {
                                 // Validate that all update keys are mongo operators.

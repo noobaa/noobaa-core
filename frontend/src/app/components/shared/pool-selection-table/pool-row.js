@@ -19,8 +19,9 @@ export default class PoolRowViewModel extends BaseViewModel {
             () => pool() ? getPoolStateIcon(pool()) : ''
         );
 
+        const endpointType = pool().cloud_info && pool().cloud_info.endpoint_type;
         this.type = ko.pureComputed(
-            () => pool() ? getResourceTypeIcon(pool()) : ''
+            () => pool() ? getResourceTypeIcon(pool().resource_type, endpointType) : ''
         );
 
         this.name = ko.pureComputed(

@@ -3,4 +3,27 @@
 bucket-summary {
     display: block;
 
+    chart-legend {
+        .legend-item .legend-label {
+            display: inline-block;
+            flex-basis: 170px;
+        }
+    }
+
+    toggle-filter .toggle-btn {
+        min-width: 90px;
+        flex-shrink: 1;
+    }
+
+    bar-chart {
+        flex-basis: 1;
+    }
+
+    bar {
+        border-radius: 0;
+
+        &.disabled {
+            opacity: .2;
+        }
+    }
 }

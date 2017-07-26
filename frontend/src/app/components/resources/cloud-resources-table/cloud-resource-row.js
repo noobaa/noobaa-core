@@ -31,8 +31,9 @@ export default class CloudResourceRowViewModel extends BaseViewModel {
             }
         );
 
+        const endpointType = resource().cloud_info && resource().cloud_info.endpoint_type;
         this.type = ko.pureComputed(
-            () => resource() ? getResourceTypeIcon(resource()) : ''
+            () => resource() ? getResourceTypeIcon(resource().resource_type, endpointType) : ''
         );
 
         this.name = ko.pureComputed(
@@ -51,6 +52,8 @@ export default class CloudResourceRowViewModel extends BaseViewModel {
             }
         );
 
+
+        console.warn('resource()2', resource());
         this.usage = ko.pureComputed(
             () => resource() && resource().storage.used
         ).extend({

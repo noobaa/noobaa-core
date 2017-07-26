@@ -24,7 +24,7 @@
                 selected: quotaUnit
             "></dropdown>
         </div>
-        <div class="val-msg" data-bind="validationMessage: quotaSize"></div>
+        <div class="val-msg" ko.validationMessage="quotaSize"></div>
     </editor>
 
     <bar class="push-prev align-start" ko.css.disabled="!isUsingQuota()" params="

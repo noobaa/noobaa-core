@@ -1,0 +1,18 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<data-table class="placement-table greedy" params="
+        columns: placementTableColumns,
+        data: nodePools,
+        rowFactory: pool => createPlacementRow(pool),
+        emptyMessage: 'No resources participate in policy'
+    ">
+    <template name="custom-link">
+        <!-- ko if: $data().href -->
+        <a class="link" data-bind="text: $data().text, href: $data().href"></a>
+        <!-- /ko -->
+        <!-- ko ifnot: $data().href -->
+        <span data-bind="text: $data().text"></span>
+        <!-- /ko -->
+    </template>
+
+</data-table>

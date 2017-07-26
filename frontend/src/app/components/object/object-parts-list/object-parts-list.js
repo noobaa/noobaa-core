@@ -12,7 +12,14 @@ import { openObjectPreviewModal } from 'action-creators';
 import { systemInfo, sessionInfo } from 'model';
 import { getResourceTypeIcon } from 'utils/ui-utils';
 
-const allowedResoruceTypes = deepFreeze([ 'HOSTS', 'CLOUD' ]);
+const allowedResoruceTypes = deepFreeze([ 'HOSTS', 'CLOUD', 'INTERNAL' ]);
+
+
+function poolIconMapper(pool) {
+    const endpointType = pool.cloud_info && pool.cloud_info.endpoint_type;
+
+    return getResourceTypeIcon(pool.resource_type, endpointType);
+}
 
 class ObjectPartsListViewModel extends BaseViewModel {
     constructor({ obj, parts }) {
@@ -20,7 +27,6 @@ class ObjectPartsListViewModel extends BaseViewModel {
 
         this.pageSize = paginationPageSize;
         this.count = parts.count;
-
         this.page = ko.pureComputed({
             read: parts.page,
             write: page => navigateTo(undefined, undefined, { page })
@@ -35,7 +41,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
                 const pools = systemInfo().pools
                     .filter(pool => allowedResoruceTypes.includes(pool.resource_type));
 
-                return keyByProperty(pools, 'name', getResourceTypeIcon);
+                return keyByProperty(pools, 'name', poolIconMapper);
             }
         );
 

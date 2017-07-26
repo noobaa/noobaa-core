@@ -1268,6 +1268,9 @@ function _communicate_license_server(params, proxy_address) {
     return P.fromCallback(callback => request(options, callback), {
             multiArgs: true
         })
+        .catch(() => {
+            throw new Error('NETWORK_ERROR');
+        })
         .spread(function(response, reply) {
             dbg.log0('Received Response From Activation Server', response.statusCode, reply);
             if (response.statusCode !== 200) {

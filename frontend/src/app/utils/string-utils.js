@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { makeArray } from './core-utils';
+import { makeArray, isNumber, isString } from './core-utils';
+import { timeShortFormat as defaultFormat } from 'config';
+import moment from 'moment-timezone';
 
 export const digits = '123456789';
 export const letters = 'abcdefghijklmnopqrstuvwxyz';
@@ -12,6 +14,23 @@ export function toCammelCase(str) {
 
 export function toDashedCase(str) {
     return str.replace(/[A-Z]+/g, match => `-${match.toLowerCase()}`);
+}
+
+export function formatTime(target, params) {
+    const naked = params || {};
+    const {
+        format = isString(naked) ? naked : defaultFormat,
+        timezone = '',
+        notAvailableText  = 'N/A'
+    } = naked;
+
+    const value = target;
+    if (!isNumber(value)) {
+        return notAvailableText;
+    }
+
+    const time = timezone ? moment.tz(value, timezone) : moment(value);
+    return time.format(format);
 }
 
 export function formatDuration(minutes) {

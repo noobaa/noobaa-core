@@ -18,7 +18,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     const { buckets, tiers, pools } = payload;
 
     return keyByProperty(buckets, 'name', bucket => {
-        const {name, storage, data, quota, num_objects, cloud_sync, demo_bucket, tiering, usage_by_pool} = bucket;
+        const {name, storage, data, quota, num_objects, cloud_sync, demo_bucket, tiering, usage_by_pool, stats} = bucket;
 
         const usageByResource = keyByProperty(
             usage_by_pool.pools,
@@ -63,7 +63,8 @@ function onCompleteFetchSystemInfo(state, { payload }) {
             mode: _clacBucketMode(bucket),
             storage,
             data,
-            quota: quota,
+            quota,
+            stats,
             objectsCount: num_objects,
             cloudSyncStatus: (cloud_sync && cloud_sync.status) || 'NOTSET',
             demoBucket: demo_bucket,

@@ -15,7 +15,8 @@ import { action$ } from 'state';
 const activationFaliureReasonMapping = deepFreeze({
     ACTIVATION_CODE_IN_USE: 'Activation code is already in use',
     UNKNOWN_ACTIVATION_CODE: 'Activation code does not exists',
-    ACTIVATION_CODE_EMAIL_MISMATCH: 'Email does not match activation code'
+    ACTIVATION_CODE_EMAIL_MISMATCH: 'Email does not match activation code',
+    NETWORK_ERROR: 'Could not connect to the license server'
 });
 
 class CreateSystemFormViewModel extends BaseViewModel {

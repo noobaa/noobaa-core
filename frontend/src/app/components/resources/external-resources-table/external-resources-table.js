@@ -43,12 +43,15 @@ class ExternalResourceTableViewModel extends Observer {
         this.rows = ko.observableArray();
 
         this.observe(
-            state$.getMany('externalResources', ['location', 'query']),
+            state$.getMany('externalResources', 'location'),
             this.onResources
         );
     }
 
-    onResources([ resources, query ]) {
+    onResources([ resources, location ]) {
+        const { params, query } = location;
+        if (params.tab !== 'external') return;
+
         const { sortBy = 'name', order = 1 } = query;
         this.sorting({ sortBy, order });
 

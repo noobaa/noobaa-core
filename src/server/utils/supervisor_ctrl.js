@@ -42,16 +42,15 @@ SupervisorCtrl.prototype.init = function() {
 SupervisorCtrl.prototype.apply_changes = function() {
     var self = this;
 
-    return P.resolve(self.init())
+    return P.resolve()
+        .then(() => self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
             }
             return self._serialize();
         })
-        .then(function() {
-            return promise_utils.exec('supervisorctl update');
-        });
+        .then(() => promise_utils.exec('supervisorctl update'));
 };
 
 SupervisorCtrl.prototype.restart = function(services) {
@@ -68,7 +67,8 @@ SupervisorCtrl.prototype.restart = function(services) {
 SupervisorCtrl.prototype.add_program = function(prog) {
     let self = this;
 
-    return P.resolve(self.init())
+    return P.resolve()
+        .then(() => self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -82,7 +82,8 @@ SupervisorCtrl.prototype.add_program = function(prog) {
 SupervisorCtrl.prototype.remove_program = function(prog_name) {
     let self = this;
 
-    return P.resolve(self.init())
+    return P.resolve()
+        .then(() => self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -102,8 +103,9 @@ SupervisorCtrl.prototype.remove_program = function(prog_name) {
 SupervisorCtrl.prototype.get_mongo_services = function() {
     let self = this;
 
-    let mongo_progs = {};
-    return P.resolve(self.init())
+    let mongo_progs = [];
+    return P.resolve()
+        .then(() => self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -112,26 +114,19 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
             _.each(self._programs, function(prog) {
                 //mongos, mongo replicaset, mongo shard, mongo config set
                 //TODO:: add replicaset once implemented
-                if (prog.name.indexOf('mongoshard') > 0) {
-                    mongo_progs.push({
-                        type: 'shard',
-                        name: prog.name.slice('mongoshard-'.length),
-                    });
-                } else if (prog.name.indexOf('mongos') > 0) {
-                    mongo_progs.push({
-                        type: 'mongos',
-                    });
-                } else if (prog.name.indexOf('mongocfg') > 0) {
-                    mongo_progs.push({
-                        type: 'config',
-                    });
+                if (prog.name.indexOf('mongoshard') > -1) {
+                    mongo_progs.push(prog);
+                } else if (prog.name.indexOf('mongos') > -1) {
+                    mongo_progs.push(prog);
+                } else if (prog.name.indexOf('mongocfg') > -1) {
+                    mongo_progs.push(prog);
                     // This should be for both cluster and single mongo
-                } else if (prog.name.indexOf('mongo_wrapper') > 0) {
-                    mongo_progs.push({
-                        type: 'mongodb',
-                    });
+                } else if (prog.name.indexOf('mongo_wrapper') > -1) {
+                    mongo_progs.push(prog);
                 }
             });
+
+            return mongo_progs;
         });
 };
 
@@ -146,12 +141,13 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
     prog.name = 'agent_' + agent_name;
     prog.autostart = 'true';
     prog.priority = '1100';
-    return P.resolve(self.init())
+    return P.resolve()
+        .then(() => self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
             }
-            self.add_program(prog);
+            return self.add_program(prog);
         })
         .then(() => self.apply_changes());
 };
@@ -206,4 +202,3 @@ SupervisorCtrl.prototype._parse_config = function(data) {
         }
     });
 };
-

@@ -33,6 +33,12 @@ const POOL_NODES_INFO_DEFAULTS = Object.freeze({
     by_mode: {},
 });
 
+const POOL_HOSTS_INFO_DEFAULTS = Object.freeze({
+    count: 0,
+    by_mode: {},
+    by_service: {},
+});
+
 const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
 const LOW_CAPACITY_HARD_LIMIT = 50 * Math.pow(1024, 3); // 50GB
 
@@ -383,7 +389,7 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         info.mode = calc_mongo_pool_mode(p_nodes);
     } else {
         info.nodes = _.defaults({}, p_nodes.nodes, POOL_NODES_INFO_DEFAULTS);
-        info.hosts = _.defaults({}, p_hosts.nodes, POOL_NODES_INFO_DEFAULTS);
+        info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
         info.mode = calc_hosts_pool_mode(info);
     }
@@ -437,6 +443,7 @@ function calc_hosts_pool_mode(pool_info) {
         (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
         'OPTIMAL';
 }
+
 function check_pool_deletion(pool, nodes_aggregate_pool) {
     // Check if there are nodes till associated to this pool
     const nodes_count = _.get(nodes_aggregate_pool, [

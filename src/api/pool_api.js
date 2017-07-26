@@ -274,7 +274,30 @@ module.exports = {
                     $ref: 'node_api#/definitions/nodes_aggregate_info'
                 },
                 hosts: {
-                    $ref: 'node_api#/definitions/nodes_aggregate_info'
+                    type: 'object',
+                    properties: {
+                        count: {
+                            type: 'integer',
+                        },
+                        by_mode: {
+                            type: 'object',
+                            additionalProperties: true,
+                            properties: {},
+                        },
+                        by_service: {
+                            type: 'object',
+                            properties: {
+                                STORAGE: {
+                                    type: 'integer',
+                                },
+                                GATEWAY: {
+                                    type: 'integer',
+                                }
+                            }
+                        }
+
+                    }
+
                 },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'

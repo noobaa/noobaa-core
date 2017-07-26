@@ -75,9 +75,6 @@ function _prepare_hosts_query(req) {
     if (query.filter) {
         query.filter = new RegExp(_.escapeRegExp(query.filter), 'i');
     }
-    if (query.geolocation) {
-        query.geolocation = new RegExp(_.escapeRegExp(query.geolocation), 'i');
-    }
     if (query.pools) {
         query.pools = new Set(_.map(query.pools, pool_name => {
             const pool = req.system.pools_by_name[pool_name];

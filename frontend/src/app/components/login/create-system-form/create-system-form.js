@@ -73,7 +73,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
                         activationState.once(
                             ({ valid, reason }) => callback({
-                                isValid: valid || reason !== 'ACTIVATION_CODE_EMAIL_MISMATCH',
+                                isValid: valid || (reason !== 'ACTIVATION_CODE_EMAIL_MISMATCH' && reason !== 'NETWORK_ERROR'),
                                 message: reason && activationFaliureReasonMapping[reason]
                             })
                         );

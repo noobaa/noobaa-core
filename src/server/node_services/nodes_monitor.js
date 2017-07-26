@@ -1987,6 +1987,7 @@ class NodesMonitor extends EventEmitter {
             const item = this._consolidate_host(host);
 
             // filter hosts according to query
+            if (query.hosts && !query.hosts.includes(item.node.host_id)) continue;
             if (query.pools && !query.pools.has(String(item.node.pool))) continue;
             if (query.filter && !query.filter.test((item.node.os_info.hostname) && !query.filter.test((item.node.ip)))) continue;
             if (query.skip_cloud_nodes && item.node.is_cloud_node) continue;
@@ -2403,10 +2404,11 @@ class NodesMonitor extends EventEmitter {
         };
     }
 
-    _aggregate_nodes_list(list) {
+    _aggregate_nodes_list(list, aggregate_hosts) {
         let count = 0;
         let online = 0;
         const by_mode = {};
+        const by_service = aggregate_hosts ? { STORAGE: 0, GATEWAY: 0 } : undefined;
         let storage = {
             total: 0,
             free: 0,
@@ -2419,6 +2421,10 @@ class NodesMonitor extends EventEmitter {
         _.each(list, item => {
             count += 1;
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
+            if (by_service) {
+                by_service.STORAGE += item.storage_nodes && item.storage_nodes.every(i => i.node.decommissioned) ? 0 : 1;
+                by_service.GATEWAY += item.s3_nodes && item.s3_nodes.every(i => i.node.decommissioned) ? 0 : 1;
+            }
             if (item.online) online += 1;
 
             if (item.data_activity) {
@@ -2450,7 +2456,8 @@ class NodesMonitor extends EventEmitter {
             nodes: {
                 count,
                 online,
-                by_mode
+                by_mode,
+                by_service,
             },
             storage: storage,
             data_activities: _.map(data_activities, a => {
@@ -2466,13 +2473,13 @@ class NodesMonitor extends EventEmitter {
         const list = aggregate_hosts ?
             this._filter_hosts(query).list :
             this._filter_nodes(query).list;
-        const res = this._aggregate_nodes_list(list);
+        const res = this._aggregate_nodes_list(list, aggregate_hosts);
         if (group_by) {
             if (group_by === 'pool') {
                 const pool_groups = _.groupBy(list,
                     item => String(item.node.pool));
                 res.groups = _.mapValues(pool_groups,
-                    items => this._aggregate_nodes_list(items));
+                    items => this._aggregate_nodes_list(items, aggregate_hosts));
             } else {
                 throw new Error('aggregate_nodes: Invalid group_by ' + group_by);
             }

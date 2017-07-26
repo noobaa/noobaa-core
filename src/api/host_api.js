@@ -354,16 +354,36 @@ module.exports = {
         },
 
         hosts_query: {
-            $ref: 'node_api#/definitions/nodes_query'
+            type: 'object',
+            properties: {
+                hosts: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    }
+                },
+                pools: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                },
+                filter: {
+                    // regexp on name & ip
+                    type: 'string'
+                },
+                mode: {
+                    type: 'array',
+                    items: {
+                        $ref: 'node_api#/definitions/node_mode'
+                    }
+                }
+            },
         },
 
         hosts_aggregate_info: {
             $ref: 'node_api#/definitions/nodes_aggregate_info'
         }
-
-
-
-
     }
 
 };

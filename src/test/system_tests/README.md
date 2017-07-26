@@ -58,9 +58,9 @@ function run_test() {
             return P.resolve("Test Passed! Everything Seems To Be Fine...");
         })
         .catch(err => {
-            console.error('test_files_spread FAILED: ', err.stack || err);
+            console.error('test_bucket_placement FAILED: ', err.stack || err);
             rpc.disconnect_all();
-            throw new Error('test_files_spread FAILED: ', err);
+            throw new Error('test_bucket_placement FAILED: ', err);
         })
 }
 

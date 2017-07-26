@@ -41,8 +41,8 @@ var steps = [
         common: 'restore_db_defaults',
     }, {
         //Test Data Placement according to policy
-        name: 'Pools Data Placement Test',
-        lib_test: '/src/test/system_tests/test_files_spread',
+        name: 'Data Placement Test',
+        lib_test: '/src/test/system_tests/test_bucket_placement',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',

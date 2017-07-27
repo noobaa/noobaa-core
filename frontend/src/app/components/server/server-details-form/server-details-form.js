@@ -158,7 +158,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         );
 
         const serverName = ko.pureComputed(
-            () => this.server().hostname + this.server().secret
+            () => `${this.server().hostname}-${this.server().secret}`
         );
 
         const locationTag = ko.pureComputed(

@@ -2690,8 +2690,8 @@ class NodesMonitor extends EventEmitter {
 
     set_debug_node(req) {
         this._throw_if_not_started_and_loaded();
-        const { level, node_identity } = req.rpc_params;
-        const item = this._get_node(node_identity);
+        const { level, node } = req.rpc_params;
+        const item = this._get_node(node);
         return this._set_agent_debug_level(item, level)
             .then(() => {
                 Dispatcher.instance().activity({

@@ -362,12 +362,13 @@ class MongoClient extends EventEmitter {
     set_debug_level(level) {
         var self = this;
         var command = {
-            setLogLevel: level
+            setParameter: 1,
+            logLevel: level
         };
 
         return P.fcall(function() {
-            return P.resolve(self.db.command(command))
-                .then(res => dbg.log0(`Recieved ${res} from setLogLevel command (${level})`));
+            return P.resolve(self.db.admin().command(command))
+                .then(res => dbg.log0(`Recieved ${res} from setParameter/logLevel command (${level})`));
         });
     }
 

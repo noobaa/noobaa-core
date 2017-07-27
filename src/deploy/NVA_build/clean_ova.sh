@@ -1,5 +1,7 @@
 set -e
 # TODO copied from first_install_diaglog.sh
+isAzure=false
+isesx=false
 function clean_ifcfg() {
     eths=$(ifconfig | grep eth | awk '{print $1}')
     for eth in ${eths}; do
@@ -8,16 +10,44 @@ function clean_ifcfg() {
     done
 }
 
-isAzure=${1}
+OPTIONS=$( getopt -o 'h,e,a' --long "help,esx,azure" -- "$@" )
+eval set -- "${OPTIONS}"
 
-if [ "${isAzure}" == "azure" ] ; then
+function usage(){
+    echo "$0 [options]"
+    echo "-e --esx run this script on esx"
+    echo "-a --azure run this script on azure"
+    echo "-h --help will show this help"
+    exit 0
+}
+
+while true
+do
+    case ${1} in
+		-a|--azure)     isAzure=true
+                        shift 1 ;;
+        -e|--esx)       isesx=true
+                        shift 1;;
+		-h|--help)	    usage;;
+		--)			    shift 1;
+					    break ;;
+    esac
+done
+
+if ! ${isAzure} && ! ${isesx}
+then
+    usage
+fi
+
+if ${isAzure}
+then
     echo "make sure no swap entry in fstab!"
     cat /etc/fstab
 else
     clean_ifcfg
-fi
+    sudo rm /etc/first_install.mrk
+fi   
 sudo rm /etc/noobaa_sec
-sudo rm /etc/first_install.mrk
 echo Passw0rd | passwd noobaaroot --stdin
 rm -f /var/log/*.log
 rm -f /var/log/*-*
@@ -41,7 +71,8 @@ sudo sysctl kernel.hostname=noobaa
 #reduce VM size
 set +e
 /sbin/swapoff -a
-if [ "${isAzure}" == "azure" ] ; then
+if ${isAzure}
+then
    echo "Azure - will not try to compress HD"
 else
     dd if=/dev/zero of=zeroFile.tmp bs=1M

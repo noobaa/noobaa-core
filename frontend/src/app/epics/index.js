@@ -24,6 +24,7 @@ import updateInstallNodesFormCommandsFieldEpic from './update-install-nodes-form
 import changeAccountPasswordEpic from './change-account-password';
 import addExternalConnectionEpic from './add-external-connection';
 import deleteResourceEpic from './delete-resource';
+import fetchHostsEpic from './fetch-hosts';
 
 // A utility that combine multiple epics into one epic.
 function combineEpics(epics) {
@@ -57,5 +58,6 @@ export default combineEpics([
     updateInstallNodesFormCommandsFieldEpic,
     changeAccountPasswordEpic,
     addExternalConnectionEpic,
-    deleteResourceEpic
+    deleteResourceEpic,
+    fetchHostsEpic
 ]);

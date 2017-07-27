@@ -18,7 +18,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
 
     return keyByProperty(nodePools, 'name', pool => {
-        const activityList = pool.data_activities
+        const activityList = (pool.data_activities || [])
             .map(activity => ({
                 type: activity.reason,
                 nodeCount: activity.count,

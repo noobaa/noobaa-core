@@ -1,0 +1,35 @@
+/* Copyright (C) 2016 NooBaa */
+
+import { FETCH_HOSTS } from 'action-types';
+import { completeFetchHosts, failFetchHosts } from 'action-creators';
+
+export default function(action$, { api }) {
+    return action$
+        .ofType(FETCH_HOSTS)
+        .flatMap(async action => {
+            const { pools, name, modes, sortBy, order, skip, limit } = action.payload;
+
+            try {
+                return completeFetchHosts(
+                    action.payload,
+                    await api.host.list_hosts({
+                        query: {
+                            pools: pools,
+                            filter: name,
+                            mode: modes,
+                        },
+                        sort: sortBy,
+                        order: order,
+                        skip: skip,
+                        limit: limit
+                    })
+                );
+
+            } catch (error) {
+                return failFetchHosts(
+                    action.payload,
+                    error
+                );
+            }
+        });
+}

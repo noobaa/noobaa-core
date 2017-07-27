@@ -33,7 +33,7 @@ function _getActivityTooltipRow({ type, nodeCount, progress, eta }) {
     `;
 }
 
-class PoolSummaryViewModel2 extends Observer {
+class PoolSummaryViewModel extends Observer {
     constructor({ poolName }) {
         super();
 
@@ -194,6 +194,6 @@ class PoolSummaryViewModel2 extends Observer {
 }
 
 export default {
-    viewModel: PoolSummaryViewModel2,
+    viewModel: PoolSummaryViewModel,
     template: template
 };

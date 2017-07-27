@@ -11,6 +11,9 @@ import { timeLongFormat } from 'config';
 import ko from 'knockout';
 import { action$ } from 'state';
 import { openEditServerDetailsModal } from 'action-creators';
+import { aggregateStorage } from 'utils/storage-utils';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
 
 const icons = deepFreeze({
     healthy: {
@@ -28,6 +31,7 @@ const icons = deepFreeze({
 });
 
 const requirementsMarker = (message) => `<span class="remark warning">&nbsp; * ${message ? message : ''}</span>`;
+const hyperlink = (uri, title) => `<a class="link" href="${uri}">${title}</a>`;
 
 class ServerDetailsFormViewModel extends BaseViewModel {
     constructor({ serverSecret }) {
@@ -131,6 +135,28 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 this.notEnoughCpus()
         );
 
+
+        this.systemName = ko.pureComputed(
+            () => systemInfo() && systemInfo().name
+        );
+
+        this.internalStorage = ko.pureComputed(
+            () => {
+                if (!systemInfo()) {
+                    return '';
+                }
+
+                const { pools } = systemInfo();
+                const internalStorage = aggregateStorage(
+                    ...pools.filter(pool => pool.resource_type === 'INTERNAL').map(
+                        resource => resource.storage
+                    )
+                );
+
+                return internalStorage;
+            }
+        );
+
         const timezone = ko.pureComputed(() => this.server().timezone);
         this.infoSheet = this.getInfoSheet(minRequirements);
         this.version = this.getVersion();
@@ -195,6 +221,22 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             }
         );
 
+        const internalStorage = ko.pureComputed(
+            () => {
+                const storage = this.internalStorage();
+                const system = this.systemName();
+
+                if(!system) return '';
+                const uri = realizeUri(routes.pools, { system, tab: 'internal'}, {});
+
+                return storage.total ?
+                    `using 
+                     ${formatSize(storage.used)} of 
+                     ${formatSize(storage.total)} (by buckets spillover) ${hyperlink(uri, 'See internal resource')}` :
+                    '';
+            }
+        );
+
         return [
             {
                 label: 'IP Address',
@@ -223,7 +265,11 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             {
                 label: 'Number or CPUs',
                 value: cpusCount
-            }
+            },
+            {
+                label: 'Internal Storage Resource',
+                value: internalStorage
+            },
         ];
     }
 

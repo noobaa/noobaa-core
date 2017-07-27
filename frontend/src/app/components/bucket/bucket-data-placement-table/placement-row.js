@@ -10,8 +10,9 @@ export default class PlacementRowViewModel {
             () => pool() ? getPoolStateIcon(pool()) : ''
         );
 
+        const endpointType = pool().cloud_info && pool().cloud_info.endpoint_type;
         this.type = ko.pureComputed(
-            () => pool() ? getResourceTypeIcon(pool()) : ''
+            () => pool() ? getResourceTypeIcon(pool().resource_type, endpointType) : ''
         );
 
         this.resourceName = ko.pureComputed(

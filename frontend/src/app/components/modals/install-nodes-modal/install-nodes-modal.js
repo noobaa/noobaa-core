@@ -64,7 +64,6 @@ class InstallNodeWizardViewModel extends Observer {
             onForm: this.onForm.bind(this)
         });
 
-
         this.observe(
             state$.get('nodePools', 'pools'),
             this.onPools

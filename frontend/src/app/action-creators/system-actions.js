@@ -11,6 +11,9 @@ import {
     COMPLETE_FETCH_NODE_INSTALLATION_COMMANDS,
     FAIL_FETCH_NODE_INSTALLATION_COMMANDS,
     UPGRADE_SYSTEM,
+    FETCH_RESOURCE_STORAGE_HISTORY,
+    COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY,
+    FAIL_FETCH_RESOURCE_STORAGE_HISTORY
 } from 'action-types';
 
 export function createSystem(
@@ -97,5 +100,23 @@ export function failFetchNodeInstallationCommands(error) {
 
 export function upgradeSystem() {
     return { type: UPGRADE_SYSTEM };
+}
+
+export async function fetchResourceStorageHistory() {
+    return { type: FETCH_RESOURCE_STORAGE_HISTORY };
+}
+
+export function completeFetchResourceStorageHistory(poolHistory) {
+    return {
+        type: COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY,
+        payload: poolHistory
+    };
+}
+
+export function failFetchResourceStorageHistory(error) {
+    return {
+        type: FAIL_FETCH_RESOURCE_STORAGE_HISTORY,
+        payload: { error }
+    };
 }
 

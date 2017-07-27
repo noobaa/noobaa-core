@@ -10,11 +10,19 @@
             ko.css.selected="selectedTab.eq('cloud')">
             Cloud Storage
         </a>
+
         <a class="preview-only"
             ko.attr.href="tabHref('external')"
             ko.css.selected="selectedTab.eq('external')"
         >
             External Resources
+            <span class="beta-tag"></span>
+        </a>
+        <a class="preview-only"
+           ko.attr.href="tabHref('internal')"
+           ko.css.selected="selectedTab.eq('internal')"
+        >
+            Internal Storage
             <span class="beta-tag"></span>
         </a>
     </nav>
@@ -31,6 +39,10 @@
         <external-resources-table class="tab preview-only"
             ko.css.selected="selectedTab.eq('external')"
         ></external-resources-table>
+
+        <internal-resources-table class="tab preview-only"
+            ko.css.selected="selectedTab.eq('internal')"
+        ></internal-resources-table>
     </div>
 </section>
 

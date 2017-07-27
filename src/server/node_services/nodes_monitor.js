@@ -2121,7 +2121,7 @@ class NodesMonitor extends EventEmitter {
             }
         });
 
-        const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'OPTIMAL';
+        const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
 
         // calculate the host's mode according to the storage and s3 modes in decreasing priority
         // | storage        |     s3          |   host           |

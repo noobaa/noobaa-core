@@ -42,7 +42,7 @@ function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
             md5: md5
         },
     };
-    console.log('>>> UPLOAD - About to upload object... ' + file_name);
+    console.log(`>>> UPLOAD - About to upload object... ${file_name}, md5: ${md5}, size: ${data.length}`);
     var start_ts = Date.now();
     return P.ninvoke(s3bucket, 'putObject', params)
         .then(res => {
@@ -106,7 +106,8 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multi
     var start_ts = Date.now();
     var size = Math.ceil(actual_size / parts_num);
 
-    console.log('>>> MultiPart UPLOAD - About to multipart upload object...' + file_name);
+    console.log(`>>> MultiPart UPLOAD - About to multipart upload object... ${
+        file_name}, md5: ${md5}, size: ${data.length}`);
     var params = {
         Bucket: bucket,
         Key: file_name,
@@ -153,9 +154,11 @@ function get_file_check_md5(ip, bucket, file_name) {
                 .digest('hex');
             var file_md5 = res.Metadata.md5;
             if (md5 === file_md5) {
-                console.log("uploaded MD5: " + file_md5 + " and downloaded MD5: " + md5 + " - they are same :)");
+                console.log(`uploaded MD5: ${file_md5} and downloaded MD5: ${
+                    md5} - they are same, size: ${res.ContentLength}`);
             } else {
-                console.error("uploaded MD5: " + file_md5 + " and downloaded MD5: " + md5 + " - they are different :(");
+                console.error(`uploaded MD5: ${file_md5} and downloaded MD5: ${
+                    md5} - they are different, size: ${res.ContentLength}`);
                 throw new Error('Bad MD5 from download');
             }
         })

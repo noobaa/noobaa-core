@@ -128,6 +128,7 @@ function set_fileSize() {
 function read(server_ip, bucket_name, dataset) {
     console.log(`running read`);
     return s3ops.get_a_random_file(server_ip, bucket_name, dataset)
+        .tap(res => console.info(`Slected to download: ${res.Key}, size: ${res.Size}`))
         .then(res => s3ops.get_file_check_md5(server_ip, bucket_name, res.Key));
 }
 

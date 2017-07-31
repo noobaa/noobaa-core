@@ -40,10 +40,10 @@ export default deepFreeze({
         panel: 'pool',
         crumbsGenerator: _generatePoolCrumbs
     },
-    [routes.node]: {
+    [routes.host]: {
         area: 'resources',
-        panel: 'node',
-        crumbsGenerator: _generateNodeCrumbs
+        panel: 'host',
+        crumbsGenerator: _generateHostCrumbs
     },
     [routes.management]: {
         area: 'management',
@@ -152,15 +152,15 @@ function _generatePoolCrumbs(params) {
     ];
 }
 
-function _generateNodeCrumbs(params) {
+function _generateHostCrumbs(params) {
     return [
         ..._generatePoolCrumbs(params),
         {
             url: realizeUri(
                 routes.resources,
-                pick(params, ['system', 'pool', 'node'])
+                pick(params, ['system', 'pool', 'host'])
             ),
-            label: params.node
+            label: params.host
         }
     ];
 }

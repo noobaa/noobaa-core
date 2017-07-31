@@ -2,7 +2,6 @@
 
 import { FETCH_HOSTS } from 'action-types';
 import { completeFetchHosts, failFetchHosts } from 'action-creators';
-import { sleep } from 'utils/promise-utils';
 
 export default function(action$, { api }) {
     return action$
@@ -12,8 +11,6 @@ export default function(action$, { api }) {
             const { pools, name, modes, sortBy, order, skip, limit } = query;
 
             try {
-                await sleep(1500);
-
                 return completeFetchHosts(
                     query,
                     await api.host.list_hosts({

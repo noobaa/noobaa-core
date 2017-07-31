@@ -101,7 +101,7 @@ class PoolHostsTableViewModel extends Observer {
         const { name, state = 'ALL', page = 0, sortBy = 'name', order = 1 } = query;
         this.poolName = pool;
         this.baseRoute = realizeUri(route, { system, pool, tab }, {}, true);
-        this.baseHostRoute = realizeUri(routes.node, { system, pool }, {}, true);
+        this.baseHostRoute = realizeUri(routes.host, { system, pool }, {}, true);
         this.nameFilter(name);
         this.stateFilter(state);
         this.sorting({ sortBy, order: Number(order) });

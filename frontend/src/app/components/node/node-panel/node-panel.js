@@ -17,10 +17,10 @@ class NodePanelViewModel extends Observer {
     }
 
     onLocation({ route, params }) {
-        const { system, pool, node, tab = 'details' } = params;
-        if (!node) return;
+        const { system, pool, host, tab = 'details' } = params;
+        if (!host) return;
 
-        this.baseRoute = realizeUri(route, { system, pool, node }, {}, true);
+        this.baseRoute = realizeUri(route, { system, pool, host }, {}, true);
         this.selectedTab(tab);
     }
 

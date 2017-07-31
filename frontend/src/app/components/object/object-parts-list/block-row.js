@@ -37,10 +37,10 @@ function serverPoolInfo(pool_name, node_name) {
         node: {
             text: shortenNodeName,
             href: {
-                route: 'node',
+                route: 'host',
                 params: {
                     pool: pool_name,
-                    node: node_name,
+                    host: node_name,
                     tab: null
                 }
             }

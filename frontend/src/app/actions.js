@@ -101,26 +101,15 @@ export function showObject() {
     loadObjectPartList(bucket, object, parseInt(page));
 }
 
-export function showPool() {
-    logAction('showPool');
-
-    const ctx = model.routeContext();
-    const { pool } = ctx.params;
-    const { filter, state, sortBy = 'name', order = 1, page = 0 } = ctx.query;
-    const mode = state && getModeFilterFromState(state);
-
-    loadPoolNodeList(pool, filter, mode, sortBy, parseInt(order), parseInt(page));
-}
-
 export function showNode() {
-    logAction('showNode');
+    // logAction('showNode');
 
-    const ctx = model.routeContext();
-    const { node } = ctx.params;
-    const { page = 0 } = ctx.query;
+    // const ctx = model.routeContext();
+    // const { node } = ctx.params;
+    // const { page = 0 } = ctx.query;
 
-    loadNodeInfo(node);
-    loadNodeStoredPartsList(node, parseInt(page));
+    // loadNodeInfo(node);
+    // loadNodeStoredPartsList(node, parseInt(page));
 }
 
 export function showFuncs() {

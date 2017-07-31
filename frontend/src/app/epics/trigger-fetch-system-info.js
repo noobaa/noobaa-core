@@ -6,7 +6,8 @@ import {
     COMPLETE_UPDATE_BUCKET_QUOTA,
     COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
     COMPLETE_ADD_EXTERNAL_CONNECTION,
-    COMPLETE_UPDATE_BUCKET_SPILLOVER
+    COMPLETE_UPDATE_BUCKET_SPILLOVER,
+    COMPLETE_UPDATE_BUCKETS_SPILLOVER
 } from 'action-types';
 import { fetchSystemInfo } from 'action-creators';
 
@@ -18,7 +19,8 @@ export default function(action$) {
             COMPLETE_UPDATE_BUCKET_QUOTA,
             COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
             COMPLETE_ADD_EXTERNAL_CONNECTION,
-            COMPLETE_UPDATE_BUCKET_SPILLOVER
+            COMPLETE_UPDATE_BUCKET_SPILLOVER,
+            COMPLETE_UPDATE_BUCKETS_SPILLOVER
         )
         .map(() => fetchSystemInfo());
 }

@@ -81,6 +81,25 @@ export function getNodeStateIcon(node) {
     return nodeStateIconMapping[node.mode];
 }
 
+const sbucketStateIconMapping = deepFreeze({
+    true: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    },
+
+    false: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Not enough healthy storage resources'
+    }
+});
+
+
+export function getBucketStateIcon(bucket) {
+    return sbucketStateIconMapping[Boolean(bucket.writable)];
+}
+
 const hostsStateIconMapping = deepFreeze({
     HAS_NO_NODES: {
         tooltip: 'Pool is empty',

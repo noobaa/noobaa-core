@@ -4,23 +4,9 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deleteBucket } from'actions';
 import { deepFreeze } from 'utils/core-utils';
-import { getResourceTypeIcon, getBucketCapacityBarValues } from 'utils/ui-utils';
+import { getResourceTypeIcon, getBucketStateIcon, getBucketCapacityBarValues } from 'utils/ui-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { formatSize } from 'utils/size-utils';
-
-const stateIconMapping = deepFreeze({
-    true: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    },
-
-    false: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Not enough healthy storage resources'
-    }
-});
 
 const cloudSyncStatusMapping = deepFreeze({
     NOTSET: {
@@ -99,7 +85,7 @@ export default class BucketRowViewModel extends BaseViewModel {
         );
         const spilloverStorage = { used, total };
 
-        this.state(stateIconMapping[Boolean(bucket.writable)]);
+        this.state(getBucketStateIcon(bucket));
         this.name({
             text: bucket.name,
             href: { route: 'bucket', params: { bucket: bucket.name } }

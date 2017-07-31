@@ -76,6 +76,7 @@ export default function register(ko) {
     ko.components.register('account-created-modal',                 require('./modals/account-created-modal/account-created-modal').default);
     ko.components.register('edit-bucket-quota-modal',               require('./modals/edit-bucket-quota-modal/edit-bucket-quota-modal').default);
     ko.components.register('set-account-ip-restrictions-modal',     require('./modals/set-account-ip-restrictions-modal/set-account-ip-restrictions-modal').default);
+    ko.components.register('edit-spillover-targets-modal',          require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -277,5 +278,6 @@ export default function register(ko) {
     ko.components.register('validation-message',        require('./shared/validation-message/validation-message').default);
     ko.components.register('validation-rules-list',     require('./shared/validation-rules-list/validation-rules-list').default);
     ko.components.register('validation-indicator',      require('./shared/validation-indicator/validation-indicator').default);
+    ko.components.register('bucket-selection-table',    require('./shared/bucket-selection-table/bucket-selection-table').default);
     /** INJECT:shared **/
 }

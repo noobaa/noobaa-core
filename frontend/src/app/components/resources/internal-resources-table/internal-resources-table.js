@@ -6,8 +6,9 @@ import Observer from 'observer';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getPoolStateIcon, getPoolCapacityBarValues } from 'utils/ui-utils';
+import { openEditSpilloverTargetsModal } from 'action-creators';
 import ko from 'knockout';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
 
 const columns = deepFreeze([
     {
@@ -67,7 +68,7 @@ class InternalResourcesTableViewModel extends Observer {
     }
 
     onEditSpilloverTargets() {
-        // TODO:Add edit spillover targets modals to internal storage tab (resource page)
+        action$.onNext(openEditSpilloverTargetsModal());
     }
 }
 

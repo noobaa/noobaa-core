@@ -24,7 +24,7 @@ const bucketPermissionModes = deepFreeze([
 const formName = 'editAccountS3Access';
 
 function mapResourceToOption({ type, name: value, storage }) {
-    const { total, free: available_free, unavailable_free } = storage;
+    const { total, free: available_free = 0, unavailable_free = 0 } = storage;
     const free = sumSize(available_free, unavailable_free);
     const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
     const icons = type ? getCloudServiceMeta(type) : { icon: 'nodes-pool' };
@@ -47,7 +47,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
             state$.getMany(
                 ['accounts', accountName],
                 ['nodePools', 'pools'],
-                'cloudResources',
+                ['cloudResources', 'resources'],
                 'buckets'
             ),
             this.onState

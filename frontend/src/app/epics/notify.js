@@ -13,7 +13,9 @@ import {
     COMPLETE_ADD_EXTERNAL_CONNECTION,
     FAIL_ADD_EXTERNAL_CONNECTION,
     COMPLETE_UPDATE_BUCKET_SPILLOVER,
-    FAIL_UPDATE_BUCKET_SPILLOVER
+    FAIL_UPDATE_BUCKET_SPILLOVER,
+    COMPLETE_UPDATE_BUCKETS_SPILLOVER,
+    FAIL_UPDATE_BUCKETS_SPILLOVER,
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -69,6 +71,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_UPDATE_BUCKET_SPILLOVER]: ({ bucket }) => ({
         message: `Updating spillover for ${bucket} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_UPDATE_BUCKETS_SPILLOVER]: () => ({
+        message: 'Buckets spillover updated successfully',
+        severity: 'success'
+    }),
+
+    [FAIL_UPDATE_BUCKETS_SPILLOVER]: () => ({
+        message: 'Updating buckets spillover failed',
         severity: 'error'
     }),
 

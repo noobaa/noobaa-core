@@ -1,0 +1,24 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<form class="column greedy" ko.submit="form.submit" ko.if="isSpilloverTargetsReady">
+    <section class="column greedy">
+        <p class="push-next-half">
+            Internal storage spillover will be used in any case the selected bucket storage is completly
+            unavailable. Data will be spilled-back once storage is available again.
+        </p>
+        <bucket-selection-table class="greedy" params="
+            caption: 'Choose buckets for spillover usage:',
+            buckets: buckets,
+            selectedBuckets: selectedBuckets
+        "></bucket-selection-table>
+    </section>
+
+    <div class="row align-end content-middle">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.click="onSubmit">
+            Save
+        </button>
+    </div>
+</form>

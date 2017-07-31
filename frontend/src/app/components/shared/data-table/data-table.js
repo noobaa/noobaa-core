@@ -31,7 +31,8 @@ class DataTableViewModel extends BaseViewModel {
             rowCssProp,
             rowClick,
             subRow,
-            emptyMessage
+            emptyMessage,
+            loading = false
         } = params;
 
         const templates = Object.assign({}, cellTemplates, inlineTemplates);
@@ -90,9 +91,18 @@ class DataTableViewModel extends BaseViewModel {
         this.rowCssProp = rowCssProp;
         this.rowClick = rowClick;
 
+        // Loading indicator.
+        this.loading = loading;
+
         // Empty table message handling.
         this.emptyMessage = ko.pureComputed(
-            () => this.rows().length === 0 ? ko.unwrap(emptyMessage) : null
+            () => {
+                if (ko.unwrap(loading) || this.rows().length !== 0) {
+                    return null;
+                }
+
+                return ko.unwrap(emptyMessage);
+            }
         );
 
         // Init the table rows.

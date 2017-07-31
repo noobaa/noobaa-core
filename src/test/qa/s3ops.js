@@ -228,7 +228,72 @@ function get_a_random_file(ip, bucket, prefix) {
             throw err;
         });
 }
-
+function get_list_files(ip, bucket, prefix) {
+    let rest_endpoint = 'http://' + ip + ':80';
+    let s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    var params = {
+        Bucket: bucket,
+        Prefix: prefix,
+    };
+    var list = [];
+    var listFiles = [];
+    return P.ninvoke(s3bucket, 'listObjects', params)
+        .then(res => {
+            list = res.Contents;
+            if (list.length === 0) {
+                throw new Error('No files with prefix in bucket');
+            } else {
+                list.forEach(function(file) {
+                    listFiles.push({Key: file.Key});
+                    console.log('files key is: ' + file.Key);
+                });
+            }
+            return listFiles;
+        })
+        .catch(err => {
+            console.error('Get files list failed!', err);
+            throw err;
+        });
+}
+function get_list_prefixes(ip, bucket) {
+    let rest_endpoint = 'http://' + ip + ':80';
+    let s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    var params = {
+        Bucket: bucket,
+        Delimiter: "/"
+    };
+    var list = [];
+    var listPrefixes = [];
+    return P.ninvoke(s3bucket, 'listObjects', params)
+        .then(res => {
+            list = res.CommonPrefixes;
+            if (list.length === 0) {
+                throw new Error('No folders in bucket');
+            } else {
+                list.forEach(function(prefix) {
+                    listPrefixes.push(prefix.Prefix);
+                    console.log('prefix is : ' + prefix.Prefix);
+                });
+            }
+            return listPrefixes;
+        })
+        .catch(err => {
+            console.error('Get files list failed!', err);
+            throw err;
+        });
+}
 function get_file_number(ip, bucket, prefix) {
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
@@ -281,6 +346,23 @@ function delete_file(ip, bucket, file_name) {
             console.error('Delete file failed!', err);
             throw err;
         });
+}
+
+function delete_folder(ip, bucket, ...list) {
+    let rest_endpoint = 'http://' + ip + ':80';
+    let s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+            var params = {
+                Bucket: bucket,
+                Delete: {Objects: list},
+            };
+            return P.ninvoke(s3bucket, 'deleteObjects', params)
+                .catch(err => console.error('deleting objects with error' + err));
 }
 
 function get_file_size(ip, bucket, file_name) {
@@ -379,7 +461,10 @@ exports.get_file_check_md5 = get_file_check_md5;
 exports.check_MD5_all_objects = check_MD5_all_objects;
 exports.get_a_random_file = get_a_random_file;
 exports.get_file_number = get_file_number;
+exports.get_list_files = get_list_files;
+exports.get_list_prefixes = get_list_prefixes;
 exports.delete_file = delete_file;
+exports.delete_folder = delete_folder;
 exports.get_file_size = get_file_size;
 exports.set_file_attribute = set_file_attribute;
 exports.set_file_attribute_with_copy = set_file_attribute_with_copy;

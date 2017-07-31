@@ -1,7 +1,7 @@
 #!groovy​
 def branch = 'master'
 //dataset
-def noobaa_ip = '52.183.88.20'
+def noobaa_ip = '52.191.130.61'
 def values = noobaa_ip.tokenize('.')
 def prefix = values[2]+'-'+values[3]
 def dataset_size = '10240' // 10GB of dataset
@@ -14,23 +14,23 @@ def zone = 'westus2'
 def min_machines = '5' // minimum 3 machine
 def max_machines = '15' // maximum 10 machines
 //agentMatrix
-def azureName = 'agent-matrix-server'
-def serverName = '52.183.88.148'
+def azureName = 'agents-server'
+def serverName = '52.183.81.85'
 def agentConf = 'eyJhZGRyZXNzIjoid3NzOi8vMTAuMC4wLjQ6ODQ0MyIsInN5c3RlbSI6ImRlbW8iLCJyb290X3BhdGgiOiIuL2FnZW50X3N0b3JhZ2UvIiwiY3JlYXRlX25vZGVfdG9rZW4iOiJleUpoYkdjaU9pSklVekkxTmlJc0luUjVjQ0k2SWtwWFZDS' +
-                'jkuZXlKaFkyTnZkVzUwWDJsa0lqb2lOVGhoTkRJNFpHUmhNalJoTWpjMk9EQTNOVFJqWTJReElpd2ljM2x6ZEdWdFgybGtJam9pTlRoaE5ESTRaR1JoTWpSaE1qYzJPREEzTlRSalkyUXlJaXdpY205c1pTSTZJbU55WldGMFpWOXViMlJsSW' + 
+                'jkuZXlKaFkyTnZkVzUwWDJsa0lqb2lOVGhoTkRJNFpHUmhNalJoTWpjMk9EQTNOVFJqWTJReElpd2ljM2x6ZEdWdFgybGtJam9pTlRoaE5ESTRaR1JoTWpSaE1qYzJPREEzTlRSalkyUXlJaXdpY205c1pTSTZJbU55WldGMFpWOXViMlJsSW' +
                 'l3aVpYaDBjbUVpT25zaVlXZGxiblJmWTI5dVptbG5YMmxrSWpvaU5UaGxOakE1T0RZeU9EUTJNRGN6TWpjMFpEWTBaVE5pSW4wc0ltbGhkQ0k2TVRRNU1UUTNNRGN5Tm4wLkRibGtwY3R2ZlBhc2M0NnMyWmw4Y256enlvYzIxcGp0ZXZqcnZHRDJKNTAifQ=='
 def agentsResource = 'pipeline-agents'
 def agentsVnet = 'agents-vnet'
-def agentsStorage = 'jenkinsnoobaastorage'
+def agentsStorage = 'agentsserverstorage'
 def serverImage = 'https://jenkinsnoobaastorage.blob.core.windows.net/vhd-images/NooBaa-1.0.0-demo.vhd'
 //systemConfig
 def nodeLocalIP = '10.0.0.21'
 def serverLocalIP = '10.0.0.5'
-
+def severExternalIP = '52.191.133.53'
 
 node('jenkins-slave1-centos') {
+   def buildResult = "SUCCESS"
    try {
-    notifyBuild('STARTED')
     stage('Get code from GIT') {
         echo 'Checkouting from git!'
         checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '7df4e257-eb85-4243-9dc3-568d6127f752', url: 'https://tamireran@github.com/noobaa/noobaa-core']]])
@@ -41,7 +41,8 @@ node('jenkins-slave1-centos') {
               export NVM_DIR=/usr/local/nvm
               . /opt/nvm/nvm.sh
               nvm install 6.11.2
-              nvm use 6.11.2
+              nvm alias default 6
+              nvm use default
               cd $WORKSPACE
               npm install
               npm install azure cloud-cd
@@ -49,20 +50,28 @@ node('jenkins-slave1-centos') {
         // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
     }
     stage('Upgrading noobaa server') {
-      echo 'Upgrading machines to latest version!'
-      sh script: """
-              export NVM_DIR=/usr/local/nvm
-              . /opt/nvm/nvm.sh
-              curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/mdserver/lastSuccessfulBuild/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
-              # cp -R /root/node_modules/noobaa-core/build $WORKSPACE
-              # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
-              fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
-              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $noobaa_ip
-              node $WORKSPACE/src/deploy/azureSnapshots.js --resource $agentsResource --source $azureName --image $serverImage
-              sleep 1m
-              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $serverName
-              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $serverLocalIP
-      """
+      echo 'NO UPGRADING!'
+    //  sh script: """
+      //              export NVM_DIR=/usr/local/nvm
+      //              . /opt/nvm/nvm.sh
+      //              curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/mdserver/lastSuccessfulBuild/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
+      //              # cp -R /root/node_modules/noobaa-core/build $WORKSPACE
+      //              # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
+      //              fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
+      //              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $noobaa_ip
+      //              node $WORKSPACE/src/deploy/azureSnapshots.js --resource $agentsResource --source $azureName --image $serverImage
+      //              sleep 1m
+      //              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $serverName
+      //              node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $serverLocalIP
+      //      """
+    }
+    stage('Clean up dataset') {
+        echo 'Running delete dataset'
+           sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/delete_dataset.js --server '${noobaa_ip}'
+                    """
     }
     stage('Tests') {
       // Run the maven build
@@ -116,40 +125,19 @@ node('jenkins-slave1-centos') {
                 fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
                 node $WORKSPACE/src/test/qa/cluster_test.js --servers 3 --upgrade_pack \$fname --timeout '${aging_time}' --storage '${agentsStorage}' --resource '${agentsResource}' --vnet '${agentsVnet}' --breakonerror
             """
-			}
+          }
       )
-		}  
+	}
 	} catch (e) {
-     currentBuild.result = "FAILED"
-     throw e
-	 } finally {
-     notifyBuild(currentBuild.result)
-	}
-   }
- 
-	def notifyBuild(String buildStatus = 'STARTED') {
-		buildStatus =  buildStatus ?: 'SUCCESSFUL'
-		def fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
-		def colorName = 'RED'
-		def colorCode = '#FF0000'
-		def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' VERSION: ${fname}"
-		def summary = "${subject} (${env.BUILD_URL})"
-		def details = """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' VERSION: ${fname}:</p>
-		<p>Check console output at "<a href="${env.BUILD_URL}">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>"</p>"""
-	if (buildStatus == 'STARTED') {
-     color = 'YELLOW'
-     colorCode = '#FFFF00'
-		} else if (buildStatus == 'SUCCESSFUL') {
-     color = 'GREEN'
-     colorCode = '#00FF00'
-		} else {
-     color = 'RED'
-     colorCode = '#FF0000'
-		}
-	emailext ( 
-       subject: subject, 
-       body: details,
-       to:  'yuliia.kovalenko@noobaa.com; liran.mauda@noobaa.com; nimrod.becker@noobaa.com',
-	   attachLog: true,
-			)
-	}
+        buildResult = "FAILED"
+        echo 'build failed with error ' + e
+        throw e
+            } finally {
+                    def subject = "Job '${JOB_NAME}' (${BUILD_NUMBER}) version is " + buildResult
+                    def appLog = readFile("${WORKSPACE}/logs/noobaa.log")
+                    def details = "Please go to ${BUILD_URL} and verify the build. noobaa logs: " + appLog
+                    mail subject: subject,
+                        body: details,
+                        to:  'yuliia.kovalenko@noobaa.com, liran.mauda@noobaa.com, nimrod.becker@noobaa.com'
+            }
+    }

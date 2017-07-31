@@ -343,7 +343,7 @@ function verify_demo_system(ip) {
         .then(function(data) {
             console.log('Demo system exists');
             load_aws_config_env(); //back to EC2/S3
-            return;
+
         })
         .then(null, function(error) {
             load_aws_config_env(); //back to EC2/S3
@@ -351,7 +351,7 @@ function verify_demo_system(ip) {
         });
 }
 
-function put_object(ip, source, bucket, key) {
+function put_object(ip, source, bucket, key, timeout, throw_on_error) {
     load_demo_config_env(); //switch to Demo system
 
     var rest_endpoint = 'http://' + ip + ':80';
@@ -377,9 +377,9 @@ function put_object(ip, source, bucket, key) {
         .then(function(res) {
             console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
             load_aws_config_env(); //back to EC2/S3
-            return;
+
         }, function(err) {
-            var wait_limit_in_sec = 1200;
+            var wait_limit_in_sec = timeout || 1200;
             var start_moment = moment();
             var wait_for_agents = (err.statusCode === 500 || err.statusCode === 403);
             console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
@@ -399,7 +399,7 @@ function put_object(ip, source, bucket, key) {
                                 console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
                                 load_aws_config_env(); //back to EC2/S3
                                 wait_for_agents = false;
-                                return;
+
                             }, function(err2) {
                                 console.log('failed to upload. Will wait 10 seconds and retry. err', err2.statusCode);
                                 var curr_time = moment();
@@ -407,6 +407,9 @@ function put_object(ip, source, bucket, key) {
                                     console.error('failed to upload. cannot wait any more', err2.statusCode);
                                     load_aws_config_env(); //back to EC2/S3
                                     wait_for_agents = false;
+                                    if (throw_on_error) {
+                                        throw new Error(err2);
+                                    }
                                 } else {
                                     return P.delay(10000);
                                 }
@@ -446,7 +449,7 @@ function get_object(ip, obj_path) {
         .then(function() {
             console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
             load_aws_config_env(); //back to EC2/S3
-            return;
+
         })
         .then(null, function(err) {
             load_aws_config_env(); //back to EC2/S3
@@ -672,9 +675,7 @@ function ec2_wait_for(region_name, state_name, params) {
     });
 
     return P.ninvoke(ec2, 'waitFor', state_name, params).then(function(data) {
-        if (data) {
-            return;
-        } else {
+        if (!data) {
             console.error('Error while waiting for state', state_name, 'at', region_name, 'with', params);
             return '';
         }

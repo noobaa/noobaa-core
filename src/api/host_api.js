@@ -375,7 +375,7 @@ module.exports = {
                 mode: {
                     type: 'array',
                     items: {
-                        $ref: 'node_api#/definitions/node_mode'
+                        $ref: '#/definitions/host_mode'
                     }
                 }
             },

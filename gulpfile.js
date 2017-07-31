@@ -10,6 +10,7 @@ const gulp_json_editor = require('gulp-json-editor');
 
 const _ = require('lodash');
 const argv = require('minimist')(process.argv);
+const fs = require('filesystem');
 const path = require('path');
 const dotenv = require('./src/util/dotenv');
 const event_stream = require('event-stream');
@@ -35,7 +36,7 @@ const NVA_Package_sources = [
 
 function pack(dest, name) {
     var pkg_stream = gulp.src('package.json')
-        .pipe(gulp_json_editor(function(json) {
+        .pipe(gulp_json_editor(json => {
             var deps = _.omit(
                 json.dependencies,
                 (val, key) => (/gulp|jshint|eslint|mocha|istanbul/).test(key)
@@ -51,27 +52,27 @@ function pack(dest, name) {
         .on('error', gutil.log);
 
     var src_stream = gulp.src(NVA_Package_sources, {
-            base: 'src'
-        })
-        .pipe(gulp_rename(function(p) {
+        base: 'src'
+    })
+        .pipe(gulp_rename(p => {
             p.dirname = path.join('src', p.dirname);
         }))
         .on('error', gutil.log);
     // TODO bring back uglify .pipe(gulp_uglify());
 
     var node_modules_stream = gulp.src([
-            'node_modules/**/*',
-            '!node_modules/babel*/**/*',
-            '!node_modules/gulp*/**/*',
-            '!node_modules/node-inspector/**/*',
-            '!node_modules/chromedriver/**/*',
-            '!node_modules/selenium-webdriver/**/*',
-            '!node_modules/selenium-standalone/**/*',
-            '!node_modules/phantomjs-prebuilt/**/*'
-        ], {
+        'node_modules/**/*',
+        '!node_modules/babel*/**/*',
+        '!node_modules/gulp*/**/*',
+        '!node_modules/node-inspector/**/*',
+        '!node_modules/chromedriver/**/*',
+        '!node_modules/selenium-webdriver/**/*',
+        '!node_modules/selenium-standalone/**/*',
+        '!node_modules/phantomjs-prebuilt/**/*'
+    ], {
             base: 'node_modules'
         })
-        .pipe(gulp_rename(function(p) {
+        .pipe(gulp_rename(p => {
             p.dirname = path.join('node_modules', p.dirname);
         }))
         .on('error', gutil.log);
@@ -87,41 +88,41 @@ function pack(dest, name) {
     ], {});
 
     var agent_distro = gulp.src(['src/build/windows/noobaa_setup.exe'], {})
-        .pipe(gulp_rename(function(p) {
+        .pipe(gulp_rename(p => {
             p.dirname = path.join('deployment', p.dirname);
         }))
         .on('error', gutil.log);
 
     var build_stream = gulp.src(['build/public/**/*'], {})
-        .pipe(gulp_rename(function(p) {
+        .pipe(gulp_rename(p => {
             p.dirname = path.join('build/public', p.dirname);
         }))
         .on('error', gutil.log);
 
     var build_native_stream = gulp.src(['build/Release/**/*'], {})
-        .pipe(gulp_rename(function(p) {
+        .pipe(gulp_rename(p => {
             p.dirname = path.join('build/Release', p.dirname);
         }))
         .on('error', gutil.log);
 
     var build_fe_stream = gulp.src(['frontend/dist/**/*'], {})
-        .pipe(gulp_rename(function(p) {
+        .pipe(gulp_rename(p => {
             p.dirname = path.join('frontend/dist', p.dirname);
         }))
         .on('error', gutil.log);
 
     return event_stream
         .merge(
-            pkg_stream,
-            src_stream,
-            basejs_stream,
-            agent_distro,
-            build_stream,
-            build_native_stream,
-            build_fe_stream,
-            node_modules_stream
+        pkg_stream,
+        src_stream,
+        basejs_stream,
+        agent_distro,
+        build_stream,
+        build_native_stream,
+        build_fe_stream,
+        node_modules_stream
         )
-        .pipe(gulp_rename(function(p) {
+        .pipe(gulp_rename(p => {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
         .on('error', gutil.log)
@@ -143,23 +144,25 @@ function package_build_task() {
     var NAME = 'noobaa-NVA';
 
     return promise_utils.exec('chmod 777 build/public/noobaa-setup*')
-        .then(function() {
+        .then(() => fs.statAsync(`build/public/noobaa-setup-${current_pkg_version}.exe`))
+        .then(() => fs.statAsync(`build/public/noobaa-setup-${current_pkg_version}`))
+        .catch(err => {
+            gutil.log('Can\'t find the currect file', err.message);
+            process.exit(1);
+        })
+        .then(() => {
             gutil.log('before downloading nvm and node package');
             return promise_utils.exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
         })
-        .then(function() {
-            return promise_utils.exec('curl -o- https://nodejs.org/dist/v6.9.5/node-v6.9.5-linux-x64.tar.xz >build/public/node-v6.9.5-linux-x64.tar.xz', [], process.cwd());
-        })
-        .then(function() {
+        .then(() => promise_utils.exec('curl -o- https://nodejs.org/dist/v6.9.5/node-v6.9.5-linux-x64.tar.xz >build/public/node-v6.9.5-linux-x64.tar.xz', [], process.cwd()))
+        .then(() => {
             //call for packing
             gutil.log('Packing ' + DEST + ' to ' + NAME + "-" + current_pkg_version + '.tar');
             return pack(DEST, NAME + "-" + current_pkg_version + '.tar');
         })
-        .then(null, function(error) {
+        .then(null, error => {
             gutil.log("error ", error, error.stack);
         });
 }
 
-gulp.task('package_build', function() {
-    return package_build_task();
-});
+gulp.task('package_build', package_build_task);

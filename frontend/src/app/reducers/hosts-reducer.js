@@ -1,12 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { mapValues, keyByProperty, createCompareFunc } from 'utils/core-utils';
+import { echo, mapValues, keyByProperty, createCompareFunc, hashCode } from 'utils/core-utils';
 import { paginationPageSize } from 'config';
 import {
     FETCH_HOSTS,
     COMPLETE_FETCH_HOSTS,
-    FAIL_FETCH_HOSTS
+    FAIL_FETCH_HOSTS,
+    DROP_HOSTS_VIEW
 } from 'action-types';
 
 const maxNumberOfHostsInMemory = paginationPageSize * 10;
@@ -48,19 +49,10 @@ function onFetchHosts(state, { payload }) {
 }
 
 function onCompleteFetchHosts(state, { payload }) {
-    const updates = keyByProperty(
-        payload.hosts,
-        'host_id',
-        host => ({
-            name: host.host_id,
-            displayName: host.name,
-            mode: host.mode,
-            ip: host.ip,
-            storage: host.storage
-        })
-    );
+    const { hosts, filter_counts } = payload.response;
 
-    const queryKey = _generateQueryKey(payload.query);
+    const updates = keyByProperty(hosts, 'host_id', _mapHost);
+    const key = _generateQueryKey(payload.query);
     const items = {
         ...state.items,
         ...updates
@@ -68,10 +60,13 @@ function onCompleteFetchHosts(state, { payload }) {
 
     const queries = {
         ...state.queries,
-        [queryKey]: {
-            ...state.queries[queryKey],
-            items: Object.keys(updates),
-            fetching: false
+        [key]: {
+            ...state.queries[key],
+            fetching: false,
+            result: {
+                items: Object.keys(updates),
+                counters: filter_counts.by_mode
+            }
         }
     };
 
@@ -104,8 +99,8 @@ function onCompleteFetchHosts(state, { payload }) {
     // Use mapValues to omit undefiend keys.
     return {
         ...state,
-        items: mapValues(items),
-        queries: mapValues(queries),
+        items: mapValues(items, echo),
+        queries: mapValues(queries, echo),
         overallocated
     };
 }
@@ -126,14 +121,39 @@ function onFailFetchHosts(state, { payload }) {
     };
 }
 
+function onDropHostsView(state, { payload }) {
+    const { [payload.view]: _, ...views } = state.views;
+
+    return {
+        ...state,
+        views
+    };
+}
+
 // ------------------------------
 // Local util functions
 // ------------------------------
 function _generateQueryKey(query) {
-    return JSON.stringify(query);
+    return hashCode(query);
 }
 
+function _mapHost(host) {
+    const { storage_nodes_info, s3_nodes_info } = host;
 
+    return {
+        name: host.host_id,
+        hostname: host.name,
+        mode: host.mode,
+        ip: host.ip,
+        storage: host.storage,
+        storageService: {
+            enabled: Boolean(storage_nodes_info.enabled)
+        },
+        gatewayService: {
+            enabled: Boolean(s3_nodes_info.enabled)
+        }
+    };
+}
 
 // ------------------------------
 // Exported reducer function
@@ -141,6 +161,6 @@ function _generateQueryKey(query) {
 export default createReducer(initialState, {
     [FETCH_HOSTS]: onFetchHosts,
     [COMPLETE_FETCH_HOSTS]: onCompleteFetchHosts,
-    [FAIL_FETCH_HOSTS]: onFailFetchHosts
-
+    [FAIL_FETCH_HOSTS]: onFailFetchHosts,
+    [DROP_HOSTS_VIEW]: onDropHostsView
 });

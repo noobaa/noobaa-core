@@ -10,6 +10,7 @@ import {
     DEACTIVATE_HOST,
     COMPLETE_DEACTIVATE_HOST,
     FAIL_DEACTIVATE_HOST,
+    DROP_HOSTS_VIEW
 } from 'action-types';
 
 
@@ -33,6 +34,13 @@ export function failFetchHosts(query, error) {
     return {
         type: FAIL_FETCH_HOSTS,
         payload: { query, error }
+    };
+}
+
+export function dropHostsView(view) {
+    return {
+        type: DROP_HOSTS_VIEW,
+        payload: { view }
     };
 }
 
@@ -77,3 +85,4 @@ export function failDeactivateHost(host, error) {
         payload: { host, error }
     };
 }
+

@@ -3,6 +3,7 @@
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
 import numeral from 'numeral';
 
@@ -58,8 +59,7 @@ export default class PoolRowViewModel {
 
     onPool(pool) {
         if (!pool) return;
-        const { name, connectedBuckets, hostCount, hostsByMode,
-            storage, undeletable } = pool;
+        const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
 
         // Save the name to identify the pool in delete operations.
         this.id = name;
@@ -80,11 +80,11 @@ export default class PoolRowViewModel {
             tooltip: bucketCount ? connectedBuckets : null
         });
 
-        const { OPTIMAL = 0, OFFLINE = 0 } = hostsByMode;
-        this.hostCount(numeral(hostCount).format('0,0'));
-        this.healthyCount(numeral(OPTIMAL).format('0,0'));
-        this.offlineCount(numeral(OFFLINE).format('0,0'));
-        this.issuesCount(numeral(hostCount - OPTIMAL - OFFLINE).format('0,0'));
+        const { all, healthy, hasIssues, offline } = summrizeHostModeCounters(hostsByMode);
+        this.hostCount(numeral(all).format('0,0'));
+        this.healthyCount(numeral(healthy).format('0,0'));
+        this.issuesCount(numeral(hasIssues).format('0,0'));
+        this.offlineCount(numeral(offline).format('0,0'));
 
         const { total, used, used_other, reserved } = storage;
         this.totalCapacity(total);

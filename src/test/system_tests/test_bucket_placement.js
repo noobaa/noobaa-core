@@ -19,6 +19,9 @@ var client = rpc.new_client({
     address: 'ws://' + argv.ip + ':' + process.env.PORT
 });
 
+const TEST_BUCKET_NAME = 'bucket1';
+const TEST_QUOTA_BUCKET_NAME = 'bucketquota';
+
 module.exports = {
     run_test: run_test
 };
@@ -81,13 +84,13 @@ function run_test() {
             }]
         }))
         .then(() => client.bucket.create_bucket({
-            name: 'bucket1',
+            name: TEST_BUCKET_NAME,
             tiering: 'tiering1',
         }))
         .then(() => basic_server_ops.generate_random_file(20))
         .then(fl => {
             fkey = fl;
-            return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
+            return basic_server_ops.upload_file(argv.ip, fkey, TEST_BUCKET_NAME, fkey);
         })
         .delay(3000)
         .catch(function(err) {
@@ -95,7 +98,7 @@ function run_test() {
             throw new Error('Failed uploading file (SPREAD) ' + err);
         })
         .then(() => client.object.read_object_mappings({
-            bucket: 'bucket1',
+            bucket: TEST_BUCKET_NAME,
             key: fkey,
             adminfo: true
         }))
@@ -116,7 +119,7 @@ function run_test() {
         .then(() => basic_server_ops.generate_random_file(20))
         .then(fl => {
             fkey = fl;
-            return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
+            return basic_server_ops.upload_file(argv.ip, fkey, TEST_BUCKET_NAME, fkey);
         })
         .delay(3000)
         .catch(function(err) {
@@ -124,7 +127,7 @@ function run_test() {
             throw new Error('Failed uploading file (MIRROR) ' + err);
         })
         .then(() => client.object.read_object_mappings({
-            bucket: 'bucket1',
+            bucket: TEST_BUCKET_NAME,
             key: fkey,
             adminfo: true
         }))
@@ -147,6 +150,7 @@ function run_test() {
             });
         })
         .then(() => perform_spillover_tests(fkey))
+        .then(() => perform_quota_tests())
         .then(() => {
             rpc.disconnect_all();
             return P.resolve("Test Passed! Everything Seems To Be Fine...");
@@ -160,10 +164,80 @@ function run_test() {
 }
 
 function perform_spillover_tests(fkey) {
+    console.log('Testing spillover');
     return P.resolve()
         .then(() => update_bucket_policy_to_spillover_only())
         .then(() => check_file_validity_on_spillover(fkey))
         .then(() => perform_upload_test_without_spillover());
+}
+
+function perform_quota_tests() {
+    console.log('Testing Quota');
+    return P.resolve()
+        .then(() => client.tier.create_tier({
+            name: 'tier2',
+            attached_pools: ['pool1', 'pool2'],
+            data_placement: 'SPREAD'
+        }))
+        .then(() => client.tiering_policy.create_policy({
+            name: 'tiering2',
+            tiers: [{
+                order: 0,
+                tier: 'tier2',
+                spillover: false,
+                disabled: false
+            }]
+        }))
+        .then(() => client.bucket.create_bucket({
+            name: TEST_QUOTA_BUCKET_NAME,
+            tiering: 'tiering2',
+        }))
+        .then(() => update_quota_on_bucket(1))
+        .tap(() => console.log(`Bucket ${TEST_QUOTA_BUCKET_NAME} quota was set to 1GB`))
+        .then(() => basic_server_ops.generate_random_file(1))
+        .tap(() => console.log('Uploading 1MB file'))
+        .then(fl => basic_server_ops.upload_file(argv.ip, fl, TEST_QUOTA_BUCKET_NAME, fl)
+            .catch(err => {
+                throw new Error('perform_quota_tests should not fail ul 1mb when quota is 1gb', err);
+            })
+        )
+        .tap(() => console.log('uploading 1.2GB file'))
+        .then(() => basic_server_ops.generate_random_file(1200))
+        .then(fl => basic_server_ops.upload_file(argv.ip, fl, TEST_QUOTA_BUCKET_NAME, fl))
+        .tap(() => console.log('waiting for md_aggregation calculations'))
+        .delay(120000)
+        .then(() => basic_server_ops.generate_random_file(30))
+        .then(fl => basic_server_ops.upload_file(argv.ip, fl, TEST_QUOTA_BUCKET_NAME, fl, 20, true)
+            .then(res => {
+                throw new Error('Upload Should not succeed when over quota');
+            })
+            .catch(() => {
+                console.info('Expected failure of file over quota limit');
+            })
+        )
+        .then(() => update_quota_on_bucket());
+}
+
+function update_quota_on_bucket(limit_gb) {
+    return P.resolve()
+        .then(() => {
+            if (limit_gb) {
+                return client.bucket.update_bucket({
+                    name: TEST_QUOTA_BUCKET_NAME,
+                    quota: {
+                        size: limit_gb,
+                        unit: 'GIGABYTE'
+                    }
+                });
+            } else {
+                return client.bucket.update_bucket({
+                    name: TEST_QUOTA_BUCKET_NAME,
+                });
+            }
+        })
+        .catch(err => {
+            throw new Error(`Failed setting quota with ${limit_gb}`, err);
+        });
 }
 
 function update_bucket_policy_to_spillover_only() {
@@ -174,7 +248,7 @@ function update_bucket_policy_to_spillover_only() {
             data_placement: 'SPREAD'
         }))
         .then(() => client.bucket.update_bucket({
-            name: 'bucket1',
+            name: TEST_BUCKET_NAME,
             tiering: 'tiering1',
             use_internal_spillover: true
         }));
@@ -193,7 +267,7 @@ function check_file_validity_on_spillover(fkey) {
         function() {
             blocks_correct = true;
             return client.object.read_object_mappings({
-                    bucket: 'bucket1',
+                    bucket: TEST_BUCKET_NAME,
                     key: fkey,
                     adminfo: true
                 })
@@ -238,12 +312,12 @@ function perform_upload_test_without_spillover() {
     const err_timeout = new Error('TIMED OUT FROM PROMISE');
     return P.resolve()
         .then(() => client.bucket.update_bucket({
-            name: 'bucket1',
+            name: TEST_BUCKET_NAME,
             tiering: 'tiering1',
             use_internal_spillover: false
         }))
         .then(() => basic_server_ops.generate_random_file(1))
-        .then(fl => basic_server_ops.upload_file(argv.ip, fl, 'bucket1', fl)
+        .then(fl => basic_server_ops.upload_file(argv.ip, fl, TEST_BUCKET_NAME, fl)
             // Since upload_file has a timeout of 20minutes, we do not want to wait
             // Please fix this value in case that you change put_object in ec2_wrapper
             // We currently use 10 seconds since it is the cycle length there to retry

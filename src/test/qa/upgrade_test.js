@@ -18,11 +18,11 @@ var subscription = 'a3556050-2d88-42a4-a4e3-f0a2087edc60';
 var resourceGroup = argv.resource || 'qa-upgrade-test';
 
 var clientId = "199522b3-407d-45eb-b7fb-023d21ab6406";
-var secret = "1qaz2wsx";
+var secret = "20ef99ce";
 var domain = "noobaa.com";
 
 var location = argv.location || 'westus2';
-var storage = argv.storage || 'qaupgrade';
+var storage = argv.storage || 'qaupgradeserverdisk';
 
 var service = {
     clientId: clientId,
@@ -40,7 +40,7 @@ var connection = {
 var timestamp = (Math.floor(Date.now() / 1000));
 var vnet = argv.vnet || 'qa-upgrade-vnet';
 var noobaa_server = {
-    name: '',
+    name: 'qa-upgrade-server',
     flavor: 'Standard_A2_v2',
     username: 'notadmin',
     password: 'Passw0rd123!',
@@ -53,7 +53,7 @@ var noobaa_server = {
 };
 
 var noobaa_agent = {
-    name: '',
+    name: 'qa-upgrade-agent',
     flavor: 'Standard_A2_v2',
     username: 'notadmin',
     password: 'Passw0rd123!',
@@ -154,7 +154,7 @@ function clean_old_machines(machine_name) {
 
 return P.each(procedure, upgrade_procedure => {
     var machine_name = 'u' + upgrade_procedure.base_version.replace(new RegExp('\\.', 'g'), '-');
-    var machine_ip = 'upgrade-base0-8-0-vmdns.westus2.cloudapp.azure.com'; // the ip of the machine was just created
+    var machine_ip = '52.229.30.76'; // the ip of the machine was just created
     var base64;
     console.log('Removing old running machine if exist');
     return clean_old_machines(machine_name)

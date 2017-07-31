@@ -231,7 +231,6 @@ function run_test() {
         .then(remove_agents)
         .then(() => {
             console.log('test_node_failure PASSED');
-            process.exit(0);
         })
         .catch(err => {
             remove_agents();

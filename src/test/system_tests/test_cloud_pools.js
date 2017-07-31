@@ -32,7 +32,8 @@ let TEST_CTX = {
     target_port: process.env.PORT || '5001',
     target_bucket: 'cloud-resource-jenkins-test',
     connection_name: 'unicorn',
-    cloud_pool_name: 'majesticsloth'
+    cloud_pool_name: 'majesticsloth',
+    cloud_pool_id: ''
 };
 
 var file_sizes = [1];
@@ -42,6 +43,9 @@ var client = rpc.new_client({
     address: 'ws://' + TEST_CTX.source_ip + ':' + TEST_CTX.target_port
 });
 
+module.exports = {
+    run_test: run_test
+};
 
 function init_s3() {
     return P.ninvoke(s3, 'headBucket', {
@@ -155,7 +159,7 @@ function authenticate() {
 }
 
 
-function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, object_key, cloud_nodes) {
+function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, object_key, cloud_pool) {
     // TODO: Currently set high because there is a problem with cloud resource test block write
     // That blocks the whole replication process
     let abort_timeout_sec = 10 * 60;
@@ -176,31 +180,24 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
                         adminfo: true
                     })
                     .then(function(obj_mapping_arg) {
-                        let blocks_by_cloud_pool_name = {};
-                        _.forEach(cloud_nodes, node => {
-                            blocks_by_cloud_pool_name[node] = {
-                                blocks: []
-                            };
-                        });
+                        let blocks_by_cloud_pool_name = {
+                            blocks: []
+                        };
                         _.forEach(obj_mapping_arg.parts, part => {
-                            if (replicas_in_tier + ((cloud_nodes && cloud_nodes.length) || 0) !==
-                                part.chunk.frags[0].blocks.length) {
+                            if (replicas_in_tier + 1 !== part.chunk.frags[0].blocks.length) {
                                 blocks_correct = false;
                             }
                             _.forEach(part.chunk.frags[0].blocks, block => {
-                                if (_.find(cloud_nodes, node => String(node) === String(block.adminfo.node_name))) {
-                                    blocks_by_cloud_pool_name[block.adminfo.node_name].blocks.push(block);
+                                if (String(cloud_pool) === String(block.adminfo.pool_name)) {
+                                    if (TEST_CTX.cloud_pool_id === '') {
+                                        TEST_CTX.cloud_pool_id = block.adminfo.node_name.split('-')[3];
+                                    }
+                                    blocks_by_cloud_pool_name.blocks.push(block);
                                 }
                             });
                         });
 
-                        _.forEach(blocks_by_cloud_pool_name, node => {
-                            if (node.blocks.length !== obj_mapping_arg.parts.length) {
-                                blocks_correct = false;
-                            }
-                        });
-
-                        if (blocks_correct) {
+                        if (blocks_correct && blocks_by_cloud_pool_name.blocks.length === obj_mapping_arg.parts.length) {
                             console.log('verify_object_parts_on_cloud_nodes blocks found:', util.inspect(blocks_by_cloud_pool_name, {
                                 depth: null
                             }));
@@ -223,7 +220,7 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
 }
 
 
-function main() {
+function run_test() {
     let replicas_in_tier;
     let files_bucket_tier;
     return authenticate()
@@ -234,7 +231,8 @@ function main() {
             name: TEST_CTX.connection_name,
             endpoint: 'https://s3.amazonaws.com',
             identity: process.env.AWS_ACCESS_KEY_ID,
-            secret: process.env.AWS_SECRET_ACCESS_KEY
+            secret: process.env.AWS_SECRET_ACCESS_KEY,
+            endpoint_type: 'AWS'
         }))
         .then(() => client.pool.create_cloud_pool({
             name: TEST_CTX.cloud_pool_name,
@@ -269,9 +267,6 @@ function main() {
                         });
                 });
         })
-        // This is used in order to test removal of blocks that are relevant to the bucket assosiated
-        .then(() => put_object(s3, TEST_CTX.target_bucket,
-            `noobaa_blocks/noobaa-internal-agent-${TEST_CTX.cloud_pool_name}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`))
         .then(function() {
             return P.each(file_names, function(fname) {
                 return basic_server_ops.generate_random_file(file_sizes[0])
@@ -282,10 +277,13 @@ function main() {
         })
         // TODO Do the Azure node as well
         .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
-            file_names[0], ['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name]))
+            file_names[0], TEST_CTX.cloud_pool_name))
+        // This is used in order to test removal of blocks that are relevant to the bucket assosiated
+        .then(() => put_object(s3, TEST_CTX.target_bucket,
+            `noobaa_blocks/${TEST_CTX.cloud_pool_id}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`))
         .then(function(block_ids) {
-            return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3)
+            return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                    _.map(block_ids.blocks, block => block.block_md.id), s3)
                 .then(() => block_ids);
         })
         .then(function(block_ids) {
@@ -304,17 +302,17 @@ function main() {
                     Key: file_names[0]
                 })
                 // This is used in order to make sure that the blocks will be deleted from the cloud
-                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id), s3))
+                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                    _.map(block_ids.blocks, block => block.block_md.id), s3))
                 .catch(err => {
                     console.error(err);
                     throw new Error('deleteObject::Blocks still on cloud');
                 });
         })
         .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
-            file_names[1], ['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name]))
+            file_names[1], TEST_CTX.cloud_pool_name))
         .then(block_ids => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
-                file_names[2], ['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name])
+                file_names[2], TEST_CTX.cloud_pool_name)
             .then(function(second_block_ids) {
                 return {
                     first_blocks: block_ids,
@@ -322,8 +320,8 @@ function main() {
                 };
             }))
         .then(function(block_ids) {
-            return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids.first_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id),
+            return test_utils.blocks_exist_on_cloud(true, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                    _.map(block_ids.first_blocks.blocks, block => block.block_md.id),
                     s3)
                 .then(() => block_ids);
         })
@@ -335,11 +333,11 @@ function main() {
                     attached_pools: new_pools,
                     data_placement: 'SPREAD'
                 })
-                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids.first_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id),
+                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                    _.map(block_ids.first_blocks.blocks, block => block.block_md.id),
                     s3))
-                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_name, TEST_CTX.target_bucket,
-                    _.map(block_ids.second_blocks['noobaa-internal-agent-' + TEST_CTX.cloud_pool_name].blocks, block => block.block_md.id),
+                .then(() => test_utils.blocks_exist_on_cloud(false, TEST_CTX.cloud_pool_id, TEST_CTX.target_bucket,
+                    _.map(block_ids.second_blocks.blocks, block => block.block_md.id),
                     s3))
                 .catch(err => {
                     console.error(err);
@@ -347,9 +345,13 @@ function main() {
                 })
                 .then(() => P.ninvoke(s3, 'headObject', {
                     Bucket: TEST_CTX.target_bucket,
-                    Key: `noobaa_blocks/noobaa-internal-agent-${TEST_CTX.cloud_pool_name}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`
+                    Key: `noobaa_blocks/${TEST_CTX.cloud_pool_id}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`
                 }));
-        })
+        });
+}
+
+function main() {
+    return run_test()
         .then(() => {
             console.log('test_cloud_pools PASSED');
             process.exit(0);

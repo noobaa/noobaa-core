@@ -257,7 +257,7 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         return P.resolve()
             .then(() => self[current_step.common].apply(self))
             .then(function() {
-                return step_res + ' - Successeful common step ( took ' +
+                return step_res + ' - Successful common step ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
                 //return step_res;
             })
@@ -295,7 +295,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
 
     return promise_utils.spawn(command, args, options)
         .then(function(res) {
-            step_res = '        ' + step_res + ' - Successeful running action  ( took ' +
+            step_res = '        ' + step_res + ' - Successful running action  ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
             console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
             return step_res;
@@ -326,13 +326,14 @@ TestRunner.prototype._run_lib_test = function(current_step, step_res) {
     return P.resolve(test.run_test())
         .then(function(res) {
             dbg.set_log_to_file();
-            step_res = '        ' + step_res + ' - Successeful ( took ' +
+            step_res = '        ' + step_res + ' - Successful ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
             console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
             return step_res;
         })
         .catch(function(res) {
             self._error = true;
+            dbg.set_log_to_file();
             if (current_step.blocking) {
                 fs.appendFileSync(REPORT_PATH, step_res + ' ' + res + '\n');
                 throw new Error('Blocking libtest failed');

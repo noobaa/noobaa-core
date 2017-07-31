@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './node-panel.html';
+import template from './host-panel.html';
 import Observer  from 'observer';
 import { state$ } from 'state';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 
-class NodePanelViewModel extends Observer {
+class HostPanelViewModel extends Observer {
     constructor() {
         super();
 
@@ -30,6 +30,6 @@ class NodePanelViewModel extends Observer {
 }
 
 export default {
-    viewModel: NodePanelViewModel,
+    viewModel: HostPanelViewModel,
     template: template
 };

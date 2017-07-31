@@ -80,7 +80,7 @@ export default function routing(page) {
     registerRouteHandler(page, routes.object, actions.showObject);
     registerRouteHandler(page, routes.resources);
     registerRouteHandler(page, routes.pool);
-    registerRouteHandler(page, routes.node, actions.showNode);
+    registerRouteHandler(page, routes.host);
     registerRouteHandler(page, routes.account);
     registerRouteHandler(page, routes.management);
     registerRouteHandler(page, routes.cluster);

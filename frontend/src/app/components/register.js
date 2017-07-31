@@ -148,9 +148,9 @@ export default function register(ko) {
     /** INJECT:pool **/
 
     // -------------------------------
-    // Node
+    // Host
     // -------------------------------
-    ko.components.register('node-panel',            require('./node/node-panel/node-panel').default);
+    ko.components.register('host-panel',            require('./node/host-panel/host-panel').default);
     ko.components.register('node-summary',          require('./node/node-summary/node-summary').default);
     ko.components.register('node-parts-table',      require('./node/node-parts-table/node-parts-table').default);
     ko.components.register('node-details-form',     require('./node/node-details-form/node-details-form').default);

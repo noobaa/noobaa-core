@@ -141,6 +141,7 @@ function run_test() {
         .then(() => test_create_bucket_add_creator_permissions())
         .then(() => test_delete_bucket_deletes_permissions())
         .then(() => test_no_s3_access())
+        .then(() => test_ip_restrictions())
         .then(() => {
             console.log('test_bucket_access PASSED');
         });
@@ -390,6 +391,43 @@ function test_no_s3_access() {
             assert(data.Buckets.length === 0, 'expecting an empty bucket list for no_access_user');
         });
 
+}
+
+function test_ip_restrictions() {
+    let server = get_new_server(full_access_user);
+    let single_ip_restriction = {
+        email: full_access_user.email,
+        ips: [{ start: '10.0.0.1', end: '10.0.0.1' }]
+    };
+    let range_ip_restriction = {
+        email: full_access_user.email,
+        ips: [{ start: '10.0.0.1', end: '10.1.0.50' }]
+    };
+    let no_ip_restriction = {
+        email: full_access_user.email,
+        ips: null
+    };
+    return P.resolve()
+        .then(() => client.account.update_account(single_ip_restriction))
+        .then(() => P.ninvoke(server, 'listBuckets'))
+        .catch(err => {
+            assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied');
+        })
+        .then(() => client.account.update_account(no_ip_restriction))
+        .then(() => P.ninvoke(server, 'listBuckets'))
+        .then(data => {
+            assert(data.Buckets.length !== 0, 'expecting none empty bucket list for none-restricted IP');
+        })
+        .then(() => client.account.update_account(range_ip_restriction))
+        .then(() => P.ninvoke(server, 'listBuckets'))
+        .catch(err => {
+            assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied');
+        })
+        .then(() => client.account.update_account(no_ip_restriction))
+        .then(() => P.ninvoke(server, 'listBuckets'))
+        .then(data => {
+            assert(data.Buckets.length !== 0, 'expecting none empty bucket list for none-restricted IP');
+        });
 }
 
 function account_by_name(accounts, email) {

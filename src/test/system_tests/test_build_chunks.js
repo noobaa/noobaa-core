@@ -322,6 +322,7 @@ function run_test() {
         .then(() => false && test_rebuild_corrupted_from_mirror()) // at least 6 nodes required. corrupts 3 nodes         // TODO: fix #2114
         .then(() => false && test_rebuild_corrupted_from_cloud_pool()) // at least 3 nodes required. corrupts 3 nodes     // TODO: fix #2114 && #2090
         .then(() => test_double_blocks_on_movie_files()) // at least 6 nodes required
+        .then(() => console.log('test test_build_chunks SUCCESS'))
         .catch(err => {
             console.error('test_build_chunks FAILED: ', err.stack || err);
             throw new Error('test_build_chunks FAILED: ', err);
@@ -576,7 +577,7 @@ function test_tear_down() {
         .then(system => {
             let pools_to_delete = [];
             _.each(system.pools, pool => {
-                if (pool.name !== config.NEW_SYSTEM_POOL_NAME) {
+                if (pool.name !== config.NEW_SYSTEM_POOL_NAME && pool.name !== config.INTERNAL_STORAGE_POOL_NAME) {
                     pools_to_delete.push(client.node.list_nodes({
                             query: {
                                 pools: [pool.name],

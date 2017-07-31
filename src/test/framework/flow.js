@@ -58,7 +58,7 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Cloud Sync Test',
-        lib_test: '/src/test/system_tests/test_cloud_sync.js',
+        lib_test: '/src/test/system_tests/test_cloud_sync',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -66,7 +66,7 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Node Failure Test',
-        lib_test: '/src/test/system_tests/test_node_failure.js',
+        lib_test: '/src/test/system_tests/test_node_failure',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -74,7 +74,7 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Bucket Access Test',
-        lib_test: '/src/test/system_tests/test_bucket_access.js',
+        lib_test: '/src/test/system_tests/test_bucket_access',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -82,7 +82,7 @@ var steps = [
     }, {
         //Test Ceph S3
         name: 'Ceph S3 Test',
-        lib_test: '/src/test/system_tests/test_ceph_s3.js',
+        lib_test: '/src/test/system_tests/test_ceph_s3',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -90,7 +90,7 @@ var steps = [
     }, {
         //Test Cloud Pools
         name: 'Cloud Pools Test',
-        lib_test: '/src/test/system_tests/test_cloud_pools.js',
+        lib_test: '/src/test/system_tests/test_cloud_pools',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -98,7 +98,7 @@ var steps = [
     }, {
         //Test MD Aggregator
         name: 'MD Aggregator Test',
-        lib_test: '/src/test/system_tests/test_md_aggregator.js',
+        lib_test: '/src/test/system_tests/test_md_aggregator',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',

@@ -4,6 +4,7 @@
 var P = require('../../util/promise');
 var config = require('../../../config.js');
 var promise_utils = require('../../util/promise_utils');
+var _ = require('lodash');
 
 var CEPH_TEST = {
     test_dir: 'src/test/system_tests/',
@@ -243,7 +244,7 @@ function s3_ceph_test() {
                         console.log('Test Passed:', S3_CEPH_TEST_WHITELIST[i]);
                     })
                     .catch(err => {
-                        if (!IGNORE_S3_CEPH_TEST_LIST.contains(S3_CEPH_TEST_WHITELIST[i])) {
+                        if (!_.includes(IGNORE_S3_CEPH_TEST_LIST, S3_CEPH_TEST_WHITELIST[i])) {
                             fail_count += 1;
                             had_errors = true;
                         }
@@ -333,6 +334,8 @@ function run_test() {
             CEPH_TEST.new_account_json.access_keys = access_keys;
             console.log('CEPH TEST CONFIGURATION:', JSON.stringify(CEPH_TEST));
         })
+        .then(() => promise_utils.exec(`echo access_key = ${CEPH_TEST.new_account_json.access_keys[0].access_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`, false, true))
+        .then(() => promise_utils.exec(`echo secret_key = ${CEPH_TEST.new_account_json.access_keys[0].secret_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`, false, true))
         .then(() => system_ceph_test())
         .catch(function(err) {
             throw new Error('System Ceph Tests Failed:', err);

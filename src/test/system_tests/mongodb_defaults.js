@@ -14,23 +14,28 @@ db.objectparts.remove({});
 db.objectmds.remove({});
 db.tiers.update({
     name: {
-        $nin: [/first\.bucket#/]
+        $regex: 'first\.bucket.*'
     }
 }, {
     $set: {
-        pool: db.pools.find({
-            name: 'first.pool'
-        })[0]._id
+        data_placement: 'SPREAD',
+        mirrors: [{
+            spread_pools: [
+                db.pools.find({
+                    name: 'first.pool'
+                })[0]._id
+            ]
+        }]
     }
 });
 db.pools.remove({
     name: {
-        $ne: 'first.pool'
+        $nin: ['first.pool', /system-internal-storage-pool.*/]
     }
 });
 db.tiers.remove({
     name: {
-        $nin: [/first\.bucket#/]
+        $nin: [/first\.bucket#/, /system-internal-spillover-tier.*/]
     }
 });
 db.tieringpolicies.remove({
@@ -43,13 +48,19 @@ db.buckets.remove({
         $ne: 'first.bucket'
     }
 });
+
 db.nodes.remove({
     name: {
         $regex: 'noobaa-internal.*'
+    },
+    pool: {
+        $nin: [db.pools.find({
+            name: {
+                $regex: 'system-internal-storage-pool.*'
+            }
+        })[0]._id]
     }
 });
-
-
 
 db.buckets.updateMany({}, {
     $unset: {

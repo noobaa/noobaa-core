@@ -69,6 +69,11 @@ function set_cloud_sync(params) {
                 endpoint_type: 'S3_COMPATIBLE'
             })
         )
+        .catch(error => {
+            if (error.message !== 'External Connection Already Exists') {
+                throw new Error(error);
+            }
+        })
         .then(
             () => client.bucket.set_cloud_sync({
                 name: params.source_bucket_name,

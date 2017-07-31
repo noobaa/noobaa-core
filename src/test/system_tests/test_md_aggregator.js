@@ -59,7 +59,7 @@ function create_bucket(bucket_name) {
     return P.resolve()
         .then(() => client.tier.create_tier({
             name: `${bucket_name}tier`,
-            attached_pools: ['default_pool'],
+            attached_pools: ['first.pool'],
             data_placement: 'SPREAD'
         }))
         .then(() => client.tiering_policy.create_policy({
@@ -114,33 +114,33 @@ function init_system_to_ntp() {
             console.log('supervisorctl shutdown successfully');
             return os_utils.get_time_config()
                 .then(res => os_utils.set_ntp('pool.ntp.org', res.timezone || '')
-                        .then(() => {
-                            console.log('update_time_config updated to ntp');
-                        })
-                        .catch(err => {
-                            console.error('update_time_config to ntp failed', err);
-                            throw err;
-                        }));
+                    .then(() => {
+                        console.log('update_time_config updated to ntp');
+                    })
+                    .catch(err => {
+                        console.error('update_time_config to ntp failed', err);
+                        throw err;
+                    }));
         })
         .delay(10000)
         .finally(() => P.resolve()
-                .then(() => {
-                    console.log('start supervisord');
-                    return promise_utils.exec('/etc/init.d/supervisord start', false, false);
-                })
-                .delay(10000)
-                .then(() => {
-                    console.log('supervisord started successfully');
-                })
-                .then(() => control_services('restart', ['all']))
-                .then(() => wait_for_s3_and_web(SERVICES_WAIT_IN_SECONDS))
-                .then(function() {
-                    console.log('init_system_to_ntp initialized successfully');
-                })
-                .catch(function(err) {
-                    console.error('init_system_to_ntp had an error', err);
-                    throw err;
-                }));
+            .then(() => {
+                console.log('start supervisord');
+                return promise_utils.exec('/etc/init.d/supervisord start', false, false);
+            })
+            .delay(10000)
+            .then(() => {
+                console.log('supervisord started successfully');
+            })
+            .then(() => control_services('restart', ['all']))
+            .then(() => wait_for_s3_and_web(SERVICES_WAIT_IN_SECONDS))
+            .then(function() {
+                console.log('init_system_to_ntp initialized successfully');
+            })
+            .catch(function(err) {
+                console.error('init_system_to_ntp had an error', err);
+                throw err;
+            }));
 }
 
 function prepare_buckets_with_objects() {
@@ -224,6 +224,7 @@ function calculate_expected_storage_stats_for_buckets(buckets_array, storage_rea
 function run_test() {
     let test_buckets;
     return control_services('stop', ['bg_workers'])
+        .then(() => create_auth())
         .then(() => prepare_buckets_with_objects())
         .then(buckets => {
             console.log('Waiting for calculations', buckets);
@@ -240,7 +241,7 @@ function run_test() {
                         //Should include objects count, maybe histogram also
                         chunks_capacity: bucket.data.size_reduced,
                         objects_size: bucket.data.size,
-                        blocks_size: bucket.storage.used
+                        blocks_size: bucket.storage.values.used
                     };
                 }
             });
@@ -253,8 +254,7 @@ function run_test() {
 }
 
 function main() {
-    return create_auth()
-        .then(() => run_test())
+    return run_test()
         .then(function() {
             return init_system_to_ntp()
                 .finally(() => {

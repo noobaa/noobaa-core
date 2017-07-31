@@ -10,7 +10,7 @@ const gulp_json_editor = require('gulp-json-editor');
 
 const _ = require('lodash');
 const argv = require('minimist')(process.argv);
-const fs = require('filesystem');
+const fs = require('fs');
 const path = require('path');
 const dotenv = require('./src/util/dotenv');
 const event_stream = require('event-stream');

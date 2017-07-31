@@ -1,11 +1,11 @@
 {
   "name": "noobaa-core",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "private": true,
   "license": "UNLICENSED",
   "description": "noobaa-core ===========",
   "engines": {
-    "node": "6.9.5"
+    "node": "6.11.2"
   },
   "main": "index.js",
   "scripts": {

@@ -67,8 +67,8 @@ cd frontend
 call npm init --force
 cd ..
 
-nvm install 6.9.5 32
-nvm use 6.9.5 32
+nvm install 6.11.2 32
+nvm use 6.11.2 32
 call nvm list
 
 rem fail build if failed to install and build
@@ -78,8 +78,8 @@ if not exist ".\build\Release" exit 1
 xcopy /Y/I/E .\build\Release .\build\Release-32
 
 del /q/s .\build\Release
-nvm install 6.9.5 64
-nvm use 6.9.5 64
+nvm install 6.11.2 64
+nvm use 6.11.2 64
 nvm list
 
 call .\node_modules\.bin\node-gyp --arch=x64 configure
@@ -88,8 +88,8 @@ rd /q/s .\node_modules\node-gyp
 
 xcopy /Y/I/E .\build\Release .\build\Release-64
 
-call curl -L https://nodejs.org/dist/v6.9.5/win-x86/node.exe > node-32.exe
-call curl -L https://nodejs.org/dist/v6.9.5/win-x64/node.exe > node-64.exe
+call curl -L https://nodejs.org/dist/v6.11.2/win-x86/node.exe > node-32.exe
+call curl -L https://nodejs.org/dist/v6.11.2/win-x64/node.exe > node-64.exe
 call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2k-i386-win32.zip > openssl_32.zip
 call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2k-x64_86-win64.zip > openssl_64.zip
 

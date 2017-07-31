@@ -1,0 +1,39 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row pad alt-bg content-middle">
+    <input type="search"
+        class="push-next"
+        placeholder="Filter by Node Name or IP"
+        ko.textInput="ko.pc(nameFilter, onFilterByNameThrottled, $component)"
+    />
+
+    <div class="column content-start greedy push-next">
+        <toggle-filter class="state-filter" params="
+            options: stateFilterOptions,
+            selected: ko.pc(stateFilter, onFilterByState, $component)
+        "></toggle-filter>
+    </div>
+
+    <button class="btn" ko.click="onAssignNodes">
+        Assign Nodes
+    </button>
+</div>
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: fetching,
+    emptyMessage: emptyMessage
+">
+    <template name="service-indicators">
+        <span class="indicator" ko.css.lighted="$data().storage">S</span>
+        <span class="indicator" ko.css.lighted="$data().gateway">G</span>
+    </template>
+</data-table>
+
+<paginator params="
+    itemCount: hostCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>

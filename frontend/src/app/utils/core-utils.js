@@ -304,3 +304,10 @@ export function equalItems(arr1, arr2) {
 export function ensureArray(val) {
     return (isString(val) || !isFunction(val[Symbol.iterator])) ? [val] : Array.from(val);
 }
+
+export function hashCode(value) {
+    return Array.from(JSON.stringify(value)).reduce(
+        (hash, char) => (((hash << 5) - hash) + char.charCodeAt(0)) | 0,
+        0
+    );
+}

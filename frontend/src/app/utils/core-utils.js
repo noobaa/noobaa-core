@@ -302,7 +302,15 @@ export function equalItems(arr1, arr2) {
 }
 
 export function ensureArray(val) {
-    return (isString(val) || !isFunction(val[Symbol.iterator])) ? [val] : Array.from(val);
+    if ((isString(val) || !isFunction(val[Symbol.iterator]))) {
+        return [val];
+    }
+
+    if (!Array.isArray(val)) {
+        return Array.from(val);
+    }
+
+    return val;
 }
 
 export function hashCode(value) {

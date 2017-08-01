@@ -144,7 +144,7 @@ function _generatePoolCrumbs(params) {
         ..._generateResourcesCrumb(params),
         {
             url: realizeUri(
-                routes.resources,
+                routes.pool,
                 pick(params, ['system', 'pool'])
             ),
             label: params.pool
@@ -157,7 +157,7 @@ function _generateHostCrumbs(params) {
         ..._generatePoolCrumbs(params),
         {
             url: realizeUri(
-                routes.resources,
+                routes.host,
                 pick(params, ['system', 'pool', 'host'])
             ),
             label: params.host

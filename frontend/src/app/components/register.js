@@ -151,9 +151,9 @@ export default function register(ko) {
     // Host
     // -------------------------------
     ko.components.register('host-panel',            require('./node/host-panel/host-panel').default);
-    ko.components.register('node-summary',          require('./node/node-summary/node-summary').default);
+    ko.components.register('host-summary',          require('./node/host-summary/host-summary').default);
+    ko.components.register('host-details-form',     require('./node/host-details-form/host-details-form').default);
     ko.components.register('node-parts-table',      require('./node/node-parts-table/node-parts-table').default);
-    ko.components.register('node-details-form',     require('./node/node-details-form/node-details-form').default);
     ko.components.register('node-diagnostics-form', require('./node/node-diagnostics-form/node-diagnostics-form').default);
     /** INJECT:node **/
 

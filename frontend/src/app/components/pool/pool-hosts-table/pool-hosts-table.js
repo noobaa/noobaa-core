@@ -13,8 +13,6 @@ import { summrizeHostModeCounters, getHostModeListForState } from 'utils/host-ut
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
 
-const viewName = 'poolNodesTable';
-
 const columns = deepFreeze([
     {
         name: 'state',
@@ -74,6 +72,7 @@ class PoolHostsTableViewModel extends Observer {
     constructor() {
         super();
 
+        this.viewName = this.constructor.name;
         this.baseRoute = '';
         this.baseHostRoute = '';
         this.poolName = '';
@@ -108,7 +107,7 @@ class PoolHostsTableViewModel extends Observer {
         this.page(Number(page));
 
         action$.onNext(fetchHosts(
-            viewName,
+            this.viewName,
             {
                 pools: [ pool ],
                 name: name,
@@ -122,7 +121,7 @@ class PoolHostsTableViewModel extends Observer {
     }
 
     onHosts({ views, queries, items }) {
-        const queryKey = views[viewName];
+        const queryKey = views[this.viewName];
         if (!queryKey) return;
 
         const query = queries[queryKey];
@@ -219,7 +218,7 @@ class PoolHostsTableViewModel extends Observer {
     }
 
     dispose() {
-        action$.onNext(dropHostsView(viewName));
+        action$.onNext(dropHostsView(this.viewName));
         super.dispose();
     }
 }

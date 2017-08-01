@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-// import { deepFreeze } from 'utils/core-utils';
+import { mapValues } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getHostStateIcon, getHostCapacityBarValues } from 'utils/host-utils';
 
@@ -30,16 +30,14 @@ export default class HostRowViewModel {
     }
 
     onHost(host) {
-        const { name, hostname, ip, storageService, gatewayService } = host;
+        const { name, hostname, ip, services } = host;
         const uri = realizeUri(this.baseRoute, { host: name });
+        const servicesState = mapValues(services, service => service.mode !== 'DECOMMISSIONED');
 
         this.state(getHostStateIcon(host));
         this.hostname({ text: hostname, href: uri });
         this.ip(ip);
-        this.services({
-            storage: storageService.enabled || Boolean(Math.round(Math.random())),
-            gateway: gatewayService.enabled || Boolean(Math.round(Math.random()))
-        });
+        this.services(servicesState);
         this.capacity(getHostCapacityBarValues(host));
         this.dataActivity('No Activity');
     }

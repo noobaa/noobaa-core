@@ -11,6 +11,7 @@ class HostPanelViewModel extends Observer {
         super();
 
         this.baseRoute = '';
+        this.host = ko.observable();
         this.selectedTab = ko.observable();
 
         this.observe(state$.get('location'), this.onLocation);
@@ -20,6 +21,7 @@ class HostPanelViewModel extends Observer {
         const { system, pool, host, tab = 'details' } = params;
         if (!host) return;
 
+        this.host(host);
         this.baseRoute = realizeUri(route, { system, pool, host }, {}, true);
         this.selectedTab(tab);
     }

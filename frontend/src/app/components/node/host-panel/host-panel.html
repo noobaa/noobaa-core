@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<node-summary class="push-next"></node-summary>
+<host-summary class="push-next" params="name: host"></host-summary>
 
 <div class="tabs greedy">
     <nav>
@@ -24,11 +24,12 @@
     </nav>
 
     <div class="tabs-row">
-<!--         <node-details-form class="tab"
+         <host-details-form class="tab"
             ko.css.selected="selectedTab.eq('details')"
-        ></node-details-form>
+            params="name: host"
+        ></host-details-form>
 
-        <node-parts-table class="tab"
+<!--        <node-parts-table class="tab"
             ko.css.selected="selectedTab.eq('parts')"
         ></node-parts-table>
 

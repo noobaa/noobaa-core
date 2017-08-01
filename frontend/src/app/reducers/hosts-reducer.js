@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { echo, mapValues, keyByProperty, createCompareFunc, hashCode } from 'utils/core-utils';
+import { echo, mapValues, keyByProperty, createCompareFunc, hashCode, averageBy } from 'utils/core-utils';
 import { paginationPageSize } from 'config';
 import {
     FETCH_HOSTS,
@@ -138,21 +138,44 @@ function _generateQueryKey(query) {
 }
 
 function _mapHost(host) {
-    const { storage_nodes_info, s3_nodes_info } = host;
+    const { storage_nodes_info, s3_nodes_info, os_info } = host;
 
     return {
         name: host.host_id,
-        hostname: host.name,
+        hostname: os_info.hostname,
         mode: host.mode,
+        version: host.version,
         ip: host.ip,
-        storage: host.storage,
-        storageService: {
-            enabled: Boolean(storage_nodes_info.enabled)
+        ports: {
+            start: 0,
+            end: 0
         },
-        gatewayService: {
-            enabled: Boolean(s3_nodes_info.enabled)
+        protocol: host.connectivity,
+        lastCommunication: host.last_communication,
+        rtt: averageBy(host.latency_to_server),
+        storage: host.storage,
+        trusted: host.trusted,
+        activities: {},
+        services: {
+            storage: _mapStorageNodes(storage_nodes_info),
+            gateway: _mapGatewayNodes(s3_nodes_info)
+        },
+        uptime: os_info.uptime,
+        os: os_info.ostype,
+        cpus: [],
+        memory: {
+            total: os_info.totalmem,
+            used: os_info.totalmem - os_info.freemem
         }
     };
+}
+
+function _mapStorageNodes({ mode }) {
+    return { mode };
+}
+
+function _mapGatewayNodes({ mode }) {
+    return { mode };
 }
 
 // ------------------------------

@@ -5,10 +5,8 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { copyTextToClipboard } from 'utils/browser-utils';
 
-// const idelTooltip
-
 class PropertySheetViewModel extends BaseViewModel {
-    constructor({ properties = [] }) {
+    constructor({ properties = [] }, templates) {
         super();
 
         this.properties = ko.pureComputed(
@@ -20,6 +18,7 @@ class PropertySheetViewModel extends BaseViewModel {
                     disabled = false,
                     multiline = false,
                     allowCopy = false,
+                    template: templateName,
                 } = ko.deepUnwrap(prop);
 
                 const labelText = `${label}:`;
@@ -28,15 +27,9 @@ class PropertySheetViewModel extends BaseViewModel {
                     disabled: disabled,
                 };
 
-                return {
-                    labelText,
-                    value,
-                    css,
-                    visible,
-                    disabled,
-                    multiline,
-                    allowCopy
-                };
+                const template = templates[templateName] || value || '';
+                return { labelText, value, css, visible, disabled,
+                    multiline, allowCopy, template};
             })
         );
         this.tooltip = ko.observable();
@@ -47,7 +40,20 @@ class PropertySheetViewModel extends BaseViewModel {
     }
 }
 
+function viewModelFactory(params, info) {
+    const templates = info.templateNodes
+        .filter(({ nodeType }) => nodeType === 1)
+        .reduce((templates, template) => {
+            const name = template.getAttribute('name');
+            const html = template.innerHTML;
+            templates[name] = html;
+            return templates;
+        }, {});
+
+    return new PropertySheetViewModel(params, templates);
+}
+
 export default {
-    viewModel: PropertySheetViewModel,
+    viewModel: { createViewModel: viewModelFactory },
     template: template
 };

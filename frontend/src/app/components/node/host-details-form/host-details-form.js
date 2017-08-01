@@ -15,23 +15,29 @@ const protocolMapping = deepFreeze({
     UDP: 'UDP <span class="warning">(Not optimized for performance)</span>'
 });
 
-function _getCpuUtilization(host) {
-    const count = host.cpus.length;
-    return `<p>${count} | ???</p>`;
-}
+const memoryPressureTooltip = {
+    text: 'High Memory Pressure',
+    position: 'above'
+};
 
-function _getMemoryUtilization(host) {
-    const { mode, memory } = host;
-    const used = formatSize(memory.used);
-    const total = formatSize(memory.total);
-    const ratio = memory.used / memory.total;
-    const css = mode === 'MEMORY_PRESSURE' ? 'warning' : '';
+function _getServiceString({ services }) {
+    const { storage, gateway } = mapValues(
+        services,
+        service => service.mode !== 'DECOMMISSIONED'
+    );
 
-    return `<p>
-        ${used} of ${total} |
-        <span class="${css}">${numeral(ratio).format('%')} utilization</span>
-        <svg-icon params="name: notif-info"></svg-icon>
-    </p>`;
+    if (storage && gateway) {
+        return 'Used for storage and as a S3 gateway';
+
+    } else if (storage) {
+        return 'Used for storage';
+
+    } else if (gateway) {
+        return 'Used as a S3 gateway';
+
+    } else {
+        return 'All services are disabled';
+    }
 }
 
 class HostDetailsFormViewModel extends Observer {
@@ -110,7 +116,8 @@ class HostDetailsFormViewModel extends Observer {
             },
             {
                 label: 'Memory',
-                value: this.memory
+                value: this.memory,
+                template: 'memory'
             }
         ];
 
@@ -120,28 +127,32 @@ class HostDetailsFormViewModel extends Observer {
     onHost(host) {
         if (!host) return;
 
-        const usedServices = mapValues(host.services, service => service.mode !== 'DECOMMISSIONED');
-        const services = [
-            'Used ',
-            usedServices.storage ? 'for storage' : '',
-            usedServices.gateway ? 'as gateway' : ''
-        ].join('');
+        const { name, version, lastCommunication, ip, memory, protocol,
+            ports, rtt, hostname, upTime, os, cpus, mode } = host;
 
-
-        this.name(host.name);
-        this.version(host.version);
-        this.services(services);
-        this.lastCommunication(moment(host.lastCommunication).fromNow() + ' (TIMEZONE: ???)');
-        this.ip(host.ip);
-        this.protocol(protocolMapping[host.protocol]);
-        this.portRange(`${host.ports.start} - ${host.ports.end} ???`);
+        this.name(name);
+        this.version(version);
+        this.services(_getServiceString(host));
+        this.lastCommunication(moment(lastCommunication).fromNow() + ' (TIMEZONE: ???)');
+        this.ip(ip);
+        this.protocol(protocolMapping[protocol]);
+        this.portRange(`${ports.start} - ${ports.end} ???`);
         this.endpoint('???');
-        this.rtt(`${host.rtt.toFixed(2)}ms`);
-        this.hostname(host.hostname);
-        this.upTime(moment(host.upTime).fromNow(true) + ' (TIMEZONE: ???)');
-        this.os(host.os);
-        this.cpus(_getCpuUtilization(host));
-        this.memory(_getMemoryUtilization(host));
+        this.rtt(`${rtt.toFixed(2)}ms`);
+        this.hostname(hostname);
+        this.upTime(moment(upTime).fromNow(true) + ' (TIMEZONE: ???)');
+        this.os(os);
+        this.cpus(`${cpus.length} | ???`);
+
+        { // Update memory observable
+            const hasWarning = mode !== 'MEMORY_PRESSURE';
+            const usage = `${formatSize(memory.used)} of ${formatSize(memory.total)}`;
+            const css = hasWarning ? 'warning' : '';
+            const utilization = `${numeral(memory.used/memory.total).format('%')} utilization`;
+            const tooltip = memoryPressureTooltip
+
+            this.memory({ usage, utilization, css, hasWarning, tooltip });
+        }
     }
 }
 

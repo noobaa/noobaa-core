@@ -604,7 +604,7 @@ function list_objects_s3(req) {
     // This is used in order to continue from a certain key when the response is truncated
     var marker = req.rpc_params.key_marker ? (prefix + req.rpc_params.key_marker) : '';
 
-    const received_limit = _.get(req, 'rpc_params.limit') || 1000;
+    const received_limit = _.isUndefined(req.rpc_params.limit) ? 1000 : req.rpc_params.limit;
 
     if (received_limit < 0) {
         const new_err = new Error();

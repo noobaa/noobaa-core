@@ -1,0 +1,32 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row content-middle">
+    <h2 class="heading3 greedy" data-bind="text: caption"></h2>
+    <div>
+        <button class="link alt-colors" data-bind="click: selectListedBuckets">
+            Select all buckets
+        </button>
+        |
+        <button class="link alt-colors" data-bind="click: clearListedBuckets">
+            Clear buckets
+        </button>
+    </div>
+</div>
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: buckets,
+    emptyMessage: emptyMessage
+"></data-table>
+
+<div class="selection-summary row">
+    <span class="greedy push-next selection-text" data-bind="
+        text: selectedMessage
+    "></span>
+
+    <button class="link alt-colors" data-bind="click: clearAllBuckets">
+        Clear All Selections
+    </button>
+</div>
+
+<div class="val-msg" data-bind="validationMessage: selectedBuckets"></div>

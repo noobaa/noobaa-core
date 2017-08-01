@@ -22,33 +22,45 @@ function quotaBigInt({ size, unit }) {
 }
 
 function calcDataBreakdown(data, quota) {
+
+    const zero = bigInteger.zero;
+    const spillover = toBigInteger(data.spillover_free);
+    const available = toBigInteger(data.free);
+    const dataSize = toBigInteger(data.size);
+
+    let  used, overused, availableToUpload, availableSpillover, overallocated, potentialAvailable, potentialSpillover;
     if (quota) {
-        const zero = bigInteger.zero;
-        const available = toBigInteger(data.free);
         const quotaSize = quotaBigInt(quota);
-        const used = bigInteger.min(toBigInteger(data.size), quotaSize);
-        const overused = bigInteger.max(zero, toBigInteger(data.size).subtract(quotaSize));
-        const overallocated = bigInteger.max(zero, quotaSize.subtract(available.add(used)));
-        const availableToUpload = bigInteger.min(bigInteger.max(zero, quotaSize.subtract(used)), available);
-        const availableOverQuota = bigInteger.max(zero, available.subtract(availableToUpload));
 
-        return {
-            used: fromBigInteger(used),
-            overused: fromBigInteger(overused),
-            availableToUpload: fromBigInteger(availableToUpload),
-            availableOverQuota: fromBigInteger(availableOverQuota),
-            overallocated: fromBigInteger(overallocated)
-        };
-
+        used = bigInteger.min(dataSize, quotaSize);
+        overused = bigInteger.max(zero, dataSize.subtract(quotaSize));
+        availableToUpload = bigInteger.min(bigInteger.max(zero, quotaSize - used), available);
+        availableSpillover = bigInteger.min(spillover, bigInteger.max(zero, quotaSize - used - available));
+        overallocated = bigInteger.max(zero, quotaSize.subtract(used.add(available.add(spillover))));
+        potentialAvailable = bigInteger.max(zero, bigInteger.min(available, used.add(available).subtract(quotaSize)));
+        potentialSpillover = bigInteger.max(
+            zero,
+            bigInteger.min(spillover, used.add(available).add(spillover).subtract(quotaSize))
+        );
     } else {
-        return {
-            used: data.size,
-            overused: 0,
-            availableToUpload: data.free,
-            availableOverQuota: 0,
-            overallocated: 0
-        };
+        used = dataSize;
+        overused = zero;
+        availableToUpload = available;
+        availableSpillover = spillover;
+        overallocated = zero;
+        potentialAvailable = zero;
+        potentialSpillover = zero;
     }
+
+    return {
+        used: fromBigInteger(used),
+        overused: fromBigInteger(overused),
+        availableToUpload: fromBigInteger(availableToUpload),
+        availableSpillover: fromBigInteger(availableSpillover),
+        potentialAvailable: fromBigInteger(potentialAvailable),
+        potentialSpillover: fromBigInteger(potentialSpillover),
+        overallocated: fromBigInteger(overallocated)
+    };
 }
 
 function getBarValues(values) {
@@ -69,8 +81,18 @@ function getBarValues(values) {
             color: style['color7']
         },
         {
-            value: toBytes(values.availableOverQuota),
+            value: toBytes(values.availableSpillover),
+            label: 'Available spillover',
+            color: style['color6']
+        },
+        {
+            value: toBytes(values.potentialAvailable),
             label: 'Potential',
+            color: style['color15']
+        },
+        {
+            value: toBytes(values.potentialSpillover),
+            label: 'Potential Spillover',
             color: style['color15']
         },
         {
@@ -139,20 +161,17 @@ class EditBucketQuotaModalViewModel extends Observer {
             }
         });
 
-        this.barValues = ko.observable();
-        this.dataSize = ko.observable();
-        this.dataFree = ko.observable();
-
-        this.observe(state$.get('buckets', bucketName), this.onBucket);
-
+        this.data = ko.observable();
         this.barValues = ko.pureComputed(
             () => getBarValues(
                 calcDataBreakdown(
-                    { size: this.dataSize(), free: this.dataFree() },
+                    this.data(),
                     { unit: this.quotaUnit(), size: this.quotaSize() }
                 )
             )
         );
+
+        this.observe(state$.get('buckets', bucketName), this.onBucket);
 
         this.quotaMarker = ko.pureComputed(
             () => {
@@ -180,8 +199,7 @@ class EditBucketQuotaModalViewModel extends Observer {
         this.isUsingQuota(usingQuota);
         this.quotaUnit(quota.unit);
         this.quotaSize(quota.size);
-        this.dataSize(data.size);
-        this.dataFree(data.free);
+        this.data(data);
     }
 
     formatBarLabel(value) {

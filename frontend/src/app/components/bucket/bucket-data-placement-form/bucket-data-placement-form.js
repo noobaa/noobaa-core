@@ -2,7 +2,6 @@
 
 import template from './bucket-data-placement-form.html';
 import BaseViewModel from 'components/base-view-model';
-import PlacementRowViewModel from './placement-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
@@ -11,30 +10,6 @@ import {
     openEditBucketQuotaModal,
     openBucketPlacementPolicyModal
 } from 'action-creators';
-
-const placementTableColumns = deepFreeze([
-    {
-        name: 'state',
-        type: 'icon'
-    },
-    {
-        name: 'type',
-        type: 'icon'
-    },
-    {
-        name: 'resourceName',
-        type: 'custom-link'
-    },
-    {
-        name: 'onlineNodeCount',
-        label: 'online nodes in pool'
-    },
-    {
-        name: 'capacity',
-        label: 'Resource Capacity',
-        type: 'capacity'
-    }
-]);
 
 const placementTypeMapping = deepFreeze({
     SPREAD: 'Spread',
@@ -53,11 +28,9 @@ class BucketDataPlacementFormViewModel extends BaseViewModel {
 
         this.bucketName = bucketName;
 
-        this.placementTableColumns = placementTableColumns;
-
         let tier = ko.pureComputed(
             () => {
-                if (!systemInfo() || !bucket()) {
+                if (!systemInfo() || !this.bucketName()) {
                     return;
                 }
 
@@ -93,10 +66,6 @@ class BucketDataPlacementFormViewModel extends BaseViewModel {
                 pool => pool.resource_type === 'CLOUD'
             ).length
         );
-    }
-
-    createPlacementRow(pool) {
-        return new PlacementRowViewModel(pool);
     }
 
     onEditBucketQuota() {

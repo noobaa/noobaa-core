@@ -1,0 +1,37 @@
+/* Copyright (C) 2016 NooBaa */
+
+bucket-selection-table {
+    display: block;
+
+    data-table {
+        .selected-col {
+            min-width: 24px;
+        }
+
+        .status-col {
+            min-width: 40px;
+        }
+
+        .bucket-name-col {
+            text-align: left;
+            width: 100%;
+        }
+
+        .bucket-policy-col {
+            min-width: 120px;
+        }
+
+        .capacity-col {
+            min-width: 120px;
+        }
+    }
+
+    .selection-summary {
+        padding: @gutter/2 @gutter;
+        background-color: @color4;
+    }
+
+    .selection-text {
+        font-size: @font-size4;
+    }
+}

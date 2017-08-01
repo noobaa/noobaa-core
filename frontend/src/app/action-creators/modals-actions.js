@@ -386,3 +386,16 @@ export function openSetAccountIpRestrictions(accountName) {
     };
 }
 
+export function openEditSpilloverTargetsModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'edit-spillover-targets-modal',
+            options: {
+                size: 'medium',
+                title: 'Edit Spillover Targets'
+            }
+        }
+    };
+}
+

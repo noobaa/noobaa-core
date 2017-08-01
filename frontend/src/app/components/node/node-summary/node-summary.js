@@ -23,7 +23,7 @@ const stateMapping = deepFreeze({
     INITALIZING: {
         icon: 'working',
         css: 'warning',
-        text: 'Initalizing'
+        text: 'Initializing'
     },
     DELETING: {
         icon: 'working',

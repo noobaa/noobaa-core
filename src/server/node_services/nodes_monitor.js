@@ -1989,7 +1989,7 @@ class NodesMonitor extends EventEmitter {
             // filter hosts according to query
             if (query.hosts && !query.hosts.includes(item.node.host_id)) continue;
             if (query.pools && !query.pools.has(String(item.node.pool))) continue;
-            if (query.filter && !query.filter.test((item.node.os_info.hostname) && !query.filter.test((item.node.ip)))) continue;
+            if (query.filter && !query.filter.test(item.node.os_info.hostname) && !query.filter.test(item.node.ip)) continue;
             if (query.skip_cloud_nodes && item.node.is_cloud_node) continue;
 
             // the filter_count count nodes that passed all filters besides
@@ -2236,6 +2236,14 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => _.get(item, 'data_activity.reason', ''), options.order));
         } else if (options.sort === 'mode') {
             list.sort(js_utils.sort_compare_by(item => MODE_COMPARE_ORDER.indexOf(item.mode), options.order));
+        } else if (options.sort === 'services') {
+            list.sort(js_utils.sort_compare_by(item => {
+                // return a binary representation of the services in the following priority:
+                // [both, only storage, only s3, none]
+                const storage_service = item.storage_nodes_mode === 'DECOMMISSIONED' ? 0 : 2;
+                const s3_service = item.s3_nodes_mode === 'DECOMMISSIONED' ? 0 : 1;
+                return storage_service + s3_service;
+            }, options.order));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }

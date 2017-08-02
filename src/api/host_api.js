@@ -62,7 +62,8 @@ module.exports = {
                             'accessibility',
                             'connectivity',
                             'data_activity',
-                            'mode'
+                            'mode',
+                            'services'
                         ]
                     },
                     order: {

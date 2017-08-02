@@ -363,7 +363,7 @@ function find_pool_by_name(req) {
 
 function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
     const p_nodes = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
-    const p_hosts = _.get(hosts_aggregate_pool, ['groups', String(pool._id)], {});
+    const p_hosts = _.get(hosts_aggregate_pool, ['groups', String(pool._id)], { nodes: {} });
     var info = {
         name: pool.name,
         resource_type: pool.resource_type,

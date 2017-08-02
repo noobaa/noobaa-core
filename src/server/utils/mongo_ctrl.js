@@ -237,8 +237,8 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
         ' --sslCAFile ' + config.MONGO_DEFAULTS.ROOT_CA_PATH +
         ' --sslPEMKeyFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH +
         ' --sslClusterFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH +
-        '--syslog ' +
-        '--syslogFacility local0';
+        ' --syslog' +
+        ' --syslogFacility local0';
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.stopsignal = 'KILL';
@@ -271,8 +271,8 @@ MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
         ' --replSet ' + name +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
         ' --dbpath ' + dbpath +
-        '--syslog ' +
-        '--syslogFacility local0';
+        ' --syslog ' +
+        ' --syslogFacility local0';
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.autostart = 'true';
@@ -333,8 +333,8 @@ MongoCtrl.prototype._add_new_config_program = function() {
         ' --replSet ' + config.MONGO_DEFAULTS.CFG_RSET_NAME +
         ' --port ' + config.MONGO_DEFAULTS.CFG_PORT +
         ' --dbpath ' + dbpath +
-        '--syslog ' +
-        '--syslogFacility local0';
+        ' --syslog ' +
+        ' --syslogFacility local0';
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.autostart = 'true';

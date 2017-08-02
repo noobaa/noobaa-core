@@ -11,6 +11,11 @@ const modeToStateIcon = deepFreeze({
         css: 'warning',
         tooltip: 'Deactivated'
     },
+    'UNTRUSTED': {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Node has issues'
+    },
     HAS_ISSUES: {
         name: 'problem',
         css: 'warning',

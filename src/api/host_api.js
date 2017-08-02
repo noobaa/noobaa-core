@@ -322,6 +322,7 @@ module.exports = {
             type: 'string',
             enum: [
                 'OFFLINE',
+                'UNTRUSTED',
                 'DECOMMISSIONED',
                 'DECOMMISSIONING',
                 'DATA_ACTIVITY',

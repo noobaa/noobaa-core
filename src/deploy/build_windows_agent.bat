@@ -30,7 +30,7 @@ copy ..\..\config.js .
 mkdir .\src\
 xcopy /Y/I/E ..\..\src\agent .\src\agent
 xcopy /Y/I/E ..\..\src\s3 .\src\s3
-xcopy /Y/I/E ..\..\src\lambda .\src\lambda
+xcopy /Y/I/E ..\..\src\endpoint\ .\src\endpoint
 xcopy /Y/I/E ..\..\src\util .\src\util
 xcopy /Y/I/E ..\..\src\rpc .\src\rpc
 xcopy /Y/I/E ..\..\src\api .\src\api
@@ -90,8 +90,8 @@ xcopy /Y/I/E .\build\Release .\build\Release-64
 
 call curl -L https://nodejs.org/dist/v6.9.5/win-x86/node.exe > node-32.exe
 call curl -L https://nodejs.org/dist/v6.9.5/win-x64/node.exe > node-64.exe
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2k-i386-win32.zip > openssl_32.zip
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2k-x64_86-win64.zip > openssl_64.zip
+call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-i386-win32.zip > openssl_32.zip
+call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-x64_86-win64.zip > openssl_64.zip
 
 mkdir .\32
 mkdir .\64

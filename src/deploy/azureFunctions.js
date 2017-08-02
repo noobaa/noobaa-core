@@ -433,18 +433,18 @@ class AzureFunctions {
         console.log('Stopping Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.powerOff(
             this.resourceGroupName, vmName, callback))
-            .then(() => {
+            .tap(() => {
                 console.log('Virtual Machine stopped');
                 console.log('Generalizing Virtual Machine: ' + vmName);
-                return P.fromCallback(callback => this.computeClient.virtualMachines.generalize(
-                    this.resourceGroupName, vmName, callback));
             })
-            .then(res => {
+            .then(() => P.fromCallback(callback => this.computeClient.virtualMachines.generalize(
+                this.resourceGroupName, vmName, callback)))
+            .tap(res => {
                 console.log('Virtual Machine generalized', res);
                 console.log('capturing Virtual Machine: ' + vmName);
-                return P.fromCallback(callback => this.computeClient.virtualMachines.capture(
-                    this.resourceGroupName, vmName, snapshotParameters, callback));
             })
+            .then(res => P.fromCallback(callback => this.computeClient.virtualMachines.capture(
+                this.resourceGroupName, vmName, snapshotParameters, callback)))
             .then(res => res.output.resources[0].properties.storageProfile.osDisk.image.uri);
     }
 
@@ -695,9 +695,28 @@ class AzureFunctions {
                 shard: 'shard1',
                 new_hostname: slave_name
             })))
-            .then(() => {
-                console.log('successfully added server', slave_ip, 'to cluster, with master', master_ip);
+            .tap(() => {
+                console.log(`the master ip is: ${master_ip}`);
+                console.log(`sleeping for 5 min then adding ${slave_ip} to the cluster`);
             })
+            .delay(5 * 60 * 1000)
+            .then(() => {
+                let should_run = true;
+                const WAIT_INTERVAL = 10 * 1000;
+                const limit = Date.now() + (3 * 60 * 1000);
+                return promise_utils.pwhile(
+                    () => should_run,
+                    () => client.system.read_system({})
+                        .tap(res => console.log(`cluster members: ${JSON.stringify(res.cluster.shards[0].servers)}`))
+                        .then(res => {
+                            const { servers } = res.cluster.shards[0];
+                            should_run = servers.every(srv => srv.address !== slave_ip) && Date.now() < limit;
+                            return P.delay(should_run ? WAIT_INTERVAL : 0);
+                        })
+                        .catch(err => console.log(`Caught ${err}, supressing`))
+                );
+            })
+            .tap(() => console.log(`successfully added server ${slave_ip} to cluster, with master ${master_ip}`))
             .finally(() => rpc.disconnect_all());
     }
 }

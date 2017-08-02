@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="link-cell">
+<div class="link-cell" ko.tooltip="ko.unwrap($data).tooltip">
     <a class="link" data-bind="
         href: ko.unwrap($data).href || $data,
         text: ko.unwrap($data).text || $data

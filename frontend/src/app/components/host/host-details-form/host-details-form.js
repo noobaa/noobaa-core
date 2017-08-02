@@ -20,7 +20,7 @@ const memoryPressureTooltip = {
     position: 'above'
 };
 
-function _getServiceString({ services }) {
+function _getServicesString({ services }) {
     const { storage, gateway } = mapValues(
         services,
         service => service.mode !== 'DECOMMISSIONED'
@@ -38,6 +38,16 @@ function _getServiceString({ services }) {
     } else {
         return 'All services are disabled';
     }
+}
+
+function _getMemoryInfo({ mode, memory }) {
+    const hasWarning = mode === 'MEMORY_PRESSURE';
+    const usage = `${formatSize(memory.used)} of ${formatSize(memory.total)}`;
+    const css = hasWarning ? 'warning' : '';
+    const utilization = `${numeral(memory.used/memory.total).format('%')} utilization`;
+    const tooltip = memoryPressureTooltip;
+
+    return { usage, utilization, css, hasWarning, tooltip };
 }
 
 class HostDetailsFormViewModel extends Observer {
@@ -127,12 +137,12 @@ class HostDetailsFormViewModel extends Observer {
     onHost(host) {
         if (!host) return;
 
-        const { name, version, lastCommunication, ip, memory, protocol,
-            ports, rtt, hostname, upTime, os, cpus, mode } = host;
+        const { name, version, lastCommunication, ip, protocol,
+            ports, rtt, hostname, upTime, os, cpus } = host;
 
         this.name(name);
         this.version(version);
-        this.services(_getServiceString(host));
+        this.services(_getServicesString(host));
         this.lastCommunication(moment(lastCommunication).fromNow() + ' (TIMEZONE: ???)');
         this.ip(ip);
         this.protocol(protocolMapping[protocol]);
@@ -143,16 +153,7 @@ class HostDetailsFormViewModel extends Observer {
         this.upTime(moment(upTime).fromNow(true) + ' (TIMEZONE: ???)');
         this.os(os);
         this.cpus(`${cpus.length} | ???`);
-
-        { // Update memory observable
-            const hasWarning = mode !== 'MEMORY_PRESSURE';
-            const usage = `${formatSize(memory.used)} of ${formatSize(memory.total)}`;
-            const css = hasWarning ? 'warning' : '';
-            const utilization = `${numeral(memory.used/memory.total).format('%')} utilization`;
-            const tooltip = memoryPressureTooltip
-
-            this.memory({ usage, utilization, css, hasWarning, tooltip });
-        }
+        this.memory(_getMemoryInfo(host));
     }
 }
 

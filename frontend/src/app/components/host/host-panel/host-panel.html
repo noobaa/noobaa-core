@@ -1,0 +1,32 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<host-summary class="push-next" params="name: host"></host-summary>
+
+<div class="tabs greedy">
+    <nav>
+        <a ko.css.selected="selectedTab.eq('details')"
+            ko.attr.href="tabHref('details')"
+        >
+            Details
+        </a>
+
+        <a ko.css.selected="selectedTab.eq('gateway')"
+            ko.attr.href="tabHref('gateway')"
+        >
+            S3 Gateway
+        </a>
+    </nav>
+
+    <div class="tabs-row">
+         <host-details-form class="tab"
+            ko.css.selected="selectedTab.eq('details')"
+            params="name: host"
+        ></host-details-form>
+
+        <host-gateway-from class="tab"
+            ko.css.selected="selectedTab.eq('gateway')"
+            params="name: host">
+        </host-gateway-from>
+    </div>
+</div>
+

@@ -79,13 +79,13 @@ rsyslog_udp_server.on('message', (msg, rinfo) => {
 
 
 P.fcall(function() {
-        var auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    })
+    var auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params);
+})
     .then(() => { // dns configuration
         console.log('Setting DNS', configured_dns);
         return P.resolve(client.cluster_server.update_dns_servers({
@@ -192,16 +192,16 @@ P.fcall(function() {
             ntp_server: configured_ntp
         }));
     })
-     .then(() => P.resolve(client.cluster_server.read_server_config({})))
-     .then(result => {
-     var ntp = result.ntp_server;
-     if (ntp === configured_ntp) {
-     console.log('The defined ntp is', ntp, '- as should');
-     } else {
-     saveErrorAndResume('The defined ntp is', ntp, '- failure!!!');
-     failures_in_test = true;
-     }
-     })
+    .then(() => P.resolve(client.cluster_server.read_server_config({})))
+    .then(result => {
+        var ntp = result.ntp_server;
+        if (ntp === configured_ntp) {
+            console.log('The defined ntp is', ntp, '- as should');
+        } else {
+            saveErrorAndResume('The defined ntp is', ntp, '- failure!!!');
+            failures_in_test = true;
+        }
+    })
     .then(() => P.resolve(client.cluster_server.read_server_time({
         target_secret: secret
     })))
@@ -213,16 +213,16 @@ P.fcall(function() {
             failures_in_test = true;
         }
     })
-     .then(() => P.resolve(client.system.read_system({})))
-     .then(result => {
-     var ntp_status = result.cluster.shards[0].servers[0].services_status.ntp_server;
-     if (ntp_status === 'OPERATIONAL') {
-     console.log('The service monitor see the ntp status as OPERATIONAL - as should');
-     } else {
-     saveErrorAndResume('The service monitor see the ntp status as', ntp_status, '- failure!!!');
-     failures_in_test = true;
-     }
-     })
+    .then(() => P.resolve(client.system.read_system({})))
+    .then(result => {
+        var ntp_status = result.cluster.shards[0].servers[0].services_status.ntp_server;
+        if (ntp_status === 'OPERATIONAL') {
+            console.log('The service monitor see the ntp status as OPERATIONAL - as should');
+        } else {
+            saveErrorAndResume('The service monitor see the ntp status as', ntp_status, '- failure!!!');
+            failures_in_test = true;
+        }
+    })
     .then(() => { // phone home configuration -
         console.log('Setting Phone home Proxy');
         return P.resolve(client.system.update_phone_home_config({
@@ -231,13 +231,13 @@ P.fcall(function() {
     })
     .then(() => phone_home_proxy_server.listen(ph_proxy_port))
     .then(() => promise_utils.pwhile(
-            function() {
-                return !received_phonehome_proxy_connection;
-            },
-            function() {
-                console.warn('Didn\'t get phone home message yet');
-                return P.delay(5000);
-            }).timeout(1 * 60000)
+        function() {
+            return !received_phonehome_proxy_connection;
+        },
+        function() {
+            console.warn('Didn\'t get phone home message yet');
+            return P.delay(5000);
+        }).timeout(1 * 60000)
         .then(() => {
             console.log('Just received phone home message - as should');
         })
@@ -279,8 +279,6 @@ P.fcall(function() {
             port: tcp_rsyslog_port
         }));
     })
-
-    /*
     .then(() => P.resolve()
         .then(() => promise_utils.pwhile(
             function() {
@@ -295,10 +293,9 @@ P.fcall(function() {
             console.log('Just received tcp rsyslog message - as should');
         })
         .catch(() => {
-         saveErrorAndResume('Didn\'t receive tcp rsyslog message for 1 minute - failure!!!');
+            saveErrorAndResume('Didn\'t receive tcp rsyslog message for 1 minute - failure!!!');
             failures_in_test = true;
         }))
-        */
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
         var address = result.remote_syslog_config.address;

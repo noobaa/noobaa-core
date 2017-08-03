@@ -286,6 +286,9 @@ module.exports = {
                 rpc_address: {
                     type: 'string'
                 },
+                port_range: {
+                    $ref: 'common_api#/definitions/port_range_config'
+                },
                 suggested_pool: {
                     type: 'string'
                 },

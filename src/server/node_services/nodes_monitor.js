@@ -2545,6 +2545,7 @@ class NodesMonitor extends EventEmitter {
         info.debug_level = host_item.node.debug_level;
         info.suggested_pool = host_item.suggested_pool;
         info.mode = host_item.mode;
+        info.port_range = host_item.node.n2n_config.tcp_permanent_passive;
         return info;
     }
 

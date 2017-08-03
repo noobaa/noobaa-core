@@ -30,11 +30,7 @@
     </tbody>
 </table>
 
-<div class="align-middle table-loader push-prev" ko.visible="loading">
-    <span class="circle"></span>
-    <span class="circle"></span>
-    <span class="circle"></span>
-</div>
+<loading-indicator class="align-middle pad" ko.visible="loading"></loading-indicator>
 
 <div class="empty-message" ko.visible="emptyMessage">
     {{emptyMessage}}

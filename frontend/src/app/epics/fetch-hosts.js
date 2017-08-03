@@ -2,15 +2,18 @@
 
 import { FETCH_HOSTS } from 'action-types';
 import { completeFetchHosts, failFetchHosts } from 'action-creators';
+import { sleep } from 'utils/promise-utils';
 
 export default function(action$, { api }) {
     return action$
         .ofType(FETCH_HOSTS)
         .flatMap(async action => {
             const { query } = action.payload;
-            const { pools, name, modes, sortBy, order, skip, limit } = query;
+            const { hosts, pools, name, modes, sortBy, order, skip, limit } = query;
 
             try {
+                // await sleep(3000);
+
                 return completeFetchHosts(
                     query,
                     await api.host.list_hosts({
@@ -18,6 +21,7 @@ export default function(action$, { api }) {
                             pools: pools,
                             filter: name,
                             mode: modes,
+                            hosts: hosts
                         },
                         sort: sortBy,
                         order: order,

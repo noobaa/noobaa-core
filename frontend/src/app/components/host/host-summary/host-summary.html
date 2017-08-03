@@ -1,7 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row">
-    <section class="c3 column borders pad">
+<div class="fill row" ko.visible="!hostLoaded()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
+
+<div class="row summary" ko.css.visible="hostLoaded">
+    <section class="c3 borders pad column">
         <div class="row">
             <span class="greedy remark">Services:</span>
             <span class="service-state-indicator" ko.css="storageServiceState">
@@ -58,7 +62,7 @@
         </div>
     </section>
 
-    <section class="column c3 borders pad">
+    <section class="c3 borders pad column">
         <h3 class="heading3">{{activitiesTitle}}</h3>
         <hr>
         <p class="remark push-next">{{activityText}}</p>

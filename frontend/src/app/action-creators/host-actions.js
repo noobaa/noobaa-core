@@ -10,7 +10,10 @@ import {
     DEACTIVATE_HOST,
     COMPLETE_DEACTIVATE_HOST,
     FAIL_DEACTIVATE_HOST,
-    DROP_HOSTS_VIEW
+    DROP_HOSTS_VIEW,
+    COLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_COLLLECT_HOST_DIAGNOSTICS,
+    FAIL_COLLECT_HOST_DIAGNOSTICS
 } from 'action-types';
 
 
@@ -86,3 +89,23 @@ export function failDeactivateHost(host, error) {
     };
 }
 
+export function collectHostDiagnostics(host) {
+    return {
+        type: COLLECT_HOST_DIAGNOSTICS,
+        payload: { host }
+    };
+}
+
+export function completeCollectHostDiagnostics(host, packageUri) {
+    return {
+        type: COMPLETE_COLLLECT_HOST_DIAGNOSTICS,
+        payload: { host, packageUri }
+    };
+}
+
+export function failCollectHostDiagnostics(host, error) {
+    return {
+        type: FAIL_COLLECT_HOST_DIAGNOSTICS,
+        payload: { host, error }
+    };
+}

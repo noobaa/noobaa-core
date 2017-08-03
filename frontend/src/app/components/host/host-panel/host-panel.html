@@ -10,10 +10,22 @@
             Details
         </a>
 
+        <a ko.css.selected="selectedTab.eq('storage')"
+            ko.attr.href="tabHref('storage')"
+        >
+            Storage &amp; Dirves
+        </a>
+
         <a ko.css.selected="selectedTab.eq('gateway')"
             ko.attr.href="tabHref('gateway')"
         >
             S3 Gateway
+        </a>
+
+        <a ko.css.selected="selectedTab.eq('diagnostics')"
+            ko.attr.href="tabHref('diagnostics')"
+        >
+            Test &amp; Diagnostics
         </a>
     </nav>
 
@@ -23,10 +35,20 @@
             params="name: host"
         ></host-details-form>
 
-        <host-gateway-from class="tab"
+        <host-storage-form class="tab"
+            ko.css.selected="selectedTab.eq('storage')"
+            params="name: host">
+        </host-storage-form>
+
+        <host-gateway-form class="tab"
             ko.css.selected="selectedTab.eq('gateway')"
             params="name: host">
-        </host-gateway-from>
+        </host-gateway-form>
+
+        <host-diagnostics-form class="tab"
+            ko.css.selected="selectedTab.eq('diagnostics')"
+            params="name: host">
+        </host-diagnostics-form>
     </div>
 </div>
 

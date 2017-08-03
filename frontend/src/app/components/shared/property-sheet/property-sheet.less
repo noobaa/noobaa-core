@@ -4,8 +4,18 @@ property-sheet {
     display: block;
     line-height: 2;
 
+    loading-indicator {
+        position: absolute;
+    }
+
     ul {
         line-height: inherit;
+        opacity: 0;
+        transition: opacity 250ms ease-out;
+
+        &.visible {
+            opacity: 1;
+        }
     }
 
     .prop-name {

@@ -7,6 +7,9 @@ import {
     FETCH_HOSTS,
     COMPLETE_FETCH_HOSTS,
     FAIL_FETCH_HOSTS,
+    COLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_COLLLECT_HOST_DIAGNOSTICS,
+    FAIL_COLLECT_HOST_DIAGNOSTICS,
     DROP_HOSTS_VIEW
 } from 'action-types';
 
@@ -20,6 +23,12 @@ const initialState = {
     queries: {},
     views: {},
     overallocated: 0
+};
+
+const initialHostDiagnosticsState = {
+    collecting: false,
+    error: false,
+    packageUri: ''
 };
 
 // ------------------------------
@@ -50,8 +59,12 @@ function onFetchHosts(state, { payload }) {
 
 function onCompleteFetchHosts(state, { payload }) {
     const { hosts, filter_counts } = payload.response;
+    const updates = keyByProperty(
+        hosts,
+        'host_id',
+        data => _mapDataToHost(state.items[data.host_id], data)
+    );
 
-    const updates = keyByProperty(hosts, 'host_id', _mapHost);
     const key = _generateQueryKey(payload.query);
     const items = {
         ...state.items,
@@ -121,6 +134,36 @@ function onFailFetchHosts(state, { payload }) {
     };
 }
 
+function onCollectHostDiagnostics(state, { payload }) {
+    const diagnostics = {
+        collecting: true,
+        error: false,
+        packageUri: ''
+    };
+
+    return _updateHost(state, payload.host, { diagnostics });
+}
+
+function onCompleteCollectHostDiagnostics(state, { payload }) {
+    const diagnostics = {
+        collecting: false,
+        error: false,
+        packageUri: payload.packageUri
+    };
+
+    return _updateHost(state, payload.host, { diagnostics });
+}
+
+function onFailCollectHostDiagnostics(state, { payload }) {
+    const diagnostics = {
+        collecting: false,
+        error: true,
+        packageUri: ''
+    };
+
+    return _updateHost(state, payload.host, { diagnostics });
+}
+
 function onDropHostsView(state, { payload }) {
     const { [payload.view]: _, ...views } = state.views;
 
@@ -137,24 +180,26 @@ function _generateQueryKey(query) {
     return hashCode(query);
 }
 
-function _mapHost(host) {
-    const { storage_nodes_info, s3_nodes_info, os_info } = host;
+function _mapDataToHost(host = {}, data) {
+    const { storage_nodes_info, s3_nodes_info, os_info } = data;
+    const { diagnostics = initialHostDiagnosticsState } = host;
 
     return {
-        name: host.host_id,
+        name: data.host_id,
         hostname: os_info.hostname,
-        mode: host.mode,
-        version: host.version,
-        ip: host.ip,
+        mode: data.mode,
+        version: data.version,
+        ip: data.ip,
         ports: {
             start: 0,
             end: 0
         },
-        protocol: host.connectivity,
-        lastCommunication: host.last_communication,
-        rtt: averageBy(host.latency_to_server),
-        storage: host.storage,
-        trusted: host.trusted,
+        protocol: data.connectivity,
+        rpcAddress: data.rpc_address,
+        lastCommunication: data.last_communication,
+        rtt: averageBy(data.latency_to_server),
+        storage: data.storage,
+        trusted: data.trusted,
         activities: {},
         services: {
             storage: _mapStorageNodes(storage_nodes_info),
@@ -166,16 +211,59 @@ function _mapHost(host) {
         memory: {
             total: os_info.totalmem,
             used: os_info.totalmem - os_info.freemem
-        }
+        },
+        diagnostics: diagnostics
     };
 }
 
-function _mapStorageNodes({ mode }) {
-    return { mode };
+function _mapStorageNodes({ mode, nodes }) {
+    return {
+        mode,
+        nodes: nodes.map(node => {
+            const { mode, drives, latency_of_disk_read, storage,
+                latency_of_disk_write, data_activity, debug_level } = node;
+
+            const activity = data_activity && {
+                type: data_activity.reason,
+                progress: data_activity.progress,
+                stage: data_activity.stage.name
+            };
+
+            return {
+                mode,
+                storage,
+                drive: drives[0].drive_id,
+                mount: drives[0].mount,
+                readLatency: averageBy(latency_of_disk_read),
+                writeLatency: averageBy(latency_of_disk_write),
+                debugMode: debug_level > 0,
+                activity
+            };
+        })
+    };
 }
 
 function _mapGatewayNodes({ mode }) {
     return { mode };
+}
+
+
+function _updateHost(state, host, updates) {
+    const item = state.items[host];
+    if (!item) return state;
+
+
+    return {
+        ...state,
+        items: {
+            ...state.items,
+            [host]: {
+                ...item,
+                ...updates
+            }
+        }
+    };
+
 }
 
 // ------------------------------
@@ -185,5 +273,8 @@ export default createReducer(initialState, {
     [FETCH_HOSTS]: onFetchHosts,
     [COMPLETE_FETCH_HOSTS]: onCompleteFetchHosts,
     [FAIL_FETCH_HOSTS]: onFailFetchHosts,
+    [COLLECT_HOST_DIAGNOSTICS]: onCollectHostDiagnostics,
+    [COMPLETE_COLLLECT_HOST_DIAGNOSTICS]: onCompleteCollectHostDiagnostics,
+    [FAIL_COLLECT_HOST_DIAGNOSTICS]: onFailCollectHostDiagnostics,
     [DROP_HOSTS_VIEW]: onDropHostsView
 });

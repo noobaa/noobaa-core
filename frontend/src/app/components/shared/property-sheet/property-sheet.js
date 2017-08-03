@@ -5,33 +5,37 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { copyTextToClipboard } from 'utils/browser-utils';
 
+function _mapProperty(prop, templates) {
+    const {
+        label,
+        value,
+        visible = true,
+        disabled = false,
+        multiline = false,
+        allowCopy = false,
+        template: templateName,
+    } = ko.deepUnwrap(prop);
+
+    const labelText = `${label}:`;
+    const template = templates[templateName] || value || '';
+    const css = {
+        'push-next': allowCopy,
+        disabled: disabled,
+    };
+
+
+    return { labelText, value, css, visible, disabled,
+        multiline, allowCopy, template};
+}
+
 class PropertySheetViewModel extends BaseViewModel {
-    constructor({ properties = [] }, templates) {
+    constructor({ properties = [], loading = false }, templates) {
         super();
 
         this.properties = ko.pureComputed(
-            () => properties.map(prop => {
-                const {
-                    label,
-                    value,
-                    visible = true,
-                    disabled = false,
-                    multiline = false,
-                    allowCopy = false,
-                    template: templateName,
-                } = ko.deepUnwrap(prop);
-
-                const labelText = `${label}:`;
-                const css = {
-                    'push-next': allowCopy,
-                    disabled: disabled,
-                };
-
-                const template = templates[templateName] || value || '';
-                return { labelText, value, css, visible, disabled,
-                    multiline, allowCopy, template};
-            })
+            () => ko.unwrap(properties).map(prop => _mapProperty(prop, templates))
         );
+        this.loading = loading;
         this.tooltip = ko.observable();
     }
 

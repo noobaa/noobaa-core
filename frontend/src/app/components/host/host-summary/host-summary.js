@@ -5,27 +5,25 @@ import Observer from 'observer';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { fetchHosts, dropHostsView } from 'action-creators';
-import { deepFreeze, isNumber } from 'utils/core-utils';
+import { isNumber } from 'utils/core-utils';
 import { formatSize, toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { getHostServiceState, getHostStateIcon, getHostTrustIcon,
-    getHostAccessibilityIcon } from 'utils/host-utils';
 import style from 'style';
 import moment from 'moment';
 import numeral from 'numeral';
-
-const activityTypeMapping = deepFreeze({
-    RESTORING: 'Restoring',
-    MIGRATING: 'Migrating',
-    DECOMMISSIONING: 'Deactivating',
-    DELETING: 'Deleting'
-});
+import {
+    getHostServiceState,
+    getHostStateIcon,
+    getHostTrustIcon,
+    getHostAccessibilityIcon,
+    getNodeActivityName
+} from 'utils/host-utils';
 
 const trustTooltip = `A reliability check that verifies that this node has no disk
     corruption or malicious activity`;
 
 function _getActivityText(type, nodeCount) {
-    return `${activityTypeMapping[type]} ${stringifyAmount('drive', nodeCount)}`;
+    return `${getNodeActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
 }
 
 function _getActivityEta(eta) {
@@ -119,6 +117,7 @@ class HostSummaryViewModel extends Observer {
 
     onHost(host) {
         if (!host) return;
+        this.hostLoaded(true);
 
         { // Update host state
             const serviceState = getHostServiceState(host);
@@ -167,7 +166,7 @@ class HostSummaryViewModel extends Observer {
             } else {
                 this.hasActivities(false);
                 this.activitiesTitle('No Activities');
-                this.activityText('Host has no activity');
+                this.activityText('Node has no activity');
             }
         }
     }

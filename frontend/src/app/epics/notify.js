@@ -13,7 +13,9 @@ import {
     COMPLETE_ADD_EXTERNAL_CONNECTION,
     FAIL_ADD_EXTERNAL_CONNECTION,
     COMPLETE_DELETE_RESOURCE,
-    FAIL_DELETE_RESOURCE
+    FAIL_DELETE_RESOURCE,
+    COLLECT_HOST_DIAGNOSTICS,
+    FAIL_COLLECT_HOST_DIAGNOSTICS
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -72,13 +74,23 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [COMPLETE_DELETE_RESOURCE] : ({ resource }) => ({
+    [COMPLETE_DELETE_RESOURCE]: ({ resource }) => ({
         message: `Resource ${resource} deleted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_DELETE_RESOURCE] : ({ resource }) => ({
+    [FAIL_DELETE_RESOURCE]: ({ resource }) => ({
         message: `Resource ${resource} deletion failed`,
+        severity: 'error'
+    }),
+
+    [COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
+        message: `Collecting diagnostic for ${host}, it may take a few seconds`,
+        severity: 'success'
+    }),
+
+    [FAIL_COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
+        message: `Collecting diagnostic file for ${host} failed`,
         severity: 'error'
     })
 });
@@ -91,6 +103,5 @@ export default function(action$) {
                 const { message, severity } = notif(action.payload);
                 return showNotification(message, severity);
             }
-        })
-        .filter(Boolean);
+        });
 }

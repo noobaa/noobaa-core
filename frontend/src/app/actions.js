@@ -9,7 +9,6 @@ import JSZip from 'jszip';
 import { last, makeArray, deepFreeze, flatMap, groupBy } from 'utils/core-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
-import { getModeFilterFromState } from 'utils/ui-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse, toFormData } from 'utils/browser-utils';
 import { Buffer } from 'buffer';
 
@@ -962,39 +961,6 @@ export function uploadSSLCertificate(SSLCertificate) {
                 }
             }
         );
-}
-
-export function downloadNodeDiagnosticPack(nodeName) {
-    logAction('downloadDiagnosticFile', { nodeName });
-
-    const currentNodeKey = `node:${nodeName}`;
-    if(model.collectDiagnosticsState[currentNodeKey] === true) {
-        return;
-    }
-
-    model.collectDiagnosticsState.assign({
-        [currentNodeKey]: true
-    });
-
-    api.system.diagnose_node({ name: nodeName })
-        .catch(
-            err => {
-                notify(`Packing diagnostic file for ${nodeName} failed`, 'error');
-                model.collectDiagnosticsState.assign({
-                    [currentNodeKey]: false
-                });
-                throw err;
-            }
-        )
-        .then(
-            url => {
-                downloadFile(url);
-                model.collectDiagnosticsState.assign({
-                    [currentNodeKey]: false
-                });
-            }
-        )
-        .done();
 }
 
 export function downloadServerDiagnosticPack(secret, hostname) {

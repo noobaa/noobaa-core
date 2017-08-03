@@ -6,20 +6,14 @@ import { state$ } from 'state';
 import ko from 'knockout';
 import numeral from 'numeral';
 import moment from 'moment';
-import { deepFreeze, isNumber } from 'utils/core-utils';
+import { isNumber } from 'utils/core-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { getNodeActivityName } from 'utils/host-utils';
 import style from 'style';
 
-const activityTypeMapping = deepFreeze({
-    RESTORING: 'Restoring',
-    MIGRATING: 'Migrating',
-    DECOMMISSIONING: 'Deactivating',
-    DELETING: 'Deleting'
-});
-
 function _getActivityText(type, nodeCount) {
-    return `${activityTypeMapping[type]} ${stringifyAmount('drive', nodeCount)}`;
+    return `${getNodeActivityName[type]} ${stringifyAmount('drive', nodeCount)}`;
 }
 
 function _getActivityEta(eta) {

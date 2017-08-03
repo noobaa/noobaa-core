@@ -153,9 +153,11 @@ export default function register(ko) {
     ko.components.register('host-panel',            require('./host/host-panel/host-panel').default);
     ko.components.register('host-summary',          require('./host/host-summary/host-summary').default);
     ko.components.register('host-details-form',     require('./host/host-details-form/host-details-form').default);
+    ko.components.register('host-gateway-form',     require('./host/host-gateway-form/host-gateway-form').default);
+    ko.components.register('host-storage-form',     require('./host/host-storage-form/host-storage-form').default);
     ko.components.register('node-parts-table',      require('./host/node-parts-table/node-parts-table').default);
-    ko.components.register('node-diagnostics-form', require('./host/node-diagnostics-form/node-diagnostics-form').default);
-    /** INJECT:node **/
+    ko.components.register('host-diagnostics-form', require('./host/host-diagnostics-form/host-diagnostics-form').default);
+    /** INJECT:host **/
 
     // -------------------------------
     // Management
@@ -275,5 +277,6 @@ export default function register(ko) {
     ko.components.register('validation-message',        require('./shared/validation-message/validation-message').default);
     ko.components.register('validation-rules-list',     require('./shared/validation-rules-list/validation-rules-list').default);
     ko.components.register('validation-indicator',      require('./shared/validation-indicator/validation-indicator').default);
+    ko.components.register('loading-indicator', require('./shared/loading-indicator/loading-indicator').default);
     /** INJECT:shared **/
 }

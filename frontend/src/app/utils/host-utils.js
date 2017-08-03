@@ -70,6 +70,7 @@ const stateToModes = deepFreeze({
         'OPTIMAL'
     ],
     HAS_ISSUES: [
+        'UNTRUSTED',
         'DECOMMISSIONED',
         'DECOMMISSIONING',
         'DATA_ACTIVITY',
@@ -105,6 +106,92 @@ const gatewayServiceModeToState = deepFreeze({
     OPTIMAL: 'healthy'
 });
 
+const activityTypeToName = deepFreeze({
+    RESTORING: 'Restoring',
+    MIGRATING: 'Migrating',
+    DECOMMISSIONING: 'Deactivating',
+    DELETING: 'Deleting'
+});
+
+const activityStageToName = deepFreeze({
+    OFFLINE_GRACE: 'Waiting',
+    REBUILDING: 'Rebuilding',
+    WIPING: 'Wiping Data'
+});
+
+const storageNodeModeToStateIcon = deepFreeze({
+    OFFLINE: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Offline'
+    },
+    UNTRUSTED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Untrusted'
+    },
+    INITALIZING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Initalizing'
+    },
+    DELETING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Deleting'
+    },
+    DELETED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Deleted'
+    },
+    DECOMMISSIONING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Deactivating'
+    },
+    DECOMMISSIONED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Deactivated'
+    },
+    MIGRATING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Migrating'
+    },
+    N2N_ERRORS: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Inter-Node connectivity problems'
+    },
+    GATEWAY_ERRORS: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Server connectivity problems'
+    },
+    IO_ERRORS: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Read/Write problems'
+    },
+    LOW_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Available capacity is low'
+    },
+    NO_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'No available capacity'
+    },
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    }
+});
+
 export function getHostStateIcon({ mode }) {
     return modeToStateIcon[mode];
 }
@@ -117,7 +204,7 @@ export function getHostAccessibilityIcon({ mode }) {
     return modeToAccessibilityIcon[mode];
 }
 
-export function getHostCapacityBarValues({ storage }) {
+export function getNodeOrHostCapacityBarValues({ storage }) {
     const { total, used, used_other, reserved } = storage;
     const usage = [
         { value: used, label: 'Used (Noobaa)' },
@@ -151,4 +238,16 @@ export function getHostServiceState({ services }) {
         storage: stroageServiceModeToState[storage.mode],
         gateway: gatewayServiceModeToState[gateway.mode],
     };
+}
+
+export function getStorageNodeStateIcon({ mode }) {
+    return storageNodeModeToStateIcon[mode];
+}
+
+export function getNodeActivityName(activity) {
+    return activityTypeToName[activity.type];
+}
+
+export function getNodeActivityStageName(activity) {
+    return activityStageToName[activity.stage];
 }

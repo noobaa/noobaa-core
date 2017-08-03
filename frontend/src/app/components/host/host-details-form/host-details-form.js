@@ -5,6 +5,7 @@ import Observer from 'observer';
 import { state$ } from 'state';
 import { deepFreeze, mapValues } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
+import { randomString } from 'utils/string-utils';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -54,15 +55,16 @@ class HostDetailsFormViewModel extends Observer {
     constructor({ name }) {
         super();
 
-        this.name = ko.observable();
-        this.version = ko.observable();
-        this.services = ko.observable();
-        this.lastCommunication = ko.observable();
-        this.ip = ko.observable();
-        this.protocol = ko.observable();
-        this.portRange = ko.observable();
-        this.endpoint = ko.observable();
-        this.rtt = ko.observable();
+        this.hostLoaded = ko.observable(false);
+        this.name = ko.observable(randomString());
+        this.version = ko.observable(randomString());
+        this.services = ko.observable(randomString());
+        this.lastCommunication = ko.observable(randomString());
+        this.ip = ko.observable(randomString());
+        this.protocol = ko.observable(randomString());
+        this.portRange = ko.observable(randomString());
+        this.endpoint = ko.observable(randomString());
+        this.rtt = ko.observable(randomString());
         this.daemonInfo = [
             {
                 label: 'Node Name',
@@ -140,6 +142,7 @@ class HostDetailsFormViewModel extends Observer {
         const { name, version, lastCommunication, ip, protocol,
             ports, rtt, hostname, upTime, os, cpus } = host;
 
+        this.hostLoaded(true);
         this.name(name);
         this.version(version);
         this.services(_getServicesString(host));

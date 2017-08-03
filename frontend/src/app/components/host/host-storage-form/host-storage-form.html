@@ -1,0 +1,22 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row pad alt-bg content-middle">
+    <div class="column greedy push-next">
+        <h2 class="heading3">Drives in Use: {{driveCount}}</h2>
+        <p class="row content-middle">
+            Storage mode: {{mode}}
+            <span class="push-both-half">|</span>
+            OS Type: {{os}}
+        </p>
+    </div>
+    <button class="btn" o.click="onEditDrives">
+        Edit Storage Drives
+    </button>
+</div>
+
+<data-table class="node-table" params="
+    rowCssProp: 'rowCss',
+    columns: columns,
+    data: rows,
+    loading: !hostLoaded()
+"></data-table>

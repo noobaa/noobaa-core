@@ -3,20 +3,7 @@
 import ko from 'knockout';
 import { mapValues } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { getHostStateIcon, getHostCapacityBarValues } from 'utils/host-utils';
-
-// const activityNameMapping = deepFreeze({
-//     RESTORING: 'Restoring',
-//     MIGRATING: 'Migrating',
-//     DECOMMISSIONING: 'Deactivating',
-//     DELETING: 'Deleting'
-// });
-
-// const activityStageMapping = deepFreeze({
-//     OFFLINE_GRACE: 'Waiting',
-//     REBUILDING: 'Rebuilding',
-//     WIPING: 'Wiping Data'
-// });
+import { getHostStateIcon, getNodeOrHostCapacityBarValues } from 'utils/host-utils';
 
 export default class HostRowViewModel {
     constructor({ baseRoute }) {
@@ -38,7 +25,7 @@ export default class HostRowViewModel {
         this.hostname({ text: hostname, href: uri });
         this.ip(ip);
         this.services(servicesState);
-        this.capacity(getHostCapacityBarValues(host));
+        this.capacity(getNodeOrHostCapacityBarValues(host));
         this.dataActivity('No Activity');
     }
 }

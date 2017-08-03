@@ -256,6 +256,9 @@ module.exports = {
                 ip: {
                     type: 'string'
                 },
+                base_address: {
+                    type: 'string'
+                },
                 version: {
                     type: 'string'
                 },

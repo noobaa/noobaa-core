@@ -105,24 +105,24 @@ function jump_system_time_by_milli(milli) {
 function init_system_to_ntp() {
     console.log('init_system_to_ntp started');
     return P.resolve()
+        .then(() => client.cluster_server.update_time_config({
+                timezone: "Asia/Jerusalem",
+                ntp_server: 'pool.ntp.org'
+            })
+            .then(() => {
+                console.log('update_time_config updated to ntp');
+            })
+            .catch(err => {
+                console.error('update_time_config to ntp failed', err);
+                throw err;
+            })
+        )
+        .delay(10000)
         .then(() => {
             console.log('shutdown supervisorctl');
             return promise_utils.exec('supervisorctl shutdown', false, false);
         })
         .delay(15000)
-        .then(() => {
-            console.log('supervisorctl shutdown successfully');
-            return os_utils.get_time_config()
-                .then(res => os_utils.set_ntp('pool.ntp.org', res.timezone || '')
-                    .then(() => {
-                        console.log('update_time_config updated to ntp');
-                    })
-                    .catch(err => {
-                        console.error('update_time_config to ntp failed', err);
-                        throw err;
-                    }));
-        })
-        .delay(10000)
         .finally(() => P.resolve()
             .then(() => {
                 console.log('start supervisord');

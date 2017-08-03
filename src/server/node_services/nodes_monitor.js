@@ -2063,6 +2063,7 @@ class NodesMonitor extends EventEmitter {
 
         let host_aggragate = this._aggregate_nodes_list(storage_nodes);
         host_item.node.storage = host_aggragate.storage;
+        host_item.storage_nodes.data_activities = host_aggragate.data_activities;
         host_item.node.drives = _.flatMap(host_nodes, item => item.node.drives);
 
         this._calculate_host_mode(host_item);
@@ -2517,6 +2518,7 @@ class NodesMonitor extends EventEmitter {
         };
         info.s3_nodes_info.mode = host_item.s3_nodes_mode;
         info.storage_nodes_info.mode = host_item.storage_nodes_mode;
+        info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
 
         // collect host info
         info.name = host_item.node.os_info.hostname;

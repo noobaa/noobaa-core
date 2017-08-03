@@ -306,6 +306,9 @@ module.exports = {
                             items: {
                                 $ref: 'node_api#/definitions/node_info'
                             }
+                        },
+                        data_activities: {
+                            $ref: 'node_api#/definitions/data_activities'
                         }
                     }
                 },

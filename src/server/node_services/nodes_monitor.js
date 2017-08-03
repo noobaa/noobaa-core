@@ -29,6 +29,7 @@ const auth_server = require('../common_services/auth_server');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
+const os_utils = require('../../util/os_utils');
 const cluster_server = require('../system_services/cluster_server');
 const clustering_utils = require('../utils/clustering_utils');
 const system_utils = require('../utils/system_utils');
@@ -873,6 +874,8 @@ class NodesMonitor extends EventEmitter {
                         // we take the name the agent sent as base, and add suffix if needed
                         // to prevent collisions.
                         if (item.node_from_store) {
+                            // calculate nodes cpu usage
+                            item.cpu_usage = os_utils.calc_cpu_usage(info.os_info.cpus, item.node.os_info.cpus);
                             if (info.host_id !== item.node.host_id) {
                                 dbg.warn(`agent sent different host_id than the one stored in DB. updating from ${item.node.host_id} to ${info.host_id}`);
                                 // if host id changed then we should change it for all agents of this host for consistnecy
@@ -2540,12 +2543,17 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
+        info.os_info.cpu_usage = {
+            count: info.os_info.cpus.length,
+            usage: host_item.cpu_usage
+        };
         info.rpc_address = host_item.node.rpc_address;
         info.latency_to_server = host_item.node.latency_to_server;
         info.debug_level = host_item.node.debug_level;
         info.suggested_pool = host_item.suggested_pool;
         info.mode = host_item.mode;
         info.port_range = host_item.node.n2n_config.tcp_permanent_passive;
+        info.base_address = host_item.node.base_address;
         return info;
     }
 

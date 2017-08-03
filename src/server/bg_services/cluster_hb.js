@@ -41,7 +41,7 @@ function do_heartbeat() {
             .then(() => os_utils.os_info(true)
                 .then(os_info => {
                     heartbeat.health.os_info = os_info;
-                    heartbeat.health.usage = _calc_cpu_usage(this.cpu_info);
+                    heartbeat.health.usage = os_utils.calc_cpu_usage(os.cpus(), this.cpu_info);
                     this.cpu_info = os_info.cpu_info;
                 }))
             .then(() => P.join(
@@ -112,27 +112,4 @@ function do_heartbeat() {
         dbg.log0('no local cluster info. HB is not written');
         return P.resolve();
     }
-}
-
-function _calc_cpu_usage(cpus_info) {
-    let workset = os.cpus();
-    if (cpus_info) {
-        for (let i = 0; i < workset.length; ++i) {
-            if (cpus_info[i]) {
-                _.keys(cpus_info[i].times).forEach(key => {
-                    workset[i].times[key] -= cpus_info[i].times[key];
-                });
-            }
-        }
-    }
-
-    let usage = 0;
-    for (let i = 0; i < workset.length; ++i) {
-        let total = 0;
-        _.keys(workset[i].times).forEach(key => {
-            total += workset[i].times[key];
-        });
-        usage += (total - workset[i].times.idle) / total;
-    }
-    return usage;
 }

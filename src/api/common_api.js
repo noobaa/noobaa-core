@@ -123,6 +123,18 @@ module.exports = {
                         properties: {}
                     }
                 },
+                cpu_usage: {
+                    type: 'object',
+                    required: ['count', 'usage'],
+                    properties: {
+                        count: {
+                            type: 'number'
+                        },
+                        usage: {
+                            type: 'number'
+                        }
+                    }
+                },
                 networkInterfaces: {
                     type: 'object',
                     additionalProperties: true,

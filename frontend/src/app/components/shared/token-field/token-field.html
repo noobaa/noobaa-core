@@ -9,6 +9,7 @@
     <!-- ko foreach: list -->
     <div class="row content-middle token">
         <span class="greedy token-text"
+            ko.css.error = "!$component.onValidateToken($data)"
             ko.preventBubble="'mousedown'"
             ko.text="$data"
         ></span>
@@ -17,7 +18,7 @@
             tabindex="-1"
             ko.click="() => $component.onRemoveToken($index())"
             ko.disable="$component.disabled"
-        ">
+        >
             <svg-icon params="name: 'x'"></svg-icon>
         </button>
     </div>

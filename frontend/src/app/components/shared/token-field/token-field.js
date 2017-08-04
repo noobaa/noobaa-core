@@ -12,10 +12,12 @@ class TokenFieldViewModel {
     constructor({
         tokens = ko.observable([]),
         disabled = false,
-        placeholder = 'Type to add tokens'
+        placeholder = 'Type to add tokens',
+        onValidateToken = () => true
     }) {
         this.text = ko.observable('');
         this.disabled = disabled;
+        this.onValidateToken = onValidateToken;
         this.placeholder = ko.pureComputed(
             () => this.hasFocus() ? '' : ko.unwrap(placeholder)
         );

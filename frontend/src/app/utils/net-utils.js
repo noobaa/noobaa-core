@@ -30,12 +30,30 @@ export function isIPRange(str) {
         return false;
     }
 
+    let reason;
     const { start, end } = splitIPRange(str);
-    return isIP(start) && isIP(end) && ipToNumber(start) < ipToNumber(end);
+
+    if(!isIP(start) || !isIP(end)) {
+        reason = 'MALFORMED';
+    } else if (ipToNumber(start) >= ipToNumber(end)) {
+        reason = 'INVALID_RANGE_ORDER';
+    }
+
+    return { valid: !reason, reason };
 }
 
 export function isIPOrIPRange(str) {
-    return isIP(str) || isIPRange(str);
+    let result;
+
+    if(!isIP(str) && !isIPRange(str)) {
+        result = { valid: false, reason: 'MALFORMED' };
+    } else if(isIP(str)) {
+        result = { valid: true };
+    } else {
+        result = isIPRange(str);
+    }
+
+    return result;
 }
 
 export function isDNSName(str) {

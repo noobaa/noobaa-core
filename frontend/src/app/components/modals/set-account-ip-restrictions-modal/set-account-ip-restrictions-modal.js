@@ -7,6 +7,13 @@ import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { isIPOrIPRange } from 'utils/net-utils';
 import { setAccountIpRestrictions } from 'action-creators';
+import { deepFreeze } from 'utils/core-utils';
+
+const invalidIpReasonMapping = deepFreeze({
+    MALFORMED: 'All values must be of the IPv4 format',
+    INVALID_RANGE_ORDER: 'IP range must start with lowest value',
+    INVALID_MULTIPLE_IPS: 'Some IPs are invalid',
+});
 
 const allowedIpsPlaceholder =
     `e.g., 10.5.3.2 or 10.2.253.5 - 24 and click enter ${String.fromCodePoint(0x23ce)}`;
@@ -48,11 +55,32 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
     onValidate({ usingIpRestrictions, allowedIps }) {
         const errors = {};
 
-        if (usingIpRestrictions && !allowedIps.every(isIPOrIPRange)) {
-            errors.allowedIps = 'All values must be of the IPv4 format';
+        if (usingIpRestrictions) {
+            let reson;
+
+            for (let allowedIp of allowedIps) {
+                const result = isIPOrIPRange(allowedIp);
+
+                if (!result.valid) {
+                    if(reson) {
+                        reson = 'INVALID_MULTIPLE_IPS';
+                        break;
+                    } else {
+                        reson = result.reason;
+                    }
+                }
+            }
+
+            if (invalidIpReasonMapping[reson]) {
+                errors.allowedIps = invalidIpReasonMapping[reson]
+            }
         }
 
         return errors;
+    }
+
+    onValidateToken(str) {
+        return isIPOrIPRange(str).valid;
     }
 
     onSubmit({ accountName, usingIpRestrictions, allowedIps }) {

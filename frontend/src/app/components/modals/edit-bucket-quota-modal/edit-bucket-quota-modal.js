@@ -136,6 +136,10 @@ class EditBucketQuotaModalViewModel extends Observer {
                 onlyIf: this.isUsingQuota,
                 params: 1,
                 message: quotaSizeValidationMessage
+            },
+            isInteger: {
+                onlyIf: this.isUsingQuota,
+                message: quotaSizeValidationMessage
             }
         });
 

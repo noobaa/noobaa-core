@@ -10,6 +10,7 @@ import {
     COLLECT_HOST_DIAGNOSTICS,
     COMPLETE_COLLECT_HOST_DIAGNOSTICS,
     FAIL_COLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_SET_HOST_DEBUG_MODE,
     DROP_HOSTS_VIEW
 } from 'action-types';
 
@@ -164,6 +165,11 @@ function onFailCollectHostDiagnostics(state, { payload }) {
     return _updateHost(state, payload.host, { diagnostics });
 }
 
+function onCompleteSetHostDebugMode(state, { payload }) {
+    const debugMode = payload.on;
+    return _updateHost(state, payload.host, { debugMode });
+}
+
 function onDropHostsView(state, { payload }) {
     const { [payload.view]: _, ...views } = state.views;
 
@@ -181,7 +187,7 @@ function _generateQueryKey(query) {
 }
 
 function _mapDataToHost(host = {}, data) {
-    const { storage_nodes_info, s3_nodes_info, os_info } = data;
+    const { storage_nodes_info, s3_nodes_info, os_info, debug_level } = data;
     const { diagnostics = initialHostDiagnosticsState } = host;
 
     return {
@@ -212,6 +218,7 @@ function _mapDataToHost(host = {}, data) {
             total: os_info.totalmem,
             used: os_info.totalmem - os_info.freemem
         },
+        debugMode: debug_level > 0,
         diagnostics: diagnostics
     };
 }
@@ -221,7 +228,7 @@ function _mapStorageNodes({ mode, nodes }) {
         mode,
         nodes: nodes.map(node => {
             const { mode, drives, latency_of_disk_read, storage,
-                latency_of_disk_write, data_activity, debug_level } = node;
+                latency_of_disk_write, data_activity } = node;
 
             const activity = data_activity && {
                 type: data_activity.reason,
@@ -236,7 +243,6 @@ function _mapStorageNodes({ mode, nodes }) {
                 mount: drives[0].mount,
                 readLatency: averageBy(latency_of_disk_read),
                 writeLatency: averageBy(latency_of_disk_write),
-                debugMode: debug_level > 0,
                 activity
             };
         })
@@ -276,5 +282,6 @@ export default createReducer(initialState, {
     [COLLECT_HOST_DIAGNOSTICS]: onCollectHostDiagnostics,
     [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: onCompleteCollectHostDiagnostics,
     [FAIL_COLLECT_HOST_DIAGNOSTICS]: onFailCollectHostDiagnostics,
+    [COMPLETE_SET_HOST_DEBUG_MODE]: onCompleteSetHostDebugMode,
     [DROP_HOSTS_VIEW]: onDropHostsView
 });

@@ -13,7 +13,10 @@ import {
     DROP_HOSTS_VIEW,
     COLLECT_HOST_DIAGNOSTICS,
     COMPLETE_COLLECT_HOST_DIAGNOSTICS,
-    FAIL_COLLECT_HOST_DIAGNOSTICS
+    FAIL_COLLECT_HOST_DIAGNOSTICS,
+    SET_HOST_DEBUG_MODE,
+    COMPLETE_SET_HOST_DEBUG_MODE,
+    FAIL_SET_HOST_DEBUG_MODE
 } from 'action-types';
 
 
@@ -107,5 +110,26 @@ export function failCollectHostDiagnostics(host, error) {
     return {
         type: FAIL_COLLECT_HOST_DIAGNOSTICS,
         payload: { host, error }
+    };
+}
+
+export function setHostDebugMode(host, on) {
+    return {
+        type: SET_HOST_DEBUG_MODE,
+        payload: { host, on }
+    };
+}
+
+export function completeSetHostDebugMode(host, on) {
+    return {
+        type: COMPLETE_SET_HOST_DEBUG_MODE,
+        payload: { host, on }
+    };
+}
+
+export function failSetHostDebugMode(host, on, error) {
+    return {
+        type: FAIL_SET_HOST_DEBUG_MODE,
+        payload: { host, on, error }
     };
 }

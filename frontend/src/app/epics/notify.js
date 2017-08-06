@@ -15,7 +15,9 @@ import {
     COMPLETE_DELETE_RESOURCE,
     FAIL_DELETE_RESOURCE,
     COLLECT_HOST_DIAGNOSTICS,
-    FAIL_COLLECT_HOST_DIAGNOSTICS
+    FAIL_COLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_SET_HOST_DEBUG_MODE,
+    FAIL_SET_HOST_DEBUG_MODE
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -91,6 +93,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
         message: `Collecting diagnostic file for ${host} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
+        message: `Debug mode was turned ${on ? 'on' : 'off'} for node ${host}`,
+        severity: 'success'
+    }),
+
+    [FAIL_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
+        message: `Could not turn ${on ? 'on' : 'off'} debug mode for node ${host}`,
         severity: 'error'
     })
 });

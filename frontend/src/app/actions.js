@@ -1018,34 +1018,6 @@ export function downloadSystemDiagnosticPack() {
         .done();
 }
 
-export function setNodeDebugLevel(node, level) {
-    logAction('setNodeDebugLevel', { node, level });
-
-    api.node.read_node({ name: node })
-        .then(
-            node => api.node.set_debug_node({
-                node: {
-                    name: node.name
-                },
-                level: level
-            })
-        )
-        .then(
-            () => notify(
-                `Debug mode was turned ${level === 0 ? 'off' : 'on'} for node ${node}`,
-                'success'
-            ),
-            () => notify(
-                `Could not turn ${level === 0 ? 'off' : 'on'} debug mode for node ${node}`,
-                'error'
-            )
-        )
-        .then(
-            () => loadNodeInfo(node)
-        )
-        .done();
-}
-
 export function setServerDebugLevel(secret, hostname, level){
     logAction('setServerDebugLevel', { secret, hostname, level });
 

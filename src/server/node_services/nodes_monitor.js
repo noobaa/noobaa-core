@@ -2693,6 +2693,18 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
+    collect_host_diagnostics(host_id) {
+        this._throw_if_not_started_and_loaded();
+
+        // TODO: Currently returning diag only for the first agent,
+        // need to support multi agent diagnostics with shared part and
+        // specific parts.
+        const firstItem = this._get_nodes_by_host_id(host_id)[0];
+        const { connection } = firstItem;
+        return server_rpc.client.agent.collect_diagnostics(undefined, { connection })
+            .then(result => result.data);
+    }
+
     set_debug_host(req) {
         this._throw_if_not_started_and_loaded();
         const { host_id, level } = req.rpc_params;

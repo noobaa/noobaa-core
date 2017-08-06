@@ -2,6 +2,8 @@
 'use strict';
 
 const _ = require('lodash');
+const P = require('../../util/promise.js');
+const diag = require('../utils/server_diagnostics');
 // const util = require('util');
 
 
@@ -60,7 +62,18 @@ function update_host_services(req) {
         .return();
 }
 
+function diagnose_host(req) {
+    const { host: host_id } = req.rpc_params;
+    const monitor = nodes_server.get_local_monitor();
+    var out_path = `/public/host_${host_id}_diagnostics.tgz`;
+    var inner_path = `${process.cwd()}/build${out_path}`;
 
+    return P.resolve()
+        .then(() => monitor.collect_host_diagnostics(host_id))
+        .then(buffer => diag.write_agent_diag_file(buffer))
+        .then(() => diag.pack_diagnostics(inner_path));
+        // TODO: Add activity event for this method.
+}
 
 
 /**
@@ -92,3 +105,4 @@ exports.set_debug_host = set_debug_host;
 exports.update_host_services = update_host_services;
 exports.list_hosts = list_hosts;
 exports.migrate_hosts_to_pool = migrate_hosts_to_pool;
+exports.diagnose_host = diagnose_host;

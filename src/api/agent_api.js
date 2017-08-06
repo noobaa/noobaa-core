@@ -301,6 +301,10 @@ module.exports = {
             }
         },
 
+        uninstall: {
+            method: 'DELETE',
+        },
+
     },
 
     definitions: {

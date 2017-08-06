@@ -102,6 +102,9 @@ module.exports = {
         deleted: {
             format: 'idate'
         },
+        force_hide: {
+            format: 'idate'
+        },
 
         // node storage stats - sum of drives
         storage: storage_stat_schema,

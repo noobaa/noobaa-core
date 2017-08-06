@@ -118,6 +118,7 @@ const gatewayServiceModeToState = deepFreeze({
     OFFLINE: 'problem',
     DECOMMISSIONED: 'disabled',
     HTTP_SRV_ERRORS: 'issues',
+    UNTRUSTED: 'issues',
     INITALIZING: 'issues',
     OPTIMAL: 'healthy'
 });
@@ -137,6 +138,11 @@ const gatewayServiceModeToIcon = deepFreeze({
         name: 'problem',
         css: 'warning',
         tooltip: 'Cannot start HTTP server'
+    },
+    UNTRUSTED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Untrusted'
     },
     INITALIZING: {
         name: 'working',

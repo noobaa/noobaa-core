@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 3000] */
+/* eslint max-lines: ['error', 3120] */
 'use strict';
 
 const _ = require('lodash');
@@ -319,6 +319,36 @@ class NodesMonitor extends EventEmitter {
         return this._get_host_info(this._consolidate_host(host_nodes));
     }
 
+    retrust_host(req) {
+        this._throw_if_not_started_and_loaded();
+        const host_nodes = this._get_host_nodes_by_name(req.rpc_params.name);
+        const host_item = this._consolidate_host(host_nodes);
+        return P.map(host_nodes, node => this._retrust_node(node))
+            .then(() => this._dispatch_node_event(host_item, 'retrust',
+                `Node ${this._item_hostname(host_item)} was retrusted by ${req.account && req.account.email}`,
+                req.account && req.account._id));
+    }
+
+    delete_host(req) {
+        this._throw_if_not_started_and_loaded();
+        const is_force = req.rpc_params.force;
+        const host_nodes = this._get_host_nodes_by_name(req.rpc_params.name);
+        const host_item = this._consolidate_host(host_nodes);
+        if (!this._is_host_deletable(host_item) && !is_force) {
+            throw new RpcError('HOST_NO_ACCESS');
+        }
+        return P.map(host_nodes, node => this._delete_node(node, is_force))
+            .then(() => this._dispatch_node_event(host_item, 'deleted',
+                `Node ${this._item_hostname(host_item)} was deleted by ${req.account && req.account.email}`,
+                req.account && req.account._id));
+    }
+
+    delete_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
+        const item = this._get_node(node_identity, 'allow_offline');
+        return this._delete_node(item);
+    }
+
     migrate_hosts_to_pool(req) {
         this._throw_if_not_started_and_loaded();
         const hosts = req.rpc_params.hosts;
@@ -501,24 +531,6 @@ class NodesMonitor extends EventEmitter {
         }
     }
 
-    delete_node(node_identity) {
-        this._throw_if_not_started_and_loaded();
-        const item = this._get_node(node_identity, 'allow_offline');
-
-        return P.resolve()
-            .then(() => {
-                if (!item.node.deleting) {
-                    item.node.deleting = Date.now();
-                }
-                this._set_need_update.add(item);
-                this._update_status(item);
-            })
-            .then(() => this._update_nodes_store('force'))
-            .return();
-    }
-
-
-
     ///////////////////
     // INTERNAL IMPL //
     ///////////////////
@@ -666,11 +678,23 @@ class NodesMonitor extends EventEmitter {
         host_nodes.push(item);
     }
 
+    _remove_node_to_hosts_map(host_id, item) {
+        let host_nodes = this._map_host_id.get(host_id);
+        if (host_nodes) {
+            _.pull(host_nodes, item);
+            if (!host_nodes.length) {
+                this._map_host_id.delete(host_id);
+                this._map_host_seq_num.delete(String(item.node.host_sequence));
+            }
+        }
+    }
+
     _remove_node_from_maps(item) {
         this._map_node_id.delete(String(item.node._id));
         this._map_peer_id.delete(String(item.node.peer_id));
         this._map_node_name.delete(String(item.node.name));
         this._set_need_update.delete(item);
+        this._remove_node_to_hosts_map(String(item.node.host_id), item);
     }
 
     _set_node_defaults(item) {
@@ -824,15 +848,31 @@ class NodesMonitor extends EventEmitter {
             P.resolve()
             .then(() => dbg.log0('_run_node:', item.node.name))
             .then(() => this._get_agent_info(item))
+            .then(() => this._uninstall_deleting_node(item))
             .then(() => this._update_node_service(item))
             .then(() => this._update_create_node_token(item))
             .then(() => this._update_rpc_config(item))
             .then(() => this._test_nodes_validity(item))
             .then(() => this._update_status(item))
+            .then(() => this._handle_issues(item))
             .then(() => this._update_nodes_store())
             .catch(err => {
                 dbg.warn('_run_node: ERROR', err.stack || err, 'node', item.node);
             }));
+    }
+
+    _handle_issues(item) {
+        if (item.node.permission_tempering && !item.node_from_store.permission_tempering &&
+            !item.permission_event) {
+            item.permission_event = Date.now();
+            this._dispatch_node_event(item, 'untrusted', `Node ${this._item_hostname(item)} was set to untrusted due to permission tampering`);
+        }
+        if (_.some(item.node.issues_report, issue => issue.reason === 'TAMPERING') &&
+            !_.some(item.node_from_store.issues_report, issue => issue.reason === 'TAMPERING') &&
+            !item.data_event) {
+            item.data_event = Date.now();
+            this._dispatch_node_event(item, 'untrusted', `Node ${this._item_hostname(item)} was set to untrusted due to data tampering`);
+        }
     }
 
     /**
@@ -864,6 +904,45 @@ class NodesMonitor extends EventEmitter {
         delete item.node.decommissioned;
         this._set_need_update.add(item);
         this._update_status(item);
+    }
+
+    _clear_untrusted(item) {
+        delete item.node.permission_tempering;
+        item.permission_event = false;
+        item.data_event = false;
+        if (item.node.issues_report) {
+            _.remove(item.node.issues_report, issue => issue.reason === 'TAMPERING');
+        }
+        this._set_need_update.add(item);
+        this._update_status(item);
+    }
+
+    _retrust_node(item) {
+        if (!item.node.permission_tempering && !item.node.issues_report) {
+            return;
+        }
+
+        return P.resolve()
+            .then(() => {
+                this._clear_untrusted(item);
+                return this._update_nodes_store('force');
+            });
+    }
+
+    _delete_node(item, force) {
+        return P.resolve()
+            .then(() => {
+                if (force) {
+                    item.node.force_hide = Date.now();
+                }
+                if (!item.node.deleting) {
+                    item.node.deleting = Date.now();
+                }
+                this._set_need_update.add(item);
+                this._update_status(item);
+            })
+            .then(() => this._update_nodes_store('force'))
+            .return();
     }
 
 
@@ -1012,6 +1091,41 @@ class NodesMonitor extends EventEmitter {
             }
         }
         return item.node.endpoint_stats;
+    }
+
+    _uninstall_deleting_node(item) {
+        if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true;
+        if (!item.ready_to_uninstall) return;
+        if (item.node.deleted) return;
+        if (item.ready_to_be_deleted) return;
+        if (!item.connection) return;
+        if (!item.node_from_store) return;
+
+        const host_nodes = this._get_nodes_by_host_id(item.node.host_id);
+        const first_item = host_nodes[0]; // TODO ask Danny if we can trust the first to be stable
+        if (!first_item.connection) return;
+        if (first_item.uninstalling) return;
+
+        // if all nodes in host are ready_to_uninstall - uninstall the agent - at least try to
+        if (!_.every(host_nodes, node => node.ready_to_uninstall)) return;
+
+        first_item.uninstalling = true;
+        dbg.log0('_uninstall_deleting_node: uninstalling host', item.node.host_id, 'all nodes are deleted');
+        return P.resolve()
+            .then(() => server_rpc.client.agent.uninstall(undefined, {
+                connection: first_item.connection,
+            }))
+            .then(() => {
+                dbg.log0('_uninstall_deleting_node: host', item.node.host_id, 'is uninstalled - all nodes will be removed');
+                // Dispatcher.instance().alert('INFO', first_item.node.system, `Node ${first_item.node.os_info.hostname} is successfully deleted`);
+                host_nodes.forEach(host_item => {
+                    host_item.ready_to_be_deleted = true;
+                });
+            })
+            .finally(() => {
+                first_item.uninstalling = false;
+            });
+
     }
 
     _migrate_items_to_pool(items, pool) {
@@ -1558,7 +1672,9 @@ class NodesMonitor extends EventEmitter {
         item.trusted = true;
         let io_detention_recent_issues = 0;
 
-        if (item.node.permission_tempering) item.trusted = false;
+        if (item.node.permission_tempering) {
+            item.trusted = false;
+        }
 
         if (item.node.issues_report) {
             // only print to log if the node had issues in the last hour
@@ -1845,7 +1961,8 @@ class NodesMonitor extends EventEmitter {
             if (item.node.deleting) {
                 // We mark it in order to remove the agent fully (process and tokens etc)
                 // Only after successfully completing the removal we assign the deleted date
-                item.ready_to_be_deleted = true;
+                // item.ready_to_be_deleted = true;
+                item.ready_to_uninstall = true;
             }
             act.done = true;
         }
@@ -2071,6 +2188,7 @@ class NodesMonitor extends EventEmitter {
             if (!host) continue;
             // skip new hosts
             if (host.every(item => !item.node_from_store)) continue;
+            if (host.every(item => item.node.force_hide)) continue;
             // update the status of every node we go over
             const item = this._consolidate_host(host);
             // filter hosts according to query
@@ -2660,6 +2778,12 @@ class NodesMonitor extends EventEmitter {
             }
         }
         return info;
+    }
+
+    _is_host_deletable(host_item) {
+        return (host_item.storage_nodes_mode !== 'OFFLINE' &&
+            host_item.storage_nodes_mode !== 'UNTRUSTED' &&
+            host_item.storage_nodes_mode !== 'DETENTION');
     }
 
     _get_node_info(item, fields) {

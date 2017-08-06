@@ -154,6 +154,7 @@ class Agent {
             'update_s3rver',
             'decommission',
             'recommission',
+            'uninstall',
             'update_node_service'
         ]);
 
@@ -973,6 +974,16 @@ class Agent {
                     dbg.set_level(0, 'core');
                 });
         }
+    }
+
+    uninstall() {
+        const dbg = this.dbg;
+        dbg.log1('Recieved unintsall req');
+        if (os_utils.get_distro() === 'OSX - Darwin') return;
+        P.delay(30 * 1000) // this._disable_service()
+            .then(() => {
+                process.exit(85); // 85 is 'U' in ascii
+            });
     }
 
 }

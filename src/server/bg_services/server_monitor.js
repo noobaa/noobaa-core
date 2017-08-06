@@ -168,7 +168,7 @@ function _check_ntp() {
             if (netstat_res.startsWith('unsynchronised')) {
                 Dispatcher.instance().alert('MAJOR',
                     system_store.data.systems[0]._id,
-                    `Local server time is not synchorinised with NTP Server`,
+                    `Local server time is not synchronized with NTP Server, check NTP server configuration`,
                     Dispatcher.rules.once_daily);
                 throw new Error('unsynchronised');
             }
@@ -176,7 +176,7 @@ function _check_ntp() {
             if (!regex_res || !regex_res[1]) throw new Error('failed to check ntp sync');
             return net_utils.dns_resolve(server_conf.ntp.server)
                 .then(ip_table => {
-                    if (!ip_table.some(val => val === regex_res[1])) throw new Error('syncronized to wrong ntp server');
+                    if (!ip_table.some(val => val === regex_res[1])) throw new Error('synchronized to wrong ntp server');
                 });
         })
         .then(() => {

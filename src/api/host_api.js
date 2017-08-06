@@ -204,6 +204,41 @@ module.exports = {
             }
         },
 
+        retrust_host: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_host: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    force: {
+                        type: 'boolean'
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         set_debug_host: {
             method: 'POST',
             params: {
@@ -414,6 +449,7 @@ module.exports = {
             enum: [
                 'OFFLINE',
                 'DECOMMISSIONED',
+                'UNTRUSTED',
                 'HTTP_SRV_ERRORS',
                 'INITALIZING',
                 'OPTIMAL',

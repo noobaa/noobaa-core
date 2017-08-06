@@ -29,6 +29,21 @@ export default {
                 entityId: ({ node }) => node && node.name
             },
 
+            deleted: {
+                message: 'Node Deleted',
+                entityId: ({ node }) => node && node.name
+            },
+
+            untrusted: {
+                message: 'Node Untrusted',
+                entityId: ({ node }) => node && node.name
+            },
+
+            retrust: {
+                message: 'Node Retrusted',
+                entityId: ({ node }) => node && node.name
+            },
+
             disconnected: {
                 message: 'Node Disconnected',
                 entityId: ({ node }) => node && node.name

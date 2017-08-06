@@ -21,10 +21,12 @@ dbg.set_process_name('agent_wrapper');
 
 const DUPLICATE_RET_CODE = 68;
 const NOTFOUND_RET_CODE = 69;
+const UNINSTALL_RET_CODE = 85;
 const EXECUTABLE_MOD_VAL = 511;
 
 const CONFIGURATION = {
     SETUP_FILENAME: WIN_AGENT ? 'noobaa-setup.exe' : 'noobaa-setup',
+    UNINSTALL_FILENAME: WIN_AGENT ? 'uninstall-noobaa.exe' : 'uninstall_noobaa_agent.sh',
     PROCESS_DIR: path.join(__dirname, '..', '..'),
     AGENT_CLI: './src/agent/agent_cli',
     NUM_UPGRADE_WARNINGS: WIN_AGENT ? 3 : 18, // for windows it seems unnecessary to wait. reducing for now
@@ -33,8 +35,11 @@ const CONFIGURATION = {
 };
 
 CONFIGURATION.SETUP_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.SETUP_FILENAME);
+CONFIGURATION.UNINSTALL_FILE = CONFIGURATION.PROCESS_DIR + (WIN_AGENT ? '\\' : '/') + CONFIGURATION.UNINSTALL_FILENAME;
 CONFIGURATION.INSTALLATION_COMMAND = WIN_AGENT ? `"${CONFIGURATION.SETUP_FILE}" /S` :
     `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
+CONFIGURATION.UNINSTALL_COMMAND = WIN_AGENT ? `"${CONFIGURATION.UNINSTALL_FILE}" /S` :
+    `setsid ${CONFIGURATION.UNINSTALL_FILE} >> /dev/null`;
 
 process.chdir(path.join(__dirname, '..', '..'));
 CONFIGURATION.BACKUP_DIR = path.join(process.cwd(), `backup`);
@@ -122,4 +127,11 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
             if (attempts !== CONFIGURATION.NUM_UPGRADE_WARNINGS) dbg.warn(msg);
             throw new Error(msg);
         }))
-    .catch(err => dbg.error(err));
+    .catch(err => {
+        if (err.code && err.code === UNINSTALL_RET_CODE) {
+            dbg.log0('Agent to be uninstalled');
+            return promise_utils.exec(CONFIGURATION.UNINSTALL_COMMAND);
+        } else {
+            dbg.error(err);
+        }
+    });

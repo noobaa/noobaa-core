@@ -250,18 +250,16 @@ function run_test() {
                 test_buckets,
                 storage_by_bucket
             );
-        });
+        })
+        .then(() => init_system_to_ntp());
 }
 
 function main() {
     return run_test()
         .then(function() {
-            return init_system_to_ntp()
-                .finally(() => {
-                    console.log('TEST PASSED! Everything Seems To Be Fine...');
-                    rpc.disconnect_all();
-                    process.exit(0);
-                });
+            console.log('TEST PASSED! Everything Seems To Be Fine...');
+            rpc.disconnect_all();
+            process.exit(0);
         })
         .catch(function(err) {
             return init_system_to_ntp()

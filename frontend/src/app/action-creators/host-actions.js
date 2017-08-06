@@ -12,7 +12,7 @@ import {
     FAIL_DEACTIVATE_HOST,
     DROP_HOSTS_VIEW,
     COLLECT_HOST_DIAGNOSTICS,
-    COMPLETE_COLLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_COLLECT_HOST_DIAGNOSTICS,
     FAIL_COLLECT_HOST_DIAGNOSTICS
 } from 'action-types';
 
@@ -98,7 +98,7 @@ export function collectHostDiagnostics(host) {
 
 export function completeCollectHostDiagnostics(host, packageUri) {
     return {
-        type: COMPLETE_COLLLECT_HOST_DIAGNOSTICS,
+        type: COMPLETE_COLLECT_HOST_DIAGNOSTICS,
         payload: { host, packageUri }
     };
 }

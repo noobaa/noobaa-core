@@ -193,6 +193,25 @@ module.exports = {
             }
         },
 
+        diagnose_host: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['host_id'],
+                properties: {
+                    host_id: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'string'
+            },
+            auth: {
+                system: 'admin',
+            }
+        }
+
     },
 
 

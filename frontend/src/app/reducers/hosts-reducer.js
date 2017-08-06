@@ -8,7 +8,7 @@ import {
     COMPLETE_FETCH_HOSTS,
     FAIL_FETCH_HOSTS,
     COLLECT_HOST_DIAGNOSTICS,
-    COMPLETE_COLLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_COLLECT_HOST_DIAGNOSTICS,
     FAIL_COLLECT_HOST_DIAGNOSTICS,
     DROP_HOSTS_VIEW
 } from 'action-types';
@@ -274,7 +274,7 @@ export default createReducer(initialState, {
     [COMPLETE_FETCH_HOSTS]: onCompleteFetchHosts,
     [FAIL_FETCH_HOSTS]: onFailFetchHosts,
     [COLLECT_HOST_DIAGNOSTICS]: onCollectHostDiagnostics,
-    [COMPLETE_COLLLECT_HOST_DIAGNOSTICS]: onCompleteCollectHostDiagnostics,
+    [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: onCompleteCollectHostDiagnostics,
     [FAIL_COLLECT_HOST_DIAGNOSTICS]: onFailCollectHostDiagnostics,
     [DROP_HOSTS_VIEW]: onDropHostsView
 });

@@ -11,7 +11,7 @@ export default function(action$, { api }) {
 
             try {
                 await api.host.update_host_services({
-                    host_id: host,
+                    name: host,
                     services: {
                         storage: services.storage,
                         s3: services.gateway

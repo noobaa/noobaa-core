@@ -62,8 +62,8 @@ function onCompleteFetchHosts(state, { payload }) {
     const { hosts, filter_counts } = payload.response;
     const updates = keyByProperty(
         hosts,
-        'host_id',
-        data => _mapDataToHost(state.items[data.host_id], data)
+        'name',
+        data => _mapDataToHost(state.items[data.name], data)
     );
 
     const key = _generateQueryKey(payload.query);
@@ -191,7 +191,7 @@ function _mapDataToHost(host = {}, data) {
     const { diagnostics = initialHostDiagnosticsState } = host;
 
     return {
-        name: data.host_id,
+        name: data.name,
         hostname: os_info.hostname,
         mode: data.mode,
         version: data.version,

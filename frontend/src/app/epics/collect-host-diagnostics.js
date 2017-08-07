@@ -10,7 +10,7 @@ export default function(action$, { api }) {
             const { host } = action.payload;
 
             try {
-                const packageUri = await api.host.diagnose_host({ host_id: host });
+                const packageUri = await api.host.diagnose_host({ name: host });
                 return completeCollectHostDiagnostics(host, packageUri);
 
             } catch (error) {

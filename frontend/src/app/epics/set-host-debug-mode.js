@@ -11,7 +11,7 @@ export default function(action$, { api }) {
 
             try {
                 await api.host.set_debug_host({
-                    host_id: host,
+                    name: host,
                     level: on ? 5 : 1
                 });
 

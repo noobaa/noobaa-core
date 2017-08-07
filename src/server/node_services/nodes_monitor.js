@@ -186,6 +186,7 @@ class NodesMonitor extends EventEmitter {
         this.n2n_rpc = api.new_rpc();
         this.n2n_client = this.n2n_rpc.new_client();
         this.n2n_agent = this.n2n_rpc.register_n2n_agent(this.n2n_client.node.n2n_signal);
+        this._host_sequence_number = 0;
         // Notice that this is a mock up address just to ensure n2n connection authorization
         this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
     }
@@ -311,9 +312,9 @@ class NodesMonitor extends EventEmitter {
     /**
      * read_host returns information about all nodes in one host
      */
-    read_host(host_id) {
+    read_host(name) {
         this._throw_if_not_started_and_loaded();
-        const host_nodes = this._get_nodes_by_host_id(host_id);
+        const host_nodes = this._get_host_nodes_by_name(name);
         return this._get_host_info(this._consolidate_host(host_nodes));
     }
 
@@ -327,13 +328,13 @@ class NodesMonitor extends EventEmitter {
 
         // get on list of all nodes to migrate
         const hosts_info = [];
-        const items = _.flatMap(hosts, host_id => {
-            const host_items = this._get_nodes_by_host_id(host_id);
+        const items = _.flatMap(hosts, name => {
+            const host_items = this._get_host_nodes_by_name(name);
             if (host_items.some(item => item.node.is_cloud_node)) throw new RpcError('BAD_REQUEST', 'migrating cloud node is not allowed');
             if (host_items.length === 0) return [];
             const from_pool = system_store.data.get_by_id(host_items[0].node.pool);
             hosts_info.push({
-                host_id,
+                name,
                 from_pool: (String(from_pool) === String(to_pool._id)) ? '' : from_pool.name
             });
             return host_items;
@@ -455,14 +456,14 @@ class NodesMonitor extends EventEmitter {
 
     update_nodes_services(req) {
         this._throw_if_not_started_and_loaded();
-        const { host_id, services, nodes } = req.rpc_params;
+        const { name, services, nodes } = req.rpc_params;
         if (services && nodes) throw new Error('Request cannot specify both services and nodes');
         if (!services && !nodes) throw new Error('Request must specify services or nodes');
 
         let updates;
         if (services) {
             const { s3: s3_enabled, storage: storage_enabled } = services;
-            updates = this._get_nodes_by_host_id(host_id)
+            updates = this._get_host_nodes_by_name(name)
                 .map(item => ({
                     item: item,
                     enabled: item.node.s3_agent ? s3_enabled : storage_enabled
@@ -494,7 +495,7 @@ class NodesMonitor extends EventEmitter {
     get_node_ids(req) {
         const { identity, by_host } = req.rpc_params;
         if (by_host) {
-            return this._get_nodes_by_host_id(identity).map(item => String(item.node._id));
+            return this._get_host_nodes_by_name(identity).map(item => String(item.node._id));
         } else {
             const item = this._get_node({ name: identity }, 'allow_offline');
             return [String(item.node._id)];
@@ -530,9 +531,11 @@ class NodesMonitor extends EventEmitter {
         this._map_peer_id = new Map();
         this._map_node_name = new Map();
         this._map_host_id = new Map();
+        this._map_host_seq_num = new Map();
         this._set_need_update = new Set();
         this._set_need_rebuild = new Set();
         this._set_need_rebuild_iter = null;
+        this._host_sequence_number = 0;
     }
 
     _throw_if_not_started_and_loaded() {
@@ -556,7 +559,10 @@ class NodesMonitor extends EventEmitter {
                 this._clear();
                 for (const node of nodes) {
                     this._add_existing_node(node);
+                    // set _host_sequence_number to the largest one
+                    this._host_sequence_number = Math.max(this._host_sequence_number, node.host_sequence);
                 }
+                dbg.log0(`after loading - _host_sequence_number = ${this._host_sequence_number}`);
                 this._loaded = true;
                 // delay a bit before running to allow nodes to reconnect
                 this._schedule_next_run(3000);
@@ -683,6 +689,15 @@ class NodesMonitor extends EventEmitter {
             throw new RpcError('BAD_REQUEST', 'No such host ' + host_id);
         }
         return host_nodes;
+    }
+
+    _get_host_nodes_by_name(name) {
+        const [ /*hostname*/ , seq_str] = name.split('#');
+        const host_id = this._map_host_seq_num(Number.parseInt(seq_str, 10));
+        if (!host_id) {
+            throw new RpcError('BAD_REQUEST', 'No such host ' + name);
+        }
+        return this._get_nodes_by_host_id(host_id);
     }
 
     _connect_node(conn, node_id) {
@@ -887,6 +902,9 @@ class NodesMonitor extends EventEmitter {
                                         this._set_need_update.add(update_item);
                                     }
                                     this._map_host_id.delete(item.node.host_id);
+                                    if (item.node.host_sequence) {
+                                        this._map_host_seq_num.set(item.node.host_sequence, info.host_id);
+                                    }
                                 }
                             }
                         } else {
@@ -914,6 +932,12 @@ class NodesMonitor extends EventEmitter {
                                 item.node.decommissioning = item.node.decommissioned;
                             }
                         }
+
+                        if (_.isUndefined(item.node.host_sequence)) {
+                            updates.host_sequence = this._get_host_sequence_number(info.host_id);
+                            this._map_host_seq_num.set(updates.host_sequence, info.host_id);
+                            dbg.log0(`node: ${updates.name} setting host_sequence to ${updates.host_sequence}`);
+                        }
                     })
                     .then(() => {
                         _.extend(item.node, updates);
@@ -929,6 +953,17 @@ class NodesMonitor extends EventEmitter {
                 dbg.error('got error in _get_agent_info:', err);
                 throw err;
             });
+    }
+
+    _get_host_sequence_number(host_id) {
+        const items = this._map_host_id.get(host_id);
+        const item = items && items.find(i => i.node.host_sequence);
+        if (item) {
+            return item.node.host_sequence;
+        }
+        // new host - increment sequence
+        this._host_sequence_number += 1;
+        return this._host_sequence_number;
     }
 
     _migrate_items_to_pool(items, pool) {
@@ -1994,7 +2029,7 @@ class NodesMonitor extends EventEmitter {
             const item = this._consolidate_host(host);
 
             // filter hosts according to query
-            if (query.hosts && !query.hosts.includes(item.node.host_id)) continue;
+            if (query.hosts && !query.hosts.includes(item.node.host_sequence)) continue;
             if (query.pools && !query.pools.has(String(item.node.pool))) continue;
             if (query.filter && !query.filter.test(item.node.os_info.hostname) && !query.filter.test(item.node.ip)) continue;
             if (query.skip_cloud_nodes && item.node.is_cloud_node) continue;
@@ -2524,8 +2559,7 @@ class NodesMonitor extends EventEmitter {
         info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
 
         // collect host info
-        info.name = host_item.node.os_info.hostname;
-        info.host_id = host_item.node.host_id;
+        info.name = host_item.node.os_info.hostname + '#' + host_item.node.host_sequence;
         const pool = system_store.data.get_by_id(host_item.node.pool);
         info.pool = pool ? pool.name : '';
         info.geolocation = host_item.node.geolocation;
@@ -2722,12 +2756,12 @@ class NodesMonitor extends EventEmitter {
 
     set_debug_host(req) {
         this._throw_if_not_started_and_loaded();
-        const { host_id, level } = req.rpc_params;
-        const host_nodes = this._get_nodes_by_host_id(host_id);
+        const { name, level } = req.rpc_params;
+        const host_nodes = this._get_host_nodes_by_name(name);
         return P.map(host_nodes, item => this._set_agent_debug_level(item, level))
             .then(() => {
                 // TODO: generte event here
-                dbg.log1('set_debug_node was successful for host', host_id, 'level', level);
+                dbg.log1('set_debug_node was successful for host', name, 'level', level);
             });
     }
 

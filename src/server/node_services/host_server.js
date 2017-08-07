@@ -17,7 +17,7 @@ const nodes_server = require('./node_server');
 
 
 function read_host(req) {
-    return nodes_server.get_local_monitor().read_host(req.rpc_params.host_id);
+    return nodes_server.get_local_monitor().read_host(req.rpc_params.name);
 }
 
 function list_hosts(req) {
@@ -89,6 +89,10 @@ function _prepare_hosts_query(req) {
     query.system = String(req.system._id);
     if (query.filter) {
         query.filter = new RegExp(_.escapeRegExp(query.filter), 'i');
+    }
+    if (query.hosts) {
+        // extract the host sequence from host
+        query.hosts = query.hosts.map(host => Number.parseInt(host.split('#')[1], 10));
     }
     if (query.pools) {
         query.pools = new Set(_.map(query.pools, pool_name => {

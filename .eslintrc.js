@@ -32,6 +32,7 @@ module.exports = {
         // not forcing how arrays should have new-line breaks
         'array-element-newline': 'off',
         'array-bracket-newline': 'off',
+        'array-bracket-spacing': 'off',
 
         // arrow function styling is not a real error but should be consistent
         'arrow-parens': ['error', 'as-needed'],

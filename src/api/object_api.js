@@ -535,7 +535,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    host_id: {
+                    name: {
                         type: 'string'
                     },
                     skip: {

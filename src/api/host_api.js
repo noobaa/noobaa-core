@@ -18,9 +18,9 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['host_id'],
+                required: ['name'],
                 properties: {
-                    host_id: {
+                    name: {
                         type: 'string'
                     },
                 },
@@ -98,9 +98,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['host_id'],
+                required: ['name'],
                 properties: {
-                    host_id: {
+                    name: {
                         type: 'string'
                     },
                     services: {
@@ -178,9 +178,9 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['host_id', 'rpc_address'],
+                    required: ['name', 'rpc_address'],
                     properties: {
-                        host_id: {
+                        name: {
                             type: 'string'
                         },
                         rpc_address: {
@@ -198,9 +198,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['host_id', 'level'],
+                required: ['name', 'level'],
                 properties: {
-                    host_id: {
+                    name: {
                         type: 'string'
                     },
                     level: {

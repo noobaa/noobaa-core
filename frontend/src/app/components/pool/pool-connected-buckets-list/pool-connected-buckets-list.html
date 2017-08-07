@@ -5,7 +5,9 @@
     <p>The following buckets are using this pool as part of their placement policy</p>
 </div>
 
-<section class="column greedy bucket-list push-both-half">
+<loading-indicator class="greedy push-prev" ko.visible="!bucketsLoaded()"></loading-indicator>
+
+<section class="column greedy bucket-list push-both-half" ko.visible="bucketsLoaded">
     <ul class="list-no-style column" ko.foreach="buckets">
         <li class="pad-half hpad">
             <a class="link" ko.text="name" ko.attr.href="href"></a>
@@ -18,3 +20,4 @@
     <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
     To edit a bucket's placement policy click on the bucket name then click "Edit Placement Policy"
 </p>
+

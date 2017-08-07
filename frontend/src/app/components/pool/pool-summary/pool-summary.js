@@ -13,7 +13,6 @@ import { getNodeActivityName } from 'utils/host-utils';
 import style from 'style';
 
 function _getActivityText(type, nodeCount) {
-    console.warn(type);
     return `${getNodeActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
 }
 

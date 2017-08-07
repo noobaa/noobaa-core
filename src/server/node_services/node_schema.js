@@ -61,6 +61,11 @@ module.exports = {
             type: 'string'
         },
 
+        // an incremental sequence number
+        host_sequence: {
+            type: 'string'
+        },
+
         ip: {
             // the public ip of the node
             type: 'string',

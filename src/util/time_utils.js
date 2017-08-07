@@ -25,14 +25,13 @@ function sectook(since) {
 
 /**
  * Date.toUTCString returns RFC-822 with full year (4 digits).
- * This function convert it to 2 digits year,
- * required by S3 (and specifically enforced by hadoop)
+ * Previously this function used to convert the year to 2 digits for hadoop,
+ * but apparently this is not done by S3, and failed aws-sdk-go.
+ * We don't know if hadoop will still fail on it or not but for now we just don't care.
  * @param {Date} date
  */
 function format_http_header_date(date) {
-    const full_year = date.getFullYear().toString();
-    const short_year = full_year.slice(-2); // keep last two digits
-    return date.toUTCString().replace(' ' + full_year + ' ', ' ' + short_year + ' ');
+    return date.toUTCString();
 }
 
 /**

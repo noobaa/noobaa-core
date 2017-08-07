@@ -2,20 +2,25 @@
 
 import template from './host-gateway-form.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
+import { toggleHostServices } from 'action-creators';
+import { getGatewayServiceStateIcon } from 'utils/host-utils';
 import ko from 'knockout';
 
 class HostGatewayFormViewModel extends Observer {
     constructor({ name }) {
         super();
 
+        this.hostName = ko.unwrap(name);
+        this.hostLoaded = ko.observable(false);
         this.isDisabled = ko.observable();
-        this.toggleGatewayButtonText = ko.observable('Disable S3 Gateway');
-        this.state = ko.observable('???');
+        this.toggleGatewayButtonText = ko.observable();
+        this.state = ko.observable();
         this.lastWeekWrites = ko.observable('???');
         this.lastWeekReads = ko.observable('???');
         this.details = [
             {
+                template: 'state',
                 label: 'Gateway State',
                 value: this.state
             },
@@ -29,18 +34,30 @@ class HostGatewayFormViewModel extends Observer {
             }
         ];
 
-        this.observe(state$.get('hosts', 'items', ko.unwrap(name)), this.onHost);
+        this.observe(state$.get('hosts', 'items', this.hostName), this.onHost);
     }
 
     onHost(host) {
-        if (!host) return;
+        if (!host) {
+            this.isDisabled(false);
+            this.toggleGatewayButtonText('Disable S3 Gateway');
+            return;
+        }
 
-        const { mode } = host.services.gateway;
-        this.isDisabled(mode === 'DECOMMISSIONED');
+        const { gateway }  = host.services;
+        const gatewayDisabled = gateway.mode === 'DECOMMISSIONED';
+
+        this.toggleGatewayButtonText(`${gatewayDisabled ? 'Enable' : 'Disable'} S3 Gateway`);
+        this.state(getGatewayServiceStateIcon(gateway));
+        this.isDisabled(gatewayDisabled);
+        this.hostLoaded(true);
     }
 
     onToggleGateway() {
-
+        action$.onNext(toggleHostServices(
+            this.hostName,
+            { gateway: !this.isDisabled() }
+        ));
     }
 }
 

@@ -4,19 +4,16 @@ import {
     FETCH_HOSTS,
     COMPLETE_FETCH_HOSTS,
     FAIL_FETCH_HOSTS,
-    ACTIVATE_HOST,
-    COMPLETE_ACTIVATE_HOST,
-    FAIL_ACTIVATE_HOST,
-    DEACTIVATE_HOST,
-    COMPLETE_DEACTIVATE_HOST,
-    FAIL_DEACTIVATE_HOST,
     DROP_HOSTS_VIEW,
     COLLECT_HOST_DIAGNOSTICS,
     COMPLETE_COLLECT_HOST_DIAGNOSTICS,
     FAIL_COLLECT_HOST_DIAGNOSTICS,
     SET_HOST_DEBUG_MODE,
     COMPLETE_SET_HOST_DEBUG_MODE,
-    FAIL_SET_HOST_DEBUG_MODE
+    FAIL_SET_HOST_DEBUG_MODE,
+    TOGGLE_HOST_SERVICES,
+    COMPLETE_TOGGLE_HOST_SERVICES,
+    FAIL_TOGGLE_HOST_SERVICES,
 } from 'action-types';
 
 
@@ -47,48 +44,6 @@ export function dropHostsView(view) {
     return {
         type: DROP_HOSTS_VIEW,
         payload: { view }
-    };
-}
-
-export function activateHost(host) {
-    return {
-        type: ACTIVATE_HOST,
-        payload: { host }
-    };
-}
-
-export function completeActivateHost(host) {
-    return {
-        type: COMPLETE_ACTIVATE_HOST,
-        payload: { host }
-    };
-}
-
-export function failActivateHost(host, error) {
-    return {
-        type: FAIL_ACTIVATE_HOST,
-        payload: { host, error }
-    };
-}
-
-export function deactivateHost(host) {
-    return {
-        type: DEACTIVATE_HOST,
-        payload: { host }
-    };
-}
-
-export function completeDeactivateHost(host) {
-    return {
-        type: COMPLETE_DEACTIVATE_HOST,
-        payload: { host }
-    };
-}
-
-export function failDeactivateHost(host, error) {
-    return {
-        type: FAIL_DEACTIVATE_HOST,
-        payload: { host, error }
     };
 }
 
@@ -131,5 +86,26 @@ export function failSetHostDebugMode(host, on, error) {
     return {
         type: FAIL_SET_HOST_DEBUG_MODE,
         payload: { host, on, error }
+    };
+}
+
+export function toggleHostServices(host, services) {
+    return {
+        type: TOGGLE_HOST_SERVICES,
+        payload: { host, services }
+    };
+}
+
+export function completeToggleHostServices(host) {
+    return {
+        type: COMPLETE_TOGGLE_HOST_SERVICES,
+        payload: { host}
+    };
+}
+
+export function failToggleHostServices(host, error) {
+    return {
+        type: FAIL_TOGGLE_HOST_SERVICES,
+        payload: { host, error }
     };
 }

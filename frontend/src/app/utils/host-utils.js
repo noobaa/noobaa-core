@@ -83,6 +83,19 @@ const stateToModes = deepFreeze({
     ]
 });
 
+const activityTypeToName = deepFreeze({
+    RESTORING: 'Restoring',
+    MIGRATING: 'Migrating',
+    DECOMMISSIONING: 'Deactivating',
+    DELETING: 'Deleting'
+});
+
+const activityStageToName = deepFreeze({
+    OFFLINE_GRACE: 'Waiting',
+    REBUILDING: 'Rebuilding',
+    WIPING: 'Wiping Data'
+});
+
 const stroageServiceModeToState = deepFreeze({
     OFFLINE: 'problem',
     DECOMMISSIONED: 'disabled',
@@ -106,17 +119,32 @@ const gatewayServiceModeToState = deepFreeze({
     OPTIMAL: 'healthy'
 });
 
-const activityTypeToName = deepFreeze({
-    RESTORING: 'Restoring',
-    MIGRATING: 'Migrating',
-    DECOMMISSIONING: 'Deactivating',
-    DELETING: 'Deleting'
-});
-
-const activityStageToName = deepFreeze({
-    OFFLINE_GRACE: 'Waiting',
-    REBUILDING: 'Rebuilding',
-    WIPING: 'Wiping Data'
+const gatewayServiceModeToIcon = deepFreeze({
+    OFFLINE: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Offline'
+    },
+    DECOMMISSIONED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Deactivated'
+    },
+    HTTP_SRV_ERRORS: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Cannot start HTTP server'
+    },
+    INITALIZING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Initalizing'
+    },
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    }
 });
 
 const storageNodeModeToStateIcon = deepFreeze({
@@ -234,6 +262,7 @@ export function summrizeHostModeCounters(counters) {
 
 export function getHostServiceState({ services }) {
     const { storage, gateway } = services;
+
     return {
         storage: stroageServiceModeToState[storage.mode],
         gateway: gatewayServiceModeToState[gateway.mode],
@@ -244,10 +273,14 @@ export function getStorageNodeStateIcon({ mode }) {
     return storageNodeModeToStateIcon[mode];
 }
 
-export function getNodeActivityName(activity) {
-    return activityTypeToName[activity.type];
+export function getGatewayServiceStateIcon({ mode }) {
+    return gatewayServiceModeToIcon[mode];
 }
 
-export function getNodeActivityStageName(activity) {
-    return activityStageToName[activity.stage];
+export function getNodeActivityName(activityType) {
+    return activityTypeToName[activityType];
+}
+
+export function getNodeActivityStageName(stage) {
+    return activityStageToName[stage];
 }

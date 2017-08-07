@@ -178,11 +178,6 @@ export default {
                 entityId: ({ node }) => node && node.name
             },
 
-            diagnose_node: {
-                message: 'Node Diagnose',
-                entityId: ({ node }) => node && node.name
-            },
-
             diagnose_system: {
                 message: 'System Diagnose',
                 entityId: () => ''

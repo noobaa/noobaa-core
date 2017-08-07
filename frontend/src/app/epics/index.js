@@ -27,6 +27,7 @@ import deleteResource from './delete-resource';
 import fetchHosts from './fetch-hosts';
 import collectHostDiagnostics from './collect-host-diagnostics';
 import setHostDebugMode from './set-host-debug-mode';
+import toggleHostServices from './toggle-host-services';
 import downloadFile from './download-file';
 
 const generalEpics = [
@@ -81,6 +82,7 @@ const hostRelatedEpics = [
     fetchHosts,
     collectHostDiagnostics,
     setHostDebugMode,
+    toggleHostServices
 ];
 
 // A utility that combine multiple epics into one epic.

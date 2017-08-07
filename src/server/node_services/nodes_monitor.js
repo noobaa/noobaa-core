@@ -454,35 +454,39 @@ class NodesMonitor extends EventEmitter {
 
     update_nodes_services(req) {
         this._throw_if_not_started_and_loaded();
-        const { host_id, storage_updates, s3_updates } = req.rpc_params;
-        const host_nodes = this._get_nodes_by_host_id(host_id);
-        const [s3_nodes, storage_nodes] = _.partition(host_nodes, item => item.node.s3_agent);
-        let updates = [];
-        const push_updates = (service_updates, nodes) => {
-            if (service_updates) {
-                updates = updates.concat(service_updates.map(update => ({
-                    item: this._get_node(update.node, 'allow_offline'),
-                    enabled: update.enabled
-                })));
-            } else {
-                updates = updates.concat(nodes.map(item => ({
-                    item,
-                    enabled: false
-                })));
-            }
-        };
-        push_updates(storage_updates, storage_nodes);
-        push_updates(s3_updates, s3_nodes);
+        const { host_id, services, nodes } = req.rpc_params;
+        if (services && nodes) throw new Error('Request cannot specify both services and nodes');
+        if (!services && !nodes) throw new Error('Request must specify services or nodes');
+
+        let updates;
+        if (services) {
+            const { s3: s3_enabled, storage: storage_enabled } = services;
+            updates = this._get_nodes_by_host_id(host_id)
+                .map(item => ({
+                    item: item,
+                    enabled: item.node.s3_agent ? s3_enabled : storage_enabled
+                }))
+                .filter(item => !_.isUndefined(item.enabled));
+
+        } else {
+            updates = nodes.map(update => ({
+                item: this._map_node_name.get(update.name),
+                enabled: update.enabled
+            }));
+        }
+
         updates.forEach(update => {
-            const item = update.item;
+            const { decommissioned, decommissioning } = update.item.node;
             if (update.enabled) {
-                if (!item.node.decommissioned && !item.node.decommissioning) return;
-                this._clear_decommission(item);
+                if (!decommissioned && !decommissioning) return;
+                this._clear_decommission(update.item);
+
             } else {
-                if (item.node.decommissioned || item.node.decommissioning) return;
-                this._set_decommission(item);
+                if (decommissioned || decommissioning) return;
+                this._set_decommission(update.item);
             }
         });
+
         return this._update_nodes_store('force');
     }
 

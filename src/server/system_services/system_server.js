@@ -784,31 +784,6 @@ function set_last_stats_report_time(req) {
     }).return();
 }
 
-function diagnose_node(req) {
-    dbg.log0('Recieved diag with agent req', req.rpc_params);
-    var out_path = '/public/node_' + req.rpc_params.name + '_diagnostics.tgz';
-    var inner_path = process.cwd() + '/build' + out_path;
-    return P.resolve()
-        .then(() => diag.collect_server_diagnostics(req))
-        .then(() => nodes_client.instance().collect_agent_diagnostics({
-            name: req.rpc_params.name
-        }, req.system._id))
-        .then(res => diag.write_agent_diag_file(res.data))
-        .then(() => diag.pack_diagnostics(inner_path))
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'dbg.diagnose_node',
-                level: 'info',
-                system: req.system && req.system._id,
-                actor: req.account && req.account._id,
-                node: req.rpc_params && req.rpc_params.id,
-                desc: `${req.rpc_params.name} diagnostics package was exported by ${req.account && req.account.email}`,
-            });
-            return out_path;
-        });
-}
-
-
 function update_n2n_config(req) {
     var n2n_config = req.rpc_params;
     dbg.log0('update_n2n_config', n2n_config);
@@ -1295,7 +1270,6 @@ exports.list_systems_int = list_systems_int;
 exports.add_role = add_role;
 exports.remove_role = remove_role;
 
-exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.log_client_console = log_client_console;

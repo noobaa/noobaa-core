@@ -98,17 +98,37 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['host_id', 'storage_updates', 's3_updates'],
+                required: ['host_id'],
                 properties: {
                     host_id: {
                         type: 'string'
                     },
-                    storage_updates: {
-                        $ref: '#/definitions/host_service_update'
+                    services: {
+                        type: 'object',
+                        properties: {
+                            storage: {
+                                type: 'boolean'
+                            },
+                            s3: {
+                                type: 'boolean'
+                            }
+                        }
                     },
-                    s3_updates: {
-                        $ref: '#/definitions/host_service_update'
-                    },
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['name', 'enabled'],
+                            properties: {
+                                name: {
+                                    type: 'string',
+                                },
+                                enabled: {
+                                    type: 'boolean'
+                                }
+                            }
+                        }
+                    }
                 }
             },
             auth: {
@@ -355,23 +375,27 @@ module.exports = {
 
 
         host_service_update: {
-            anyOf: [{
-                type: 'null'
-            }, {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    required: ['node', 'enabled'],
-                    properties: {
-                        node: {
-                            $ref: 'node_api#/definitions/node_identity'
-                        },
-                        enabled: {
-                            type: 'boolean'
+            type: 'object',
+            properties: {
+                enabled: {
+                    type: 'boolean'
+                },
+                nodes: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['name', 'enabled'],
+                        properties: {
+                            name: {
+                                type: 'string',
+                            },
+                            enabled: {
+                                type: 'string'
+                            }
                         }
                     }
                 }
-            }]
+            }
         },
 
         hosts_query: {

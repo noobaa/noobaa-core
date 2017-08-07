@@ -69,6 +69,7 @@ function diagnose_host(req) {
     var inner_path = `${process.cwd()}/build${out_path}`;
 
     return P.resolve()
+        .then(() => diag.collect_server_diagnostics(req))
         .then(() => monitor.collect_host_diagnostics(host_id))
         .then(buffer => diag.write_agent_diag_file(buffer))
         .then(() => diag.pack_diagnostics(inner_path))

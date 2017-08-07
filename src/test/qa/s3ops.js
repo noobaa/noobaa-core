@@ -247,7 +247,7 @@ function get_list_files(ip, bucket, prefix) {
         .then(res => {
             list = res.Contents;
             if (list.length === 0) {
-                throw new Error('No files with prefix in bucket');
+                console.warn('No files with prefix in bucket');
             } else {
                 list.forEach(function(file) {
                     listFiles.push({Key: file.Key});
@@ -280,7 +280,7 @@ function get_list_prefixes(ip, bucket) {
         .then(res => {
             list = res.CommonPrefixes;
             if (list.length === 0) {
-                throw new Error('No folders in bucket');
+                console.warn('No folders in bucket');
             } else {
                 list.forEach(function(prefix) {
                     listPrefixes.push(prefix.Prefix);

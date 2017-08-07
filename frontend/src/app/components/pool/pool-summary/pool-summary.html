@@ -1,6 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row" ko.if="poolLoaded">
+<div class="fill row" ko.visible="!poolLoaded()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
+
+<div class="row summary" ko.css.visible="poolLoaded">
     <section class="c3 column borders pad">
         <p class="row heading3 content-middle">
             <svg-icon class="push-next" ko.css="state().css" params="name: state().name"></svg-icon>

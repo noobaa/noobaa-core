@@ -13,7 +13,8 @@ import { getNodeActivityName } from 'utils/host-utils';
 import style from 'style';
 
 function _getActivityText(type, nodeCount) {
-    return `${getNodeActivityName[type]} ${stringifyAmount('drive', nodeCount)}`;
+    console.warn(type);
+    return `${getNodeActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
 }
 
 function _getActivityEta(eta) {
@@ -34,7 +35,7 @@ class PoolSummaryViewModel extends Observer {
         this.poolLoaded = ko.observable(false);
 
         // State observables.
-        this.state = ko.observable();
+        this.state = ko.observable({});
         this.hostCount = ko.observable();
         this.healthyCount = ko.observable();
         this.issuesCount= ko.observable();
@@ -121,7 +122,7 @@ class PoolSummaryViewModel extends Observer {
             }
         };
 
-        this.observe(state$.get('hostPools', ko.unwrap(poolName)), this.onPool);
+        this.observe(state$.get('hostPools', 'items', ko.unwrap(poolName)), this.onPool);
     }
 
     onPool(pool) {

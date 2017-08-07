@@ -1,7 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 
 pool-summary {
+    position: relative;
     display: block;
+
+    .summary  {
+        opacity: 0;
+
+        &.visible {
+            opacity: 1;
+            transition: opacity 250ms ease-out;
+        }
+    }
 
     .host-count {
         .highlight();

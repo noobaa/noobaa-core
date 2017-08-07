@@ -21,22 +21,18 @@ class ChartLegendViewModel extends BaseViewModel {
 
         this.caption = caption;
         this.formatter = isFunction(format) ? format : namedFormats[format];
-
         this.items = ko.pureComputed(
             () => ko.unwrap(items).map(
                 item => this.normalizeItem(item)
             )
         );
-
     }
 
     normalizeItem({ label, color, value, visible = true }) {
-        const formattedValue = this.formatter(ko.unwrap(value));
+        const formattedValue = this.formatter(ko.unwrap(value) || 0);
         const style = { 'border-color': color };
-
         return { label, style, formattedValue, visible };
     }
-
 }
 
 export default {

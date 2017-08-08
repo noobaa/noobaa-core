@@ -13,15 +13,15 @@
 </ol>
 
 <editor params="label: 'Server IP'">
-    <input type="text" data-bind="value: address"/>
+    <input type="text" ko.value="address"/>
     <svg-icon class="validating-indicator spin"
-        data-bind="visible: asyncValidation.isValidating"
+        ko.visible="asyncValidation.isValidating"
         params="name: 'in-progress'"></svg-icon>
 </editor>
 
 <editor params="label: 'Server Secret Key'">
-    <input type="text" data-bind="value: secret"/>
+    <input type="text" ko.value="secret"/>
     <svg-icon class="validating-indicator spin"
-        data-bind="visible: asyncValidation.isValidating"
+        ko.visible="asyncValidation.isValidating"
         params="name: 'in-progress'"></svg-icon>
 </editor>

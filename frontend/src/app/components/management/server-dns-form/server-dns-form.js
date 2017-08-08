@@ -74,8 +74,9 @@ class ServerDNSFormViewModel extends BaseViewModel {
         );
 
         this.serverAddress = ko.pureComputed(
-            () => systemInfo()
-                && (!systemInfo().dns_name ? this.ipAddress() : systemInfo().dns_name)
+            () => systemInfo() ?
+                (systemInfo().dns_name || systemInfo().ip_address) :
+                ''
         );
 
         this.errors = ko.validation.group([

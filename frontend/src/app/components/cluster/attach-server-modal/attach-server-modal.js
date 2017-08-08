@@ -32,12 +32,6 @@ class AttachServerModalViewModel extends BaseViewModel {
 
         this.address = ko.observable()
             .extend({
-                rateLimit: {
-                    timeout: inputThrottle,
-                    method: 'notifyWhenChangesStop'
-                }
-            })
-            .extend({
                 required: { message: 'Please enter a valid IP address' },
                 isIP: true,
                 validation: [
@@ -80,12 +74,6 @@ class AttachServerModalViewModel extends BaseViewModel {
             });
 
         this.secret = ko.observable()
-            .extend({
-                rateLimit: {
-                    timeout: inputThrottle,
-                    method: 'notifyWhenChangesStop'
-                }
-            })
             .extend({
                 required: { message: 'Please enter the server secret' },
                 exactLength: {

@@ -12,7 +12,7 @@ import { deepFreeze } from 'utils/core-utils';
 const invalidIpReasonMapping = deepFreeze({
     MALFORMED: 'All values must be of the IPv4 format',
     INVALID_RANGE_ORDER: 'IP range must start with lowest value',
-    INVALID_MULTIPLE_IPS: 'Some IPs are invalid',
+    MULTIPLE_INVALID_IPS: 'Some IPs are invalid',
 });
 
 const allowedIpsPlaceholder =
@@ -56,23 +56,14 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
         const errors = {};
 
         if (usingIpRestrictions) {
-            let reson;
+            const ipErrors = allowedIps
+                .map(isIPOrIPRange)
+                .filter(({ valid }) => !valid);
 
-            for (let allowedIp of allowedIps) {
-                const result = isIPOrIPRange(allowedIp);
-
-                if (!result.valid) {
-                    if(reson) {
-                        reson = 'INVALID_MULTIPLE_IPS';
-                        break;
-                    } else {
-                        reson = result.reason;
-                    }
-                }
-            }
-
-            if (invalidIpReasonMapping[reson]) {
-                errors.allowedIps = invalidIpReasonMapping[reson];
+            const errorCount = ipErrors.length;
+            if (errorCount > 0) {
+                const reason = errorCount === 1 ? ipErrors[0].reason : 'MULTIPLE_INVALID_IPS';
+                errors.allowedIps = invalidIpReasonMapping[reason];
             }
         }
 

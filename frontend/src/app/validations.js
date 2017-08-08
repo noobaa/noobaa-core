@@ -109,10 +109,6 @@ export function isEmail(value) {
     return matchPattern(value, regExp);
 }
 
-export function isInteger(value) {
-    return /^\+?(0|[1-9]\d*)$/.test(value);
-}
-
 export default function register(ko) {
     Object.assign(ko.validation.rules, {
         notIn: {
@@ -176,10 +172,6 @@ export default function register(ko) {
         inRange: {
             validator: inRange,
             message: ({ params }) => `Must be bewteen ${params.min} and ${params.max}`
-        },
-        isInteger: {
-            validator: isInteger,
-            message: 'Please enter a valid integer'
         }
     });
 

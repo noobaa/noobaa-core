@@ -3,37 +3,56 @@
 <div class="warning-msg warning row pad alt-bg content-middle push-next">
     <svg-icon class="push-next warning" params="name: 'notif-warning'">
     </svg-icon>
-    <span class="greedy" data-bind="text: warning"></span>
+    <span class="greedy" ko.text="warning"></span>
 </div>
 
-<p class="push-next">
+<p class="push-next" ko.css.disabled="updating">
     Setup the server to use the following DNS servers for name resolution
 </p>
 
 <section class="greedy">
-    <editor params="label: 'Primary DNS'" class="push-prev">
-        <input type="text" data-bind="value: primaryDNS" />
+    <editor class="push-prev" params="
+        label: 'Primary DNS',
+        disabled: updating
+    ">
+        <input type="text"
+            ko.value="primaryDNS"
+            ko.disable="updating"
+        />
     </editor>
-    <editor params="label: 'Secondary DNS'" class="push-next">
-        <input type="text" data-bind="value: secondaryDNS" />
+    <editor class="push-next" params="
+        label: 'Secondary DNS',
+        disabled: updating
+    ">
+        <input type="text"
+            ko.value="secondaryDNS"
+            ko.disable="updating"
+        />
     </editor>
-    <editor params="label: 'Search Domains'" class="push-next">
-        <input type="text" placeholder="E.g. noobaa, dev.lab" data-bind="value: searchDomains" />
-        <p class="remark">
+    <editor class="push-next" params="
+        label: 'Search Domains',
+        disabled: updating
+    ">
+        <input type="text"
+            placeholder="E.g. noobaa, dev.lab"
+            ko.value="searchDomains"
+            ko.disable="updating"
+        />
+        <p class="remark" ko.css.disabled="updating">
             Type Domain names seperated by a comma
         </p>
     </editor>
 </section>
 
 <div class="row content-middle align-end push-prev">
-    <button class="link push-next alt-colors" data-bind="
-        click: cancel,
-        disable: updating
-    ">
+    <button class="link push-next alt-colors"
+        ko.click="cancel"
+        ko.disable="updating"
+    >
         Cancel
     </button>
 
-    <working-button data-bind="shakeOnClick: errors().length" params="
+    <working-button ko.shakeOnClick="errors().length" params="
         click: update,
         working: updating,
         workingLabel: 'Restarting...'

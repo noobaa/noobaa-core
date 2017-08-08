@@ -10,7 +10,6 @@ import { support } from 'config';
 import { deepFreeze } from 'utils/core-utils';
 import { formatEmailUri } from 'utils/browser-utils';
 import { systemInfo, serverVerificationState } from 'model';
-import { inputThrottle } from 'config';
 
 const steps = deepFreeze([
     'Configure Server',

@@ -7,7 +7,7 @@
     <section data-name="collapsed">
         <p>
             Server Address:
-            <output class="text-tech" data-bind="text: serverAddress"></output>
+            <output class="text-tech" ko.text="serverAddress"></output>
         </p>
     </section>
 
@@ -21,16 +21,16 @@
                 <radio-group params="selected: addressType, options: addressOptions"></radio-group>
             </editor>
 
-            <editor params="label: 'IP Address'" data-bind="visible: usingIP">
-                <input type="text" disabled data-bind="value: ipAddress" />
+            <editor params="label: 'IP Address'" ko.visible="usingIP">
+                <input type="text" disabled ko.value="ipAddress" />
             </editor>
 
-            <editor params="label: 'DNS Name'" data-bind="visible: usingDNS">
+            <editor params="label: 'DNS Name'" ko.visible="usingDNS">
                 <div class="input-wrapper push-next align-start">
-                    <input type="text" data-bind="textInput: dnsName" />
+                    <input type="text" ko.textInput="dnsName" />
 
                     <svg-icon class="validating-indicator spin"
-                        data-bind="visible: dnsName.isValidating"
+                        ko.visible="dnsName.isValidating"
                         params="name: 'in-progress'"></svg-icon>
                 </div>
                 <p class="highlight push-both">
@@ -43,14 +43,12 @@
                         <div class="alt-bg pad config">
                             <span>
                                 <span class="highlight">IP:</span>
-                                <output class="text-tech" data-bind="value: ipAddress"></output>
+                                <output class="text-tech" ko.value="ipAddress"></output>
                             </span>
 
                             <span>
                                 <span class="highlight">Name:</span>
-                                <span class="text-tech" data-bind="
-                                    text: dnsName
-                                "></span>
+                                <span class="text-tech" ko.text="dnsName"></span>
                             </span>
                         </div>
                     </li>
@@ -72,10 +70,10 @@
             </span>
         </p>
 
-        <button class="btn align-start push-both" data-bind="
-            click: update,
-            shakeOnClick: errors().length,
-        ">
+        <button class="btn align-start push-both"
+            ko.click="update"
+            ko.shakeOnClick="errors().length"
+        >
             update
         </button>
     </section>

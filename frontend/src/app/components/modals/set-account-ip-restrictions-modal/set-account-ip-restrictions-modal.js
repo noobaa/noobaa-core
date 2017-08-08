@@ -72,15 +72,11 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
             }
 
             if (invalidIpReasonMapping[reson]) {
-                errors.allowedIps = invalidIpReasonMapping[reson]
+                errors.allowedIps = invalidIpReasonMapping[reson];
             }
         }
 
         return errors;
-    }
-
-    onValidateToken(str) {
-        return isIPOrIPRange(str).valid;
     }
 
     onSubmit({ accountName, usingIpRestrictions, allowedIps }) {

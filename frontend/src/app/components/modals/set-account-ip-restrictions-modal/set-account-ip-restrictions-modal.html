@@ -20,8 +20,7 @@
         <token-field class="column greedy" params="
             disabled: !form.usingIpRestrictions(),
             placeholder: allowedIpsPlaceholder,
-            tokens: form.allowedIps,
-            onValidateToken: onValidateToken
+            tokens: form.allowedIps
         "></token-field>
         <p class="remark" ko.visible="!form.allowedIps.isInvalidTouched()">
             Type IP address accurately, click enter after each address or range

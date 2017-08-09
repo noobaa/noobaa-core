@@ -2584,6 +2584,10 @@ class NodesMonitor extends EventEmitter {
         info.rpc_address = host_item.node.rpc_address;
         info.latency_to_server = host_item.node.latency_to_server;
         info.debug_level = host_item.node.debug_level;
+        const debug_time = host_item.node.debug_mode ?
+            config.DEBUG_MODE_PERIOD - (Date.now() - host_item.node.debug_mode) :
+            0;
+        info.debug_time = Math.max(0, debug_time);
         info.suggested_pool = host_item.suggested_pool;
         info.mode = host_item.mode;
         info.port_range = host_item.node.n2n_config.tcp_permanent_passive;
@@ -2845,10 +2849,13 @@ class NodesMonitor extends EventEmitter {
         item.node.debug_level = debug_level;
         this._set_need_update.add(item);
         return server_rpc.client.agent.set_debug_node({
-            level: debug_level
-        }, {
-            connection: item.connection,
-        });
+                level: debug_level
+            }, {
+                connection: item.connection,
+            })
+            .then(() => {
+                item.node.debug_mode = Date.now();
+            });
     }
 
     _node_storage_info(item) {

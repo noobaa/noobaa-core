@@ -286,6 +286,9 @@ module.exports = {
                 debug_level: {
                     type: 'integer',
                 },
+                debug_time: {
+                    format: 'idate'
+                },
                 rpc_address: {
                     type: 'string'
                 },

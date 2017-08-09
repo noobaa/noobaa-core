@@ -8,6 +8,7 @@ const util = require('util');
 const chance = require('chance')();
 const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
+const moment = require('moment');
 
 const P = require('../../util/promise');
 const ssl_utils = require('../../util/ssl_utils');
@@ -42,6 +43,7 @@ const AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // 10 minutes grace period be
 const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
 const AGENT_TEST_CONNECTION_TIMEOUT = 10 * 1000;
 const NO_NAME_PREFIX = 'a-node-has-no-name-';
+const MAX_DAYS_FOR_ENDPOINT_STATS = 30;
 
 const AGENT_INFO_FIELDS = [
     'version',
@@ -55,7 +57,6 @@ const AGENT_INFO_FIELDS = [
     'os_info',
     'debug_level',
     'is_internal_agent',
-    's3_agent',
     'node_type',
     'host_name',
     'permission_tempering'
@@ -845,7 +846,7 @@ class NodesMonitor extends EventEmitter {
     _set_decommission(item) {
         if (!item.node.decommissioning) {
             item.node.decommissioning = Date.now();
-            if (item.node.s3_agent) {
+            if (item.node.node_type === 'ENDPOINT_S3') {
                 item.node.decommissioned = item.node.decommissioning;
             }
         }
@@ -885,6 +886,9 @@ class NodesMonitor extends EventEmitter {
                 item.agent_info = info;
                 const updates = _.pick(info, AGENT_INFO_FIELDS);
                 updates.heartbeat = Date.now();
+                if (info.endpoint_info) {
+                    updates.endpoint_stats = this._accumulate_endpoint_stats(item, info.endpoint_info.stats);
+                }
                 return P.resolve()
                     .then(() => {
                         // node name is set once before the node is created in nodes_store
@@ -929,7 +933,7 @@ class NodesMonitor extends EventEmitter {
                             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
                             // on first call to get_agent_info enable\disable the node according to the configuration
                             let should_start_service = this._should_enable_agent(info, agent_config);
-                            dbg.log0(`first call to get_agent_info. ${info.s3_agent ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
+                            dbg.log0(`first call to get_agent_info. ${info.node_type === 'ENDPOINT_S3' ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
                             if (!should_start_service) {
                                 item.node.decommissioned = Date.now();
                                 item.node.decommissioning = item.node.decommissioned;
@@ -973,6 +977,35 @@ class NodesMonitor extends EventEmitter {
         return this._host_sequence_number;
     }
 
+
+    _accumulate_endpoint_stats(item, stats) {
+        const now = Date.now();
+        stats.time = moment().startOf('day')
+            .valueOf();
+        stats.last_read = stats.read_count ? now : 0;
+        stats.last_write = stats.write_count ? now : 0;
+        // if there are no previous stats, than return only current
+        if (!item.node.endpoint_stats) return [stats];
+
+        const last_day_stats = item.node.endpoint_stats[item.node.endpoint_stats.length - 1];
+        if (stats.time === last_day_stats.time) {
+            // if it's not a new day, add to current day stats
+            last_day_stats.read_count += stats.read_count;
+            last_day_stats.write_count += stats.write_count;
+            last_day_stats.read_bytes += stats.read_bytes;
+            last_day_stats.write_bytes += stats.write_bytes;
+            last_day_stats.last_read = Math.max(last_day_stats.last_read, stats.last_read);
+            last_day_stats.last_write = Math.max(last_day_stats.last_write, stats.last_write);
+        } else {
+            // it's a new day, so push it, and shift the array if needed
+            item.node.endpoint_stats.push(stats);
+            if (item.node.endpoint_stats.length > MAX_DAYS_FOR_ENDPOINT_STATS) {
+                item.node.endpoint_stats.shift();
+            }
+        }
+        return item.node.endpoint_stats;
+    }
+
     _migrate_items_to_pool(items, pool) {
         // now we update all nodes to the new pool
         _.each(items, item => {
@@ -1001,7 +1034,7 @@ class NodesMonitor extends EventEmitter {
 
         return this.client.agent.update_node_service({
             enabled: should_enable,
-            ssl_certs: item.node.s3_agent ? this.ssl_certs : undefined,
+            ssl_certs: item.node.node_type === 'ENDPOINT_S3' ? this.ssl_certs : undefined,
         }, {
             connection: item.connection
         });
@@ -1637,7 +1670,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted &&
-            !item.node.s3_agent);
+            item.node.node_type !== 'ENDPOINT_S3');
     }
 
     _get_item_writable(item) {
@@ -1655,7 +1688,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted &&
-            !item.node.s3_agent);
+            item.node.node_type !== 'ENDPOINT_S3');
     }
 
     _get_item_accessibility(item) {
@@ -1688,8 +1721,8 @@ class NodesMonitor extends EventEmitter {
             (item.gateway_errors && 'GATEWAY_ERRORS') ||
             (item.io_test_errors && 'IO_ERRORS') ||
             (item.io_reported_errors && 'IO_ERRORS') ||
-            ((!item.node.s3_agent && free.lesserOrEquals(MB)) && 'NO_CAPACITY') ||
-            ((!item.node.s3_agent && free_ratio.lesserOrEquals(20)) && 'LOW_CAPACITY') ||
+            ((item.node.node_type !== 'ENDPOINT_S3' && free.lesserOrEquals(MB)) && 'NO_CAPACITY') ||
+            ((item.node.node_type !== 'ENDPOINT_S3' && free_ratio.lesserOrEquals(20)) && 'LOW_CAPACITY') ||
             'OPTIMAL';
     }
 
@@ -1714,7 +1747,7 @@ class NodesMonitor extends EventEmitter {
     _get_data_activity_reason(item) {
         if (!item.node_from_store) return '';
         if (item.node.deleted) return '';
-        if (item.node.s3_agent) return '';
+        if (item.node.node_type === 'ENDPOINT_S3') return '';
         if (item.node.deleting) return ACT_DELETING;
         if (item.node.decommissioned) return '';
         if (item.node.decommissioning) return ACT_DECOMMISSIONING;
@@ -2066,7 +2099,7 @@ class NodesMonitor extends EventEmitter {
 
     _consolidate_host(host_nodes) {
         host_nodes.forEach(item => this._update_status(item));
-        const [s3_nodes, storage_nodes] = _.partition(host_nodes, item => item.node.s3_agent);
+        const [s3_nodes, storage_nodes] = _.partition(host_nodes, item => item.node.node_type === 'ENDPOINT_S3');
         // for now we take the first storage node, and use it as the host_item, with some modifications
         // TODO: once we have better understanding of what the host status should be
         // as a result of the status of the nodes we need to change it.
@@ -2464,7 +2497,7 @@ class NodesMonitor extends EventEmitter {
                 by_mode: mode_counters
             },
             hosts: _.map(res_list, item =>
-                this._get_host_info(item)),
+                this._get_host_info(item, options.adminfo)),
         };
     }
 
@@ -2552,7 +2585,7 @@ class NodesMonitor extends EventEmitter {
     }
 
 
-    _get_host_info(host_item) {
+    _get_host_info(host_item, adminfo) {
         let info = {
             s3_nodes_info: {
                 nodes: host_item.s3_nodes.map(item => {
@@ -2605,6 +2638,16 @@ class NodesMonitor extends EventEmitter {
 
         info.port_range = (host_item.node.n2n_config || {}).tcp_permanent_passive;
         info.base_address = host_item.node.base_address;
+        if (adminfo) {
+            const stats = _.get(host_item, 's3_nodes[0].node.endpoint_stats');
+            if (stats) {
+                info.s3_nodes_info.stats = {
+                    last_read: stats[stats.length - 1].last_read,
+                    last_write: stats[stats.length - 1].last_write,
+                    daily_stats: stats.map(stat => _.pick(stat, ['time', 'read_count', 'read_bytes', 'write_count', 'write_bytes']))
+                };
+            }
+        }
         return info;
     }
 

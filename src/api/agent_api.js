@@ -103,8 +103,27 @@ module.exports = {
                         }
                     },
 
-                    s3_agent: {
-                        type: 'boolean'
+                    endpoint_info: {
+                        type: 'object',
+                        properties: {
+                            stats: {
+                                type: 'object',
+                                properties: {
+                                    read_count: {
+                                        type: 'integer'
+                                    },
+                                    write_count: {
+                                        type: 'integer'
+                                    },
+                                    read_bytes: {
+                                        type: 'integer'
+                                    },
+                                    write_bytes: {
+                                        type: 'integer'
+                                    },
+                                }
+                            },
+                        }
                     },
                 }
             },

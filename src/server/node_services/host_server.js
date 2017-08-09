@@ -27,7 +27,8 @@ function list_hosts(req) {
         'limit',
         'sort',
         'order',
-        'recommended_hint');
+        'recommended_hint',
+        'adminfo');
     return nodes_server.get_local_monitor().list_hosts(query, options);
 }
 

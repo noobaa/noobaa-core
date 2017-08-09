@@ -246,5 +246,35 @@ module.exports = {
             }
         },
 
+        endpoint_stats: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    time: {
+                        format: 'idate'
+                    },
+                    read_count: {
+                        type: 'integer'
+                    },
+                    write_count: {
+                        type: 'integer'
+                    },
+                    read_bytes: {
+                        type: 'integer'
+                    },
+                    write_bytes: {
+                        type: 'integer'
+                    },
+                    last_read: {
+                        format: 'idate'
+                    },
+                    last_write: {
+                        format: 'idate'
+                    },
+                }
+            }
+        },
+
     }
 };

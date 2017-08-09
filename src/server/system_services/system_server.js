@@ -250,10 +250,8 @@ function create_system(req) {
                     }
                 });
         })
-        .then(() => {
-            return P.join(new_system_changes(account.name, account),
-                cluster_server.new_cluster_info({ address: "127.0.0.1" }));
-        })
+        .then(() => P.join(new_system_changes(account.name, account),
+            cluster_server.new_cluster_info({ address: "127.0.0.1" })))
         .spread(function(changes, cluster_info) {
             allowed_buckets = {
                 full_permission: true
@@ -269,9 +267,9 @@ function create_system(req) {
             system_changes = changes;
             return system_store.make_changes(changes);
         })
-        .then(() => {
+        .then(() =>
             //Create the owner account
-            return server_rpc.client.account.create_account({
+            server_rpc.client.account.create_account({
                 name: req.rpc_params.name,
                 email: req.rpc_params.email,
                 password: req.rpc_params.password,
@@ -283,8 +281,7 @@ function create_system(req) {
                     default_pool: default_pool,
                     new_system_id: system_changes.insert.systems[0]._id.toString()
                 },
-            });
-        })
+            }))
         .then(response => {
             reply_token = response.token;
 
@@ -389,7 +386,10 @@ function read_system(req) {
             system._id),
 
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket =>
-            node_allocator.refresh_tiering_alloc(bucket.tiering)))
+            node_allocator.refresh_tiering_alloc(bucket.tiering))),
+
+        deletable_buckets: P.props(_.mapValues(system.buckets_by_name, bucket =>
+            bucket_server.can_delete_bucket(system, bucket)))
     }).then(({
         nodes_aggregate_pool_no_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_and_mongo,
@@ -399,7 +399,8 @@ function read_system(req) {
         cloud_sync_by_bucket,
         accounts,
         has_ssl_cert,
-        aggregate_data_free_by_tier
+        aggregate_data_free_by_tier,
+        deletable_buckets
     }) => {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
@@ -459,12 +460,18 @@ function read_system(req) {
                 };
             }),
             buckets: _.map(system.buckets_by_name,
-                bucket => bucket_server.get_bucket_info(
-                    bucket,
-                    nodes_aggregate_pool_with_cloud_and_mongo,
-                    aggregate_data_free_by_tier,
-                    obj_count_per_bucket[bucket._id] || 0,
-                    cloud_sync_by_bucket[bucket.name])),
+                bucket => {
+                    let b = bucket_server.get_bucket_info(
+                        bucket,
+                        nodes_aggregate_pool_with_cloud_and_mongo,
+                        aggregate_data_free_by_tier,
+                        obj_count_per_bucket[bucket._id] || 0,
+                        cloud_sync_by_bucket[bucket.name]);
+                    if (deletable_buckets[bucket.name]) {
+                        b.undeletable = deletable_buckets[bucket.name];
+                    }
+                    return b;
+                }),
             pools: _.filter(system.pools_by_name,
                     pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
                 .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo, hosts_aggregate_pool)),

@@ -8,6 +8,11 @@ import { deepFreeze, keyByProperty } from 'utils/core-utils';
 import { capitalize, stringifyAmount } from 'utils/string-utils';
 import { getBucketStateIcon } from 'utils/ui-utils';
 
+const undeletableReasons = deepFreeze({
+    LAST_BUCKET: 'Last bucket cannot be deleted',
+    NOT_EMPTY: 'Cannot delete a bucket that contain files',
+});
+
 const cloudSyncStatusMapping = deepFreeze({
     NOTSET: {
         text: 'not set',
@@ -54,7 +59,7 @@ function cloudStorageIcon(list, baseIconName, tooltipTitle) {
 }
 
 export default class BucketRowViewModel extends BaseViewModel {
-    constructor(bucket, deleteGroup, isLastBucket) {
+    constructor(bucket, deleteGroup) {
         super();
 
         this.state = ko.pureComputed(
@@ -191,35 +196,18 @@ export default class BucketRowViewModel extends BaseViewModel {
             }
         );
 
-        const hasObjects = ko.pureComputed(
-            () => Boolean(bucket() && bucket().num_objects > 0)
-        );
-
-        const isDemoBucket = ko.pureComputed(
-            () => Boolean(bucket() && bucket().demo_bucket)
+        const isUndeletable = ko.pureComputed(
+            () => Boolean(!bucket() || bucket().undeletable)
         );
 
         this.deleteButton = {
             subject: 'bucket',
             group: deleteGroup,
-            undeletable: ko.pureComputed(
-                () => isDemoBucket() || isLastBucket() || hasObjects()
-            ),
+            undeletable: isUndeletable,
             tooltip: ko.pureComputed(
                 () => {
-                    if (isDemoBucket()) {
-                        return 'Demo buckets cannot be deleted';
-                    }
-
-                    if (hasObjects()) {
-                        return 'Cannot delete a bucket that contain files';
-                    }
-
-                    if (isLastBucket()) {
-                        return 'Last bucket cannot be deleted';
-                    }
-
-                    return 'delete bucket';
+                    const { undeletable } = bucket() || {};
+                    return undeletable ? undeletableReasons[undeletable] : '';
                 }
             ),
             onDelete: () => deleteBucket(bucket().name)

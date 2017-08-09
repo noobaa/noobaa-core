@@ -651,9 +651,6 @@ module.exports = {
                 writable: {
                     type: 'boolean'
                 },
-                demo_bucket: {
-                    type: 'boolean'
-                },
                 stats: {
                     type: 'object',
                     properties: {
@@ -674,6 +671,9 @@ module.exports = {
                 mode: {
                     $ref: '#/definitions/bucket_mode'
                 },
+                undeletable: {
+                   $ref: '#/definitions/undeletable_bucket_reason'
+                }
             }
         },
 
@@ -793,6 +793,10 @@ module.exports = {
                 'EXCEEDING_QOUTA',
                 'OPTIMAL'
             ]
-        }
+        },
+        undeletable_bucket_reason: {
+            enum: ['LAST_BUCKET', 'NOT_EMPTY'],
+            type: 'string',
+        },
     },
 };

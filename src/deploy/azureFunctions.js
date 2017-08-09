@@ -147,12 +147,11 @@ class AzureFunctions {
     }
 
     createAgent(vmName, storage, vnet, os, server_name, agent_conf) {
-        var subnetInfo;
         return this.getSubnetInfo(vnet)
-            .then(result => {
-                subnetInfo = result;
-                return this.createNIC(subnetInfo, null, vmName + '_nic', vmName + '_ip');
-            })
+            .then(subnetInfo => this.createPublicIp(vmName + '_pip')
+                .then(ipInfo => [subnetInfo, ipInfo])
+            )
+            .then(([subnetInfo, ipinfo]) => this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip'))
             .then(nic => {
                 console.log('Created Network Interface!');
                 var image = {
@@ -659,6 +658,7 @@ class AzureFunctions {
             .then(() => this.createVirtualMachineFromImage(serverName, 'https://' + storage + '.blob.core.windows.net/staging-vhds/image.vhd', vnet, storage, 'Linux'))
             .delay(20000)
             .then(() => this.getIpAddress(serverName + '_pip'))
+            .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
             .then(ip => {
                 rpc = api.new_rpc('wss://' + ip + ':8443');
                 client = rpc.new_client({});

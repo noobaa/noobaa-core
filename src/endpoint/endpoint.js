@@ -19,6 +19,7 @@ const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
 
 const P = require('../util/promise');
+const promise_utils = require('../util/promise_utils');
 const dbg = require('../util/debug_module')(__filename);
 const api = require('../api');
 const config = require('../../config');
@@ -52,17 +53,30 @@ function start_all() {
             dbg.error('process.send function is undefiend. this process was probably not forked with ipc.');
             process.exit(1);
         }
-        process.send('STARTED');
-        dbg.log0(`waiting for ssl certificates`);
+
+        let waiting = true;
+
         process.on('message', certs => {
-            dbg.log0(`got ssl certificates. running server`);
-            run_server({
-                s3: true,
-                blob: true,
-                lambda: true,
-                certs
-            });
+            if (waiting) {
+                waiting = false;
+                dbg.log0(`got ssl certificates. running server`);
+                run_server({
+                    s3: true,
+                    blob: true,
+                    lambda: true,
+                    certs
+                });
+            }
         });
+
+        // keep sending STARTED message until a response is returned
+        promise_utils.pwhile(() => waiting,
+            () => P.resolve()
+            .then(() => {
+                process.send({ code: 'STARTED' });
+                dbg.log0(`waiting for ssl certificates`);
+            })
+            .delay(30 * 1000));
     } else {
         run_server({
             s3: true,

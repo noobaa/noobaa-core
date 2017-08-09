@@ -70,6 +70,9 @@ module.exports = {
                     },
                     recommended_hint: {
                         type: 'string'
+                    },
+                    adminfo: {
+                        type: 'boolean'
                     }
                 }
             },
@@ -347,6 +350,40 @@ module.exports = {
                             type: 'array',
                             items: {
                                 $ref: 'node_api#/definitions/node_info'
+                            }
+                        },
+                        stats: {
+                            type: 'object',
+                            properties: {
+                                last_read: {
+                                    format: 'idate'
+                                },
+                                last_write: {
+                                    format: 'idate'
+                                },
+                                daily_stats: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            time: {
+                                                format: 'idate'
+                                            },
+                                            read_count: {
+                                                type: 'integer'
+                                            },
+                                            write_count: {
+                                                type: 'integer'
+                                            },
+                                            read_bytes: {
+                                                type: 'integer'
+                                            },
+                                            write_bytes: {
+                                                type: 'integer'
+                                            },
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

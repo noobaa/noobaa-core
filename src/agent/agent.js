@@ -93,9 +93,8 @@ class Agent {
                 this.node_type = 'ENDPOINT_S3';
                 dbg.log0(`this is a S3 agent`);
                 // TODO: currently ports are hard coded and not used anywhere.
-                this.s3_info = {
-                    port: 80,
-                    ssl_port: 443
+                this.endpoint_info = {
+                    stats: this._get_zeroed_stats_object()
                 };
             } else if (params.cloud_info) {
                 this.cloud_info = params.cloud_info;
@@ -580,66 +579,92 @@ class Agent {
 
     update_node_service(req) {
         if (req.rpc_params.enabled) {
-            return this._enable_service(req.rpc_params.ssl_certs);
+            this._ssl_certs = req.rpc_params.ssl_certs;
+            return this._enable_service();
         } else {
             return this._disable_service();
         }
+    }
+
+    _get_zeroed_stats_object() {
+        return {
+            read_count: 0,
+            read_bytes: 0,
+            write_count: 0,
+            write_bytes: 0
+        };
     }
 
     _disable_service() {
         const dbg = this.dbg;
         dbg.log0(`got _disable_service`);
         this.enabled = false;
-        if (this.s3_info) {
-            if (!this.s3_info.s3rver_process) return;
+        if (this.endpoint_info) {
+            if (!this.endpoint_info.s3rver_process) return;
             // should we use a different signal?
-            this.s3_info.s3rver_process.kill('SIGTERM');
-            this.s3_info.s3rver_process = null;
+            this.endpoint_info.s3rver_process.kill('SIGTERM');
+            this.endpoint_info.s3rver_process = null;
         } else {
             dbg.warn('got _disable_service on storage agent');
         }
     }
 
-    _enable_service(ssl_certs) {
+
+    _enable_service() {
         const dbg = this.dbg;
         dbg.log0(`got _enable_service`);
         this.enabled = true;
-        if (this.s3_info) {
+        if (this.endpoint_info) {
             try {
-                if (this.s3_info.s3rver_process) {
-                    throw new Error('S3 server already started. process:', this.s3_info.s3rver_process);
+                if (this.endpoint_info.s3rver_process) {
+                    throw new Error('S3 server already started. process:', this.endpoint_info.s3rver_process);
                 }
 
 
                 // run node process, inherit stdio and connect ipc channel for communication.
-                this.s3_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', ['--s3_agent'], {
-                    stdio: ['inherit', 'inherit', 'inherit', 'ipc']
-                });
-
-                this.s3_info.s3rver_process.on('message', message => {
-                    if (message === 'STARTED') {
-                        this.s3_info.s3rver_process.send(ssl_certs);
-                    } else {
-                        dbg.error('got unknown message from s3rver - ', message);
-                    }
-                });
-
-                this.s3_info.s3rver_process.on('error', err => {
-                    dbg.error('got error from s3rver:', err);
-                    this.s3_info.error_event = err;
-                });
-                this.s3_info.s3rver_process.on('exit', (code, signal) => {
-                    dbg.warn(`s3rver process exited with code=${code} signal=${signal}`);
-                    this.s3_info.s3rver_process = null;
-                    if (this.enabled) {
-                        this._enable_service();
-                    }
-                });
+                this.endpoint_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', ['--s3_agent'], {
+                        stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+                    })
+                    .on('message', this._handle_s3rver_messages.bind(this))
+                    .on('error', err => {
+                        dbg.error('got error from s3rver:', err);
+                        this.endpoint_info.error_event = err;
+                    })
+                    .once('exit', (code, signal) => {
+                        dbg.warn(`s3rver process exited with code=${code} signal=${signal}`);
+                        this.endpoint_info.s3rver_process = null;
+                        if (this.enabled) {
+                            this._enable_service();
+                        }
+                    });
             } catch (err) {
                 dbg.error('got error when spawning s3rver:', err);
             }
         } else {
             dbg.warn('got _enable_service on storage agent');
+        }
+    }
+
+    _handle_s3rver_messages(message) {
+        const dbg = this.dbg;
+        dbg.log0(`got message from endpoint process:`, message);
+        switch (message.code) {
+            case 'STARTED':
+                this.endpoint_info.s3rver_process.send(this._ssl_certs);
+                break;
+            case 'STATS':
+                // we also get here the name of the bucket and access key, but ignore it for now
+                // later on we will want to send this data as well to nodes_monitor
+                this.endpoint_info.stats = message.stats.reduce((sum, val) => ({
+                    read_count: sum.read_count + val.read_count,
+                    read_bytes: sum.read_bytes + val.read_bytes,
+                    write_count: sum.write_count + val.write_count,
+                    write_bytes: sum.write_bytes + val.write_bytes,
+                }), this.endpoint_info.stats);
+                break;
+            default:
+                dbg.error('got unknown message from endpoint - ', message);
+                break;
         }
     }
 
@@ -671,7 +696,10 @@ class Agent {
             reply.pool_name = this.mongo_info.pool_name;
         }
 
-        reply.s3_agent = Boolean(this.s3_info);
+        if (this.endpoint_info) {
+            reply.endpoint_info = _.pick(this.endpoint_info, 'stats');
+            this.endpoint_info.stats = this._get_zeroed_stats_object();
+        }
 
         this._test_server_connection();
 
@@ -724,7 +752,7 @@ class Agent {
                 })
             )
             .then(drives => {
-                if (!drives || this.s3_info) return;
+                if (!drives || this.endpoint_info) return;
                 // for now we only use a single drive,
                 // so mark the usage on the drive of our storage folder.
                 const used_size = reply.storage.used;

@@ -353,6 +353,7 @@ function submit_usage_report(op, req, res) {
     report_to_send.end_time = now;
     usage_report = new_usage_report();
 
+    const bandwidth_usage_info = Array.from(report_to_send.bandwidth_usage_info.values());
     // submit to background
     dbg.log1(`sending report`, report_to_send);
     req.object_sdk.rpc_client.object.add_endpoint_usage_report({
@@ -360,11 +361,21 @@ function submit_usage_report(op, req, res) {
             end_time: report_to_send.end_time,
             s3_usage_info: report_to_send.s3_usage_info,
             s3_errors_info: report_to_send.s3_errors_info,
-            bandwidth_usage_info: Array.from(report_to_send.bandwidth_usage_info.values())
+            bandwidth_usage_info
         })
         .catch(err => {
             console.log('add_endpoint_usage_report did not succeed:', err);
         });
+
+    // maybe use a different indication that this is endpoint agent?
+    // if process.send exist assuming it is an endpoint agent. send stats to agent process
+    if (process.send) {
+        process.send({
+            code: 'STATS',
+            stats: bandwidth_usage_info,
+            time: report_to_send.end_time
+        });
+    }
 }
 
 function load_ops() {

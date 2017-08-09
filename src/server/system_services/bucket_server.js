@@ -518,7 +518,7 @@ function list_buckets(req) {
  *
  */
 function export_bucket_bandwidth_usage(req) {
-    dbg.log0(`DZDZ: export_bucket_bandwidth_usage with params`, req.rpc_params);
+    dbg.log0(`export_bucket_bandwidth_usage with params`, req.rpc_params);
     const bucket = find_bucket(req);
     const { since, till, name } = req.rpc_params;
 

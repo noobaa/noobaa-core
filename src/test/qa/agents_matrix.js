@@ -374,10 +374,6 @@ function main() {
             password: 'DeMo1',
             system: 'demo'
         })))
-        .then(() => {
-            console.log(`saemek!`);
-            return azf.getNemeByIp(server_ip);
-        })
         //deleting the VM machines with the same name as the OS we want to install.
         .then(() => {
             if (!skipsetup) {

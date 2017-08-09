@@ -39,9 +39,12 @@ node('jenkins-slave1-centos') {
         checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '7df4e257-eb85-4243-9dc3-568d6127f752', url: 'https://tamireran@github.com/noobaa/noobaa-core']]])
     }
     stage('Preparing environment') {
+        echo 'copying the env file'
+        sh script: """
+                    yes | cp /usr/local/noobaa/.env $WORKSPACE/
+                """
         echo 'Installing all needed npm packages!'
         // sh script: """
-        //       yes | cp /usr/local/noobaa/.env $WORKSPACE/
         //       export NVM_DIR=/usr/local/nvm
         //       . /opt/nvm/nvm.sh
         //       nvm install 6.11.2
@@ -98,15 +101,15 @@ node('jenkins-slave1-centos') {
                     node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
                 """
           },
-        //   "machinekill": {
-        //     echo 'Killing some nodes!'
-        //     sh script: """
-        //         export NVM_DIR=/usr/local/nvm
-        //         . /opt/nvm/nvm.sh
-        //         sleep '${start_killing_time}'m
-        //         node $WORKSPACE/src/test/qa/machine_killer.js --service '${service}' --project '${resource}' --zone '${zone}' --prefix '${prefix}' --timeout \$((${aging_time}-${start_killing_time})) --min_machines '${min_machines}' --max_machines '${max_machines}'
-        //     """
-        //   },
+          "machinekill": {
+            echo 'Killing some nodes!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                sleep '${start_killing_time}'m
+                node $WORKSPACE/src/test/qa/machine_killer.js --service '${service}' --project '${resource}' --zone '${zone}' --prefix '${prefix}' --timeout \$((${aging_time}-${start_killing_time})) --min_machines '${min_machines}' --max_machines '${max_machines}'
+            """
+          },
         //   "agents-matrix": {
         //     echo 'Adding some agents!'
         //     sh script: """
@@ -115,14 +118,14 @@ node('jenkins-slave1-centos') {
         //         node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverName}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --upgrade_pack \$fname
         //     """
         //   },
-        //   "system-configurations": {
-        //     echo 'Adding some system configurations!'
-        //     sh script: """
-        //         export NVM_DIR=/usr/local/nvm
-        //         . /opt/nvm/nvm.sh
-        //         node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}'
-        //     """
-        //   },
+          "system-configurations": {
+            echo 'Adding some system configurations!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}'
+            """
+          },
         //   "upgrades": {
         //     echo 'Doing some upgrades!'
         //     sh script: """

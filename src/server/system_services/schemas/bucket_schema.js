@@ -280,9 +280,6 @@ module.exports = {
                 }
             }
         },
-        demo_bucket: {
-            type: 'boolean'
-        }
 
     }
 };

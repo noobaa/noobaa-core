@@ -397,14 +397,10 @@ function delete_bucket(req) {
     var bucket = find_bucket(req);
     // TODO before deleting tier and tiering_policy need to check they are not in use
     let tiering_policy = bucket.tiering;
-    if (_.map(req.system.buckets_by_name).length === 1) {
-        throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
-    }
-
-    return MDStore.instance().has_any_completed_objects_in_bucket(bucket._id)
-        .then(has_objects => {
-            if (has_objects) {
-                throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
+    return can_delete_bucket(req.system, bucket)
+        .then(reason => {
+            if (reason) {
+                throw new RpcError(reason, 'Cannot delete bucket');
             }
             Dispatcher.instance().activity({
                 event: 'bucket.delete',
@@ -1249,6 +1245,21 @@ function resolve_tiering_policy(req, policy_name) {
     return tiering_policy;
 }
 
+function can_delete_bucket(system, bucket) {
+    return P.resolve()
+        .then(() => {
+            if (_.map(system.buckets_by_name).length === 1) {
+                return 'LAST_BUCKET';
+            }
+            return MDStore.instance().has_any_completed_objects_in_bucket(bucket._id)
+                .then(has_objects => {
+                    if (has_objects) {
+                        return 'NOT_EMPTY';
+                    }
+                });
+        });
+}
+
 
 /*
                 ***UPDATE CLOUD SYNC DECISION TABLES***
@@ -1296,6 +1307,7 @@ Sync Deletions property changed to FALSE:
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
+exports.can_delete_bucket = can_delete_bucket;
 //Bucket Management
 exports.create_bucket = create_bucket;
 exports.read_bucket = read_bucket;

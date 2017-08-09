@@ -2627,10 +2627,12 @@ class NodesMonitor extends EventEmitter {
                 'wait_reason');
         }
         info.storage = this._node_storage_info(item);
-        info.drives = _.map(node.drives, drive => ({
-            mount: drive.mount,
-            drive_id: drive.drive_id,
-        }));
+        if (node.drives && node.drives.length) {
+            info.drive = {
+                mount: node.drives[0].mount,
+                drive_id: node.drives[0].drive_id,
+            };
+        }
         info.os_info = _.defaults({}, node.os_info);
         if (info.os_info.uptime) {
             info.os_info.uptime = new Date(info.os_info.uptime).getTime();
@@ -2638,6 +2640,7 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
+        info.host_seq = String(item.node.host_sequence);
 
         return fields ? _.pick(info, '_id', fields) : info;
     }
@@ -2762,11 +2765,24 @@ class NodesMonitor extends EventEmitter {
         this._throw_if_not_started_and_loaded();
         const { name, level } = req.rpc_params;
         const host_nodes = this._get_host_nodes_by_name(name);
+        if (!host_nodes || !host_nodes.length) throw new RpcError('BAD_REQUEST', `No such host ${name}`);
         return P.map(host_nodes, item => this._set_agent_debug_level(item, level))
             .then(() => {
                 // TODO: generte event here
                 dbg.log1('set_debug_node was successful for host', name, 'level', level);
+            })
+            .then(() => {
+                Dispatcher.instance().activity({
+                    system: req.system._id,
+                    level: 'info',
+                    event: 'dbg.set_debug_mode',
+                    actor: req.account && req.account._id,
+                    host: host_nodes[0].node._id,
+                    desc: `${name} debug level was raised by ${req.account && req.account.email}`,
+                });
+                dbg.log1('set_debug_node was successful for host', name, 'level', level);
             });
+
     }
 
     set_debug_node(req) {

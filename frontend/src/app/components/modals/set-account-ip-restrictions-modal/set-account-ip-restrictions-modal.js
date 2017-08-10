@@ -35,6 +35,7 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
     onAccount(account) {
         if (!account || this.isAccountReady()) return;
 
+        const usingIpRestrictions = Boolean(account.allowedIps);
         const allowedIps = (account.allowedIps || [])
             .map(({ start, end }) => start === end ? start : `${start} - ${end}`);
 
@@ -42,7 +43,7 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
             name: 'setAccountIPRestriction',
             fields: {
                 accountName: account.name,
-                usingIpRestrictions: Boolean(allowedIps),
+                usingIpRestrictions: usingIpRestrictions,
                 allowedIps: allowedIps,
             },
             onValidate: this.onValidate,

@@ -921,7 +921,6 @@ class NodesMonitor extends EventEmitter {
                             dbg.log0('_get_agent_info: set node name',
                                 item.node.name, 'to', updates.name);
 
-                            // if the host_id not yet exist in the 
                             item.new_host = !this._map_host_id.get(updates.host_id);
                             this._add_node_to_hosts_map(updates.host_id, item);
 
@@ -2595,11 +2594,13 @@ class NodesMonitor extends EventEmitter {
         };
         info.rpc_address = host_item.node.rpc_address;
         info.latency_to_server = host_item.node.latency_to_server;
-        info.debug_level = host_item.node.debug_level;
         const debug_time = host_item.node.debug_mode ?
-            config.DEBUG_MODE_PERIOD - (Date.now() - host_item.node.debug_mode) :
-            0;
-        info.debug_time = Math.max(0, debug_time);
+            Math.max(0, config.DEBUG_MODE_PERIOD - (Date.now() - host_item.node.debug_mode)) :
+            undefined;
+        info.debug = {
+            level: host_item.node.debug_level,
+            time_left: debug_time
+        };
         info.suggested_pool = host_item.suggested_pool;
         info.mode = host_item.mode;
         info.port_range = host_item.node.n2n_config.tcp_permanent_passive;

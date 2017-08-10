@@ -427,7 +427,7 @@ class NodesMonitor extends EventEmitter {
                 );
             })
             .then(() => {
-                Dispatcher.instance().alert('INFO', req.system._id, `Node ${item.node.name} was deactivated`);
+                Dispatcher.instance().alert('INFO', req.system._id, `Drive ${this._item_drive_description(item)} was deactivated`);
             });
 
     }

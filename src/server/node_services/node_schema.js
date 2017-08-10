@@ -63,7 +63,7 @@ module.exports = {
 
         // an incremental sequence number
         host_sequence: {
-            type: 'string'
+            type: 'integer'
         },
 
         ip: {

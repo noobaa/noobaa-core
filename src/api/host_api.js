@@ -283,8 +283,17 @@ module.exports = {
                 latency_to_server: {
                     $ref: 'node_api#/definitions/latency_array'
                 },
-                debug_level: {
-                    type: 'integer',
+                debug: {
+                    type: 'object',
+                    required: ['level'],
+                    properties: {
+                        level: {
+                            type: 'integer',
+                        },
+                        time_left: { // in ms
+                            format: 'integer'
+                        },
+                    },
                 },
                 rpc_address: {
                     type: 'string'

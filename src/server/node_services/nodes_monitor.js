@@ -422,7 +422,7 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => {
                 this._dispatch_node_event(item, 'decommission',
-                    `${item.node.name} was deactivated by ${req.account && req.account.email}`,
+                    `Drive ${this._item_drive_description(item)} was deactivated by ${req.account && req.account.email}`,
                     req.account && req.account._id
                 );
             })
@@ -447,7 +447,7 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => {
                 this._dispatch_node_event(item, 'recommission',
-                    `${item.node.name} was reactivated by ${req.account && req.account.email}`,
+                    `Drive ${this._item_drive_description(item)} was reactivated by ${req.account && req.account.email}`,
                     req.account && req.account._id
                 );
             });
@@ -921,6 +921,7 @@ class NodesMonitor extends EventEmitter {
                             dbg.log0('_get_agent_info: set node name',
                                 item.node.name, 'to', updates.name);
 
+                            item.new_host = !this._map_host_id.get(updates.host_id);
                             this._add_node_to_hosts_map(updates.host_id, item);
 
                             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
@@ -1358,7 +1359,9 @@ class NodesMonitor extends EventEmitter {
                         if (item.node.is_cloud_node) continue;
                         if (item.node.is_mongo_node) continue;
                         if (item.node.is_internal_node) continue;
-                        this._dispatch_node_event(item, 'create', `${item.node.name} was added`);
+                        if (item.new_host) {
+                            this._dispatch_node_event(item, 'create', `${this._item_hostname(item)} was added as a node`);
+                        }
                     }
                 }
             })
@@ -1574,10 +1577,10 @@ class NodesMonitor extends EventEmitter {
         if (!_.isUndefined(item.online) && item.node.node_type === 'BLOCK_STORE_FS') {
             if (!_.isUndefined(item.online) && !is_node_online && item.online) {
                 dbg.warn(`node ${item.node.name} became offline`);
-                this._dispatch_node_event(item, 'disconnected', `${item.node.name} is offline`);
+                this._dispatch_node_event(item, 'disconnected', `Drive ${this._item_drive_description(item)} is offline`);
             } else if (!_.isUndefined(item.online) && is_node_online && !item.online) {
                 dbg.warn(`node ${item.node.name} is back online`);
-                this._dispatch_node_event(item, 'connected', `${item.node.name} is online`);
+                this._dispatch_node_event(item, 'connected', `Drive ${this._item_drive_description(item)} is online`);
             }
         }
         return is_node_online;
@@ -2031,7 +2034,7 @@ class NodesMonitor extends EventEmitter {
             // filter hosts according to query
             if (query.hosts && !query.hosts.includes(item.node.host_sequence)) continue;
             if (query.pools && !query.pools.has(String(item.node.pool))) continue;
-            if (query.filter && !query.filter.test(item.node.os_info.hostname) && !query.filter.test(item.node.ip)) continue;
+            if (query.filter && !query.filter.test(this._item_hostname(item)) && !query.filter.test(item.node.ip)) continue;
             if (query.skip_cloud_nodes && item.node.is_cloud_node) continue;
 
             // the filter_count count nodes that passed all filters besides
@@ -2053,6 +2056,14 @@ class NodesMonitor extends EventEmitter {
             list,
             filter_counts
         };
+    }
+
+    _item_hostname(item) {
+        return item.node.os_info.hostname;
+    }
+
+    _item_drive_description(item) {
+        return `${item.node.drives[0].mount} in ${this._item_hostname(item)}`;
     }
 
     _consolidate_host(host_nodes) {
@@ -2361,7 +2372,7 @@ class NodesMonitor extends EventEmitter {
         if (target_pool_data) {
             for (const doc of target_pool_data.docs) {
                 const host_nodes = this._map_host_id.get(doc.id);
-                const hostname = host_nodes[0].node.os_info.hostname;
+                const hostname = this._item_hostname(host_nodes[0]);
                 dbg.log0('_suggest_pool_assign: classify start', hostname, doc);
                 const res = classifier.classify(doc);
                 dbg.log0('_suggest_pool_assign: classify result', hostname, res);
@@ -2559,7 +2570,7 @@ class NodesMonitor extends EventEmitter {
         info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
 
         // collect host info
-        info.name = host_item.node.os_info.hostname + '#' + host_item.node.host_sequence;
+        info.name = this._item_hostname(host_item) + '#' + host_item.node.host_sequence;
         const pool = system_store.data.get_by_id(host_item.node.pool);
         info.pool = pool ? pool.name : '';
         info.geolocation = host_item.node.geolocation;
@@ -2583,7 +2594,13 @@ class NodesMonitor extends EventEmitter {
         };
         info.rpc_address = host_item.node.rpc_address;
         info.latency_to_server = host_item.node.latency_to_server;
-        info.debug_level = host_item.node.debug_level;
+        const debug_time = host_item.node.debug_mode ?
+            Math.max(0, config.DEBUG_MODE_PERIOD - (Date.now() - host_item.node.debug_mode)) :
+            undefined;
+        info.debug = {
+            level: host_item.node.debug_level,
+            time_left: debug_time
+        };
         info.suggested_pool = host_item.suggested_pool;
         info.mode = host_item.mode;
         info.port_range = host_item.node.n2n_config.tcp_permanent_passive;
@@ -2623,10 +2640,12 @@ class NodesMonitor extends EventEmitter {
                 'wait_reason');
         }
         info.storage = this._node_storage_info(item);
-        info.drives = _.map(node.drives, drive => ({
-            mount: drive.mount,
-            drive_id: drive.drive_id,
-        }));
+        if (node.drives && node.drives.length) {
+            info.drive = {
+                mount: node.drives[0].mount,
+                drive_id: node.drives[0].drive_id,
+            };
+        }
         info.os_info = _.defaults({}, node.os_info);
         if (info.os_info.uptime) {
             info.os_info.uptime = new Date(info.os_info.uptime).getTime();
@@ -2634,6 +2653,7 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
+        info.host_seq = String(item.node.host_sequence);
 
         return fields ? _.pick(info, '_id', fields) : info;
     }
@@ -2758,11 +2778,24 @@ class NodesMonitor extends EventEmitter {
         this._throw_if_not_started_and_loaded();
         const { name, level } = req.rpc_params;
         const host_nodes = this._get_host_nodes_by_name(name);
+        if (!host_nodes || !host_nodes.length) throw new RpcError('BAD_REQUEST', `No such host ${name}`);
         return P.map(host_nodes, item => this._set_agent_debug_level(item, level))
             .then(() => {
                 // TODO: generte event here
                 dbg.log1('set_debug_node was successful for host', name, 'level', level);
+            })
+            .then(() => {
+                Dispatcher.instance().activity({
+                    system: req.system._id,
+                    level: 'info',
+                    event: 'dbg.set_debug_mode',
+                    actor: req.account && req.account._id,
+                    host: host_nodes[0].node._id,
+                    desc: `${name} debug level was raised by ${req.account && req.account.email}`,
+                });
+                dbg.log1('set_debug_node was successful for host', name, 'level', level);
             });
+
     }
 
     set_debug_node(req) {
@@ -2845,10 +2878,13 @@ class NodesMonitor extends EventEmitter {
         item.node.debug_level = debug_level;
         this._set_need_update.add(item);
         return server_rpc.client.agent.set_debug_node({
-            level: debug_level
-        }, {
-            connection: item.connection,
-        });
+                level: debug_level
+            }, {
+                connection: item.connection,
+            })
+            .then(() => {
+                item.node.debug_mode = Date.now();
+            });
     }
 
     _node_storage_info(item) {

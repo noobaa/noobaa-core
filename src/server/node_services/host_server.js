@@ -74,7 +74,7 @@ function diagnose_host(req) {
         .then(buffer => diag.write_agent_diag_file(buffer))
         .then(() => diag.pack_diagnostics(inner_path))
         .then(() => out_path);
-        // TODO: Add activity event for this method.
+    // TODO: Add activity event for this method.
 }
 
 

@@ -422,7 +422,7 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => {
                 this._dispatch_node_event(item, 'decommission',
-                    `${item.node.name} was deactivated by ${req.account && req.account.email}`,
+                    `Drive ${this._item_drive_description(item)} was deactivated by ${req.account && req.account.email}`,
                     req.account && req.account._id
                 );
             })
@@ -447,7 +447,7 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => {
                 this._dispatch_node_event(item, 'recommission',
-                    `${item.node.name} was reactivated by ${req.account && req.account.email}`,
+                    `Drive ${this._item_drive_description(item)} was reactivated by ${req.account && req.account.email}`,
                     req.account && req.account._id
                 );
             });
@@ -921,6 +921,8 @@ class NodesMonitor extends EventEmitter {
                             dbg.log0('_get_agent_info: set node name',
                                 item.node.name, 'to', updates.name);
 
+                            // if the host_id not yet exist in the 
+                            item.new_host = !this._map_host_id.get(updates.host_id);
                             this._add_node_to_hosts_map(updates.host_id, item);
 
                             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
@@ -1358,7 +1360,9 @@ class NodesMonitor extends EventEmitter {
                         if (item.node.is_cloud_node) continue;
                         if (item.node.is_mongo_node) continue;
                         if (item.node.is_internal_node) continue;
-                        this._dispatch_node_event(item, 'create', `${item.node.name} was added`);
+                        if (item.new_host) {
+                            this._dispatch_node_event(item, 'create', `${this._item_hostname(item)} was added as a node`);
+                        }
                     }
                 }
             })
@@ -1574,10 +1578,10 @@ class NodesMonitor extends EventEmitter {
         if (!_.isUndefined(item.online) && item.node.node_type === 'BLOCK_STORE_FS') {
             if (!_.isUndefined(item.online) && !is_node_online && item.online) {
                 dbg.warn(`node ${item.node.name} became offline`);
-                this._dispatch_node_event(item, 'disconnected', `${item.node.name} is offline`);
+                this._dispatch_node_event(item, 'disconnected', `Drive ${this._item_drive_description(item)} is offline`);
             } else if (!_.isUndefined(item.online) && is_node_online && !item.online) {
                 dbg.warn(`node ${item.node.name} is back online`);
-                this._dispatch_node_event(item, 'connected', `${item.node.name} is online`);
+                this._dispatch_node_event(item, 'connected', `Drive ${this._item_drive_description(item)} is online`);
             }
         }
         return is_node_online;
@@ -2031,7 +2035,7 @@ class NodesMonitor extends EventEmitter {
             // filter hosts according to query
             if (query.hosts && !query.hosts.includes(item.node.host_sequence)) continue;
             if (query.pools && !query.pools.has(String(item.node.pool))) continue;
-            if (query.filter && !query.filter.test(item.node.os_info.hostname) && !query.filter.test(item.node.ip)) continue;
+            if (query.filter && !query.filter.test(this._item_hostname(item)) && !query.filter.test(item.node.ip)) continue;
             if (query.skip_cloud_nodes && item.node.is_cloud_node) continue;
 
             // the filter_count count nodes that passed all filters besides
@@ -2053,6 +2057,14 @@ class NodesMonitor extends EventEmitter {
             list,
             filter_counts
         };
+    }
+
+    _item_hostname(item) {
+        return item.node.os_info.hostname;
+    }
+
+    _item_drive_description(item) {
+        return `${item.node.drives[0].mount} in ${this._item_hostname(item)}`;
     }
 
     _consolidate_host(host_nodes) {
@@ -2361,7 +2373,7 @@ class NodesMonitor extends EventEmitter {
         if (target_pool_data) {
             for (const doc of target_pool_data.docs) {
                 const host_nodes = this._map_host_id.get(doc.id);
-                const hostname = host_nodes[0].node.os_info.hostname;
+                const hostname = this._item_hostname(host_nodes[0]);
                 dbg.log0('_suggest_pool_assign: classify start', hostname, doc);
                 const res = classifier.classify(doc);
                 dbg.log0('_suggest_pool_assign: classify result', hostname, res);
@@ -2559,7 +2571,7 @@ class NodesMonitor extends EventEmitter {
         info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
 
         // collect host info
-        info.name = host_item.node.os_info.hostname + '#' + host_item.node.host_sequence;
+        info.name = this._item_hostname(host_item) + '#' + host_item.node.host_sequence;
         const pool = system_store.data.get_by_id(host_item.node.pool);
         info.pool = pool ? pool.name : '';
         info.geolocation = host_item.node.geolocation;

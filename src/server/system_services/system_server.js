@@ -18,7 +18,6 @@ const moment = require('moment');
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
-const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;

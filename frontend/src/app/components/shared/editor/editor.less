@@ -3,13 +3,13 @@
 editor {
     .row();
     padding: @gutter 0;
-    line-height: 35px;
+    line-height: 40px;
 
     validation-message, .val-msg {
         position: relative;
         margin-top: -1em;
         top: 1.4em;
-        line-height: 1;
+        line-height: .8;
     }
 
     > .editor-label {
@@ -29,8 +29,9 @@ editor {
     }
 
     > .editor-content {
+        margin-top: -1px;
         position: relative;
-        justify-content: center;
+/*        justify-content: center;*/
         line-height: inherit;
     }
 }

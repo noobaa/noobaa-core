@@ -27,7 +27,7 @@ def serverImage = 'https://jenkinsnoobaastorage.blob.core.windows.net/vhd-images
 //systemConfig
 def nodeLocalIP = '10.0.0.21'
 def serverLocalIP = '10.0.0.5'
-def severExternalIP = '52.191.133.53'
+def severExternalIP = '52.191.134.178'
 
 
 node('jenkins-slave1-centos') {
@@ -123,7 +123,7 @@ node('jenkins-slave1-centos') {
             sh script: """
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}'
+               node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}' --external_server_ip '${severExternalIP}'
             """
           },
         //   "upgrades": {

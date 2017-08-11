@@ -6,6 +6,8 @@ var _ = require('lodash');
 const net = require('net');
 const dgram = require('dgram');
 const http = require('http');
+const ssh = require('../qa/ssh_functions');
+const ssh2 = require('ssh2');
 var promise_utils = require('../../util/promise_utils');
 var argv = require('minimist')(process.argv);
 var serverName = argv.server_ip;
@@ -13,8 +15,9 @@ var secret;
 
 //noobaa rpc
 var api = require('../../api');
-var rpc = api.new_rpc('wss://' + serverName + ':8443');
-var client = rpc.new_client({});
+var rpc;
+var client;
+var client_ssh;
 var old_time = 0;
 var configured_ntp = argv.ntp_server || 'pool.ntp.org';
 var primary_dns = argv.primary_dns || '8.8.8.8';
@@ -29,10 +32,12 @@ var received_tcp_rsyslog_connection = false;
 var failures_in_test = false;
 
 var my_external_ip = argv.my_ip;
-
+var external_server_ip = argv.external_server_ip;
 var udp_rsyslog_port = argv.udp_syslog_port || 5001;
 var tcp_rsyslog_port = argv.tcp_syslog_port || 5002;
 var ph_proxy_port = argv.ph_proxy_port || 5003;
+var activation_code = 'pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6ek&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQayzLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd';
+
 let errors = [];
 
 function saveErrorAndResume(message) {
@@ -77,8 +82,9 @@ rsyslog_udp_server.on('message', (msg, rinfo) => {
     received_udp_rsyslog_connection = true;
 });
 
-
 P.fcall(function() {
+    rpc = api.new_rpc('wss://' + serverName + ':8443');
+    client = rpc.new_client({});
     var auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
@@ -86,6 +92,103 @@ P.fcall(function() {
     };
     return client.create_auth_token(auth_params);
 })
+    .then(() => P.resolve(client.system.read_system({})))
+    .then(result => {
+        secret = result.cluster.shards[0].servers[0].secret;
+        console.log('Secret is ' + secret);
+    })
+    .then(() => rpc.disconnect_all())
+    .then(() => {
+        client_ssh = new ssh2.Client();
+        return ssh.ssh_connect(client_ssh, {
+                host: external_server_ip,
+              //  port: 22,
+                username: 'noobaaroot',
+                password: secret,
+                keepaliveInterval: 5000,
+            })
+            .then(() => ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a'))
+            .then(() => ssh.ssh_exec(client_ssh, 'sudo reboot -fn'))
+            .then(() => client_ssh.end())
+            .catch(err => {
+                saveErrorAndResume(`${external_server_ip} FAILED`, err);
+                failures_in_test = true;
+                throw err;
+            });
+    })
+    .then(() => {
+        console.log('Waiting for connection server');
+        rpc = api.new_rpc('wss://' + serverName + ':8443');
+        client = rpc.new_client({});
+        var retries = 10;
+        var final_result;
+        return promise_utils.pwhile(
+            function() {
+                return retries > 0;
+            },
+            function() {
+                return P.resolve(client.account.accounts_status({}))
+                    .then(res => {
+                        console.log('Server is ready !!!!', res);
+                        retries = 0;
+                        final_result = res;
+                    })
+                    .catch(() => {
+                        console.warn('Waiting for read server config, will retry extra', retries, 'times');
+                        return P.delay(30000);
+                    });
+            }).then(() => final_result);
+    })
+    .then(() => {
+        console.log('Validate activation code');
+        return P.resolve(client.system.validate_activation({
+            code: activation_code,
+            email: 'demo@noobaa.com'
+        }));
+    })
+    .then(result => {
+        var code_is = result.valid;
+        if (code_is === true) {
+            console.log('Activation code is valid');
+        } else {
+            saveErrorAndResume('Activation code is not valid for new system failure!!!');
+            failures_in_test = true;
+        }
+    })
+    .then(() => P.resolve(client.system.create_system({
+        email: 'demo@noobaa.com',
+        name: 'demo',
+        password: 'DeMo1',
+        activation_code: activation_code
+    })))
+    .then(() => P.resolve(client.account.accounts_status({})))
+    .then(res => P.resolve()
+        .then(() => promise_utils.pwhile(
+            function() {
+                return !res.has_accounts === true;
+            },
+            function() {
+                console.warn('Waiting for account has status true');
+                return P.delay(5000);
+            }))
+        .timeout(1 * 60000)
+        .then(() => {
+            console.log('Account has status: ' + res.has_accounts);
+        })
+        .catch(() => {
+            saveErrorAndResume('Couldn\'t create system');
+            failures_in_test = true;
+        }))
+    .then(() => {
+    rpc = api.new_rpc('wss://' + serverName + ':8443');
+    client = rpc.new_client({});
+    var auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params);
+    })
     .then(() => { // dns configuration
         console.log('Setting DNS', configured_dns);
         return P.resolve(client.cluster_server.update_dns_servers({

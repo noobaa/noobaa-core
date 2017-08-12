@@ -1,0 +1,16 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row alt-bg pad content-middle">
+    <p class="greedy">
+        Internal storage consist of the cluster members disc storage and is used for bucket spillover only.
+    </p>
+    <button class="btn align-end" ko.click="onEditSpilloverTargets">
+        Edit Spillover Targets
+    </button>
+</div>
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: rows,
+    emptyMessage: emptyMessage
+"></data-table>

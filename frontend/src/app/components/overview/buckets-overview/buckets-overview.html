@@ -9,36 +9,26 @@
         "></a>
     </h2>
     <hr>
-
     <div class="row content-middle">
         <span class="greedy">Raw Usage History</span>
         <toggle-filter class="duration-chooser" params="
             options: durationOptions,
-            selected: selectedDuration
+            selected: durationSelectorToggle()
         "></toggle-filter>
     </div>
-
-    <checkbox class="cloud-filter" params="
-        checked: includeCloudStorage,
-        label: 'Include cloud storage'
-    "></checkbox>
 
     <chart-legend  params="items: legendItems"></chart-legend>
 
     <chartjs class="greedy push-both" params="
         type: 'line',
-        options: chart().options,
-        data: chart().data
+        options: chart.options,
+        data: chart.data
     "></chartjs>
 
-    <button class="btn overview-btn" data-bind="
-        click: () => showConnectApplicationWizard()
-    ">
+    <button class="btn overview-btn" ko.click="showConnectApplicationWizard">
         Connect Application
     </button>
 </section>
-
-
 
 <!-- ko if: isConnectApplicationWizardVisible -->
 <connect-app-wizard params="onClose: () => hideConnectApplicationWizard()">

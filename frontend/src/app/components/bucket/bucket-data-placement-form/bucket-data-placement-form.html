@@ -7,21 +7,20 @@
             <div class="row">
                 <span class="highlight">
                     <span>Policy type:</span>
-                    <span data-bind="text: placementType"></span>
+                    <span ko.text="placementType"></span>
                 </span>
                 <span class="push-both">|</span>
                 <span>
                     <span>Nodes Pools:</span>
-                    <span data-bind="text: nodePoolCount"></span>
+                    <span ko.text="nodePoolCount"></span>
                 </span>
                 <span class="push-both">|</span>
                 <span>
                     <span>Cloud resources:</span>
-                    <span data-bind="text: cloudResourceCount"></span>
+                    <span ko.text="cloudResourceCount"></span>
                 </span>
             </div>
         </div>
-
 
         <button class="btn push-next" ko.click="onEditBucketQuota">
             Edit Bucket Quota
@@ -31,20 +30,12 @@
         </button>
     </div>
 
-    <data-table class="placement-table" params="
-        columns: placementTableColumns,
-        data: nodePools,
-        rowFactory: pool => createPlacementRow(pool),
-        emptyMessage: 'No resources participate in policy'
+    <bucket-data-placement-table class="push-next" params="
+        bucketName: bucketName,
+        baseRoute: baseRoute
     ">
-        <template name="custom-link">
-            <!-- ko if: $data().href -->
-            <a class="link" data-bind="text: $data().text, href: $data().href"></a>
-            <!-- /ko -->
-            <!-- ko ifnot: $data().href -->
-            <span data-bind="text: $data().text"></span>
-            <!-- /ko -->
-        </template>
+    </bucket-data-placement-table>
 
-    </data-table>
+    <bucket-spillover params="bucketName: bucketName">
+    </bucket-spillover>
 </section>

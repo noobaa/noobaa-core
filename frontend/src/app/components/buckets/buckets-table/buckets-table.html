@@ -2,34 +2,32 @@
 
 <div class="row alt-bg pad content-middle">
     <div class="greedy push-next">
-        <input type="search" placeholder="Filter by bucket name" data-bind="
-            textInput: filter
-        "/>
+        <input type="search"
+            placeholder="Filter by bucket name"
+            ko.textInput="filterBuckets()"
+        />
     </div>
-    <button class="btn align-end" data-bind="
-        click: () => showCreateBucketWizard()
-    ">
+    <button class="btn align-end" ko.click="showCreateBucketWizard">
         Create Bucket
     </button>
 </div>
 
 <data-table class="greedy" params="
     columns: columns,
-    sorting: sorting,
-    data: buckets,
-    rowFactory: bucket => newBucketRow(bucket),
-        emptyMessage: 'The current filter does not match any bucket'
+    sorting: orderBy(),
+    data: rows,
+    emptyMessage: 'The current filter does not match any bucket'
 ">
-    <template name="cloud-storage">
-        <svg-icon class="icon-small" params="name: awsIcon().name" data-bind="
-            tooltip: awsIcon().tooltip
-        "></svg-icon>
-        <svg-icon class="icon-small" params="name: azureIcon().name" data-bind="
-            tooltip: azureIcon().tooltip
-        "></svg-icon>
-        <svg-icon class="icon-small" params="name: cloudIcon().name" data-bind="
-            tooltip: cloudIcon().tooltip
-        "></svg-icon>
+    <template name="resources-in-policy" >
+        <svg-icon class="icon-small"
+                  ko.css.highlighted="hostsIcon().isHighlighted"
+                  params="name: hostsIcon().name" ko.tooltip="hostsIcon().tooltip">
+        </svg-icon>
+        <svg-icon class="icon-small"
+                  ko.css.highlighted="cloudIcon().isHighlighted"
+                  params="name: cloudIcon().name"
+                  ko.tooltip="cloudIcon().tooltip">
+        </svg-icon>
     </template>
 </data-table>
 

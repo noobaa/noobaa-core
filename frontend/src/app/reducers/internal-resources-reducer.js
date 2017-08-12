@@ -1,29 +1,55 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { keyByProperty } from 'utils/core-utils';
-import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
+import {
+    COMPLETE_FETCH_SYSTEM_INFO,
+    COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY
+} from 'action-types';
 import { createReducer } from 'utils/reducer-utils';
 
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = {};
+const initialState = {
+    resources: {},
+    storageHistory: []
+};
 
 // ------------------------------
 // Action Handlers
 // ------------------------------
-
-function onCompleteFetchSystemInfo(_, { payload }) {
+function onCompleteFetchSystemInfo(internalResources, { payload }) {
     const { pools } = payload;
-
-    return keyByProperty(
+    const resources = keyByProperty(
         pools.filter(pool => pool.resource_type === 'INTERNAL'),
         'name',
-        ({ name, storage }) => ({
+        ({ name, storage, resource_type, mode }) => ({
             name,
-            storage: storage
+            resource_type,
+            mode,
+            storage
         })
     );
+
+    return { ...internalResources, resources };
+}
+
+function onCompleteFetchSystemUsageHistory(internalResources, { payload }) {
+    const history = payload;
+
+    const storageHistory = history.map(
+        ({timestamp, pool_list }) => {
+            const samples = keyByProperty(pool_list
+                .filter(pool => pool.resource_type === 'INTERNAL'),
+                'name',
+                ({ storage }) => storage
+            );
+
+            return { timestamp, samples };
+        }
+    );
+
+    return { ...internalResources, storageHistory };
 }
 
 // ------------------------------
@@ -35,5 +61,6 @@ function onCompleteFetchSystemInfo(_, { payload }) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
+    [COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY]: onCompleteFetchSystemUsageHistory
 });

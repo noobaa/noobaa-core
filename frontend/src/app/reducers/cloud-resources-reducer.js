@@ -2,35 +2,64 @@
 
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
+import {
+    COMPLETE_FETCH_SYSTEM_INFO,
+    COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY
+} from 'action-types';
 
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = {};
+const initialState = {
+    resources: {},
+    storageHistory: []
+};
 
 // ------------------------------
 // Action Handlers
 // ------------------------------
 
-function onCompleteFetchSystemInfo(_, { payload }) {
+function onCompleteFetchSystemInfo(cloudResources, { payload }) {
     const { pools, buckets, tiers } = payload;
 
     const bucketsByPools = _mapPoolsToBuckets(buckets, tiers);
 
-    return keyByProperty(
+    const resources = keyByProperty(
         pools.filter(pool => pool.resource_type === 'CLOUD'),
         'name',
-        ({ name, cloud_info, storage, undeletable }) => ({
+        ({ name, cloud_info, storage, undeletable, mode }) => ({
             name,
             type: cloud_info.endpoint_type,
-            state: 'HEALTHY',
+            mode: mode,
             target: cloud_info.target_bucket,
             storage: storage,
             usedBy: bucketsByPools[name] || [],
             undeletable
         })
     );
+
+    return {
+        ...cloudResources,
+        resources
+    };
+}
+
+function onCompleteFetchSystemUsageHistory(cloudResources, { payload }) {
+    const history = payload;
+
+    const storageHistory = history.map(
+        ({timestamp, pool_list }) => {
+            const samples = keyByProperty(pool_list
+                .filter(pool => pool.resource_type === 'CLOUD'),
+                'name',
+                ({ storage }) => storage
+            );
+
+            return { timestamp, samples };
+        }
+    );
+
+    return { ...cloudResources, storageHistory };
 }
 
 // ------------------------------
@@ -65,5 +94,6 @@ function _mapPoolsToBuckets(buckets, tiers) {
 // Exported reducer function.
 // ------------------------------
 export default createReducer(initialState, {
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
+    [COMPLETE_FETCH_RESOURCE_STORAGE_HISTORY]: onCompleteFetchSystemUsageHistory
 });

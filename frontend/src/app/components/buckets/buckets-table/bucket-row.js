@@ -2,35 +2,49 @@
 
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { systemInfo } from 'model';
 import { deleteBucket } from'actions';
-import { deepFreeze, keyByProperty } from 'utils/core-utils';
-import { capitalize, stringifyAmount } from 'utils/string-utils';
-import { getBucketStateIcon } from 'utils/ui-utils';
+import { deepFreeze } from 'utils/core-utils';
+import { getResourceTypeIcon, getBucketCapacityBarValues } from 'utils/ui-utils';
+import { aggregateStorage } from 'utils/storage-utils';
+import { formatSize } from 'utils/size-utils';
+
+const stateIconMapping = deepFreeze({
+    true: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    },
+
+    false: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Not enough healthy storage resources'
+    }
+});
 
 const cloudSyncStatusMapping = deepFreeze({
     NOTSET: {
-        text: 'not set',
+        text: 'Not set',
         css: ''
     },
     PENDING: {
-        text: 'waiting',
+        text: 'Waiting',
         css: ''
     },
     SYNCING: {
-        text: 'syncing',
+        text: 'Syncing',
         css: ''
     },
     PAUSED: {
-        text: 'paused',
+        text: 'Paused',
         css: ''
     },
     SYNCED: {
-        text: 'synced',
+        text: 'Synced',
         css: ''
     },
     UNABLE: {
-        text: 'unable to sync',
+        text: 'Unable to sync',
         css: 'error'
     }
 });
@@ -40,189 +54,93 @@ const placementPolicyTypeMapping = deepFreeze({
     MIRROR: 'Mirrored'
 });
 
-function cloudStorageIcon(list, baseIconName, tooltipTitle) {
-    const count = list.length;
-    const name =  `${baseIconName}${count ? '-colored' : ''}`;
-    const tooltipText = count === 0 ?
-        `No ${tooltipTitle}` :
-        { title: capitalize(tooltipTitle), list: list };
+function storageIcon(bucket, type) {
+    const icon = getResourceTypeIcon(type);
+    const resources = bucket.backingResources.resources
+        .filter(resource => resource.type === type);
+    const list = resources.map(resource => resource.name);
+    const tooltipText = resources.length === 0 ?
+        `No ${icon.tooltip.toLowerCase()}s` :
+        { title: `${icon.tooltip}s`, list };
 
     return {
-        name: name,
-        tooltip: { text: tooltipText }
+        name: icon.name,
+        tooltip:  { text: tooltipText },
+        isHighlighted: !!resources.length
     };
 }
 
 export default class BucketRowViewModel extends BaseViewModel {
-    constructor(bucket, deleteGroup, isLastBucket) {
+    constructor() {
         super();
 
-        this.state = ko.pureComputed(
-           () => bucket() ? getBucketStateIcon(bucket().mode) : ''
+        this.state = ko.observable();
+        this.name = ko.observable();
+        this.fileCount = ko.observable();
+        this.placementPolicy = ko.observable();
+        this.resourcesInPolicy = {
+            hostsIcon: ko.observable(),
+            cloudIcon: ko.observable()
+        };
+        this.spilloverUsage = ko.observable();
+        this.cloudStorage = ko.observable();
+        this.cloudSync = ko.observable();
+        this.usedCapacity = ko.observable();
+        this.deleteButton = ko.observable();
+    }
+
+    onUpdate({ bucket, poolByName, deleteGroup, isLastBucket }) {
+        const { used = 0, total = 0 } = aggregateStorage(
+            ...bucket.backingResources.spillover.map(
+                spillover => ({
+                    used: spillover.used ? spillover.used : 0,
+                    total: poolByName[spillover.name] ? poolByName[spillover.name].storage.total : 0
+                })
+            )
         );
+        const spilloverStorage = { used, total };
 
-        this.name = ko.pureComputed(
-            () => {
-                if (!bucket()) {
-                    return {};
-                }
-
-                const { name } = bucket();
-                return {
-                    text: name,
-                    href: {
-                        route: 'bucket',
-                        params: {
-                            bucket: name,
-                            tab: null
-                        }
-                    }
-                };
-            }
-        );
-
-        this.fileCount = ko.pureComputed(
-            () => {
-                if (!bucket()) {
-                    return 0;
-                }
-
-                return bucket().num_objects;
-            }
-        )
-        .extend({
-            formatNumber: true
+        this.state(stateIconMapping[Boolean(bucket.writable)]);
+        this.name({
+            text: bucket.name,
+            href: { route: 'bucket', params: { bucket: bucket.name } }
         });
-
-        const tierName = ko.pureComputed(
-            () => bucket() && bucket().tiering.tiers[0].tier
-        );
-
-        const tier = ko.pureComputed(
-            () => systemInfo() && systemInfo().tiers.find(
-                tier => tier.name === tierName()
-            )
-        );
-
-        this.placementPolicy = ko.pureComputed(
-            () => {
-                if (!tier()) {
-                    return {};
-                }
-
-                const { data_placement, attached_pools } = tier();
-                const count = attached_pools.length;
-                const text = `${
-                        placementPolicyTypeMapping[data_placement]
-                    } on ${
-                        stringifyAmount('pool', count)
-                    }`;
-
-                return {
-                    text: text,
-                    tooltip: attached_pools
-                };
-            }
-        );
-
-        const cloudPolicy = ko.pureComputed(
-            () => {
-                const policy = { AWS: [], AZURE: [], S3_COMPATIBLE: [] };
-                if (!tier()) {
-                    return policy;
-                }
-
-                const poolsByName = keyByProperty(systemInfo().pools, 'name');
-                return tier().attached_pools
-                    .map(poolName => poolsByName[poolName])
-                    .filter(pool => pool.resource_type === 'CLOUD')
-                    .reduce(
-                        (mapping, pool) => {
-                            mapping[pool.cloud_info.endpoint_type].push(pool.name);
-                            return mapping;
-                        },
-                        policy
-                    );
-            }
-        );
-
-        this.cloudStorage = {
-            awsIcon: ko.pureComputed(
-                () => cloudStorageIcon(
-                    cloudPolicy().AWS,
-                    'aws-s3-resource',
-                    'AWS S3 resources'
-                )
-            ),
-            azureIcon: ko.pureComputed(
-                () => cloudStorageIcon(
-                    cloudPolicy().AZURE,
-                    'azure-resource',
-                    'Azure blob resources'
-                )
-            ),
-            cloudIcon: ko.pureComputed(
-                () => cloudStorageIcon(
-                    cloudPolicy().S3_COMPATIBLE,
-                    'cloud-resource',
-                    'generic S3 compatible resorurces'
-                )
-            )
-        };
-
-        const storage = ko.pureComputed(
-            () => bucket() ? bucket().storage.values : {}
-        );
-
-        this.capacity = {
-            total: ko.pureComputed(
-                () => storage().total || 0
-            ),
-            used: ko.pureComputed(
-                () => storage().used || 0
-            )
-        };
-
-
-        this.cloudSync = ko.pureComputed(
-            () => {
-                const state = (bucket() && bucket().cloud_sync) ? bucket().cloud_sync.status : 'NOTSET';
-                return cloudSyncStatusMapping[state];
-            }
-        );
-
-        const hasObjects = ko.pureComputed(
-            () => Boolean(bucket() && bucket().num_objects > 0)
-        );
-
-        const isDemoBucket = ko.pureComputed(
-            () => Boolean(bucket() && bucket().demo_bucket)
-        );
-
-        this.deleteButton = {
+        this.fileCount(bucket.objectsCount);
+        this.placementPolicy({
+            text: placementPolicyTypeMapping[bucket.backingResources.type],
+            tooltip: bucket.backingResources.resources.map(item => item.name)
+        });
+        this.resourcesInPolicy.hostsIcon(storageIcon(bucket, 'HOSTS'));
+        this.resourcesInPolicy.cloudIcon(storageIcon(bucket, 'CLOUD'));
+        this.spilloverUsage(`${formatSize(spilloverStorage.used)} ${spilloverStorage.used ? 'used' : ''}` );
+        this.cloudSync(cloudSyncStatusMapping[bucket.cloudSyncStatus]);
+        this.usedCapacity(getBucketCapacityBarValues(bucket));
+        this.deleteButton({
             subject: 'bucket',
             group: deleteGroup,
             undeletable: ko.pureComputed(
-                () => isDemoBucket() || isLastBucket() || hasObjects()
+                () => bucket.demoBucket || isLastBucket || bucket.objectsCount
             ),
             tooltip: ko.pureComputed(
                 () => {
-                    if (isDemoBucket()) {
+                    if (bucket.demoBucket) {
                         return 'Demo buckets cannot be deleted';
                     }
 
-                    if (hasObjects()) {
+                    if (bucket.objectsCount) {
                         return 'Cannot delete a bucket that contain files';
                     }
 
-                    if (isLastBucket()) {
+                    if (isLastBucket) {
                         return 'Last bucket cannot be deleted';
                     }
 
                     return 'delete bucket';
                 }
             ),
-            onDelete: () => deleteBucket(bucket().name)
-        };
+            onDelete: () => deleteBucket(bucket.name)
+        });
+
+        return this;
     }
 }

@@ -659,6 +659,7 @@ class AzureFunctions {
             .then(() => this.createVirtualMachineFromImage(serverName, 'https://' + storage + '.blob.core.windows.net/staging-vhds/image.vhd', vnet, storage, 'Linux'))
             .delay(20000)
             .then(() => this.getIpAddress(serverName + '_pip'))
+            .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
             .then(ip => {
                 rpc = api.new_rpc('wss://' + ip + ':8443');
                 client = rpc.new_client({});

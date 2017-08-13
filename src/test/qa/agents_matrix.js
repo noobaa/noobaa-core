@@ -33,8 +33,9 @@ const {
     location = 'westus2',
     bucket = 'first.bucket',
     server_ip,
-    upgrade_pack,
 } = argv;
+
+const upgrade_pack = argv.upgrade_pack === true ? undefined : argv.upgrade_pack;
 
 //define colors
 const Yellow = "\x1b[33;1m";
@@ -47,10 +48,10 @@ var rpc = api.new_rpc('wss://' + server_ip + ':8443');
 rpc.disable_validation();
 var client = rpc.new_client({});
 const oses = [
-    'ubuntu12', 'ubuntu14', 'ubuntu16',
-    'centos6', 'centos7',
-    'redhat6', 'redhat7',
-    'win2008', 'win2012', 'win2016'
+    'ubuntu12'//, 'ubuntu14', 'ubuntu16',
+    // 'centos6', 'centos7',
+    // 'redhat6', 'redhat7',
+    // 'win2008', 'win2012', 'win2016'
 ];
 
 const size = 16; //size in GB
@@ -183,14 +184,18 @@ function runExtensions(script_name, flags = '') {
 }
 
 function upgradeAgent() {
-    console.log('starting the upgrade agents stage');
-    return runExtensions('replace_version_on_agent')
-        .then(() => client.system.read_system({})
-            .then(result => ops.upload_and_upgrade(server_ip, upgrade_pack))
-            .then(() => {
-                console.log(`Upgrade successful, waiting on agents to upgrade`);
-                return ops.wait_on_agents_upgrade(server_ip);
-            }));
+    // if upgrade pack is not specifyed then skipping this stage.
+    console.log(`upgrade_pack: ${upgrade_pack}`);
+    if (!_.isUndefined(upgrade_pack)) {
+        console.log('starting the upgrade agents stage');
+        return runExtensions('replace_version_on_agent')
+            .then(() => client.system.read_system({})
+                .then(result => ops.upload_and_upgrade(server_ip, upgrade_pack))
+                .then(() => {
+                    console.log(`Upgrade successful, waiting on agents to upgrade`);
+                    return ops.wait_on_agents_upgrade(server_ip);
+                }));
+    }
 }
 
 function deleteAgent() {
@@ -241,6 +246,31 @@ function getAgentConf(exclude_drives) {
             const index = agentConf.indexOf('config');
             agentConf = agentConf.substring(index + 7);
             console.log(agentConf);
+        });
+}
+
+function activeDeactiveAgents() {
+    return P.resolve(client.node.list_nodes({
+        query: {
+            online: true,
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true
+        }
+    }))
+        .then(res => {
+            const my_optimal_nodes = res.nodes.filter(node => node.mode === 'OPTIMAL');
+            console.log(`${Yellow}Number of Online agents: ${my_optimal_nodes.length}${NC}`);
+            if (my_optimal_nodes.length !== 0) {
+                const online_nodes = my_optimal_nodes.map(node => node.name);
+                console.log(`${Yellow}deactivating all the online agents: ${online_nodes}${NC}`);
+                // return P.each(online_nodes, name => {
+                return P.map(online_nodes, name => {
+                    if (_.includes(oses, name)) {
+                        console.log('calling decommission_node on', name);
+                        return client.node.decommission_node({ name });
+                    }
+                });
+            }
         });
 }
 
@@ -358,15 +388,15 @@ function includeExcludeCycle(isInclude) {
         // creating agents on the VM - diffrent oses.
         .then(() => runCreateAgents(isInclude))
         // verifying write, read, diag and debug level.
-        .then(verifyAgent)
+        // .then(verifyAgent)
         // adding phisical disks to the machines.
         .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk(excludeList)))
         //verifying write, read, diag and debug level.
-        .then(verifyAgent)
+        // .then(verifyAgent)
         // Upgrade to same version before uninstalling
         .then(upgradeAgent)
         //verifying write, read, diag and debug level after the upgrade.
-        .then(verifyAgent)
+        // .then(verifyAgent)
         // Cleaning the machine Extention and installing new one that remove nodes.
         .then(() => skipsetup || deleteAgent());
 }
@@ -396,7 +426,7 @@ function main() {
             }
         })
         // when clean is called, exiting after delete all agents machine.
-        .then(() => clean || process.exit(0))
+        .then(() => clean && process.exit(0))
         // checking the include disk cycle.
         .then(() => includeExcludeCycle(true))
         // checking the exclude disk cycle.

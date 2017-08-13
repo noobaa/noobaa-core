@@ -11,8 +11,8 @@ def service = 'azure'
 def resource = 'pipeline-dataset'
 def zone = 'westus2'
 def prefix = 'ubuntu-node-'
-def min_machines = '5' // minimum 3 machine
-def max_machines = '15' // maximum 10 machines
+def min_machines = '0' // minimum 3 machine
+def max_machines = '3' // maximum 10 machines
 //cluster
 def clusterResource = 'pipelie-cluster'
 def clusterVnet = 'pipelie-cluster-vnet'

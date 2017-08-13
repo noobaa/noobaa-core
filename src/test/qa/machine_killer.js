@@ -1,3 +1,4 @@
+/* eslint-disable */
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
@@ -42,12 +43,12 @@ if (service === 'gcloud') {
 var machines_number = 0;
 var start = Date.now();
 return funcs.authenticate()
-    .then(() => funcs.countOnMachines(vm_prefix))
-    .then(count => {
+    .then(() => funcs.listVirtualMachines(vm_prefix))
+    .then(listVM => {
         if (timeout !== 0) {
             console.log('will keep killing machines for ', timeout, 'minutes');
         }
-        machines_number = count;
+        machines_number = listVM.length;
         return promise_utils.pwhile(() => (timeout === 0 || ((Date.now() - start) / (60 * 1000)) < timeout), () => {
             var rand_machine;
             var rand_timeout = Math.floor(Math.random() * (max_timeout - min_timeout) + min_timeout);
@@ -55,6 +56,7 @@ return funcs.authenticate()
             return funcs.getRandomMachine(vm_prefix)
                 .then(machine => {
                     rand_machine = machine;
+                    console.log('Random machine is ' + machine);
                     console.log('Sleeping for ' + rand_timeout + ' seconds');
                     return funcs.getMachineStatus(rand_machine);
                 })
@@ -62,14 +64,14 @@ return funcs.authenticate()
                 .then(status => {
                     if ((status === 'VM stopped') && (machines_number < max_machines)) {
                         console.log('Turning ON machine: ' + rand_machine);
-                        machines_number++;
                         return funcs.startVirtualMachine(rand_machine)
                             .then(() => funcs.waitMachineState(rand_machine, 'VM running'));
                     } else if ((status === 'VM running') && (machines_number > min_machines)) {
                         console.log('Turning OFF machine: ' + rand_machine);
-                        machines_number--;
                         return funcs.stopVirtualMachine(rand_machine)
                             .then(() => funcs.waitMachineState(rand_machine, 'VM stopped'));
+                    } else if (machines_number === 0) {
+                        console.warn("List of VM is empty");
                     }
                 });
         });

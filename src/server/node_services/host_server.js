@@ -23,7 +23,6 @@ function read_host(req) {
 function list_hosts(req) {
     const query = _prepare_hosts_query(req);
     const options = _.pick(req.rpc_params,
-        'pagination',
         'skip',
         'limit',
         'sort',
@@ -40,7 +39,6 @@ function get_test_hosts(req) {
         system: String(req.system._id),
         mode: 'OPTIMAL'
     }, {
-        pagination: true,
         limit: req.rpc_params.count,
         sort: 'shuffle'
     });

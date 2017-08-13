@@ -2307,8 +2307,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _paginate_nodes_list(list, options) {
-        const skip = options.skip || 0;
-        const limit = options.limit || list.length;
+        const { skip = 0, limit = list.length } = options;
         return list.slice(skip, skip + limit);
     }
 
@@ -2457,8 +2456,8 @@ class NodesMonitor extends EventEmitter {
         const filter_res = this._filter_hosts(query);
         const list = filter_res.list;
         this._sort_nodes_list(list, options);
-        const res_list = options && options.pagination ?
-            this._paginate_nodes_list(list, options) : list;
+        const { skip, limit } = options || {};
+        const res_list = _.isUndefined(skip && limit) ? list : this._paginate_nodes_list(list, options);
         dbg.log2('list_hosts', res_list.length, '/', list.length);
 
         return {

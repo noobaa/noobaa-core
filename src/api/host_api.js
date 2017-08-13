@@ -48,9 +48,6 @@ module.exports = {
                     limit: {
                         type: 'integer'
                     },
-                    pagination: {
-                        type: 'boolean'
-                    },
                     sort: {
                         type: 'string',
                         enum: [

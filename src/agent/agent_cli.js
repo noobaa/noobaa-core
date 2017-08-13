@@ -105,7 +105,7 @@ AgentCLI.prototype.init = function() {
         })
         .then(function() {
             _.defaults(self.params, {
-                root_path: './agent_storage/',
+                root_path: './noobaa_storage/',
                 access_key: '123',
                 secret_key: 'abc',
                 system: 'demo',
@@ -123,9 +123,10 @@ AgentCLI.prototype.init = function() {
             }
         })
         .then(() => os_utils.get_disk_mount_points())
+        .tap(mount_points => self.rename_agent_storage(mount_points))
         .then(function(mount_points) {
             if (self.params.test_host) {
-                self.params.root_path = './agent_storage_' + self.params.test_host;
+                self.params.root_path = './noobaa_storage_' + self.params.test_host;
                 mount_points[0].mount = self.params.root_path;
             } else {
                 self.params.root_path = mount_points[0].mount;
@@ -137,19 +138,19 @@ AgentCLI.prototype.init = function() {
             if (self.params.cleanup) {
                 return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
                     var storage_path = storage_path_info.mount;
-                    var path_modification = storage_path.replace('/agent_storage/', '')
+                    var path_modification = storage_path.replace('/noobaa_storage/', '')
                         .replace('/', '')
                         .replace('.', '');
                     return fs_utils.folder_delete(path_modification);
                 }));
             } else if (self.params.duplicate || self.params.notfound) {
                 let reason = self.params.duplicate ? 'duplicate' : 'notfound';
-                let target_agent_storage = reason + '_agent_storage_' + Date.now();
-                dbg.log0(`got ${reason} flag - renaming agent_storage to ${target_agent_storage}`);
+                let target_noobaa_storage = reason + '_noobaa_storage_' + Date.now();
+                dbg.log0(`got ${reason} flag - renaming noobaa_storage to ${target_noobaa_storage}`);
                 return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
-                        // move agent_storage in all drives to an alternate location
+                        // move noobaa_storage in all drives to an alternate location
                         let storage_path = storage_path_info.mount;
-                        let target_path = storage_path.replace('agent_storage', target_agent_storage);
+                        let target_path = storage_path.replace('noobaa_storage', target_noobaa_storage);
                         dbg.log0('moving', storage_path, 'to', target_path);
                         return fs.renameAsync(storage_path, target_path);
                     }))
@@ -158,7 +159,7 @@ AgentCLI.prototype.init = function() {
                         host_id: undefined
                     }))
                     .then(() => {
-                        dbg.log0('exit agent_cli. will restart with new agent_storage');
+                        dbg.log0('exit agent_cli. will restart with new noobaa_storage');
                         process.exit(0);
                     })
                     .catch(err => {
@@ -203,6 +204,28 @@ AgentCLI.prototype.detect_new_drives = function() {
                 });
         })
         .finally(() => retry());
+};
+
+AgentCLI.prototype.rename_agent_storage = function(mount_points) {
+    if (os.type() === 'Darwin') return; // skip rename in mac os
+    dbg.log0(`looking for agent_storage folder and renaming to noobaa_storage`);
+    return P.map(mount_points, mount_point => {
+        let old_path = mount_point.mount.replace('noobaa_storage', 'agent_storage');
+        // for root mount or c:\ the old agent_storage location was under installation dir
+        // fix for windows or linux
+        if (old_path === '/agent_storage/') {
+            old_path = './agent_storage/';
+        } else if (old_path.toLowerCase() === 'c:\\agent_storage\\') {
+            old_path = '.\\agent_storage\\';
+        }
+        return fs_utils.file_must_exist(old_path)
+            .then(() => fs_utils.file_must_not_exist(mount_point.mount))
+            .then(() => {
+                dbg.log0(`renaming ${old_path} to ${mount_point.mount}`);
+                return fs.rename(old_path, mount_point.mount);
+            })
+            .catch(err => dbg.log0(`skipping rename for mount ${mount_point.mount}`, err.message));
+    });
 };
 
 
@@ -355,9 +378,9 @@ AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
                 os_utils.is_folder_permissions_set(current_path),
                 fs.readdirAsync(current_path)
             ))
-            .spread(function(permissions_set, agent_storage_initialization) {
+            .spread(function(permissions_set, noobaa_storage_initialization) {
                 if (!permissions_set) {
-                    if (_.isEmpty(agent_storage_initialization)) {
+                    if (_.isEmpty(noobaa_storage_initialization)) {
                         dbg.log0('First time icacls configuration');
                         //Setting system full permissions and remove builtin users permissions.
                         //TODO: remove other users
@@ -396,11 +419,11 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, options
         var current_node_path = current_node_path_info.mount;
         const name_prefix = is_s3_agent ? S3_AGENT_NAME_PREFIX : '';
         var node_name = internal_node_name || name_prefix + self.params.hostname;
-        const agent_storage_dir_name = self.params.test_host ? 'agent_storage_' + self.params.test_host : 'agent_storage';
-        var path_modification = current_node_path.replace('/' + agent_storage_dir_name + '/', '').replace(/\//g, '')
+        const noobaa_storage_dir_name = self.params.test_host ? 'noobaa_storage_' + self.params.test_host : 'noobaa_storage';
+        var path_modification = current_node_path.replace('/' + noobaa_storage_dir_name + '/', '').replace(/\//g, '')
             .replace('.', '');
         //windows
-        path_modification = path_modification.replace('\\' + agent_storage_dir_name + '\\', '');
+        path_modification = path_modification.replace('\\' + noobaa_storage_dir_name + '\\', '');
         dbg.log0('create_node_helper with path_modification', path_modification, 'node:',
             node_name, 'current_node_path', current_node_path, 'exists');
         if (os.type().indexOf('Windows') >= 0) {

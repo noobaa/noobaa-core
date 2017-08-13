@@ -20,7 +20,8 @@ jsconfig.json
 ## testing agent storage
 /metadata_storage*
 /agent_storage*
-/agent_conf*
+/noobaa_storage*
+/agent_conf*.json*
 
 ## heapdump files
 heapdump-*

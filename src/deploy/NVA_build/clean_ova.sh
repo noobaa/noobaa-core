@@ -61,7 +61,12 @@ sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/node_modules/noobaa-core/.env
 supervisorctl reread
 supervisorctl reload
-rm -rf /root/node_modules/noobaa-core/agent_storage/
+if [ -d /root/node_modules/noobaa-core/agent_storage/ ]; then
+    rm -rf /root/node_modules/noobaa-core/agent_storage/
+fi
+if [ -d /root/node_modules/noobaa-core/noobaa_storage/ ]; then
+    rm -rf /root/node_modules/noobaa-core/noobaa_storage/
+fi
 sleep 15
 mongo nbcore --eval 'db.dropDatabase()'
 

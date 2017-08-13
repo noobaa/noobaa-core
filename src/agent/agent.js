@@ -386,7 +386,7 @@ class Agent {
                 }
                 if (err.rpc_code === 'NODE_NOT_FOUND') {
                     dbg.error('This agent appears to be using an old token.',
-                        'cleaning this agent agent_storage directory', this.storage_path);
+                        'cleaning this agent noobaa_storage directory', this.storage_path);
                     if (this.cloud_info || this.mongo_info) {
                         dbg.error(`shouldnt be here. node not found for cloud pool or mongo pool!!`);
                         throw new Error('node not found cloud or mongo node');

@@ -220,6 +220,9 @@ function do_upgrade {
   if [ -d /backup/agent_storage/ ]; then
     mv /backup/agent_storage/ ${CORE_DIR}
   fi
+  if [ -d /backup/noobaa_storage/ ]; then
+    mv /backup/noobaa_storage/ ${CORE_DIR}
+  fi
 
   # Re-setup Repos
   setup_repos

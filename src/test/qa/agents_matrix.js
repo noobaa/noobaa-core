@@ -20,17 +20,13 @@ shasum.update(Date.now().toString());
 // Sample Config
 var argv = require('minimist')(process.argv);
 console.log(JSON.stringify(argv));
-// const location = argv.location || 'westus2';
-// var resource = argv.resource;
-// var storage = argv.storage;
-// var vnet = argv.vnet;
-// const server_ip = argv.server_ip;
-// const upgrade_pack = argv.upgrade_pack;
+
 let {
     resource,
     storage,
     vnet,
-    skipsetup = false
+    skipsetup = false,
+    clean = false
 } = argv;
 
 const {
@@ -80,12 +76,20 @@ function createAgents(isInclude) {
         }
     }))
         .then(res => {
-            const my_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED').length;
-            console.log(`${Yellow}Number of Excluded agents: ${my_nodes}${NC}`);
-            initial_node_number = res.total_count - my_nodes;
+            const my_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED');
+            console.log(`${Yellow}Number of deactivated agents: ${my_nodes.length}${NC}`);
+            initial_node_number = res.total_count - my_nodes.length;
             console.warn(`${Yellow}Num nodes before the test is: ${
-                res.total_count}, ${initial_node_number} include and ${
-                my_nodes} exclude.${NC}`);
+                res.total_count}, ${initial_node_number} Online and ${
+                my_nodes.length} deactivated.${NC}`);
+            if (my_nodes.length !== 0) {
+                const deactivated_nodes = my_nodes.map(node => node.name);
+                console.log(`${Yellow}activating all the deactivated agents: ${deactivated_nodes}${NC}`);
+                return P.each(deactivated_nodes, name => {
+                    console.log('calling recommission_node on', name);
+                    return client.node.recommission_node({ name });
+                });
+            }
         })
         .then(() => {
             if (isInclude) {
@@ -353,7 +357,7 @@ function includeExcludeCycle(isInclude) {
         .then(() => isInclude || runExtensions('map_new_disk', '-r'))
         // creating agents on the VM - diffrent oses.
         .then(() => runCreateAgents(isInclude))
-        //verifying write, read, diag and debug level.
+        // verifying write, read, diag and debug level.
         .then(verifyAgent)
         // adding phisical disks to the machines.
         .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk(excludeList)))
@@ -361,7 +365,7 @@ function includeExcludeCycle(isInclude) {
         .then(verifyAgent)
         // Upgrade to same version before uninstalling
         .then(upgradeAgent)
-        // // //verifying write, read, diag and debug level after the upgrade.
+        //verifying write, read, diag and debug level after the upgrade.
         .then(verifyAgent)
         // Cleaning the machine Extention and installing new one that remove nodes.
         .then(() => skipsetup || deleteAgent());
@@ -391,6 +395,8 @@ function main() {
                 );
             }
         })
+        // when clean is called, exiting after delete all agents machine.
+        .then(() => clean || process.exit(0))
         // checking the include disk cycle.
         .then(() => includeExcludeCycle(true))
         // checking the exclude disk cycle.

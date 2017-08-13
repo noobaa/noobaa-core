@@ -2082,7 +2082,7 @@ class NodesMonitor extends EventEmitter {
         if (!root_item) {
             // if for some reason root node not found, take the first one.
             dbg.log0(`could not find node for root path, taking the first in the list. drives = ${storage_nodes.map(item => item.node.drives[0])}`);
-            root_item = storage_nodes[0];
+            root_item = storage_nodes.length ? storage_nodes[0] : s3_nodes[0];
         }
         const host_item = _.clone(root_item);
         host_item.node = _.cloneDeep(host_item.node);

@@ -2034,6 +2034,7 @@ class NodesMonitor extends EventEmitter {
             const item = this._consolidate_host(host);
 
             // filter hosts according to query
+            if (item.node.node_type !== 'BLOCK_STORE_FS') continue;
             if (query.hosts && !query.hosts.includes(String(item.node.host_sequence))) continue;
             if (query.pools && !query.pools.has(String(item.node.pool))) continue;
             if (query.filter && !query.filter.test(this._item_hostname(item)) && !query.filter.test(item.node.ip)) continue;

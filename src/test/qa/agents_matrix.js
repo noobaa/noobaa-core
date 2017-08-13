@@ -48,10 +48,10 @@ var rpc = api.new_rpc('wss://' + server_ip + ':8443');
 rpc.disable_validation();
 var client = rpc.new_client({});
 const oses = [
-    'ubuntu12'//, 'ubuntu14', 'ubuntu16',
-    // 'centos6', 'centos7',
-    // 'redhat6', 'redhat7',
-    // 'win2008', 'win2012', 'win2016'
+    'ubuntu12', 'ubuntu14', 'ubuntu16',
+    'centos6', 'centos7',
+    'redhat6', 'redhat7',
+    'win2008', 'win2012', 'win2016'
 ];
 
 const size = 16; //size in GB
@@ -312,9 +312,9 @@ function checkExcludeDisk(excludeList) {
         .then(() => isExcluded(excludeList))
         .then(() => addDisksToMachine(15))
         .then(() => runExtensions('map_new_disk'))
-        .then(() => isIncluded(number_befor_adding_disks, 0))
+        .then(() => isIncluded(number_befor_adding_disks, 0, 'exlude'))
         .then(() => runExtensions('map_new_disk'))
-        .then(() => isIncluded(number_befor_adding_disks));
+        .then(() => isIncluded(number_befor_adding_disks, oses.length, 'exlude'));
 }
 
 //check how many agents there are now, expecting agent to be included.
@@ -413,7 +413,7 @@ function main() {
         .then(() => {
             if (!skipsetup) {
                 return P.map(oses, osname => azf.deleteVirtualMachine(osname)
-                    .catch(err => console.log('VM not found - skipping...', err))
+                    .catch(() => console.log(`VM ${osname} not found - skipping...`))
                 );
             }
         })

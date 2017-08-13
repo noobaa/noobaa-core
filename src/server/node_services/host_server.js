@@ -63,14 +63,14 @@ function update_host_services(req) {
 }
 
 function diagnose_host(req) {
-    const { host_id } = req.rpc_params;
+    const { name } = req.rpc_params;
     const monitor = nodes_server.get_local_monitor();
-    var out_path = `/public/host_${host_id}_diagnostics.tgz`;
+    var out_path = `/public/host_${name.replace('#', '_')}_diagnostics.tgz`;
     var inner_path = `${process.cwd()}/build${out_path}`;
 
     return P.resolve()
         .then(() => diag.collect_server_diagnostics(req))
-        .then(() => monitor.collect_host_diagnostics(host_id))
+        .then(() => monitor.collect_host_diagnostics(name))
         .then(buffer => diag.write_agent_diag_file(buffer))
         .then(() => diag.pack_diagnostics(inner_path))
         .then(() => out_path);
@@ -92,7 +92,7 @@ function _prepare_hosts_query(req) {
     }
     if (query.hosts) {
         // extract the host sequence from host
-        query.hosts = query.hosts.map(host => Number.parseInt(host.split('#')[1], 10));
+        query.hosts = query.hosts.map(host => host.split('#')[1]);
     }
     if (query.pools) {
         query.pools = new Set(_.map(query.pools, pool_name => {

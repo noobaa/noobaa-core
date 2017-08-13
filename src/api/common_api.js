@@ -124,16 +124,7 @@ module.exports = {
                     }
                 },
                 cpu_usage: {
-                    type: 'object',
-                    required: ['count', 'usage'],
-                    properties: {
-                        count: {
-                            type: 'number'
-                        },
-                        usage: {
-                            type: 'number'
-                        }
-                    }
+                    type: 'number'
                 },
                 networkInterfaces: {
                     type: 'object',

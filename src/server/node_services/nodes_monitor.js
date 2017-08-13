@@ -561,6 +561,7 @@ class NodesMonitor extends EventEmitter {
                     this._add_existing_node(node);
                     // set _host_sequence_number to the largest one
                     this._host_sequence_number = Math.max(this._host_sequence_number, node.host_sequence);
+                    this._map_host_seq_num.set(String(node.host_sequence), node.host_id);
                 }
                 dbg.log0(`after loading - _host_sequence_number = ${this._host_sequence_number}`);
                 this._loaded = true;
@@ -693,9 +694,10 @@ class NodesMonitor extends EventEmitter {
 
     _get_host_nodes_by_name(name) {
         const [ /*hostname*/ , seq_str] = name.split('#');
-        const host_id = this._map_host_seq_num(Number.parseInt(seq_str, 10));
+        const host_id = this._map_host_seq_num.get(String(seq_str));
         if (!host_id) {
-            throw new RpcError('BAD_REQUEST', 'No such host ' + name);
+            dbg.warn(this._map_host_seq_num);
+            throw new RpcError('BAD_REQUEST', `No such host ${name} - ${seq_str}`);
         }
         return this._get_nodes_by_host_id(host_id);
     }
@@ -903,7 +905,7 @@ class NodesMonitor extends EventEmitter {
                                     }
                                     this._map_host_id.delete(item.node.host_id);
                                     if (item.node.host_sequence) {
-                                        this._map_host_seq_num.set(item.node.host_sequence, info.host_id);
+                                        this._map_host_seq_num.set(String(item.node.host_sequence), info.host_id);
                                     }
                                 }
                             }
@@ -936,7 +938,7 @@ class NodesMonitor extends EventEmitter {
 
                         if (_.isUndefined(item.node.host_sequence)) {
                             updates.host_sequence = this._get_host_sequence_number(info.host_id);
-                            this._map_host_seq_num.set(updates.host_sequence, info.host_id);
+                            this._map_host_seq_num.set(String(updates.host_sequence), info.host_id);
                             dbg.log0(`node: ${updates.name} setting host_sequence to ${updates.host_sequence}`);
                         }
                     })
@@ -2032,7 +2034,7 @@ class NodesMonitor extends EventEmitter {
             const item = this._consolidate_host(host);
 
             // filter hosts according to query
-            if (query.hosts && !query.hosts.includes(item.node.host_sequence)) continue;
+            if (query.hosts && !query.hosts.includes(String(item.node.host_sequence))) continue;
             if (query.pools && !query.pools.has(String(item.node.pool))) continue;
             if (query.filter && !query.filter.test(this._item_hostname(item)) && !query.filter.test(item.node.ip)) continue;
             if (query.skip_cloud_nodes && item.node.is_cloud_node) continue;
@@ -2588,10 +2590,7 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
-        info.os_info.cpu_usage = {
-            count: info.os_info.cpus.length,
-            usage: host_item.cpu_usage
-        };
+        info.os_info.cpu_usage = host_item.cpu_usage;
         info.rpc_address = host_item.node.rpc_address;
         info.latency_to_server = host_item.node.latency_to_server;
         const debug_time = host_item.node.debug_mode ?
@@ -2603,7 +2602,8 @@ class NodesMonitor extends EventEmitter {
         };
         info.suggested_pool = host_item.suggested_pool;
         info.mode = host_item.mode;
-        info.port_range = host_item.node.n2n_config.tcp_permanent_passive;
+
+        info.port_range = (host_item.node.n2n_config || {}).tcp_permanent_passive;
         info.base_address = host_item.node.base_address;
         return info;
     }
@@ -2762,13 +2762,13 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
-    collect_host_diagnostics(host_id) {
+    collect_host_diagnostics(name) {
         this._throw_if_not_started_and_loaded();
 
         // TODO: Currently returning diag only for the first agent,
         // need to support multi agent diagnostics with shared part and
         // specific parts.
-        const firstItem = this._get_nodes_by_host_id(host_id)[0];
+        const firstItem = this._get_host_nodes_by_name(name)[0];
         const { connection } = firstItem;
         return server_rpc.client.agent.collect_diagnostics(undefined, { connection })
             .then(result => result.data);

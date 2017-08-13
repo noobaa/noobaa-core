@@ -217,9 +217,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['host_id'],
+                required: ['name'],
                 properties: {
-                    host_id: {
+                    name: {
                         type: 'string'
                     }
                 }
@@ -291,7 +291,7 @@ module.exports = {
                             type: 'integer',
                         },
                         time_left: { // in ms
-                            format: 'integer'
+                            type: 'integer'
                         },
                     },
                 },

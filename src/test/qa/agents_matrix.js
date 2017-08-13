@@ -35,6 +35,7 @@ let {
 
 const {
     location = 'westus2',
+    bucket = 'first.bucket',
     server_ip,
     upgrade_pack,
 } = argv;
@@ -124,8 +125,8 @@ function runCreateAgents(isInclude) {
 
 function verifyAgent() {
     console.log(`starting the verify agents stage`);
-    return s3ops.put_file_with_md5(server_ip, 'files', '100MB_File', 100, 1048576)
-        .then(() => s3ops.get_file_check_md5(server_ip, 'files', '100MB_File'))
+    return s3ops.put_file_with_md5(server_ip, bucket, '100MB_File', 100, 1048576)
+        .then(() => s3ops.get_file_check_md5(server_ip, bucket, '100MB_File'))
         // .then(() => {
         //     console.warn(`Will take diagnostics from all the agents`);
         //     return P.map(nodes, name => client.node.collect_agent_diagnostics({ name })

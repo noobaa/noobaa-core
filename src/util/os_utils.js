@@ -18,6 +18,10 @@ const dbg = require('./debug_module')(__filename);
 const os_detailed_info = require('getos');
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
+const ADMIN_WIN_USERS = Object.freeze([
+    'NT AUTHORITY\\SYSTEM',
+    'BUILTIN\\Administrators'
+]);
 
 function os_info(count_mongo_reserved_as_free) {
 
@@ -587,6 +591,47 @@ function get_all_network_interfaces() {
         });
 }
 
+function is_folder_permissions_set(current_path) {
+    if (os.type() !== 'Windows_NT') {
+        return P.resolve(true);
+    }
+    let administrators_has_inheritance = false;
+    let system_has_full_control = false;
+    let found_other_permissions = false;
+    return promise_utils.exec(`icacls ${current_path}`, false, true)
+        .then(acl_response => {
+            dbg.log0('is_folder_permissions_set called with:', acl_response, current_path);
+            const path_removed = acl_response.replace(current_path, '');
+            const cut_index = path_removed.indexOf('Successfully processed');
+            if (cut_index < 0) {
+                return false;
+            }
+            const omited_response = path_removed.substring(0, cut_index);
+            return omited_response.split('\n')
+                .forEach(line => {
+                    const [user, permissions = ''] = line.trim().split(':');
+                    if (user === ADMIN_WIN_USERS[1]) { // Administrators
+                        if (permissions.includes('(F)') && permissions.includes('(OI)') && permissions.includes('(CI)')) administrators_has_inheritance = true;
+                        else if (!permissions.includes('(F)')) found_other_permissions = true;
+                    } else if (user === ADMIN_WIN_USERS[0]) { // SYSTEM
+                        if (permissions.includes('(F)')) {
+                            system_has_full_control = true;
+                        } else {
+                            found_other_permissions = true;
+                        }
+                    } else if (user !== '') {
+                        found_other_permissions = true;
+                    }
+                });
+        })
+        .then(() => {
+            dbg.log1('is_folder_permissions_set: System has FC:', system_has_full_control,
+                ', Administrators is FC with inheritance:', administrators_has_inheritance,
+                ', No Other user with permissions:', !found_other_permissions);
+            return system_has_full_control && administrators_has_inheritance && !found_other_permissions;
+        });
+}
+
 function _set_time_zone(tzone) {
     // TODO _set_time_zone: Ugly Ugly, change to datectrl on centos7
     return promise_utils.exec('ln -sf /usr/share/zoneinfo/' +
@@ -741,6 +786,7 @@ exports.get_all_network_interfaces = get_all_network_interfaces;
 exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
+exports.is_folder_permissions_set = is_folder_permissions_set;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
 exports.set_dns_server = set_dns_server;

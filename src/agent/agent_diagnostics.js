@@ -35,9 +35,9 @@ function collect_agent_diagnostics() {
             }
         })
         .then(function() {
-            const file = fs.createWriteStream(TMP_WORK_DIR + '/ls_agent_storage.out');
+            const file = fs.createWriteStream(TMP_WORK_DIR + '/ls_noobaa_storage.out');
             return fs_utils.read_dir_recursive({
-                    root: 'agent_storage',
+                    root: 'noobaa_storage',
                     depth: 5,
                     on_entry: entry => {
                         file.write(JSON.stringify(entry) + '\n');

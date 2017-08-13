@@ -39,6 +39,7 @@ function npmRun(){
 function cleanLocalMongo(){
     mongo nbcore --eval 'db.dropDatabase()'
     rm -rf ~/noobaa-core/agent_storage
+    rm -rf ~/noobaa-core/noobaa_storage
     rm -rf ~/noobaa-core/agent_conf.json
 }
 

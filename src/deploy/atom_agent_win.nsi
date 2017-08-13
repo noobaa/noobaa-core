@@ -153,7 +153,7 @@ Section "Noobaa Local Service"
 			${WriteFile} "$INSTDIR\agent_conf.json" "$\"tier$\": $\"nodes$\","
 			${WriteFile} "$INSTDIR\agent_conf.json" "$\"prod$\": $\"true$\","
 			${WriteFile} "$INSTDIR\agent_conf.json" "$\"bucket$\": $\"files$\","
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"root_path$\": $\"./agent_storage/$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"root_path$\": $\"./noobaa_storage/$\","
 			${WriteFile} "$INSTDIR\agent_conf.json" "$\"access_key$\": $\"$access_key$\","
 			${WriteFile} "$INSTDIR\agent_conf.json" "$\"secret_key$\": $\"$secret_key$\""
 			${WriteFile} "$INSTDIR\agent_conf.json" "}"
@@ -303,8 +303,8 @@ Section "uninstall"
 	;Variable that will be used in order to pass parameters to the cmd
 	Var /global cmdparams
 	;The /c parameter means terminate at the end of execution of the command
-	;We just spawn NodeJS script that will delete agent_storage from all drives
-	StrCpy $cmdparams '/c ""$INSTDIR\node.exe" "$INSTDIR\src\agent\agent_uninstall.js" --remove_agent_storage"'
+	;We just spawn NodeJS script that will delete noobaa_storage from all drives
+	StrCpy $cmdparams '/c ""$INSTDIR\node.exe" "$INSTDIR\src\agent\agent_uninstall.js" --remove_noobaa_storage"'
 	;Exec wait means that will we wait until the completion of the command
 	ExecWait 'cmd.exe $cmdparams'
 	;nsExec::ExecToStack 'NooBaa_Agent_wd stop "Noobaa Local Service" >> "$INSTDIR\uninstall.log"'

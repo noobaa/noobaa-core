@@ -760,7 +760,7 @@ function get_node_installation_string(req) {
                     const agent_conf = {
                         address: `wss://${server_ip}:${api.get_base_port()}`,
                         system: system.name,
-                        root_path: './agent_storage/',
+                        root_path: './noobaa_storage/',
                         create_node_token
                     };
                     const base64_configuration = Buffer.from(JSON.stringify(agent_conf)).toString('base64');

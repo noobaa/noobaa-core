@@ -26,7 +26,7 @@ const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
 function file_must_not_exist(file_path) {
     return fs.statAsync(file_path)
         .then(function() {
-            throw new Error('exists');
+            throw new Error(`${file_path} exists`);
         }, function(err) {
             if (err.code !== 'ENOENT') throw err;
         });

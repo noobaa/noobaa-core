@@ -187,22 +187,21 @@ function get_disk_mount_points() {
 
             if (os.type() === 'Windows_NT') {
                 _.each(hds, function(hd_info) {
-                    if (process.cwd().toLowerCase()
-                        .indexOf(hd_info.drive_id.toLowerCase()) === 0) {
-                        hd_info.mount = '.\\agent_storage\\';
-                        mount_points.push(hd_info);
-                    } else {
-                        hd_info.mount += '\\agent_storage\\';
-                        mount_points.push(hd_info);
-                    }
+                    hd_info.mount += '\\noobaa_storage\\';
+                    mount_points.push(hd_info);
+                });
+            } else if (os.type() === 'Darwin') {
+                _.each(hds, function(hd_info) {
+                    hd_info.mount = './noobaa_storage/';
+                    mount_points.push(hd_info);
                 });
             } else {
                 _.each(hds, function(hd_info) {
                     if (hd_info.mount === "/") {
-                        hd_info.mount = './agent_storage/';
+                        hd_info.mount = '/noobaa_storage/';
                         mount_points.push(hd_info);
                     } else {
-                        hd_info.mount = '/' + hd_info.mount + '/agent_storage/';
+                        hd_info.mount = '/' + hd_info.mount + '/noobaa_storage/';
                         mount_points.push(hd_info);
                     }
                 });

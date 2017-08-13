@@ -42,7 +42,7 @@ function create_new_agents(target_ip, target_region) {
         tier: "nodes",
         prod: true,
         bucket: "files",
-        root_path: "./agent_storage/",
+        root_path: "./noobaa_storage/",
         address: "wss://127.0.0.1:8443",
         system: "demo",
         access_key: "123",

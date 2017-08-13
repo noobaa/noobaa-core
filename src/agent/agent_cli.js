@@ -342,11 +342,11 @@ AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
         //hiding storage folder
         return child_process.execAsync('attrib +H ' + current_path)
             .then(() => P.join(
-                promise_utils.exec(`icacls ${current_path}`, false, true),
+                os_utils.is_folder_permissions_set(current_path),
                 fs.readdirAsync(current_path)
             ))
-            .spread(function(folder_permissions, agent_storage_initialization) {
-                if (!_is_folder_permissions_already_configured(folder_permissions, current_path)) {
+            .spread(function(permissions_set, agent_storage_initialization) {
+                if (!permissions_set) {
                     if (_.isEmpty(agent_storage_initialization)) {
                         dbg.log0('First time icacls configuration');
                         //Setting system full permissions and remove builtin users permissions.
@@ -371,20 +371,6 @@ AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
             });
     }
 };
-
-function _is_folder_permissions_already_configured(get_acl_response, current_path) {
-    dbg.log0('_is_icacls_already_configured called with:', get_acl_response, current_path);
-    const path_removed = get_acl_response.replace(current_path, '');
-    const cut_index = path_removed.indexOf('Successfully processed');
-    if (cut_index < 0) return false;
-    const omited_response = path_removed.substring(0, cut_index);
-    if (omited_response.indexOf('NT AUTHORITY\\SYSTEM:(F)') < 0 &&
-        omited_response.indexOf('BUILTIN\\Administrators:(OI)(CI)(F)') < 0) return false;
-    const omited_system = omited_response.replace('NT AUTHORITY\\SYSTEM:(F)', '');
-    const omited_final = omited_system.replace('BUILTIN\\Administrators:(OI)(CI)(F)', '');
-    if (!_.isEmpty(omited_final.trim())) return false;
-    return true;
-}
 
 AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");

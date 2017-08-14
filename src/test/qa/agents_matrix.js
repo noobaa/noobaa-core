@@ -67,6 +67,17 @@ function saveErrorAndResume(err) {
     errors.push(err.message);
 }
 
+function runClean() {
+    //deleting the VM machines with the same name as the OS we want to install.
+    return P.map(oses, osname => azf.deleteVirtualMachine(osname)
+        .catch(() => console.log(`VM ${osname} not found - skipping...`)))
+        //running all all the VM machines and deleating all the disks.
+        .then(() => P.map(oses, osname => azf.deleteBlobDisks(osname)
+            .catch(saveErrorAndResume)))
+        // when clean is called, exiting after delete all agents machine.
+        .then(() => clean && process.exit(0));
+}
+
 function createAgents(isInclude) {
     console.log(`starting the create agents stage`);
     return P.resolve(client.node.list_nodes({
@@ -85,7 +96,7 @@ function createAgents(isInclude) {
                 my_nodes.length} deactivated.${NC}`);
             if (my_nodes.length !== 0) {
                 const deactivated_nodes = my_nodes.map(node => node.name);
-                console.log(`${Yellow}activating all the deactivated agents: ${deactivated_nodes}${NC}`);
+                console.log(`${Yellow}activating all the deactivated agents:${NC} ${deactivated_nodes}`);
                 return P.each(deactivated_nodes, name => {
                     console.log('calling recommission_node on', name);
                     return client.node.recommission_node({ name });
@@ -307,13 +318,20 @@ function checkExcludeDisk(excludeList) {
             number_befor_adding_disks = res.total_count;
             console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`);
         })
+        //adding disk to exclude them
         .then(() => addDisksToMachine(size))
         .then(() => runExtensions('map_new_disk', '-e'))
+        .delay(120000)
         .then(() => isExcluded(excludeList))
+        //adding a small disk
         .then(() => addDisksToMachine(15))
         .then(() => runExtensions('map_new_disk'))
-        .then(() => isIncluded(number_befor_adding_disks, 0, 'exlude'))
+        .delay(120000)
+        .then(() => isIncluded(number_befor_adding_disks, 0, 'exluding small disks'))
+        //adding disk to check that it is not getting exclude
+        .then(() => addDisksToMachine(size))
         .then(() => runExtensions('map_new_disk'))
+        .delay(120000)
         .then(() => isIncluded(number_befor_adding_disks, oses.length, 'exlude'));
 }
 
@@ -333,9 +351,9 @@ function isIncluded(previous_agent_number, additional_agents = oses.length, prin
             const excpected_count = previous_agent_number + additional_agents;
             const actual_count = res.total_count - my_nodes.length;
             if (actual_count === excpected_count) {
-                console.warn(`${Yellow}Num nodes after the ${print} are ${actual_count}${NC}`);
+                console.warn(`${Yellow}Num nodes after ${print} are ${actual_count}${NC}`);
             } else {
-                const error = `Num nodes after the ${print} are ${
+                const error = `Num nodes after ${print} are ${
                     actual_count
                     } - something went wrong... expected ${
                     excpected_count
@@ -388,15 +406,15 @@ function includeExcludeCycle(isInclude) {
         // creating agents on the VM - diffrent oses.
         .then(() => runCreateAgents(isInclude))
         // verifying write, read, diag and debug level.
-        // .then(verifyAgent)
+        .then(verifyAgent)
         // adding phisical disks to the machines.
         .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk(excludeList)))
         //verifying write, read, diag and debug level.
-        // .then(verifyAgent)
+        .then(verifyAgent)
         // Upgrade to same version before uninstalling
         .then(upgradeAgent)
         //verifying write, read, diag and debug level after the upgrade.
-        // .then(verifyAgent)
+        .then(verifyAgent)
         // Cleaning the machine Extention and installing new one that remove nodes.
         .then(() => skipsetup || deleteAgent());
 }
@@ -409,24 +427,8 @@ function main() {
             password: 'DeMo1',
             system: 'demo'
         })))
-        //deleting the VM machines with the same name as the OS we want to install.
-        .then(() => {
-            if (!skipsetup) {
-                return P.map(oses, osname => azf.deleteVirtualMachine(osname)
-                    .catch(() => console.log(`VM ${osname} not found - skipping...`))
-                );
-            }
-        })
-        //running all all the VM machines and deleating all the disks.
-        .then(() => {
-            if (!skipsetup) {
-                return P.map(oses, osname => azf.deleteBlobDisks(osname)
-                    .catch(saveErrorAndResume)
-                );
-            }
-        })
-        // when clean is called, exiting after delete all agents machine.
-        .then(() => clean && process.exit(0))
+        //deleteing the previous test agents machins.
+        .then(() => skipsetup || runClean())
         // checking the include disk cycle.
         .then(() => includeExcludeCycle(true))
         // checking the exclude disk cycle.

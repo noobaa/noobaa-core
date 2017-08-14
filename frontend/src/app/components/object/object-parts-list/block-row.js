@@ -10,11 +10,10 @@ function cloudPoolInfo(pool_name) {
         shortenNodeName,
         replicaLocation: {
             text: pool_name,
-            href: null
+            tooltip: pool_name
         },
         node: {
-            text: shortenNodeName,
-            href: null
+            text: shortenNodeName
         }
     };
 }
@@ -32,7 +31,8 @@ function serverPoolInfo(pool_name, node_name) {
                     pool: pool_name,
                     tab: null
                 }
-            }
+            },
+            tooltip: pool_name
         },
         node: {
             text: shortenNodeName,
@@ -43,7 +43,8 @@ function serverPoolInfo(pool_name, node_name) {
                     host: node_name,
                     tab: null
                 }
-            }
+            },
+            tooltip: node_name
         }
     };
 }

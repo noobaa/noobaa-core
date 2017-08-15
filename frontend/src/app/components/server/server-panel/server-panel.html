@@ -25,17 +25,19 @@
     <div class="tabs-row">
         <server-details-form class="tab"
             ko.css.selected="selectedTab.eq('details')"
-            params="serverSecret: serverSecret"
+            params="
+                serverSecret: serverSecret,
+                system: system
         "></server-details-form>
 
         <server-communication-form class="tab"
             ko.css.selected="selectedTab.eq('communication')"
             params="serverSecret: serverSecret"
-        "></server-communication-form>
+        ></server-communication-form>
 
         <server-diagnostics-form class="tab"
                 ko.css.selected="selectedTab.eq('diagnostics')"
                 params="serverSecret: serverSecret"
-        "></server-diagnostics-form>
+        ></server-diagnostics-form>
     </div>
 </div>

@@ -12,6 +12,9 @@ import { getCloudServiceMeta } from 'utils/ui-utils';
 import { isEmail } from 'validations';
 import { createAccount } from 'action-creators';
 
+const s3PlacementToolTip = `The selected resource will be associated to this account as it’s default 
+    data placement for each new bucket that will be created via an S3 application.`;
+
 function mapResourceToOptions({ type, name: value, storage }) {
     const { total, free: available_free, unavailable_free } = storage;
     const free = sumSize(available_free, unavailable_free);
@@ -53,6 +56,7 @@ class CreateAccountWizardViewModel extends Observer {
         this.accountNamePlaceholder = ko.observable();
         this.isAccountNameRemarkVisible = ko.observable();
         this.isBucketSelectionDisabled = ko.observable();
+        this.s3PlacementToolTip = s3PlacementToolTip;
 
         this.form = new FormViewModel({
             name: formName,

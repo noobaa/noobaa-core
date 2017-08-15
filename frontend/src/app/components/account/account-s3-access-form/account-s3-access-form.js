@@ -1,22 +1,39 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-s3-access-form.html';
-import { state$, action$ } from 'state';
 import Observer from 'observer';
+import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { openEditAccountS3AccessModal, openSetAccountIpRestrictions } from 'action-creators';
 
 const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
+const boxCount = 3;
 
-function _createIpListHtml(ipList) {
-    return `<ul class="allowed-ips list-no-style row multiline">${
-        ipList
-            .map(({ start, end }) => {
-                const token = start === end ? start : `${start} - ${end}`;
-                return `<li class="ip-box">${token}</li>`;
-            })
-            .join('')
-    }</ul>`;
+function _prepareListTemplateData(items) {
+    const visibleItems = items
+        .slice(0, boxCount)
+        .map(item => ({
+            text: item,
+            tooltip: {
+                text: item,
+                breakWords: true
+            }
+        }));
+    const hasExtra = items.length > boxCount;
+    const extraText =  `${items.length - boxCount} more`;
+    const extraTooltip = {
+        text: items.slice(boxCount),
+        align: 'end',
+        breakWords: true
+    };
+
+    return {
+        visibleItems,
+        hasExtra,
+        extraText,
+        extraTooltip,
+        boxCount
+    };
 }
 
 class AccountS3AccessFormViewModel extends Observer {
@@ -27,11 +44,13 @@ class AccountS3AccessFormViewModel extends Observer {
         this.isS3AccessDisabled = ko.observable();
         this.s3AccessLabel = ko.observable();
         this.allowedBuckets = ko.observable();
+        this.allowedBucketsTemplate = ko.observable();
         this.defaultResource = ko.observable();
         this.accessKey = ko.observable();
         this.secretKey = ko.observable();
         this.ipRestrictions = ko.observable();
         this.allowedIps = ko.observable();
+        this.allowedIpsTemplate = ko.observable();
         this.isAllowedIpVisible = ko.observable();
         this.setIPRestrictionsButtonTooltip = ko.observable();
         this.regenerateCredentialsButtonTooltip = ko.observable();
@@ -44,7 +63,8 @@ class AccountS3AccessFormViewModel extends Observer {
             {
                 label: 'Permitted buckets',
                 value: this.allowedBuckets,
-                disabled: this.isS3AccessDisabled
+                disabled: this.isS3AccessDisabled,
+                template: this.allowedBucketsTemplate
             },
             {
                 label: 'Default resource for S3 applications',
@@ -60,7 +80,7 @@ class AccountS3AccessFormViewModel extends Observer {
                 label: 'Allowed IPs',
                 value: this.allowedIps,
                 visible: this.isAllowedIpVisible,
-                multiline: true
+                template: this.allowedIpsTemplate
             }
 
         ];
@@ -101,22 +121,36 @@ class AccountS3AccessFormViewModel extends Observer {
             allowedIps
         } = account;
 
+        let allowedIpsTemplate;
+        let allowedIpsInfo = 'No IP allowed';
+        if (allowedIps && allowedIps.length) {
+            const formattedIpList =  allowedIps.map(({ start, end }) => {
+                return start === end ? start : `${start} - ${end}`;
+            });
+
+            allowedIpsInfo = _prepareListTemplateData(formattedIpList);
+            allowedIpsTemplate = 'list';
+        }
+
+        let allowedBucketsTemplate;
+        let allowedBucketsInfo = 'All current and future buckets';
+        if (!hasAccessToAllBuckets) {
+            allowedBucketsInfo = allowedBuckets.length ? _prepareListTemplateData(allowedBuckets) : '(none)';
+            allowedBucketsTemplate = allowedBuckets.length && 'list';
+        }
+
         this.accountName(account.name);
         this.defaultResource(defaultResource || '(not set)');
         this.isS3AccessDisabled(!hasS3Access);
         this.s3AccessLabel(hasS3Access ? 'Enabled' : 'Disabled');
-        this.allowedBuckets(hasAccessToAllBuckets ?
-            'All current and future buckets' :
-            (allowedBuckets.length ? allowedBuckets.join(', ') : '(none)')
-        );
+        this.allowedBuckets(allowedBucketsInfo);
+        this.allowedBucketsTemplate(allowedBucketsTemplate);
         this.accessKey(accessKeys.accessKey);
         this.secretKey(accessKeys.secretKey);
         this.ipRestrictions(allowedIps ? 'Enabled' : 'Not set');
+        this.allowedIps(allowedIpsInfo);
+        this.allowedIpsTemplate(allowedIpsTemplate);
         this.isAllowedIpVisible(Boolean(hasS3Access && allowedIps));
-        this.allowedIps(
-            allowedIps &&
-            (allowedIps.length ? _createIpListHtml(allowedIps) : 'No IP allowed')
-        );
         this.setIPRestrictionsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
         this.regenerateCredentialsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
     }
@@ -136,7 +170,6 @@ class AccountS3AccessFormViewModel extends Observer {
     hideRegenerateAccountCredentialsModal() {
         this.isRegenerateAccountCredentialsModalVisible(false);
     }
-
 }
 
 export default {

@@ -4,6 +4,7 @@ import template from './buckets-overview.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { loadSystemUsageHistory } from 'actions';
+import { openConnectAppModal } from 'action-creators';
 import style from 'style';
 import moment from 'moment';
 import { systemInfo, systemUsageHistory } from 'model';
@@ -12,6 +13,7 @@ import { stringifyAmount } from 'utils/string-utils';
 import { toBytes, formatSize, sumSize } from 'utils/size-utils';
 import { aggregateStorage, interpolateStorage } from 'utils/storage-utils';
 import { deepFreeze, groupBy, isFunction } from 'utils/core-utils';
+import { action$ } from 'state';
 
 const durationOptions = deepFreeze([
     {
@@ -317,17 +319,11 @@ class BucketsOverviewViewModel extends BaseViewModel {
             }
         );
 
-        this.isConnectApplicationWizardVisible = ko.observable(false);
-
         loadSystemUsageHistory();
     }
 
-    showConnectApplicationWizard() {
-        this.isConnectApplicationWizardVisible(true);
-    }
-
-    hideConnectApplicationWizard() {
-        this.isConnectApplicationWizardVisible(false);
+    onConnectApplication () {
+        action$.onNext(openConnectAppModal());
     }
 }
 

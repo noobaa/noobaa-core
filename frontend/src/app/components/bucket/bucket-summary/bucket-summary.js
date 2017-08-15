@@ -8,6 +8,7 @@ import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { getBucketStateIcon } from 'utils/ui-utils';
+import { stringifyAmount } from 'utils/string-utils';
 
 const cloudSyncStatusMapping = deepFreeze({
     PENDING: 'Waiting for sync',
@@ -55,16 +56,14 @@ class BucketSummrayViewModel extends BaseViewModel {
                 }
 
                 const tierName = bucket().tiering.tiers[0].tier;
-                const { data_placement , attached_pools } = systemInfo().tiers.find(
+                const { data_placement, attached_pools } = systemInfo().tiers.find(
                     tier => tier.name === tierName
                 );
 
                 return `${
                     data_placement === 'SPREAD' ? 'Spread' : 'Mirrored'
                 } on ${
-                    attached_pools.length
-                } pool${
-                    attached_pools.length !== 1 ? 's' : ''
+                    stringifyAmount('resource', attached_pools.length)
                 }`;
             }
         );

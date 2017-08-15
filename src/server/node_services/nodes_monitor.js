@@ -558,13 +558,14 @@ class NodesMonitor extends EventEmitter {
             .then(nodes => {
                 if (!this._started) return;
                 this._clear();
+                // restore host sequence number by iterating nodes and finding the largest host_sequence
+                for (const node of nodes) {
+                    this._host_sequence_number = Math.max(this._host_sequence_number, node.host_sequence || 0);
+                }
+                dbg.log0(`restored _host_sequence_number = ${this._host_sequence_number}`);
                 for (const node of nodes) {
                     this._add_existing_node(node);
-                    // set _host_sequence_number to the largest one
-                    this._host_sequence_number = Math.max(this._host_sequence_number, node.host_sequence);
-                    this._map_host_seq_num.set(String(node.host_sequence), node.host_id);
                 }
-                dbg.log0(`after loading - _host_sequence_number = ${this._host_sequence_number}`);
                 this._loaded = true;
                 // delay a bit before running to allow nodes to reconnect
                 this._schedule_next_run(3000);
@@ -585,6 +586,11 @@ class NodesMonitor extends EventEmitter {
         this._add_node_to_maps(item);
         if (node.host_id) {
             this._add_node_to_hosts_map(node.host_id, item);
+            if (!item.node.host_sequence) {
+                item.node.host_sequence = this._get_host_sequence_number(node.host_id);
+            }
+            // set _host_sequence_number to the largest one
+            this._map_host_seq_num.set(String(item.node.host_sequence), node.host_id);
         }
         this._set_node_defaults(item);
     }

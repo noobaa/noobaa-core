@@ -161,14 +161,14 @@ class HostDetailsFormViewModel extends Observer {
         this.name(getHostDisplayName(name));
         this.version(version);
         this.services(_getServicesString(host));
-        this.lastCommunication(moment(lastCommunication).fromNow() + ' (TIMEZONE: ???)');
+        this.lastCommunication(moment(lastCommunication).fromNow());
         this.ip(ip);
         this.protocol(protocolMapping[protocol]);
         this.portRange(_getPortRageString(host));
         this.endpoint(endpoint);
         this.rtt(`${rtt.toFixed(2)}ms`);
         this.hostname(hostname);
-        this.upTime(moment(upTime).fromNow(true) + ' (TIMEZONE: ???)');
+        this.upTime(moment(upTime).fromNow(true));
         this.os(os);
         this.cpus(cpusInfo);
         this.memory(_getMemoryInfo(host));

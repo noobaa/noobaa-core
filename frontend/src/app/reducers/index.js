@@ -17,6 +17,7 @@ import accountsReducer from './accounts-reducer';
 import objectUploadsReducer from './object-uploads-reducer';
 import alertsReducer from './alerts-reducer';
 import notificationsReducer from './notificaitons-reducer';
+import topologyReducer from './topology-reducer';
 
 
 export default combineReducers({
@@ -35,5 +36,6 @@ export default combineReducers({
     hosts: hostsReducer,
     accounts: accountsReducer,
     objectUploads: objectUploadsReducer,
-    notifications: notificationsReducer
+    notifications: notificationsReducer,
+    topology: topologyReducer
 });

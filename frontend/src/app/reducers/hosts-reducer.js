@@ -193,6 +193,14 @@ function _mapDataToHost(host = {}, data) {
     const { storage_nodes_info, s3_nodes_info, os_info, port_range, debug } = data;
     const { diagnostics = initialHostDiagnosticsState } = host;
 
+    const activities = (storage_nodes_info.data_activities || [])
+        .map(activity => ({
+            type: activity.reason,
+            nodeCount: activity.count,
+            progress: activity.progress,
+            eta: activity.time.end
+        }));
+
     return {
         name: data.name,
         hostname: os_info.hostname,
@@ -212,12 +220,12 @@ function _mapDataToHost(host = {}, data) {
         rtt: averageBy(data.latency_to_server),
         storage: data.storage,
         trusted: data.trusted,
-        activities: {},
+        activities: activities,
         services: {
             storage: _mapStorageNodes(storage_nodes_info),
             gateway: _mapGatewayNodes(s3_nodes_info)
         },
-        uptime: os_info.uptime,
+        upTime: os_info.uptime,
         os: os_info.ostype,
         cpus: {
             units: os_info.cpus,

@@ -17,6 +17,11 @@ host-summary {
         .remark();
         vertical-align: middle;
 
+        &:not(.healthy):not(.issues):not(.problem) {
+            color: @color15;
+        }
+
+
         &::before {
             content: '';
             display: inline-block;

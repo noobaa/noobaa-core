@@ -10,6 +10,9 @@ import { sumSize, formatSize } from 'utils/size-utils';
 import { getCloudServiceMeta } from 'utils/ui-utils';
 import ko from 'knockout';
 
+const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
+const hasS3AccessToggleToolTip = 'S3 access cannot be disabled for system owner';
+
 const bucketPermissionModes = deepFreeze([
     {
         label: 'Allow access to all buckets (including all future buckets)',
@@ -35,12 +38,15 @@ class EditAccountS3AccessModalViewModel extends Observer {
     constructor({ accountName, onClose }) {
         super();
 
+        this.s3PlacementToolTip = s3PlacementToolTip;
+        this.hasS3AccessToggleToolTip = hasS3AccessToggleToolTip;
         this.bucketPermissionModes = bucketPermissionModes;
         this.close = onClose;
         this.resourceOptions = ko.observable();
         this.bucketOptions = ko.observable();
         this.isBucketSelectionDisabled = ko.observable();
-        this.isAccountReady = ko.observable(false);
+        this.isOwner = ko.observable();
+        this.isFormInitialized = ko.observable(false);
         this.form = null;
 
         this.observe(
@@ -55,7 +61,14 @@ class EditAccountS3AccessModalViewModel extends Observer {
     }
 
     onState([ account, hostPools, cloudResources, buckets ]) {
-        if (account && !this.isAccountReady()) {
+        if(!account) {
+            this.isFormInitialized(false);
+            return;
+        }
+
+        this.isOwner(account.isOwner);
+
+        if (!this.form) {
             this.form = new FormViewModel({
                 name: formName,
                 fields: {
@@ -69,7 +82,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
                 onValidate: this.onValidate,
                 onSubmit: this.onSubmit.bind(this)
             });
-            this.isAccountReady(true);
+            this.isFormInitialized(true);
         }
 
         this.resourceOptions(flatMap(
@@ -77,7 +90,12 @@ class EditAccountS3AccessModalViewModel extends Observer {
             resources => Object.values(resources).map(mapResourceToOption)
         ));
 
-        this.bucketOptions(Object.keys(buckets));
+        this.bucketOptions(Object.keys(buckets)
+            .map(bucket => ({
+                value: bucket,
+                tooltip: { text: bucket, breakWords: true }
+            }))
+        );
     }
 
     onForm(form) {

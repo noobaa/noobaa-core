@@ -83,13 +83,14 @@ export default function register(ko) {
     ko.components.register('disable-host-gateway-warning-modal',        require('./modals/disable-host-gateway-warning-modal/disable-host-gateway-warning-modal').default);
     ko.components.register('disable-host-storage-warning-modal',        require('./modals/disable-host-storage-warning-modal/disable-host-storage-warning-modal').default);
     ko.components.register('disable-host-last-service-warning-modal',   require('./modals/disable-host-last-service-warning-modal/disable-host-last-service-warning-modal').default);
+    ko.components.register('connect-app-modal',                         require('./modals/connect-app-modal/connect-app-modal').default);
+
     /** INJECT:modals **/
 
     // -------------------------------
     // Overview
     // -------------------------------
     ko.components.register('overview-panel',        require('./overview/overview-panel/overview-panel').default);
-    ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard').default);
     ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview').default);
     ko.components.register('resource-overview',     require('./overview/resource-overview/resource-overview').default);
     ko.components.register('system-health',         require('./overview/system-health/system-health').default);

@@ -9,6 +9,7 @@ import { sessionInfo } from 'model';
 import { changeLocation } from 'action-creators';
 
 const protocol = global.location.protocol.slice(0, -1);
+const hostname = global.location.hostname;
 
 // Register a route handler
 function registerRouteHandler(page, route, extra = noop) {
@@ -21,11 +22,12 @@ function registerRouteHandler(page, route, extra = noop) {
 
             // Update state about location:
             action$.onNext(changeLocation({
-                protocol: protocol,
+                protocol,
+                hostname,
                 pathname: ctx.pathname,
                 route: route !== '*' ? route : undefined,
                 params: decodedParams,
-                query: query
+                query,
             }));
 
             // Do extra work if authorized

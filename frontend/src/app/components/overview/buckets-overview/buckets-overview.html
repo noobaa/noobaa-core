@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="column greedy pad borders bg-stars">
+<section class="column greedy pad borders alt-bg">
     <h2 class="heading3 row content-middle">
         <span class="greedy">Data Buckets</span>
         <a class="link" data-bind="
@@ -31,16 +31,8 @@
         data: chart().data
     "></chartjs>
 
-    <button class="btn overview-btn" data-bind="
-        click: () => showConnectApplicationWizard()
-    ">
+    <button class="btn overview-btn" ko.click="onConnectApplication">
         Connect Application
     </button>
 </section>
 
-
-
-<!-- ko if: isConnectApplicationWizardVisible -->
-<connect-app-wizard params="onClose: () => hideConnectApplicationWizard()">
-</connect-app-wizard>
-<!-- /ko -->

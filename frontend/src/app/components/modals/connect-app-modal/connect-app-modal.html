@@ -1,0 +1,44 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<form class="column greedy" ko.submit="form.submit" ko.if="isFormInitialized">
+    <h2 class="heading3">
+        Choose an account to connect with
+    </h2>
+
+    <dropdown class="push-next" params="
+        options: accountOptions,
+        selected: form.selectedAccount,
+        placeholder: 'Select account',
+        hasFocus: true
+    "></dropdown>
+
+    <h2 class="heading3 push-prev">
+        Use the following infromation to config your application
+    </h2>
+
+    <div class="alt-bg pad greedy">
+        <property-sheet class="greedy" params="properties: details">
+        </property-sheet>
+    </div>
+
+    <p class="push-prev-half">
+        <svg-icon class="icon-small" params="
+            name: 'notif-info'
+        "></svg-icon>
+        <span class="remark">
+            To create a new account go to System Management &gt;
+            <a class="link" ko.attr.href="accountsSettingsHref">
+                Accounts
+            </a>
+        </span>
+    </p>
+
+    <div class="row align-end content-middle">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.click="onSubmit">
+            Done
+        </button>
+    </div>
+</form>

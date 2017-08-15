@@ -6,11 +6,17 @@ import { systemInfo, serverTime } from 'model';
 import { deepFreeze, isDefined} from 'utils/core-utils';
 import { getServerIssues } from 'utils/cluster-utils';
 import { formatSize } from 'utils/size-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { loadServerTime } from 'actions';
 import { timeLongFormat } from 'config';
 import ko from 'knockout';
 import { action$ } from 'state';
-import { openEditServerDetailsModal } from 'action-creators';
+import * as routes from 'routes';
+import {
+    openEditServerDetailsModal,
+    openEditServerDNSSettingsModal,
+    openEditServerTimeSettingsModal
+} from 'action-creators';
 
 const icons = deepFreeze({
     healthy: {
@@ -27,11 +33,35 @@ const icons = deepFreeze({
     }
 });
 
+const tab = 'settings';
+
+const sections = deepFreeze({
+    serverDns: 'server-dns',
+    remoteSyslog: 'remote-syslog',
+    phoneHome: 'phone-home'
+});
+
 const requirementsMarker = (message) => `<span class="remark warning">&nbsp; * ${message ? message : ''}</span>`;
 
 class ServerDetailsFormViewModel extends BaseViewModel {
-    constructor({ serverSecret }) {
+    constructor({ serverSecret, system }) {
         super();
+
+        const baseConfigurationRoute = ko.pureComputed(
+            () => realizeUri(routes.management, { system: system(), tab }, {}, true)
+        );
+
+        this.serverDnsConfigurationHref = ko.pureComputed(
+            () => realizeUri(baseConfigurationRoute(), { section: sections.serverDns })
+        );
+
+        this.remoteSyslogConfigurationHref = ko.pureComputed(
+            () => realizeUri(baseConfigurationRoute(), { section: sections.remoteSyslog })
+        );
+
+        this.phoneHomeConfigurationHref = ko.pureComputed(
+            () => realizeUri(baseConfigurationRoute(), { section: sections.phoneHome })
+        );
 
         this.secret = serverSecret;
 
@@ -139,11 +169,6 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         this.dnsName = this.getDNSName();
         this.remoteSyslog = this.getRemoteSyslog(timezone);
         this.phoneHome = this.getPhoneHome(timezone);
-
-        this.configurationHref = {
-            route: 'management',
-            params: { tab: 'settings' }
-        };
 
         loadServerTime(ko.unwrap(serverSecret));
     }
@@ -304,7 +329,9 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             }
         });
 
-        return { icon, tooltip, clock, ntp };
+        const secret = this.secret;
+
+        return { icon, tooltip, clock, ntp, secret };
     }
 
     getDNSServers() {
@@ -347,7 +374,9 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => servers()[1] || 'Not Configured'
         );
 
-        return { icon, tooltip, primary, secondary };
+        const secret = this.secret;
+
+        return { icon, tooltip, primary, secondary, secret };
     }
 
     getDNSName() {
@@ -386,7 +415,9 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             () => (systemInfo() && systemInfo().dns_name) || 'Not configured'
         );
 
-        return { icon, tooltip, name };
+        const configurationHref = this.serverDnsConfigurationHref();
+
+        return { icon, tooltip, name, configurationHref };
     }
 
     getRemoteSyslog(timezone) {
@@ -447,7 +478,9 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             }
         });
 
-        return { icon, tooltip, isConfigured, text, lastRSyslogSync};
+        const configurationHref = this.remoteSyslogConfigurationHref();
+
+        return { icon, tooltip, isConfigured, text, lastRSyslogSync, configurationHref };
     }
 
     getPhoneHome(timezone) {
@@ -502,11 +535,21 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             }
         });
 
-        return { icon, tooltip, proxy, lastPhoneHomeSync };
+        const configurationHref = this.phoneHomeConfigurationHref();
+
+        return { icon, tooltip, proxy, lastPhoneHomeSync, configurationHref };
     }
 
     onEditServerDetails() {
         action$.onNext(openEditServerDetailsModal(this.secret));
+    }
+
+    onEditDNSServers() {
+        action$.onNext(openEditServerDNSSettingsModal(this.secret));
+    }
+
+    onEditDateAndTime() {
+        action$.onNext(openEditServerTimeSettingsModal(this.secret));
     }
 }
 

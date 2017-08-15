@@ -14,14 +14,14 @@ class ServerPanelViewModel extends Observer {
         this.selectedTab = ko.observable();
         this.serverSecret = ko.observable();
         this.baseRoute = '';
-
+        this.system = ko.observable();
         this.observe(state$.get('location'), this.onLocation);
     }
 
     onLocation({ route, params }) {
         const { system, server, tab = 'details' } = params;
         if (!server) return;
-
+        this.system(system);
         this.baseRoute = realizeUri(route, { system, server }, {}, true);
         this.selectedTab(tab);
         this.serverSecret(server && lastSegment(server, '-'));

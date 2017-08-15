@@ -435,6 +435,19 @@ export function openDisableHostGatewayWarningModal(host, isLastService) {
     };
 }
 
+export function openConnectAppModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'connect-app-modal',
+            options:{
+                size: 'medium',
+                title: 'Connect an Application'
+            }
+        }
+    };
+}
+
 export function openDisableHostStorageWarningModal(host, isLastService) {
     return {
         type: 'OPEN_MODAL',
@@ -468,5 +481,4 @@ export function openDisableHostLastServiceWarningModal(host, service) {
         }
     };
 }
-
 

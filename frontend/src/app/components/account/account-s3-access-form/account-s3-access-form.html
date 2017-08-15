@@ -20,6 +20,21 @@
 </div>
 
 <property-sheet class="s3-access-details pad push-next " params="properties: s3AccessInfo">
+    <template name="list">
+        <div class="row content-middle" ko.if="$data">
+            <ul class="no-wrap box-list list-no-style row" ko.foreach="visibleItems">
+                <li class="box no-wrap alt-bg pad push-next-half highlight" ko.tooltip="tooltip">
+                   {{ text }}
+                </li>
+            </ul>
+            <span class="highlight align-middle push-prev-half"
+                ko.visible="hasExtra"
+                ko.tooltip="extraTooltip"
+            >
+                {{ extraText }}
+            </span>
+         </div>
+   </template>
 </property-sheet>
 
 <div class="row alt-bg pad content-middle">

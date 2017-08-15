@@ -4,6 +4,7 @@ export default {
         'pathname',
         'protocol',
         'query',
+        'hostname'
     ],
     properties: {
         pathname: {
@@ -12,6 +13,10 @@ export default {
         },
         protocol: {
             type: 'string'
+        },
+        hostname: {
+            type: 'string',
+
         },
         route: {
             type: 'string'
@@ -25,7 +30,14 @@ export default {
         query: {
             type: 'object',
             additionalProperties: {
-                type: 'string'
+                oneOf: [
+                    {
+                        type: 'string'
+                    },
+                    {
+                        type: 'boolean'
+                    }
+                ]
             }
         }
     }

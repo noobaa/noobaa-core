@@ -330,7 +330,7 @@ function create_system(req) {
                 auth_token: reply_token
             });
         })
-        .then(() => _init_system())
+        .then(() => _init_system(system_changes.insert.systems[0]._id))
         .then(() => system_utils.mongo_wrapper_system_created())
         .then(() => ({
             token: reply_token
@@ -1136,9 +1136,13 @@ function log_client_console(req) {
     });
 }
 
-function _init_system() {
+function _init_system(sysid) {
     return cluster_server.init_cluster()
-        .then(() => stats_collector.collect_system_stats());
+        .then(() => stats_collector.collect_system_stats())
+        .then(() => Dispatcher.instance().alert('INFO',
+            sysid,
+            'Welcome to NooBaa! It\'s time to get started. Connect your first resources, either 3 nodes or 1 cloud resource',
+            Dispatcher.rules.only_once));
 }
 
 function create_internal_tier(system_id, mongo_pool_id) {

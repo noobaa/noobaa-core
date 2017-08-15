@@ -5,27 +5,12 @@ import Observer from 'observer';
 import { state$ } from 'state';
 import ko from 'knockout';
 import numeral from 'numeral';
-import moment from 'moment';
 import { isNumber } from 'utils/core-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { getNodeActivityName } from 'utils/host-utils';
+import { getActivityName, formatActivityListTooltipHtml } from 'utils/host-utils';
 import style from 'style';
-
-function _getActivityText(type, nodeCount) {
-    return `${getNodeActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
-}
-
-function _getActivityEta(eta) {
-    return isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
-}
-
-function _getActivityTooltipRow({ type, nodeCount, progress, eta }) {
-    return `
-        <p>${_getActivityText(type, nodeCount)} ${numeral(progress).format('%')}</p>
-        <p class="remark push-next-half">ETA: ${_getActivityEta(eta)}</p>
-    `;
-}
+import moment from 'moment';
 
 class PoolSummaryViewModel extends Observer {
     constructor({ poolName }) {
@@ -155,13 +140,16 @@ class PoolSummaryViewModel extends Observer {
             const { hostCount, list } = activities;
             if (list.length > 0) {
                 const { type, nodeCount, progress, eta } = list[0] || {};
+                const activityText = `${getActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
+                const etaText =  isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
+
                 this.hasActivities(true);
                 this.activitiesTitle(`${stringifyAmount('Node', hostCount)} in Process`);
-                this.activityText(_getActivityText(type, nodeCount));
+                this.activityText(activityText);
                 this.activityDone(progress);
                 this.activityLeft(1 - progress);
                 this.activityPrecentage(numeral(progress).format('%'));
-                this.activityEta(_getActivityEta(eta));
+                this.activityEta(etaText);
 
                 const additionalActivities = list.slice(1);
                 if (additionalActivities.length > 0) {
@@ -169,7 +157,7 @@ class PoolSummaryViewModel extends Observer {
 
                     this.hasAdditionalActivities(true);
                     this.additionalActivitiesMessage(message);
-                    this.additionalActivitiesTooltip(additionalActivities.map(_getActivityTooltipRow));
+                    this.additionalActivitiesTooltip(formatActivityListTooltipHtml(additionalActivities));
 
                 } else {
                     this.hasAdditionalActivities(false);

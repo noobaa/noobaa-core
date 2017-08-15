@@ -1,4 +1,7 @@
-import { deepFreeze, mapValues, sumBy } from './core-utils';
+import { deepFreeze, mapValues, sumBy, isNumber } from './core-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import moment from 'moment';
+import numeral from 'numeral';
 
 const modeToStateIcon = deepFreeze({
     OFFLINE: {
@@ -282,10 +285,25 @@ export function getGatewayServiceStateIcon({ mode }) {
     return gatewayServiceModeToIcon[mode];
 }
 
-export function getNodeActivityName(activityType) {
+
+export function getActivityName(activityType) {
     return activityTypeToName[activityType];
 }
 
-export function getNodeActivityStageName(stage) {
+export function getActivityStageName(stage) {
     return activityStageToName[stage];
+}
+
+export function formatActivityListTooltipHtml(activityList) {
+    return activityList.map(act => {
+        const name = activityTypeToName[act.type];
+        const driveCount = stringifyAmount('drive', act.nodeCount);
+        const progress = numeral(act.progress).format('%');
+        const eta = isNumber(act.eta) ? moment(act.eta).fromNow() : 'calculating...';
+
+        return `
+            <p>${name} ${driveCount} ${progress}</p>
+            <p class="remark push-next-half">ETA: ${eta}</p>
+        `;
+    });
 }

@@ -1,8 +1,8 @@
 import ko from 'knockout';
 import numeral from 'numeral';
 import {
-    getNodeActivityName,
-    getNodeActivityStageName,
+    getActivityName,
+    getActivityStageName,
     getStorageNodeStateIcon,
     getNodeOrHostCapacityBarValues
 } from 'utils/host-utils';
@@ -11,9 +11,9 @@ function _getActivityString(activity) {
     if (!activity) return 'No activity';
 
     const { type, progress, stage } = activity;
-    const name = getNodeActivityName(type);
+    const name = getActivityName(type);
     const percentage = numeral(progress).format('%');
-    const stageName = getNodeActivityStageName(stage);
+    const stageName = getActivityStageName(stage);
     return `${name} (${percentage}) | ${stageName}`;
 }
 

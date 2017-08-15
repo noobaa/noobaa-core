@@ -6,8 +6,11 @@ import { realizeUri } from 'utils/browser-utils';
 import {
     getHostDisplayName,
     getHostStateIcon,
-    getNodeOrHostCapacityBarValues
+    getNodeOrHostCapacityBarValues,
+    getActivityName,
+    formatActivityListTooltipHtml
 } from 'utils/host-utils';
+
 
 export default class HostRowViewModel {
     constructor({ baseRoute }) {
@@ -21,7 +24,7 @@ export default class HostRowViewModel {
     }
 
     onHost(host) {
-        const { name, ip, services } = host;
+        const { name, ip, services, activities } = host;
         const uri = realizeUri(this.baseRoute, { host: name });
         const servicesState = mapValues(services, service => service.mode !== 'DECOMMISSIONED');
         const hostname = {
@@ -29,11 +32,17 @@ export default class HostRowViewModel {
             href: uri
         };
 
+        const [ firstActivity = { } ] = activities;
+        const dataActivity = {
+            text: getActivityName(firstActivity.type) || 'No Activity',
+            tooltip: formatActivityListTooltipHtml(activities)
+        };
+
         this.state(getHostStateIcon(host));
         this.hostname(hostname);
         this.ip(ip);
         this.services(servicesState);
         this.capacity(getNodeOrHostCapacityBarValues(host));
-        this.dataActivity('No Activity');
+        this.dataActivity(dataActivity);
     }
 }

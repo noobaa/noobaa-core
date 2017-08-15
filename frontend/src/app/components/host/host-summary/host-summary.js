@@ -16,26 +16,13 @@ import {
     getHostStateIcon,
     getHostTrustIcon,
     getHostAccessibilityIcon,
-    getNodeActivityName
+    getActivityName,
+    formatActivityListTooltipHtml
 } from 'utils/host-utils';
 
 const trustTooltip = `A reliability check that verifies that this node has no disk
     corruption or malicious activity`;
 
-function _getActivityText(type, nodeCount) {
-    return `${getNodeActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
-}
-
-function _getActivityEta(eta) {
-    return isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
-}
-
-function _getActivityTooltipRow({ type, nodeCount, progress, eta }) {
-    return `
-        <p>${_getActivityText(type, nodeCount)} ${numeral(progress).format('%')}</p>
-        <p class="remark push-next-half">ETA: ${_getActivityEta(eta)}</p>
-    `;
-}
 
 class HostSummaryViewModel extends Observer {
     constructor({ name }) {
@@ -143,13 +130,16 @@ class HostSummaryViewModel extends Observer {
             const list = host.activities;
             if (list.length > 0) {
                 const { type, nodeCount, progress, eta } = list[0] || {};
+                const activityText = `${getActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
+                const etaText =  isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
+
                 this.hasActivities(true);
                 this.activitiesTitle(`${stringifyAmount('Drive', nodeCount)} in Process`);
-                this.activityText(_getActivityText(type, nodeCount));
+                this.activityText(activityText);
                 this.activityDone(progress);
                 this.activityLeft(1 - progress);
                 this.activityPrecentage(numeral(progress).format('%'));
-                this.activityEta(_getActivityEta(eta));
+                this.activityEta(etaText);
 
                 const additionalActivities = list.slice(1);
                 if (additionalActivities.length > 0) {
@@ -157,7 +147,7 @@ class HostSummaryViewModel extends Observer {
 
                     this.hasAdditionalActivities(true);
                     this.additionalActivitiesMessage(message);
-                    this.additionalActivitiesTooltip(additionalActivities.map(_getActivityTooltipRow));
+                    this.additionalActivitiesTooltip(formatActivityListTooltipHtml(additionalActivities));
 
                 } else {
                     this.hasAdditionalActivities(false);

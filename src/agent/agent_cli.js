@@ -281,23 +281,21 @@ AgentCLI.prototype.load = function(added_storage_paths) {
                 });
         }))
         .then(storage_path_nodes => {
-            if (this.params.run_s3) {
-                // if no s3 agent exist for root storage path, run one
-                let s3_started = _.find(storage_path_nodes[0], name => this._is_s3_agent(name));
-                if (!s3_started) {
-                    // create path for s3 agent. it will be used if agent_conf contains s3 role
-                    dbg.log0(`creating s3 storage_path in ${self.params.all_storage_paths[0]}`);
-                    return self.create_node_helper(self.params.all_storage_paths[0], {
-                            use_host_id: true,
-                            is_s3_agent: true
-                        })
-                        // return storage nodes that will be created according to scale
-                        .then(() => storage_path_nodes);
-                }
-                dbg.log0(`found started s3 node ${s3_started}. skipping creation`);
-                // remover s3 node name from storage_path_nodes[0] so scale will be calculated according to storage nodes only.
-                storage_path_nodes[0] = _.reject(storage_path_nodes[0], name => this._is_s3_agent(name));
+            // if no s3 agent exist for root storage path, run one
+            let s3_started = _.find(storage_path_nodes[0], name => this._is_s3_agent(name));
+            if (!s3_started) {
+                // create path for s3 agent. it will be used if agent_conf contains s3 role
+                dbg.log0(`creating s3 storage_path in ${self.params.all_storage_paths[0]}`);
+                return self.create_node_helper(self.params.all_storage_paths[0], {
+                        use_host_id: true,
+                        is_s3_agent: true
+                    })
+                    // return storage nodes that will be created according to scale
+                    .then(() => storage_path_nodes);
             }
+            dbg.log0(`found started s3 node ${s3_started}. skipping creation`);
+            // remover s3 node name from storage_path_nodes[0] so scale will be calculated according to storage nodes only.
+            storage_path_nodes[0] = _.reject(storage_path_nodes[0], name => this._is_s3_agent(name));
             return storage_path_nodes;
         })
         .then(storage_path_nodes => {

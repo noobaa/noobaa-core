@@ -58,7 +58,7 @@ const size = 16; //size in GB
 let nodes = [];
 let errors = [];
 let agentConf;
-let node_number_after_create;
+// let node_number_after_create;
 let initial_node_number;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
@@ -78,7 +78,28 @@ function runClean() {
         .then(() => clean && process.exit(0));
 }
 
+function getTestNodes() {
+    let test_nodes_names = [];
+    return P.resolve(client.node.list_nodes({
+        query: {
+            online: true,
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true
+        }
+    }))
+        .then(res => _.map(res.nodes, node => {
+            if (_.includes(oses, node.name.split('-')[0])) {
+                test_nodes_names.push(node.name);
+            }
+        }))
+        .then(() => {
+            console.log(`Relevent nodes: ${test_nodes_names}`);
+            return test_nodes_names;
+        });
+}
+
 function createAgents(isInclude) {
+    let test_nodes_names = [];
     console.log(`starting the create agents stage`);
     return P.resolve(client.node.list_nodes({
         query: {
@@ -88,14 +109,14 @@ function createAgents(isInclude) {
         }
     }))
         .then(res => {
-            const my_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED');
-            console.log(`${Yellow}Number of deactivated agents: ${my_nodes.length}${NC}`);
-            initial_node_number = res.total_count - my_nodes.length;
+            const decommissioned_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED');
+            console.log(`${Yellow}Number of deactivated agents: ${decommissioned_nodes.length}${NC}`);
+            initial_node_number = res.total_count - decommissioned_nodes.length;
             console.warn(`${Yellow}Num nodes before the test is: ${
                 res.total_count}, ${initial_node_number} Online and ${
-                my_nodes.length} deactivated.${NC}`);
-            if (my_nodes.length !== 0) {
-                const deactivated_nodes = my_nodes.map(node => node.name);
+                decommissioned_nodes.length} deactivated.${NC}`);
+            if (decommissioned_nodes.length !== 0) {
+                const deactivated_nodes = decommissioned_nodes.map(node => node.name);
                 console.log(`${Yellow}activating all the deactivated agents:${NC} ${deactivated_nodes}`);
                 return P.each(deactivated_nodes, name => {
                     console.log('calling recommission_node on', name);
@@ -103,21 +124,22 @@ function createAgents(isInclude) {
                 });
             }
         })
+        .then(getTestNodes)
+        .then(res => test_nodes_names)
         .then(() => {
             if (isInclude) {
                 return P.map(oses, osname => azf.createAgent(
                     osname, storage, vnet,
                     azf.getImagesfromOSname(osname), server_ip, agentConf
                 ).catch(saveErrorAndResume));
-
             } else {
                 return runExtensions('init_agent', `${server_ip} ${agentConf}`)
                     .catch(saveErrorAndResume);
             }
         })
-        .then(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
+        .tap(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
         .delay(120000)
-        .then(() => isIncluded(initial_node_number, oses.length, 'create agent'));
+        .then(() => isIncluded(test_nodes_names.length, oses.length, 'create agent'));
 }
 
 function runCreateAgents(isInclude) {
@@ -131,7 +153,7 @@ function runCreateAgents(isInclude) {
             skip_mongo_nodes: true
         }
     })).then(res => {
-        node_number_after_create = res.total_count;
+        let node_number_after_create = res.total_count;
         console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
         nodes = [];
         console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
@@ -287,17 +309,9 @@ function activeDeactiveAgents() {
 
 function checkIncludeDisk() {
     let number_befor_adding_disks;
-    return P.resolve(client.node.list_nodes({
-        query: {
-            online: true,
-            skip_cloud_nodes: true,
-            skip_mongo_nodes: true
-        }
-    }))
-        .then(res => {
-            number_befor_adding_disks = res.total_count;
-            console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`);
-        })
+    return getTestNodes()
+        .then(res => number_befor_adding_disks)
+        .tap(() => console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`))
         .then(() => addDisksToMachine(size))
         //map the disks
         .then(() => runExtensions('map_new_disk'))
@@ -307,17 +321,9 @@ function checkIncludeDisk() {
 
 function checkExcludeDisk(excludeList) {
     let number_befor_adding_disks;
-    return P.resolve(client.node.list_nodes({
-        query: {
-            online: true,
-            skip_cloud_nodes: true,
-            skip_mongo_nodes: true
-        }
-    }))
-        .then(res => {
-            number_befor_adding_disks = res.total_count;
-            console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`);
-        })
+    return getTestNodes()
+        .then(res => number_befor_adding_disks)
+        .tap(() => console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`))
         //adding disk to exclude them
         .then(() => addDisksToMachine(size))
         .then(() => runExtensions('map_new_disk', '-e'))
@@ -337,6 +343,7 @@ function checkExcludeDisk(excludeList) {
 
 //check how many agents there are now, expecting agent to be included.
 function isIncluded(previous_agent_number, additional_agents = oses.length, print = 'include') {
+    let excpected_count;
     return P.resolve(client.node.list_nodes({
         query: {
             online: true,
@@ -345,11 +352,14 @@ function isIncluded(previous_agent_number, additional_agents = oses.length, prin
         }
     }))
         .then(res => {
-            const my_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED');
-            console.warn(`${Yellow}Number of Excluded agents: ${my_nodes.length}${NC}`);
+            const decommisioned_nodes = res.nodes.filter(node => node.mode === 'DECOMMISSIONED');
+            console.warn(`${Yellow}Number of Excluded agents: ${decommisioned_nodes.length}${NC}`);
             console.warn(`Node names are ${res.nodes.map(node => node.name)}`);
-            const excpected_count = previous_agent_number + additional_agents;
-            const actual_count = res.total_count - my_nodes.length;
+            excpected_count = previous_agent_number + additional_agents;
+            return getTestNodes();
+        })
+        .then(test_nodes => {
+            const actual_count = test_nodes.length;
             if (actual_count === excpected_count) {
                 console.warn(`${Yellow}Num nodes after ${print} are ${actual_count}${NC}`);
             } else {

@@ -6,8 +6,7 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
-import { last, makeArray, deepFreeze, flatMap, groupBy } from 'utils/core-utils';
-import { aggregateStorage } from 'utils/storage-utils';
+import { last, makeArray, deepFreeze, flatMap } from 'utils/core-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
 import { getModeFilterFromState } from 'utils/ui-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse, toFormData } from 'utils/browser-utils';
@@ -1524,29 +1523,6 @@ export function regenerateAccountCredentials(email, verificationPassword) {
             }
         )
         .then(loadSystemInfo)
-        .done();
-}
-
-export function loadSystemUsageHistory() {
-    logAction('loadSystemUsageHistory');
-
-    api.pool.get_pool_history({})
-        .then(history => history.map(
-            ({ timestamp, pool_list }) => {
-                const { HOSTS: nodes = [], CLOUD: cloud = [] } = groupBy(
-                    pool_list,
-                    pool => pool.resource_type,
-                    pool => pool.storage
-                );
-
-                return {
-                    timestamp: timestamp,
-                    nodes: aggregateStorage(...nodes),
-                    cloud: aggregateStorage(...cloud)
-                };
-            }
-        ))
-        .then(model.systemUsageHistory)
         .done();
 }
 

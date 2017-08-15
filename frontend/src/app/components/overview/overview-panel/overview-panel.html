@@ -6,5 +6,12 @@
         onResourceType: onResourceType.bind($component)
     "></resource-overview>
     <system-health class="column"></system-health>
-    <buckets-overview class="column"></buckets-overview>
+    <div class="column" ko.component="{
+        name: 'buckets-overview',
+        params: {
+            selectedDuration: selectedDuration() /* need exact value to recreate component */,
+            onDuration: onDuration.bind($component)
+        }
+    }">
+    </div>
 </div>

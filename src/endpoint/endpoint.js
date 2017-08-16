@@ -56,7 +56,7 @@ function start_all() {
 
         let waiting = true;
 
-        process.on('message', certs => {
+        process.on('message', params => {
             if (waiting) {
                 waiting = false;
                 dbg.log0(`got ssl certificates. running server`);
@@ -64,7 +64,9 @@ function start_all() {
                     s3: true,
                     blob: false,
                     lambda: true,
-                    certs
+                    certs: params.certs,
+                    node_id: params.node_id,
+                    host_id: params.host_id
                 });
             }
         });
@@ -139,7 +141,7 @@ function create_endpoint_handler(rpc, options) {
     const signal_client = rpc.new_client();
     const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
     n2n_agent.set_any_rpc_address();
-    const object_io = new ObjectIO();
+    const object_io = new ObjectIO(options.node_id, options.host_id);
     return endpoint_request_handler;
 
     function endpoint_request_handler(req, res) {

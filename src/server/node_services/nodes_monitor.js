@@ -456,9 +456,6 @@ class NodesMonitor extends EventEmitter {
                     `Drive ${this._item_drive_description(item)} was deactivated by ${req.account && req.account.email}`,
                     req.account && req.account._id
                 );
-            })
-            .then(() => {
-                Dispatcher.instance().alert('INFO', req.system._id, `Drive ${this._item_drive_description(item)} was deactivated`);
             });
 
     }
@@ -1157,6 +1154,8 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.update_node_service({
             enabled: should_enable,
             ssl_certs: item.node.node_type === 'ENDPOINT_S3' ? this.ssl_certs : undefined,
+            node_id: String(item.node._id),
+            host_id: String(item.node.host_id)
         }, {
             connection: item.connection
         });

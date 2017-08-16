@@ -22,9 +22,9 @@ class Pipeline {
         });
     }
 
-    pipe(next) {
-        next.once('close', () => this.close());
-        next.on('error', err => this.close(err));
+    pipe(next, close_handler) {
+        next.once('close', () => (close_handler ? close_handler() : this.close()));
+        next.on('error', err => (close_handler ? close_handler(err) : this.close(err)));
         const last = _.last(this._line);
         if (last) last.pipe(next);
         this._line.push(next);

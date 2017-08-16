@@ -177,7 +177,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['enabled'],
+                required: ['enabled', 'node_id', 'host_id'],
                 properties: {
                     enabled: {
                         type: 'boolean'
@@ -193,6 +193,12 @@ module.exports = {
                                 type: 'string'
                             },
                         }
+                    },
+                    node_id: {
+                        type: 'string'
+                    },
+                    host_id: {
+                        type: 'string'
                     }
                 }
             }

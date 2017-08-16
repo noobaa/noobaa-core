@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const url = require('url');
 const mime = require('mime');
+const os = require('os');
 const crypto = require('crypto');
 const ip_module = require('ip');
 const glob_to_regexp = require('glob-to-regexp');
@@ -760,6 +761,36 @@ function read_endpoint_usage_report(req) {
     return UsageReportStore.instance().get_usage(req.system);
 }
 
+function report_endpoint_problems(req) {
+    const HOUR_IN_MILI = 3600000;
+    const params = req.rpc_params;
+    const server_info = system_store.get_local_cluster_info();
+    switch (params.problem) {
+        case 'STRESS':
+            return P.resolve()
+                .then(() => {
+                    if (params.node_id) {
+                        return nodes_client.instance().read_node_by_id(req.system && req.system._id, params.node_id);
+                    }
+                })
+                .then(node => {
+                    const endpoint_name = node ? `node ${node.os_info.hostname}-${node.ip}` :
+                        `server ${os.hostname()}-${server_info.owner_secret}`;
+                    return Dispatcher.instance().alert(
+                        'MAJOR',
+                        req.system && req.system._id,
+                        `Due to ${endpoint_name} high memory utilization, 
+                        the S3 service may suffer some slowdown. To increase service performance, 
+                        you can either increase the ${node ? "node's" : "server's"} resources or scale out S3 agents.`,
+                        Dispatcher.rules.once_every(HOUR_IN_MILI)
+                    );
+                });
+        default:
+            dbg.error('got unknown problem from endpoint - ', params);
+            break;
+    }
+}
+
 // UTILS //////////////////////////////////////////////////////////
 
 
@@ -987,6 +1018,7 @@ exports.list_objects = list_objects;
 exports.list_objects_s3 = list_objects_s3;
 // error handling
 exports.report_error_on_object = report_error_on_object;
+exports.report_endpoint_problems = report_endpoint_problems;
 // stats
 exports.read_endpoint_usage_report = read_endpoint_usage_report;
 exports.add_endpoint_usage_report = add_endpoint_usage_report;

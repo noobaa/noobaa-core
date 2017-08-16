@@ -32,14 +32,16 @@ class DataTableViewModel extends BaseViewModel {
             rowClick,
             subRow,
             emptyMessage,
-            loading = false
+            loading = false,
+            disabled = false
         } = params;
 
         const templates = Object.assign({}, cellTemplates, inlineTemplates);
         this.subRowTemplate = subRow && inlineTemplates[subRow];
 
         this.tableCss = {
-            'has-sub-rows': Boolean(this.subRowTemplate)
+            'has-sub-rows': Boolean(this.subRowTemplate),
+            disabled: disabled
         };
 
         // Hold current position of vertical scroll of the table.
@@ -91,7 +93,7 @@ class DataTableViewModel extends BaseViewModel {
         this.rowCssProp = rowCssProp;
         this.rowClick = rowClick;
 
-        // Loading indicator.
+        // Set loading flags
         this.loading = loading;
 
         // Empty table message handling.

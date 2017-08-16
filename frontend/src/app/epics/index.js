@@ -30,6 +30,7 @@ import fetchHosts from './fetch-hosts';
 import collectHostDiagnostics from './collect-host-diagnostics';
 import setHostDebugMode from './set-host-debug-mode';
 import toggleHostServices from './toggle-host-services';
+import toggleHostNodes from './toggle-host-nodes';
 import downloadFile from './download-file';
 
 
@@ -87,7 +88,8 @@ const hostRelatedEpics = [
     fetchHosts,
     collectHostDiagnostics,
     setHostDebugMode,
-    toggleHostServices
+    toggleHostServices,
+    toggleHostNodes
 ];
 
 // A utility that combine multiple epics into one epic.

@@ -247,7 +247,7 @@ function _mapStorageService({ mode, enabled, nodes }) {
         mode,
         enabled: Boolean(enabled),
         nodes: nodes.map(node => {
-            const { mode, drive, latency_of_disk_read, storage,
+            const { name, mode, drive, latency_of_disk_read, storage,
                 latency_of_disk_write, data_activity } = node;
 
             const activity = data_activity && {
@@ -257,6 +257,7 @@ function _mapStorageService({ mode, enabled, nodes }) {
             };
 
             return {
+                name,
                 mode,
                 storage,
                 drive: drive.drive_id,

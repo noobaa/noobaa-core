@@ -398,3 +398,19 @@ export function openCreatePoolModal() {
         }
     };
 }
+
+export function openEditStorageDrivesModal(host) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-storage-drives-modal',
+                params: { host }
+            },
+            options:{
+                size: 'medium',
+                title: 'Edit Storage Drives'
+            }
+        }
+    };
+}

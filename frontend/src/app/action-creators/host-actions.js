@@ -14,6 +14,9 @@ import {
     TOGGLE_HOST_SERVICES,
     COMPLETE_TOGGLE_HOST_SERVICES,
     FAIL_TOGGLE_HOST_SERVICES,
+    TOGGLE_HOST_NODES,
+    COMPLETE_TOGGLE_HOST_NODES,
+    FAIL_TOGGLE_HOST_NODES
 } from 'action-types';
 
 
@@ -106,6 +109,27 @@ export function completeToggleHostServices(host) {
 export function failToggleHostServices(host, error) {
     return {
         type: FAIL_TOGGLE_HOST_SERVICES,
+        payload: { host, error }
+    };
+}
+
+export function toggleHostNodes(host, nodes) {
+    return {
+        type: TOGGLE_HOST_NODES,
+        payload: { host, nodes }
+    };
+}
+
+export function completeToggleHostNodes(host) {
+    return {
+        type: COMPLETE_TOGGLE_HOST_NODES,
+        payload: { host}
+    };
+}
+
+export function failToggleHostNodes(host, error) {
+    return {
+        type: FAIL_TOGGLE_HOST_NODES,
         payload: { host, error }
     };
 }

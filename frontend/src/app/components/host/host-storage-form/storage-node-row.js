@@ -23,7 +23,6 @@ function _formatLatencyValue(latency) {
 
 export default class StorageNodeRowViewModel {
     constructor() {
-        this.rowCss = ko.observable();
         this.state = ko.observable();
         this.mount = ko.observable();
         this.readLatency = ko.observable();
@@ -33,9 +32,8 @@ export default class StorageNodeRowViewModel {
     }
 
     onNode(node) {
-        const { mode, mount, readLatency, writeLatency, activity } = node;
+        const { mount, readLatency, writeLatency, activity } = node;
 
-        this.rowCss(mode === 'DECOMMISSIONED' ? 'disabled' : '');
         this.state(getStorageNodeStateIcon(node));
         this.mount(mount);
         this.readLatency(`${_formatLatencyValue(readLatency)} ms`);

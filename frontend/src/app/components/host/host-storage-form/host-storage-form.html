@@ -9,14 +9,14 @@
             OS Type: {{os}}
         </p>
     </div>
-    <button class="btn" o.click="onEditDrives">
+    <button class="btn" ko.click="onEditDrives">
         Edit Storage Drives
     </button>
 </div>
 
 <data-table class="node-table" params="
-    rowCssProp: 'rowCss',
     columns: columns,
     data: rows,
-    loading: !hostLoaded()
+    loading: !hostLoaded(),
+    emptyMessage: 'Storage service is disabled'
 "></data-table>

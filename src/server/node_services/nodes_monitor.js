@@ -1617,7 +1617,8 @@ class NodesMonitor extends EventEmitter {
         let is_node_online = Boolean(item.connection) && (Date.now() < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME);
         // for first run of the node don't send the event.
         // prevents blast of events if node_monitor is restarted and all nodes reconnects again.
-        if (!_.isUndefined(item.online) && item.node.node_type === 'BLOCK_STORE_FS') {
+        if (!_.isUndefined(item.online) && item.node.node_type === 'BLOCK_STORE_FS' &&
+            item.node.drives && item.node.drives.length) {
             if (!_.isUndefined(item.online) && !is_node_online && item.online) {
                 dbg.warn(`node ${item.node.name} became offline`);
                 this._dispatch_node_event(item, 'disconnected', `Drive ${this._item_drive_description(item)} is offline`);

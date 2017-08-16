@@ -62,7 +62,7 @@ function start_all() {
                 dbg.log0(`got ssl certificates. running server`);
                 run_server({
                     s3: true,
-                    blob: true,
+                    blob: false,
                     lambda: true,
                     certs
                 });

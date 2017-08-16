@@ -61,7 +61,8 @@ if [ "$CLEAN" = true ] ; then
     cp $(nvm which current) ./package/
     mkdir ./package/src/
     cp -R ../../src/s3 ./package/src/
-    cp -R ../../src/lambda ./package/src/
+    cp -R ../../src/sdk ./package/src/
+    cp -R ../../src/endpoint ./package/src/
     cp -R ../../src/agent ./package/src/
     cp -R ../../src/util ./package/src/
     cp -R ../../src/rpc ./package/src/

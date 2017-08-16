@@ -7,7 +7,7 @@ export default function(action$, { api }) {
     return action$
         .ofType(FETCH_HOSTS)
         .flatMap(async action => {
-            const { query } = action.payload;
+            const { query, statistics } = action.payload;
             const { hosts, pools, name, modes, sortBy, order, skip,
                 limit, recommendedHint } = query;
 
@@ -25,7 +25,8 @@ export default function(action$, { api }) {
                         order: order,
                         recommended_hint: recommendedHint,
                         skip: skip,
-                        limit: limit
+                        limit: limit,
+                        adminfo: statistics
                     })
                 );
 

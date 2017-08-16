@@ -23,7 +23,6 @@ function _mapProperty(prop, templates) {
         disabled: disabled,
     };
 
-
     return { labelText, value, css, visible, disabled,
         multiline, allowCopy, template};
 }

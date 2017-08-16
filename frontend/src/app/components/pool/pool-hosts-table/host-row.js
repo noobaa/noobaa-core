@@ -26,7 +26,7 @@ export default class HostRowViewModel {
     onHost(host) {
         const { name, ip, services, activities } = host;
         const uri = realizeUri(this.baseRoute, { host: name });
-        const servicesState = mapValues(services, service => service.mode !== 'DECOMMISSIONED');
+        const servicesState = mapValues(services, service => service.enabled);
         const hostname = {
             text: getHostDisplayName(name),
             href: uri

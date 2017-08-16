@@ -17,12 +17,12 @@ import {
 } from 'action-types';
 
 
-export function fetchHosts(view, query) {
+export function fetchHosts(view, query, statistics = false) {
     const timestamp = Date.now();
 
     return {
         type: FETCH_HOSTS,
-        payload: { view, query, timestamp }
+        payload: { view, query, statistics, timestamp }
     };
 }
 

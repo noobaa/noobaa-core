@@ -19,4 +19,14 @@
             {{tooltip}}
         </p>
     </template>
+
+    <template name="ioUsage">
+        <p class="row content-middle" ko.if="$data">
+            {{usage}}
+            <!-- ko if: lastIO -->
+            <sapn class="push-both-half">|</sapn>
+            Last used at {{lastIO}}
+            <!-- /ko -->
+        </p>
+    </template>
 </property-sheet>

@@ -44,7 +44,7 @@ module.exports = {
     config: function(options) {
         var path = '.env';
         var encoding = 'utf8';
-        var silent = false;
+        var silent = true;
 
         if (options) {
             if (options.silent) {

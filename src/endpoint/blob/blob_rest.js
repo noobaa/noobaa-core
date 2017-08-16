@@ -7,10 +7,6 @@ const js_utils = require('../../util/js_utils');
 const BlobError = require('./blob_errors').BlobError;
 const http_utils = require('../../util/http_utils');
 
-// temporary - until we implement authentication
-const auth_server = require('../../server/common_services/auth_server');
-const system_store = require('../../server/system_services/system_store').get_instance();
-
 const BLOB_MAX_BODY_LEN = 4 * 1024 * 1024;
 
 const RPC_ERRORS_TO_BLOB = Object.freeze({
@@ -89,6 +85,9 @@ function check_headers(req) {
 }
 
 function authenticate_request(req) {
+    // temporary - until we implement authentication
+    const auth_server = require('../../server/common_services/auth_server'); // eslint-disable-line global-require
+    const system_store = require('../../server/system_services/system_store').get_instance(); // eslint-disable-line global-require
     try {
         // TODO: fix authentication. currently autherizes everything.
         let system = system_store.data.systems[0];

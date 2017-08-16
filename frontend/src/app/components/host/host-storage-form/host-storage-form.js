@@ -3,7 +3,8 @@
 import template from './host-storage-form.html';
 import Observer from 'observer';
 import StorageNodeRowViewModel from './storage-node-row';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
+import { openEditStorageDrivesModal } from 'action-creators';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 
@@ -35,6 +36,7 @@ class HostStorageFormViewModel extends Observer {
     constructor({ name }) {
         super();
 
+        this.hostName = ko.unwrap(name);
         this.columns = columns;
         this.hostLoaded = ko.observable(false);
         this.driveCount = ko.observable('');
@@ -42,7 +44,7 @@ class HostStorageFormViewModel extends Observer {
         this.os = ko.observable('');
         this.rows = ko.observableArray();
 
-        this.observe(state$.get('hosts', 'items', ko.unwrap(name)), this.onHost);
+        this.observe(state$.get('hosts', 'items', this.hostName), this.onHost);
     }
 
     onHost(host) {
@@ -50,13 +52,13 @@ class HostStorageFormViewModel extends Observer {
 
         const { nodes } = host.services.storage;
         const enabledNodes = nodes.filter(node => node.mode !== 'DECOMMISSIONED');
-        const rows = nodes.map(
-            (node, i) => {
+        const rows = nodes
+            .filter(node => node.mode !== 'DECOMMISSIONED')
+            .map((node, i) => {
                 const row = this.rows.get(i) || new StorageNodeRowViewModel();
                 row.onNode(node);
                 return row;
-            }
-        );
+            });
 
         this.os(host.os);
         this.driveCount(`${nodes.length} of ${enabledNodes.length}`);
@@ -65,6 +67,7 @@ class HostStorageFormViewModel extends Observer {
     }
 
     onEditDrives() {
+        action$.onNext(openEditStorageDrivesModal(this.hostName));
     }
 }
 

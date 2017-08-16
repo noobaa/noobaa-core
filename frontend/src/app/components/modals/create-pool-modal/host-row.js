@@ -10,9 +10,8 @@ import {
 
 export default class HostRowViewModel {
     constructor({ onToggle }) {
-        this.name;
+        this.name = '';
         this.displayName = ko.observable();
-        this.selected = ko.observable();
         this.state = ko.observable();
         this.ip = ko.observable();
         this.capacity = ko.observable();

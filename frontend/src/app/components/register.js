@@ -277,5 +277,6 @@ export default function register(ko) {
     ko.components.register('validation-rules-list',     require('./shared/validation-rules-list/validation-rules-list').default);
     ko.components.register('validation-indicator',      require('./shared/validation-indicator/validation-indicator').default);
     ko.components.register('loading-indicator',         require('./shared/loading-indicator/loading-indicator').default);
+    ko.components.register('edit-storage-drives-modal', require('./shared/edit-storage-drives-modal/edit-storage-drives-modal').default);
     /** INJECT:shared **/
 }

@@ -92,7 +92,7 @@ class ResourceOverviewViewModel extends BaseViewModel {
             () => resourceCounters().S3_COMPATIBLE
         );
         const nodeCounters = ko.pureComputed(
-            () => countNodesByState(systemInfo() ? systemInfo().nodes.by_mode : {})
+            () => countNodesByState(systemInfo() ? systemInfo().hosts.by_mode : {})
         );
 
         const healthyNodesCount = ko.pureComputed(
@@ -134,7 +134,7 @@ class ResourceOverviewViewModel extends BaseViewModel {
         });
 
         const nodeCount = ko.pureComputed(
-            () => systemInfo() ? systemInfo().nodes.count : 0
+            () => systemInfo() ? systemInfo().hosts.count : 0
         ).extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
             formatNumber: true

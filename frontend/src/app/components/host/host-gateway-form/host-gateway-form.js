@@ -5,7 +5,10 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { toggleHostServices } from 'action-creators';
 import { getGatewayServiceStateIcon } from 'utils/host-utils';
+import { formatSize } from 'utils/size-utils';
+import { timeShortFormat } from 'config';
 import ko from 'knockout';
+import moment from 'moment';
 
 class HostGatewayFormViewModel extends Observer {
     constructor({ name }) {
@@ -16,8 +19,8 @@ class HostGatewayFormViewModel extends Observer {
         this.isDisabled = ko.observable();
         this.toggleGatewayButtonText = ko.observable();
         this.state = ko.observable();
-        this.lastWeekWrites = ko.observable('???');
-        this.lastWeekReads = ko.observable('???');
+        this.latestWrites = ko.observable();
+        this.latestReads = ko.observable();
         this.details = [
             {
                 template: 'state',
@@ -25,19 +28,27 @@ class HostGatewayFormViewModel extends Observer {
                 value: this.state
             },
             {
-                label: 'Last Week Data Writes',
-                value: this.lastWeekWrites
+                label: 'Data Written in Last 7 Days',
+                value: this.latestWrites,
+                template: 'ioUsage'
             },
             {
-                label: 'Last Week Data Reads',
-                value: this.lastWeekReads
+                label: 'Data read in Last 7 Days',
+                value: this.latestReads,
+                template: 'ioUsage'
             }
         ];
 
-        this.observe(state$.get('hosts', 'items', this.hostName), this.onHost);
+        this.observe(
+            state$.getMany(
+                ['hosts', 'items', this.hostName],
+                ['topology', 'servers']
+            ),
+            this.onHost
+        );
     }
 
-    onHost(host) {
+    onHost([ host, servers ]) {
         if (!host) {
             this.isDisabled(false);
             this.toggleGatewayButtonText('Disable S3 Gateway');
@@ -45,18 +56,30 @@ class HostGatewayFormViewModel extends Observer {
         }
 
         const { gateway }  = host.services;
-        const gatewayDisabled = gateway.mode === 'DECOMMISSIONED';
+        const { mode, usage } = gateway;
+        const gatewayDisabled = mode === 'DECOMMISSIONED';
 
         this.toggleGatewayButtonText(`${gatewayDisabled ? 'Enable' : 'Disable'} S3 Gateway`);
         this.state(getGatewayServiceStateIcon(gateway));
         this.isDisabled(gatewayDisabled);
         this.hostLoaded(true);
+
+
+        const { timezone } = Object.values(servers).find(server => server.isMaster);
+        this.latestWrites({
+            usage: formatSize(usage.last7Days.bytesWritten),
+            lastIO: usage.lastWrite && moment.tz(usage.lastWrite, timezone).format(timeShortFormat)
+        });
+        this.latestReads({
+            usage: formatSize(usage.last7Days.bytesRead),
+            lastIO: usage.lastRead && moment.tz(usage.lastRead, timezone).format(timeShortFormat)
+        });
     }
 
     onToggleGateway() {
         action$.onNext(toggleHostServices(
             this.hostName,
-            { gateway: !this.isDisabled() }
+            { gateway: this.isDisabled() }
         ));
     }
 }

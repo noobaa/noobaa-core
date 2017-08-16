@@ -83,7 +83,7 @@ class PoolHostsTableViewModel extends Observer {
         this.stateFilter = ko.observable();
         this.page = ko.observable();
         this.sorting = ko.observable();
-        this.rows = ko.observable();
+        this.rows = ko.observableArray();
         this.hostCount = ko.observable();
         this.emptyMessage = ko.observable();
         this.fetching = ko.observable();
@@ -136,7 +136,7 @@ class PoolHostsTableViewModel extends Observer {
             // Update table rows.
             const rowParams = { baseRoute: this.baseHostRoute };
             const rows = itemKeys.map((hostName, i) => {
-                const row = this.rows[i] || new HostRowViewModel(rowParams);
+                const row = this.rows()[i] || new HostRowViewModel(rowParams);
                 row.onHost(items[hostName]);
                 return row;
             });

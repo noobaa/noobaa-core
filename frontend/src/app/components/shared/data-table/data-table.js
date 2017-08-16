@@ -24,7 +24,7 @@ class DataTableViewModel extends BaseViewModel {
             columns = [],
             // The default is used to strip the accessor in case the
             // data array is the actual rows view model array
-            rowFactory = d => d(),
+            rowFactory,
             data,
             sorting,
             scroll = ko.observable(),
@@ -115,7 +115,6 @@ class DataTableViewModel extends BaseViewModel {
             );
         }
     }
-
     updateRows(data) {
         const currLen = this.rows().length;
         const nextLen = (ko.unwrap(data) || []).length;
@@ -123,7 +122,10 @@ class DataTableViewModel extends BaseViewModel {
 
         if (diff < 0) {
             for (let i = currLen; i < nextLen; ++i) {
-                const vm = this.rowFactory(() => (ko.unwrap(data) || [])[i]);
+                const vm = isFunction(this.rowFactory) ?
+                    this.rowFactory(() => (ko.unwrap(data) || [])[i]) :
+                    (ko.unwrap(data) || [])[i];
+
                 const md = this.newRowMetaData(vm);
                 this.rows.push({ vm, md });
             }

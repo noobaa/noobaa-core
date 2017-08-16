@@ -15,6 +15,7 @@ import {
 } from 'action-types';
 
 const maxNumberOfHostsInMemory = paginationPageSize * 10;
+const gatewayUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseconds */
 
 // ------------------------------
 // Initial State
@@ -37,15 +38,15 @@ const initialHostDiagnosticsState = {
 // ------------------------------
 function onFetchHosts(state, { payload }) {
     const { view, query, timestamp } = payload;
-    const key = _generateQueryKey(query);
+    const queryKey = _generateQueryKey(query);
 
     return {
         ...state,
         queries: {
             ...state.queries,
-            [key]: {
-                ...(state.queries[key] || {}),
-                key: key,
+            [queryKey]: {
+                ...(state.queries[queryKey] || {}),
+                key: queryKey,
                 timestamp: timestamp,
                 fetching: true,
                 error: false
@@ -53,32 +54,33 @@ function onFetchHosts(state, { payload }) {
         },
         views: {
             ...state.views,
-            [view]: key
+            [view]: queryKey
         }
     };
 }
 
 function onCompleteFetchHosts(state, { payload }) {
     const { hosts, counters } = payload.response;
-    const updates = keyByProperty(
+
+    const queryKey = _generateQueryKey(payload.query);
+    const query = state.queries[queryKey];
+    const itemUpdates = keyByProperty(
         hosts,
         'name',
-        data => _mapDataToHost(state.items[data.name], data)
+        data => _mapDataToHost(state.items[data.name], data, query.timestamp)
     );
-
-    const key = _generateQueryKey(payload.query);
     const items = {
         ...state.items,
-        ...updates
+        ...itemUpdates
     };
 
     const queries = {
         ...state.queries,
-        [key]: {
-            ...state.queries[key],
+        [queryKey]: {
+            query,
             fetching: false,
             result: {
-                items: Object.keys(updates),
+                items: Object.keys(itemUpdates),
                 counters: {
                     nonPaginated: counters.non_paginated,
                     byMode: counters.by_mode,
@@ -123,14 +125,14 @@ function onCompleteFetchHosts(state, { payload }) {
 }
 
 function onFailFetchHosts(state, { payload }) {
-    const key = _generateQueryKey(payload.query);
+    const queryKey = _generateQueryKey(payload.query);
 
     return {
         ...state,
         queries: {
             ...state.queries,
-            [key]: {
-                ...state.queries[key],
+            [queryKey]: {
+                ...state.queries[queryKey],
                 fetching: false,
                 error: true
             }
@@ -189,7 +191,7 @@ function _generateQueryKey(query) {
     return hashCode(query);
 }
 
-function _mapDataToHost(host = {}, data) {
+function _mapDataToHost(host = {}, data, fetchTime) {
     const { storage_nodes_info, s3_nodes_info, os_info, port_range, debug } = data;
     const { diagnostics = initialHostDiagnosticsState } = host;
 
@@ -222,8 +224,8 @@ function _mapDataToHost(host = {}, data) {
         trusted: data.trusted,
         activities: activities,
         services: {
-            storage: _mapStorageNodes(storage_nodes_info),
-            gateway: _mapGatewayNodes(s3_nodes_info)
+            storage: _mapStorageService(storage_nodes_info),
+            gateway: _mapGatewayService(s3_nodes_info, fetchTime)
         },
         upTime: os_info.uptime,
         os: os_info.ostype,
@@ -240,9 +242,10 @@ function _mapDataToHost(host = {}, data) {
     };
 }
 
-function _mapStorageNodes({ mode, nodes }) {
+function _mapStorageService({ mode, enabled, nodes }) {
     return {
         mode,
+        enabled: Boolean(enabled),
         nodes: nodes.map(node => {
             const { mode, drive, latency_of_disk_read, storage,
                 latency_of_disk_write, data_activity } = node;
@@ -266,8 +269,34 @@ function _mapStorageNodes({ mode, nodes }) {
     };
 }
 
-function _mapGatewayNodes({ mode }) {
-    return { mode };
+function _mapGatewayService(gatewayData, fetchTime) {
+    const { mode, enabled, stats } = gatewayData;
+    const serviceState = {
+        mode,
+        enabled: Boolean(enabled)
+    };
+
+    if (stats) {
+        const sevenDaysAgo  = fetchTime - gatewayUsageStatsTimeSpan;
+        const last7Days = stats.daily_stats
+            .filter(record => record.time >= sevenDaysAgo)
+            .reduce(
+                (sum, record) => {
+                    sum.bytesRead += record.read_bytes;
+                    sum.bytesWritten += record.write_bytes;
+                    return sum;
+                },
+                { bytesWritten: 0, bytesRead: 0 }
+            );
+
+        serviceState.usage = {
+            lastRead: stats.last_read,
+            lastWrite: stats.last_write,
+            last7Days
+        };
+    }
+
+    return serviceState;
 }
 
 

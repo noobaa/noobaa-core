@@ -99,7 +99,7 @@ class HostSummaryViewModel extends Observer {
         this.observe(state$.get('hosts', 'items', ko.unwrap(name)), this.onHost);
 
         // Load/update the host data.
-        action$.onNext(fetchHosts(this.viewName, { hosts: [ko.unwrap(name)] }));
+        action$.onNext(fetchHosts(this.viewName, { hosts: [ko.unwrap(name)] }, true));
     }
 
     onHost(host) {

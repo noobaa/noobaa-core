@@ -147,12 +147,11 @@ class AzureFunctions {
     }
 
     createAgent(vmName, storage, vnet, os, server_name, agent_conf) {
-        var subnetInfo;
         return this.getSubnetInfo(vnet)
-            .then(result => {
-                subnetInfo = result;
-                return this.createNIC(subnetInfo, null, vmName + '_nic', vmName + '_ip');
-            })
+            .then(subnetInfo => this.createPublicIp(vmName + '_pip')
+                .then(ipInfo => [subnetInfo, ipInfo])
+            )
+            .then(([subnetInfo, ipinfo]) => this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip'))
             .then(nic => {
                 console.log('Created Network Interface!');
                 var image = {

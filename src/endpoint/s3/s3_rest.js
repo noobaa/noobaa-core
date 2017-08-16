@@ -70,6 +70,7 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     IF_UNMODIFIED_SINCE: S3Error.PreconditionFailed,
     IF_MATCH_ETAG: S3Error.PreconditionFailed,
     IF_NONE_MATCH_ETAG: S3Error.NotModified,
+    OBJECT_IO_STREAM_ITEM_TIMEOUT: S3Error.SlowDown
 });
 
 const S3_OPS = load_ops();

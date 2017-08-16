@@ -29,15 +29,20 @@ class WaitQueue {
     /**
      * wakeup the item or first item in queue if item is not supplied.
      * returns the item.
+     * err - This property is optional, it is used in case of timeouts inside the semaphore
+     * That way we want to reject the item with an error in order to throw it out of the semaphore
      */
-    wakeup(item) {
+    wakeup(item, err) {
         item = item || this._q.get_front();
-        if (!item) {
-            return;
-        }
-        this._q.remove(item);
-        item[this._name].resolve();
+        if (!item) return;
+        if (!this._q.remove(item)) return;
+        const defer = item[this._name];
         delete item[this._name];
+        if (err) {
+            defer.reject(err);
+        } else {
+            defer.resolve();
+        }
         return item;
     }
 

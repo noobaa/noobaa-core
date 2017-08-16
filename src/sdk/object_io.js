@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 const stream = require('stream');
+const os = require('os');
 const crypto = require('crypto');
 
 const P = require('../util/promise');
@@ -59,7 +60,6 @@ const FRAG_DEFAULTS = {
     digest_b64: '',
 };
 
-
 /**
  *
  * OBJECT IO
@@ -76,10 +76,20 @@ const FRAG_DEFAULTS = {
  */
 class ObjectIO {
 
-    constructor() {
+    constructor(node_id, host_id) {
+        this._last_io_bottleneck_report = 0;
+        if (node_id) this._node_id = node_id;
+        if (host_id) this._host_id = host_id;
         this._block_write_sem = new Semaphore(config.IO_WRITE_CONCURRENCY);
         this._block_replicate_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
         this._block_read_sem = new Semaphore(config.IO_READ_CONCURRENCY);
+        dbg.log0(`ObjectIO Configurations:: node_id:${node_id}, host_id:${host_id},
+            totalmem:${os.totalmem()}, ENDPOINT_FORKS_COUNT:${config.ENDPOINT_FORKS_COUNT}, 
+            IO_SEMAPHORE_CAP:${config.IO_SEMAPHORE_CAP}`);
+        this._io_buffers_sem = new Semaphore(config.IO_SEMAPHORE_CAP, {
+            timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
+            timeout_error_code: 'OBJECT_IO_STREAM_ITEM_TIMEOUT'
+        });
 
         this._init_object_range_cache();
 
@@ -280,6 +290,18 @@ class ObjectIO {
      *
      */
     _upload_stream(params, complete_params) {
+        return this._io_buffers_sem.surround_count(
+                _get_io_semaphore_size(params.size),
+                () => this._upload_stream_internal(params, complete_params)
+            )
+            .catch(err => {
+                this._handle_semaphore_errors(params.client, err);
+                dbg.error('_upload_stream error', err, err.stack);
+                throw err;
+            });
+    }
+
+    _upload_stream_internal(params, complete_params) {
         params.desc = `${params.obj_id}${
             params.num ? '[' + params.num + ']' : ''
         }`;
@@ -311,7 +333,7 @@ class ObjectIO {
         );
 
         return new Pipeline()
-            .pipe(params.source_stream)
+            .pipe(params.source_stream, err => dbg.error('upload source_stream closed with error', err))
             .pipe(new stream.Transform({
                 objectMode: true,
                 allowHalfOpen: false,
@@ -764,54 +786,67 @@ class ObjectIO {
                 return;
             }
             P.resolve()
-                .then(() => {
-                    const requested_end = Math.min(end, pos + requested_size);
-                    return this.read_object({
-                        client: params.client,
-                        obj_id: params.obj_id,
-                        bucket: params.bucket,
-                        key: params.key,
-                        start: pos,
-                        end: requested_end,
-                    });
-                })
-                .then(buffer => {
-                    if (buffer && buffer.length) {
-                        pos += buffer.length;
-                        dbg.log1('reader pos', size_utils.human_offset(pos));
-                        reader.push(buffer);
-                    } else {
-                        dbg.log1('reader finished', size_utils.human_offset(pos));
-                        reader.push(null);
-                    }
-                })
+                .then(() => this._io_buffers_sem.surround_count(
+                    _get_io_semaphore_size(requested_size),
+                    () => P.resolve()
+                    .then(() => {
+                        const requested_end = Math.min(end, pos + requested_size);
+                        return this.read_object({
+                            client: params.client,
+                            obj_id: params.obj_id,
+                            bucket: params.bucket,
+                            key: params.key,
+                            start: pos,
+                            end: requested_end,
+                        });
+                    })
+                    .then(buffer => {
+                        if (buffer && buffer.length) {
+                            pos += buffer.length;
+                            dbg.log1('reader pos', size_utils.human_offset(pos));
+                            reader.push(buffer);
+                        } else {
+                            dbg.log1('reader finished', size_utils.human_offset(pos));
+                            reader.push(null);
+                        }
+                    })
+                ))
                 .catch(err => {
+                    this._handle_semaphore_errors(params.client, err);
                     dbg.error('reader error', err.stack || err);
                     reader.emit('error', err || 'reader error');
                 });
+
+            // when starting to stream also prefrech the last part of the file
+            // since some video encodings put a chunk of video metadata in the end
+            // and it is often requested once doing a video time seek.
+            // see https://trac.ffmpeg.org/wiki/Encode/H.264#faststartforwebvideo
+            if (!params.start &&
+                params.object_md &&
+                params.object_md.size > 1024 * 1024 &&
+                params.object_md.content_type.startsWith('video') &&
+                this._io_buffers_sem.waiting_time < config.VIDEO_READ_STREAM_PRE_FETCH_LOAD_CAP) {
+                P.delay(10)
+                    .then(() => this._io_buffers_sem.surround_count(
+                        _get_io_semaphore_size(1024),
+                        () => P.resolve()
+                        .then(() => this.read_object({
+                            client: params.client,
+                            obj_id: params.obj_id,
+                            bucket: params.bucket,
+                            key: params.key,
+                            start: params.object_md.size - 1024,
+                            end: params.object_md.size,
+                        }))
+                    ))
+                    .catch(err => {
+                        this._handle_semaphore_errors(params.client, err);
+                        dbg.error('prefetch end of file error', err);
+                    });
+            }
+
+            return reader;
         };
-
-        // when starting to stream also prefrech the last part of the file
-        // since some video encodings put a chunk of video metadata in the end
-        // and it is often requested once doing a video time seek.
-        // see https://trac.ffmpeg.org/wiki/Encode/H.264#faststartforwebvideo
-        if (!params.start &&
-            params.object_md &&
-            params.object_md.size > 1024 * 1024 &&
-            params.object_md.content_type.startsWith('video')) {
-            P.delay(10)
-                .then(() => this.read_object({
-                    client: params.client,
-                    obj_id: params.obj_id,
-                    bucket: params.bucket,
-                    key: params.key,
-                    start: params.object_md.size - 1024,
-                    end: params.object_md.size,
-                }))
-                .catch(err => dbg.error('prefetch end of file error', err));
-        }
-
-        return reader;
     }
 
 
@@ -1048,7 +1083,7 @@ class ObjectIO {
         // use semaphore to surround the IO
         return this._block_read_sem.surround(() => {
 
-                dbg.log1('_read_block:', block_md.id, 'from', block_md.address);
+                dbg.log0('_read_block:', block_md.id, 'from', block_md.address);
 
                 this._error_injection_on_read();
 
@@ -1112,6 +1147,26 @@ class ObjectIO {
         }
     }
 
+    _handle_semaphore_errors(client, err) {
+        const HOUR_IN_MILI = 3600000;
+        if (err.code === 'OBJECT_IO_STREAM_ITEM_TIMEOUT') {
+            const curr_date = Date.now();
+            if (curr_date - this._last_io_bottleneck_report >= HOUR_IN_MILI) {
+                this._last_io_bottleneck_report = curr_date;
+                // Not interested in waiting for the response in order to not choke the upload
+                client.object.report_endpoint_problems({
+                        problem: 'STRESS',
+                        node_id: this._node_id,
+                        host_id: this._host_id
+                    })
+                    .catch(error => {
+                        dbg.error('_handle_semaphore_errors: had an error', error);
+                    });
+            }
+            throw new RpcError('OBJECT_IO_STREAM_ITEM_TIMEOUT');
+        }
+    }
+
 }
 
 
@@ -1170,6 +1225,9 @@ function get_frag_key(f) {
     return f.layer + f.frag;
 }
 
-
+function _get_io_semaphore_size(size) {
+    return _.isNumber(size) ? config.IO_STREAM_SEMAPHORE_SIZE_CAP :
+        Math.min(config.IO_STREAM_SEMAPHORE_SIZE_CAP, size);
+}
 
 module.exports = ObjectIO;

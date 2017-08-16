@@ -5,6 +5,7 @@
 // with config.NAME so that it will be consistent with the code that imports it
 // and will make searching easier.
 var config = exports;
+const os = require('os');
 
 //////////////////
 // NODES CONFIG //
@@ -34,8 +35,8 @@ config.HOSTED_AGENTS_HOST_ID = 'hosted_agents';
 // RPC CONFIG //
 ////////////////
 
-config.RPC_CONNECT_TIMEOUT = 5000;
-config.RPC_SEND_TIMEOUT = 5000;
+config.RPC_CONNECT_TIMEOUT = 120 * 1000;
+config.RPC_SEND_TIMEOUT = 120 * 1000;
 config.CLOUD_AGENTS_N2N_PORT = 60100;
 // TODO: Should check what PORT we are interested in taking
 config.MONGO_AGENTS_N2N_PORT = 60100;
@@ -45,6 +46,7 @@ config.MONGO_AGENTS_N2N_PORT = 60100;
 /////////////////////
 
 config.ENDPOINT_FORKS_ENABLED = true;
+config.ENDPOINT_FORKS_COUNT = os.cpus().length;
 config.AMZ_DATE_MAX_TIME_SKEW_MILLIS = 15 * 60 * 1000;
 
 ///////////////
@@ -73,13 +75,13 @@ config.MD_GRACE_IN_MILLISECONDS = config.MD_AGGREGATOR_INTERVAL * 3;
 ///////////////
 
 config.IO_WRITE_BLOCK_RETRIES = 5;
-config.IO_WRITE_BLOCK_TIMEOUT = 20000;
+config.IO_WRITE_BLOCK_TIMEOUT = 120 * 1000;
 config.IO_WRITE_RETRY_DELAY_MS = 100;
 config.IO_REPLICATE_BLOCK_RETRIES = 3;
-config.IO_REPLICATE_BLOCK_TIMEOUT = 20000;
+config.IO_REPLICATE_BLOCK_TIMEOUT = 120 * 1000;
 config.IO_REPLICATE_RETRY_DELAY_MS = 100;
-config.IO_READ_BLOCK_TIMEOUT = 10000;
-config.IO_DELETE_BLOCK_TIMEOUT = 30000;
+config.IO_READ_BLOCK_TIMEOUT = 120 * 1000;
+config.IO_DELETE_BLOCK_TIMEOUT = 120 * 1000;
 
 config.IO_WRITE_CONCURRENCY = 256;
 config.IO_REPLICATE_CONCURRENCY = 256;
@@ -87,7 +89,17 @@ config.IO_READ_CONCURRENCY = 256;
 config.IO_READ_RANGE_CONCURRENCY = 32;
 
 config.IO_STREAM_SPLIT_SIZE = 32 * 1024 * 1024;
+// This is the maximum IO memory usage cap inside single semaphore job
+config.IO_STREAM_SEMAPHORE_SIZE_CAP = config.IO_STREAM_SPLIT_SIZE * 8;
 config.IO_OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
+
+config.IO_MEM_SEMAPHORE = 4;
+config.IO_STREAM_SEMAPHORE_TIMEOUT = 120 * 1000;
+config.VIDEO_READ_STREAM_PRE_FETCH_LOAD_CAP = 5 * 1000;
+config.IO_SEMAPHORE_CAP = Math.floor(
+    Math.max(config.IO_STREAM_SEMAPHORE_SIZE_CAP,
+        os.totalmem() / config.IO_MEM_SEMAPHORE / config.ENDPOINT_FORKS_COUNT)
+);
 
 ////////////////////
 // REBUILD CONFIG //

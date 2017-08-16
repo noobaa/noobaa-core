@@ -9,11 +9,23 @@ class Semaphore {
 
     /**
      * construct a semaphore with initial count
+     * params: Includes several parameters for the semaphore that could be:
+     * timeout - The timeout for items in the waiting queue (on timeout error will be thrown and items released)
+     * Note that when we have a timeout on items in the queue they don't run and just get thrown out
+     * timeout_error_code - The error code that we are interested to throw (used in order to distinguish errors)
+     * verbose - Flag which will perform additional debugging prints
      */
-    constructor(initial, verbose) {
+    constructor(initial, params) {
         this._value = to_sem_count(initial);
+        this._waiting_value = 0;
         this._wq = new WaitQueue();
-        this._verbose = Boolean(verbose);
+        if (params) {
+            this._verbose = Boolean(params && params.verbose);
+            if (params.timeout) {
+                this._timeout = params.timeout;
+            }
+            this._timeout_error_code = params.timeout_error_code || 'SEMAPHORE_TIMEOUT';
+        }
     }
 
     /**
@@ -22,8 +34,12 @@ class Semaphore {
     surround(func) {
         return P.resolve()
             .then(() => this.wait())
-            .then(func)
-            .finally(() => this.release());
+            .then(() =>
+                // Release should be called only when the wait was successful
+                // If the item did not take any "resources"/value from the semaphore
+                // Then we should not release it because it will just increase our semaphore value
+                P.try(func).finally(() => this.release())
+            );
     }
 
     /**
@@ -32,8 +48,12 @@ class Semaphore {
     surround_count(count, func) {
         return P.resolve()
             .then(() => this.wait(count))
-            .then(func)
-            .finally(() => this.release(count));
+            .then(() =>
+                // Release should be called only when the wait was successful
+                // If the item did not take any "resources"/value from the semaphore
+                // Then we should not release it because it will just increase our semaphore value
+                P.try(func).finally(() => this.release(count))
+            );
     }
 
     // read-only properties
@@ -43,6 +63,19 @@ class Semaphore {
 
     get value() {
         return this._value;
+    }
+
+    // This property allows us to know what is the aggregated value of items in the waiting queue
+    // Note that this is not the number of items in the waiting queue
+    get waiting_value() {
+        return this._waiting_value;
+    }
+
+    // This property allows us to know how much time the oldest item in the waiting queue been waiting
+    // We are using this value in order to know the stress on the system
+    get waiting_time() {
+        const waiter = this._wq.head();
+        return waiter ? Date.now() - waiter.time : 0;
     }
 
     /**
@@ -71,10 +104,22 @@ class Semaphore {
             return;
         }
 
+        if (this._timeout && !this._timer) {
+            this._timer = setTimeout(
+                () => this._on_timeout(),
+                this._timeout
+            );
+        }
+
+        this._waiting_value += count;
+
         // push the waiter's count to the wait queue and return a promise
-        return this._wq.wait({
-            count: count
-        });
+        const waiter = {
+            count: count,
+            time: Date.now(),
+        };
+
+        return this._wq.wait(waiter);
     }
 
     /**
@@ -108,7 +153,30 @@ class Semaphore {
             }
 
             this._value -= waiter.count;
+            this._waiting_value -= waiter.count;
             this._wq.wakeup(waiter);
+        }
+    }
+
+    _on_timeout() {
+        const now = Date.now();
+
+        clearTimeout(this._timer);
+        this._timer = null;
+
+        while (this._wq.head()) {
+            // check if the first waiter should timeout
+            const waiter = this._wq.head();
+            const remaining = waiter.time + this._timeout - now;
+            if (remaining > 0) {
+                this._timer = setTimeout(() => this._on_timeout(), remaining);
+                break;
+            }
+
+            const err = new Error('Semaphore Timeout');
+            err.code = this._timeout_error_code;
+            this._waiting_value -= waiter.count;
+            this._wq.wakeup(waiter, err);
         }
     }
 

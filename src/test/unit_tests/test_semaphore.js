@@ -115,5 +115,30 @@ mocha.describe('semaphore', function() {
         });
     });
 
+    mocha.it('should fail on timeout in surround', function() {
+        var sem;
+        return P.fcall(function() {
+            sem = new Semaphore(1, {
+                // Just using the minimum timeout without any place inside the semaphore
+                // This means that we are just interested in failing as quickly as we can
+                // With the item inside the waiting queue
+                timeout: 1,
+                timeout_error_code: 'MAJESTIC_SLOTH'
+            });
+            assert.strictEqual(sem.length, 0);
+            assert.strictEqual(sem.value, 1);
+            return P.all([
+                sem.surround_count(2604, function() {
+                    return 'MAGIC';
+                }).reflect()
+            ]);
+        }).then(function(results) {
+            assert(results[0].isRejected());
+            assert(results[0].reason().code === 'MAJESTIC_SLOTH');
+            assert.strictEqual(sem.length, 0);
+            assert.strictEqual(sem.value, 1);
+            assert.strictEqual(sem.waiting_value, 0);
+        });
+    });
 
 });

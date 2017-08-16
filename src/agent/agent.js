@@ -581,6 +581,8 @@ class Agent {
     update_node_service(req) {
         if (req.rpc_params.enabled) {
             this._ssl_certs = req.rpc_params.ssl_certs;
+            this._host_id = req.rpc_params.host_id;
+            this._node_id = req.rpc_params._node_id;
             return this._enable_service();
         } else {
             return this._disable_service();
@@ -651,7 +653,11 @@ class Agent {
         dbg.log0(`got message from endpoint process:`, message);
         switch (message.code) {
             case 'STARTED':
-                this.endpoint_info.s3rver_process.send(this._ssl_certs);
+                this.endpoint_info.s3rver_process.send({
+                    certs: this._ssl_certs,
+                    host_id: this._host_id,
+                    node_id: this._node_id
+                });
                 break;
             case 'STATS':
                 // we also get here the name of the bucket and access key, but ignore it for now

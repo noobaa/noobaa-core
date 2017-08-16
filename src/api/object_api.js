@@ -864,6 +864,31 @@ module.exports = {
             }
         },
 
+        report_endpoint_problems: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'problem',
+                ],
+                properties: {
+                    problem: {
+                        enum: ['STRESS'],
+                        type: 'string'
+                    },
+                    node_id: {
+                        type: 'string'
+                    },
+                    host_id: {
+                        type: 'string'
+                    }
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         add_endpoint_usage_report: {
             method: 'PUT',
             params: {

@@ -2228,6 +2228,7 @@ class NodesMonitor extends EventEmitter {
         const storage_issues = ['HAS_ISSUES', 'DETENTION', 'MEMORY_PRESSURE', 'NO_CAPACITY', 'LOW_CAPACITY', 'MEMORY_PRESSURE'];
         host_item.mode =
             (storage_mode === 'OFFLINE' && s3_mode === 'OFFLINE' && 'OFFLINE') ||
+            (storage_mode === 'INITALIZING' && s3_mode === 'INITALIZING' && 'INITALIZING') ||
             (storage_mode === 'DECOMMISSIONED' && s3_mode === 'DECOMMISSIONED' && 'DECOMMISSIONED') || // all decommissioned
             (['DECOMMISSIONING', 'DECOMMISSIONED'].includes(storage_mode) && ['DECOMMISSIONING', 'DECOMMISSIONED'].includes(s3_mode) &&
                 'DECOMMISSIONING') || // all are either decommissioned or decommissioning
@@ -2607,7 +2608,9 @@ class NodesMonitor extends EventEmitter {
             }
         };
         info.s3_nodes_info.mode = host_item.s3_nodes_mode;
+        info.s3_nodes_info.enabled = host_item.s3_nodes.some(item => !item.decommissioned && !item.decommissioning);
         info.storage_nodes_info.mode = host_item.storage_nodes_mode;
+        info.storage_nodes_info.enabled = host_item.storage_nodes.some(item => !item.decommissioned && !item.decommissioning);
         info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
 
         // collect host info

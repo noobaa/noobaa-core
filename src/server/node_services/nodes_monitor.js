@@ -467,17 +467,15 @@ class NodesMonitor extends EventEmitter {
             updates = this._get_host_nodes_by_name(name)
                 .map(item => ({
                     item: item,
-                    enabled: item.node.s3_agent ? s3_enabled : storage_enabled
+                    enabled: item.node.node_type === 'ENDPOINT_S3' ? s3_enabled : storage_enabled
                 }))
                 .filter(item => !_.isUndefined(item.enabled));
-
         } else {
             updates = nodes.map(update => ({
                 item: this._map_node_name.get(update.name),
                 enabled: update.enabled
             }));
         }
-
         updates.forEach(update => {
             const { decommissioned, decommissioning } = update.item.node;
             if (update.enabled) {

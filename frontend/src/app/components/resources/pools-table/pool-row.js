@@ -15,10 +15,9 @@ const undeletableReasons = deepFreeze({
 });
 
 export default class PoolRowViewModel {
-    constructor({ baseRoute, onDelete }) {
+    constructor({ baseRoute, deleteGroup, onDelete }) {
 
         this.baseRoute = baseRoute;
-        this.id = '';
         this.state = ko.observable();
         this.name = ko.observable();
         this.buckets = ko.observable();
@@ -53,16 +52,15 @@ export default class PoolRowViewModel {
             subject: 'pool',
             undeletable: ko.observable(),
             tooltip: ko.observable(),
-            onDelete: () => onDelete(this.id)
+            id: ko.observable(),
+            group: deleteGroup,
+            onDelete: onDelete
         };
     }
 
     onPool(pool) {
         if (!pool) return;
         const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
-
-        // Save the name to identify the pool in delete operations.
-        this.id = name;
 
         // TODO: calc pool icon based on mode.
         this.state({
@@ -92,6 +90,7 @@ export default class PoolRowViewModel {
         this.usedByOthersCapacity(used_other);
         this.reservedCapacity(reserved);
 
+        this.deleteButton.id(name);
         this.deleteButton.undeletable(Boolean(undeletable));
         this.deleteButton.tooltip(undeletableReasons[undeletable]);
     }

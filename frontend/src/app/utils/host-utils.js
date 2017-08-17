@@ -3,6 +3,114 @@ import { stringifyAmount } from 'utils/string-utils';
 import moment from 'moment';
 import numeral from 'numeral';
 
+const modeToStateIcon2 = deepFreeze({
+    DECOMMISSIONED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Node Deactivated'
+    },
+    OFFLINE: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'All Services Offline'
+    },
+    UNTRUSTED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Has Issues'
+    },
+    STORAGE_NOT_EXISTS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'All Drives are Unmounted'
+    },
+    DETENTION: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'All Drives has No Access'
+    },
+    INITIALIZING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Initializing'
+    },
+    DECOMISSIONING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Deactivating'
+    },
+    MIGRATING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Migrating'
+    },
+    IN_PROCESS: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'In Process'
+    },
+    SOME_MIGRATING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Some Drives are Migrating'
+    },
+    SOME_INITIALIZING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Some drives are Initializing'
+    },
+    SOME_DECOMISSIONING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Some drives are Decommissioning'
+    },
+    SOME_OFFLINE: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some drives are Offline'
+    },
+    SOME_STORAGE_NOT_EXISTS: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some drives are Unmounted'
+    },
+    SOME_DETENTION: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some drives has No Access'
+    },
+    NO_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'No available capacity'
+    },
+    LOW_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Low available capacity'
+    },
+    HTTP_SRV_ERRORS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Cannot Start HTTP Server'
+    },
+    HAS_ERRORS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Services has Errors'
+    },
+    HAS_ISSUES: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Services has Issues'
+    },
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    }
+});
+
 const modeToStateIcon = deepFreeze({
     OFFLINE: {
         name: 'problem',
@@ -39,10 +147,10 @@ const modeToStateIcon = deepFreeze({
         css: 'warning',
         tooltip: 'In Process'
     },
-    INITALIZING: {
+    INITIALIZING: {
         name: 'working',
         css: 'warning',
-        tooltip: 'Initalizing'
+        tooltip: 'Initializing'
     },
     OPTIMAL: {
         name: 'healthy',
@@ -65,7 +173,96 @@ const trustToIcon = deepFreeze({
 });
 
 const modeToAccessibilityIcon = deepFreeze({
-    /// ???
+    DECOMMISSIONED: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'No Access - Used as S3 gateway'
+    },
+    OFFLINE: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'No access'
+    },
+    UNTRUSTED: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'No access'
+    },
+    STORAGE_NOT_EXISTS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'No access'
+    },
+    DETENTION: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'No access - Read/Write errors'
+    },
+    INITIALIZING: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'No access'
+    },
+    DECOMMISSIONING: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Read Only'
+    },
+    MIGRATING: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Read Only - Moving data'
+    },
+    IN_PROCESS: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
+    SOME_MIGRATING: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
+    SOME_INITIALIZING: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
+    SOME_DECOMMISSIONING: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
+    SOME_OFFLINE: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
+    SOME_STORAGE_NOT_EXISTS: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
+    SOME_DETENTION: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
+    NO_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Read Only'
+    },
+    LOW_CAPACITY: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
 });
 
 const stateToModes = deepFreeze({
@@ -79,24 +276,11 @@ const stateToModes = deepFreeze({
         'DATA_ACTIVITY',
         'HAS_ISSUES',
         'MEMORY_PRESSURE',
-        'INITALIZING'
+        'INITIALIZING'
     ],
     OFFLINE: [
         'OFFLINE'
     ]
-});
-
-const activityTypeToName = deepFreeze({
-    RESTORING: 'Restoring',
-    MIGRATING: 'Migrating',
-    DECOMMISSIONING: 'Deactivating',
-    DELETING: 'Deleting'
-});
-
-const activityStageToName = deepFreeze({
-    OFFLINE_GRACE: 'Waiting',
-    REBUILDING: 'Rebuilding',
-    WIPING: 'Wiping Data'
 });
 
 const stroageServiceModeToState = deepFreeze({
@@ -109,49 +293,100 @@ const stroageServiceModeToState = deepFreeze({
     NO_CAPACITY: 'issues',
     DATA_ACTIVITY: 'issues',
     LOW_CAPACITY: 'issues',
-    INITALIZING: 'issues',
+    INITIALIZING: 'issues',
     MEMORY_PRESSURE: 'issues',
     OPTIMAL: 'healthy'
 });
 
-const gatewayServiceModeToState = deepFreeze({
-    OFFLINE: 'problem',
-    DECOMMISSIONED: 'disabled',
-    HTTP_SRV_ERRORS: 'issues',
-    UNTRUSTED: 'issues',
-    INITALIZING: 'issues',
-    OPTIMAL: 'healthy'
-});
-
-const gatewayServiceModeToIcon = deepFreeze({
+const storageServiceModeToIcon = deepFreeze({
+    DECOMMISSIONED: {
+        name: 'healthy',
+        css: 'disabeld',
+        tooltip: 'Disabled'
+    },
     OFFLINE: {
         name: 'problem',
         css: 'error',
-        tooltip: 'Offline'
-    },
-    DECOMMISSIONED: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Deactivated'
-    },
-    HTTP_SRV_ERRORS: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Cannot start HTTP server'
+        tooltip: 'All drives are offline'
     },
     UNTRUSTED: {
         name: 'problem',
-        css: 'warning',
+        css: 'error',
         tooltip: 'Untrusted'
     },
-    INITALIZING: {
+    STORAGE_NOT_EXISTS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'All drives are unmounted'
+    },
+    DETENTION: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'All drive has no access'
+    },
+    INITIALIZING: {
         name: 'working',
         css: 'warning',
-        tooltip: 'Initalizing'
+        tooltip: 'All drive has no access'
+    },
+    DECOMISSIONING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Deactivating'
+    },
+    MIGRATING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Migrating'
+    },
+    IN_PROCESS: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'In process'
+    },
+    SOME_MIGRATING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Some drives are migrating'
+    },
+    SOME_INITIALIZING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Some drives are initializing'
+    },
+    SOME_DECOMISSIONING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Some drives are deactivating'
+    },
+    SOME_OFFLINE: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some drives are offline'
+    },
+    SOME_STORAGE_NOT_EXISTS: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some drives are unmounted'
+    },
+    SOME_DETENTION: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some drives has no access'
+    },
+    NO_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'No available capacity'
+    },
+    LOW_CAPACITY: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Low available capacity'
     },
     OPTIMAL: {
         name: 'healthy',
-        css: 'success',
+        css: 'suceess',
         tooltip: 'Healthy'
     }
 });
@@ -167,10 +402,10 @@ const storageNodeModeToStateIcon = deepFreeze({
         css: 'warning',
         tooltip: 'Untrusted'
     },
-    INITALIZING: {
+    INITIALIZING: {
         name: 'working',
         css: 'warning',
-        tooltip: 'Initalizing'
+        tooltip: 'Initializing'
     },
     DELETING: {
         name: 'working',
@@ -229,6 +464,55 @@ const storageNodeModeToStateIcon = deepFreeze({
     }
 });
 
+const gatewayServiceModeToState = deepFreeze({
+    OFFLINE: 'problem',
+    DECOMMISSIONED: 'disabled',
+    HTTP_SRV_ERRORS: 'issues',
+    INITIALIZING: 'issues',
+    OPTIMAL: 'healthy'
+});
+
+const gatewayServiceModeToIcon = deepFreeze({
+    OFFLINE: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Offline'
+    },
+    DECOMMISSIONED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Deactivated'
+    },
+    HTTP_SRV_ERRORS: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Cannot start HTTP server'
+    },
+    INITIALIZING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Initializing'
+    },
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    }
+});
+
+const activityTypeToName = deepFreeze({
+    RESTORING: 'Restoring',
+    MIGRATING: 'Migrating',
+    DECOMMISSIONING: 'Deactivating',
+    DELETING: 'Deleting'
+});
+
+const activityStageToName = deepFreeze({
+    OFFLINE_GRACE: 'Waiting',
+    REBUILDING: 'Rebuilding',
+    WIPING: 'Wiping Data'
+});
+
 export function getHostDisplayName(hostName) {
     const [ namePart ] = hostName.split('#');
     return `${namePart}`;
@@ -283,6 +567,10 @@ export function getHostServiceState({ services }) {
     };
 }
 
+export function getStorageServiceStateIcon({ mode }) {
+    return storageServiceModeToIcon[mode];
+}
+
 export function getStorageNodeStateIcon({ mode }) {
     return storageNodeModeToStateIcon[mode];
 }
@@ -290,7 +578,6 @@ export function getStorageNodeStateIcon({ mode }) {
 export function getGatewayServiceStateIcon({ mode }) {
     return gatewayServiceModeToIcon[mode];
 }
-
 
 export function getActivityName(activityType) {
     return activityTypeToName[activityType];

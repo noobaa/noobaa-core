@@ -15,7 +15,7 @@ const nodeStateIconMapping = deepFreeze({
         css: 'warning',
         tooltip: 'Untrusted'
     },
-    INITALIZING: {
+    INITIALIZING: {
         name: 'working',
         css: 'warning',
         tooltip: 'Initalizing'
@@ -167,7 +167,7 @@ const resourceStateIconMapping = deepFreeze({
         css: 'error',
         name: 'problem',
     },
-    INITALIZING: {
+    INITIALIZING: {
         tooltip: 'Initializing',
         css: 'warning',
         name: 'working',
@@ -354,7 +354,7 @@ export function getModeFilterFromState(state) {
                 'IO_ERRORS',
                 'STORAGE_NOT_EXIST',
                 'UNTRUSTED',
-                'INITALIZING'
+                'INITIALIZING'
             ];
 
         case 'OFFLINE':

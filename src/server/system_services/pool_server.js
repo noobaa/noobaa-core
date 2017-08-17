@@ -103,10 +103,7 @@ function create_hosts_pool(req) {
                 pools: [pool]
             }
         }))
-        .then(() => server_rpc.client.host.migrate_hosts_to_pool(
-            { pool_id, hosts },
-            { auth_token }
-        ));
+        .then(() => server_rpc.client.host.migrate_hosts_to_pool({ pool_id, hosts }, { auth_token }));
 }
 
 function create_cloud_pool(req) {
@@ -334,10 +331,7 @@ function assign_hosts_to_pool(req) {
 
     const pool = find_pool_by_name(req);
     const pool_id = String(pool._id);
-    return server_rpc.client.host.migrate_hosts_to_pool(
-        { pool_id, hosts },
-        { auth_token }
-    );
+    return server_rpc.client.host.migrate_hosts_to_pool({ pool_id, hosts }, { auth_token });
 }
 
 
@@ -430,21 +424,21 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
 
 function calc_cloud_pool_mode(p) {
     const { by_mode } = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
-    return (!p.nodes && 'INITALIZING') ||
+    return (!p.nodes && 'INITIALIZING') ||
         (by_mode.OPTIMAL && 'OPTIMAL') ||
         (by_mode.STORAGE_NOT_EXIST && 'STORAGE_NOT_EXIST') ||
         (by_mode.AUTH_FAILED && 'AUTH_FAILED') ||
         (by_mode.IO_ERRORS && 'IO_ERRORS') ||
-        (by_mode.INITALIZING && 'INITALIZING') ||
+        (by_mode.INITIALIZING && 'INITIALIZING') ||
         'ALL_NODES_OFFLINE';
 }
 
 function calc_mongo_pool_mode(p) {
     const { by_mode } = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
-    return (!p.nodes && 'INITALIZING') ||
+    return (!p.nodes && 'INITIALIZING') ||
         (by_mode.OPTIMAL && 'OPTIMAL') ||
         (by_mode.IO_ERRORS && 'IO_ERRORS') ||
-        (by_mode.INITALIZING && 'INITALIZING') ||
+        (by_mode.INITIALIZING && 'INITIALIZING') ||
         'ALL_NODES_OFFLINE';
 }
 

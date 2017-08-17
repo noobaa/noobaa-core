@@ -147,7 +147,6 @@ class PoolHostsTableViewModel extends Observer {
             this.fetching(false);
 
         } else {
-            this.stateFilterOptions(_getStateFilterOptions(0, 0, 0, 0));
             this.rows([]);
             this.fetching(true);
             this.emptyMessage('');

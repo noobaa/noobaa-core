@@ -52,22 +52,22 @@ class PoolSummaryViewModel extends Observer {
         this.inProcessHotsts = ko.observable();
         this.pieValues = [
             {
-                label: 'Currently Available',
+                label: 'Available',
                 color: style['color5'],
                 value: this.availableCapacity
             },
             {
-                label: 'Unavailable Nodes',
+                label: 'Unavailable Capacity',
                 color: style['color17'],
                 value: this.unavailableCapacity
             },
             {
-                label: 'Used (NooBaa)',
+                label: 'NooBaa Usage',
                 color: style['color13'],
                 value: this.usedByNoobaaCapacity
             },
             {
-                label: 'Used (Other)',
+                label: 'Other Usage',
                 color: style['color14'],
                 value: this.usedByOthersCapacity
             },

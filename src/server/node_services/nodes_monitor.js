@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 3120] */
+/* eslint max-lines: ['error', 4000] */
 'use strict';
 
 const _ = require('lodash');

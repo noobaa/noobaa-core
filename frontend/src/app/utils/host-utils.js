@@ -524,7 +524,6 @@ export function summrizeHostModeCounters(counters) {
 
 export function getHostServiceState({ services }) {
     const { storage, gateway } = services;
-
     return {
         storage: stroageServiceModeToState[storage.mode],
         gateway: gatewayServiceModeToState[gateway.mode],

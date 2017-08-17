@@ -203,7 +203,7 @@ class AssignHostsModalViewModel extends Observer {
         // Calculate extra information.
         const hostCount = sumBy(allPools, pool => pool.hostCount);
         const releventHostsCount = sumBy(releventPools, pool => pool.hostCount);
-        const selectedMessage = `${selectedHosts.length} slelected of all nodes (${hostCount})`;
+        const selectedMessage = `${selectedHosts.length} slelected of all nodes (${releventHostsCount})`;
         const emptyMessage = _getTableEmptyMessage(hostCount, releventHostsCount);
         const filteredHostCount = result ? result.counters.nonPaginated : 0;
 

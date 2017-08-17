@@ -65,15 +65,17 @@ class HostGatewayFormViewModel extends Observer {
         this.hostLoaded(true);
 
 
-        const { timezone } = Object.values(servers).find(server => server.isMaster);
-        this.latestWrites({
-            usage: formatSize(usage.last7Days.bytesWritten),
-            lastIO: usage.lastWrite && moment.tz(usage.lastWrite, timezone).format(timeShortFormat)
-        });
-        this.latestReads({
-            usage: formatSize(usage.last7Days.bytesRead),
-            lastIO: usage.lastRead && moment.tz(usage.lastRead, timezone).format(timeShortFormat)
-        });
+        if (usage) {
+            const { timezone } = Object.values(servers).find(server => server.isMaster);
+            this.latestWrites({
+                usage: formatSize(usage.last7Days.bytesWritten),
+                lastIO: usage.lastWrite && moment.tz(usage.lastWrite, timezone).format(timeShortFormat)
+            });
+            this.latestReads({
+                usage: formatSize(usage.last7Days.bytesRead),
+                lastIO: usage.lastRead && moment.tz(usage.lastRead, timezone).format(timeShortFormat)
+            });
+        }
     }
 
     onToggleGateway() {

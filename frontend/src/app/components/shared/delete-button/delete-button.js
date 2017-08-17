@@ -4,23 +4,26 @@ import template from './delete-button.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isFunction, noop } from 'utils/core-utils';
+import { randomString } from 'utils/string-utils';
 
 class DeleteButtonViewModel extends BaseViewModel {
     constructor({
-        subject,
+        id = randomString(),
         group = ko.observable(),
         onDelete,
         tooltip = 'delete',
-        disabled = false
+        disabled = false,
+        subject
     }) {
         super();
 
+        this.id = id;
         this.onDelete = isFunction(onDelete) ? onDelete : noop;
         this.disabled = disabled;
 
         this.isActive = ko.pureComputed({
-            read: () => group() === this,
-            write: val => group(val ? this : null)
+            read: () => group() === ko.unwrap(id),
+            write: val => group(val ? ko.unwrap(id) : null)
         });
 
         this.tooltip = ko.pureComputed(
@@ -38,16 +41,16 @@ class DeleteButtonViewModel extends BaseViewModel {
         );
     }
 
-    activate() {
+    onActivate() {
         this.isActive(true);
     }
 
-    confirm() {
+    onConfirm() {
         this.isActive(false);
-        this.onDelete();
+        this.onDelete(ko.unwrap(this.id));
     }
 
-    cancel() {
+    onCancel() {
         this.isActive(false);
     }
 }

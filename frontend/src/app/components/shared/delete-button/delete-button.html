@@ -1,22 +1,19 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div data-bind="
-    css: { active: isActive },
-    tooltip: tooltip
-">
+<div ko.css.active="isActive" ko.tooltip="tooltip">
     <span class="message-wrapper">
         <span class="row content-middle message-text">
-            <span class="push-next" data-bind="text: question"></span>
+            <span class="push-next" ko.text="question"></span>
 
-            <a class="link" href data-bind="click: confirm">YES</a>
+            <a class="link" href ko.click="onConfirm">YES</a>
             /
-            <a class="link" href data-bind="click: cancel">NO</a>
+            <a class="link" href ko.click="onCancel">NO</a>
         </span>
     </span>
 
-    <button class="icon-btn no-outline" data-bind="
-        disable: disabled,
-        click: activate
+    <button class="icon-btn no-outline"
+        ko.disable="disabled"
+        ko.click="onActivate"
     ">
         <svg-icon params="name: icon"></svg-icon>
     </button>

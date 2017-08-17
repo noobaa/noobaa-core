@@ -86,10 +86,15 @@ class PoolsTableViewModel extends Observer {
         this.sorting = ko.observable();
         this.pageSize = paginationPageSize;
         this.page = ko.observable();
+        this.selectedForDelete = ko.observable();
         this.poolCount = ko.observable();
         this.rows = ko.observableArray();
-        this.deleteGroup = ko.observable();
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+
+        this.deleteGroup = ko.pureComputed({
+            read: this.selectedForDelete,
+            write: val => this.onSelectForDelete(val)
+        });
 
         this.observe(
             state$.getMany('hostPools', 'location'),
@@ -101,7 +106,7 @@ class PoolsTableViewModel extends Observer {
         const { system, tab } = location.params;
         if ((tab && tab !== 'pools') || !pools.items) return;
 
-        const { filter = '', sortBy = 'name', order = 1, page = 0 } = location.query;
+        const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = location.query;
         const { compareKey } = columns.find(column => column.name === sortBy);
 
         const poolList = Object.values(pools.items);
@@ -110,6 +115,7 @@ class PoolsTableViewModel extends Observer {
         const pageStart = Number(page) * this.pageSize;
         const rowParams = {
             baseRoute: realizeUri(routes.pool, { system }, {}, true),
+            deleteGroup: this.deleteGroup,
             onDelete: this.onDeletePool
         };
 
@@ -129,6 +135,7 @@ class PoolsTableViewModel extends Observer {
         this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
+        this.selectedForDelete(selectedForDelete);
         this.poolCount(poolList.length);
         this.rows(rows);
         this.poolsLoaded(true);
@@ -140,7 +147,8 @@ class PoolsTableViewModel extends Observer {
             filter: filter || undefined,
             sortBy: sortBy,
             order: order,
-            page: 0
+            page: 0,
+            selectedForDelete: undefined
         };
 
         action$.onNext(requestLocation(
@@ -153,7 +161,8 @@ class PoolsTableViewModel extends Observer {
             filter: this.filter() || undefined,
             sortBy: sortBy,
             order: order,
-            page: 0
+            page: 0,
+            selectedForDelete: undefined
         };
 
         action$.onNext(requestLocation(
@@ -167,7 +176,23 @@ class PoolsTableViewModel extends Observer {
             filter: this.filter() || undefined,
             sortBy: sortBy,
             order: order,
-            page: page
+            page: page,
+            selectedForDelete: undefined
+        };
+
+        action$.onNext(requestLocation(
+            realizeUri(this.baseRoute, {}, query)
+        ));
+    }
+
+    onSelectForDelete(pool) {
+        const { sortBy, order } = this.sorting();
+        const query = {
+            filter: this.filter() || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: this.page(),
+            selectedForDelete: pool || undefined
         };
 
         action$.onNext(requestLocation(

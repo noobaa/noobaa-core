@@ -662,6 +662,7 @@ class NodesMonitor extends EventEmitter {
         if (!host_nodes) {
             this._map_host_id.set(host_id, host_nodes = []);
         }
+        dbg.log1(`adding ${item.node.name} to hosts map with id ${host_id}. before adding, host_nodes are: ${host_nodes.map(i => i.node.name)}`);
         host_nodes.push(item);
     }
 
@@ -932,7 +933,10 @@ class NodesMonitor extends EventEmitter {
                                 item.node.name, 'to', updates.name);
 
                             item.new_host = !this._map_host_id.get(updates.host_id);
-                            this._add_node_to_hosts_map(updates.host_id, item);
+                            if (!item.added_host) {
+                                this._add_node_to_hosts_map(updates.host_id, item);
+                                item.added_host = true;
+                            }
 
                             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
                             // on first call to get_agent_info enable\disable the node according to the configuration
@@ -2069,7 +2073,6 @@ class NodesMonitor extends EventEmitter {
             if (host.every(item => !item.node_from_store)) continue;
             // update the status of every node we go over
             const item = this._consolidate_host(host);
-
             // filter hosts according to query
             if (item.node.node_type !== 'BLOCK_STORE_FS') continue;
             if (query.hosts && !query.hosts.includes(String(item.node.host_sequence))) continue;
@@ -2607,9 +2610,9 @@ class NodesMonitor extends EventEmitter {
             }
         };
         info.s3_nodes_info.mode = host_item.s3_nodes_mode;
-        info.s3_nodes_info.enabled = host_item.s3_nodes.some(item => !item.decommissioned && !item.decommissioning);
+        info.s3_nodes_info.enabled = host_item.s3_nodes.some(item => !item.node.decommissioned);
         info.storage_nodes_info.mode = host_item.storage_nodes_mode;
-        info.storage_nodes_info.enabled = host_item.storage_nodes.some(item => !item.decommissioned && !item.decommissioning);
+        info.storage_nodes_info.enabled = host_item.storage_nodes.some(item => !item.node.decommissioned);
         info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
 
         // collect host info

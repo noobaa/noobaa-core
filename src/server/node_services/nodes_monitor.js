@@ -2388,8 +2388,6 @@ class NodesMonitor extends EventEmitter {
         });
 
         const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
-
-
         const storage_priority = mode_priority[storage_mode];
         const s3_priority = mode_priority[s3_mode];
         if (s3_priority > storage_priority || s3_mode === storage_mode) {

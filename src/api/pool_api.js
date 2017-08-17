@@ -30,7 +30,7 @@ module.exports = {
                 type: 'object',
                 properties: {
                     name: {
-                         type: 'string'
+                        type: 'string'
                     },
                     hosts: {
                         type: 'array',
@@ -405,7 +405,7 @@ module.exports = {
                 'IO_ERRORS',
                 'STORAGE_NOT_EXIST',
                 'AUTH_FAILED',
-                'INITALIZING',
+                'INITIALIZING',
                 'OPTIMAL'
             ]
         }

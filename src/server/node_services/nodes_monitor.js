@@ -158,7 +158,7 @@ const MODE_COMPARE_ORDER = [
     'GATEWAY_ERRORS',
     'IO_ERRORS',
     'UNTRUSTED',
-    'INITALIZING',
+    'INITIALIZING',
     'OFFLINE'
 ];
 
@@ -1830,14 +1830,14 @@ class NodesMonitor extends EventEmitter {
             BigInteger.zero :
             free.multiply(100).divide(free.add(used));
 
-        return (!item.online && 'OFFLINE') ||
-            (!item.node.rpc_address && 'INITALIZING') ||
+        return (item.node.decommissioned && 'DECOMMISSIONED') ||
+            (!item.online && 'OFFLINE') ||
+            (!item.node.rpc_address && 'INITIALIZING') ||
             (!item.trusted && 'UNTRUSTED') ||
             (item.node.deleting && 'DELETING') ||
             (item.node.deleted && 'DELETED') ||
             (item.storage_not_exist && 'STORAGE_NOT_EXIST') ||
             (item.auth_failed && 'AUTH_FAILED') ||
-            (item.node.decommissioned && 'DECOMMISSIONED') ||
             (item.node.decommissioning && 'DECOMMISSIONING') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
             (item.n2n_errors && 'N2N_ERRORS') ||
@@ -2285,13 +2285,6 @@ class NodesMonitor extends EventEmitter {
         const s3_nodes = host_item.s3_nodes;
 
         // aggregate storage nodes and s3 nodes info
-        const has_issues_modes = Object.freeze([
-            'OFFLINE',
-            'STORAGE_NOT_EXIST',
-            'IO_ERRORS',
-            'N2N_ERRORS',
-            'GATEWAY_ERRORS',
-        ]);
         const MB = Math.pow(1024, 2);
         const storage = this._node_storage_info(host_item);
         const free = size_utils.json_to_bigint(storage.free);
@@ -2299,19 +2292,41 @@ class NodesMonitor extends EventEmitter {
         const free_ratio = free.add(used).isZero() ?
             BigInteger.zero :
             free.multiply(100).divide(free.add(used));
+        // storage mode is implemented by https://docs.google.com/spreadsheets/d/1-q1U57jmKNLt0XML-1MLaPgBFli_c_T5OEkKvzB5Txk/edit#gid=618998419
         if (storage_nodes.length) {
+            const {
+                DECOMMISSIONED = 0,
+                    OFFLINE = 0,
+                    UNTRUSTED = 0,
+                    STORAGE_NOT_EXIST = 0,
+                    IO_ERRORS = 0,
+                    N2N_ERRORS = 0,
+                    GATEWAY_ERRORS = 0,
+                    INITIALIZING = 0,
+                    DECOMMISSIONING = 0,
+                    MIGRATING = 0
+            } = _.mapValues(_.groupBy(storage_nodes, i => i.mode), arr => arr.length);
+            const DETENTION = IO_ERRORS + N2N_ERRORS + GATEWAY_ERRORS;
+            const enabled_nodes_count = storage_nodes.length - DECOMMISSIONED;
+
             host_item.storage_nodes_mode =
-                (storage_nodes.every(node => node.mode === 'OFFLINE') && 'OFFLINE') ||
-                (storage_nodes.every(node => node.mode === 'DECOMMISSIONED') && 'DECOMMISSIONED') ||
-                (storage_nodes.every(node => ['DECOMMISSIONED', 'DECOMMISSIONING'].includes(node.mode)) && 'DECOMMISSIONING') ||
-                (storage_nodes.some(node => node.mode === 'UNTRUSTED') && 'UNTRUSTED') ||
-                (storage_nodes.every(node => ['IO_ERRORS', 'N2N_ERRORS', 'GATEWAY_ERRORS'].includes(node.mode)) && 'DETENTION') ||
-                (storage_nodes.some(node => has_issues_modes.includes(node.mode)) && 'HAS_ISSUES') ||
-                (storage_nodes.some(node => node.mode === 'MEMORY_PRESSURE') && 'MEMORY_PRESSURE') ||
+                (enabled_nodes_count && 'DECOMMISSIONED') || // all decommissioned
+                (OFFLINE === enabled_nodes_count && 'OFFLINE') || // all offline
+                (UNTRUSTED && 'UNTRUSTED') ||
+                (STORAGE_NOT_EXIST === enabled_nodes_count && 'STORAGE_NOT_EXIST') || // all unmounted
+                (DETENTION === enabled_nodes_count && 'DETENTION') || // all detention
+                (INITIALIZING === enabled_nodes_count && 'INITIALIZING') || // all initializing
+                (DECOMMISSIONING === enabled_nodes_count && 'DECOMMISSIONING') || // all decommissioning
+                (MIGRATING === enabled_nodes_count && 'MIGRATING') || // all migrating
+                (MIGRATING && !INITIALIZING && !DECOMMISSIONING && 'SOME_MIGRATING') || // some migrating
+                (INITIALIZING && !MIGRATING && !DECOMMISSIONING && 'SOME_INITIALIZING') || // some initializing
+                (DECOMMISSIONING && !INITIALIZING && !MIGRATING && 'SOME_DECOMMISSIONING') || // some decommissioning
+                ((DECOMMISSIONING || INITIALIZING || MIGRATING) && 'IN_PROCESS') || // mixed in process
+                (OFFLINE && 'SOME_OFFLINE') || //some offline
+                (STORAGE_NOT_EXIST && 'SOME_STORAGE_NOT_EXIST') || // some unmounted
+                (DETENTION && 'SOME_DETENTION') || // some in detention
                 (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
-                (storage_nodes.some(node => ['MIGRATING', 'DECOMMISSIONING'].includes(node.mode)) && 'DATA_ACTIVITY') ||
                 (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
-                (storage_nodes.some(node => ['INITALIZING'].includes(node.mode)) && 'INITALIZING') ||
                 'OPTIMAL';
         } else {
             host_item.storage_nodes_mode = 'OPTIMAL'; // if no storage nodes, consider storage mode as optimal
@@ -2322,7 +2337,7 @@ class NodesMonitor extends EventEmitter {
         const s3_node_modes = [
             'OFFLINE',
             'UNTRUSTED',
-            'INITALIZING',
+            'INITIALIZING',
             'DECOMMISSIONED',
             'N2N_ERRORS',
             'GATEWAY_ERRORS',
@@ -2337,30 +2352,51 @@ class NodesMonitor extends EventEmitter {
 
         const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
 
-        // calculate the host's mode according to the storage and s3 modes in decreasing priority
-        // | storage        |     s3          |   host           |
-        // |----------------|-----------------|------------------|
-        // | OFFLINE        | OFFLINE         | OFFLINE          |
-        // | DECOMMISSIONED | DECOMMISSIONED  | DECOMMISSIONED   |
-        // | DECOMMISSIONING| DECOMMISSIONING | DECOMMISSIONING  |
-        // | UNTRUSTED      |        *        | UNTRUSTED        |
-        // | ACT\INIT       |        *        | DATA_ACTIVITY    |
-        // | HAS_ISSUES     |        *        | HAS_ISSUES       |
-        // |       *        | HTTP_SRV_ERRORS | HAS_ISSUES       |
-        // | OPTIMAL        | OPTIMAL         | OPTIMAL          |
-        const storage_issues = ['HAS_ISSUES', 'DETENTION', 'MEMORY_PRESSURE', 'NO_CAPACITY', 'LOW_CAPACITY', 'MEMORY_PRESSURE'];
-        host_item.mode =
-            (storage_mode === 'OFFLINE' && s3_mode === 'OFFLINE' && 'OFFLINE') ||
-            (storage_mode === 'INITALIZING' && s3_mode === 'INITALIZING' && 'INITALIZING') ||
-            (storage_mode === 'DECOMMISSIONED' && s3_mode === 'DECOMMISSIONED' && 'DECOMMISSIONED') || // all decommissioned
-            (['DECOMMISSIONING', 'DECOMMISSIONED'].includes(storage_mode) && ['DECOMMISSIONING', 'DECOMMISSIONED'].includes(s3_mode) &&
-                'DECOMMISSIONING') || // all are either decommissioned or decommissioning
-            (storage_mode === 'UNTRUSTED' && 'UNTRUSTED') || // one is untrusted
-            (['DATA_ACTIVITY', 'INITALIZING'].includes(storage_mode) && 'DATA_ACTIVITY') ||
-            ((storage_issues.includes(storage_mode) || s3_mode === 'HTTP_SRV_ERRORS') && 'HAS_ISSUES') ||
-            (['OPTIMAL', 'DECOMMISSIONING', 'DECOMMISSIONED'].includes(storage_mode) && ['OPTIMAL', 'DECOMMISSIONING', 'DECOMMISSIONED'].includes(s3_mode) &&
-                'OPTIMAL') ||
-            'HAS_ISSUES'; // use HAS_ISSUES if all other modes didn't hit
+
+        const ERROR_PRI = 1;
+        const IN_PROCESS_PRI = 2;
+        const HAS_ISSUES_PRI = 3;
+        const OPTIMAL_PRI = 4;
+        const DECOMMISSIONED_PRI = 5;
+        const mode_priority = Object.freeze({
+            OFFLINE: ERROR_PRI,
+            UNTRUSTED: ERROR_PRI,
+            STORAGE_DOES_NOT_EXISTS: ERROR_PRI,
+            DETENTION: ERROR_PRI,
+            HTTP_SRV_ERRORS: ERROR_PRI,
+            INITIALIZING: IN_PROCESS_PRI,
+            DECOMISSIONING: IN_PROCESS_PRI,
+            MIGRATING: IN_PROCESS_PRI,
+            IN_PROCESS: IN_PROCESS_PRI,
+            SOME_MIGRATING: IN_PROCESS_PRI,
+            SOME_INITIALIZING: IN_PROCESS_PRI,
+            SOME_DECOMISSIONING: IN_PROCESS_PRI,
+            SOME_OFFLINE: HAS_ISSUES_PRI,
+            SOME_STORAGE_DOES_NOT_EXISTS: HAS_ISSUES_PRI,
+            SOME_DETENTION: HAS_ISSUES_PRI,
+            NO_CAPACITY: HAS_ISSUES_PRI,
+            LOW_CAPACITY: HAS_ISSUES_PRI,
+            OPTIMAL: OPTIMAL_PRI,
+            DECOMMISSIONED: DECOMMISSIONED_PRI,
+        });
+
+        const mode_by_priority = Object.freeze({
+            ERROR_PRI: 'HAS_ERRORS',
+            IN_PROCESS_PRI: 'IN_PROCESS',
+            HAS_ISSUES_PRI: 'HAS_ISSUES',
+            OPTIMAL_PRI: 'OPTIMAL',
+            DECOMMISSIONED_PRI: 'DECOMMISIONED'
+        });
+
+        const storage_priority = mode_priority[storage_mode];
+        const s3_priority = mode_priority[s3_mode];
+        if (s3_priority > storage_priority) {
+            host_item.mode = s3_mode;
+        } else if (storage_priority > s3_priority) {
+            host_item.mode = storage_mode;
+        } else {
+            host_item.mode = mode_by_priority[s3_priority];
+        }
     }
 
 

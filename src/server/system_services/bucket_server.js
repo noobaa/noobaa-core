@@ -1209,7 +1209,6 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     info.mode = calc_bucket_mode(has_any_pool_configured, has_any_valid_pool_configured, is_no_storage,
         is_storage_low, is_quota_low, is_quota_exceeded);
 
-    info.demo_bucket = Boolean(bucket.demo_bucket);
     return info;
 }
 

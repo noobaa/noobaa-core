@@ -89,8 +89,8 @@ function _list_nodes(retries) {
             if (!reply) {
                 throw new Error('list nodes failed');
             }
-            if (reply.total_count < TEST_CTX.num_of_agents || reply.filter_counts.by_mode.INITALIZING) {
-                let msg = `list nodes returned ${reply.total_count} nodes and ${reply.filter_counts.by_mode.INITALIZING} initializing. ` +
+            if (reply.total_count < TEST_CTX.num_of_agents || reply.filter_counts.by_mode.INITIALIZING) {
+                let msg = `list nodes returned ${reply.total_count} nodes and ${reply.filter_counts.by_mode.INITIALIZING} initializing. ` +
                     `expected (${TEST_CTX.num_of_agents}) nodes.`;
                 let total_tries = retries || 1;
                 if (total_tries > TEST_CTX.max_init_retries) {

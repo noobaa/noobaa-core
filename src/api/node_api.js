@@ -582,7 +582,7 @@ module.exports = {
             enum: [
                 'OFFLINE',
                 'UNTRUSTED',
-                'INITALIZING',
+                'INITIALIZING',
                 'DELETING',
                 'DELETED',
                 'STORAGE_NOT_EXIST',
@@ -621,7 +621,7 @@ module.exports = {
                 UNTRUSTED: {
                     type: 'integer'
                 },
-                INITALIZING: {
+                INITIALIZING: {
                     type: 'integer'
                 },
                 DELETING: {

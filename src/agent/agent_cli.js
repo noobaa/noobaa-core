@@ -197,6 +197,7 @@ AgentCLI.prototype.detect_new_drives = function() {
             let added_paths = _.differenceWith(added_mount_points, self.params.all_storage_paths,
                 (a, b) => String(a.drive_id) === String(b.drive_id));
             if (_.isEmpty(added_paths)) return P.resolve();
+            dbg.log0('identified new drives:', added_paths);
             return self.load(added_paths)
                 .then(function() {
                     dbg.log0('Drives added:', added_paths);
@@ -304,6 +305,8 @@ AgentCLI.prototype.load = function(added_storage_paths) {
                 });
         }))
         .then(storage_path_nodes => {
+            // no need to load s3 when adding new drives
+            if (added_storage_paths) return storage_path_nodes;
             // if no s3 agent exist for root storage path, run one
             let s3_started = _.find(storage_path_nodes[0], name => this._is_s3_agent(name));
             if (!s3_started) {

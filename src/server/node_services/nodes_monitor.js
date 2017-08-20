@@ -34,6 +34,9 @@ const os_utils = require('../../util/os_utils');
 const cluster_server = require('../system_services/cluster_server');
 const clustering_utils = require('../utils/clustering_utils');
 const system_utils = require('../utils/system_utils');
+const net_utils = require('../../util/net_utils');
+
+
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
@@ -152,6 +155,15 @@ const MODE_COMPARE_ORDER = [
     'DELETING',
     'DECOMMISSIONED',
     'STORAGE_NOT_EXIST',
+    'DETENTION',
+    'HTTP_SRV_ERRORS',
+    'IN_PROCESS',
+    'SOME_MIGRATING',
+    'SOME_INITIALIZING',
+    'SOME_DECOMMISSIONING',
+    'SOME_OFFLINE',
+    'SOME_STORAGE_NOT_EXISTS',
+    'SOME_DETENTION',
     'AUTH_FAILED', // authentication to cloud storage failed
     'DELETED',
     'N2N_ERRORS',
@@ -182,7 +194,7 @@ const DECOMMISSIONED_PRI = 1;
 const mode_priority = Object.freeze({
     OFFLINE: ERROR_PRI,
     UNTRUSTED: ERROR_PRI,
-    STORAGE_DOES_NOT_EXISTS: ERROR_PRI,
+    STORAGE_NOT_EXIST: ERROR_PRI,
     DETENTION: ERROR_PRI,
     HTTP_SRV_ERRORS: ERROR_PRI,
     INITIALIZING: IN_PROCESS_PRI,
@@ -193,7 +205,7 @@ const mode_priority = Object.freeze({
     SOME_INITIALIZING: IN_PROCESS_PRI,
     SOME_DECOMMISSIONING: IN_PROCESS_PRI,
     SOME_OFFLINE: HAS_ISSUES_PRI,
-    SOME_STORAGE_DOES_NOT_EXISTS: HAS_ISSUES_PRI,
+    SOME_STORAGE_NOT_EXIST: HAS_ISSUES_PRI,
     SOME_DETENTION: HAS_ISSUES_PRI,
     NO_CAPACITY: HAS_ISSUES_PRI,
     LOW_CAPACITY: HAS_ISSUES_PRI,
@@ -2333,15 +2345,15 @@ class NodesMonitor extends EventEmitter {
         if (storage_nodes.length) {
             const {
                 DECOMMISSIONED = 0,
-                OFFLINE = 0,
-                UNTRUSTED = 0,
-                STORAGE_NOT_EXIST = 0,
-                IO_ERRORS = 0,
-                N2N_ERRORS = 0,
-                GATEWAY_ERRORS = 0,
-                INITIALIZING = 0,
-                DECOMMISSIONING = 0,
-                MIGRATING = 0
+                    OFFLINE = 0,
+                    UNTRUSTED = 0,
+                    STORAGE_NOT_EXIST = 0,
+                    IO_ERRORS = 0,
+                    N2N_ERRORS = 0,
+                    GATEWAY_ERRORS = 0,
+                    INITIALIZING = 0,
+                    DECOMMISSIONING = 0,
+                    MIGRATING = 0
             } = _.mapValues(_.groupBy(storage_nodes, i => i.mode), arr => arr.length);
             const DETENTION = IO_ERRORS + N2N_ERRORS + GATEWAY_ERRORS;
             const enabled_nodes_count = storage_nodes.length - DECOMMISSIONED;
@@ -2471,7 +2483,7 @@ class NodesMonitor extends EventEmitter {
         if (options.sort === 'name') {
             list.sort(js_utils.sort_compare_by(item => String(item.node.name), options.order));
         } else if (options.sort === 'ip') {
-            list.sort(js_utils.sort_compare_by(item => String(item.node.ip), options.order));
+            list.sort(js_utils.sort_compare_by(item => net_utils.ip_to_long(item.node.ip), options.order));
         } else if (options.sort === 'has_issues') {
             list.sort(js_utils.sort_compare_by(item => Boolean(item.has_issues), options.order));
         } else if (options.sort === 'online') {
@@ -2489,7 +2501,7 @@ class NodesMonitor extends EventEmitter {
         } else if (options.sort === 'mode') {
             list.sort(js_utils.sort_compare_by(item => MODE_COMPARE_ORDER.indexOf(item.mode), options.order));
         } else if (options.sort === 'pool') {
-            list.sort(js_utils.sort_compare_by(item => system_store.data.get_by_id(item.node.pool), options.order));
+            list.sort(js_utils.sort_compare_by(item => system_store.data.get_by_id(item.node.pool).name, options.order));
         } else if (options.sort === 'recommended') {
             list.sort(js_utils.sort_compare_by(item => item.suggested_pool === options.recommended_hint, options.order));
         } else if (options.sort === 'services') {

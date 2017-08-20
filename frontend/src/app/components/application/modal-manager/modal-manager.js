@@ -6,7 +6,7 @@ import { state$, action$ } from 'state';
 import Modal from './modal';
 import ko from 'knockout';
 import { last } from 'utils/core-utils';
-import { closeModal } from 'action-creators';
+import { closeModal, updateModal } from 'action-creators';
 
 class ModalManagerViewModel extends Observer {
     constructor() {
@@ -19,11 +19,16 @@ class ModalManagerViewModel extends Observer {
     }
 
     onModals(modals) {
+        const modalParams = {
+            onClose: this.onClose,
+            onUpdateOptions: this.onUpdateOptions
+        };
+
         this.modals(
             modals.map(
                 (modalState, i) => {
-                    const modal = this.modals()[i] || new Modal(() => action$.onNext(closeModal()));
-                    modal.update(modalState);
+                    const modal = this.modals()[i] || new Modal(modalParams);
+                    modal.onState(modalState);
                     return modal;
                 }
             )
@@ -37,6 +42,14 @@ class ModalManagerViewModel extends Observer {
         if (top && top.backdropClose()) {
             action$.onNext(closeModal());
         }
+    }
+
+    onClose() {
+        action$.onNext(closeModal());
+    }
+
+    onUpdateOptions(options) {
+        action$.onNext(updateModal(options));
     }
 }
 

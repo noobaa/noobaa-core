@@ -3,7 +3,7 @@
 import template from './host-gateway-form.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { toggleHostServices } from 'action-creators';
+import { toggleHostServices, openDisableHostGatewayWarningModal } from 'action-creators';
 import { getGatewayServiceStateIcon } from 'utils/host-utils';
 import { formatSize } from 'utils/size-utils';
 import { timeShortFormat } from 'config';
@@ -19,8 +19,10 @@ class HostGatewayFormViewModel extends Observer {
         this.isDisabled = ko.observable();
         this.toggleGatewayButtonText = ko.observable();
         this.state = ko.observable();
+        this.wasUsed = ko.observable();
         this.latestWrites = ko.observable();
         this.latestReads = ko.observable();
+        this.restEndpoint = ko.observable();
         this.details = [
             {
                 template: 'state',
@@ -30,12 +32,19 @@ class HostGatewayFormViewModel extends Observer {
             {
                 label: 'Data Written in Last 7 Days',
                 value: this.latestWrites,
+                disabled: this.isDisabled,
                 template: 'ioUsage'
             },
             {
                 label: 'Data read in Last 7 Days',
                 value: this.latestReads,
+                disabled: this.isDisabled,
                 template: 'ioUsage'
+            },
+            {
+                label: 'REST Endpoint',
+                value: this.restEndpoint,
+                disabled: this.isDisabled
             }
         ];
 
@@ -62,6 +71,7 @@ class HostGatewayFormViewModel extends Observer {
         this.toggleGatewayButtonText(`${gatewayDisabled ? 'Enable' : 'Disable'} S3 Gateway`);
         this.state(getGatewayServiceStateIcon(gateway));
         this.isDisabled(gatewayDisabled);
+        this.restEndpoint(host.ip);
         this.hostLoaded(true);
 
 
@@ -75,14 +85,19 @@ class HostGatewayFormViewModel extends Observer {
                 usage: formatSize(usage.last7Days.bytesRead),
                 lastIO: usage.lastRead && moment.tz(usage.lastRead, timezone).format(timeShortFormat)
             });
+            this.wasUsed(Boolean(usage.lastWrite || usage.lastRead));
+
+        } else {
+            this.wasUsed(false);
         }
     }
 
     onToggleGateway() {
-        action$.onNext(toggleHostServices(
-            this.hostName,
-            { gateway: this.isDisabled() }
-        ));
+        const action = this.wasUsed() ?
+            openDisableHostGatewayWarningModal(this.hostName) :
+            toggleHostServices(this.hostName, { gateway: this.isDisabled() });
+
+        action$.onNext(action);
     }
 }
 

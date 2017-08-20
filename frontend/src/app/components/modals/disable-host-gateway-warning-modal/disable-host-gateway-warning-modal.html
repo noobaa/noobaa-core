@@ -1,0 +1,20 @@
+<!-- Copyright (C) 2016 NooBaa -->
+<p class="push-next">
+    Disabling this node S3 gateway service will cause a lost of all connections related to this gateway.
+</p>
+<p class="greedy push-next">
+    Would you like to disable this node S3 gateway service?
+</p>
+
+<p class="row remark push-both">
+    <svg-icon class="icon-small push-next-half" params="name: 'question'"></svg-icon>
+    <span class="greedy">
+        Disabling all services on this node (storage and gateway) will start a deactivation process for the node.
+        This may cause some performance issues.
+    </span>
+</p>
+
+<div class="row content-middle align-end">
+    <button class="link push-next" ko.click="onCancel">Cancel</button>
+    <button class="btn" ko.click="onApprove">Yes, Disable This Node S3 Gateway </button>
+</div>

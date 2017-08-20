@@ -172,6 +172,43 @@ const STAGE_WIPING = 'WIPING';
 const WAIT_NODE_OFFLINE = 'NODE_OFFLINE';
 const WAIT_SYSTEM_MAINTENANCE = 'SYSTEM_MAINTENANCE';
 
+
+// host modes consts
+const ERROR_PRI = 1;
+const IN_PROCESS_PRI = 2;
+const HAS_ISSUES_PRI = 3;
+const OPTIMAL_PRI = 4;
+const DECOMMISSIONED_PRI = 5;
+const mode_priority = Object.freeze({
+    OFFLINE: ERROR_PRI,
+    UNTRUSTED: ERROR_PRI,
+    STORAGE_DOES_NOT_EXISTS: ERROR_PRI,
+    DETENTION: ERROR_PRI,
+    HTTP_SRV_ERRORS: ERROR_PRI,
+    INITIALIZING: IN_PROCESS_PRI,
+    DECOMISSIONING: IN_PROCESS_PRI,
+    MIGRATING: IN_PROCESS_PRI,
+    IN_PROCESS: IN_PROCESS_PRI,
+    SOME_MIGRATING: IN_PROCESS_PRI,
+    SOME_INITIALIZING: IN_PROCESS_PRI,
+    SOME_DECOMISSIONING: IN_PROCESS_PRI,
+    SOME_OFFLINE: HAS_ISSUES_PRI,
+    SOME_STORAGE_DOES_NOT_EXISTS: HAS_ISSUES_PRI,
+    SOME_DETENTION: HAS_ISSUES_PRI,
+    NO_CAPACITY: HAS_ISSUES_PRI,
+    LOW_CAPACITY: HAS_ISSUES_PRI,
+    OPTIMAL: OPTIMAL_PRI,
+    DECOMMISSIONED: DECOMMISSIONED_PRI,
+});
+const mode_by_priority = Object.freeze({
+    ERROR_PRI: 'HAS_ERRORS',
+    IN_PROCESS_PRI: 'IN_PROCESS',
+    HAS_ISSUES_PRI: 'HAS_ISSUES',
+    OPTIMAL_PRI: 'OPTIMAL',
+    DECOMMISSIONED_PRI: 'DECOMMISIONED'
+});
+
+
 class NodesMonitor extends EventEmitter {
 
     constructor() {
@@ -2353,44 +2390,9 @@ class NodesMonitor extends EventEmitter {
         const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
 
 
-        const ERROR_PRI = 1;
-        const IN_PROCESS_PRI = 2;
-        const HAS_ISSUES_PRI = 3;
-        const OPTIMAL_PRI = 4;
-        const DECOMMISSIONED_PRI = 5;
-        const mode_priority = Object.freeze({
-            OFFLINE: ERROR_PRI,
-            UNTRUSTED: ERROR_PRI,
-            STORAGE_DOES_NOT_EXISTS: ERROR_PRI,
-            DETENTION: ERROR_PRI,
-            HTTP_SRV_ERRORS: ERROR_PRI,
-            INITIALIZING: IN_PROCESS_PRI,
-            DECOMISSIONING: IN_PROCESS_PRI,
-            MIGRATING: IN_PROCESS_PRI,
-            IN_PROCESS: IN_PROCESS_PRI,
-            SOME_MIGRATING: IN_PROCESS_PRI,
-            SOME_INITIALIZING: IN_PROCESS_PRI,
-            SOME_DECOMISSIONING: IN_PROCESS_PRI,
-            SOME_OFFLINE: HAS_ISSUES_PRI,
-            SOME_STORAGE_DOES_NOT_EXISTS: HAS_ISSUES_PRI,
-            SOME_DETENTION: HAS_ISSUES_PRI,
-            NO_CAPACITY: HAS_ISSUES_PRI,
-            LOW_CAPACITY: HAS_ISSUES_PRI,
-            OPTIMAL: OPTIMAL_PRI,
-            DECOMMISSIONED: DECOMMISSIONED_PRI,
-        });
-
-        const mode_by_priority = Object.freeze({
-            ERROR_PRI: 'HAS_ERRORS',
-            IN_PROCESS_PRI: 'IN_PROCESS',
-            HAS_ISSUES_PRI: 'HAS_ISSUES',
-            OPTIMAL_PRI: 'OPTIMAL',
-            DECOMMISSIONED_PRI: 'DECOMMISIONED'
-        });
-
         const storage_priority = mode_priority[storage_mode];
         const s3_priority = mode_priority[s3_mode];
-        if (s3_priority > storage_priority) {
+        if (s3_priority > storage_priority || s3_mode === storage_mode) {
             host_item.mode = s3_mode;
         } else if (storage_priority > s3_priority) {
             host_item.mode = storage_mode;

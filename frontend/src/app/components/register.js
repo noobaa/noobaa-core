@@ -77,6 +77,8 @@ export default function register(ko) {
     ko.components.register('edit-bucket-quota-modal',               require('./modals/edit-bucket-quota-modal/edit-bucket-quota-modal').default);
     ko.components.register('set-account-ip-restrictions-modal',     require('./modals/set-account-ip-restrictions-modal/set-account-ip-restrictions-modal').default);
     ko.components.register('create-pool-modal',                     require('./modals/create-pool-modal/create-pool-modal').default);
+    ko.components.register('disable-host-gateway-warning-modal',    require('./modals/disable-host-gateway-warning-modal/disable-host-gateway-warning-modal').default);
+    ko.components.register('disable-host-storage-warning-modal',    require('./modals/disable-host-storage-warning-modal/disable-host-storage-warning-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -117,7 +119,7 @@ export default function register(ko) {
     ko.components.register('ns-bucket-summary',             require('./ns-bucket/ns-bucket-summary/ns-bucket-summary').default);
     ko.components.register('ns-bucket-data-placement-form', require('./ns-bucket/ns-bucket-data-placement-form/ns-bucket-data-placement-form').default);
     ko.components.register('ns-bucket-s3-access-table',     require('./ns-bucket/ns-bucket-s3-access-table/ns-bucket-s3-access-table').default);
-    ko.components.register('ns-bucket-objects-table', require('./ns-bucket/ns-bucket-objects-table/ns-bucket-objects-table').default);
+    ko.components.register('ns-bucket-objects-table',       require('./ns-bucket/ns-bucket-objects-table/ns-bucket-objects-table').default);
     /** INJECT:ns-bucket **/
 
     // -------------------------------

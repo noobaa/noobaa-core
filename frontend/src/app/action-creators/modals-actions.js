@@ -392,7 +392,7 @@ export function openCreatePoolModal() {
         payload: {
             component: 'create-pool-modal',
             options: {
-                size: 'auto-height',
+                size: 'small',
                 title: 'Create Pool Resource'
             }
         }
@@ -414,3 +414,39 @@ export function openEditStorageDrivesModal(host) {
         }
     };
 }
+
+export function openDisableHostGatewayWarningModal(host) {
+    return {
+        type: 'OPEN_MODAL',
+        payload: {
+            component: {
+                name: 'disable-host-gateway-warning-modal',
+                params: { host }
+            },
+            options: {
+                size: 'xsmall',
+                severity: 'warning',
+                title: 'Disable Node S3 Gateway Service'
+            }
+        }
+    };
+}
+
+export function openDisableHostStorageWarningModal(host) {
+    return {
+        type: 'OPEN_MODAL',
+        payload: {
+            component: {
+                name: 'disable-host-storage-warning-modal',
+                params: { host },
+            },
+            options: {
+                size: 'xsmall',
+                severity: 'warning',
+                title: 'Disable Node Storage Service'
+            }
+        }
+    };
+}
+
+

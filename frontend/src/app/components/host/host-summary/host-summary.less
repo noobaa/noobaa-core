@@ -16,6 +16,8 @@ host-summary {
     .service-state-indicator {
         .remark();
         vertical-align: middle;
+        color: @color15;
+        cursor: default;
 
         &::before {
             content: '';
@@ -25,14 +27,11 @@ host-summary {
             line-height: @gutter/2;
             border-radius: @gutter/2;
             margin-right: 2px;
+            background-color: @color15;
         }
 
-        &.disabled {
-            color: @color15;
-
-            &::before {
-                background-color: @color15;
-            }
+        &.success, &.warning, &.error {
+            color: @color7;
         }
 
         &.success::before {

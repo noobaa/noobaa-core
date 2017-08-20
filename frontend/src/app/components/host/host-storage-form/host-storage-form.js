@@ -6,7 +6,7 @@ import StorageNodeRowViewModel from './storage-node-row';
 import { state$, action$ } from 'state';
 import { openEditStorageDrivesModal } from 'action-creators';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, compare } from 'utils/core-utils';
 import { getStorageServiceStateIcon } from 'utils/host-utils';
 
 const columns = deepFreeze([
@@ -33,6 +33,18 @@ const columns = deepFreeze([
     }
 ]);
 
+function _compareNodes(node1, node2) {
+    if (node1.mode === node2.mode) {
+        return 0;
+    } if (node1.mode === 'DECOMMISSIONED') {
+        return 1;
+    } else if (node2.mode === 'DECOMMISSIONED'){
+        return -1;
+    } else {
+        return compare(node1.mode, node2.mode);
+    }
+}
+
 class HostStorageFormViewModel extends Observer {
     constructor({ name }) {
         super();
@@ -53,8 +65,8 @@ class HostStorageFormViewModel extends Observer {
 
         const { nodes } = host.services.storage;
         const enabledNodesCount = nodes.filter(node => node.mode !== 'DECOMMISSIONED').length;
-        const rows = nodes
-            // .filter(node => node.mode !== 'DECOMMISSIONED')
+        const rows = Array.from(nodes)
+            .sort(_compareNodes)
             .map((node, i) => {
                 const row = this.rows.get(i) || new StorageNodeRowViewModel();
                 row.onNode(node);

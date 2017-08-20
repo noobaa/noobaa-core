@@ -23,8 +23,10 @@ const severityMapping = deepFreeze({
 });
 
 export default class Modal {
-    constructor(requestClose) {
-        this.requestClose = requestClose;
+    constructor({ onClose, onUpdateOptions }) {
+        this.close = onClose;
+        this.updateOptions = onUpdateOptions;
+
         this.css = ko.observable();
         this.titleText = ko.observable();
         this.titleCss = ko.observable();
@@ -35,7 +37,7 @@ export default class Modal {
         this.component = ko.observable({});
     }
 
-    update({ size, title, severity, closeButton, backdropClose, component }) {
+    onState({ size, title, severity, closeButton, backdropClose, component }) {
         const { icon, css } = severityMapping[severity] || {};
 
         this.css(`${size ? `modal-${size}` : ''} ${component.name}`);
@@ -54,13 +56,14 @@ export default class Modal {
                 name: component.name,
                 params: {
                     ...component.params,
-                    onClose: this.requestClose
+                    onClose: this.close,
+                    onUpdateOptions: this.updateOptions
                 }
             });
         }
     }
 
     onX() {
-        this.requestClose();
+        this.close();
     }
 }

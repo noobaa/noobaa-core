@@ -6,10 +6,10 @@ import DriveNodeRowViewModel from './drive-node-row';
 import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import { toggleHostServices, toggleHostNodes } from 'action-creators';
-import { keyByProperty, mapValues } from 'utils/core-utils';
+import { deepFreeze, keyByProperty, mapValues } from 'utils/core-utils';
 import ko from 'knockout';
 
-const columns = [
+const columns = deepFreeze([
     {
         name: 'selected',
         label: '',
@@ -24,7 +24,12 @@ const columns = [
         label: 'used capacity',
         type: 'capacity',
     },
-];
+]);
+
+const disabledModes = deepFreeze([
+    'DECOMMISSIONED',
+    'DECOMMISSIONING'
+]);
 
 const formName = 'editStorageDrives';
 
@@ -73,7 +78,7 @@ class EditStorageDrivesModalViewModel extends Observer {
                     nodesState: keyByProperty(
                         service.nodes,
                         'name',
-                        node => node.mode !== 'DECOMMISSIONED'
+                        node => !disabledModes.includes(node.mode)
                     ),
                 },
                 onSubmit: this.onSubmit.bind(this)

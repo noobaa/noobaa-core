@@ -14,8 +14,14 @@ import { paginationPageSize } from 'config';
 import ko from 'knockout';
 
 const steps = deepFreeze([
-    'Choose Name',
-    'Assign Nodes'
+    {
+        label: 'Choose Name',
+        size: 'small',
+    },
+    {
+        label: 'Assign Nodes',
+        size: 'auto-height'
+    }
 ]);
 
 const columns = deepFreeze([
@@ -141,17 +147,19 @@ function _fetchHosts(queryFields) {
 const formName = 'createPool';
 
 class CreatePoolModalViewModel extends Observer {
-    constructor({ onClose }) {
+    constructor({ onClose, onUpdateOptions }) {
         super();
 
-        this.steps = steps;
+        this.steps = steps.map(step => step.label);
         this.nameRestrictionList = ko.observableArray();
         this.columns = columns;
         this.close = onClose;
+        this.updateOptions = onUpdateOptions;
         this.pageSize = paginationPageSize;
         this.poolNames = [];
         this.visibleHosts = [];
         this.query = [];
+        this.modalSize = '';
         this.fetching = ko.observable();
         this.poolOptions = ko.observableArray();
         this.rows = ko.observableArray();
@@ -206,7 +214,7 @@ class CreatePoolModalViewModel extends Observer {
 
         // Extract the form values.
         const formValues = mapValues(formFields, field => field.value);
-        const { selectedHosts, poolName } = formValues;
+        const { selectedHosts, poolName, step } = formValues;
 
         // Get name restriction list.
         const poolList = Object.values(pools);
@@ -236,7 +244,7 @@ class CreatePoolModalViewModel extends Observer {
 
         // Calculate extra information.
         const hostCount = sumBy(poolList, pool => pool.hostCount);
-        const selectedMessage = `${selectedHosts.length} slelected of all nodes (${hostCount})`;
+        const selectedMessage = `${selectedHosts.length} selected of all nodes (${hostCount})`;
         const filteredHostCount = result ? result.counters.nonPaginated : 0;
         const emptyMessage = hostCount === 0 ?
             'The system contains no nodes' :
@@ -262,6 +270,13 @@ class CreatePoolModalViewModel extends Observer {
         this.fetching(!result);
         this.filteredHostCount(filteredHostCount);
         this.rows(rows);
+
+        // Match the modal isze woth the current step.
+        const size = steps[formValues.step].size;
+        if (this.modalSize !== size) {
+            this.updateOptions({ size });
+            this.modalSize = size;
+        }
     }
 
     onValidate({ step, poolName, selectedHosts }) {

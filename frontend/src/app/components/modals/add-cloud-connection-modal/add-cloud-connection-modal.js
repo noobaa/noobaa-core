@@ -30,7 +30,12 @@ function _generateConnectionName(existing) {
             const match = name.match(nameRegExp);
             return match ? parseInt(match[1]) : 0;
         })
-        .reduce(Math.max, 0);
+        .reduce(
+            // For some reason sending Math.max to reduce reutrns NaN for any value.
+            // Using an an arrow function to bypass the problem.
+            (max, val) => Math.max(max, val),
+            0
+        );
 
     return `Connection ${suffix + 1}`;
 }

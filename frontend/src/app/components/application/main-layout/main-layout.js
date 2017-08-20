@@ -91,6 +91,7 @@ class MainLayoutViewModel extends Observer {
     }
 
     onAccount([ accounts, user ]) {
+        if (!accounts || !user) return;
         const account = accounts[user];
         this.isUploadButtonVisible(account && account.isOwner);
     }

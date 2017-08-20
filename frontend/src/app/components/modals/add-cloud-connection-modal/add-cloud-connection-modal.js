@@ -63,7 +63,7 @@ class addCloudConnectionModalViewModel extends Observer {
     }
 
     onAccounts([ accounts, user ]) {
-        if (this.isFormInitialized()) return;
+        if (this.isFormInitialized() || !accounts || !user) return;
 
         const { externalConnections } = accounts[user];
         const name = _generateConnectionName(externalConnections);

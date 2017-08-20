@@ -1,40 +1,49 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './accounts-table.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
-import { systemInfo, routeContext } from 'model';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
-import { inputThrottle } from 'config';
-import { navigateTo } from 'actions';
-import { action$ } from 'state';
-import { openCreateAccountModal } from 'action-creators';
+import { inputThrottle, paginationPageSize } from 'config';
+import { action$, state$ } from 'state';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
+import {
+    requestLocation,
+    openCreateAccountModal,
+    tryDeleteAccount
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
         name: 'name',
         label: 'account name',
-        type: 'link',
-        sortable: true
+        type: 'newLink',
+        sortable: true,
+        compareKey: account => account.name
     },
     {
         name: 'loginAccess',
         label: 'Login Access',
-        sortable: 'login-access'
+        sortable: true,
+        compareKey: account => account.hasLoginAccess
     },
     {
         name: 's3Access',
         label: 's3 access',
-        sortable: 's3-access'
+        sortable: true,
+        compareKey: account => account.hasS3Access
     },
     {
         name: 'role',
-        sortable: true
+        sortable: true,
+        compareKey: account => _getAccountRole(account)
     },
     {
         name: 'defaultResource',
-        sortable: true
+        sortable: true,
+        compareKey: account => account.defaultResource
     },
     {
         name: 'deleteButton',
@@ -44,86 +53,139 @@ const columns = deepFreeze([
     }
 ]);
 
-function getAccountRole(account) {
-    return account.email !== systemInfo().owner.email ?
-        (account.has_login ? 'admin' : 'application') :
+function _getAccountRole(account) {
+    return !account.isOwner ?
+        (account.hasLoginAccess ? 'admin' : 'application') :
         'owner';
 }
 
-const compareAccessors = deepFreeze({
-    name: account => account.email,
-    connections: account => account.external_connections.count,
-    role: account => getAccountRole(account),
-    's3-access': account => account.has_s3_access,
-    'login-access': account => account.has_login,
-    defaultResource: account => account.default_pool
-});
-
-class AccountsTableViewModel extends BaseViewModel {
+class AccountsTableViewModel extends Observer {
     constructor() {
         super();
 
         this.columns = columns;
+        this.baseRoute = '';
+        this.accountsLoading = ko.observable(true);
+        this.rows = ko.observableArray();
         this.deleteGroup = ko.observable();
+        this.filter = ko.observable();
+        this.sorting = ko.observable();
+        this.pageSize = paginationPageSize;
+        this.page = ko.observable();
+        this.accountCount = ko.observable();
+        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+        this.selectedForDelete = ko.observable();
 
-        const query = ko.pureComputed(
-            () => routeContext().query || {}
-        );
-
-        this.filter = ko.pureComputed({
-            read: () => query().filter,
-            write: throttle(phrase => this.filterAccounts(phrase), inputThrottle)
+        this.deleteGroup = ko.pureComputed({
+            read: this.selectedForDelete,
+            write: val => this.onSelectForDelete(val)
         });
 
-        this.sorting = ko.pureComputed({
-            read: () => ({
-                sortBy: query().sortBy || 'name',
-                order: Number(query().order) || 1
-            }),
-            write: value => this.orderBy(value)
-        });
-
-        this.accounts = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return [];
-                }
-
-                const { sortBy, order } = this.sorting();
-                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
-
-                return (systemInfo().accounts || [])
-                    .filter(
-                        account => !account.is_support &&
-                            account.email.includes(this.filter() || '')
-                    )
-                    .sort(compareOp);
-            }
+        this.observe(
+            state$.getMany('accounts', 'location', 'session'),
+            this.onAccounts
         );
-
-        this.isCreateAccountModalVisible = ko.observable(false);
     }
 
-    filterAccounts(phrase) {
-        const params = Object.assign(
-            { filter: phrase || undefined },
-            this.sorting()
-        );
+    onAccounts([accounts, location, session]) {
+        const { params, query, pathname } = location;
+        const { system, tab } = params;
+        if ((tab && tab !== 'accounts') || !session || !accounts) return;
+        const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
+        const { compareKey } = columns.find(column => column.name === sortBy);
+        const accountList = Object.values(accounts);
+        const pageStart = Number(page) * this.pageSize;
+        const rowParams = {
+            baseRoute: realizeUri(routes.account, { system }, {}, true),
+            deleteGroup: this.deleteGroup,
+            onDelete: this.onDeleteAccount.bind(this)
+        };
 
-        navigateTo(undefined, undefined, params);
+        const rows = accountList
+            .filter(account => !filter || account.name.toLowerCase().includes(filter.toLowerCase()))
+            .sort(createCompareFunc(compareKey, order))
+            .slice(pageStart, pageStart + this.pageSize)
+            .map((account, i) => {
+                const row = this.rows.get(i) || new AccountRowViewModel(rowParams);
+                row.onAccount(account, _getAccountRole(account), session.user);
+                return row;
+            });
+
+        this.pathname = pathname;
+        this.filter(filter);
+        this.sorting({ sortBy, order: Number(order) });
+        this.page(Number(page));
+        this.accountCount(accountList.length);
+        this.selectedForDelete(selectedForDelete);
+        this.rows(rows);
+        this.accountsLoading(false);
     }
 
-    orderBy({ sortBy, order }) {
-        const filter = this.filter() || undefined;
-        navigateTo(undefined, undefined, { filter, sortBy, order });
+    onFilter(filter) {
+        const { sortBy, order } = this.sorting();
+        const query = {
+            filter: filter || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: 0,
+            selectedForDelete: undefined
+        };
+
+        action$.onNext(requestLocation(
+            realizeUri(this.pathname, {}, query)
+        ));
     }
 
-    createAccountRow(account) {
-        return new AccountRowViewModel(account, this.deleteGroup);
+    onSort({ sortBy, order }) {
+        const query = {
+            filter: this.filter() || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: 0,
+            selectedForDelete: undefined
+        };
+
+        action$.onNext(requestLocation(
+            realizeUri(this.pathname, {}, query)
+        ));
+    }
+
+    onPage(page) {
+        const { sortBy, order } = this.sorting();
+        const query = {
+            filter: this.filter() || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: page,
+            selectedForDelete: undefined
+        };
+
+        action$.onNext(requestLocation(
+            realizeUri(this.pathname, {}, query)
+        ));
+    }
+
+    onSelectForDelete(account) {
+        const { sortBy, order } = this.sorting();
+        const query = {
+            filter: this.filter() || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: this.page(),
+            selectedForDelete: account || undefined
+        };
+
+        action$.onNext(requestLocation(
+            realizeUri(this.pathname, {}, query)
+        ));
     }
 
     onCreateAccount() {
         action$.onNext(openCreateAccountModal());
+    }
+
+    onDeleteAccount(email, isCurrentUser) {
+        action$.onNext(tryDeleteAccount(email, isCurrentUser));
     }
 }
 

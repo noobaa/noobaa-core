@@ -33,7 +33,8 @@ import toggleHostServices from './toggle-host-services';
 import toggleHostNodes from './toggle-host-nodes';
 import downloadFile from './download-file';
 import fetchHostObjects from './fetch-host-objects';
-
+import tryDeleteAccount from './try-delete-account';
+import signOutDeletedUser from './sign-out-deleted-user';
 
 const generalEpics = [
     handleLocationRequests,
@@ -68,7 +69,9 @@ const accountRelatedEpics = [
     updateAccountS3Access,
     setAccountIpRestrictions,
     changeAccountPassword,
-    addExternalConnection
+    addExternalConnection,
+    tryDeleteAccount,
+    signOutDeletedUser
 ];
 
 const bucketRelatedEpics = [

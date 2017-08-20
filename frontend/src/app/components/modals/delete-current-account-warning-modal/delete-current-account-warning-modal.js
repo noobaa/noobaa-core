@@ -1,28 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './delete-current-account-warning-modal.html';
-import BaseViewModel from 'components/base-view-model';
-import ko from 'knockout';
-import { sessionInfo } from 'model';
-import { deleteAccount } from 'actions';
+import { action$ } from 'state';
+import { tryDeleteAccount } from 'action-creators';
 
-class DeleteAccountWarningModalViewModel extends BaseViewModel {
-    constructor({ onClose }) {
-        super();
-
-        this.onClose = onClose;
-        this.email = ko.pureComputed(
-            () => sessionInfo().user
-        );
+class DeleteAccountWarningModalViewModel {
+    constructor({ email, onClose }) {
+        this.close = onClose;
+        this.email = email;
     }
 
-    del() {
-        this.onClose();
-        deleteAccount(this.email());
+    onDelete() {
+        this.close();
+        action$.onNext(tryDeleteAccount(this.email, true, true));
     }
 
-    cancel() {
-        this.onClose();
+    onCancel() {
+        this.close();
     }
 }
 

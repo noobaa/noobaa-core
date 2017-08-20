@@ -9,7 +9,7 @@ import {
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = {};
+const initialState = undefined;
 
 // ------------------------------
 // Action Handlers

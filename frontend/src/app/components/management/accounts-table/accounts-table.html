@@ -2,17 +2,29 @@
 
 <div class="row alt-bg pad content-middle">
     <div class="greedy push-next">
-        <input type="search" placeholder="Filter by account name" ko.textInput="filter"/>
+        <input type="search"
+            placeholder="Filter by account name"
+            ko.textInput="ko.pc(filter, onFilterThrottled)"
+        />
     </div>
-    <button class="btn align-end" ko.click="onCreateAccount">
+    <button class="btn align-end"
+        ko.click="onCreateAccount"
+        ko.disable="accountsLoading"
+    >
         Create Account
     </button>
 </div>
 
 <data-table class="greedy" params="
     columns: columns,
-    data: accounts,
-    rowFactory: account => createAccountRow(account),
-    sorting: sorting,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: accountsLoading,
     emptyMessage: 'The current filter does not match any account'
 "></data-table>
+
+<paginator params="
+    itemCount: accountCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>

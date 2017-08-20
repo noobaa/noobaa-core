@@ -15,7 +15,10 @@ import {
     FAIL_CHANGE_ACCOUNT_PASSWORD,
     ADD_EXTERNAL_CONNECTION,
     COMPLETE_ADD_EXTERNAL_CONNECTION,
-    FAIL_ADD_EXTERNAL_CONNECTION
+    FAIL_ADD_EXTERNAL_CONNECTION,
+    TRY_DELETE_ACCOUNT,
+    COMPLETE_DELETE_ACCOUNT,
+    FAIL_DELETE_ACCOUNT,
 } from 'action-types';
 
 export function createAccount(
@@ -159,5 +162,26 @@ export function failAddExternalConnection(connection, error) {
     return {
         type: FAIL_ADD_EXTERNAL_CONNECTION,
         payload: { connection, error }
+    };
+}
+
+export function tryDeleteAccount(email, isCurrentUser, isConfirmed = false) {
+    return {
+        type: TRY_DELETE_ACCOUNT,
+        payload: { email, isCurrentUser, isConfirmed }
+    };
+}
+
+export function completeDeleteAccount(email, isCurrentUser) {
+    return {
+        type: COMPLETE_DELETE_ACCOUNT,
+        payload: { email, isCurrentUser }
+    };
+}
+
+export function failDeleteAccount(email, error) {
+    return {
+        type: FAIL_DELETE_ACCOUNT,
+        payload: { email, error }
     };
 }

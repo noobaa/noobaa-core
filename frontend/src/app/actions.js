@@ -15,7 +15,6 @@ import { Buffer } from 'buffer';
 import { action$ } from 'state';
 import {
     fetchSystemInfo,
-    signOut,
     showNotification,
     closeModal,
     requestLocation,
@@ -397,27 +396,6 @@ export function loadCloudBucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function deleteAccount(email) {
-    logAction('deleteAccount', { email });
-
-    api.account.delete_account({ email })
-        .then(
-            () => {
-                const user = model.sessionInfo() && model.sessionInfo().user;
-                if (email === user) {
-                    action$.onNext(signOut());
-                } else {
-                    action$.onNext(fetchSystemInfo());
-                }
-            }
-        )
-        .then(
-            () => notify(`Account ${email} deleted successfully`, 'success'),
-            () => notify(`Account ${email} deletion failed`, 'error')
-        )
-        .done();
-}
-
 export function createBucket(name, dataPlacement, pools) {
     logAction('createBucket', { name, dataPlacement, pools });
 

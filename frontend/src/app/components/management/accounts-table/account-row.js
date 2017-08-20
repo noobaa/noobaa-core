@@ -1,110 +1,51 @@
 /* Copyright (C) 2016 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { sessionInfo, systemInfo } from 'model';
-import { stringifyAmount } from 'utils/string-utils';
-import { action$ } from 'state';
-import { openDeleteCurrentAccountWarningModal } from 'action-creators';
-import { deleteAccount } from 'actions';
+import { realizeUri } from 'utils/browser-utils';
 
-export default class AccountRowViewModel extends BaseViewModel {
-    constructor(account, deleteGroup) {
-        super();
-
-        let systemName = ko.pureComputed(
-            () => systemInfo() ? systemInfo().name : ''
-        );
-
-        this.email = ko.pureComputed(
-            () => account() ? account().email : ''
-        );
-
-        this.name = ko.pureComputed(
-            () => {
-                if (!account()) {
-                    return '';
-                }
-
-                const email = this.email();
-                const curr = sessionInfo() && sessionInfo().user;
-                const text = `${email} ${email === curr ? '(Current user)' : ''}`;
-                const href = {
-                    route: 'account',
-                    params: { account: email, tab: null }
-                };
-
-                return { text, href };
-            }
-        );
-
-        this.connections = ko.pureComputed(
-            () => {
-                if (!account()) {
-                    return '';
-                }
-
-                const count = account().external_connections.count;
-                return count > 0 ?
-                    stringifyAmount('connection', count) :
-                    'no connections';
-            }
-        );
-
-
-        this.isSystemOwner = ko.pureComputed(
-            () => systemInfo() && this.email() === systemInfo().owner.email
-        );
-
-        this.role = ko.pureComputed(
-            () => {
-                if (!account() || !systemName()) {
-                    return '';
-                }
-
-                return  !this.isSystemOwner() ?
-                 (account().has_login ? 'Admin' : 'Application') :
-                'Owner';
-            }
-        );
-
-        this.s3Access = ko.pureComputed(
-            () => account() ?
-                (account().has_s3_access ? 'enabled' : 'disabled') :
-                ''
-        );
-
-        this.loginAccess = ko.pureComputed(
-            () => account() ?
-                (account().has_login ? 'enabled' : 'disabled') :
-                ''
-        );
-
-        this.defaultResource = ko.pureComputed(
-            () => (account() && account().default_pool) || '(not set)'
-        );
+export default class AccountRowViewModel {
+    constructor({ baseRoute, deleteGroup, onDelete }) {
+        this.baseRoute = baseRoute;
+        this.name = ko.observable();
+        this.role = ko.observable();
+        this.isSystemOwner = ko.observable();
+        this.s3Access = ko.observable();
+        this.loginAccess = ko.observable();
+        this.defaultResource = ko.observable();
+        this.isCurrentUser = false;
 
         this.deleteButton = {
+            id: ko.observable(),
             subject: 'account',
             group: deleteGroup,
             undeletable: this.isSystemOwner,
-            tooltip: ko.pureComputed(() => this.deleteTooltip()),
-            onDelete: () => this.onDelete()
+            tooltip: ko.observable(),
+            onDelete: email => onDelete(email, this.isCurrentUser)
         };
     }
 
-    deleteTooltip() {
-        return this.isSystemOwner() ?
-            'Cannot delete system owner' :
-            'Delete account';
-    }
+    onAccount(account, role, currentUser) {
+        const { name, isOwner, hasS3Access, hasLoginAccess, defaultResource } = account;
+        const defaultResourceInfo = {
+            text: defaultResource || '(not set)',
+            tooltip: defaultResource && {
+                text: defaultResource,
+                breakWords: true
+            }
+        };
+        const nameInfo = {
+            text: `${name} ${currentUser === name ? '(Current user)' : ''}`,
+            href: realizeUri(this.baseRoute, { account: name })
+        };
 
-    onDelete() {
-        const email = this.email();
-        if (email === sessionInfo().user) {
-            action$.onNext(openDeleteCurrentAccountWarningModal());
-        } else {
-            deleteAccount(email);
-        }
+        this.isCurrentUser = currentUser === name;
+        this.name(nameInfo);
+        this.role(role);
+        this.isSystemOwner(isOwner);
+        this.s3Access(hasS3Access ? 'enabled' : 'disabled');
+        this.loginAccess(hasLoginAccess ? 'enabled' : 'disabled');
+        this.defaultResource(defaultResourceInfo);
+        this.deleteButton.id(name);
+        this.deleteButton.tooltip(isOwner ? 'Cannot delete system owner' : 'Delete account');
     }
 }

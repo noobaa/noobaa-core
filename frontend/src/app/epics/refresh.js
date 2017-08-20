@@ -12,7 +12,8 @@ import {
     COMPLETE_ASSIGN_HOSTS_TO_POOL,
     COMPLETE_SET_HOST_DEBUG_MODE,
     COMPLETE_TOGGLE_HOST_SERVICES,
-    COMPLETE_TOGGLE_HOST_NODES
+    COMPLETE_TOGGLE_HOST_NODES,
+    COMPLETE_DELETE_ACCOUNT
 } from 'action-types';
 
 export default function(action$) {
@@ -28,7 +29,8 @@ export default function(action$) {
             COMPLETE_ASSIGN_HOSTS_TO_POOL,
             COMPLETE_SET_HOST_DEBUG_MODE,
             COMPLETE_TOGGLE_HOST_SERVICES,
-            COMPLETE_TOGGLE_HOST_NODES
+            COMPLETE_TOGGLE_HOST_NODES,
+            COMPLETE_DELETE_ACCOUNT
         )
         .map(() => refreshLocation());
 }

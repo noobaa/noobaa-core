@@ -27,7 +27,9 @@ import {
     COMPLETE_TOGGLE_HOST_SERVICES,
     FAIL_TOGGLE_HOST_SERVICES,
     COMPLETE_TOGGLE_HOST_NODES,
-    FAIL_TOGGLE_HOST_NODES
+    FAIL_TOGGLE_HOST_NODES,
+    COMPLETE_DELETE_ACCOUNT,
+    FAIL_DELETE_ACCOUNT
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -181,6 +183,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_TOGGLE_HOST_NODES]: ({ host }) => ({
         message: `Updating ${getHostDisplayName(host)} storage drives failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_DELETE_ACCOUNT]: ({ email }) => ({
+        message: `Account ${email} deleted successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_DELETE_ACCOUNT]: ({ email }) => ({
+        message: `Account ${email} deletion failed`,
         severity: 'error'
     })
 });

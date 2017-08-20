@@ -81,6 +81,7 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     onState([accounts, hostPools, cloudResources, buckets]) {
+        if(!accounts) return;
         this.accountNames = Object.keys(accounts);
 
         this.resourceOptions(flatMap(

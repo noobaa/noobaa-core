@@ -153,11 +153,14 @@ export function openFileUploadsModal() {
     };
 }
 
-export function openDeleteCurrentAccountWarningModal() {
+export function openDeleteCurrentAccountWarningModal(email) {
     return {
         type: OPEN_MODAL,
         payload: {
-            component: 'delete-current-account-warning-modal',
+            component: {
+                name: 'delete-current-account-warning-modal',
+                params: { email }
+            },
             options: {
                 title: 'Deleting Current Account',
                 severity: 'warning',

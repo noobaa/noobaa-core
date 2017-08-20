@@ -29,10 +29,11 @@ export default class StorageNodeRowViewModel {
         this.writeLatency = ko.observable();
         this.capacity = ko.observable();
         this.dataActivity = ko.observable();
+        this.rowCss = ko.observable();
     }
 
     onNode(node) {
-        const { mount, readLatency, writeLatency, activity } = node;
+        const { mode, mount, readLatency, writeLatency, activity } = node;
 
         this.state(getStorageNodeStateIcon(node));
         this.mount(mount);
@@ -40,5 +41,6 @@ export default class StorageNodeRowViewModel {
         this.writeLatency(`${_formatLatencyValue(writeLatency)} ms`);
         this.dataActivity(_getActivityString(activity));
         this.capacity(getNodeOrHostCapacityBarValues(node));
+        this.rowCss(mode === 'DECOMMISSIONED' ? 'row-disabled' : '');
     }
 }

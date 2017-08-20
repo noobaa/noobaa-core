@@ -1,6 +1,12 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <form class="column greedy" ko.submit="form.submit" ko.if="formReady">
+    <p>
+        An installed node might contain a number of drives, you can control which of this node's drives will
+        be used as NooBaa's storage resources. The more drives you add, more available storage will be added
+        to the node's pool
+    </p>
+
     <editor params="label: 'Enable Storage Service'">
         <toggle-switch params="
             value: form.serviceState,
@@ -9,15 +15,26 @@
         "></toggle-switch>
     </editor>
 
-    <p class="push-next">
-        An installed node might contain a number of drives, you can control which of this node's drives will
-        be used as NooBaa's storage resources. The more drives you add, more available storage will be added
-        to the node's pool
-    </p>
+     <div class="row content-middle">
+        <h2 class="heading3 greedy push-next" ko.css.disabled="!form.serviceState()">
+            Choose the drives you wish to use as storage resources
+        </h2>
+        <div ko.css.disabled="!form.serviceState()">
+            <button class="link alt-colors"
+                ko.enable="form.serviceState"
+                ko.click="onSelectAll">
+                Select all
+            </button>
+            |
+            <button class="link alt-colors"
+                ko.enable="form.serviceState"
+                ko.click="onClearAll"
+            >
+                Clear all
+            </button>
+        </div>
+    </div>
 
-    <h2 class="heading3" ko.css.disabled="!form.serviceState()">
-        Choose the node's drives you wish to use as storage resources
-    </h2>
     <data-table class="drives-table greedy push-next" params="
         columns: columns,
         data: rows,

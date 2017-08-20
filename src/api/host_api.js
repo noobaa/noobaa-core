@@ -611,5 +611,4 @@ module.exports = {
             }
         },
     }
-
 };

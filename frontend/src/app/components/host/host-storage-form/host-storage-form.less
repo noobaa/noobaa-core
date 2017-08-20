@@ -3,7 +3,16 @@
 host-storage-form {
     display: block;
 
+    .storage-status > svg-icon {
+        margin-right: 4px;
+    }
+
     .node-table {
+        .row-disabled {
+            opacity: .15;
+            pointer-events: none;
+        }
+
         .state-col {
             min-width: 42px;
         }

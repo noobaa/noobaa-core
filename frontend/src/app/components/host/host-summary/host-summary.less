@@ -17,11 +17,6 @@ host-summary {
         .remark();
         vertical-align: middle;
 
-        &:not(.healthy):not(.issues):not(.problem) {
-            color: @color15;
-        }
-
-
         &::before {
             content: '';
             display: inline-block;
@@ -30,18 +25,25 @@ host-summary {
             line-height: @gutter/2;
             border-radius: @gutter/2;
             margin-right: 2px;
-            background-color: @color15;
         }
 
-        &.healthy::before {
+        &.disabled {
+            color: @color15;
+
+            &::before {
+                background-color: @color15;
+            }
+        }
+
+        &.success::before {
             background-color: @color12;
         }
 
-        &.issues::before {
+        &.warning::before {
             background-color: @color11;
         }
 
-        &.problem::before {
+        &.error::before {
             background-color: @color10;
         }
     }

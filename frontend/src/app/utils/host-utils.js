@@ -247,25 +247,10 @@ const stateToModes = deepFreeze({
     ]
 });
 
-const stroageServiceModeToState = deepFreeze({
-    OFFLINE: 'problem',
-    DECOMMISSIONED: 'disabled',
-    DECOMMISSIONING: 'issues',
-    UNTRUSTED: 'issues',
-    DETENTION: 'issues',
-    HAS_ISSUES: 'issues',
-    NO_CAPACITY: 'issues',
-    DATA_ACTIVITY: 'issues',
-    LOW_CAPACITY: 'issues',
-    INITIALIZING: 'issues',
-    MEMORY_PRESSURE: 'issues',
-    OPTIMAL: 'healthy'
-});
-
 const storageServiceModeToIcon = deepFreeze({
     DECOMMISSIONED: {
         name: 'healthy',
-        css: 'disabeld',
+        css: 'disabled',
         tooltip: 'Disabled'
     },
     OFFLINE: {
@@ -350,7 +335,7 @@ const storageServiceModeToIcon = deepFreeze({
     },
     OPTIMAL: {
         name: 'healthy',
-        css: 'suceess',
+        css: 'success',
         tooltip: 'Healthy'
     }
 });
@@ -387,8 +372,8 @@ const storageNodeModeToStateIcon = deepFreeze({
         tooltip: 'Deactivating'
     },
     DECOMMISSIONED: {
-        name: 'problem',
-        css: 'warning',
+        name: 'healthy',
+        css: '',
         tooltip: 'Deactivated'
     },
     MIGRATING: {
@@ -428,14 +413,6 @@ const storageNodeModeToStateIcon = deepFreeze({
     }
 });
 
-const gatewayServiceModeToState = deepFreeze({
-    OFFLINE: 'problem',
-    DECOMMISSIONED: 'disabled',
-    HTTP_SRV_ERRORS: 'issues',
-    INITIALIZING: 'issues',
-    OPTIMAL: 'healthy'
-});
-
 const gatewayServiceModeToIcon = deepFreeze({
     OFFLINE: {
         name: 'problem',
@@ -443,9 +420,9 @@ const gatewayServiceModeToIcon = deepFreeze({
         tooltip: 'Offline'
     },
     DECOMMISSIONED: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Deactivated'
+        name: 'healthy',
+        css: 'disabled',
+        tooltip: 'Disabled'
     },
     HTTP_SRV_ERRORS: {
         name: 'problem',
@@ -519,14 +496,6 @@ export function summrizeHostModeCounters(counters) {
         healthy: HEALTHY,
         hasIssues: HAS_ISSUES,
         offline: OFFLINE
-    };
-}
-
-export function getHostServiceState({ services }) {
-    const { storage, gateway } = services;
-    return {
-        storage: stroageServiceModeToState[storage.mode],
-        gateway: gatewayServiceModeToState[gateway.mode],
     };
 }
 

@@ -8,11 +8,16 @@
     <section class="c3 borders pad column">
         <div class="row">
             <span class="greedy remark">Services:</span>
-            <span class="service-state-indicator" ko.css="storageServiceState">
+            <span class="service-state-indicator"
+                ko.css="storageServiceState().css"
+                ko.tooltip="storageServiceState().tooltip"
+            >
                 Storage
             </span>
             <vr class="push-both-half"></vr>
-            <span class="service-state-indicator" ko.css="gatewayServiceState">
+            <span class="service-state-indicator"
+                ko.css="gatewayServiceState().css"
+                ko.tooltip="gatewayServiceState().tooltip">
                 Gateway
             </span>
         </div>

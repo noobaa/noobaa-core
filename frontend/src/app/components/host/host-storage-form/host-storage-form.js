@@ -7,6 +7,7 @@ import { state$, action$ } from 'state';
 import { openEditStorageDrivesModal } from 'action-creators';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
+import { getStorageServiceStateIcon } from 'utils/host-utils';
 
 const columns = deepFreeze([
     {
@@ -51,17 +52,18 @@ class HostStorageFormViewModel extends Observer {
         if (!host) return;
 
         const { nodes } = host.services.storage;
-        const enabledNodes = nodes.filter(node => node.mode !== 'DECOMMISSIONED');
+        const enabledNodesCount = nodes.filter(node => node.mode !== 'DECOMMISSIONED').length;
         const rows = nodes
-            .filter(node => node.mode !== 'DECOMMISSIONED')
+            // .filter(node => node.mode !== 'DECOMMISSIONED')
             .map((node, i) => {
                 const row = this.rows.get(i) || new StorageNodeRowViewModel();
                 row.onNode(node);
                 return row;
             });
 
+        this.mode(getStorageServiceStateIcon(host));
         this.os(host.os);
-        this.driveCount(`${nodes.length} of ${enabledNodes.length}`);
+        this.driveCount(`${enabledNodesCount} of ${nodes.length}`);
         this.rows(rows);
         this.hostLoaded(true);
     }

@@ -325,7 +325,7 @@ class NodesMonitor extends EventEmitter {
         const host_item = this._consolidate_host(host_nodes);
         return P.map(host_nodes, node => this._retrust_node(node))
             .then(() => this._dispatch_node_event(host_item, 'retrust',
-                `Node ${this._item_hostname(host_item)} was retrusted by ${req.account && req.account.email}`,
+                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was retrusted by ${req.account && req.account.email}`,
                 req.account && req.account._id));
     }
 
@@ -339,7 +339,7 @@ class NodesMonitor extends EventEmitter {
         }
         return P.map(host_nodes, node => this._delete_node(node, is_force))
             .then(() => this._dispatch_node_event(host_item, 'deleted',
-                `Node ${this._item_hostname(host_item)} was deleted by ${req.account && req.account.email}`,
+                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was deleted by ${req.account && req.account.email}`,
                 req.account && req.account._id));
     }
 
@@ -862,13 +862,13 @@ class NodesMonitor extends EventEmitter {
         if (item.node.permission_tempering && !item.node_from_store.permission_tempering &&
             !item.permission_event) {
             item.permission_event = Date.now();
-            this._dispatch_node_event(item, 'untrusted', `Node ${this._item_hostname(item)} was set to untrusted due to permission tampering`);
+            this._dispatch_node_event(item, 'untrusted', `Node ${this._item_hostname(item)} in pool ${this._item_pool_name(item)} was set to untrusted due to permission tampering`);
         }
         if (_.some(item.node.issues_report, issue => issue.reason === 'TAMPERING') &&
             !_.some(item.node_from_store.issues_report, issue => issue.reason === 'TAMPERING') &&
             !item.data_event) {
             item.data_event = Date.now();
-            this._dispatch_node_event(item, 'untrusted', `Node ${this._item_hostname(item)} was set to untrusted due to data tampering`);
+            this._dispatch_node_event(item, 'untrusted', `Node ${this._item_hostname(item)} in pool ${this._item_pool_name(item)} was set to untrusted due to data tampering`);
         }
     }
 
@@ -1520,7 +1520,7 @@ class NodesMonitor extends EventEmitter {
                         if (item.node.is_mongo_node) continue;
                         if (item.node.is_internal_node) continue;
                         if (item.new_host) {
-                            this._dispatch_node_event(item, 'create', `${this._item_hostname(item)} was added as a node`);
+                            this._dispatch_node_event(item, 'create', `${this._item_hostname(item)} was added as a node to pool ${this._item_pool_name(item)}`);
                         }
                     }
                 }
@@ -1729,7 +1729,6 @@ class NodesMonitor extends EventEmitter {
             node: item.node._id,
             desc: description,
         });
-
     }
 
     _get_connection_status(item) {
@@ -2219,7 +2218,12 @@ class NodesMonitor extends EventEmitter {
     }
 
     _item_drive_description(item) {
-        return `${item.node.drives[0].mount} in ${this._item_hostname(item)}`;
+        return `${item.node.drives[0].mount} of ${this._item_hostname(item)} in pool ${this._item_pool_name(item)}`;
+    }
+
+    _item_pool_name(item) {
+        const pool = system_store.data.get_by_id(item[0].node.pool);
+        return pool ? pool.name : '';
     }
 
     _consolidate_host(host_nodes) {

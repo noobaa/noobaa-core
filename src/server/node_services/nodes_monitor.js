@@ -174,11 +174,11 @@ const WAIT_SYSTEM_MAINTENANCE = 'SYSTEM_MAINTENANCE';
 
 
 // host modes consts
-const ERROR_PRI = 1;
-const IN_PROCESS_PRI = 2;
+const ERROR_PRI = 5;
+const IN_PROCESS_PRI = 4;
 const HAS_ISSUES_PRI = 3;
-const OPTIMAL_PRI = 4;
-const DECOMMISSIONED_PRI = 5;
+const OPTIMAL_PRI = 2;
+const DECOMMISSIONED_PRI = 1;
 const mode_priority = Object.freeze({
     OFFLINE: ERROR_PRI,
     UNTRUSTED: ERROR_PRI,
@@ -186,12 +186,12 @@ const mode_priority = Object.freeze({
     DETENTION: ERROR_PRI,
     HTTP_SRV_ERRORS: ERROR_PRI,
     INITIALIZING: IN_PROCESS_PRI,
-    DECOMISSIONING: IN_PROCESS_PRI,
+    DECOMMISSIONING: IN_PROCESS_PRI,
     MIGRATING: IN_PROCESS_PRI,
     IN_PROCESS: IN_PROCESS_PRI,
     SOME_MIGRATING: IN_PROCESS_PRI,
     SOME_INITIALIZING: IN_PROCESS_PRI,
-    SOME_DECOMISSIONING: IN_PROCESS_PRI,
+    SOME_DECOMMISSIONING: IN_PROCESS_PRI,
     SOME_OFFLINE: HAS_ISSUES_PRI,
     SOME_STORAGE_DOES_NOT_EXISTS: HAS_ISSUES_PRI,
     SOME_DETENTION: HAS_ISSUES_PRI,
@@ -2259,7 +2259,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _item_pool_name(item) {
-        const pool = system_store.data.get_by_id(item[0].node.pool);
+        const pool = system_store.data.get_by_id(item.node.pool);
         return pool ? pool.name : '';
     }
 
@@ -2333,21 +2333,21 @@ class NodesMonitor extends EventEmitter {
         if (storage_nodes.length) {
             const {
                 DECOMMISSIONED = 0,
-                    OFFLINE = 0,
-                    UNTRUSTED = 0,
-                    STORAGE_NOT_EXIST = 0,
-                    IO_ERRORS = 0,
-                    N2N_ERRORS = 0,
-                    GATEWAY_ERRORS = 0,
-                    INITIALIZING = 0,
-                    DECOMMISSIONING = 0,
-                    MIGRATING = 0
+                OFFLINE = 0,
+                UNTRUSTED = 0,
+                STORAGE_NOT_EXIST = 0,
+                IO_ERRORS = 0,
+                N2N_ERRORS = 0,
+                GATEWAY_ERRORS = 0,
+                INITIALIZING = 0,
+                DECOMMISSIONING = 0,
+                MIGRATING = 0
             } = _.mapValues(_.groupBy(storage_nodes, i => i.mode), arr => arr.length);
             const DETENTION = IO_ERRORS + N2N_ERRORS + GATEWAY_ERRORS;
             const enabled_nodes_count = storage_nodes.length - DECOMMISSIONED;
 
             host_item.storage_nodes_mode =
-                (enabled_nodes_count && 'DECOMMISSIONED') || // all decommissioned
+                (!enabled_nodes_count && 'DECOMMISSIONED') || // all decommissioned
                 (OFFLINE === enabled_nodes_count && 'OFFLINE') || // all offline
                 (UNTRUSTED && 'UNTRUSTED') ||
                 (STORAGE_NOT_EXIST === enabled_nodes_count && 'STORAGE_NOT_EXIST') || // all unmounted

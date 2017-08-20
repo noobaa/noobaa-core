@@ -87,7 +87,7 @@ module.exports = {
                                 type: 'integer'
                             },
                             by_mode: {
-                                $ref: 'node_api#/definitions/mode_counters'
+                                $ref: '#/definitions/mode_counters'
                             }
                         }
                     },
@@ -542,9 +542,74 @@ module.exports = {
             },
         },
 
-        hosts_aggregate_info: {
-            $ref: 'node_api#/definitions/nodes_aggregate_info'
-        }
+        mode_counters: {
+            type: 'object',
+            properties: {
+                OFFLINE: {
+                    type: 'integer'
+                },
+                DECOMMISSIONED: {
+                    type: 'integer'
+                },
+                DECOMMISSIONING: {
+                    type: 'integer'
+                },
+                UNTRUSTED: {
+                    type: 'integer'
+                },
+                STORAGE_NOT_EXIST: {
+                    type: 'integer'
+                },
+                DETENTION: {
+                    type: 'integer'
+                },
+                MIGRATING: {
+                    type: 'integer'
+                },
+                IN_PROCESS: {
+                    type: 'integer'
+                },
+                NO_CAPACITY: {
+                    type: 'integer'
+                },
+                LOW_CAPACITY: {
+                    type: 'integer'
+                },
+                INITIALIZING: {
+                    type: 'integer'
+                },
+                OPTIMAL: {
+                    type: 'integer'
+                },
+                SOME_OFFLINE: {
+                    type: 'integer'
+                },
+                SOME_DETENTION: {
+                    type: 'integer'
+                },
+                SOME_STORAGE_NOT_EXIST: {
+                    type: 'integer'
+                },
+                SOME_DECOMMISSIONING: {
+                    type: 'integer'
+                },
+                SOME_INITIALIZING: {
+                    type: 'integer'
+                },
+                SOME_MIGRATING: {
+                    type: 'integer'
+                },
+                HTTP_SRV_ERRORS: {
+                    type: 'integer'
+                },
+                HAS_ERRORS: {
+                    type: 'integer'
+                },
+                HAS_ISSUES: {
+                    type: 'integer'
+                },
+            }
+        },
     }
 
 };

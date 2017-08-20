@@ -3,7 +3,7 @@ import { stringifyAmount } from 'utils/string-utils';
 import moment from 'moment';
 import numeral from 'numeral';
 
-const modeToStateIcon2 = deepFreeze({
+const modeToStateIcon = deepFreeze({
     DECOMMISSIONED: {
         name: 'problem',
         css: 'warning',
@@ -19,7 +19,7 @@ const modeToStateIcon2 = deepFreeze({
         css: 'warning',
         tooltip: 'Has Issues'
     },
-    STORAGE_NOT_EXISTS: {
+    STORAGE_NOT_EXIST: {
         name: 'problem',
         css: 'error',
         tooltip: 'All Drives are Unmounted'
@@ -34,7 +34,7 @@ const modeToStateIcon2 = deepFreeze({
         css: 'warning',
         tooltip: 'Initializing'
     },
-    DECOMISSIONING: {
+    DECOMMISSIONING: {
         name: 'working',
         css: 'warning',
         tooltip: 'Deactivating'
@@ -59,7 +59,7 @@ const modeToStateIcon2 = deepFreeze({
         css: 'warning',
         tooltip: 'Some drives are Initializing'
     },
-    SOME_DECOMISSIONING: {
+    SOME_DECOMMISSIONING: {
         name: 'working',
         css: 'warning',
         tooltip: 'Some drives are Decommissioning'
@@ -69,7 +69,7 @@ const modeToStateIcon2 = deepFreeze({
         css: 'warning',
         tooltip: 'Some drives are Offline'
     },
-    SOME_STORAGE_NOT_EXISTS: {
+    SOME_STORAGE_NOT_EXIST: {
         name: 'problem',
         css: 'warning',
         tooltip: 'Some drives are Unmounted'
@@ -111,54 +111,6 @@ const modeToStateIcon2 = deepFreeze({
     }
 });
 
-const modeToStateIcon = deepFreeze({
-    OFFLINE: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Offline'
-    },
-    DECOMMISSIONED: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Deactivated'
-    },
-    UNTRUSTED: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Node has issues'
-    },
-    HAS_ISSUES: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Node has issues'
-    },
-    MEMORY_PRESSURE: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Node experiencing memory pressure'
-    },
-    DECOMMISSIONING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Deactivating'
-    },
-    DATA_ACTIVITY: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'In Process'
-    },
-    INITIALIZING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Initializing'
-    },
-    OPTIMAL: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    }
-});
-
 const trustToIcon = deepFreeze({
     true: {
         name: 'healthy',
@@ -188,7 +140,7 @@ const modeToAccessibilityIcon = deepFreeze({
         css: 'error',
         tooltip: 'No access'
     },
-    STORAGE_NOT_EXISTS: {
+    STORAGE_NOT_EXIST: {
         name: 'problem',
         css: 'error',
         tooltip: 'No access'
@@ -238,7 +190,7 @@ const modeToAccessibilityIcon = deepFreeze({
         css: 'success',
         tooltip: 'Readable & Writable'
     },
-    SOME_STORAGE_NOT_EXISTS: {
+    SOME_STORAGE_NOT_EXIST: {
         name: 'healthy',
         css: 'success',
         tooltip: 'Readable & Writable'
@@ -270,13 +222,25 @@ const stateToModes = deepFreeze({
         'OPTIMAL'
     ],
     HAS_ISSUES: [
-        'UNTRUSTED',
         'DECOMMISSIONED',
+        'UNTRUSTED',
+        'STORAGE_NOT_EXIST',
+        'DETENTION',
+        'INITIALIZING',
         'DECOMMISSIONING',
-        'DATA_ACTIVITY',
-        'HAS_ISSUES',
-        'MEMORY_PRESSURE',
-        'INITIALIZING'
+        'MIGRATING',
+        'IN_PROCESS',
+        'SOME_MIGRATING',
+        'SOME_INITIALIZING',
+        'SOME_DECOMMISSIONING',
+        'SOME_OFFLINE',
+        'SOME_STORAGE_NOT_EXIST',
+        'SOME_DETENTION',
+        'NO_CAPACITY',
+        'LOW_CAPACITY',
+        'HTTP_SRV_ERRORS',
+        'HAS_ERRORS',
+        'HAS_ISSUES'
     ],
     OFFLINE: [
         'OFFLINE'
@@ -314,7 +278,7 @@ const storageServiceModeToIcon = deepFreeze({
         css: 'error',
         tooltip: 'Untrusted'
     },
-    STORAGE_NOT_EXISTS: {
+    STORAGE_NOT_EXIST: {
         name: 'problem',
         css: 'error',
         tooltip: 'All drives are unmounted'
@@ -329,7 +293,7 @@ const storageServiceModeToIcon = deepFreeze({
         css: 'warning',
         tooltip: 'All drive has no access'
     },
-    DECOMISSIONING: {
+    DECOMMISSIONING: {
         name: 'working',
         css: 'warning',
         tooltip: 'Deactivating'
@@ -354,7 +318,7 @@ const storageServiceModeToIcon = deepFreeze({
         css: 'warning',
         tooltip: 'Some drives are initializing'
     },
-    SOME_DECOMISSIONING: {
+    SOME_DECOMMISSIONING: {
         name: 'working',
         css: 'warning',
         tooltip: 'Some drives are deactivating'
@@ -364,7 +328,7 @@ const storageServiceModeToIcon = deepFreeze({
         css: 'warning',
         tooltip: 'Some drives are offline'
     },
-    SOME_STORAGE_NOT_EXISTS: {
+    SOME_STORAGE_NOT_EXIST: {
         name: 'problem',
         css: 'warning',
         tooltip: 'Some drives are unmounted'

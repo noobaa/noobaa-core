@@ -6,6 +6,7 @@ const url = require('url');
 const net = require('net');
 const dns = require('dns');
 const net_ping = require('net-ping');
+const ip_module = require('ip');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -105,8 +106,13 @@ function unwrap_ipv6(ip) {
     return ip;
 }
 
+function ip_to_long(ip) {
+    return ip_module.toLong(unwrap_ipv6(ip));
+}
+
 exports.ping = ping;
 exports.dns_resolve = dns_resolve;
 exports.is_hostname = is_hostname;
 exports.is_fqdn = is_fqdn;
 exports.unwrap_ipv6 = unwrap_ipv6;
+exports.ip_to_long = ip_to_long;

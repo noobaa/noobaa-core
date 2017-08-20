@@ -27,8 +27,18 @@
     emptyMessage: emptyMessage
 ">
     <template name="service-indicators">
-        <span class="indicator" ko.css.lighted="$data().storage">S</span>
-        <span class="indicator" ko.css.lighted="$data().gateway">G</span>
+        <span class="indicator"
+            ko.css.lighted="$data().storage"
+            ko.tooltip="'Stroage Service'"
+        >
+            S
+        </span>
+        <span class="indicator"
+            ko.css.lighted="$data().gateway"
+            ko.tooltip="'Gateway Service'"
+        >
+            G
+        </span>
     </template>
 </data-table>
 

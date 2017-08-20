@@ -12,7 +12,8 @@ import style from 'style';
 import moment from 'moment';
 import numeral from 'numeral';
 import {
-    getHostServiceState,
+    getStorageServiceStateIcon,
+    getGatewayServiceStateIcon,
     getHostStateIcon,
     getHostTrustIcon,
     getHostAccessibilityIcon,
@@ -33,8 +34,8 @@ class HostSummaryViewModel extends Observer {
 
         // State observables.
         this.trustTooltip = trustTooltip;
-        this.storageServiceState = ko.observable();
-        this.gatewayServiceState = ko.observable();
+        this.storageServiceState = ko.observable({});
+        this.gatewayServiceState = ko.observable({});
         this.stateIcon = ko.observable({});
         this.trustIcon = ko.observable({});
         this.accessibilityIcon = ko.observable({});
@@ -107,10 +108,10 @@ class HostSummaryViewModel extends Observer {
         this.hostLoaded(true);
 
         { // Update host state
-            const serviceState = getHostServiceState(host);
+            const { storage, gateway } = host.services;
 
-            this.storageServiceState(serviceState.storage);
-            this.gatewayServiceState(serviceState.gateway);
+            this.storageServiceState(getStorageServiceStateIcon(storage));
+            this.gatewayServiceState(getGatewayServiceStateIcon(gateway));
             this.stateIcon(getHostStateIcon(host));
             this.trustIcon(getHostTrustIcon(host));
             this.accessibilityIcon(getHostAccessibilityIcon(host) || {});

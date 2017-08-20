@@ -122,7 +122,10 @@ class PoolHostsTableViewModel extends Observer {
 
     onHosts({ views, queries, items }) {
         const queryKey = views[this.viewName];
-        if (!queryKey) return;
+        if (!queryKey) {
+            this.stateFilterOptions(_getStateFilterOptions(0, 0, 0, 0));
+            return;
+        }
 
         const query = queries[queryKey];
         if (query.result) {

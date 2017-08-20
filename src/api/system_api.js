@@ -526,8 +526,12 @@ module.exports = {
                 nodes: {
                     $ref: 'node_api#/definitions/nodes_aggregate_info'
                 },
+                // A workaround to return host counters to be used in overview until
+                // rewrite of overview to use proper hosts state.
                 hosts: {
-                    $ref: 'node_api#/definitions/nodes_aggregate_info'
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
                 },
                 buckets: {
                     type: 'array',

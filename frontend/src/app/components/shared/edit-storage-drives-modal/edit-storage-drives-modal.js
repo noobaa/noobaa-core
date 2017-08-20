@@ -6,7 +6,7 @@ import DriveNodeRowViewModel from './drive-node-row';
 import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import { toggleHostServices, toggleHostNodes } from 'action-creators';
-import { keyByProperty } from 'utils/core-utils';
+import { keyByProperty, mapValues } from 'utils/core-utils';
 import ko from 'knockout';
 
 const columns = [
@@ -93,6 +93,18 @@ class EditStorageDrivesModalViewModel extends Observer {
 
         action$.onNext(action);
         this.close();
+    }
+
+    onSelectAll() {
+        const { form } = this;
+        const state = mapValues(form.nodesState(), () => true);
+        form.nodesState(state);
+    }
+
+    onClearAll() {
+        const { form } = this;
+        const state = mapValues(form.nodesState(), () => false);
+        form.nodesState(state);
     }
 
     onCancel() {

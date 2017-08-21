@@ -35,20 +35,20 @@
         </div>
     </div>
 
-    <data-table class="drives-table greedy push-next" params="
+    <data-table class="drives-table greedy" params="
         columns: columns,
         data: rows,
         disabled: !form.serviceState()
     "></data-table>
+    <validation-message params="field: form.nodesState"></validation-message>
 
-    <div class="row content-middle">
+    <div class="row content-middle push-prev">
         <p class="greedy push-next remark row" ko.css.disabled="!form.serviceState()">
             <svg-icon class="push-next-half" params="name: 'notif-info'"></svg-icon>
             After removing an existing drive, a rebuild will accure to saftly remove the data from the drive
         </p>
 
-        <button class="link alt-colors push-both"
-            ko.click="onCancel">Cancel</button>
-        <button class="btn">Save</button>
+        <button class="link alt-colors push-both" ko.click="onCancel">Cancel</button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">Save</button>
     </div>
 </form>

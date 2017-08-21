@@ -3,12 +3,16 @@
 import template from './host-gateway-form.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { toggleHostServices, openDisableHostGatewayWarningModal } from 'action-creators';
 import { getGatewayServiceStateIcon } from 'utils/host-utils';
 import { formatSize } from 'utils/size-utils';
 import { timeShortFormat } from 'config';
 import ko from 'knockout';
 import moment from 'moment';
+import {
+    toggleHostServices,
+    openDisableHostGatewayWarningModal,
+    openDisableHostLastServiceWarningModal
+} from 'action-creators';
 
 class HostGatewayFormViewModel extends Observer {
     constructor({ name }) {
@@ -19,7 +23,7 @@ class HostGatewayFormViewModel extends Observer {
         this.isDisabled = ko.observable();
         this.toggleGatewayButtonText = ko.observable();
         this.state = ko.observable();
-        this.wasUsed = ko.observable();
+        this.wasUsed = false;
         this.latestWrites = ko.observable();
         this.latestReads = ko.observable();
         this.restEndpoint = ko.observable();
@@ -64,15 +68,17 @@ class HostGatewayFormViewModel extends Observer {
             return;
         }
 
-        const { gateway }  = host.services;
+        const { storage, gateway } = host.services;
         const { mode, usage } = gateway;
-        const gatewayDisabled = mode === 'DECOMMISSIONED';
+        const isDisabled = mode === 'DECOMMISSIONED';
+        const isLastService = storage.mode === 'DECOMMISSIONED' || storage.mode === 'DECOMMISSIONING';
 
-        this.toggleGatewayButtonText(`${gatewayDisabled ? 'Enable' : 'Disable'} S3 Gateway`);
-        this.state(getGatewayServiceStateIcon(gateway));
-        this.isDisabled(gatewayDisabled);
+        this.toggleGatewayButtonText(`${isDisabled ? 'Enable' : 'Disable'} S3 Gateway`);
+        this.state(getGatewayServiceStateIcon(host));
+        this.isDisabled(isDisabled);
         this.restEndpoint(host.ip);
         this.hostLoaded(true);
+        this.isLastService = isLastService;
 
 
         if (usage) {
@@ -85,19 +91,28 @@ class HostGatewayFormViewModel extends Observer {
                 usage: formatSize(usage.last7Days.bytesRead),
                 lastIO: usage.lastRead && moment.tz(usage.lastRead, timezone).format(timeShortFormat)
             });
-            this.wasUsed(Boolean(usage.lastWrite || usage.lastRead));
+            this.wasUsed = Boolean(usage.lastWrite || usage.lastRead);
 
         } else {
-            this.wasUsed(false);
+            this.wasUsed = false;
         }
     }
 
     onToggleGateway() {
-        const action = this.wasUsed() ?
-            openDisableHostGatewayWarningModal(this.hostName) :
-            toggleHostServices(this.hostName, { gateway: this.isDisabled() });
+        const { hostName, isDisabled, wasUsed, isLastService } = this;
 
-        action$.onNext(action);
+        if (isDisabled()) {
+            action$.onNext(toggleHostServices(hostName, { gateway: true }));
+
+        } else if (wasUsed) {
+            action$.onNext(openDisableHostGatewayWarningModal(hostName, isLastService));
+
+        } else if (isLastService) {
+            action$.onNext(openDisableHostLastServiceWarningModal(hostName, 'gateway'));
+
+        } else {
+            action$.onNext(toggleHostServices(this.hostName, { gateway: false }));
+        }
     }
 }
 

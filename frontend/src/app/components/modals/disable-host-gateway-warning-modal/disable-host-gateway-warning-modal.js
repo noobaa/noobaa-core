@@ -7,11 +7,12 @@ import { toggleHostServices } from 'action-creators';
 import ko from 'knockout';
 
 class DisableHostGatewayWarningModalViewModel extends Observer {
-    constructor({ onClose, name }) {
+    constructor({ onClose, host, isLastService }) {
         super();
 
         this.close = onClose;
-        this.hostName = ko.unwrap(name);
+        this.hostName = ko.unwrap(host);
+        this.isLastService = ko.unwrap(isLastService);
     }
 
     onApprove() {

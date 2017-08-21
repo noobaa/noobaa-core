@@ -550,6 +550,12 @@ module.exports = {
                 OFFLINE: {
                     type: 'integer'
                 },
+                S3_OFFLINE: {
+                    type: 'integer'
+                },
+                STORAGE_OFFLINE: {
+                    type: 'integer'
+                },
                 DECOMMISSIONED: {
                     type: 'integer'
                 },

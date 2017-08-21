@@ -4,7 +4,7 @@ import template from './host-storage-form.html';
 import Observer from 'observer';
 import StorageNodeRowViewModel from './storage-node-row';
 import { state$, action$ } from 'state';
-import { openEditStorageDrivesModal } from 'action-creators';
+import { openEditHostStorageDrivesModal } from 'action-creators';
 import ko from 'knockout';
 import { deepFreeze, compare } from 'utils/core-utils';
 import { getStorageServiceStateIcon } from 'utils/host-utils';
@@ -81,7 +81,7 @@ class HostStorageFormViewModel extends Observer {
     }
 
     onEditDrives() {
-        action$.onNext(openEditStorageDrivesModal(this.hostName));
+        action$.onNext(openEditHostStorageDrivesModal(this.hostName));
     }
 }
 

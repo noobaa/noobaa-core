@@ -108,10 +108,8 @@ class HostSummaryViewModel extends Observer {
         this.hostLoaded(true);
 
         { // Update host state
-            const { storage, gateway } = host.services;
-
-            this.storageServiceState(getStorageServiceStateIcon(storage));
-            this.gatewayServiceState(getGatewayServiceStateIcon(gateway));
+            this.storageServiceState(getStorageServiceStateIcon(host));
+            this.gatewayServiceState(getGatewayServiceStateIcon(host));
             this.stateIcon(getHostStateIcon(host));
             this.trustIcon(getHostTrustIcon(host));
             this.accessibilityIcon(getHostAccessibilityIcon(host) || {});

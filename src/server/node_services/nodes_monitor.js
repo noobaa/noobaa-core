@@ -2781,9 +2781,9 @@ class NodesMonitor extends EventEmitter {
             }
         };
         info.s3_nodes_info.mode = host_item.s3_nodes_mode;
-        info.s3_nodes_info.enabled = host_item.s3_nodes.some(item => !item.node.decommissioned);
+        info.s3_nodes_info.enabled = host_item.s3_nodes.some(item => !item.node.decommissioned && !item.node.decommissioning);
         info.storage_nodes_info.mode = host_item.storage_nodes_mode;
-        info.storage_nodes_info.enabled = host_item.storage_nodes.some(item => !item.node.decommissioned);
+        info.storage_nodes_info.enabled = host_item.storage_nodes.some(item => !item.node.decommissioned && !item.node.decommissioning);
         info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
 
         // collect host info

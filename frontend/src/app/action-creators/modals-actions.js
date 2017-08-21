@@ -399,12 +399,12 @@ export function openCreatePoolModal() {
     };
 }
 
-export function openEditStorageDrivesModal(host) {
+export function openEditHostStorageDrivesModal(host) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'edit-storage-drives-modal',
+                name: 'edit-host-storage-drives-modal',
                 params: { host }
             },
             options:{
@@ -415,13 +415,13 @@ export function openEditStorageDrivesModal(host) {
     };
 }
 
-export function openDisableHostGatewayWarningModal(host) {
+export function openDisableHostGatewayWarningModal(host, isLastService) {
     return {
         type: 'OPEN_MODAL',
         payload: {
             component: {
                 name: 'disable-host-gateway-warning-modal',
-                params: { host }
+                params: { host, isLastService }
             },
             options: {
                 size: 'xsmall',
@@ -432,18 +432,35 @@ export function openDisableHostGatewayWarningModal(host) {
     };
 }
 
-export function openDisableHostStorageWarningModal(host) {
+export function openDisableHostStorageWarningModal(host, isLastService) {
     return {
         type: 'OPEN_MODAL',
         payload: {
             component: {
                 name: 'disable-host-storage-warning-modal',
-                params: { host },
+                params: { host, isLastService },
             },
             options: {
                 size: 'xsmall',
                 severity: 'warning',
                 title: 'Disable Node Storage Service'
+            }
+        }
+    };
+}
+
+export function openDisableHostLastServiceWarningModal(host, service) {
+    return {
+        type: 'OPEN_MODAL',
+        payload: {
+            component: {
+                name: 'disable-host-last-service-warning-modal',
+                params: { host, service },
+            },
+            options: {
+                size: 'xsmall',
+                severity: 'warning',
+                title: 'Deactivate Node Last Service'
             }
         }
     };

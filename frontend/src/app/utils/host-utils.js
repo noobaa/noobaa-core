@@ -509,15 +509,17 @@ export function summrizeHostModeCounters(counters) {
     };
 }
 
-export function getStorageServiceStateIcon({ mode }) {
+export function getStorageServiceStateIcon(host) {
+    const { mode } = host.services.storage;
     return storageServiceModeToIcon[mode];
 }
 
-export function getStorageNodeStateIcon({ mode }) {
-    return storageNodeModeToStateIcon[mode];
+export function getStorageNodeStateIcon(host) {
+    return storageNodeModeToStateIcon[host.mode];
 }
 
-export function getGatewayServiceStateIcon({ mode }) {
+export function getGatewayServiceStateIcon(host) {
+    const { mode } = host.services.gateway;
     return gatewayServiceModeToIcon[mode];
 }
 

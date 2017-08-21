@@ -2796,7 +2796,7 @@ class NodesMonitor extends EventEmitter {
         info.last_communication = host_item.node.heartbeat;
         info.trusted = host_item.trusted;
         info.connectivity = host_item.connectivity;
-        info.storage = this._node_storage_info(host_item);
+        info.storage = host_item.node.storage;
         info.os_info = _.defaults({}, host_item.node.os_info);
         if (info.os_info.uptime) {
             info.os_info.uptime = new Date(info.os_info.uptime).getTime();

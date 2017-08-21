@@ -1880,6 +1880,7 @@ class NodesMonitor extends EventEmitter {
             free.multiply(100).divide(free.add(used));
 
         return (item.node.decommissioned && 'DECOMMISSIONED') ||
+            (item.node.decommissioning && 'DECOMMISSIONING') ||
             (!item.online && 'OFFLINE') ||
             (!item.node.rpc_address && 'INITIALIZING') ||
             (!item.trusted && 'UNTRUSTED') ||
@@ -1887,7 +1888,6 @@ class NodesMonitor extends EventEmitter {
             (item.node.deleted && 'DELETED') ||
             (item.storage_not_exist && 'STORAGE_NOT_EXIST') ||
             (item.auth_failed && 'AUTH_FAILED') ||
-            (item.node.decommissioning && 'DECOMMISSIONING') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
             (item.n2n_errors && 'N2N_ERRORS') ||
             (item.gateway_errors && 'GATEWAY_ERRORS') ||

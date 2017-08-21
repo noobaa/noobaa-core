@@ -441,12 +441,12 @@ module.exports = {
                 'LOW_CAPACITY',
                 'INITIALIZING',
                 'OPTIMAL',
-                'SOME_OFFLINE',
-                'SOME_DETENTION',
+                'SOME_STORAGE_OFFLINE',
+                'SOME_STORAGE_DETENTION',
                 'SOME_STORAGE_NOT_EXIST',
-                'SOME_DECOMMISSIONING',
-                'SOME_INITIALIZING',
-                'SOME_MIGRATING',
+                'SOME_STORAGE_DECOMMISSIONING',
+                'SOME_STORAGE_INITIALIZING',
+                'SOME_STORAGE_MIGRATING',
             ]
         },
 
@@ -466,6 +466,8 @@ module.exports = {
             type: 'string',
             enum: [
                 'OFFLINE',
+                'STORAGE_OFFLINE',
+                'S3_OFFLINE',
                 'DECOMMISSIONED',
                 'DECOMMISSIONING',
                 'UNTRUSTED',
@@ -477,12 +479,12 @@ module.exports = {
                 'LOW_CAPACITY',
                 'INITIALIZING',
                 'OPTIMAL',
-                'SOME_OFFLINE',
-                'SOME_DETENTION',
+                'SOME_STORAGE_OFFLINE',
+                'SOME_STORAGE_DETENTION',
                 'SOME_STORAGE_NOT_EXIST',
-                'SOME_DECOMMISSIONING',
-                'SOME_INITIALIZING',
-                'SOME_MIGRATING',
+                'SOME_STORAGE_DECOMMISSIONING',
+                'SOME_STORAGE_INITIALIZING',
+                'SOME_STORAGE_MIGRATING',
                 'HTTP_SRV_ERRORS',
                 'HAS_ERRORS',
                 'HAS_ISSUES'
@@ -581,22 +583,22 @@ module.exports = {
                 OPTIMAL: {
                     type: 'integer'
                 },
-                SOME_OFFLINE: {
+                SOME_STORAGE_OFFLINE: {
                     type: 'integer'
                 },
-                SOME_DETENTION: {
+                SOME_STORAGE_DETENTION: {
                     type: 'integer'
                 },
                 SOME_STORAGE_NOT_EXIST: {
                     type: 'integer'
                 },
-                SOME_DECOMMISSIONING: {
+                SOME_STORAGE_DECOMMISSIONING: {
                     type: 'integer'
                 },
-                SOME_INITIALIZING: {
+                SOME_STORAGE_INITIALIZING: {
                     type: 'integer'
                 },
-                SOME_MIGRATING: {
+                SOME_STORAGE_MIGRATING: {
                     type: 'integer'
                 },
                 HTTP_SRV_ERRORS: {

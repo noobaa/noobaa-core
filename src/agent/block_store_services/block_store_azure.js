@@ -9,17 +9,20 @@ const buffer_utils = require('../../util/buffer_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const RpcError = require('../../rpc/rpc_error');
+const url = require('url');
 
 class BlockStoreAzure extends BlockStoreBase {
 
     constructor(options) {
         super(options);
+        this.proxy = options.proxy;
         this.cloud_info = options.cloud_info;
         this.base_path = options.cloud_path;
         this.blocks_path = this.base_path + '/blocks_tree';
         this.usage_path = this.base_path + '/usage';
         this.usage_md_key = 'noobaa_usage';
         this.blob = azure_storage.createBlobService(this.cloud_info.azure.connection_string);
+        this.blob.setProxy(this.proxy ? url.parse(this.proxy) : null);
         this.container_name = this.cloud_info.azure.container;
     }
 

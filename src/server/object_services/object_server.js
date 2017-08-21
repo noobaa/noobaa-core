@@ -454,6 +454,7 @@ function read_host_mappings(req) {
  */
 function read_object_md(req) {
     dbg.log0('read_obj(1):', req.rpc_params);
+    const system = req.system;
     const adminfo = req.rpc_params.adminfo;
     let info;
     return find_object_md(req)
@@ -466,7 +467,7 @@ function read_object_md(req) {
             // or when the intention is to use dns name.
             const endpoint =
                 adminfo.signed_url_endpoint ||
-                url.parse(req.system.base_address || '').hostname ||
+                url.parse(system.base_address || '').hostname ||
                 ip_module.address();
             const account_keys = req.account.access_keys[0];
             info.s3_signed_url = cloud_utils.get_signed_url({
@@ -474,7 +475,7 @@ function read_object_md(req) {
                 access_key: account_keys.access_key,
                 secret_key: account_keys.secret_key,
                 bucket: req.rpc_params.bucket,
-                key: req.rpc_params.key
+                key: req.rpc_params.key,
             });
 
             return map_reader.read_object_mappings({

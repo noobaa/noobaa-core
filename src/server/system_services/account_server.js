@@ -9,6 +9,7 @@ const P = require('../../util/promise');
 
 const _ = require('lodash');
 const net = require('net');
+const url = require('url');
 const AWS = require('aws-sdk');
 const bcrypt = require('bcrypt');
 const { StorageError } = require('azure-storage/lib/common/errors/errors');
@@ -630,6 +631,9 @@ function add_external_connection(req) {
 function check_external_connection(req) {
     const { endpoint_type } = req.rpc_params;
     const params = _.pick(req.rpc_params, 'endpoint', 'identity', 'secret');
+    const system = req.system;
+    const proxy = system.phone_home_proxy_address;
+    params.proxy = proxy;
 
     return P.resolve()
         .then(() => {
@@ -662,7 +666,11 @@ function check_azure_connection(params) {
 
     return P.resolve()
         .then(() => P.resolve()
-            .then(() => azure_storage.createBlobService(conn_str))
+            .then(() => {
+                let blob = azure_storage.createBlobService(conn_str);
+                blob.setProxy(params.proxy ? url.parse(params.proxy) : null);
+                return blob;
+            })
             .catch(err => {
                 dbg.warn(`got error on createBlobService with params`, params, ` error: ${err}`);
                 throw new Error(err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');
@@ -703,7 +711,7 @@ function check_aws_connection(params) {
         accessKeyId: params.identity,
         secretAccessKey: params.secret,
         httpOptions: {
-            agent: http_utils.get_unsecured_http_agent(params.endpoint)
+            agent: http_utils.get_unsecured_http_agent(params.endpoint, params.proxy)
         }
     });
 

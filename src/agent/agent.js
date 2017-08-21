@@ -57,6 +57,7 @@ class Agent {
         }];
 
         this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
+        this.proxy = params.proxy;
         dbg.log0(`this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
         this.host_name = os.hostname();
@@ -84,6 +85,7 @@ class Agent {
             node_name: this.node_name,
             rpc_client: this.client,
             storage_limit: params.storage_limit,
+            proxy: this.proxy
         };
         if (this.storage_path) {
             assert(!this.token, 'unexpected param: token. ' +

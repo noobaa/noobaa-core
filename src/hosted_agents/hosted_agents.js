@@ -149,6 +149,7 @@ class HostedAgents {
                 };
                 const agent_params = {
                     address: 'wss://127.0.0.1:' + port,
+                    proxy: system.phone_home_proxy_address,
                     node_name,
                     host_id,
                     storage_path,

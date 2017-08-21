@@ -214,7 +214,7 @@ class CreatePoolModalViewModel extends Observer {
 
         // Extract the form values.
         const formValues = mapValues(formFields, field => field.value);
-        const { selectedHosts, poolName, step } = formValues;
+        const { selectedHosts, poolName } = formValues;
 
         // Get name restriction list.
         const poolList = Object.values(pools);

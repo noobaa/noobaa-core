@@ -1140,7 +1140,8 @@ class NodesMonitor extends EventEmitter {
     }
 
     _uninstall_deleting_node(item) {
-        if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true;
+        if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true; // S3 won't WIPE so will go directly to uninstall  
+        if (item.node.is_cloud_node && item.ready_to_uninstall) item.ready_to_be_deleted = true; // No need to uninstall - skipping...
         if (!item.ready_to_uninstall) return;
         if (item.node.deleted) return;
         if (item.ready_to_be_deleted) return;

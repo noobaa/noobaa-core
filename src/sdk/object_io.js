@@ -844,9 +844,8 @@ class ObjectIO {
                         dbg.error('prefetch end of file error', err);
                     });
             }
-
-            return reader;
         };
+        return reader;
     }
 
 
@@ -1226,8 +1225,8 @@ function get_frag_key(f) {
 }
 
 function _get_io_semaphore_size(size) {
-    return _.isNumber(size) ? config.IO_STREAM_SEMAPHORE_SIZE_CAP :
-        Math.min(config.IO_STREAM_SEMAPHORE_SIZE_CAP, size);
+    return _.isNumber(size) ? Math.min(config.IO_STREAM_SEMAPHORE_SIZE_CAP, size) :
+        config.IO_STREAM_SEMAPHORE_SIZE_CAP;
 }
 
 module.exports = ObjectIO;

@@ -15,6 +15,7 @@ class BlockStoreS3 extends BlockStoreBase {
     constructor(options) {
         super(options);
         this.cloud_info = options.cloud_info;
+        this.proxy = options.proxy;
         this.base_path = options.cloud_path;
         this.blocks_path = this.base_path + '/blocks_tree';
         this.usage_path = this.base_path + '/usage';
@@ -25,10 +26,14 @@ class BlockStoreS3 extends BlockStoreBase {
         };
         // upload copy to s3 cloud storage.
         if (this.cloud_info.endpoint === 'https://s3.amazonaws.com') {
+            const httpOptions = this.proxy ? {
+                agent: http_utils.get_unsecured_http_agent(this.cloud_info.endpoint, this.proxy)
+            } : undefined;
             this.s3cloud = new AWS.S3({
                 endpoint: this.cloud_info.endpoint,
                 accessKeyId: this.cloud_info.access_keys.access_key,
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
+                httpOptions,
                 region: 'us-east-1'
             });
         } else {
@@ -38,7 +43,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 accessKeyId: this.cloud_info.access_keys.access_key,
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
                 httpOptions: {
-                    agent: http_utils.get_unsecured_http_agent(this.cloud_info.endpoint)
+                    agent: http_utils.get_unsecured_http_agent(this.cloud_info.endpoint, this.proxy)
                 }
             });
         }

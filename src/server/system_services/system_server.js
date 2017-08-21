@@ -873,6 +873,8 @@ function update_phone_home_config(req) {
                 systems: [update]
             }
         })
+        .then(() => server_rpc.client.hosted_agents.stop())
+        .then(() => server_rpc.client.hosted_agents.start())
         .then(() => {
             Dispatcher.instance().activity({
                 event: 'conf.set_phone_home_proxy_address',

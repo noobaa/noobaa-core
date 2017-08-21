@@ -5,6 +5,7 @@ const _ = require('lodash');
 const AWS = require('aws-sdk');
 const net = require('net');
 const fs = require('fs');
+const url = require('url');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -948,6 +949,8 @@ function get_bucket_lifecycle_configuration_rules(req) {
  */
 function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
+    const system = req.system;
+    const proxy = system.phone_home_proxy_address;
     return P.fcall(function() {
             var connection = cloud_utils.find_cloud_connection(
                 req.account,
@@ -955,6 +958,7 @@ function get_cloud_buckets(req) {
             );
             if (connection.endpoint_type === 'AZURE') {
                 let blob_svc = azure_storage.createBlobService(cloud_utils.get_azure_connection_string(connection));
+                blob_svc.setProxy(proxy ? url.parse(proxy) : null);
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE', system_store.data.buckets, system_store.data.pools);
                 return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
                     .timeout(EXTERNAL_BUCKET_LIST_TO)
@@ -967,7 +971,7 @@ function get_cloud_buckets(req) {
                 accessKeyId: connection.access_key,
                 secretAccessKey: connection.secret_key,
                 httpOptions: {
-                    agent: http_utils.get_unsecured_http_agent(connection.endpoint)
+                    agent: http_utils.get_unsecured_http_agent(connection.endpoint, proxy)
                 }
             });
             return P.ninvoke(s3, "listBuckets")

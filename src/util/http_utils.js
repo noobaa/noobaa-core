@@ -8,6 +8,7 @@ const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
+const proxy_agent = require('proxy-agent');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -255,7 +256,10 @@ function send_reply(req, res, reply, options) {
 /**
  * Get http / https agent according to protocol
  */
-function get_unsecured_http_agent(endpoint) {
+function get_unsecured_http_agent(endpoint, proxy) {
+    if (proxy) {
+        return proxy_agent(proxy);
+    }
     const protocol = url.parse(endpoint).protocol;
     return protocol === "https:" ?
         new https.Agent({

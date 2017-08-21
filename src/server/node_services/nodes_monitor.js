@@ -158,12 +158,12 @@ const MODE_COMPARE_ORDER = [
     'DETENTION',
     'HTTP_SRV_ERRORS',
     'IN_PROCESS',
-    'SOME_MIGRATING',
-    'SOME_INITIALIZING',
-    'SOME_DECOMMISSIONING',
-    'SOME_OFFLINE',
+    'SOME_STORAGE_MIGRATING',
+    'SOME_STORAGE_INITIALIZING',
+    'SOME_STORAGE_DECOMMISSIONING',
+    'SOME_STORAGE_OFFLINE',
     'SOME_STORAGE_NOT_EXISTS',
-    'SOME_DETENTION',
+    'SOME_STORAGE_DETENTION',
     'AUTH_FAILED', // authentication to cloud storage failed
     'DELETED',
     'N2N_ERRORS',
@@ -201,12 +201,12 @@ const mode_priority = Object.freeze({
     DECOMMISSIONING: IN_PROCESS_PRI,
     MIGRATING: IN_PROCESS_PRI,
     IN_PROCESS: IN_PROCESS_PRI,
-    SOME_MIGRATING: IN_PROCESS_PRI,
-    SOME_INITIALIZING: IN_PROCESS_PRI,
-    SOME_DECOMMISSIONING: IN_PROCESS_PRI,
-    SOME_OFFLINE: HAS_ISSUES_PRI,
+    SOME_STORAGE_MIGRATING: IN_PROCESS_PRI,
+    SOME_STORAGE_INITIALIZING: IN_PROCESS_PRI,
+    SOME_STORAGE_DECOMMISSIONING: IN_PROCESS_PRI,
+    SOME_STORAGE_OFFLINE: HAS_ISSUES_PRI,
     SOME_STORAGE_NOT_EXIST: HAS_ISSUES_PRI,
-    SOME_DETENTION: HAS_ISSUES_PRI,
+    SOME_STORAGE_DETENTION: HAS_ISSUES_PRI,
     NO_CAPACITY: HAS_ISSUES_PRI,
     LOW_CAPACITY: HAS_ISSUES_PRI,
     OPTIMAL: OPTIMAL_PRI,
@@ -2367,13 +2367,13 @@ class NodesMonitor extends EventEmitter {
                 (INITIALIZING === enabled_nodes_count && 'INITIALIZING') || // all initializing
                 (DECOMMISSIONING === enabled_nodes_count && 'DECOMMISSIONING') || // all decommissioning
                 (MIGRATING === enabled_nodes_count && 'MIGRATING') || // all migrating
-                (MIGRATING && !INITIALIZING && !DECOMMISSIONING && 'SOME_MIGRATING') || // some migrating
-                (INITIALIZING && !MIGRATING && !DECOMMISSIONING && 'SOME_INITIALIZING') || // some initializing
-                (DECOMMISSIONING && !INITIALIZING && !MIGRATING && 'SOME_DECOMMISSIONING') || // some decommissioning
+                (MIGRATING && !INITIALIZING && !DECOMMISSIONING && 'SOME_STORAGE_MIGRATING') || // some migrating
+                (INITIALIZING && !MIGRATING && !DECOMMISSIONING && 'SOME_STORAGE_INITIALIZING') || // some initializing
+                (DECOMMISSIONING && !INITIALIZING && !MIGRATING && 'SOME_STORAGE_DECOMMISSIONING') || // some decommissioning
                 ((DECOMMISSIONING || INITIALIZING || MIGRATING) && 'IN_PROCESS') || // mixed in process
-                (OFFLINE && 'SOME_OFFLINE') || //some offline
+                (OFFLINE && 'SOME_STORAGE_OFFLINE') || //some offline
                 (STORAGE_NOT_EXIST && 'SOME_STORAGE_NOT_EXIST') || // some unmounted
-                (DETENTION && 'SOME_DETENTION') || // some in detention
+                (DETENTION && 'SOME_STORAGE_DETENTION') || // some in detention
                 (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
                 (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
                 'OPTIMAL';
@@ -2402,11 +2402,12 @@ class NodesMonitor extends EventEmitter {
         const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
         const storage_priority = mode_priority[storage_mode];
         const s3_priority = mode_priority[s3_mode];
-
-        if (s3_priority > storage_priority || s3_mode === storage_mode) {
+        if (s3_mode === storage_mode) {
             host_item.mode = s3_mode;
+        } else if (s3_priority > storage_priority) {
+            host_item.mode = s3_mode === 'OFFLINE' ? 'S3_OFFLINE' : s3_mode;
         } else if (storage_priority > s3_priority) {
-            host_item.mode = storage_mode;
+            host_item.mode = storage_mode === 'OFFLINE' ? 'STORAGE_OFFLINE' : storage_mode;
         } else {
             host_item.mode = mode_by_priority[s3_priority];
         }

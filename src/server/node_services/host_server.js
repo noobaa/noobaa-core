@@ -53,7 +53,7 @@ function get_test_hosts(req) {
         sort: 'shuffle'
     });
     return _.map(list_res.hosts,
-        host => _.pick(host, 'host_id', 'rpc_address'));
+        host => _.pick(host, 'name', 'rpc_address'));
 }
 
 function test_host_network() {

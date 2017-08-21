@@ -20,7 +20,7 @@ mocha.describe('node_server', function() {
 
     mocha.it('works', function() {
         const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(20000);
+        self.timeout(40000);
 
         let nodes;
         return P.resolve()

@@ -873,7 +873,10 @@ function update_phone_home_config(req) {
                 systems: [update]
             }
         })
+<<<<<<< HEAD
         .then(() => os_utils.set_yum_proxy(req.rpc_params.proxy_address))
+=======
+>>>>>>> a32610f44... Fixes to the proxy
         .then(() => server_rpc.client.hosted_agents.stop())
         .then(() => server_rpc.client.hosted_agents.start())
         .then(() => {

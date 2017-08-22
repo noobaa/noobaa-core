@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { echo, mapValues, keyByProperty, createCompareFunc, hashCode, averageBy } from 'utils/core-utils';
+import { echo, mapValues, keyByProperty, createCompareFunc, hashCode, averageBy, flatMap } from 'utils/core-utils';
 import { paginationPageSize } from 'config';
 import {
     FETCH_HOSTS,
@@ -14,7 +14,8 @@ import {
     DROP_HOSTS_VIEW
 } from 'action-types';
 
-const maxNumberOfHostsInMemory = paginationPageSize * 10;
+const inMemoryQueryLimit = 10;
+const inMemoryHostLimit = paginationPageSize * inMemoryQueryLimit;
 const gatewayUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseconds */
 
 // ------------------------------
@@ -24,7 +25,6 @@ const initialState = {
     items: {},
     queries: {},
     views: {},
-    overallocated: 0
 };
 
 const initialHostDiagnosticsState = {
@@ -40,7 +40,7 @@ function onFetchHosts(state, { payload }) {
     const { view, query, timestamp } = payload;
     const queryKey = _generateQueryKey(query);
 
-    return {
+    const newState = {
         ...state,
         queries: {
             ...state.queries,
@@ -57,6 +57,12 @@ function onFetchHosts(state, { payload }) {
             [view]: queryKey
         }
     };
+
+    return _clearOverallocated(
+        newState,
+        inMemoryQueryLimit,
+        inMemoryHostLimit
+    );
 }
 
 function onCompleteFetchHosts(state, { payload }) {
@@ -77,7 +83,7 @@ function onCompleteFetchHosts(state, { payload }) {
     const queries = {
         ...state.queries,
         [queryKey]: {
-            query,
+            ...query,
             fetching: false,
             result: {
                 items: Object.keys(itemUpdates),
@@ -89,39 +95,17 @@ function onCompleteFetchHosts(state, { payload }) {
         }
     };
 
-    let overallocated = Math.max(0, Object.keys(items).length - maxNumberOfHostsInMemory);
-    if (overallocated > 0) {
-        // Create a list of queries that are not locked be any view.
-        const lockedQueries = new Set(Object.values(state.views));
-        const unlockedQueries =  Object.values(state.queries)
-            .filter(query => !lockedQueries.has(query.key))
-            .sort(createCompareFunc(query => query.timestamp));
-
-        // Remove items
-        for (const query of unlockedQueries) {
-            queries[query.key] = undefined;
-
-            for (const host of query.hosts) {
-                if (items[host]) {
-                    items[host] = undefined;
-                    --overallocated;
-                }
-            }
-
-            if (overallocated <= 0) {
-                overallocated = 0;
-                break;
-            }
-        }
-    }
-
-    // Use mapValues to omit undefined keys.
-    return {
+    const newState = {
         ...state,
         items: mapValues(items, echo),
-        queries: mapValues(queries, echo),
-        overallocated
+        queries: mapValues(queries, echo)
     };
+
+    return _clearOverallocated(
+        newState,
+        inMemoryQueryLimit,
+        inMemoryHostLimit
+    );
 }
 
 function onFailFetchHosts(state, { payload }) {
@@ -171,7 +155,11 @@ function onFailCollectHostDiagnostics(state, { payload }) {
 }
 
 function onCompleteSetHostDebugMode(state, { payload }) {
-    const debugMode = payload.on;
+    const debugMode = {
+        state: payload.on,
+        timeLeft: undefined
+    };
+
     return _updateHost(state, payload.host, { debugMode });
 }
 
@@ -237,7 +225,10 @@ function _mapDataToHost(host = {}, data, fetchTime) {
             total: os_info.totalmem,
             used: os_info.totalmem - os_info.freemem
         },
-        debugMode: debug.level > 0 ? debug.time_left : 0,
+        debugMode: {
+            state: Boolean(debug.level),
+            timeLeft: debug.time_left
+        },
         diagnostics: diagnostics
     };
 }
@@ -300,11 +291,9 @@ function _mapGatewayService(gatewayData, fetchTime) {
     return serviceState;
 }
 
-
 function _updateHost(state, host, updates) {
     const item = state.items[host];
     if (!item) return state;
-
 
     return {
         ...state,
@@ -316,7 +305,52 @@ function _updateHost(state, host, updates) {
             }
         }
     };
+}
 
+function _clearOverallocated(state, queryLimit, hostLimit) {
+    let overallocatedQueries = Math.max(0, Object.keys(state.queries).length - queryLimit);
+    let overallocatedHosts = Math.max(0, Object.keys(state.items).length - hostLimit);
+
+    if (overallocatedQueries > 0 || overallocatedHosts > 0) {
+        const lockedQueries = new Set(Object.values(state.views));
+        const cadidateQueries =  Object.values(state.queries)
+            .filter(query => !lockedQueries.has(query.key) && !query.fetching)
+            .sort(createCompareFunc(query => query.timestamp));
+
+        // Remove queries or items
+        const queries = { ...state.queries };
+        const items = { ...state.items };
+        for (const query of cadidateQueries) {
+            queries[query.key] = undefined;
+            --overallocatedQueries;
+
+            const lockedHosts = new Set(flatMap(
+                Object.values(queries),
+                query => (query && !query.fetching) ? query.result.items : []
+            ));
+
+            for (const host of query.result.items) {
+                if (!lockedHosts.has(host)) {
+                    items[host] = undefined;
+                    --overallocatedHosts;
+                }
+            }
+
+            if (overallocatedQueries === 0 && overallocatedHosts <= 0) {
+                break;
+            }
+        }
+
+        // Use mapValues to omit undefined keys.
+        return {
+            ...state,
+            queries: mapValues(queries, echo),
+            items: mapValues(items, echo)
+        };
+
+    } else {
+        return state;
+    }
 }
 
 // ------------------------------

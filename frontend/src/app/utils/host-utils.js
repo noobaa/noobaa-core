@@ -12,7 +12,7 @@ const modeToStateIcon = deepFreeze({
     OFFLINE: {
         name: 'problem',
         css: 'error',
-        tooltip: 'All Services Offline'
+        tooltip: 'Offline'
     },
     S3_OFFLINE: {
         name: 'problem',
@@ -232,6 +232,8 @@ const stateToModes = deepFreeze({
         'OPTIMAL'
     ],
     HAS_ISSUES: [
+        'STORAGE_OFFLINE',
+        'S3_OFFLINE',
         'DECOMMISSIONED',
         'UNTRUSTED',
         'STORAGE_NOT_EXIST',
@@ -469,16 +471,16 @@ export function getHostDisplayName(hostName) {
     return `${namePart}`;
 }
 
-export function getHostStateIcon({ mode }) {
-    return modeToStateIcon[mode];
+export function getHostStateIcon(host) {
+    return modeToStateIcon[host.mode];
 }
 
-export function getHostTrustIcon({ trusted }) {
-    return trustToIcon[trusted];
+export function getHostTrustIcon(host) {
+    return trustToIcon[host.trusted];
 }
 
-export function getHostAccessibilityIcon({ mode }) {
-    return modeToAccessibilityIcon[mode];
+export function getHostAccessibilityIcon(host) {
+    return modeToAccessibilityIcon[host.services.storage.mode];
 }
 
 export function getNodeOrHostCapacityBarValues({ storage }) {

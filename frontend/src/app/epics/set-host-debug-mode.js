@@ -12,7 +12,7 @@ export default function(action$, { api }) {
             try {
                 await api.host.set_debug_host({
                     name: host,
-                    level: on ? 5 : 1
+                    level: on ? 5 : 0
                 });
 
                 return completeSetHostDebugMode(host, on);

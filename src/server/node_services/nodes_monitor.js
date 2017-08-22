@@ -2403,7 +2403,12 @@ class NodesMonitor extends EventEmitter {
         const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
         const storage_priority = mode_priority[storage_mode];
         const s3_priority = mode_priority[s3_mode];
-        if (s3_mode === storage_mode) {
+
+        if (s3_mode === 'DECOMMISSIONED') {
+            host_item.mode = storage_mode;
+        } else if (storage_mode === 'DECOMMISSIONED') {
+            host_item.mode = s3_mode;
+        } else if (s3_mode === storage_mode) {
             host_item.mode = s3_mode;
         } else if (s3_priority > storage_priority) {
             host_item.mode = s3_mode === 'OFFLINE' ? 'S3_OFFLINE' : s3_mode;
@@ -2510,8 +2515,9 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => {
                 // return a binary representation of the services in the following priority:
                 // [both, only storage, only s3, none]
-                const storage_service = item.storage_nodes_mode === 'DECOMMISSIONED' ? 0 : 2;
-                const s3_service = item.s3_nodes_mode === 'DECOMMISSIONED' ? 0 : 1;
+                const disabledModes = [ 'DECOMMISSIONED', 'DECOMMISSIONING' ];
+                const storage_service = disabledModes.includes(item.storage_nodes_mode) ? 0 : 2;
+                const s3_service = disabledModes.includes(item.s3_nodes_mode) ? 0 : 1;
                 return storage_service + s3_service;
             }, options.order));
         } else if (options.sort === 'shuffle') {
@@ -3115,7 +3121,7 @@ class NodesMonitor extends EventEmitter {
                 connection: item.connection,
             })
             .then(() => {
-                item.node.debug_mode = Date.now();
+                item.node.debug_mode = debug_level > 0 ? Date.now() : undefined;
             });
     }
 

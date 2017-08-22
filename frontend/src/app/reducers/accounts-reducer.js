@@ -14,7 +14,6 @@ const initialState = undefined;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-
 function onCompleteFetchSystemInfo(_, { payload }) {
     const { buckets, accounts, owner } = payload;
     const allBuckets = buckets.map(bucket => bucket.name);
@@ -41,13 +40,7 @@ function onCompleteFetchSystemInfo(_, { payload }) {
              (hasAccessToAllBuckets ? allBuckets : allowed_buckets.permission_list) :
              [];
 
-        const externalConnections = external_connections
-            .connections.map(conn => ({
-                name: conn.name,
-                service: conn.endpoint_type,
-                endpoint: conn.endpoint,
-                identity: conn.identity
-            }));
+        const externalConnections = _mapExternalConnections(external_connections);
 
         return {
             name: email,
@@ -62,6 +55,24 @@ function onCompleteFetchSystemInfo(_, { payload }) {
             externalConnections
         };
     });
+}
+
+// ------------------------------
+// Local util functions
+// ------------------------------
+function _mapExternalConnections(externalConnections) {
+    return externalConnections
+        .connections.map(conn => ({
+            name: conn.name,
+            service: conn.endpoint_type,
+            endpoint: conn.endpoint,
+            identity: conn.identity,
+            usage: conn.usage.map(record => ({
+                entity: record.entity,
+                externalEntity: record.external_entity,
+                usageType: record.usage_type
+            }))
+        }));
 }
 
 // ------------------------------

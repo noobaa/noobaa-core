@@ -6,7 +6,7 @@ import { completeAddExternalConnection, failAddExternalConnection } from 'action
 export default function(action$, { api }) {
     return action$
         .ofType(ADD_EXTERNAL_CONNECTION)
-        .switchMap(async action => {
+        .flatMap(async action => {
             const { name, service, endpoint, identity, secret } = action.payload;
 
             try {

@@ -191,6 +191,7 @@ export default function register(ko) {
     ko.components.register('account-s3-access-form',                require('./account/account-s3-access-form/account-s3-access-form').default);
     ko.components.register('regenerate-account-credentials-modal',  require('./account/regenerate-account-credentials-modal/regenerate-account-credentials-modal').default);
     ko.components.register('change-password-modal',                 require('./account/change-password-modal/change-password-modal').default);
+    ko.components.register('account-connections-table',             require('./account/account-connections-table/account-connections-table').default);
     /** INJECT:account **/
 
     // -------------------------------

@@ -19,6 +19,9 @@ import {
     TRY_DELETE_ACCOUNT,
     COMPLETE_DELETE_ACCOUNT,
     FAIL_DELETE_ACCOUNT,
+    DELETE_EXTERNAL_CONNECTION,
+    COMPLETE_DELETE_EXTERNAL_CONNECTION,
+    FAIL_DELETE_EXTERNAL_CONNECTION
 } from 'action-types';
 
 export function createAccount(
@@ -183,5 +186,26 @@ export function failDeleteAccount(email, error) {
     return {
         type: FAIL_DELETE_ACCOUNT,
         payload: { email, error }
+    };
+}
+
+export function deleteExternalConnection(connection) {
+    return {
+        type: DELETE_EXTERNAL_CONNECTION,
+        payload: { connection }
+    };
+}
+
+export function completeDeleteExternalConnection(connection) {
+    return {
+        type: COMPLETE_DELETE_EXTERNAL_CONNECTION,
+        payload: { connection }
+    };
+}
+
+export function failDeleteExternalConnection(connection, error) {
+    return {
+        type: FAIL_DELETE_EXTERNAL_CONNECTION,
+        payload: { connection, error }
     };
 }

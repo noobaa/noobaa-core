@@ -123,8 +123,10 @@ class PoolsTableViewModel extends Observer {
             onDelete: this.onDeletePool
         };
 
-        const rows = poolList
-            .filter(pool => !filter || pool.name.includes(filter.toLowerCase()))
+        const filteredRows = poolList
+            .filter(pool => !filter || pool.name.includes(filter.toLowerCase()));
+
+        const rows = filteredRows
             .sort(compareOp)
             .slice(pageStart, pageStart + this.pageSize)
             .map((pool, i) => {
@@ -140,7 +142,7 @@ class PoolsTableViewModel extends Observer {
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
         this.selectedForDelete(selectedForDelete);
-        this.poolCount(poolList.length);
+        this.poolCount(filteredRows.length);
         this.rows(rows);
         this.poolsLoaded(true);
     }

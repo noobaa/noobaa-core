@@ -2335,7 +2335,7 @@ class NodesMonitor extends EventEmitter {
 
         // aggregate storage nodes and s3 nodes info
         const MB = Math.pow(1024, 2);
-        const storage = this._node_storage_info(host_item);
+        const storage = host_item.node.storage;
         const free = size_utils.json_to_bigint(storage.free);
         const used = size_utils.json_to_bigint(storage.used);
         const free_ratio = free.add(used).isZero() ?

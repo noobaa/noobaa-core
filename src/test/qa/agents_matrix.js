@@ -48,10 +48,11 @@ var rpc = api.new_rpc('wss://' + server_ip + ':8443');
 rpc.disable_validation();
 var client = rpc.new_client({});
 const oses = [
-    'ubuntu12', 'ubuntu14', 'ubuntu16',
-    'centos6', 'centos7',
-    'redhat6', 'redhat7',
-    'win2008', 'win2012', 'win2016'
+    'ubuntu12', 'ubuntu14', //'ubuntu16',
+    'centos6', //'centos7',
+    // 'redhat6', 'redhat7',
+    //'win2008', 'win2012',
+    'win2016'
 ];
 
 const size = 16; //size in GB
@@ -152,8 +153,9 @@ function runCreateAgents(isInclude) {
 
 function verifyAgent() {
     console.log(`starting the verify agents stage`);
-    return s3ops.put_file_with_md5(server_ip, bucket, '100MB_File', 100, 1048576)
-        .then(() => s3ops.get_file_check_md5(server_ip, bucket, '100MB_File'))
+    // return s3ops.put_file_with_md5(server_ip, bucket, '100MB_File', 100, 1048576)
+    return s3ops.put_file_with_md5(server_ip, bucket, '50MB_File', 50, 1048576)
+        .then(() => s3ops.get_file_check_md5(server_ip, bucket, '50MB_File'))
         // .then(() => {
         //     console.warn(`Will take diagnostics from all the agents`);
         //     return P.map(nodes, name => client.node.collect_agent_diagnostics({ name })
@@ -284,37 +286,37 @@ function activeDeactiveAgents() {
 }
 
 function checkIncludeDisk() {
-    let number_befor_adding_disks;
     return getTestNodes()
-        .then(res => number_befor_adding_disks)
-        .tap(() => console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`))
-        .then(() => addDisksToMachine(size))
-        //map the disks
-        .then(() => runExtensions('map_new_disk'))
-        .delay(120000)
-        .then(() => isIncluded(number_befor_adding_disks.length));
+        .then(number_befor_adding_disks => {
+            console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`);
+            return addDisksToMachine(size)
+                //map the disks
+                .then(() => runExtensions('map_new_disk'))
+                .delay(120000)
+                .then(() => isIncluded(number_befor_adding_disks.length));
+        });
 }
 
 function checkExcludeDisk(excludeList) {
-    let number_befor_adding_disks;
     return getTestNodes()
-        .then(res => number_befor_adding_disks)
-        .tap(() => console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`))
-        //adding disk to exclude them
-        .then(() => addDisksToMachine(size))
-        .then(() => runExtensions('map_new_disk', '-e'))
-        .delay(120000)
-        .then(() => isExcluded(excludeList))
-        //adding a small disk
-        .then(() => addDisksToMachine(15))
-        .then(() => runExtensions('map_new_disk'))
-        .delay(120000)
-        .then(() => isIncluded(number_befor_adding_disks.length, 0, 'exluding small disks'))
-        //adding disk to check that it is not getting exclude
-        .then(() => addDisksToMachine(size))
-        .then(() => runExtensions('map_new_disk'))
-        .delay(120000)
-        .then(() => isIncluded(number_befor_adding_disks.length, oses.length, 'exlude'));
+        .then(number_befor_adding_disks => {
+            console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`);
+            //adding disk to exclude them
+            return addDisksToMachine(size)
+                .then(() => runExtensions('map_new_disk', '-e'))
+                .delay(120000)
+                .then(() => isExcluded(excludeList))
+                //adding a small disk
+                .then(() => addDisksToMachine(15))
+                .then(() => runExtensions('map_new_disk'))
+                .delay(120000)
+                .then(() => isIncluded(number_befor_adding_disks.length, 0, 'exluding small disks'))
+                //adding disk to check that it is not getting exclude
+                .then(() => addDisksToMachine(size))
+                .then(() => runExtensions('map_new_disk'))
+                .delay(120000)
+                .then(() => isIncluded(number_befor_adding_disks.length, oses.length, 'exlude'));
+        });
 }
 
 //check how many agents there are now, expecting agent to be included.

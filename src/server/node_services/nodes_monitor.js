@@ -2729,7 +2729,7 @@ class NodesMonitor extends EventEmitter {
                 a.time.end = Math.max(a.time.end, act.time.end || Infinity);
             }
 
-            const node_storage = this._node_storage_info(item);
+            const node_storage = aggregate_hosts ? item.node.storage : this._node_storage_info(item);
             _.forIn(storage, (value, key) => {
                 storage[key] = size_utils.reduce_sum(key, [node_storage[key], value]);
             });

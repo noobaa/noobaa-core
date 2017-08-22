@@ -29,7 +29,9 @@ import {
     COMPLETE_TOGGLE_HOST_NODES,
     FAIL_TOGGLE_HOST_NODES,
     COMPLETE_DELETE_ACCOUNT,
-    FAIL_DELETE_ACCOUNT
+    FAIL_DELETE_ACCOUNT,
+    COMPLETE_DELETE_EXTERNAL_CONNECTION,
+    FAIL_DELETE_EXTERNAL_CONNECTION
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -193,6 +195,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_DELETE_ACCOUNT]: ({ email }) => ({
         message: `Account ${email} deletion failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_DELETE_EXTERNAL_CONNECTION]: ({ connection }) => ({
+        message: `Connection ${connection} deleted successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_DELETE_EXTERNAL_CONNECTION]: ({ connection }) => ({
+        message: `Connection ${connection} deletion failed`,
         severity: 'error'
     })
 });

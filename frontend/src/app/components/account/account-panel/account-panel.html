@@ -12,6 +12,12 @@
         >
             Account Details
         </a>
+        <a ko.attr.href="tabHref('connections')"
+           ko.css.selected="selectedTab.eq('connections')"
+           ko.visible="isCurrentUser"
+        >
+            My Connections
+        </a>
     </nav>
 
     <div class="tabs-row">
@@ -24,6 +30,13 @@
             ko.css.selected="selectedTab.eq('details')"
             params="accountName: account"
         ></account-details-form>
+
+        <!-- ko if: isCurrentUser -->
+        <account-connections-table class="tab"
+            ko.css.selected="selectedTab.eq('connections')"
+            params="accountName: account"
+        ></account-connections-table>
+        <!-- /ko -->
     </div>
 </div>
 

@@ -1,0 +1,27 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="column pad alt-bg">
+    <div class="align-end">
+        <button class="btn"
+            ko.click="onAddConnection"
+            ko.disable="connectionsLoading"
+        >
+            Add Connection
+        </button>
+    </div>
+</div>
+
+<data-table class="greedy connections-table" params="
+    columns: columns,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: connectionsLoading,
+    emptyMessage: 'The account has no external connections'
+"></data-table>
+
+<paginator params="
+    itemCount: connectionCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>
+

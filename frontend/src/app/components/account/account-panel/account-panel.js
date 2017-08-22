@@ -13,17 +13,25 @@ class AccountPanelViewModel extends Observer {
         this.baseRoute = '';
         this.selectedTab = ko.observable();
         this.account = ko.observable();
+        this.isCurrentUser = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(state$.getMany(
+                'location',
+                ['session', 'user']
+            ),
+            this.onLocation
+        );
     }
 
-    onLocation({ route, params }) {
+    onLocation([location, user]) {
+        const { route, params } = location;
         const { system, account, tab = 's3-access' } = params;
         if (!account) return;
 
         this.baseRoute = realizeUri(route, { system, account }, {}, true);
         this.selectedTab(tab);
         this.account(account);
+        this.isCurrentUser(account === user);
     }
 
     tabHref(tab) {

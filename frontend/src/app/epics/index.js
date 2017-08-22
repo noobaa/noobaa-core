@@ -23,6 +23,7 @@ import setAccountIpRestrictions from './set-account-ip-restrictions';
 import updateInstallNodesFormCommandsField from './update-install-nodes-form-commands-field';
 import changeAccountPassword from './change-account-password';
 import addExternalConnection from './add-external-connection';
+import deleteExternalConnection from './delete-external-connection';
 import deleteResource from './delete-resource';
 import createHostsPool from './create-hosts-pool';
 import assignHostsToPool from './assign-hosts-to-pool';
@@ -71,7 +72,8 @@ const accountRelatedEpics = [
     changeAccountPassword,
     addExternalConnection,
     tryDeleteAccount,
-    signOutDeletedUser
+    signOutDeletedUser,
+    deleteExternalConnection
 ];
 
 const bucketRelatedEpics = [

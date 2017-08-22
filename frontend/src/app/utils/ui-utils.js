@@ -253,3 +253,4 @@ const bucketStateIconMapping = deepFreeze({
 export function getBucketStateIcon(bucketMode) {
     return bucketStateIconMapping[bucketMode];
 }
+

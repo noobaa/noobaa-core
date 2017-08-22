@@ -48,7 +48,6 @@ const columns = deepFreeze([
     {
         name: 'deleteButton',
         label: '',
-        css: 'delete-col',
         type: 'delete'
     }
 ]);
@@ -64,17 +63,16 @@ class AccountsTableViewModel extends Observer {
         super();
 
         this.columns = columns;
-        this.baseRoute = '';
-        this.accountsLoading = ko.observable(true);
+        this.pathname = '';
+        this.accountsLoading = ko.observable();
         this.rows = ko.observableArray();
-        this.deleteGroup = ko.observable();
         this.filter = ko.observable();
         this.sorting = ko.observable();
         this.pageSize = paginationPageSize;
         this.page = ko.observable();
         this.accountCount = ko.observable();
-        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
         this.selectedForDelete = ko.observable();
+        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.deleteGroup = ko.pureComputed({
             read: this.selectedForDelete,
@@ -88,9 +86,14 @@ class AccountsTableViewModel extends Observer {
     }
 
     onAccounts([accounts, location, session]) {
+        if(!accounts) {
+            this.accountsLoading(true);
+            return;
+        }
         const { params, query, pathname } = location;
-        const { system, tab } = params;
-        if ((tab && tab !== 'accounts') || !session || !accounts) return;
+        const { system, tab = 'accounts' } = params;
+        if ((tab !== 'accounts') || !session) return;
+
         const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
         const { compareKey } = columns.find(column => column.name === sortBy);
         const accountList = Object.values(accounts);
@@ -101,8 +104,10 @@ class AccountsTableViewModel extends Observer {
             onDelete: this.onDeleteAccount.bind(this)
         };
 
-        const rows = accountList
-            .filter(account => !filter || account.name.toLowerCase().includes(filter.toLowerCase()))
+        const filteredRows = accountList
+            .filter(account => !filter || account.name.toLowerCase().includes(filter.toLowerCase()));
+
+        const rows = filteredRows
             .sort(createCompareFunc(compareKey, order))
             .slice(pageStart, pageStart + this.pageSize)
             .map((account, i) => {
@@ -115,7 +120,7 @@ class AccountsTableViewModel extends Observer {
         this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
-        this.accountCount(accountList.length);
+        this.accountCount(filteredRows.length);
         this.selectedForDelete(selectedForDelete);
         this.rows(rows);
         this.accountsLoading(false);

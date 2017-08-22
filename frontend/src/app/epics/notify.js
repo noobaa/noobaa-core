@@ -1,4 +1,5 @@
 import { deepFreeze } from 'utils/core-utils';
+import { getHostDisplayName } from 'utils/host-utils';
 import { showNotification } from 'action-creators';
 import {
     FAIL_CREATE_ACCOUNT,
@@ -91,22 +92,22 @@ const actionToNotification = deepFreeze({
     }),
 
     [COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
-        message: `Collecting diagnostic for ${host}, it may take a few seconds`,
+        message: `Collecting diagnostic for ${getHostDisplayName(host)}, it may take a few seconds`,
         severity: 'success'
     }),
 
     [FAIL_COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
-        message: `Collecting diagnostic file for ${host} failed`,
+        message: `Collecting diagnostic file for ${getHostDisplayName(host)} failed`,
         severity: 'error'
     }),
 
     [COMPLETE_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
-        message: `Debug mode was turned ${on ? 'on' : 'off'} for node ${host}`,
+        message: `Debug mode was turned ${on ? 'on' : 'off'} for node ${getHostDisplayName(host)}`,
         severity: 'success'
     }),
 
     [FAIL_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
-        message: `Could not turn ${on ? 'on' : 'off'} debug mode for node ${host}`,
+        message: `Could not turn ${on ? 'on' : 'off'} debug mode for node ${getHostDisplayName(host)}`,
         severity: 'error'
     }),
 

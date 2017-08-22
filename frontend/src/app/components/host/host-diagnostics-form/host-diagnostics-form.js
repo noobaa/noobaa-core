@@ -6,23 +6,28 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { openTestNodeModal, collectHostDiagnostics, setHostDebugMode } from 'action-creators';
 import moment from 'moment';
+import { deepFreeze } from 'utils/core-utils';
 
-window.moment = moment;
-
-function _getDebugModeToggleText(debugMode) {
-    return `Turn ${debugMode ? 'off' : 'on'} node debug mode`;
+function _getDebugModeToggleText(debugState) {
+    return `Turn ${debugState ? 'off' : 'on'} node debug mode`;
 }
 
-function _getTimeLeftForDebugMode(debugMode) {
-    if (!debugMode) {
+function _getTimeLeftForDebugModeText(debugState, timeLeft) {
+    if (!debugState) {
         return 'None';
-    }
 
-    const duration = moment.duration(debugMode);
-    const minutes = String(duration.minutes()).padStart(2, 0);
-    const seconds = String(duration.seconds()).padStart(2, 0);
-    return `${minutes}:${seconds} minutes`;
+    } else  if (timeLeft == null) {
+        return 'Calculating...';
+
+    } else {
+        const duration = moment.duration(timeLeft);
+        const minutes = String(duration.minutes()).padStart(2, 0);
+        const seconds = String(duration.seconds()).padStart(2, 0);
+        return `${minutes}:${seconds} minutes`;
+    }
 }
+
+const debugInternval = 1000; // 1Sec
 
 class HostDiagnosticsFormViewModel extends Observer{
     constructor({ name }) {
@@ -31,35 +36,35 @@ class HostDiagnosticsFormViewModel extends Observer{
         this.hostName = ko.unwrap(name);
         this.hostLoaded = ko.observable(false);
         this.rpcAddress = '';
-        this.debugMode = false;
         this.actionsTooltip = ko.observable();
         this.areActionsDisabled = ko.observable();
         this.debugModeToggleText = ko.observable();
         this.isCollectingDiagnostics = ko.observable();
-        this.debugMode = ko.observable();
-        this.debugModeState = ko.observable();
-        this.timeLeftForDebugMode = ko.observable();
-        this.isDebugDetailsDisabled = ko.observable();
+        this.debugState = false;
+        this.timeLeftToDebugMode = undefined;
         this.debugDetails = [
             {
                 label: 'Debug Mode',
-                value: this.debugModeState,
+                value: ko.observable(),
                 template: 'debugMode'
             },
             {
                 label: 'Time left for debugging',
-                value: this.timeLeftForDebugMode,
-                disabled: this.isDebugDetailsDisabled,
+                value: ko.observable(),
+                disabled: ko.observable()
             }
         ];
 
         this.observe(state$.get('hosts', 'items', this.hostName), this.onHost);
+
+        // Create a ticker to update the debug counter each second.
+        this.ticker = setInterval(this.onTick.bind(this), debugInternval);
     }
 
     onHost(host) {
         if (!host) {
-            this.debugModeToggleText(_getDebugModeToggleText(false));
             this.areActionsDisabled(true);
+            this.debugModeToggleText(_getDebugModeToggleText(false));
             return;
         }
 
@@ -67,19 +72,32 @@ class HostDiagnosticsFormViewModel extends Observer{
         const isOffline = mode === 'OFFLINE';
 
         this.rpcAddress = rpcAddress;
-        this.debugMode = debugMode;
         this.actionsTooltip(isOffline ? 'Node must be online for diagnostics operations' : '');
         this.areActionsDisabled(isOffline);
-        this.debugModeToggleText(_getDebugModeToggleText(debugMode));
         this.isCollectingDiagnostics(diagnostics.collecting);
-        this.debugModeState(debugMode);
-        this.timeLeftForDebugMode(_getTimeLeftForDebugMode(debugMode));
-        this.isDebugDetailsDisabled(!debugMode);
+
+        this.debugState = debugMode.state;
+        this.timeLeftToDebugMode = debugMode.timeLeft;
+        this.debugModeToggleText(_getDebugModeToggleText(debugMode.state));
+        this.debugDetails[0].value(debugMode.state);
+        this.debugDetails[1].value(_getTimeLeftForDebugModeText(debugMode.state, debugMode.timeLeft));
+        this.debugDetails[1].disabled(!debugMode.state);
+
         this.hostLoaded(true);
     }
 
+    onTick() {
+        const { debugState, timeLeftToDebugMode } = this;
+        if (!debugState || !timeLeftToDebugMode || timeLeftToDebugMode < debugInternval) return;
+
+        this.timeLeftToDebugMode - timeLeftToDebugMode - debugInternval;
+        const text = _getTimeLeftForDebugModeText(debugState, timeLeftToDebugMode);
+        this.debugDetails[1].value(text);
+    }
+
     onToggleDebugMode() {
-        action$.onNext(setHostDebugMode(this.hostName, !this.debugMode));
+        const { hostName, debugState } = this;
+        action$.onNext(setHostDebugMode(hostName, !debugState));
     }
 
     onDownloadDiagnostics() {
@@ -88,6 +106,11 @@ class HostDiagnosticsFormViewModel extends Observer{
 
     onRunTest() {
         action$.onNext(openTestNodeModal(this.rpcAddress));
+    }
+
+    dispose(){
+        clearInterval(this.ticker);
+        super.dispose();
     }
 }
 

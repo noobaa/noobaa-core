@@ -40,8 +40,9 @@ export default class PlacementRowViewModel {
                     return '';
                 }
 
+                const { count, by_mode } = pool().hosts;
                 return pool().resource_type === 'HOSTS' ?
-                    `${pool().nodes.online} of ${pool().nodes.count}` :
+                    `${count - by_mode.OFFLINE} of ${count}` :
                     '—';
             }
         );

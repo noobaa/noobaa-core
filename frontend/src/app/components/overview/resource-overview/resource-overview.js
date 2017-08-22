@@ -109,7 +109,7 @@ class ResourceOverviewViewModel extends BaseViewModel {
 
         this.chartValues = [
             {
-                label: 'Online',
+                label: 'Healthy',
                 value: healthyNodesCount,
                 color: hexToRgb(style['color12'], pieColorsOpacityFactor)
             },

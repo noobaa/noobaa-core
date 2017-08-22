@@ -392,6 +392,7 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         pool_node_type: pool.pool_node_type,
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier
+        storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS)
     };
     if (p_nodes.data_activities) {
         info.data_activities = p_nodes.data_activities;
@@ -403,18 +404,15 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
             target_bucket: pool.cloud_pool_info.target_bucket
         };
         info.undeletable = check_resrouce_pool_deletion(pool);
-        info.storage = _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS);
         info.mode = calc_cloud_pool_mode(p_nodes);
     } else if (_is_mongo_pool(pool)) {
         info.mongo_info = {};
         info.undeletable = check_resrouce_pool_deletion(pool);
-        info.storage = _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS);
         info.mode = calc_mongo_pool_mode(p_nodes);
     } else {
         info.nodes = _.defaults({}, p_nodes.nodes, POOL_NODES_INFO_DEFAULTS);
         info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
-        info.storage = _.defaults(size_utils.to_bigint_storage(p_hosts.storage), POOL_STORAGE_DEFAULTS);
         info.mode = calc_hosts_pool_mode(info);
     }
 

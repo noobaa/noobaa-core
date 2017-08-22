@@ -6,7 +6,6 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { openTestNodeModal, collectHostDiagnostics, setHostDebugMode } from 'action-creators';
 import moment from 'moment';
-import { deepFreeze } from 'utils/core-utils';
 
 function _getDebugModeToggleText(debugState) {
     return `Turn ${debugState ? 'off' : 'on'} node debug mode`;

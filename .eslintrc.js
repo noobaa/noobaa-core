@@ -138,7 +138,7 @@ module.exports = {
 
         // max statements in function
         // TODO eslint max-statements per function should be reduced to ~20 instead of 60
-        'max-statements': ['error', 60],
+        'max-statements': ['error', 70],
 
         // ternary operator is better split to 3 lines for readability
         // TODO eslint multiline-ternary should be error

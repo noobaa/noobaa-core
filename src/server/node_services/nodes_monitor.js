@@ -1140,7 +1140,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _uninstall_deleting_node(item) {
-        if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true; // S3 won't WIPE so will go directly to uninstall  
+        if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true; // S3 won't WIPE so will go directly to uninstall
         if (item.node.is_cloud_node && item.ready_to_uninstall) item.ready_to_be_deleted = true; // No need to uninstall - skipping...
         if (!item.ready_to_uninstall) return;
         if (item.node.deleted) return;
@@ -2515,7 +2515,7 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => {
                 // return a binary representation of the services in the following priority:
                 // [both, only storage, only s3, none]
-                const disabledModes = [ 'DECOMMISSIONED', 'DECOMMISSIONING' ];
+                const disabledModes = ['DECOMMISSIONED', 'DECOMMISSIONING'];
                 const storage_service = disabledModes.includes(item.storage_nodes_mode) ? 0 : 2;
                 const s3_service = disabledModes.includes(item.s3_nodes_mode) ? 0 : 1;
                 return storage_service + s3_service;

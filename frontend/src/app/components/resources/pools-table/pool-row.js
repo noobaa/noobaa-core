@@ -3,6 +3,7 @@
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getHostsPoolStateIcon } from 'utils/resource-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
 import numeral from 'numeral';
@@ -63,11 +64,7 @@ export default class PoolRowViewModel {
         const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
 
         // TODO: calc pool icon based on mode.
-        this.state({
-            tooltip: 'Healthy',
-            css: 'success',
-            name: 'healthy'
-        });
+        this.state(getHostsPoolStateIcon(pool));
 
         const uri = realizeUri(this.baseRoute, { pool: name });
         this.name({ text: name, href: uri });

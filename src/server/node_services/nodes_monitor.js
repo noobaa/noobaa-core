@@ -2761,7 +2761,6 @@ class NodesMonitor extends EventEmitter {
             used_other: 0,
         };
         const data_activities = {};
-        let data_activity_host_count = 0;
         _.each(list, item => {
             count += 1;
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
@@ -2770,10 +2769,8 @@ class NodesMonitor extends EventEmitter {
             by_service.GATEWAY += item.s3_nodes && item.s3_nodes.every(i => i.node.decommissioned) ? 0 : 1;
             if (item.online) online += 1;
 
-            let has_activity = false;
             for (const storage_item of item.storage_nodes) {
                 if (storage_item.data_activity && !storage_item.data_activity.done) {
-                    has_activity = true;
                     const act = storage_item.data_activity;
                     const a =
                         data_activities[act.reason] =
@@ -2791,7 +2788,6 @@ class NodesMonitor extends EventEmitter {
                     a.time.end = Math.max(a.time.end, act.time.end || Infinity);
                 }
             }
-            if (has_activity) data_activity_host_count += 1;
 
             const node_storage = item.node.storage;
             _.forIn(storage, (value, key) => {

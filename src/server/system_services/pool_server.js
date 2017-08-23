@@ -395,7 +395,10 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS)
     };
     if (p_nodes.data_activities) {
-        info.data_activities = p_nodes.data_activities;
+        info.data_activities = {
+            activities: p_nodes.data_activities,
+            host_count: p_hosts.nodes.data_activity_host_count
+        };
     }
     if (_is_cloud_pool(pool)) {
         info.cloud_info = {
@@ -443,7 +446,8 @@ function calc_mongo_pool_mode(p) {
 }
 
 function calc_hosts_pool_mode(pool_info, storage_by_mode) {
-    const { hosts, storage, data_activities = [] } = pool_info;
+    const { hosts, storage } = pool_info;
+    const data_activities = pool_info.data_activities ? pool_info.data_activities.activities : [];
     const { count } = hosts;
     const { OFFLINE: offline = 0, OPTIMAL: optimal = 0 } = storage_by_mode;
     const offline_ratio = (offline / count) * 100;

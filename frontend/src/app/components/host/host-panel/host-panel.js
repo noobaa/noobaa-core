@@ -2,7 +2,8 @@
 
 import template from './host-panel.html';
 import Observer  from 'observer';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
+import { fetchHosts, dropHostsView } from 'action-creators';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 
@@ -10,6 +11,7 @@ class HostPanelViewModel extends Observer {
     constructor() {
         super();
 
+        this.viewName = this.constructor.name;
         this.baseRoute = '';
         this.host = ko.observable();
         this.selectedTab = ko.observable();
@@ -24,10 +26,18 @@ class HostPanelViewModel extends Observer {
         this.host(host);
         this.baseRoute = realizeUri(route, { system, pool, host }, {}, true);
         this.selectedTab(tab);
+
+        // Load/update the host data.
+        action$.onNext(fetchHosts(this.viewName, { hosts: [ko.unwrap(host)] }, true));
     }
 
     tabHref(tab) {
         return realizeUri(this.baseRoute, { tab });
+    }
+
+    dispose() {
+        action$.onNext(dropHostsView(this.viewName));
+        super.dispose();
     }
 }
 

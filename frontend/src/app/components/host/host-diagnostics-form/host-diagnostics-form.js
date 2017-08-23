@@ -89,7 +89,7 @@ class HostDiagnosticsFormViewModel extends Observer{
         const { debugState, timeLeftToDebugMode } = this;
         if (!debugState || !timeLeftToDebugMode || timeLeftToDebugMode < debugInternval) return;
 
-        this.timeLeftToDebugMode - timeLeftToDebugMode - debugInternval;
+        this.timeLeftToDebugMode = timeLeftToDebugMode - debugInternval;
         const text = _getTimeLeftForDebugModeText(debugState, timeLeftToDebugMode);
         this.debugDetails[1].value(text);
     }

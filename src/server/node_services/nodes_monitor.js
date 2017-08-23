@@ -2389,7 +2389,6 @@ class NodesMonitor extends EventEmitter {
             'UNTRUSTED',
             'INITIALIZING',
             'DECOMMISSIONED',
-            'N2N_ERRORS',
             'GATEWAY_ERRORS',
             'OPTIMAL',
             'HTTP_SRV_ERRORS',
@@ -2688,12 +2687,10 @@ class NodesMonitor extends EventEmitter {
         };
     }
 
-    _aggregate_nodes_list(list, aggregate_hosts) {
+    _aggregate_nodes_list(list) {
         let count = 0;
         let online = 0;
         const by_mode = {};
-        const storage_by_mode = aggregate_hosts ? {} : undefined;
-        const by_service = aggregate_hosts ? { STORAGE: 0, GATEWAY: 0 } : undefined;
         let storage = {
             total: 0,
             free: 0,
@@ -2706,14 +2703,9 @@ class NodesMonitor extends EventEmitter {
         _.each(list, item => {
             count += 1;
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
-            if (aggregate_hosts) {
-                storage_by_mode[item.storage_nodes_mode] = (storage_by_mode[item.storage_nodes_mode] || 0) + 1;
-                by_service.STORAGE += item.storage_nodes && item.storage_nodes.every(i => i.node.decommissioned) ? 0 : 1;
-                by_service.GATEWAY += item.s3_nodes && item.s3_nodes.every(i => i.node.decommissioned) ? 0 : 1;
-            }
             if (item.online) online += 1;
 
-            if (item.data_activity) {
+            if (item.data_activity && !item.data_activity.done) {
                 const act = item.data_activity;
                 const a =
                     data_activities[act.reason] =
@@ -2731,7 +2723,77 @@ class NodesMonitor extends EventEmitter {
                 a.time.end = Math.max(a.time.end, act.time.end || Infinity);
             }
 
-            const node_storage = aggregate_hosts ? item.node.storage : this._node_storage_info(item);
+            const node_storage = this._node_storage_info(item);
+            _.forIn(storage, (value, key) => {
+                storage[key] = size_utils.reduce_sum(key, [node_storage[key], value]);
+            });
+        });
+
+        const now = Date.now();
+        return {
+            nodes: {
+                count,
+                online,
+                by_mode,
+            },
+            storage: storage,
+            data_activities: _.map(data_activities, a => {
+                if (!_.isFinite(a.time.end)) delete a.time.end;
+                a.progress = progress_by_time(a.time, now);
+                return a;
+            })
+        };
+    }
+
+
+    _aggregate_hosts_list(list) {
+        let count = 0;
+        let online = 0;
+        const by_mode = {};
+        const storage_by_mode = {};
+        const by_service = { STORAGE: 0, GATEWAY: 0 };
+        let storage = {
+            total: 0,
+            free: 0,
+            used: 0,
+            reserved: 0,
+            unavailable_free: 0,
+            used_other: 0,
+        };
+        const data_activities = {};
+        let data_activity_host_count = 0;
+        _.each(list, item => {
+            count += 1;
+            by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
+            storage_by_mode[item.storage_nodes_mode] = (storage_by_mode[item.storage_nodes_mode] || 0) + 1;
+            by_service.STORAGE += item.storage_nodes && item.storage_nodes.every(i => i.node.decommissioned) ? 0 : 1;
+            by_service.GATEWAY += item.s3_nodes && item.s3_nodes.every(i => i.node.decommissioned) ? 0 : 1;
+            if (item.online) online += 1;
+
+            let has_activity = false;
+            for (const storage_item of item.storage_nodes) {
+                if (storage_item.data_activity && !storage_item.data_activity.done) {
+                    has_activity = true;
+                    const act = storage_item.data_activity;
+                    const a =
+                        data_activities[act.reason] =
+                        data_activities[act.reason] || {
+                            reason: act.reason,
+                            count: 0,
+                            progress: 0,
+                            time: {
+                                start: act.time.start,
+                                end: act.time.end,
+                            }
+                        };
+                    a.count += 1;
+                    a.time.start = Math.min(a.time.start, act.time.start);
+                    a.time.end = Math.max(a.time.end, act.time.end || Infinity);
+                }
+            }
+            if (has_activity) data_activity_host_count += 1;
+
+            const node_storage = item.node.storage;
             _.forIn(storage, (value, key) => {
                 storage[key] = size_utils.reduce_sum(key, [node_storage[key], value]);
             });
@@ -2755,18 +2817,33 @@ class NodesMonitor extends EventEmitter {
         };
     }
 
-    aggregate_nodes(query, group_by, aggregate_hosts) {
+    aggregate_hosts(query, group_by) {
         this._throw_if_not_started_and_loaded();
-        const list = aggregate_hosts ?
-            this._filter_hosts(query).list :
-            this._filter_nodes(query).list;
-        const res = this._aggregate_nodes_list(list, aggregate_hosts);
+        const list = this._filter_hosts(query).list;
+        const res = this._aggregate_hosts_list(list);
         if (group_by) {
             if (group_by === 'pool') {
                 const pool_groups = _.groupBy(list,
                     item => String(item.node.pool));
                 res.groups = _.mapValues(pool_groups,
-                    items => this._aggregate_nodes_list(items, aggregate_hosts));
+                    items => this._aggregate_hosts_list(items));
+            } else {
+                throw new Error('aggregate_hosts: Invalid group_by ' + group_by);
+            }
+        }
+        return res;
+    }
+
+    aggregate_nodes(query, group_by) {
+        this._throw_if_not_started_and_loaded();
+        const list = this._filter_nodes(query).list;
+        const res = this._aggregate_nodes_list(list);
+        if (group_by) {
+            if (group_by === 'pool') {
+                const pool_groups = _.groupBy(list,
+                    item => String(item.node.pool));
+                res.groups = _.mapValues(pool_groups,
+                    items => this._aggregate_nodes_list(items));
             } else {
                 throw new Error('aggregate_nodes: Invalid group_by ' + group_by);
             }

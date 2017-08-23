@@ -91,6 +91,7 @@ config.IO_READ_RANGE_CONCURRENCY = 32;
 config.IO_STREAM_SPLIT_SIZE = 32 * 1024 * 1024;
 // This is the maximum IO memory usage cap inside single semaphore job
 config.IO_STREAM_SEMAPHORE_SIZE_CAP = config.IO_STREAM_SPLIT_SIZE * 8;
+config.IO_STREAM_MINIMAL_SIZE_LOCK = 1 * 1024 * 1024;
 config.IO_OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
 
 config.IO_MEM_SEMAPHORE = 4;

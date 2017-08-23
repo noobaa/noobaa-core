@@ -2,143 +2,8 @@
 
 import { deepFreeze, isFunction, isUndefined } from './core-utils';
 import { toBytes, formatSize } from './size-utils';
+import { getHostsPoolStateIcon } from './resource-utils';
 import numeral from 'numeral';
-
-const nodeStateIconMapping = deepFreeze({
-    OFFLINE: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Offline'
-    },
-    UNTRUSTED: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Untrusted'
-    },
-    INITIALIZING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Initalizing'
-    },
-    DELETING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Deleting'
-    },
-    DELETED: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Deleted'
-    },
-    DECOMMISSIONING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Deactivating'
-    },
-    DECOMMISSIONED: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Deactivated'
-    },
-    MIGRATING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Migrating'
-    },
-    N2N_ERRORS: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Inter-Node connectivity problems'
-    },
-    GATEWAY_ERRORS: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Server connectivity problems'
-    },
-    IO_ERRORS: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Read/Write problems'
-    },
-    STORAGE_NOT_EXIST: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Unmounted'
-    },
-    LOW_CAPACITY: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Available capacity is low'
-    },
-    NO_CAPACITY: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'No available capacity'
-    },
-    OPTIMAL: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    }
-});
-
-export function getNodeStateIcon(node) {
-    return nodeStateIconMapping[node.mode];
-}
-
-const poolStateIconMapping = deepFreeze({
-    HAS_NO_NODES: {
-        tooltip: 'Pool is empty',
-        css: 'error',
-        name: 'problem'
-    },
-    NOT_ENOUGH_NODES: {
-        tooltip: 'Not enough nodes in pool',
-        css: 'error',
-        name: 'problem'
-    },
-    ALL_NODES_OFFLINE: {
-        tooltip: 'All nodes are offline',
-        css: 'error',
-        name: 'problem'
-    },
-    NOT_ENOUGH_HEALTHY_NODES: {
-        tooltip: 'Not enough healthy nodes',
-        css: 'error',
-        name: 'problem'
-    },
-    MANY_NODES_OFFLINE: pool => {
-        const { count, by_mode } = pool.nodes;
-        const offline = by_mode.OFFLINE || 0;
-        const percentage = numeral(offline / count).format('%');
-
-        return {
-            tooltip: `${percentage} nodes are offline`,
-            css: 'warning',
-            name: 'problem'
-        };
-    },
-    NO_CAPACITY: {
-        tooltip: 'No available pool capacity',
-        css: 'error',
-        name: 'problem'
-    },
-    LOW_CAPACITY: {
-        tooltip: 'Available capacity is low',
-        css: 'warning',
-        name: 'problem'
-    },
-    HIGH_DATA_ACTIVITY: {
-        tooltip: 'High data activity in pool',
-        css: 'warning',
-        name: 'working'
-    },
-    OPTIMAL: {
-        tooltip: 'Healthy',
-        css: 'success',
-        name: 'healthy'
-    }
-});
 
 const resourceStateIconMapping = deepFreeze({
     OPTIMAL: {
@@ -181,17 +46,28 @@ const resourceStateIconMapping = deepFreeze({
 
 export function getPoolStateIcon(pool) {
     const { resource_type, mode } = pool;
-    const mapping = {
-        HOSTS: poolStateIconMapping,
-        CLOUD: resourceStateIconMapping
-    }[resource_type];
+    switch (resource_type) {
+        case 'HOSTS': {
+            // Use the new getHostsPoolStateIcon resource util to get the state icon
+            // shiming the state tree host pool entity (only relevent information).
+            const shim = {
+                mode: pool.mode,
+                hostCount: pool.hosts.count,
+                hostsByMode: pool.hosts.by_mode
+            };
 
-    if (!mapping) {
-        throw new Error(`Pool state type icon is not supported for resource of type ${resource_type}`);
+            return getHostsPoolStateIcon(shim);
+        }
+
+        case 'CLOUD': {
+            const state = resourceStateIconMapping[mode];
+            return isFunction(state) ? state(pool) : state;
+        }
+
+        default: {
+            throw new Error(`Pool state type icon is not supported for resource of type ${resource_type}`);
+        }
     }
-
-    const state = mapping[mode];
-    return isFunction(state) ? state(pool) : state;
 }
 
 const resourceTypeIconMapping = deepFreeze({
@@ -333,33 +209,6 @@ export function countNodesByState(modeCoutners) {
             return counters;
         }, { all: 0, healthy: 0, offline: 0, hasIssues: 0 }
     );
-}
-
-export function getModeFilterFromState(state) {
-    switch (state) {
-        case 'HEALTHY':
-            return ['OPTIMAL'];
-
-        case 'HAS_ISSUES':
-            return [
-                'LOW_CAPACITY',
-                'NO_CAPACITY',
-                'DECOMMISSIONING',
-                'MIGRATING',
-                'DELETING',
-                'DECOMMISSIONED',
-                'DELETED',
-                'N2N_ERRORS',
-                'GATEWAY_ERRORS',
-                'IO_ERRORS',
-                'STORAGE_NOT_EXIST',
-                'UNTRUSTED',
-                'INITIALIZING'
-            ];
-
-        case 'OFFLINE':
-            return ['OFFLINE'];
-    }
 }
 
 const bucketStateIconMapping = deepFreeze({

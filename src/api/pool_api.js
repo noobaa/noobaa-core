@@ -324,7 +324,15 @@ module.exports = {
                     $ref: 'common_api#/definitions/undeletable_enum'
                 },
                 data_activities: {
-                    $ref: 'node_api#/definitions/data_activities'
+                    type: 'object',
+                    properties: {
+                        host_count: {
+                            type: 'integer'
+                        },
+                        activities: {
+                            $ref: 'node_api#/definitions/data_activities'
+                        }
+                    }
                 },
                 cloud_info: {
                     type: 'object',

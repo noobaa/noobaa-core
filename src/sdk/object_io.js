@@ -1225,8 +1225,11 @@ function get_frag_key(f) {
 }
 
 function _get_io_semaphore_size(size) {
+    // TODO: Currently we have a gap regarding chunked uploads
+    // We assume that the chunked upload will take 1MB
+    // This is done as a temporary quick fix and is not a good one
     return _.isNumber(size) ? Math.min(config.IO_STREAM_SEMAPHORE_SIZE_CAP, size) :
-        config.IO_STREAM_SEMAPHORE_SIZE_CAP;
+        config.IO_STREAM_MINIMAL_SIZE_LOCK;
 }
 
 module.exports = ObjectIO;

@@ -32,7 +32,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
 
     const items = keyByProperty(nodePools, 'name', pool => {
-        const activityList = (pool.data_activities || [])
+        const activityList = (pool.data_activities.activities || [])
             .map(activity => ({
                 type: activity.reason,
                 nodeCount: activity.count,
@@ -50,7 +50,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
             hostsByMode: pool.hosts.by_mode,
             undeletable: pool.undeletable,
             activities: {
-                hostCount: 0, // TODO: replace with read number when provided.
+                hostCount: pool.data_activities.host_count,
                 list: activityList
             }
         };

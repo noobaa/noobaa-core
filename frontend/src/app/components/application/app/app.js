@@ -14,11 +14,11 @@ class AppViewModel extends Observer {
 
         this.observe(
             state$.getMany('session', 'location', ['env']),
-            this.onSession
+            this.onState
         );
     }
 
-    onSession([ session, location = {}, env ]) {
+    onState([ session, location = {}, env ]) {
         if (session !== null && !location.route) {
             return;
         }

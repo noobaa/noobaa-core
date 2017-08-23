@@ -8,7 +8,7 @@ import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 // Initial State
 // ------------------------------
 const initialState = {
-    servers: {}
+    servers: null
 };
 
 // ------------------------------

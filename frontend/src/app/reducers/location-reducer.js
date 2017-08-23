@@ -1,7 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { CHANGE_LOCATION } from 'action-types';
+import { deepClone } from 'utils/core-utils';
+import {
+    CHANGE_LOCATION,
+    REFRESH_LOCATION
+} from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -15,6 +19,10 @@ function onChangeLocation(location, { payload }) {
     return payload;
 }
 
+function onRefreshLocation(location) {
+    return deepClone(location);
+}
+
 // ------------------------------
 // Local util functions
 // ------------------------------
@@ -23,5 +31,6 @@ function onChangeLocation(location, { payload }) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [CHANGE_LOCATION]: onChangeLocation
+    [CHANGE_LOCATION]: onChangeLocation,
+    [REFRESH_LOCATION]: onRefreshLocation
 });

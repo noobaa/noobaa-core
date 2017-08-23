@@ -18,10 +18,10 @@ export default function(action$, { api }) {
                     }
                 });
 
-                return completeToggleHostServices(host);
+                return completeToggleHostServices(host, services);
 
             } catch (error) {
-                return failToggleHostServices(host, error);
+                return failToggleHostServices(host, services, error);
             }
         });
 }

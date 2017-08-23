@@ -2,77 +2,44 @@
 
 import { noop } from 'utils/core-utils';
 import { parseQueryString, realizeUri } from 'utils/browser-utils';
-import { sessionInfo } from 'model';
 import * as routes from 'routes';
 import * as actions from 'actions';
 import { action$ } from 'state';
+import { sessionInfo } from 'model';
 import { changeLocation } from 'action-creators';
 
-const { protocol } = location;
+const protocol = global.location.protocol.slice(0, -1);
 
-// General midlleware that enhance the current route contexts.
-function enhanceContext(ctx, next) {
-    ctx.query = parseQueryString(ctx.querystring);
-    ctx.protocol = protocol.substr(0, protocol.length - 1);
-    next();
-}
-
-// General middleware that check for authorization redner login screen if neccecery.
-function authorize(ctx, next) {
-    if (!sessionInfo() || sessionInfo().passwordExpired) {
-        actions.showLogin();
-    } else {
-        next();
-    }
-}
-
-// General middleware that is used to preload the system infromation.
-function ensureSystemInfo(ctx, next) {
-    actions.loadSystemInfo();
-    next();
-}
-
-// General middleware to generate an action about the changed location.
-function updateStateAboutLocation(route, ctx, next) {
-    const { pathname, params: _params, query } = ctx;
-    const { ['0']: _, ...params } = _params;
-    action$.onNext(changeLocation({ route, pathname, params, query }));
-
-    next();
-}
-
-// Register
+// Register a route handler
 function registerRouteHandler(page, route, extra = noop) {
     page(
         route,
-        (ctx, next) => updateStateAboutLocation(route, ctx, next),
-        authorize,
-        ensureSystemInfo,
-        extra
-    );
-}
+        ctx => {
+            const query = parseQueryString(ctx.querystring);
+            const { ['0']: _, ...params } = ctx.params;
 
-// An handler for unknown routes.
-function registerUnknownRouteHandler(page) {
-    page(
-        '*',
-        (ctx, next) => updateStateAboutLocation(undefined, ctx, next),
-        authorize,
-        () => {
-            const { system } = sessionInfo();
-            const uri = realizeUri(routes.system, { system });
-            page.redirect(uri);
+            // Update state about location:
+            action$.onNext(changeLocation({
+                protocol: protocol,
+                pathname: ctx.pathname,
+                route: route !== '*' ? route : undefined,
+                params: params,
+                query: query
+            }));
+
+            // Do extra work if authorized
+            if (sessionInfo() && !sessionInfo().passwordExpired) {
+                extra();
+            }
         }
     );
-}
 
+
+}
 
 export default function routing(page) {
 
-    // Global general middlewares.
-    page('*', enhanceContext);
-
-    // Screens handlers.
+    // Route handlers.
     registerRouteHandler(page, routes.system);
     registerRouteHandler(page, routes.buckets);
     registerRouteHandler(page, routes.bucket);
@@ -88,6 +55,9 @@ export default function routing(page) {
     registerRouteHandler(page, routes.funcs, actions.showFuncs);
     registerRouteHandler(page, routes.func, actions.showFunc);
 
-    // Unknown paths
-    registerUnknownRouteHandler(page);
+    // Unknown route handler - redirect to system route.
+    registerRouteHandler(page, '*', () => {
+        const uri = realizeUri(routes.system, { system: sessionInfo().system });
+        page.redirect(uri);
+    });
 }

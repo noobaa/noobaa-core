@@ -3,8 +3,7 @@
 import template from './host-summary.html';
 import Observer from 'observer';
 import ko from 'knockout';
-import { state$, action$ } from 'state';
-import { fetchHosts, dropHostsView } from 'action-creators';
+import { state$ } from 'state';
 import { isNumber } from 'utils/core-utils';
 import { formatSize, toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
@@ -29,7 +28,6 @@ class HostSummaryViewModel extends Observer {
     constructor({ name }) {
         super();
 
-        this.viewName = this.constructor.name;
         this.hostLoaded  = ko.observable(false);
 
         // State observables.
@@ -98,9 +96,6 @@ class HostSummaryViewModel extends Observer {
         };
 
         this.observe(state$.get('hosts', 'items', ko.unwrap(name)), this.onHost);
-
-        // Load/update the host data.
-        action$.onNext(fetchHosts(this.viewName, { hosts: [ko.unwrap(name)] }, true));
     }
 
     onHost(host) {
@@ -158,10 +153,6 @@ class HostSummaryViewModel extends Observer {
                 this.activityText('Node has no activity');
             }
         }
-    }
-
-    dispose() {
-        action$.onNext(dropHostsView(this.viewName));
     }
 }
 

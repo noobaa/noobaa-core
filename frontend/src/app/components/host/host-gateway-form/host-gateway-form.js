@@ -62,7 +62,7 @@ class HostGatewayFormViewModel extends Observer {
     }
 
     onHost([ host, servers ]) {
-        if (!host) {
+        if (!host || !servers) {
             this.isDisabled(false);
             this.toggleGatewayButtonText('Disable S3 Gateway');
             return;

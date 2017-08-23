@@ -1,27 +1,30 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<button class="icon-btn"  data-bind="
-    click: refresh,
-    css: { 'no-outline': isRefreshSpinning },
-    tooltip: 'Refresh'
+<a href="" class="icon-btn"
+    ko.click="onRefresh"
+    ko.css="{ 'no-outline': isRefreshSpinning }"
+    ko.tooltip="'Refresh'"
 ">
-    <svg-icon class="hightlight" params="name: 'refresh'" data-bind="
-        css: { 'fast-spin': isRefreshSpinning }
-    "></svg-icon>
-</button>
+    <svg-icon class="hightlight"
+        ko.css="{ 'fast-spin': isRefreshSpinning }"
+        params="name: 'refresh'"
+    ></svg-icon>
+</a>
 
-<button class="icon-btn" data-bind="
-    click: showAuditLog,
-    tooltip: 'Audit'
+<button class="icon-btn"
+    ko.click="onAudit"
+    ko.tooltip="'Audit'"
 ">
     <svg-icon class="hightlight" params="name: 'audit'"></svg-icon>
 </button>
 
-<button class="icon-btn alerts" data-bind="
-    click: showAlerts,
-    tooltip: 'Alerts',
-    css: { counter: unreadAlertsCount },
-    attr: { 'data-count': unreadAlertsCount }
+<button class="icon-btn alerts"
+    ko.click="onAlerts"
+    ko.tooltip="'Alerts'"
+    ko.css.counter="unreadAlertsCount"
+    ko.attr="{ 'data-count': unreadAlertsCount }"
 ">
     <svg-icon class="hightlight" params="name: 'alert'"></svg-icon>
 </button>
+
+

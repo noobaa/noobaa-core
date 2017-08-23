@@ -8,6 +8,5 @@ export default function(action$, { router }) {
         .map(action => {
             const { url, redirect } = action.payload;
             redirect ? router.redirect(url) : router.show(url);
-        })
-        .filter(Boolean);
+        });
 }

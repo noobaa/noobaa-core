@@ -4,13 +4,13 @@ import template from './commands-bar.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
-import { refresh } from 'actions';
 import { sleep } from 'utils/promise-utils';
 import { sumBy } from 'utils/core-utils';
 import {
     openAuditDrawer,
     openAlertsDrawer,
-    fetchUnreadAlertsCount
+    fetchUnreadAlertsCount,
+    refreshLocation
 } from 'action-creators';
 
 class CommandBarViewModel extends Observer {
@@ -19,6 +19,7 @@ class CommandBarViewModel extends Observer {
 
         this.isRefreshSpinning = ko.observable(false);
         this.unreadAlertsCount = ko.observable();
+        this.location = '';
 
         this.observe(state$.get('alerts', 'unreadCounts'), this.onUnreadCounts);
 
@@ -30,18 +31,20 @@ class CommandBarViewModel extends Observer {
         this.unreadAlertsCount(total);
     }
 
-    refresh() {
-        refresh();
+    onRefresh() {
+        action$.onNext(refreshLocation());
 
         this.isRefreshSpinning(true);
         sleep(1000, false).then(this.isRefreshSpinning);
+
+        return true;
     }
 
-    showAuditLog() {
+    onAudit() {
         action$.onNext(openAuditDrawer());
     }
 
-    showAlerts() {
+    onAlerts() {
         action$.onNext(openAlertsDrawer());
     }
 }

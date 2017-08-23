@@ -99,17 +99,17 @@ export function toggleHostServices(host, services) {
     };
 }
 
-export function completeToggleHostServices(host) {
+export function completeToggleHostServices(host, services) {
     return {
         type: COMPLETE_TOGGLE_HOST_SERVICES,
-        payload: { host}
+        payload: { host, services }
     };
 }
 
-export function failToggleHostServices(host, error) {
+export function failToggleHostServices(host, services, error) {
     return {
         type: FAIL_TOGGLE_HOST_SERVICES,
-        payload: { host, error }
+        payload: { host, services, error }
     };
 }
 
@@ -123,7 +123,7 @@ export function toggleHostNodes(host, nodes) {
 export function completeToggleHostNodes(host) {
     return {
         type: COMPLETE_TOGGLE_HOST_NODES,
-        payload: { host}
+        payload: { host }
     };
 }
 

@@ -5,12 +5,8 @@ import Observer from 'observer';
 import { action$ } from 'state';
 import { toggleHostServices } from 'action-creators';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import { getHostServiceDisplayName } from 'utils/host-utils';
 
-const serviceToServiceName = deepFreeze({
-    storage: 'Storage',
-    gateway: 'S3 Gateway'
-});
 
 class DisableHostLastServiceWarningModalViewModel extends Observer {
     constructor({ onClose, host, service }) {
@@ -19,7 +15,7 @@ class DisableHostLastServiceWarningModalViewModel extends Observer {
         this.close = onClose;
         this.hostName = ko.unwrap(host);
         this.service = ko.unwrap(service);
-        this.serviceName = serviceToServiceName[this.service];
+        this.serviceName = getHostServiceDisplayName(this.service);
     }
 
     onApprove() {

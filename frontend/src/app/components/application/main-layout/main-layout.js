@@ -2,13 +2,14 @@
 
 import template from './main-layout.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { registerForAlerts } from 'actions';
 import * as routes from 'routes';
 import routeMapping from './route-mapping';
+import { fetchSystemInfo } from 'action-creators';
 
 const navItems = deepFreeze([
     /*{
@@ -85,6 +86,8 @@ class MainLayoutViewModel extends Observer {
         this.navItems.forEach(item => item.url(realizeUri(routes[item.name], { system })));
         this.area(area);
         this.panel(panel ? `${panel}-panel` : 'empty');
+
+        action$.onNext(fetchSystemInfo());
     }
 
     onAccount([ accounts, user ]) {

@@ -6,6 +6,7 @@ import ko from 'knockout';
 import { supportedBrowsers} from 'config';
 import { sessionInfo, serverInfo } from 'model';
 import { recognizeBrowser } from 'utils/browser-utils';
+import { loadServerInfo } from 'actions';
 
 class LoginLayoutViewModel extends BaseViewModel {
     constructor() {
@@ -38,6 +39,10 @@ class LoginLayoutViewModel extends BaseViewModel {
                 }
             }
         );
+
+        if (!serverInfo()) {
+            loadServerInfo();
+        }
     }
 }
 

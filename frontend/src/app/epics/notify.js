@@ -1,6 +1,7 @@
-import { deepFreeze } from 'utils/core-utils';
-import { getHostDisplayName } from 'utils/host-utils';
+import { deepFreeze, ensureArray, isDefined } from 'utils/core-utils';
+import { getHostDisplayName, getHostServiceDisplayName } from 'utils/host-utils';
 import { showNotification } from 'action-creators';
+import Rx from 'rx';
 import {
     FAIL_CREATE_ACCOUNT,
     COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
@@ -22,7 +23,11 @@ import {
     COMPLETE_CREATE_HOSTS_POOL,
     FAIL_CREATE_HOSTS_POOL,
     COMPLETE_ASSIGN_HOSTS_TO_POOL,
-    FAIL_ASSIGN_HOSTS_TO_POOL
+    FAIL_ASSIGN_HOSTS_TO_POOL,
+    COMPLETE_TOGGLE_HOST_SERVICES,
+    FAIL_TOGGLE_HOST_SERVICES,
+    COMPLETE_TOGGLE_HOST_NODES,
+    FAIL_TOGGLE_HOST_NODES
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -129,16 +134,66 @@ const actionToNotification = deepFreeze({
     [FAIL_ASSIGN_HOSTS_TO_POOL]: ({ pool }) => ({
         message: `Assinging nodes to pool ${pool} failed`,
         severity: 'error'
+    }),
+
+    [COMPLETE_TOGGLE_HOST_SERVICES]: ({ host, services }) => {
+        return Object.entries(services)
+            .filter(pair => {
+                const [ /* service */, state ] = pair;
+                return isDefined(state);
+            })
+            .map(pair => {
+                const [ service, state ] = pair;
+                const hostName = getHostDisplayName(host);
+                const serviceName = getHostServiceDisplayName(service).toLowerCase();
+                const action = state ? 'enabled' : 'disabled';
+
+                return {
+                    message: `${hostName} ${serviceName} service ${action} successfully`,
+                    severity: 'success'
+                };
+            });
+    },
+
+    [FAIL_TOGGLE_HOST_SERVICES]: ({ host, services }) => {
+        return Object.entries(services)
+            .filter(pair => {
+                const [ /* service */, state ] = pair;
+                return isDefined(state);
+            })
+            .map(pair => {
+                const [ service, state ] = pair;
+                const hostName = getHostDisplayName(host);
+                const serviceName = getHostServiceDisplayName(service).toLowerCase();
+                const action = `${state} ? 'Enabling' : 'Disabling'`;
+
+                return {
+                    message: `${action} ${hostName} ${serviceName} service failed`,
+                    severity: 'error'
+                };
+            });
+    },
+
+    [COMPLETE_TOGGLE_HOST_NODES]: ({ host }) => ({
+        message: `${getHostDisplayName(host)} storage drives updated successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_TOGGLE_HOST_NODES]: ({ host }) => ({
+        message: `Updating ${getHostDisplayName(host)} storage drives failed`,
+        severity: 'error'
     })
 });
 
 export default function(action$) {
     return action$
-        .map(action => {
-            const notif = actionToNotification[action.type];
-            if (notif) {
-                const { message, severity } = notif(action.payload);
-                return showNotification(message, severity);
+        .flatMap(action => {
+            const generator = actionToNotification[action.type];
+            if (generator){
+                return ensureArray(generator(action.payload))
+                    .map(notif => showNotification(notif.message, notif.severity));
+            } else {
+                return Rx.Observable.empty();
             }
         });
 }

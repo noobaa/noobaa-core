@@ -8,7 +8,7 @@ import handleLocationRequests from './handle-location-requests';
 import signIn from './sign-in';
 import fetchSystemInfo from './fetch-system-info';
 import createAccount from './create-account';
-import triggerFetchSystemInfo from './trigger-fetch-system-info';
+import refresh from './refresh';
 import lockCreateAccountModal from './lock-create-account-modal';
 import showAccountCreatedMessage from './show-account-created-message';
 import closeCreateAccountOnFaliure from './close-create-account-on-faliure';
@@ -48,7 +48,7 @@ const sessionRelatedEpics = [
 const systemRelatedEpics = [
     createSystem,
     fetchSystemInfo,
-    triggerFetchSystemInfo,
+    refresh,
     fetchNodeInstallationCommands,
     updateInstallNodesFormCommandsField
 ];

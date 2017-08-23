@@ -4,7 +4,7 @@
 // ----------------------------------------------------------------------
 import * as model from 'model';
 import * as routes from 'routes';
-import { refresh, redirectTo } from 'actions';
+import { redirectTo } from 'actions';
 import api from 'services/api';
 import page from 'page';
 import { deepFreeze } from 'utils/core-utils';
@@ -31,7 +31,6 @@ function onCompleteFetchSystemInfo(payload) {
 function onCompleteSignIn(payload) {
     model.sessionInfo(payload);
     model.loginInfo({ retryCount: 0 });
-    refresh();
 }
 
 function onFailSignIn({ error }) {
@@ -65,7 +64,6 @@ function onFailRestoreSession({ error }) {
 function onSignOut() {
     api.options.auth_token = undefined;
     model.sessionInfo(null);
-    refresh();
 }
 
 function onCompleteCreateSystem(payload) {

@@ -259,6 +259,11 @@ const stateToModes = deepFreeze({
     ]
 });
 
+const serviceToDisplayName = deepFreeze({
+    storage: 'Storage',
+    gateway: 'S3 Gateway'
+});
+
 const storageServiceModeToIcon = deepFreeze({
     DECOMMISSIONED: {
         name: 'healthy',
@@ -438,7 +443,7 @@ const gatewayServiceModeToIcon = deepFreeze({
     },
     HTTP_SRV_ERRORS: {
         name: 'problem',
-        css: 'warning',
+        css: 'error',
         tooltip: 'Cannot start HTTP server'
     },
     INITIALIZING: {
@@ -509,6 +514,10 @@ export function summrizeHostModeCounters(counters) {
         hasIssues: HAS_ISSUES,
         offline: OFFLINE
     };
+}
+
+export function getHostServiceDisplayName(service) {
+    return serviceToDisplayName[service];
 }
 
 export function getStorageServiceStateIcon(host) {

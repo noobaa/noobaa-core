@@ -1,12 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import * as model from 'model';
-import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
-import { last, makeArray, deepFreeze, flatMap, groupBy } from 'utils/core-utils';
+import { last, makeArray, groupBy } from 'utils/core-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse, toFormData } from 'utils/browser-utils';
@@ -19,7 +18,7 @@ import {
     signOut,
     showNotification,
     closeModal,
-    requestLocation
+    requestLocation,
 } from 'action-creators';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
@@ -71,24 +70,9 @@ export function reloadTo(route = model.routeContext().pathname, params = {},  qu
     );
 }
 
-export function refresh() {
-    logAction('refresh');
-
-    const { pathname, search } = window.location;
-
-    // Refresh the current path
-    page.redirect(pathname + search);
-}
-
 // -----------------------------------------------------
 // High level UI update actions.
 // -----------------------------------------------------
-export function showLogin() {
-    logAction('showLogin');
-
-    loadServerInfo();
-}
-
 export function showObject() {
     logAction('showObject');
 
@@ -98,17 +82,6 @@ export function showObject() {
 
     loadObjectMetadata(bucket, object);
     loadObjectPartList(bucket, object, parseInt(page));
-}
-
-export function showNode() {
-    // logAction('showNode');
-
-    // const ctx = model.routeContext();
-    // const { node } = ctx.params;
-    // const { page = 0 } = ctx.query;
-
-    // loadNodeInfo(node);
-    // loadNodeStoredPartsList(node, parseInt(page));
 }
 
 export function showFuncs() {
@@ -252,14 +225,6 @@ export async function deleteFunc(name, version) {
     }
 }
 
-export function clearCompletedUploads() {
-    model.uploads(
-        model.uploads().filter(
-            upload => !upload.completed
-        )
-    );
-}
-
 // -----------------------------------------------------
 // Information retrieval actions.
 // -----------------------------------------------------
@@ -355,88 +320,6 @@ export function loadObjectPartList(bucketName, objectName, page) {
                 model.objectPartList.count(total_parts);
             }
         )
-        .done();
-}
-
-export function loadPoolNodeList(poolName, filter, mode, sortBy, order, page) {
-    logAction('loadPoolNodeList', { poolName, filter, mode, sortBy, order, page });
-
-    api.node.list_nodes({
-        query: {
-            pools: [ poolName ],
-            filter: filter,
-            mode: mode
-        },
-        sort: sortBy,
-        order: order,
-        skip: config.paginationPageSize * page,
-        limit: config.paginationPageSize,
-        pagination: true
-    })
-        .then(
-            reply => model.poolNodeList(
-                deepFreeze(reply)
-            )
-        )
-        .done();
-}
-
-export function loadNodeList(filter, pools, onlyHealthy) {
-    logAction('loadNodeList', { filter, pools, onlyHealthy });
-
-    api.node.list_nodes({
-        query: {
-            filter: filter,
-            pools: pools,
-            online: onlyHealthy,
-            has_issues: onlyHealthy ? false : undefined
-        }
-    })
-        .then(
-            ({ nodes }) => model.nodeList(nodes)
-        )
-        .done();
-}
-
-export function loadNodeInfo(nodeName) {
-    logAction('loadNodeInfo', { nodeName });
-
-    if (model.nodeInfo() && model.nodeInfo().name !== nodeName) {
-        model.nodeInfo(null);
-    }
-
-    api.node.read_node({ name: nodeName })
-        .then(model.nodeInfo)
-        .done();
-}
-
-export function loadNodeStoredPartsList(nodeName, page) {
-    logAction('loadNodeStoredPartsList', { nodeName, page });
-
-    api.object.read_node_mappings({
-        name: nodeName,
-        skip: config.paginationPageSize * page,
-        limit: config.paginationPageSize,
-        adminfo: true
-    })
-        .then(
-            ({ objects, total_count }) => ({
-                total_count: total_count,
-                parts: flatMap(
-                    objects,
-                    obj => obj.parts.map(
-                        part => Object.assign(
-                            {
-                                object: obj.key,
-                                bucket: obj.bucket
-                            },
-                            part
-                        )
-                    )
-                )
-            })
-        )
-        .then(model.nodeStoredPartList)
         .done();
 }
 
@@ -1086,7 +969,6 @@ export function toogleCloudSync(bucket, pause) {
         .done();
 }
 
-
 export function checkCloudConnection(endpointType, endpoint, identity, secret) {
     logAction('checkCloudConnection', { endpointType, endpoint, identity, secret });
 
@@ -1360,31 +1242,6 @@ export function dismissUpgradedCapacityNotification() {
         .done();
 }
 
-export function decommissionNode(name) {
-    logAction('decommissionNode', { name });
-
-    api.node.decommission_node({ name })
-        .then(
-            () => notify(`Node ${name} deactivated successfully`, 'success'),
-            () => notify(`Deactivating node ${name} failed`, 'error')
-        )
-        .then(refresh)
-        .done();
-}
-
-export function recommissionNode(name) {
-    logAction('recommissionNode', { name });
-
-    api.node.recommission_node({ name })
-        .then(
-            () => notify(`Node ${name} activated successfully`, 'success'),
-            () => notify(`Activating node ${name} failed`, 'error')
-        )
-        .then(refresh)
-        .done();
-}
-
-
 export function regenerateAccountCredentials(email, verificationPassword) {
     logAction('regenerateAccountCredentials', { email, verificationPassword: '*****' });
 
@@ -1452,33 +1309,3 @@ export function registerForAlerts() {
     logAction('registerForAlerts');
     api.redirector.register_for_alerts();
 }
-
-// ------------------------------------------
-// Helper functions:
-// ------------------------------------------
-// DONT REMOVE THIS CODE - IT IS A NOTIFICAITON CODE WE NEED TO TRANSFER
-// TO THE NEW ARCHITCTURE.
-// function notifyUploadCompleted(uploaded, failed) {
-//     if (failed === 0) {
-//         notify(
-//             `Uploading ${stringifyAmount('file', uploaded)} completed successfully`,
-//             'success'
-//         );
-
-//     } else if (uploaded === 0) {
-//         notify(
-//             `Uploading ${stringifyAmount('file', failed)} failed`,
-//             'error'
-//         );
-
-//     } else {
-//         notify(
-//             `Uploading completed. ${
-//                 stringifyAmount('file', uploaded)
-//             } uploaded successfully, ${
-//                 stringifyAmount('file', failed)
-//             } failed`,
-//             'warning'
-//         );
-//     }
-// }

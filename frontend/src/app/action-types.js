@@ -1,5 +1,8 @@
+// General actions.
+
 // location actions.
 export const REQUEST_LOCATION = 'REQUEST_LOCATION';
+export const REFRESH_LOCATION = 'REFRESH_LOCATION';
 export const CHANGE_LOCATION = 'CHANGE_LOCATION';
 
 // Session related actions

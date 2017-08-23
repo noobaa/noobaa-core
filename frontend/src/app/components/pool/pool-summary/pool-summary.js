@@ -8,6 +8,7 @@ import numeral from 'numeral';
 import { isNumber } from 'utils/core-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { getHostsPoolStateIcon } from 'utils/resource-utils';
 import { getActivityName, formatActivityListTooltipHtml } from 'utils/host-utils';
 import style from 'style';
 import moment from 'moment';
@@ -115,11 +116,7 @@ class PoolSummaryViewModel extends Observer {
 
         { // Update pool state and counters
             const { OPTIMAL = 0, OFFLINE = 0 } = hostsByMode;
-            this.state({
-                name: 'healthy',
-                css: 'success',
-                tooltip: 'Healthy'
-            });
+            this.state(getHostsPoolStateIcon(pool));
             this.hostCount(numeral(hostCount).format('0,0'));
             this.healthyCount(numeral(OPTIMAL).format('0,0'));
             this.offlineCount(numeral(OFFLINE).format('0,0'));

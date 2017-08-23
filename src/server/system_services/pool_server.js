@@ -413,7 +413,7 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         info.nodes = _.defaults({}, p_nodes.nodes, POOL_NODES_INFO_DEFAULTS);
         info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
-        info.mode = calc_hosts_pool_mode(info);
+        info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {});
     }
 
     //Get associated accounts
@@ -442,10 +442,10 @@ function calc_mongo_pool_mode(p) {
         'ALL_NODES_OFFLINE';
 }
 
-function calc_hosts_pool_mode(pool_info) {
+function calc_hosts_pool_mode(pool_info, storage_by_mode) {
     const { hosts, storage, data_activities = [] } = pool_info;
-    const { count, by_mode } = hosts;
-    const { OFFLINE: offline, OPTIMAL: optimal } = by_mode;
+    const { count } = hosts;
+    const { OFFLINE: offline = 0, OPTIMAL: optimal = 0 } = storage_by_mode;
     const offline_ratio = (offline / count) * 100;
     const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);

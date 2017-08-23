@@ -258,7 +258,11 @@ function send_reply(req, res, reply, options) {
  */
 function get_unsecured_http_agent(endpoint, proxy) {
     if (proxy) {
-        return proxy_agent(proxy);
+        return proxy_agent(
+            Object.assign(url.parse(proxy), {
+                rejectUnauthorized: false
+            })
+        );
     }
     const protocol = url.parse(endpoint).protocol;
     return protocol === "https:" ?

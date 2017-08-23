@@ -563,7 +563,7 @@ function get_block_info(block, adminfo) {
         const pool = system.pools_by_name[node.pool];
         ret.adminfo = {
             pool_name: pool.name,
-            node_name: node.name,
+            node_name: node.os_info.hostname + '#' + node.host_seq,
             host_name: node.os_info.hostname,
             node_ip: node.ip,
             in_cloud_pool: Boolean(node.is_cloud_node),

@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const P = require('../util/promise');
 const stream = require('stream');
 
@@ -14,25 +13,30 @@ const stream = require('stream');
  */
 class Pipeline {
 
-    constructor() {
-        this._line = [];
+    constructor(input) {
         this._promise = new P((resolve, reject) => {
             this._resolve = resolve;
             this._reject = reject;
         });
+        this._input = input;
+        this._pipes = [];
+        input.once('close', () => this.close());
+        input.on('error', err => this.close(err));
     }
 
-    pipe(next, close_handler) {
-        next.once('close', () => (close_handler ? close_handler() : this.close()));
-        next.on('error', err => (close_handler ? close_handler(err) : this.close(err)));
-        const last = _.last(this._line);
-        if (last) last.pipe(next);
-        this._line.push(next);
+    pipe(next) {
+        next.once('close', () => this.close());
+        next.on('error', err => this.close(err));
+        const prev = this._pipes.length ?
+            this._pipes[this._pipes.length - 1] :
+            this._input;
+        prev.pipe(next);
+        this._pipes.push(next);
         return this;
     }
 
     promise() {
-        const last = _.last(this._line);
+        const last = this._pipes[this._pipes.length - 1];
         if (last instanceof stream.Writable) {
             last.on('finish', () => this._resolve());
         } else if (last instanceof stream.Readable) {
@@ -44,7 +48,7 @@ class Pipeline {
     close(err) {
         err = err || new Error('pipeline closed');
         this._reject(err);
-        _.each(this._line, strm => strm.emit('close'));
+        this._pipes.forEach(strm => strm.emit('close'));
     }
 
 }

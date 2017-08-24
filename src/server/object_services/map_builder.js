@@ -279,6 +279,9 @@ class MapBuilder {
     update_db() {
         const now = new Date();
         _.each(this.new_blocks, block => {
+            if (block._id.getTimestamp().getTime() - now.getTime() > 60000) {
+                dbg.error('update_db: A big gap was found between id creation and addition to DB:', block);
+            }
             block.node = mongo_utils.make_object_id(block.node._id);
             block.chunk = block.chunk._id;
         });

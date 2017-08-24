@@ -22,6 +22,7 @@ const time_utils = require('../../util/time_utils');
 function finalize_object_parts(bucket, obj, parts) {
     // console.log('GGG finalize_object_parts', require('util').inspect(parts, { depth: null }));
     const millistamp = time_utils.millistamp();
+    const now = new Date();
     const new_parts = [];
     const new_chunks = [];
     const new_blocks = [];
@@ -37,8 +38,12 @@ function finalize_object_parts(bucket, obj, parts) {
             chunk_id = MDStore.instance().make_md_id();
             _.each(part.chunk.frags, f => {
                 _.each(f.blocks, block => {
+                    const block_id = MDStore.instance().make_md_id(block.block_md.id);
+                    if (block_id.getTimestamp().getTime() - now.getTime() > 60000) {
+                        dbg.error('finalize_object_parts: A big gap was found between id creation and addition to DB:', block, bucket.name, obj.key);
+                    }
                     new_blocks.push(_.extend({
-                        _id: MDStore.instance().make_md_id(block.block_md.id),
+                        _id: block_id,
                         system: obj.system,
                         bucket: bucket._id,
                         chunk: chunk_id,

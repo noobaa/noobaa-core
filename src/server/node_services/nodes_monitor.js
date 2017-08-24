@@ -1179,7 +1179,9 @@ class NodesMonitor extends EventEmitter {
         // now we update all nodes to the new pool
         _.each(items, item => {
             if (String(item.node.pool) !== String(pool._id)) {
-                item.node.migrating_to_pool = Date.now();
+                if (item.node.node_type === 'BLOCK_STORE_FS') {
+                    item.node.migrating_to_pool = Date.now();
+                }
                 item.node.pool = pool._id;
                 item.suggested_pool = ''; // reset previous suggestion
             }

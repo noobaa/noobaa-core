@@ -332,8 +332,7 @@ class ObjectIO {
             )
         );
 
-        return new Pipeline()
-            .pipe(params.source_stream, err => dbg.error('upload source_stream closed with error', err))
+        return new Pipeline(params.source_stream)
             .pipe(new stream.Transform({
                 objectMode: true,
                 allowHalfOpen: false,

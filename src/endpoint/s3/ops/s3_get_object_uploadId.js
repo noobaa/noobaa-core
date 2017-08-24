@@ -17,8 +17,8 @@ function get_object_uploadId(req) {
         throw new S3Error(S3Error.InvalidArgument);
     }
 
-    const num_marker = Number(req.query['part-number-marker'] || 1);
-    if (!Number.isInteger(num_marker) || num_marker < 1 || num_marker > 10000) {
+    const num_marker = Number(req.query['part-number-marker'] || 0);
+    if (!Number.isInteger(num_marker)) {
         dbg.warn('Invalid part-number-marker', req.query['part-number-marker']);
         throw new S3Error(S3Error.InvalidArgument);
     }

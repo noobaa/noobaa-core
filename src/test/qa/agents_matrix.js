@@ -48,11 +48,13 @@ var rpc = api.new_rpc('wss://' + server_ip + ':8443');
 rpc.disable_validation();
 var client = rpc.new_client({});
 const oses = [
-    'ubuntu12', 'ubuntu14', //'ubuntu16',
-    'centos6', //'centos7',
+    //'ubuntu12', 'ubuntu14',
+    'ubuntu16',
+    //'centos6',
+    'centos7',
     // 'redhat6', 'redhat7',
-    //'win2008', 'win2012',
-    'win2016'
+    'win2008', 'win2012'
+    // 'win2016'
 ];
 
 const size = 16; //size in GB
@@ -96,6 +98,22 @@ function getTestNodes() {
         .then(() => {
             console.log(`Relevent nodes: ${test_nodes_names}`);
             return test_nodes_names;
+        });
+}
+
+function getTestOptimalNodes() {
+    let test_optimal_nodes_names = [];
+    return P.resolve(list_nodes())
+        .then(res => _.map(res, node => {
+            if (node.mode === 'OPTIMAL') {
+                if (_.includes(oses, node.name.split('-')[0])) {
+                    test_optimal_nodes_names.push(node.name);
+                }
+            }
+        }))
+        .then(() => {
+            console.log(`Relevent nodes: ${test_optimal_nodes_names}`);
+            return test_optimal_nodes_names;
         });
 }
 
@@ -328,7 +346,7 @@ function isIncluded(previous_agent_number, additional_agents = oses.length, prin
             console.warn(`${Yellow}Number of Excluded agents: ${decommisioned_nodes.length}${NC}`);
             console.warn(`Node names are ${res.map(node => node.name)}`);
             excpected_count = previous_agent_number + additional_agents;
-            return getTestNodes();
+            return getTestOptimalNodes();
         })
         .then(test_nodes => {
             const actual_count = test_nodes.length;
@@ -351,17 +369,25 @@ function isExcluded(excludeList) {
     return P.resolve(list_nodes())
         .then(countExclude => {
             console.warn(`Node names are ${countExclude.map(node => node.name)}`);
-            countExclude.map(node => node.drives.some(
-                drive => excludeList.includes(drive.dirve_id)
-            ))
-                .map(Number)
-                .reduce((a, b) => a + b);
-            if (countExclude === 0) {
+            const excludedCount = countExclude.map(node => node.drive.mount)
+                .map(mount => {
+                    if (mount.length === 2 && mount.indexOf(':') === 1) {
+                        return mount + '\\';
+                    }
+                    return mount;
+                })
+                .filter(mount => excludeList.includes(mount)).length;
+            // countExclude.map(node => node.drive).map(drive => drive.mount.some(
+            //     mount => excludeList.includes(mount.dirve_id)
+            // ))
+            //     .map(Number)
+            //     .reduce((a, b) => a + b);
+            if (excludedCount === 0) {
                 console.warn(`${Yellow}Num of exclude live nodes are ${
-                    countExclude} as expected${NC}`);
+                    excludedCount} as expected${NC}`);
             } else {
                 const error = `Num of exclude live nodes are ${
-                    countExclude
+                    excludedCount
                     } - something went wrong... expected 0`;
                 console.error(`${Yellow}${error}${NC}`);
                 throw new Error(error);
@@ -381,15 +407,15 @@ function includeExcludeCycle(isInclude) {
         // creating agents on the VM - diffrent oses.
         .then(() => runCreateAgents(isInclude))
         // verifying write, read, diag and debug level.
-        .then(verifyAgent)
+        .then(() => verifyAgent())
         // adding phisical disks to the machines.
         .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk(excludeList)))
         //verifying write, read, diag and debug level.
-        .then(verifyAgent)
+        .then(() => verifyAgent())
         // Upgrade to same version before uninstalling
-        .then(upgradeAgent)
+        .then(() => upgradeAgent())
         //verifying write, read, diag and debug level after the upgrade.
-        .then(verifyAgent)
+        .then(() => verifyAgent())
         // Cleaning the machine Extention and installing new one that remove nodes.
         .then(() => skipsetup || deleteAgent());
 }

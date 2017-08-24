@@ -2129,47 +2129,47 @@ class NodesMonitor extends EventEmitter {
         const start_marker = act.stage.marker;
         let blocks_size;
         return P.resolve()
-            // .then(() => MDStore.instance().iterate_node_chunks({
-            //     node_id: item.node._id,
-            //     marker: start_marker,
-            //     limit: config.REBUILD_NODE_BATCH_SIZE,
-            // }))
-            // .then(res => {
-            //     // we update the stage marker even if failed to advance the scan
-            //     act.stage.marker = res.marker;
-            //     blocks_size = res.blocks_size;
-            //     const builder = new MapBuilder(res.chunk_ids);
-            //     return builder.run();
-            // })
-            // .then(() => {
-            //     act.running = false;
-            //     // increase the completed size only if succeeded
-            //     act.stage.size.completed += blocks_size;
-            //     if (!act.stage.marker) {
-            //         if (act.stage.rebuild_error) {
-            //             dbg.log0('_rebuild_node: HAD ERRORS. RESTART', item.node.name, act);
-            //             act.stage.marker = act.stage.error_marker;
-            //             act.stage.size.completed = act.stage.error_marker_completed || 0;
-            //             act.stage.rebuild_error = 0;
-            //             act.stage.error_marker = null;
-            //             act.stage.error_marker_completed = 0;
-            //         } else {
-            //             act.stage.done = true;
-            //             dbg.log0('_rebuild_node: DONE', item.node.name, act);
-            //         }
-            //     }
-            //     this._update_data_activity(item);
-            // })
-            // .catch(err => {
-            //     act.running = false;
-            //     dbg.warn('_rebuild_node: ERROR', item.node.name, err.stack || err);
-            //     if (!act.stage.rebuild_error) {
-            //         act.stage.rebuild_error = Date.now();
-            //         act.stage.error_marker = start_marker;
-            //         act.stage.error_marker_completed = act.stage.size.completed || 0;
-            //     }
-            //     this._update_data_activity(item);
-            // });
+            .then(() => MDStore.instance().iterate_node_chunks({
+                node_id: item.node._id,
+                marker: start_marker,
+                limit: config.REBUILD_NODE_BATCH_SIZE,
+            }))
+            .then(res => {
+                // we update the stage marker even if failed to advance the scan
+                act.stage.marker = res.marker;
+                blocks_size = res.blocks_size;
+                const builder = new MapBuilder(res.chunk_ids);
+                return builder.run();
+            })
+            .then(() => {
+                act.running = false;
+                // increase the completed size only if succeeded
+                act.stage.size.completed += blocks_size;
+                if (!act.stage.marker) {
+                    if (act.stage.rebuild_error) {
+                        dbg.log0('_rebuild_node: HAD ERRORS. RESTART', item.node.name, act);
+                        act.stage.marker = act.stage.error_marker;
+                        act.stage.size.completed = act.stage.error_marker_completed || 0;
+                        act.stage.rebuild_error = 0;
+                        act.stage.error_marker = null;
+                        act.stage.error_marker_completed = 0;
+                    } else {
+                        act.stage.done = true;
+                        dbg.log0('_rebuild_node: DONE', item.node.name, act);
+                    }
+                }
+                this._update_data_activity(item);
+            })
+            .catch(err => {
+                act.running = false;
+                dbg.warn('_rebuild_node: ERROR', item.node.name, err.stack || err);
+                if (!act.stage.rebuild_error) {
+                    act.stage.rebuild_error = Date.now();
+                    act.stage.error_marker = start_marker;
+                    act.stage.error_marker_completed = act.stage.size.completed || 0;
+                }
+                this._update_data_activity(item);
+            });
     }
 
 

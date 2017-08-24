@@ -164,7 +164,7 @@ mocha.describe('md_store', function() {
             const obj = {
                 _id: multipart.obj,
             };
-            return md_store.delete_multiparts_of_object(obj, new Date());
+            return md_store.delete_multiparts_of_object(obj);
         });
 
     });
@@ -224,7 +224,7 @@ mocha.describe('md_store', function() {
             const obj = {
                 _id: parts[0].obj,
             };
-            return md_store.delete_parts_of_object(obj, new Date());
+            return md_store.delete_parts_of_object(obj);
         });
 
     });
@@ -281,7 +281,7 @@ mocha.describe('md_store', function() {
         });
 
         mocha.it('delete_chunks_by_ids()', function() {
-            return md_store.delete_chunks_by_ids(_.map(chunks, '_id'), new Date());
+            return md_store.delete_chunks_by_ids(_.map(chunks, '_id'));
         });
 
     });
@@ -307,7 +307,7 @@ mocha.describe('md_store', function() {
         });
 
         mocha.it('delete_blocks_of_chunks()', function() {
-            return md_store.delete_blocks_of_chunks([blocks[0].chunk], new Date());
+            return md_store.delete_blocks_of_chunks([blocks[0].chunk]);
         });
 
 

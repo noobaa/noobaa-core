@@ -431,7 +431,8 @@ class MDStore {
             .toArray();
     }
 
-    delete_multiparts_of_object(obj, delete_date) {
+    delete_multiparts_of_object(obj) {
+        const delete_date = new Date();
         return this._multiparts.col().updateMany({
             obj: obj._id,
         }, {
@@ -579,7 +580,8 @@ class MDStore {
         return bulk.length ? bulk.execute() : P.resolve();
     }
 
-    delete_parts_of_object(obj, delete_date) {
+    delete_parts_of_object(obj) {
+        const delete_date = new Date();
         return this._parts.col().updateMany({
             obj: obj._id,
         }, {
@@ -726,7 +728,8 @@ class MDStore {
             });
     }
 
-    delete_chunks_by_ids(chunk_ids, delete_date) {
+    delete_chunks_by_ids(chunk_ids) {
+        const delete_date = new Date();
         if (!chunk_ids || !chunk_ids.length) return;
         return this._chunks.col().updateMany({
             _id: {
@@ -863,7 +866,8 @@ class MDStore {
         });
     }
 
-    delete_blocks_of_chunks(chunk_ids, delete_date) {
+    delete_blocks_of_chunks(chunk_ids) {
+        const delete_date = new Date();
         if (!chunk_ids || !chunk_ids.length) return;
         return this._blocks.col().updateMany({
             chunk: {

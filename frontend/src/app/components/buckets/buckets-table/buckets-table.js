@@ -64,7 +64,7 @@ function generatePlacementSortValue(bucket) {
 }
 
 const compareAccessors = deepFreeze({
-    state: bucket => bucket.state,
+    state: bucket => bucket.mode,
     name: bucket => bucket.name,
     fileCount: bucket => bucket.num_objects,
     capacity: bucket => bucket.storage.values.used,

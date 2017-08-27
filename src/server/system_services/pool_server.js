@@ -394,12 +394,10 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         // and does not consider number of replicas like in tier
         storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS)
     };
-    if (p_nodes.data_activities) {
-        info.data_activities = {
-            activities: p_nodes.data_activities,
-            host_count: p_hosts.nodes.data_activity_host_count
-        };
-    }
+    info.data_activities = {
+        activities: p_nodes.data_activities || [],
+        host_count: p_hosts.nodes.data_activity_host_count || 0
+    };
     if (_is_cloud_pool(pool)) {
         info.cloud_info = {
             endpoint: pool.cloud_pool_info.endpoint,

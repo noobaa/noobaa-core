@@ -1,5 +1,8 @@
 import { deepFreeze, isFunction } from 'utils/core-utils';
+import { toBytes, formatSize } from 'utils/size-utils';
 import numeral from 'numeral';
+
+const GB = Math.pow(1024, 3);
 
 const hostsPoolModeToStateIcon = deepFreeze({
     HAS_NO_NODES: {
@@ -37,10 +40,15 @@ const hostsPoolModeToStateIcon = deepFreeze({
         css: 'error',
         name: 'problem'
     },
-    LOW_CAPACITY: {
-        tooltip: 'Available capacity is low',
-        css: 'warning',
-        name: 'problem'
+    LOW_CAPACITY: pool => {
+        const free = toBytes(pool.storage.free);
+        const limit = formatSize(Math.max(30 * GB, .2 * free));
+
+        return {
+            tooltip: `Available capacity is below ${limit}`,
+            css: 'warning',
+            name: 'problem'
+        };
     },
     HIGH_DATA_ACTIVITY: {
         tooltip: 'High data activity in pool',

@@ -1,53 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
 import BaseViewModel from 'components/base-view-model';
+import { getHostDisplayName } from 'utils/host-utils';
 import { shortString } from 'utils/string-utils';
-
-function cloudPoolInfo(pool_name) {
-    const shortenNodeName = '---';
-    return {
-        nodeName: null,
-        shortenNodeName,
-        replicaLocation: {
-            text: pool_name,
-            tooltip: pool_name
-        },
-        node: {
-            text: shortenNodeName
-        }
-    };
-}
-
-function serverPoolInfo(pool_name, node_name) {
-    const shortenNodeName = shortString(node_name, 30, 8);
-    return {
-        nodeName: node_name,
-        shortenNodeName,
-        replicaLocation: {
-            text: pool_name,
-            href: {
-                route: 'pool',
-                params: {
-                    pool: pool_name,
-                    tab: null
-                }
-            },
-            tooltip: pool_name
-        },
-        node: {
-            text: shortenNodeName,
-            href: {
-                route: 'host',
-                params: {
-                    pool: pool_name,
-                    host: node_name,
-                    tab: null
-                }
-            },
-            tooltip: node_name
-        }
-    };
-}
 
 export default class BlockRowViewModel extends BaseViewModel {
     constructor({ adminfo }, index, count, poolIconMapping) {
@@ -64,6 +19,42 @@ export default class BlockRowViewModel extends BaseViewModel {
         this.replica = `Replica ${index + 1} of ${count}`;
         this.resourceType = poolIconMapping()[pool_name] || {};
         this.poolName = pool_name;
-        Object.assign(this, in_cloud_pool ? cloudPoolInfo(pool_name) : serverPoolInfo(pool_name, node_name));
+
+        if (in_cloud_pool) {
+            this.nodeName = null;
+            this.node = '---';
+            this.replicaLocation = {
+                text: pool_name,
+                tooltip: pool_name
+            };
+
+        } else {
+            const shortenNodeName = shortString(getHostDisplayName(node_name), 30, 8);
+            this.nodeName = node_name;
+            this.node = {
+                text: shortenNodeName,
+                href: {
+                    route: 'host',
+                    params: {
+                        pool: pool_name,
+                        host: node_name,
+                        tab: null
+                    }
+                },
+                tooltip: node_name
+            };
+            this.replicaLocation = {
+                text: pool_name,
+                href: {
+                    route: 'pool',
+                    params: {
+                        pool: pool_name,
+                        tab: null
+                    }
+                },
+                tooltip: pool_name
+            };
+
+        }
     }
 }

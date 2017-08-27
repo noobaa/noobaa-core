@@ -427,7 +427,7 @@ function read_node_mappings(req) {
  *
  */
 function read_host_mappings(req) {
-    return nodes_client.instance().get_node_ids_by_name(req.system._id, req.params.host_id, /*by_host=*/ true)
+    return nodes_client.instance().get_node_ids_by_name(req.system._id, req.params.name, /*by_host=*/ true)
         .then(node_ids => {
             const params = _.pick(req.rpc_params, 'skip', 'limit');
             params.node_ids = node_ids;

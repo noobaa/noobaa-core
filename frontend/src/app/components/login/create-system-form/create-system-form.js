@@ -164,6 +164,10 @@ class CreateSystemFormViewModel extends BaseViewModel {
                 this.serverDNSName
             ])
         ];
+
+        this.shakeCreateBtn = ko.pureComputed(
+            () => this.errorsByStep.some(g => g().length > 0)
+        );
     }
 
     validateStep(step) {
@@ -195,8 +199,6 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
     createSystem() {
         let serverConfig = serverInfo().config;
-        this.creatingSystem(true);
-
         let dnsServers = [];
         if (!serverConfig.using_dhcp && serverConfig.dns_servers) {
             dnsServers = serverConfig.dns_servers;
@@ -218,6 +220,9 @@ class CreateSystemFormViewModel extends BaseViewModel {
                 dnsServers,
                 timeConfig
             ));
+            this.creatingSystem(true);
+        } else {
+
         }
     }
 }

@@ -1085,7 +1085,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
             // return valid;
         });
         info.writable = mirror_with_valid_pool > 0;
-        if ((tier_and_order.tier.mirrors.length > 1 && mirror_with_valid_pool > 1) || (tier_and_order.tier.mirrors.length === 1 && mirror_with_valid_pool === 1)) {
+        if ((tier_and_order.tier.mirrors.length > 1 && mirror_with_valid_pool === tier_and_order.tier.mirrors.length) ||
+            (tier_and_order.tier.mirrors.length === 1 && mirror_with_valid_pool === 1)) {
             has_any_valid_pool_configured = true;
         }
     });

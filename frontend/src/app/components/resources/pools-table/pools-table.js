@@ -29,31 +29,35 @@ const columns = deepFreeze([
         name: 'buckets',
         label: 'buckets using resource',
         sortable: true,
-        compareKey: () => 1
+        compareKey: pool => pool.connectedBuckets.length
     },
     {
         name: 'hostCount',
         label: 'nodes',
         sortable: true,
-        compareKey: () => 1
+        compareKey: pool => pool.hostCount
     },
     {
         name: 'healthyCount',
         label: 'healthy',
         sortable: true,
-        compareKey: () => 1
+        compareKey: pool => pool.hostsByMode.OPTIMAL || 0
     },
     {
         name: 'issuesCount',
         label: 'issues',
         sortable: true,
-        compareKey: () => 1
+        compareKey: pool => {
+            const { hostCount, hostsByMode } = pool;
+            const { OPTIMAL = 0, OFFLINE = 0 } = hostsByMode;
+            return hostCount - (OPTIMAL + OFFLINE);
+        }
     },
     {
         name: 'offlineCount',
         label: 'offline',
         sortable: true,
-        compareKey: () => 1
+        compareKey: pool => pool.hostsByMode.OFFLINE || 0
     },
     {
         name: 'capacity',

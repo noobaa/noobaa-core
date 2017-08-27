@@ -86,11 +86,14 @@
                 Next
             </button>
 
-            <working-button ko.visible="isCreateSystemVisible" params="
-                working: creatingSystem,
-                workingLabel: 'Creating...',
-                click: createSystem
-            ">
+            <working-button ko.visible="isCreateSystemVisible"
+                ko.shakeOnClick="shakeCreateBtn"
+                params="
+                    working: creatingSystem,
+                    workingLabel: 'Creating...',
+                    click: createSystem
+                "
+            >
                 Create System
             </working-button>
         </div>

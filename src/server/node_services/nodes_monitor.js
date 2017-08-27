@@ -3110,7 +3110,7 @@ class NodesMonitor extends EventEmitter {
                 Dispatcher.instance().activity({
                     system: req.system._id,
                     level: 'info',
-                    event: 'dbg.set_debug_mode',
+                    event: 'dbg.set_debug_node',
                     actor: req.account && req.account._id,
                     host: host_nodes[0].node._id,
                     desc: `${name} debug level was raised by ${req.account && req.account.email}`,

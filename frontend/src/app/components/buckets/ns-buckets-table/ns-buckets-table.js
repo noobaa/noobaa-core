@@ -54,13 +54,15 @@ class NSBucketsTableViewModel extends Observer {
         this.rows = ko.observableArray();
 
         this.observe(
-            state$.getMany('nsBuckets', ['location', 'query']),
+            state$.getMany('nsBuckets', ['location']),
             this.onBuckets
         );
     }
 
-    onBuckets([ buckets, query ]) {
-        const { sortBy = 'name', order = 1 } = query;
+    onBuckets([ buckets, location ]) {
+        if (location.params.tab !== 'namespace-buckets') return;
+
+        const { sortBy = 'name', order = 1 } = location.query;
         this.sorting({ sortBy, order });
 
         const { compareKey } = columns.find(col => col.name === sortBy);

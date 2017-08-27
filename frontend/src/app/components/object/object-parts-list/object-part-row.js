@@ -50,9 +50,9 @@ export default class ObjectPartRowViewModel extends BaseViewModel {
     constructor(part, partNumber, partsCount, poolIconMapping) {
         super();
 
-        let size = formatSize(part.chunk.size);
-        let state = part.chunk.adminfo.health;
-        let blocks = part.chunk.frags[0].blocks;
+        const size = formatSize(part.chunk.size);
+        const state = part.chunk.adminfo.health;
+        const blocks = part.chunk.frags[0].blocks;
         this.columns = columns;
 
         this.stateIcon = partStateIcons[state];

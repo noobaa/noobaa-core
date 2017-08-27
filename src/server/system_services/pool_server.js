@@ -40,7 +40,7 @@ const POOL_HOSTS_INFO_DEFAULTS = Object.freeze({
 });
 
 const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
-const LOW_CAPACITY_HARD_LIMIT = 50 * Math.pow(1024, 3); // 50GB
+const LOW_CAPACITY_HARD_LIMIT = 30 * Math.pow(1024, 3); // 30GB
 
 function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
     return {

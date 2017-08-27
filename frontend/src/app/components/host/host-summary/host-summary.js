@@ -40,6 +40,7 @@ class HostSummaryViewModel extends Observer {
 
         // Capacity observables.
         this.availableCapacity = ko.observable(0);
+        this.unavailableCapacity = ko.observable(0);
         this.usedByNoobaaCapacity = ko.observable(0);
         this.usedByOthersCapacity = ko.observable(0);
         this.reservedCapacity = ko.observable(0);
@@ -49,6 +50,11 @@ class HostSummaryViewModel extends Observer {
                 label: 'Available',
                 color: style['color5'],
                 value: this.availableCapacity
+            },
+            {
+                label: 'Unavailable Capacity',
+                color: style['color17'],
+                value: this.unavailableCapacity
             },
             {
                 label: 'NooBaa Usage',
@@ -111,9 +117,10 @@ class HostSummaryViewModel extends Observer {
         }
 
         { // Update host stroage and usage
-            const { free, used, used_other, reserved, total } = host.storage;
+            const { free, unavailable_free, used, used_other, reserved, total } = host.storage;
 
             this.availableCapacity(toBytes(free));
+            this.unavailableCapacity(toBytes(unavailable_free));
             this.usedByNoobaaCapacity(toBytes(used));
             this.usedByOthersCapacity(toBytes(used_other));
             this.reservedCapacity(toBytes(reserved));

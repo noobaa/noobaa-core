@@ -165,7 +165,7 @@ const actionToNotification = deepFreeze({
                 const [ service, state ] = pair;
                 const hostName = getHostDisplayName(host);
                 const serviceName = getHostServiceDisplayName(service).toLowerCase();
-                const action = `${state} ? 'Enabling' : 'Disabling'`;
+                const action = state ? 'enabling' : 'disabling';
 
                 return {
                     message: `${action} ${hostName} ${serviceName} service failed`,

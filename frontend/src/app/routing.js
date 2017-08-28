@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { noop } from 'utils/core-utils';
-import { parseQueryString, realizeUri } from 'utils/browser-utils';
+import { parseQueryString } from 'utils/browser-utils';
 import * as routes from 'routes';
 import * as actions from 'actions';
 import { action$ } from 'state';
@@ -55,9 +55,6 @@ export default function routing(page) {
     registerRouteHandler(page, routes.funcs, actions.showFuncs);
     registerRouteHandler(page, routes.func, actions.showFunc);
 
-    // Unknown route handler - redirect to system route.
-    registerRouteHandler(page, '*', () => {
-        const uri = realizeUri(routes.system, { system: sessionInfo().system });
-        page.redirect(uri);
-    });
+    // Catch unknown routes handler
+    registerRouteHandler(page, '*');
 }

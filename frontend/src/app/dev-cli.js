@@ -1,3 +1,4 @@
+import * as model from 'model';
 import { action$, state$ } from 'state';
 import { togglePreviewContent } from 'action-creators';
 import api from 'services/api';
@@ -9,6 +10,7 @@ function bindToActionStream(actionCreator) {
 }
 
 const cli = Object.seal({
+    model: model,
     state: undefined,
     api: api,
     togglePreviewContent: bindToActionStream(togglePreviewContent)

@@ -3,7 +3,10 @@
 import template from './app.html';
 import ko from 'knockout';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
+import { requestLocation } from 'action-creators';
+import * as routes from 'routes';
+import { realizeUri } from 'utils/browser-utils';
 
 class AppViewModel extends Observer {
     constructor() {
@@ -19,7 +22,10 @@ class AppViewModel extends Observer {
     }
 
     onState([ session, location = {}, env ]) {
-        if (session !== null && !location.route) {
+        if (session && !location.route) {
+            // Redirect to the system routes
+            const uri = realizeUri(routes.system, { system: session.system });
+            action$.onNext(requestLocation(uri, true));
             return;
         }
 

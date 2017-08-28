@@ -62,6 +62,7 @@ function _verify_cluster_configuration() {
     dbg.log1('Verifying configuration in cluster');
     return _verify_ntp_cluster_config()
         .then(() => _verify_dns_cluster_config())
+        .then(() => _verify_proxy_cluster_config())
         .then(() => _verify_remote_syslog_cluster_config())
         .then(() => _verify_server_certificate());
 }
@@ -81,6 +82,24 @@ function _verify_ntp_cluster_config() {
             }
         })
         .catch(err => dbg.error('failed to reconfigure ntp cluster config on the server. reason:', err));
+}
+
+function _verify_proxy_cluster_config() {
+    dbg.log2('Verifying proxy configuration in relation to cluster config');
+    let cluster_conf = _.isEmpty(system_store.data.systems[0].phone_home_proxy_address) ? { proxy: undefined } : {
+        proxy: system_store.data.systems[0].phone_home_proxy_address
+    };
+    return os_utils.get_yum_proxy()
+        .then(platform_proxy => {
+            let platform_conf = {
+                proxy: platform_proxy
+            };
+            if (!_are_platform_and_cluster_conf_equal(platform_conf, cluster_conf)) {
+                dbg.warn(`platform proxy settings not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', cluster_conf);
+                return os_utils.set_yum_proxy(cluster_conf.proxy);
+            }
+        })
+        .catch(err => dbg.error('failed to reconfigure proxy config on the server. reason:', err));
 }
 
 function _verify_dns_cluster_config() {
@@ -154,7 +173,7 @@ function _check_ntp() {
     dbg.log2('_check_ntp');
     if (_.isEmpty(server_conf.ntp) || _.isEmpty(server_conf.ntp.server)) return;
     monitoring_status.ntp_status = "UNKNOWN";
-    return net_utils.ping(server_conf.ntp.server)
+    return os_utils.verify_ntp_server(server_conf.ntp.server)
         .catch(err => {
             monitoring_status.ntp_status = "UNREACHABLE";
             Dispatcher.instance().alert('MAJOR',
@@ -164,20 +183,16 @@ function _check_ntp() {
             throw err;
         })
         .then(() => promise_utils.exec(`ntpstat`, true, true))
-        .then(netstat_res => {
-            if (netstat_res.startsWith('unsynchronised')) {
+        .then(ntpstat_res => {
+            if (ntpstat_res.startsWith('unsynchronised')) {
                 Dispatcher.instance().alert('MAJOR',
                     system_store.data.systems[0]._id,
                     `Local server time is not synchronized with NTP Server, check NTP server configuration`,
                     Dispatcher.rules.once_daily);
                 throw new Error('unsynchronised');
             }
-            let regex_res = (/NTP server \(([\d.]+)\) /).exec(netstat_res);
+            let regex_res = (/NTP server \(([\d.]+)\) /).exec(ntpstat_res);
             if (!regex_res || !regex_res[1]) throw new Error('failed to check ntp sync');
-            return net_utils.dns_resolve(server_conf.ntp.server)
-                .then(ip_table => {
-                    if (!ip_table.some(val => val === regex_res[1])) throw new Error('synchronized to wrong ntp server');
-                });
         })
         .then(() => {
             monitoring_status.ntp_status = "OPERATIONAL";

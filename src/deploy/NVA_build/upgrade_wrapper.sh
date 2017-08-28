@@ -448,6 +448,11 @@ function post_upgrade {
 		echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
 	fi
 
+  local noobaa_proxy=$(grep 'NooBaa Configured Proxy Server' /etc/yum.conf | wc -l)
+	if [ ${noobaa_proxy} -eq 0 ]; then #was not configured yet, no tz config as well
+		echo "#NooBaa Configured Proxy Server"	 >> /etc/yum.conf
+	fi
+
 	local noobaa_dns=$(grep 'NooBaa Configured Primary DNS Server' /etc/resolv.conf | wc -l)
 	if [ ${noobaa_dns} -eq 0 ]; then #was not configured yet
 			echo "#NooBaa Configured Primary DNS Server" >> /etc/resolv.conf

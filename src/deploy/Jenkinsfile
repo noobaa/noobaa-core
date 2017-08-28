@@ -1,6 +1,6 @@
 #!groovy​
 def branch = 'master'
-//dataset
+//dataset, account
 def noobaa_ip = '52.191.130.61'
 def values = noobaa_ip.tokenize('.')
 def dataset_size = '1024' // 10GB of dataset (changed to 1GB)
@@ -124,6 +124,14 @@ node('jenkins-slave1-centos') {
                 export NVM_DIR=/usr/local/nvm
                 . /opt/nvm/nvm.sh
                node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}' --external_server_ip '${severExternalIP}'
+            """
+          },
+          "account": {
+            echo 'Doing account tests!'
+            sh script: """
+                export NVM_DIR=/usr/local/nvm
+                . /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/account_test.js --server_ip '${noobaa_ip}' --system_ip '${noobaa_ip}'
             """
           },
         //   "upgrades": {

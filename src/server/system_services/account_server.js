@@ -371,7 +371,7 @@ function update_account(req) {
         if (params.ips === null) {
             event_desc += `Restriction for IPs were removed`;
         } else {
-            event_desc += `Allowed IPs were changed to ` + params.ips.toString().replace(/,/g, ', ');
+            event_desc += `Allowed IPs were changed to ` + params.ips.map(ip_range => ip_range.start + ' - ' + ip_range.end).join(', ');
         }
     }
 
@@ -961,7 +961,7 @@ function _list_connection_usage(account, credentials) {
         _.filter(system_store.data.buckets, bucket => (
             bucket.cloud_sync &&
             bucket.cloud_sync.endpoint === credentials.endpoint &&
-            bucket.cloud_sync.access_keys.account_id === account._id &&
+            bucket.cloud_sync.access_keys.account_id._id === account._id &&
             bucket.cloud_sync.access_keys.access_key === credentials.access_key
         )), bucket => ({
             usage_type: 'CLOUD_SYNC',
@@ -972,14 +972,13 @@ function _list_connection_usage(account, credentials) {
         _.filter(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
             pool.cloud_pool_info.endpoint === credentials.endpoint &&
-            pool.cloud_pool_info.account_id === account._id &&
-            pool.cloud_pool_info.access_key === credentials.access_key
+            pool.cloud_pool_info.access_keys.account_id._id === account._id &&
+            pool.cloud_pool_info.access_keys.access_key === credentials.access_key
         )), pool => ({
             usage_type: 'CLOUD_POOL',
             entity: pool.name,
             external_entity: pool.cloud_pool_info.target_bucket
         })) || [];
-
     return cloud_sync_usage.concat(cloud_pool_usage);
 }
 

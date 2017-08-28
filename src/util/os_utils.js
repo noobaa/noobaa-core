@@ -476,6 +476,34 @@ function set_ntp(server, timez) {
     }
 }
 
+function get_yum_proxy() {
+    if (os.type() === 'Linux') {
+        return promise_utils.exec("cat /etc/yum.conf | grep NooBaa", false, true)
+            .then(res => {
+                let regex_res = (/proxy=(.*) #NooBaa Configured Proxy Server/).exec(res);
+                return regex_res ? regex_res[1] : "";
+            });
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return P.resolve();
+    }
+    throw new Error('Yum proxy not supported on non-Linux platforms');
+}
+
+function set_yum_proxy(proxy_url) {
+    var command = "sed -i 's/.*NooBaa Configured Proxy Server.*/#NooBaa Configured Proxy Server/' /etc/yum.conf";
+    if (os.type() === 'Linux') {
+        if (!_.isEmpty(proxy_url)) {
+            command = "sed -i 's/.*NooBaa Configured Proxy Server.*/proxy=" + proxy_url.replace(/\//g, '\\/') +
+                " #NooBaa Configured Proxy Server/' /etc/yum.conf";
+        }
+        return promise_utils.exec(command);
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return P.resolve();
+    } else {
+        throw new Error('setting yum proxy not supported on non-Linux platforms');
+    }
+}
+
 function get_dns_servers() {
     let dns_config = {
         dns_servers: [],
@@ -803,6 +831,8 @@ exports.set_manual_time = set_manual_time;
 exports.verify_ntp_server = verify_ntp_server;
 exports.set_ntp = set_ntp;
 exports.get_ntp = get_ntp;
+exports.set_yum_proxy = set_yum_proxy;
+exports.get_yum_proxy = get_yum_proxy;
 exports.get_time_config = get_time_config;
 exports.get_local_ipv4_ips = get_local_ipv4_ips;
 exports.get_all_network_interfaces = get_all_network_interfaces;

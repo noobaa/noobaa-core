@@ -2280,6 +2280,13 @@ class NodesMonitor extends EventEmitter {
 
     _consolidate_host(host_nodes) {
         host_nodes.forEach(item => this._update_status(item));
+        host_nodes = host_nodes.filter(item => {
+            if (item.node.node_type === 'BLOCK_STORE_FS' && (!item.node.drives || !item.node.drives.length)) {
+                dbg.error('found a storage node without a storage drive. will be filtered out in UI.', item.node.name);
+                return false;
+            }
+            return true;
+        });
         const [s3_nodes, storage_nodes] = _.partition(host_nodes, item => item.node.node_type === 'ENDPOINT_S3');
         // for now we take the first storage node, and use it as the host_item, with some modifications
         // TODO: once we have better understanding of what the host status should be

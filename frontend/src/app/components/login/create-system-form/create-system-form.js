@@ -221,8 +221,6 @@ class CreateSystemFormViewModel extends BaseViewModel {
                 timeConfig
             ));
             this.creatingSystem(true);
-        } else {
-
         }
     }
 }

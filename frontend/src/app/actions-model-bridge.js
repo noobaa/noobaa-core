@@ -55,6 +55,7 @@ function onFailRestoreSession({ error }) {
             api.options.auth_token = undefined;
         }
 
+        model.sessionInfo(null);
         page.start();
     } else {
         throw error;

@@ -239,17 +239,11 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
         serverInfo({
             initialized: true
         });
-
-
     } else {
-        // Guarantee a minimum time of at least 500ms before resuming execution.
-        const [ config ] = await all(
-            api.cluster_server.read_server_config({
-                test_ph_connectivity: testPhonehomeConnectvity,
-                ph_proxy: phonehomeProxy
-            }),
-            sleep(750)
-        );
+        const config = await api.cluster_server.read_server_config({
+            test_ph_connectivity: testPhonehomeConnectvity,
+            ph_proxy: phonehomeProxy
+        });
 
         serverInfo({
             initialized: false,
@@ -257,15 +251,6 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
             config: config
         });
     }
-}
-
-// REFACTOR: This action was refactored into  dispatcher + state action.
-// This code will be removed after all referneces to modal.systemInfo will
-// be refactored to use the state stream.
-// ----------------------------------------------------------------------
-export function loadSystemInfo() {
-    logAction('loadSystemInfo');
-    action$.onNext(fetchSystemInfo());
 }
 
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
@@ -422,7 +407,7 @@ export function deleteAccount(email) {
                 if (email === user) {
                     action$.onNext(signOut());
                 } else {
-                    loadSystemInfo();
+                    action$.onNext(fetchSystemInfo());
                 }
             }
         )
@@ -468,7 +453,7 @@ export function createBucket(name, dataPlacement, pools) {
             () => notify(`Bucket ${name} created successfully`, 'success'),
             () => notify(`Bucket ${name} creation failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -480,7 +465,7 @@ export function deleteBucket(name) {
             () => notify(`Bucket ${name} deleted successfully`, 'success'),
             () => notify(`Bucket ${name} deletion failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -502,7 +487,7 @@ export function updateBucketPlacementPolicy(tierName, placementType, attachedPoo
             () => notify(`${bucket.name} placement policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -518,7 +503,7 @@ export function createCloudResource(name, connection, cloudBucket) {
             () => notify(`Cloud resource ${name} created successfully`, 'success'),
             () => notify(`Cloud ${name} creation failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -530,7 +515,7 @@ export function deleteCloudResource(name) {
             () => notify(`Resource ${name} deleted successfully`, 'success'),
             () => notify(`Resource ${name} deletion failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -702,7 +687,7 @@ export function updateP2PTcpPorts(minPort, maxPort) {
             () => notify('Peer to peer settings updated successfully', 'success'),
             () => notify('Peer to peer settings update failed', 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -890,7 +875,7 @@ export function setServerDebugLevel(secret, hostname, level){
                 'error'
             )
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -898,7 +883,7 @@ export function setSystemDebugLevel(level){
     logAction('setSystemDebugLevel', { level });
 
     api.cluster_server.set_debug_level({ level })
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -920,7 +905,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
             () => notify(`${bucket} cloud sync policy was set successfully`, 'success'),
             () => notify(`Setting ${bucket} cloud sync policy failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -940,7 +925,7 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
             () => notify(`${bucket} cloud sync policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket} cloud sync policy failed`, 'error')
         )
-        .then(loadSystemInfo);
+        .then(() => action$.onNext(fetchSystemInfo()));
 }
 
 export function removeCloudSyncPolicy(bucket) {
@@ -951,7 +936,7 @@ export function removeCloudSyncPolicy(bucket) {
             () => notify(`${bucket} cloud sync policy removed successfully`, 'success'),
             () => notify(`Removing ${bucket} cloud sync policy failed`, 'error')
         )
-        .then(loadSystemInfo);
+        .then(() => action$.onNext(fetchSystemInfo()));
 }
 
 export function toogleCloudSync(bucket, pause) {
@@ -965,7 +950,7 @@ export function toogleCloudSync(bucket, pause) {
             () => notify(`${bucket} cloud sync has been ${pause ? 'paused' : 'resumed'}`, 'success'),
             () => notify(`${pause ? 'Pausing' : 'Resuming'} ${bucket} cloud sync failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1005,7 +990,7 @@ export function updateBucketS3Access(bucketName, allowedAccounts) {
             () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
             () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1013,10 +998,10 @@ export function enterMaintenanceMode(duration) {
     logAction('enterMaintenanceMode', { duration });
 
     api.system.set_maintenance_mode({ duration })
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .then(
             () => setTimeout(
-                loadSystemInfo,
+                () => action$.onNext(fetchSystemInfo()),
                 (duration * 60 + 1) * 1000
             )
         )
@@ -1027,7 +1012,7 @@ export function exitMaintenanceMode() {
     logAction('exitMaintenanceMode');
 
     api.system.set_maintenance_mode({ duration: 0 })
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1039,7 +1024,7 @@ export function updatePhoneHomeConfig(proxyAddress) {
             () => notify('Phone home proxy settings updated successfully', 'success'),
             () => notify('Updating phone home proxy settings failed', 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1051,7 +1036,7 @@ export function enableRemoteSyslog(protocol, address, port) {
             () => notify('Remote syslog has been enabled', 'success'),
             () => notify('Enabling remote syslog failed', 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1063,7 +1048,7 @@ export function disableRemoteSyslog() {
             () => notify('Remote syslog has been disabled', 'success'),
             () => notify('Enabling remote syslog failed', 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1083,7 +1068,7 @@ export function attachServerToCluster(serverAddress, serverSecret, hostname, loc
             () => notify(`Attaching ${name} to the cluster, this might take a few moments`, 'info'),
             () => notify(`Attaching ${name} to cluster failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1103,7 +1088,7 @@ export function updateServerDetails(serverSecret, hostname, location) {
                 throw err;
             }
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .then(
             () => {
                 const { servers } = model.systemInfo().cluster.shards[0];
@@ -1140,7 +1125,6 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, 
 export function loadServerTime(serverSecret) {
     logAction('loadServerTime', { serverSecret });
 
-
     api.cluster_server.read_server_time({ target_secret: serverSecret })
         .then(
             time => model.serverTime({
@@ -1164,7 +1148,7 @@ export function updateServerClock(serverSecret, hostname, timezone, epoch) {
             () => notify(`${name} time settings updated successfully`, 'success'),
             () => notify(`Updating ${name} time settings failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpServerAddress) {
@@ -1180,7 +1164,7 @@ export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpSer
             () => notify(`${name} time settings updated successfully`, 'success'),
             () => notify(`Updating ${name} time settings failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1200,8 +1184,6 @@ export function attemptResolveNTPServer(ntpServerAddress, serverSecret) {
 }
 
 export function notify(message, severity = 'info') {
-    logAction('notify', { message, severity });
-
     action$.onNext(showNotification(message, severity));
 }
 
@@ -1238,7 +1220,7 @@ export function dismissUpgradedCapacityNotification() {
     logAction('dismissUpgradedCapacityNotification');
 
     api.system.phone_home_capacity_notified()
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 
@@ -1266,7 +1248,7 @@ export function regenerateAccountCredentials(email, verificationPassword) {
                 }
             }
         )
-        .then(loadSystemInfo)
+        .then(() => action$.onNext(fetchSystemInfo()))
         .done();
 }
 

@@ -7,6 +7,7 @@ import { supportedBrowsers} from 'config';
 import { sessionInfo, serverInfo } from 'model';
 import { recognizeBrowser } from 'utils/browser-utils';
 import { loadServerInfo } from 'actions';
+import { isUndefined } from 'utils/core-utils';
 
 class LoginLayoutViewModel extends BaseViewModel {
     constructor() {
@@ -19,17 +20,25 @@ class LoginLayoutViewModel extends BaseViewModel {
                 }
 
                 if (!serverInfo()) {
-                    return 'empty';
+                    return 'splash-screen';
                 }
 
                 const { initialized, config } = serverInfo();
                 if (initialized) {
-                    if (!sessionInfo()) {
+                    const session = sessionInfo();
+                    if (isUndefined(session)) {
+                        return 'splash-screen';
+
+                    } else if (!session) {
                         return 'signin-form';
 
-                    } else if(sessionInfo().passwordExpired) {
+                    } else if(session.passwordExpired) {
                         return 'change-password-form';
+
+                    } else {
+                        return 'empty';
                     }
+
                 } else {
                     if (config.phone_home_connectivity_status !== 'CONNECTED') {
                         return 'internet-connectivity-problem-form';

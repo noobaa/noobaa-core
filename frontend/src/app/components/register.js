@@ -26,6 +26,7 @@ export default function register(ko) {
     ko.components.register('unable-to-activate-modal',          require('./login/unable-to-activate-modal/unable-to-activate-modal').default);
     ko.components.register('internet-connectivity-problem-form',require('./login/internet-connectivity-problem-form/internet-connectivity-problem-form').default);
     ko.components.register('change-password-form',              require('./login/change-password-form/change-password-form').default);
+    ko.components.register('splash-screen',                     require('./login/splash-screen/splash-screen').default);
     /** INJECT:login **/
 
     // -------------------------------
@@ -35,7 +36,7 @@ export default function register(ko) {
     ko.components.register('notification-box',  require('./main/notification-box/notification-box').default);
     ko.components.register('account-menu',      require('./main/account-menu/account-menu').default);
     ko.components.register('uploads-indicator', require('./main/uploads-indicator/uploads-indicator').default);
-    /** INJECT:login **/
+    /** INJECT:main **/
 
     // -------------------------------
     // Stickies

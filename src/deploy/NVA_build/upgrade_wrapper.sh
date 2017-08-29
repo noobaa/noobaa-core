@@ -439,8 +439,7 @@ function post_upgrade {
 		/sbin/chkconfig ntpd on 2345
 		/etc/init.d/ntpd start
 		sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
-		ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
-
+		ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
 	fi
 
 	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)

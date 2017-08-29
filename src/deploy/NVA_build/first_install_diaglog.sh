@@ -169,6 +169,7 @@ function configure_dns_dialog {
     if [ "${dns2}" != "" ]; then
       sudo bash -c "echo 'nameserver ${dns2} #NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
     fi
+    sudo supervisorctl restart all
 }
 
 function configure_hostname_dialog {
@@ -239,6 +240,7 @@ function configure_ntp_dialog {
     sudo /sbin/chkconfig ntpd on 2345
     sudo /etc/init.d/ntpd restart
     sudo /etc/init.d/rsyslog restart
+    sudo /etc/init.d/supervisord restart
 }
 
 

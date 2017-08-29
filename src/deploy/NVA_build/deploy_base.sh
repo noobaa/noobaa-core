@@ -60,7 +60,7 @@ function install_platform {
     echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
     echo "#NooBaa Configured Search" >> /etc/resolv.conf
     sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
-    ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
+    ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
 
 	deploy_log "----> install_platform done"
 }

@@ -201,6 +201,9 @@ function initialize_pools_storage_values() {
 }
 
 function update_pools_of_blocks() {
+    // Just a simple check if we need to scan all of the blocks or not
+    const block = db.datablocks.findOne();
+    if (!block || block.pool) return;
     db.nodes.find()
         .toArray()
         .forEach(node => {

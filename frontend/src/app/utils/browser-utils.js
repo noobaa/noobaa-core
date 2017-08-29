@@ -34,35 +34,31 @@ export function stringifyQueryString(query) {
 }
 
 export function realizeUri(template, params = {}, query = {}, partial = false) {
-    let search = stringifyQueryString(query);
-    let base = template
+    const search = stringifyQueryString(query);
+    const base = template
         .split('/')
-        .map(
-            part => {
-                let isParam = part[0] === ':';
-                let isOptional = part.substr(-1) === '?';
+        .map(part => {
+            const isParam = part.startsWith(':');
+            const isOptional = part.endsWith('?');
 
-                if (isParam) {
-                    let name = part.substr(1, part.length - 1 - Number(isOptional));
-                    let value = params[name];
+            if (isParam) {
+                const name = part.slice(1, isOptional ? -1 : undefined);
+                const value = params[name];
 
-                    if (value) {
-                        return encodeURIComponent(value);
-                    } else if (partial) {
-                        return part;
-                    } else if (isOptional) {
-                        return null;
-                    } else {
-                        throw new Error(`Cannot satisfy mandatory parameter: ${name}`);
-                    }
-                } else {
+                if (value) {
+                    return encodeURIComponent(encodeURIComponent(value));
+                } else if (partial) {
                     return part;
+                } else if (isOptional) {
+                    return null;
+                } else {
+                    throw new Error(`Cannot satisfy mandatory parameter: ${name}`);
                 }
+            } else {
+                return part;
             }
-        )
-        .filter(
-            part => part !== null
-        )
+        })
+        .filter(part => part !== null)
         .join('/');
 
     return search ? `${base}?${search}` : base;

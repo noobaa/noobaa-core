@@ -27,6 +27,12 @@
         >
             Test &amp; Diagnostics
         </a>
+
+        <a ko.css.selected="selectedTab.eq('parts')"
+            ko.attr.href="tabHref('parts')"
+        >
+            Stored Parts
+        </a>
     </nav>
 
     <div class="tabs-row">
@@ -37,18 +43,23 @@
 
         <host-storage-form class="tab"
             ko.css.selected="selectedTab.eq('storage')"
-            params="name: host">
-        </host-storage-form>
+            params="name: host"
+        ></host-storage-form>
 
         <host-gateway-form class="tab"
             ko.css.selected="selectedTab.eq('gateway')"
-            params="name: host">
-        </host-gateway-form>
+            params="name: host"
+        ></host-gateway-form>
 
         <host-diagnostics-form class="tab"
             ko.css.selected="selectedTab.eq('diagnostics')"
-            params="name: host">
-        </host-diagnostics-form>
+            params="name: host"
+        ></host-diagnostics-form>
+
+        <host-parts-table class="tab"
+            ko.css.selected="selectedTab.eq('parts')"
+            params="name: host"
+        ></host-parts-table>
     </div>
 </div>
 

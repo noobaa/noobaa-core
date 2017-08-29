@@ -32,6 +32,7 @@ import setHostDebugMode from './set-host-debug-mode';
 import toggleHostServices from './toggle-host-services';
 import toggleHostNodes from './toggle-host-nodes';
 import downloadFile from './download-file';
+import fetchHostObjects from './fetch-host-objects';
 
 
 const generalEpics = [
@@ -86,6 +87,7 @@ const resourceRelatedEpics = [
 
 const hostRelatedEpics = [
     fetchHosts,
+    fetchHostObjects,
     collectHostDiagnostics,
     setHostDebugMode,
     toggleHostServices,

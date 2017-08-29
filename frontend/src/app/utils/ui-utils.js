@@ -53,7 +53,8 @@ export function getPoolStateIcon(pool) {
             const shim = {
                 mode: pool.mode,
                 hostCount: pool.hosts.count,
-                hostsByMode: pool.hosts.by_mode
+                hostsByMode: pool.hosts.by_mode,
+                storage: pool.storage
             };
 
             return getHostsPoolStateIcon(shim);

@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { noop } from 'utils/core-utils';
+import { mapValues, noop } from 'utils/core-utils';
 import { parseQueryString } from 'utils/browser-utils';
 import * as routes from 'routes';
 import * as actions from 'actions';
@@ -17,13 +17,14 @@ function registerRouteHandler(page, route, extra = noop) {
         ctx => {
             const query = parseQueryString(ctx.querystring);
             const { ['0']: _, ...params } = ctx.params;
+            const decodedParams = mapValues(params, p => p && decodeURIComponent(p));
 
             // Update state about location:
             action$.onNext(changeLocation({
                 protocol: protocol,
                 pathname: ctx.pathname,
                 route: route !== '*' ? route : undefined,
-                params: params,
+                params: decodedParams,
                 query: query
             }));
 

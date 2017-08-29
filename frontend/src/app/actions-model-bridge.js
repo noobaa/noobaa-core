@@ -46,7 +46,7 @@ function onFailSignIn({ error }) {
 
 function onCompleteRestoreSession(payload) {
     model.sessionInfo(payload);
-    page.start();
+    page.start({ decodeURLComponents: false });
 }
 
 function onFailRestoreSession({ error }) {
@@ -56,7 +56,7 @@ function onFailRestoreSession({ error }) {
         }
 
         model.sessionInfo(null);
-        page.start();
+        page.start({ decodeURLComponents: false });
     } else {
         throw error;
     }

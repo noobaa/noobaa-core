@@ -49,14 +49,25 @@ else
 fi   
 sudo rm /etc/noobaa_sec
 echo Passw0rd | passwd noobaaroot --stdin
+#Clean log file
 rm -f /var/log/*.log
 rm -f /var/log/*-*
 rm -f /var/log/noobaa*
 rm -f /tmp/supervisor/*
+rm -f /tmp/supervisord.log
 rm -rf /etc/mongo_ssl/
 rm -f /usr/bin/mongors
 rm -f /etc/noobaa_network
 
+#Clean platform changes
+unlink /etc/localtime
+ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
+sed -i "s:.*#NooBaa Configured Primary DNS Server.*:#NooBaa Configured Primary DNS Server:" /etc/resolv.conf
+sed -i "s:.*#NooBaa Configured Secondary DNS Server.*:#NooBaa Configured Secondary DNS Server:" /etc/resolv.conf
+sed -i "s:.*#NooBaa Configured Search.*:#NooBaa Configured Search:" /etc/resolv.conf
+sed -i "s:.*# NooBaa Configured NTP Server.*:# NooBaa Configured NTP Server:" /etc/ntp.conf
+
+#Clean supervisors
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/node_modules/noobaa-core/.env
 supervisorctl reread

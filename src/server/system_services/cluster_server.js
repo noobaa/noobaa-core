@@ -780,6 +780,19 @@ function update_dns_servers(req) {
                 })) {
                 throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
             }
+            const config_to_compare = [
+                dns_servers_config.dns_servers ? dns_servers_config.dns_servers.sort() : undefined,
+                dns_servers_config.search_domains ? dns_servers_config.search_domains.sort() : undefined
+            ];
+            // don't update servers that already have the dame configuration
+            target_servers = target_servers.filter(srv => {
+                const { dns_servers, search_domains } = srv;
+                return !_.isEqual(config_to_compare, [dns_servers.sort(), search_domains.sort()]);
+            });
+            if (!target_servers.length) {
+                dbg.log0(`DNS changes are the same as current configuration. skipping`);
+                throw new Error('NO_CHANGE');
+            }
             let updates = _.map(target_servers, server => _.omitBy({
                 _id: server._id,
                 dns_servers: dns_servers_config.dns_servers,
@@ -805,6 +818,9 @@ function update_dns_servers(req) {
                 desc: _.isEmpty(dns_servers_config.dns_servers) ?
                     `DNS servers cleared` : `DNS servers set to: ${dns_servers_config.dns_servers.join(', ')}`
             });
+        })
+        .catch(err => {
+            if (err.message !== 'NO_CHANGE') throw err;
         })
         .return();
 }

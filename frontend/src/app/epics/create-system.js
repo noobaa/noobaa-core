@@ -13,7 +13,7 @@ export default function(action$, { api }) {
                 password,
                 systemName,
                 dnsName,
-                dnsServers,
+                //dnsServers, //Should be introduced back after Issue #2469
                 timeConfig
             } = action.payload;
 
@@ -24,7 +24,7 @@ export default function(action$, { api }) {
                     email: ownerEmail,
                     password: password,
                     dns_name: dnsName,
-                    dns_servers: dnsServers,
+                    //dns_servers: dnsServers, //Should be introduced back after Issue #2469
                     time_config: timeConfig
                 });
 

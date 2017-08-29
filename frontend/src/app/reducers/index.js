@@ -18,7 +18,7 @@ import objectUploadsReducer from './object-uploads-reducer';
 import alertsReducer from './alerts-reducer';
 import notificationsReducer from './notificaitons-reducer';
 import topologyReducer from './topology-reducer';
-
+import hostPartsReducer from './host-parts-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -27,15 +27,16 @@ export default combineReducers({
     drawer: drawerReducer,
     modals: modalsReducer,
     forms: formsReducer,
+    notifications: notificationsReducer,
     alerts: alertsReducer,
     buckets: bucketsReducer,
     nsBuckets: nsBucketsReducer,
-    hostPools: hostPoolsReducer,
     cloudResources: cloudResourcesReducer,
     externalResources: externalResourcesReducer,
+    hostPools: hostPoolsReducer,
     hosts: hostsReducer,
+    hostParts: hostPartsReducer,
     accounts: accountsReducer,
     objectUploads: objectUploadsReducer,
-    notifications: notificationsReducer,
     topology: topologyReducer
 });

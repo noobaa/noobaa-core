@@ -24,8 +24,8 @@ class AppViewModel extends Observer {
     onState([ session, location = {}, env ]) {
         if (session && !location.route) {
             // Redirect to the system routes
-            const uri = realizeUri(routes.system, { system: session.system });
-            action$.onNext(requestLocation(uri, true));
+            const url = realizeUri(routes.system, { system: session.system });
+            action$.onNext(requestLocation(url, true));
             return;
         }
 

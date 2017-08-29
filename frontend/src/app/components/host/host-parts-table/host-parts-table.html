@@ -1,0 +1,19 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<h3 class="heading3 pad alt-bg">
+    File parts stored on this node:
+    <span data-bind="text: partCount"></span>
+</h3>
+
+<data-table class="parts-table greedy" params="
+    columns: columns,
+    data: rows,
+    loading: fetching,
+    emptyMessage: 'No file parts are stored on the node'
+"></data-table>
+
+<paginator params="
+    pageSize: pageSize,
+    itemCount: partCount,
+    page: ko.pc(page, p => onPage(p))
+"></paginator>

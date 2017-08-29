@@ -16,7 +16,10 @@ import {
     FAIL_TOGGLE_HOST_SERVICES,
     TOGGLE_HOST_NODES,
     COMPLETE_TOGGLE_HOST_NODES,
-    FAIL_TOGGLE_HOST_NODES
+    FAIL_TOGGLE_HOST_NODES,
+    FETCH_HOST_OBJECTS,
+    COMPLETE_FETCH_HOST_OBJECTS,
+    FAIL_FETCH_HOST_OBJECTS
 } from 'action-types';
 
 
@@ -131,5 +134,33 @@ export function failToggleHostNodes(host, error) {
     return {
         type: FAIL_TOGGLE_HOST_NODES,
         payload: { host, error }
+    };
+}
+
+
+export function fetchHostObjects(host, skip, limit) {
+    return {
+        type: FETCH_HOST_OBJECTS,
+        payload: { host, skip, limit }
+    };
+}
+
+export function completeFetchHostObjects(host, skip, limit, response) {
+    return {
+        type: COMPLETE_FETCH_HOST_OBJECTS,
+        payload: {
+            query: { host, skip, limit},
+            response
+        }
+    };
+}
+
+export function failFetchHostObjects(host, skip, limit, error) {
+    return {
+        type: FAIL_FETCH_HOST_OBJECTS,
+        payload: {
+            query: { host, skip, limit },
+            error
+        }
     };
 }

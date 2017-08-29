@@ -160,8 +160,8 @@ export default function register(ko) {
     ko.components.register('host-details-form',     require('./host/host-details-form/host-details-form').default);
     ko.components.register('host-gateway-form',     require('./host/host-gateway-form/host-gateway-form').default);
     ko.components.register('host-storage-form',     require('./host/host-storage-form/host-storage-form').default);
-    ko.components.register('node-parts-table',      require('./host/node-parts-table/node-parts-table').default);
     ko.components.register('host-diagnostics-form', require('./host/host-diagnostics-form/host-diagnostics-form').default);
+    ko.components.register('host-parts-table',      require('./host/host-parts-table/host-parts-table').default);
     /** INJECT:host **/
 
     // -------------------------------

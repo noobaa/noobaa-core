@@ -46,7 +46,7 @@ function check_mongo_status {
 
     #if test system is checked, verify system exists in our db
     local sysnumber
-    if [ $1 -eq "--testsystem" ]; then
+    if [ "$1" == "--testsystem" ]; then
         sysnumber=$(${MONGO_SHELL} --quiet --eval 'db.systems.count()')
         if [ $sysnumber -ne 1 ]
         then

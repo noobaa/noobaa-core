@@ -2280,13 +2280,6 @@ class NodesMonitor extends EventEmitter {
 
     _consolidate_host(host_nodes) {
         host_nodes.forEach(item => this._update_status(item));
-        host_nodes = host_nodes.filter(item => {
-            if (item.node.node_type === 'BLOCK_STORE_FS' && (!item.node.drives || !item.node.drives.length)) {
-                dbg.error('found a storage node without a storage drive. will be filtered out in UI.', item.node.name);
-                return false;
-            }
-            return true;
-        });
         const [s3_nodes, storage_nodes] = _.partition(host_nodes, item => item.node.node_type === 'ENDPOINT_S3');
         // for now we take the first storage node, and use it as the host_item, with some modifications
         // TODO: once we have better understanding of what the host status should be
@@ -2969,12 +2962,10 @@ class NodesMonitor extends EventEmitter {
                 'wait_reason');
         }
         info.storage = this._node_storage_info(item);
-        if (node.drives && node.drives.length) {
-            info.drive = {
-                mount: node.drives[0].mount,
-                drive_id: node.drives[0].drive_id,
-            };
-        }
+        info.drive = {
+            mount: _.get(node, 'drives[0].mount', '[Unknown Mount]'),
+            drive_id: _.get(node, 'drives[0].drive_id', '[Unknown Drive]'),
+        };
         info.os_info = _.defaults({}, node.os_info);
         if (info.os_info.uptime) {
             info.os_info.uptime = new Date(info.os_info.uptime).getTime();

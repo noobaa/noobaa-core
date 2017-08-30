@@ -62,10 +62,12 @@ rm -f /etc/noobaa_network
 #Clean platform changes
 unlink /etc/localtime
 ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
+date -s "21 Aug 2017 00:00:00"
 sed -i "s:.*#NooBaa Configured Primary DNS Server.*:#NooBaa Configured Primary DNS Server:" /etc/resolv.conf
 sed -i "s:.*#NooBaa Configured Secondary DNS Server.*:#NooBaa Configured Secondary DNS Server:" /etc/resolv.conf
 sed -i "s:.*#NooBaa Configured Search.*:#NooBaa Configured Search:" /etc/resolv.conf
 sed -i "s:.*# NooBaa Configured NTP Server.*:# NooBaa Configured NTP Server:" /etc/ntp.conf
+
 
 #Clean supervisors
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf

@@ -37,10 +37,10 @@ export default class PartRowViewModel {
         const objectHref = realizeUri(routes.object, { system, bucket, object });
 
         this.state(modeToIcon[mode]);
-        this.object({ text: object, href: objectHref });
-        this.bucket(bucket);
+        this.object({ text: object, tooltip: object, href: objectHref });
+        this.bucket({ text: bucket, tooltip: bucket });
         this.start(numeral(start).format('0.0 b'));
-        this.end(numeral(start).format('0.0 b'));
+        this.end(numeral(end).format('0.0 b'));
         this.size(numeral(end - start).format('0.0 b'));
     }
 }

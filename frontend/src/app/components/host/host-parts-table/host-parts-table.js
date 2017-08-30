@@ -43,6 +43,7 @@ class HostPartsTableViewModel extends Observer {
         this.pageSize = paginationPageSize;
         this.fetching = ko.observable();
         this.partCount = ko.observable();
+        this.partCountFormatted = ko.observable();
         this.rows = ko.observableArray();
         this.page = ko.observable();
 
@@ -80,7 +81,8 @@ class HostPartsTableViewModel extends Observer {
         });
 
         this.fetching(false);
-        this.partCount(numeral(partCount).format('0,0'));
+        this.partCount(partCount);
+        this.partCountFormatted(numeral(partCount).format('0,0'));
         this.rows(rows);
     }
 

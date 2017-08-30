@@ -1,6 +1,10 @@
 #!/bin/bash
 
-TURN_DL="http://turnserver.open-sys.org/downloads/v4.3.1.3/turnserver-4.3.1.3-CentOS6.6-x86_64.tar.gz"
+export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
+
+TURN_VER="4.5.0.6"
+TURN_CENTOS="7.2"
+TURN_DL="http://turnserver.open-sys.org/downloads/v${TURN_VER}/turnserver-${TURN_VER}-CentOS${TURN_CENTOS}-x86_64.tar.gz"
 CORE_DIR="/root/node_modules/noobaa-core"
 ENV_FILE="${CORE_DIR}/.env"
 LOG_FILE="/var/log/noobaa_deploy.log"
@@ -15,8 +19,23 @@ function deploy_log {
     logger -t UPGRADE -p local0.warn "$*"
 }
 
+function clean_ifcfg() {
+    interfaces=$(ifconfig | grep ^en | awk '{print $1}')
+    for int in ${interfaces//:/}; do
+        sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
+    done
+    sudo rm /etc/sysconfig/network
+}
+
 function install_platform {
-    deploy_log "----> install_platform start"
+    deploy_log install_platform start
+
+#    wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+#    rpm -Uvh epel-release-latest-7*.rpm || ture
+    yum remove -y epel-release
+    yum --enablerepo=extras install -y epel-release
+    #yum install -y epel-release || true
+    yum clean expire-cache
 
     yum install -y \
 		sudo \
@@ -37,7 +56,13 @@ function install_platform {
         bind-utils \
         screen \
         strace \
-        vim
+        vim \
+        net-tools \
+        iptables-services
+
+    # make iptables run on boot instead of firewalld
+    systemctl disable firewalld
+    systemctl enable iptables
 
 	# make crontab start on boot
 	chkconfig crond on
@@ -49,24 +74,23 @@ function install_platform {
     # Install STUN/TURN
     cd /tmp
     curl -sL ${TURN_DL} | tar -xzv
-    cd /tmp/turnserver-4.3.1.3
-    /tmp/turnserver-4.3.1.3/install.sh
+    cd /tmp/turnserver-${TURN_VER}
+    /tmp/turnserver-${TURN_VER}/install.sh
     cd ~
 
     # By Default, NTP is disabled, set local TZ to US Pacific
-    echo "# NooBaa Configured NTP Server"     >> /etc/ntp.conf
+    echo "#NooBaa Configured NTP Server"     >> /etc/ntp.conf
     echo "#NooBaa Configured Proxy Server"     >> /etc/yum.conf
-    echo "#NooBaa Configured Primary DNS Server" >> /etc/resolv.conf
-    echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
-    echo "#NooBaa Configured Search" >> /etc/resolv.conf
+    echo "#NooBaa Configured DNS Servers" >> /etc/dhclient.conf
+    echo "#NooBaa Configured Search" >> /etc/dhclient.conf
     sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
     ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
 
-	deploy_log "----> install_platform done"
+	deploy_log install_platform done
 }
 
 function setup_linux_users {
-	deploy_log "----> setup_linux_users start"
+	deploy_log setup_linux_users start
 
 	if ((`id -u`)); then
 		deploy_log "Must run with root"
@@ -107,16 +131,14 @@ function setup_linux_users {
         fi
     fi
 
-	#local current_ip=$(ifconfig eth0 | grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
-
     #Fix login message
     echo -e "\x1b[0;35;40m" > /etc/issue
-    echo  '  _    _            ______              ' >> /etc/issue
-    echo  ' | \\ | |           | ___ \             ' >> /etc/issue
+    echo  '  _   _            ______              ' >> /etc/issue
+    echo  ' | \\ | |           | ___ \\             ' >> /etc/issue
     echo  ' |  \\| | ___   ___ | |_/ / __ _  __ _  ' >> /etc/issue
-    echo  ' | . `  |/ _ \ / _ \| ___ \/ _` |/ _` | ' >> /etc/issue
+    echo  ' | . ` |/ _ \\ / _ \\| ___ \\/ _` |/ _` | ' >> /etc/issue
     echo  ' | |\\  | (_) | (_) | |_/ / (_| | (_| | ' >> /etc/issue
-    echo  ' \_| \\_/\___/ \___/\____/ \__,_|\__,_| ' >> /etc/issue
+    echo  ' \\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_| ' >> /etc/issue
     echo -e "\x1b[0m" >> /etc/issue
 
     echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
@@ -127,12 +149,16 @@ function setup_linux_users {
 
     echo -e "\nYou can set up a cluster member, configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 
-	deploy_log "----> setup_linux_users done"
+	deploy_log "setup_linux_users done"
+
+    #chmoding the rc.local to be executable
+    chmod 755 /etc/rc.local
 }
 
 function install_nodejs {
-    deploy_log "----> install_nodejs start"
+    deploy_log "install_nodejs start"
 
+    yum remove epel-release-6-8.noarch
     yum -y groupinstall "Development Tools"
     export PATH=$PATH:/usr/local/bin
 
@@ -142,17 +168,18 @@ function install_nodejs {
     export NVM_DIR="$HOME/.nvm"
     source /root/.nvm/nvm.sh
 
-    nvm install
+    NODE_VER=$(cat ${CORE_DIR}/.nvmrc)
+    nvm install ${NODE_VER}
     nvm alias default $(nvm current)
 
     cd ~
     ln -sf $(which node) /usr/local/bin/node
 
-    deploy_log "----> install_nodejs done"
+    deploy_log "install_nodejs done"
 }
 
 function install_noobaa_repos {
-    deploy_log "----> install_noobaa_repos start"
+    deploy_log "install_noobaa_repos start"
 
     mkdir -p /root/node_modules
     mv /tmp/noobaa-NVA.tar.gz /root/node_modules
@@ -163,11 +190,11 @@ function install_noobaa_repos {
 	# Setup Repos
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 
-    deploy_log "----> install_noobaa_repos done"
+    deploy_log "install_noobaa_repos done"
 }
 
 function install_mongo {
-    deploy_log "----> install_mongo start"
+    deploy_log "install_mongo start"
 
     mkdir -p /var/lib/mongo/cluster/shard1
     # create a Mongo 3.4 Repo file
@@ -185,13 +212,17 @@ function install_mongo {
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
     rm -f /etc/init.d/mongod
 
-    deploy_log "----> install_mongo done"
+    deploy_log "install_mongo done"
 }
 
 
 
 function general_settings {
-	deploy_log "----> general_settings start"
+	deploy_log "general_settings start"
+
+    #Open n2n ports
+    iptables -I INPUT 1 -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
+    
     iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
     iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
     iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT
@@ -203,10 +234,8 @@ function general_settings {
     #CVE-1999-0524
     iptables -A INPUT -p ICMP --icmp-type timestamp-request -j DROP
     iptables -A INPUT -p ICMP --icmp-type timestamp-reply -j DROP
-
-    #Open n2n ports
-    iptables -A INPUT -i eth0 -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
     service iptables save
+
 
     echo "export LC_ALL=C" >> ~/.bashrc
     echo "export TERM=xterm" >> ~/.bashrc
@@ -233,7 +262,7 @@ function general_settings {
 
     fix_security_issues
 
-	deploy_log "----> general_settings done"
+	deploy_log "general_settings done"
 }
 
 
@@ -246,8 +275,8 @@ function fix_security_issues {
         sed -i -e 's/#X11Forwarding no/X11Forwarding no/g' /etc/ssh/sshd_config
         #CVE-2010-5107
         sed -i -e 's/#MaxStartups/MaxStartups/g' /etc/ssh/sshd_config
-        /etc/init.d/sshd restart
-    fi
+        /bin/systemctl restart sshd.service
+     fi
 
     #proxy settings for yum install - for future use
     #http_proxy="http://yum-user:qwerty@mycache.mydomain.com:3128"
@@ -302,7 +331,7 @@ function fix_security_issues {
 }
 
 function setup_supervisors {
-	deploy_log "----> setup_supervisors start"
+	deploy_log "setup_supervisors start"
 
     mkdir -p /tmp/supervisor
     # Generate default supervisord config
@@ -326,11 +355,11 @@ function setup_supervisors {
     ${SUPERCTL} reread
     ${SUPERCTL} update
 
-    deploy_log "----> setup_supervisors done"
+    deploy_log "setup_supervisors done"
 }
 
 function setup_syslog {
-	deploy_log "----> setup_syslog start"
+	deploy_log "setup_syslog start"
 
     deploy_log "setup_syslog - copy src/deploy/NVA_build/rsyslog.repo to /etc/yum.repos.d/rsyslog.repo"
     cp -f ${CORE_DIR}/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo
@@ -345,11 +374,11 @@ function setup_syslog {
     # setup crontab to run logrotate every 15 minutes.
     echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
 
-	deploy_log "----> setup_syslog done"
+	deploy_log "setup_syslog done"
 }
 
 function setup_mongodb {
-	deploy_log "----> setup_mongodb start"
+	deploy_log "setup_mongodb start"
 
 	sleep 10 # workaround for mongo starting
 
@@ -358,11 +387,11 @@ function setup_mongodb {
 
     chkconfig mongod off
 
-	deploy_log "----> setup_mongodb done"
+	deploy_log "setup_mongodb done"
 }
 
 function runinstall {
-    deploy_log "----> runinstall start"
+    deploy_log "runinstall start"
     set -e
 	install_platform
 	setup_linux_users
@@ -374,7 +403,7 @@ function runinstall {
     setup_syslog
     #Make sure the OVA is created with no DHCP or previous IP configuration
     clean_ifcfg
-	deploy_log "----> runinstall done"
+	deploy_log "runinstall done"
 }
 
 if [ "$1" == "runinstall" ]; then

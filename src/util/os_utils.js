@@ -283,6 +283,7 @@ function read_mac_linux_drives(include_all) {
                     .then(() => linux_volume_to_drive(vol))
                     .catch(() => {
                         dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
+                        return;
                     });
             }))
             .then(res => _.compact(res)));
@@ -422,8 +423,8 @@ function ss_single(dst) {
 function set_manual_time(time_epoch, timez) {
     if (os.type() === 'Linux') {
         return _set_time_zone(timez)
-            .then(() => promise_utils.exec('/sbin/chkconfig ntpd off 2345'))
-            .then(() => promise_utils.exec('/etc/init.d/ntpd stop'))
+            .then(() => promise_utils.exec('systemctl disable ntpd.service'))
+            .then(() => promise_utils.exec('systemctl stop ntpd.service'))
             .then(() => promise_utils.exec('date +%s -s @' + time_epoch))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
@@ -453,7 +454,7 @@ function get_ntp() {
     if (os.type() === 'Linux') {
         return promise_utils.exec("cat /etc/ntp.conf | grep NooBaa", false, true)
             .then(res => {
-                let regex_res = (/server (.*) iburst # NooBaa Configured NTP Server/).exec(res);
+                let regex_res = (/server (.*) iburst #NooBaa Configured NTP Server/).exec(res);
                 return regex_res ? regex_res[1] : "";
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
@@ -465,11 +466,11 @@ function get_ntp() {
 function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
         var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server +
-            " iburst # NooBaa Configured NTP Server/' /etc/ntp.conf";
+            " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
         return _set_time_zone(timez)
             .then(() => promise_utils.exec(command))
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
-            .then(() => promise_utils.exec('/etc/init.d/ntpd restart'))
+            .then(() => promise_utils.exec('systemctl restart ntpd.service'))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return P.resolve();
@@ -513,20 +514,40 @@ function get_dns_servers() {
     };
 
     if (os.type() === 'Linux') {
-        return promise_utils.exec("cat /etc/resolv.conf | grep NooBaa", true, true)
+        return promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured DNS Servers'  | awk '{print $3}'", true, true)
             .then(cmd_res => {
-                let conf_lines = cmd_res.split(/\n/);
-                dns_config.dns_servers = conf_lines.map(line => {
-                        let regex_res = (/nameserver (.*) #NooBaa/).exec(line);
-                        return regex_res && regex_res[1];
-                    })
-                    .filter(regex_group => !_.isEmpty(regex_group));
+                dns_config.dns_servers = cmd_res.trim().split(',');
+            })
+            .then(() => promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured Search' | awk '{print $3}'", true, true))
+            .then(cmd_res => {
+                const search = cmd_res.trim().split(',');
+                dns_config.search_domains = search.map(domain => domain.replace(/"/g, ''));
+                return dns_config;
+            });
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return P.resolve(dns_config);
+    }
+    throw new Error('DNS not supported on non-Linux platforms');
+}
 
-                dns_config.search_domains = conf_lines.map(line => {
-                        let regex_res = (/search (.*) #NooBaa/).exec(line);
-                        return regex_res && regex_res[1];
-                    })
-                    .filter(regex_group => !_.isEmpty(regex_group));
+function get_dns_servers_for_static() {
+    let dns_config = {
+        dns_servers: [],
+        search_domains: []
+    };
+
+    if (os.type() === 'Linux') {
+        return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DNS1')
+            .then(line => {
+                if (line) dns_config.dns_servers[0] = line.trim.slice(5); // DNS1=
+                return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DNS2');
+            })
+            .then(line => {
+                if (line) dns_config.dns_servers[1] = line.trim.slice(5); // DNS2=
+                return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DOMAIN');
+            })
+            .then(line => {
+                if (line) dns_config.search_domains = line.trim.slice(7, line.trim.length - 1).split(' '); // DOMAIN=""
                 return dns_config;
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
@@ -538,25 +559,31 @@ function get_dns_servers() {
 function set_dns_server(servers, search_domains) {
     if (os.type() === 'Linux') {
         var commands_to_exec = [];
-        if (servers[0]) {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/nameserver " +
-                servers[0] + " #NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
-        } else {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/#NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
-        }
-
-        if (servers[1]) {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/nameserver " +
-                servers[1] + " #NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
-        } else {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/#NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
+        if (servers[0] && servers[1]) {
+            commands_to_exec.push("echo 'prepend domain-name-servers " + servers[0] + "," + servers[1] + " ; #NooBaa Configured DNS Servers' > /etc/dhclient.conf");
+            commands_to_exec.push("echo 'DNS1=" + servers[0] + "' > /etc/sysconfig/network");
+            commands_to_exec.push("echo 'DNS2=" + servers[1] + "' >> /etc/sysconfig/network");
+        } else if (servers[0]) {
+            commands_to_exec.push("echo 'prepend domain-name-servers " + servers[0] + " ; #NooBaa Configured DNS Servers' > /etc/dhclient.conf");
+            commands_to_exec.push("echo 'DNS1=" + servers[0] + "' > /etc/sysconfig/network");
         }
 
         if (search_domains && search_domains.length) {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/search " +
-                search_domains + " #NooBaa Configured Search/' /etc/resolv.conf");
-        } else {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/resolv.conf");
+            let command = "echo 'prepend domain-search \"" + search_domains[0] + "\"";
+            let command2 = "echo 'DOMAIN=\"" + search_domains[0];
+            for (let i = 1; i < search_domains.length; ++i) {
+                command += ",\"" + search_domains[i] + "\"";
+                command2 += " " + search_domains[i];
+            }
+            command += " ; #NooBaa Configured Search' >> /etc/dhclient.conf";
+            command2 += "\"' >> /etc/sysconfig/network";
+            commands_to_exec.push(command);
+            commands_to_exec.push(command2);
+        }
+
+        if (commands_to_exec.length) {
+            commands_to_exec.push("rm -rf /etc/resolv.conf");
+            commands_to_exec.push("service network restart");
         }
 
         return P.each(commands_to_exec, function(command) {
@@ -637,7 +664,7 @@ function get_networking_info() {
 }
 
 function get_all_network_interfaces() {
-    return promise_utils.exec('ifconfig -a | grep eth | awk \'{print $1}\'', false, true)
+    return promise_utils.exec('ifconfig -a | grep ^en | awk -F":" \'{print $1}\'', false, true)
         .then(nics => {
             nics = nics.substring(0, nics.length - 1);
             return nics.split('\n');
@@ -1064,6 +1091,7 @@ exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
 exports.set_dns_server = set_dns_server;
 exports.get_dns_servers = get_dns_servers;
+exports.get_dns_servers_for_static = get_dns_servers_for_static;
 exports.restart_services = restart_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;

@@ -3,11 +3,11 @@ set -e
 isAzure=false
 isesx=false
 function clean_ifcfg() {
-    eths=$(ifconfig | grep eth | awk '{print $1}')
-    for eth in ${eths}; do
-        sudo rm /etc/sysconfig/network-scripts/ifcfg-${eth}
-        sudo sed -i "s:.*${eth}.*::" /etc/udev/rules.d/70-persistent-net.rules
+    interfaces=$(ifconfig | grep ^en | awk '{print $1}')
+    for int in ${interfaces//:/}; do
+        sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done
+    sudo rm /etc/sysconfig/network
 }
 
 OPTIONS=$( getopt -o 'h,e,a' --long "help,esx,azure" -- "$@" )
@@ -44,6 +44,8 @@ then
     echo "make sure no swap entry in fstab!"
     cat /etc/fstab
 else
+    #calling yum upgrade before cleaning the network
+    yum upgrade -y 
     clean_ifcfg
     sudo rm /etc/first_install.mrk
 fi   
@@ -63,10 +65,9 @@ rm -f /etc/noobaa_network
 unlink /etc/localtime
 ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
 date -s "21 Aug 2017 00:00:00"
-sed -i "s:.*#NooBaa Configured Primary DNS Server.*:#NooBaa Configured Primary DNS Server:" /etc/resolv.conf
-sed -i "s:.*#NooBaa Configured Secondary DNS Server.*:#NooBaa Configured Secondary DNS Server:" /etc/resolv.conf
-sed -i "s:.*#NooBaa Configured Search.*:#NooBaa Configured Search:" /etc/resolv.conf
-sed -i "s:.*# NooBaa Configured NTP Server.*:# NooBaa Configured NTP Server:" /etc/ntp.conf
+sed -i "s:.*#NooBaa Configured DNS Servers.*:#NooBaa Configured DNS Servers:" /etc/dhclient.conf
+sed -i "s:.*#NooBaa Configured Search.*:#NooBaa Configured Search:" /etc/dhclient.conf
+sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc/ntp.conf
 
 
 #Clean supervisors

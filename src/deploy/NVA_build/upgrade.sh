@@ -107,7 +107,7 @@ function mongo_upgrade {
   local sec=$(cat /etc/noobaa_sec)
   local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/tools/bcrypt_cli.js "${sec}")
   local id=$(uuidgen | cut -f 1 -d'-')
-  local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
+  local ip=$(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}')
   local client_subject=$(openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}')
   deploy_log "starting mongo data upgrade ${bcrypt_sec} ${id} ${ip}"
   ${CORE_DIR}/src/deploy/mongo_upgrade/mongo_upgrade.sh ${CLUSTER} --param_secret ${sec} --param_bcrypt_secret ${bcrypt_sec} --param_ip ${ip} --param_client_subject ${client_subject}  

@@ -5,9 +5,7 @@
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 
 const _ = require('lodash');
-const dns = require('dns');
 const fs = require('fs');
-const os = require('os');
 const moment = require('moment');
 const url = require('url');
 const net = require('net');
@@ -781,13 +779,13 @@ function update_dns_servers(req) {
                 throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
             }
             const config_to_compare = [
-                dns_servers_config.dns_servers ? dns_servers_config.dns_servers.sort() : [],
-                dns_servers_config.search_domains ? dns_servers_config.search_domains.sort() : []
+                dns_servers_config.dns_servers || [],
+                dns_servers_config.search_domains || []
             ];
             // don't update servers that already have the dame configuration
             target_servers = target_servers.filter(srv => {
                 const { dns_servers = [], search_domains = [] } = srv;
-                return !_.isEqual(config_to_compare, [dns_servers.sort(), search_domains.sort()]);
+                return !_.isEqual(config_to_compare, [dns_servers, search_domains]);
             });
             if (!target_servers.length) {
                 dbg.log0(`DNS changes are the same as current configuration. skipping`);
@@ -1292,23 +1290,7 @@ function read_server_config(req) {
     let srvconf = {};
 
     return P.resolve()
-        .then(function() {
-            if (DEV_MODE || os.type() === 'Darwin') {
-                // Notice that we only return from the current promise and continue the chain
-                // Later in method _verify_connection_to_phonehome, we attach the connection status
-                return;
-            }
-
-            return fs_utils.find_line_in_file('/etc/sysconfig/network-scripts/ifcfg-eth0', 'BOOTPROTO="dhcp"')
-                .then(dhcp => {
-                    // This is used in order to check that it's not commented
-                    if (dhcp && dhcp.split('#')[0].trim() === 'BOOTPROTO="dhcp"') {
-                        using_dhcp = true;
-                        dbg.log0('found configured DHCP');
-                    }
-                });
-        })
-        .then(() => _attach_server_configuration(srvconf, using_dhcp))
+        .then(() => _attach_server_configuration(srvconf))
         .then(() => {
             if (DEV_MODE) {
                 return 'CONNECTED';
@@ -1752,22 +1734,16 @@ function _update_rs_if_needed(IPs, name, is_config) {
 }
 
 
-function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
-    const SEARCH_DOMAIN_CONFIG = '#NooBaa Configured Search';
+function _attach_server_configuration(cluster_server) {
     if (!fs.existsSync('/etc/ntp.conf') || !fs.existsSync('/etc/resolv.conf')) {
         cluster_server.ntp = {
             timezone: os_utils.get_time_config().timezone
         };
         return cluster_server;
     }
-    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '# NooBaa Configured NTP Server'),
-            os_utils.get_time_config(),
-            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
-            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'),
-            fs_utils.find_line_in_file('/etc/resolv.conf', SEARCH_DOMAIN_CONFIG),
-            dhcp_dns_servers && dns.getServers()
-        )
-        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line, search_domains, dhcp_dns) {
+    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
+            os_utils.get_time_config(), os_utils.get_dns_servers())
+        .spread(function(ntp_line, time_config, dns_config) {
             cluster_server.ntp = {
                 timezone: time_config.timezone
             };
@@ -1776,35 +1752,12 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
                 dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
             }
 
-            let dns_servers = [];
-            if (primary_dns_line && primary_dns_line.split(' ')[0] === 'nameserver') {
-                let pri_dns = primary_dns_line.split(' ')[1];
-                dns_servers.push(pri_dns);
-                dbg.log0('found configured Primary DNS server in resolv.conf:', pri_dns);
-            }
-            if (secondary_dns_line && secondary_dns_line.split(' ')[0] === 'nameserver') {
-                let sec_dns = secondary_dns_line.split(' ')[1];
-                dns_servers.push(sec_dns);
-                dbg.log0('found configured Secondary DNS server in resolv.conf:', sec_dns);
-            }
-            if (dns_servers.length > 0) {
-                cluster_server.dns_servers = dns_servers;
+            if (dns_config.dns_servers.length > 0) {
+                cluster_server.dns_servers = dns_config.dns_servers;
             }
 
-            // We are interested in DNS servers of DHCP that's why we override
-            if (dhcp_dns_servers && dhcp_dns) {
-                // We only support up to 2 DNS servers so we slice the first two
-                cluster_server.dns_servers = dhcp_dns.slice(0, 2);
-            }
-
-            let domains = [];
-            if (search_domains && search_domains.split(' ')[0] === 'search') {
-                domains = search_domains.slice('search'.length, -SEARCH_DOMAIN_CONFIG.length).split(' ');
-                dbg.log0('found configured search domain in resolv.conf:', domains);
-            }
-
-            if (domains.length) {
-                cluster_server.search_domains = domains;
+            if (dns_config.search_domains.length) {
+                cluster_server.search_domains = dns_config.search_domains;
             }
 
             return cluster_server;

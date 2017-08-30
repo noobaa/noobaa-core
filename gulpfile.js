@@ -148,7 +148,7 @@ function package_build_task() {
         .then(() => fs.statAsync(`build/public/noobaa-setup-${current_pkg_version}`))
         .catch(err => {
             gutil.log('Can\'t find the currect file', err.message);
-            process.exit(1);
+            // process.exit(1);
         })
         .then(() => {
             gutil.log('before downloading nvm and node package');

@@ -70,10 +70,10 @@ function _calculate_free_mem(count_mongo_reserved_as_free) {
             // get mongod cached mem
             .then(() => count_mongo_reserved_as_free &&
                 _exec_and_extract_num('ps -elf | grep mongod | grep -v grep', 'root')
-                .then(pid => pid && _exec_and_extract_num(`cat /proc/${pid}/status | grep VmRSS`, 'VmRSS:')
-                    .then(mongo_cached_mem => {
-                        res += (mongo_cached_mem * KB_TO_BYTE);
-                    })))
+                    .then(pid => pid && _exec_and_extract_num(`cat /proc/${pid}/status | grep VmRSS`, 'VmRSS:')
+                        .then(mongo_cached_mem => {
+                            res += (mongo_cached_mem * KB_TO_BYTE);
+                        })))
             .return(res);
     }
     return res;
@@ -172,10 +172,10 @@ function get_disk_mount_points() {
             dbg.log0('drives:', drives, ' current location ', process.cwd());
             var hds = _.filter(drives, function(hd_info) {
                 if ((hd_info.drive_id.indexOf('by-uuid') < 0 &&
-                        hd_info.mount.indexOf('/etc/hosts') < 0 &&
-                        (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') &&
-                        hd_info.mount.indexOf('/boot') < 0 &&
-                        hd_info.mount.indexOf('/Volumes/') < 0) ||
+                    hd_info.mount.indexOf('/etc/hosts') < 0 &&
+                    (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') &&
+                    hd_info.mount.indexOf('/boot') < 0 &&
+                    hd_info.mount.indexOf('/Volumes/') < 0) ||
                     (hd_info.drive_id.length === 2 &&
                         hd_info.drive_id.indexOf(':') === 1)) {
                     dbg.log0('Found relevant volume', hd_info.drive_id);
@@ -225,8 +225,8 @@ function get_mount_of_path(path) {
             });
     } else {
         return P.fromCallback(callback => node_df({
-                file: path
-            }, callback))
+            file: path
+        }, callback))
             .then(function(drives) {
                 return drives && drives[0] && drives[0].mount;
             });
@@ -246,8 +246,8 @@ function get_drive_of_path(path) {
                 windows_volume_to_drive(volumes[0]));
     } else {
         return P.fromCallback(callback => node_df({
-                file: path
-            }, callback))
+            file: path
+        }, callback))
             .then(volumes =>
                 volumes &&
                 volumes[0] &&
@@ -271,17 +271,18 @@ function remove_linux_readonly_drives(volumes) {
 
 function read_mac_linux_drives(include_all) {
     return P.fromCallback(callback => node_df({
-            // this is a hack to make node_df append the -l flag to the df command
-            // in order to get only local file systems.
-            file: '-l'
-        }, callback))
+        // this is a hack to make node_df append the -l flag to the df command
+        // in order to get only local file systems.
+        file: '-l'
+    }, callback))
         .then(volumes => P.all(_.map(volumes, function(vol) {
-                return fs_utils.file_must_not_exist(vol.mount + '/' + AZURE_TMP_DISK_README)
-                    .then(() => linux_volume_to_drive(vol))
-                    .catch(() => {
-                        dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
-                    });
-            }))
+            return fs_utils.file_must_not_exist(vol.mount + '/' + AZURE_TMP_DISK_README)
+                .then(() => linux_volume_to_drive(vol))
+                .catch(() => {
+                    dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
+                    return;
+                });
+        }))
             .then(res => _.compact(res)));
 }
 
@@ -420,7 +421,8 @@ function set_manual_time(time_epoch, timez) {
     if (os.type() === 'Linux') {
         return _set_time_zone(timez)
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd off 2345'))
-            .then(() => promise_utils.exec('/etc/init.d/ntpd stop'))
+            // .then(() => promise_utils.exec('/etc/init.d/ntpd stop'))
+            .then(() => promise_utils.exec('systemctl stop ntpd.service'))
             .then(() => promise_utils.exec('date +%s -s @' + time_epoch))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
@@ -466,7 +468,8 @@ function set_ntp(server, timez) {
         return _set_time_zone(timez)
             .then(() => promise_utils.exec(command))
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
-            .then(() => promise_utils.exec('/etc/init.d/ntpd restart'))
+            .then(() => promise_utils.exec('systemctl restart ntpd.service'))
+            // .then(() => promise_utils.exec('/etc/init.d/ntpd restart'))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return P.resolve();
@@ -514,15 +517,15 @@ function get_dns_servers() {
             .then(cmd_res => {
                 let conf_lines = cmd_res.split(/\n/);
                 dns_config.dns_servers = conf_lines.map(line => {
-                        let regex_res = (/nameserver (.*) #NooBaa/).exec(line);
-                        return regex_res && regex_res[1];
-                    })
+                    let regex_res = (/nameserver (.*) #NooBaa/).exec(line);
+                    return regex_res && regex_res[1];
+                })
                     .filter(regex_group => !_.isEmpty(regex_group));
 
                 dns_config.search_domains = conf_lines.map(line => {
-                        let regex_res = (/search (.*) #NooBaa/).exec(line);
-                        return regex_res && regex_res[1];
-                    })
+                    let regex_res = (/search (.*) #NooBaa/).exec(line);
+                    return regex_res && regex_res[1];
+                })
                     .filter(regex_group => !_.isEmpty(regex_group));
                 return dns_config;
             });
@@ -709,7 +712,7 @@ function read_server_secret() {
                 if (err.code === 'ENOENT') {
                     var id = uuid().substring(0, 8);
                     return fs.writeFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE,
-                            id)
+                        id)
                         .then(() => id);
                 } else {
                     throw new Error('Failed reading secret with ' + err);
@@ -781,10 +784,10 @@ function restart_services() {
         'restart',
         'all'
     ], {
-        detached: true,
-        stdio: ['ignore', stdout, stderr],
-        cwd: '/usr/bin/'
-    });
+            detached: true,
+            stdio: ['ignore', stdout, stderr],
+            cwd: '/usr/bin/'
+        });
 }
 
 function set_hostname(hostname) {

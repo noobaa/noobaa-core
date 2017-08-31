@@ -203,7 +203,7 @@ textarea {
         border-color: @color6;
         background-color: fadeout(@color6, 90%);
 
-        &:hover:not(.inactive) {
+        &:hover:not(:disabled):not(.inactive):not(.disabled) {
             color: @color15;
             background-color: @color6;
         }

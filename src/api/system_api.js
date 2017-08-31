@@ -659,6 +659,10 @@ module.exports = {
                         },
                         last_upgrade: {
                             format: 'idate'
+                        },
+                        unavailable: {
+                            type: 'string',
+                            enum: ['NOT_ALL_MEMBERS_UP', 'NOT_ENOUGH_SPACE']
                         }
                     },
                 },

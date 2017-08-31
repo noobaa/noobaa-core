@@ -505,7 +505,14 @@ function read_system(req) {
         };
 
         // fill cluster information if we have a cluster.
-        response.cluster = cutil.get_cluster_info();
+        const cluster_info = cutil.get_cluster_info();
+        response.cluster = cluster_info;
+        const all_connected = _.every(cluster_info.shards[0].servers, server => server.status === 'CONNECTED'); // must be connected
+        const enough_disk = _.every(cluster_info.shards[0].servers, server => server.storage.free > 3 * 1024 * 1024 * 1024); // must have at least 3GB free
+        response.upgrade.unavailable =
+            (!all_connected && 'NOT_ALL_MEMBERS_UP') ||
+            (!enough_disk && 'NOT_ENOUGH_SPACE') ||
+            undefined;
 
         const res = _get_ip_and_dns(system);
         response.ip_address = res.ip_address;

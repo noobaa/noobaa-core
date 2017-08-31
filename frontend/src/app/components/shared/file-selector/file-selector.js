@@ -9,12 +9,14 @@ class FileSelectorViewModel {
         onFilesReady = noop,
         allowMultiSelect = false,
         filter = '',
-        message = `Drag your file${allowMultiSelect ? 's' : ''} here`
+        message = `Drag your file${allowMultiSelect ? 's' : ''} here`,
+        disabled = false
     }) {
         this.onFilesReady = onFilesReady;
         this.allowMultiSelect = allowMultiSelect;
         this.filter = filter;
         this.message = message;
+        this.disabled = disabled;
         this.dragCounter = ko.observable(0);
     }
 

@@ -45,6 +45,7 @@ export default function register(ko) {
     ko.components.register('maintenance-sticky',                require('./stickies/maintenance-sticky/maintenance-sticky').default);
     ko.components.register('license-sticky',                    require('./stickies/license-sticky/license-sticky').default);
     ko.components.register('phone-home-connectivity-sticky',    require('./stickies/phone-home-connectivity-sticky/phone-home-connectivity-sticky').default);
+    ko.components.register('cluster-availability-sticky', require('./stickies/cluster-availability-sticky/cluster-availability-sticky').default);
     /** INJECT:stickies **/
 
     // -------------------------------

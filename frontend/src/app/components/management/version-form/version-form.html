@@ -15,14 +15,20 @@
     </h2>
 
     <div class="pad column">
-        <p class="push-next">
+        <p class="push-next" ko.visible="allowUpgrade">
             The upgrading process may take a few minutes to complete.
+        </p>
+
+        <p class="row content-middle push-next" ko.visible="!allowUpgrade()">
+            <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+            Upgrade unavailable: {{unavailableUpgradeMessage}}
         </p>
 
         <file-selector params="
             message: 'Drag an upgrade package here',
             filter: upgradePackageSuffix,
-            onFilesReady: onUpgrade
+            onFilesReady: onUpgrade,
+            disabled: !allowUpgrade()
         "></file-selector>
     </div>
 </section>

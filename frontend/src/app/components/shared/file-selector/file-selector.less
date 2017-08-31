@@ -11,12 +11,15 @@ file-selector {
         &.dragover {
             border-color: @color14;
         }
+
+        &.disabled, &.disabled.dragover {
+            border-color: @color15;
+        }
     }
 
     .drop-message {
         display: block;
         font-size: @font-size4;
-        color: @color7;
         margin: 0;
         margin-bottom: @gutter/2;
     }

@@ -2,19 +2,21 @@
 
 <div class="drop-area text-center"
     ko.css.dragover="!!dragCounter()"
+    ko.css.disabled="disabled"
     ko.event.dragenter="onDragEnter"
     ko.event.dragleave="onDragLeave"
     ko.event.dragover="() => false"
     ko.event.drop="onDrop"
 >
-    <p class="drop-message paragraph">{{message}} or</p>
-    <label class="browse-btn btn alt-colors">
+    <p class="drop-message">{{message}} or</p>
+    <label class="btn alt-colors" ko.css.disabled="disabled">
         Browse
         <input type="file" class="hide"
             ko.attr.multiple="allowMultiSelect"
             ko.attr.accept="filter",
             ko.event.change="onChange"
             ko.event.click="onClick"
+            ko.disable="disabled"
         />
     </label>
 </div>

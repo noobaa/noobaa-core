@@ -8,9 +8,15 @@ import { upgradeSystem as upgradeSystemAction } from 'actions';
 import { upgradeSystem } from 'action-creators';
 import { action$ } from 'state';
 import { upgradePackageSuffix } from 'config';
+import { deepFreeze } from 'utils/core-utils';
 
 const licenseInfoLink =
     '<a class="link" target="_blank" href="/public/license-info">See details</a>';
+
+const unavailableUpgradeMessages = deepFreeze({
+    NOT_ALL_MEMBERS_UP: 'Some of the cluster members cannot be reached',
+    NOT_ENOUGH_SPACE: 'Not enough free disk space on some cluster members'
+});
 
 class AboutFormViewModel extends BaseViewModel {
     constructor() {
@@ -65,6 +71,21 @@ class AboutFormViewModel extends BaseViewModel {
                 value: licenseInfoLink
             }
         ];
+
+        const upgradeUnavailable = ko.pureComputed(
+            () => !systemInfo() || systemInfo().upgrade.unavailable
+        );
+
+        this.allowUpgrade = ko.pureComputed(
+            () => !upgradeUnavailable()
+        );
+
+        this.unavailableUpgradeMessage = ko.pureComputed(
+            () => {
+                const reason = upgradeUnavailable();
+                return reason ? unavailableUpgradeMessages[reason] : '';
+            }
+        );
 
         this.upgradePackageSuffix = upgradePackageSuffix;
     }

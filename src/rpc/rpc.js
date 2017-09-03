@@ -180,6 +180,10 @@ RPC.prototype._request = function(api, method_api, params, options) {
                 'srv', req.srv,
                 'reqid', req.reqid);
 
+            if (this._request_logger) {
+                this._request_logger('RPC REQUEST SEND', req.srv, params); //NBNB
+            }
+
             // send request over the connection
             return req.connection.send(req._encode_request(), 'req', req);
 
@@ -200,7 +204,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
             }
 
             if (this._request_logger) {
-                this._request_logger('RPC REQUEST', req.srv, params, '==>', reply);
+                this._request_logger('RPC REQUEST REPLY', req.srv, '==>', reply);
             }
 
             // if failed without getting a response (connect/send) we fill times for printing
@@ -227,6 +231,10 @@ RPC.prototype._request = function(api, method_api, params, options) {
             // if failed without getting a response (connect/send) we fill times for printing
             if (!req.took_srv) req._set_times(0);
 
+             if (this._request_logger) {
+                this._request_logger('RPC REQUEST CATCH', req.srv, '==>', err);
+            }
+
             dbg.error(`RPC._request: response ERROR srv ${
                 req.srv
             } params ${
@@ -244,10 +252,9 @@ RPC.prototype._request = function(api, method_api, params, options) {
             throw err;
 
         })
-        .finally(() => {
+        .finally(() =>
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
-            return this._release_connection(req);
-        });
+             this._release_connection(req));
 
     if (options.timeout) {
         request_promise.timeout(options.timeout, 'RPC REQUEST TIMEOUT');

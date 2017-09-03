@@ -43,15 +43,24 @@ while [[ $# -gt 1 ]]; do
     shift # past argument or value
 done
 
-#Ordered Array of scripts to run
-UPGRADE_SCRIPTS=(
-    'mongo_upgrade_15.js' 
-    'mongo_upgrade_17.js'
-    'mongo_upgrade_18.js'
-    'mongo_upgrade_19.js'
-    'mongo_upgrade_1_10.js'
-    'mongo_upgrade_mark_completed.js'
-)
+should_mongo_upgrade=$(${MONGO_SHELL} --quiet --eval "db.clusters.find({owner_secret: '$param_secret'}).toArray()[0].upgrade.mongo_upgrade" | tail -n 1)
+deploy_log "secret is ${param_secret} - should_mongo_upgrade = ${should_mongo_upgrade}"
+
+if [ "$should_mongo_upgrade" == "true" ]; then
+    #Ordered Array of scripts to run
+    UPGRADE_SCRIPTS=(
+        'mongo_upgrade_15.js' 
+        'mongo_upgrade_17.js'
+        'mongo_upgrade_18.js'
+        'mongo_upgrade_19.js'
+        'mongo_upgrade_1_10.js'
+        'mongo_upgrade_mark_completed.js'
+    )
+else 
+    UPGRADE_SCRIPTS=(
+        'mongo_upgrade_wait_for_master.js'
+    )
+fi
 
 upgrade_failed=0
 for script in "${UPGRADE_SCRIPTS[@]}"; do 

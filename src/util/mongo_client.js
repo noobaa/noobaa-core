@@ -59,7 +59,7 @@ class MongoClient extends EventEmitter {
                 // since we do not need to manage multiple users we simply use
                 // this user to authenticate also to our db.
                 //authSource: 'admin',
-            }
+            },
         };
         this._json_validator = new Ajv({
             verbose: true,
@@ -67,7 +67,7 @@ class MongoClient extends EventEmitter {
         });
 
         if (process.env.MONGO_RS_URL) {
-            this._update_ssl_options();
+            this._update_config_for_replset();
         }
 
     }
@@ -301,7 +301,7 @@ class MongoClient extends EventEmitter {
         // this.replica_set = rs;
         dbg.log0('got update_connection_string. updating url from', this.url, 'to', process.env.MONGO_RS_URL);
         this.url = process.env.MONGO_RS_URL;
-        this._update_ssl_options();
+        this._update_config_for_replset();
     }
 
     get_mongo_rs_status(params) {
@@ -372,7 +372,7 @@ class MongoClient extends EventEmitter {
         });
     }
 
-    _update_ssl_options() {
+    _update_config_for_replset() {
         let ca;
         let cert;
         try {
@@ -389,6 +389,9 @@ class MongoClient extends EventEmitter {
         this.config.sslCA = ca;
         this.config.sslCert = cert;
         this.config.sslKey = cert;
+
+        // set mojority write concern
+        this.config.w = 'majority';
 
     }
 

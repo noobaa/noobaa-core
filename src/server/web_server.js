@@ -40,9 +40,10 @@ const config = require('../../config.js');
 const license_info = require('./license_info');
 const mongo_client = require('../util/mongo_client');
 const system_store = require('./system_services/system_store').get_instance();
+const upgrade_utils = require('../util/upgrade_utils');
 const SupervisorCtl = require('./utils/supervisor_ctrl');
-const account_server = require('./system_services/account_server');
 const system_server = require('./system_services/system_server');
+const account_server = require('./system_services/account_server');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -201,13 +202,18 @@ app.post('/upgrade',
     })
     .single('upgrade_file'),
     function(req, res) {
-        var upgrade_file = req.file;
-        dbg.log0('got upgrade file:', upgrade_file);
-        dbg.log0('calling cluster.upgrade_cluster()');
-        server_rpc.client.cluster_internal.upgrade_cluster({
-            filepath: upgrade_file.path
-        });
-        res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
+        const upgrade_file = req.file;
+        return upgrade_utils.test_major_version_change(upgrade_file.path)
+            .then(() => {
+                dbg.log0('got upgrade file:', upgrade_file, 'calling cluster.upgrade_cluster()');
+                server_rpc.client.cluster_internal.upgrade_cluster({
+                    filepath: upgrade_file.path
+                });
+                res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
+            })
+            .catch(err => {
+                res.status(500).send(err.message);
+            });
     });
 
 app.post('/upload_certificate',

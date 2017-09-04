@@ -5,6 +5,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { upgradeStatus } from 'model';
+import { support } from 'config';
 
 class UpgradeModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
@@ -34,6 +35,9 @@ class UpgradeModalViewModel extends BaseViewModel {
                 `Uploading Package ${numeral(this.progress()).format('0%')}` :
                 'Installing Package...'
         );
+        
+        this.supportEmail = support.email;
+        this.supportEmailHref = `mailto:${support.email}`;
     }
 
     close() {

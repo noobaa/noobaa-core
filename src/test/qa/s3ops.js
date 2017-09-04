@@ -454,6 +454,58 @@ function set_file_attribute_with_copy(ip, bucket, file_name) {
         });
 }
 
+function get_list_buckets(ip) {
+    let rest_endpoint = 'http://' + ip + ':80';
+    let s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    var params = {};
+    var list = [];
+    var listBuckets = [];
+    return P.ninvoke(s3bucket, 'listBuckets', params)
+        .then(res => {
+            list = res.Buckets;
+            if (list.length === 0) {
+                console.warn('No buckets access');
+            } else {
+                list.forEach(function(bucket) {
+                    listBuckets.push(bucket.Name);
+                    console.log('Account has access to bucket: ' + bucket.Name);
+                });
+            }
+            return listBuckets;
+        })
+        .catch(err => {
+            console.error('Getting list of buckets return error: ', err);
+            throw err;
+        });
+}
+
+function create_bucket(ip, bucket_name) {
+    let rest_endpoint = 'http://' + ip + ':80';
+    let s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    let params = {
+        Bucket: bucket_name,
+    };
+
+    return P.ninvoke(s3bucket, 'createBucket', params)
+        .then(res => console.log("Created bucket ", res))
+        .catch(err => {
+            console.error('creating bucket is failed!', err);
+            throw err;
+        });
+}
 exports.put_file_with_md5 = put_file_with_md5;
 exports.copy_file_with_md5 = copy_file_with_md5;
 exports.upload_file_with_md5 = upload_file_with_md5;
@@ -463,6 +515,8 @@ exports.get_a_random_file = get_a_random_file;
 exports.get_file_number = get_file_number;
 exports.get_list_files = get_list_files;
 exports.get_list_prefixes = get_list_prefixes;
+exports.create_bucket = create_bucket;
+exports.get_list_buckets = get_list_buckets;
 exports.delete_file = delete_file;
 exports.delete_folder = delete_folder;
 exports.get_file_size = get_file_size;

@@ -69,6 +69,8 @@ function RPC(options) {
     this.schema = options.schema;
     this.router = options.router;
     this.api_routes = options.api_routes;
+    this._aggregated_flight_time = 0;
+    this._served_requests = 0;
 }
 
 RPC.Client = Client;
@@ -224,6 +226,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
 
             // return_rpc_req mode allows callers to get back the request
             // instead of a bare reply, and the reply is in req.reply
+            this._update_flight_avg(req.took_flight);
             return options.return_rpc_req ? req : reply;
         })
         .catch(err => {
@@ -597,6 +600,8 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
                 conn._reconn_backoff = undefined;
                 dbg.log1('RPC RECONNECTED', addr_url.href,
                     'reconn_backoff', reconn_backoff.toFixed(0));
+                this._aggregated_flight_time = 0;
+                this._served_requests = 0;
                 this.emit('reconnect', conn);
             })
             .catch(err => {
@@ -749,6 +754,11 @@ RPC.prototype._proxy = function(api, method, params, options) {
         });
 };
 
+RPC.prototype._update_flight_avg = function(flight_time) {
+    this._aggregated_flight_time += flight_time;
+    this._served_requests += 1;
+};
+
 
 /**
  *
@@ -898,6 +908,18 @@ RPC.prototype.disable_validation = function() {
 
 RPC.prototype.set_request_logger = function(request_logger) {
     this._request_logger = request_logger;
+};
+
+/**
+ * Statistics & Performance metrics
+ */
+RPC.prototype.rpc_perf_stats = function() {
+    console.log('NBNB:: ', this._aggregated_flight_time, this._served_requests);
+    if (this._served_requests) {
+        return this._aggregated_flight_time / this._served_requests;
+    } else {
+        return 1;
+    }
 };
 
 

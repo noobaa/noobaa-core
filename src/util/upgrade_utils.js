@@ -5,6 +5,7 @@ const fs = require('fs');
 const dbg = require('./debug_module')(__filename);
 const spawn = require('child_process').spawn;
 const fs_utils = require('./fs_utils');
+const promise_utils = require('./promise_utils');
 
 function pre_upgrade(upgrade_file) {
     dbg.log0('UPGRADE:', 'pre_upgrade called with upgrade_file =', upgrade_file);
@@ -53,6 +54,18 @@ function do_upgrade(upgrade_file, is_clusterized, err_handler) {
     upgrade_proc.on('error', err_handler);
 }
 
+function test_major_version_change(upgrade_file) {
+    const command = "tar -zxvf " + upgrade_file + " noobaa-core/package.json -O | grep version | awk '{print $2}'";
+    return promise_utils.exec(command, false, true)
+        .then(ver => {
+            if (ver.charAt(1) === '2') {
+                dbg.error('Unsupported upgrade, 1.X to 2.X');
+                throw new Error('Unsupported upgrade path 1.X -> 2.X');
+            }
+        });
+}
+
 //Exports
 exports.pre_upgrade = pre_upgrade;
 exports.do_upgrade = do_upgrade;
+exports.test_major_version_change = test_major_version_change;

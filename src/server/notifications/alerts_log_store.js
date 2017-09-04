@@ -66,7 +66,6 @@ class AlertsLogStore {
 
     read_alerts(sysid, query, skip, limit) {
         const selector = this._create_selector(sysid, query);
-        console.warn('NBNB:: read_alerts', selector, 'skip', skip, 'limit', limit);
         return this._alertslogs.col().find(selector)
             .skip(skip)
             .limit(limit)

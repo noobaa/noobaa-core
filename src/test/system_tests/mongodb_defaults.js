@@ -14,7 +14,7 @@ db.objectparts.remove({});
 db.objectmds.remove({});
 db.tiers.update({
     name: {
-        $regex: 'first\.bucket.*'
+        $regex: 'first\\.bucket.*'
     }
 }, {
     $set: {
@@ -74,7 +74,16 @@ db.buckets.updateMany({}, {
             pools: {},
             objects_count: 0,
             objects_hist: [],
-            last_update: Date.now()
+            last_update: Date.now() - 600000
+        }
+    }
+});
+
+db.pools.updateMany({}, {
+    $set: {
+        storage_stats: {
+            blocks_size: 0,
+            last_update: Date.now() - 600000
         }
     }
 });

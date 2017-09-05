@@ -50,7 +50,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
             objects_size: 0,
             objects_count: 0,
             objects_hist: [],
-            last_update: now - config.MD_GRACE_IN_MILLISECONDS
+            last_update: now - (2 * config.MD_GRACE_IN_MILLISECONDS)
         },
         stats: {
             reads: 0,

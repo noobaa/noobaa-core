@@ -959,6 +959,7 @@ class NodesMonitor extends EventEmitter {
         if (item.node.issues_report) {
             _.remove(item.node.issues_report, issue => issue.reason === 'TAMPERING');
         }
+        if (_.isEmpty(item.node.issues_report)) delete item.node.issues_report;
         this._set_need_update.add(item);
         this._update_status(item);
     }

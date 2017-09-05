@@ -43,12 +43,17 @@ const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
 const LOW_CAPACITY_HARD_LIMIT = 30 * Math.pow(1024, 3); // 30GB
 
 function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
+    let now = Date.now();
     return {
         _id: system_store.generate_id(),
         system: system_id,
         name: name,
         resource_type: resource_type,
-        pool_node_type: pool_node_type
+        pool_node_type: pool_node_type,
+        storage_stats: {
+            blocks_size: 0,
+            last_update: now - (2 * config.MD_GRACE_IN_MILLISECONDS)
+        },
     };
 }
 

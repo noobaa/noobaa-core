@@ -265,8 +265,7 @@ function fix_security_issues {
         #CVE-2010-5107
         sed -i -e 's/#MaxStartups/MaxStartups/g' /etc/ssh/sshd_config
         /bin/systemctl restart sshd.service
-        #/etc/init.d/sshd restart ###LM: not relevant for cenos7
-    fi
+     fi
 
     #proxy settings for yum install - for future use
     #http_proxy="http://yum-user:qwerty@mycache.mydomain.com:3128"

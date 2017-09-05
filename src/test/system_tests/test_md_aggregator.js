@@ -262,9 +262,9 @@ function main() {
             process.exit(0);
         })
         .catch(function(err) {
+            console.error('TEST FAILED: ', err.stack || err);
             return init_system_to_ntp()
                 .finally(() => {
-                    console.error('TEST FAILED: ', err.stack || err);
                     rpc.disconnect_all();
                     process.exit(1);
                 });

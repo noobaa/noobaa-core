@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const assert = require('assert');
 const moment = require('moment');
 const mongodb = require('mongodb');
 
@@ -61,6 +62,24 @@ class MDStore {
 
     make_md_id(id_str) {
         return new mongodb.ObjectId(id_str);
+    }
+
+    make_md_id_from_time(time, zero_suffix) {
+        const hex_time = Math.floor(time / 1000).toString(16);
+        assert(hex_time.length <= 8);
+        const padded_hex_time = '0'.repeat(8 - hex_time.length) + hex_time;
+        var suffix;
+        if (zero_suffix) {
+            suffix = '0'.repeat(16);
+        } else {
+            suffix = String(new mongodb.ObjectId()).slice(8, 24);
+        }
+        const hex_id = padded_hex_time + suffix;
+        assert(padded_hex_time.length === 8);
+        assert(suffix.length === 16);
+        assert(hex_id.length === 24);
+        assert(parseInt(padded_hex_time, 16) === Math.floor(time / 1000));
+        return new mongodb.ObjectId(hex_id);
     }
 
     is_valid_md_id(id_str) {
@@ -274,20 +293,20 @@ class MDStore {
             });
     }
 
-    aggregate_objects_by_create_dates(from_date, till_date) {
+    aggregate_objects_by_create_dates(from_time, till_time) {
         return this._aggregate_objects_internal({
             create_time: {
-                $gte: from_date,
-                $lt: till_date,
+                $gte: new Date(from_time),
+                $lt: new Date(till_time),
             }
         });
     }
 
-    aggregate_objects_by_delete_dates(from_date, till_date) {
+    aggregate_objects_by_delete_dates(from_time, till_time) {
         return this._aggregate_objects_internal({
             deleted: {
-                $gte: from_date,
-                $lt: till_date,
+                $gte: new Date(from_time),
+                $lt: new Date(till_time),
             },
             create_time: {
                 $exists: true
@@ -688,25 +707,20 @@ class MDStore {
             }));
     }
 
-    aggregate_chunks_by_create_dates(from_date, till_date) {
-        // ObjectId consists of 24 hex string so we allign to that
-        const hex_from_date = Math.floor(from_date.getTime() / 1000).toString(16);
-        const hex_till_date = Math.floor(till_date.getTime() / 1000).toString(16);
-        const from_date_object_id = new mongodb.ObjectId(hex_from_date + "0".repeat(24 - hex_from_date.length));
-        const till_date_object_id = new mongodb.ObjectId(hex_till_date + "0".repeat(24 - hex_till_date.length));
+    aggregate_chunks_by_create_dates(from_time, till_time) {
         return this._aggregate_chunks_internal({
             _id: {
-                $gte: from_date_object_id,
-                $lt: till_date_object_id,
+                $gte: this.make_md_id_from_time(from_time, 'zero_suffix'),
+                $lt: this.make_md_id_from_time(till_time, 'zero_suffix'),
             }
         });
     }
 
-    aggregate_chunks_by_delete_dates(from_date, till_date) {
+    aggregate_chunks_by_delete_dates(from_time, till_time) {
         return this._aggregate_chunks_internal({
             deleted: {
-                $gte: from_date,
-                $lt: till_date,
+                $gte: new Date(from_time),
+                $lt: new Date(till_time),
             }
         });
     }
@@ -900,25 +914,20 @@ class MDStore {
         });
     }
 
-    aggregate_blocks_by_create_dates(from_date, till_date) {
-        // ObjectId consists of 24 hex string so we allign to that
-        const hex_from_date = Math.floor(from_date.getTime() / 1000).toString(16);
-        const hex_till_date = Math.floor(till_date.getTime() / 1000).toString(16);
-        const from_date_object_id = new mongodb.ObjectId(hex_from_date + "0".repeat(24 - hex_from_date.length));
-        const till_date_object_id = new mongodb.ObjectId(hex_till_date + "0".repeat(24 - hex_till_date.length));
+    aggregate_blocks_by_create_dates(from_time, till_time) {
         return this._aggregate_blocks_internal({
             _id: {
-                $gte: from_date_object_id,
-                $lt: till_date_object_id,
+                $gte: this.make_md_id_from_time(from_time, 'zero_suffix'),
+                $lt: this.make_md_id_from_time(till_time, 'zero_suffix'),
             }
         });
     }
 
-    aggregate_blocks_by_delete_dates(from_date, till_date) {
+    aggregate_blocks_by_delete_dates(from_time, till_time) {
         return this._aggregate_blocks_internal({
             deleted: {
-                $gte: from_date,
-                $lt: till_date,
+                $gte: new Date(from_time),
+                $lt: new Date(till_time),
             }
         });
     }

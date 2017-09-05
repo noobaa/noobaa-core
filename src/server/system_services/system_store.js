@@ -238,6 +238,9 @@ class SystemStoreData {
         this.rebuild_indexes();
         this.rebuild_allowed_buckets_links();
         this.rebuild_accounts_by_email_lowercase();
+
+        // TODO: deep freeze the data once tested enough
+        // js_utils.deep_freeze(this);
     }
 
     rebuild_idmap() {
@@ -311,9 +314,9 @@ class SystemStoreData {
             let key = _.get(item, index.key || '_id');
             let context = index.context ? _.get(item, index.context) : this;
             if (!context) return;
-            let map = context[index.name] = context[index.name] || {};
+            let map = context[index.name];
             if (!index.val_array) {
-                let existing = map[key];
+                let existing = map && map[key];
                 if (existing && String(existing._id) !== String(item._id)) {
                     let err = new Error(index.name + ' collision on key ' + key);
                     err.rpc_code = 'CONFLICT';

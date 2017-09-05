@@ -292,8 +292,15 @@ class MapBuilder {
     update_db() {
         const now = new Date();
         _.each(this.new_blocks, block => {
-            if (block._id.getTimestamp().getTime() - now.getTime() > 60000) {
-                dbg.error('update_db: A big gap was found between id creation and addition to DB:', block);
+            const bucket = block.chunk.bucket;
+            const block_id_time = block._id.getTimestamp().getTime();
+            if (block_id_time < now.getTime() - (config.MD_GRACE_IN_MILLISECONDS - config.MD_AGGREGATOR_INTERVAL)) {
+                dbg.error('update_db: A big gap was found between id creation and addition to DB:',
+                    block, bucket.name, block_id_time, now.getTime());
+            }
+            if (block_id_time < bucket.storage_stats.last_update + config.MD_AGGREGATOR_INTERVAL) {
+                dbg.error('finalize_object_parts: A big gap was found between id creation and bucket last update:',
+                    block, bucket.name, block_id_time, bucket.storage_stats.last_update);
             }
             block.node = mongo_utils.make_object_id(block.node._id);
             block.chunk = block.chunk._id;

@@ -126,7 +126,6 @@ function complete_object_upload(req) {
             }
             set_updates.size = res.size;
             set_updates.num_parts = res.num_parts;
-            set_updates.create_time = new Date();
             if (req.rpc_params.etag) {
                 set_updates.etag = req.rpc_params.etag;
             } else if (res.size === 0) {
@@ -144,7 +143,11 @@ function complete_object_upload(req) {
             // we passed the checks, so we can delete the existing object if exists
             return map_deleter.delete_object(existing_obj);
         })
-        .then(() => MDStore.instance().update_object_by_id(obj._id, set_updates, unset_updates))
+        .then(() => {
+            // setting create_time close to the mdstore update
+            set_updates.create_time = new Date();
+            return MDStore.instance().update_object_by_id(obj._id, set_updates, unset_updates);
+        })
         .then(() => {
             const bucket = system_store.data.get_by_id(obj.bucket);
             Dispatcher.instance().activity({

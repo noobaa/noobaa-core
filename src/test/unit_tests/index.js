@@ -19,6 +19,7 @@ require('./test_s3_list_objects');
 require('./test_md_store');
 require('./test_nodes_store');
 require('./test_system_store');
+require('./test_md_aggregator_unit');
 
 // UTILS
 require('./test_job_queue');

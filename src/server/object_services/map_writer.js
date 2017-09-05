@@ -7,6 +7,7 @@ const crypto = require('crypto');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
 const MDStore = require('./md_store').MDStore;
 const mongo_utils = require('../../util/mongo_utils');
 const time_utils = require('../../util/time_utils');
@@ -39,8 +40,14 @@ function finalize_object_parts(bucket, obj, parts) {
             _.each(part.chunk.frags, f => {
                 _.each(f.blocks, block => {
                     const block_id = MDStore.instance().make_md_id(block.block_md.id);
-                    if (block_id.getTimestamp().getTime() - now.getTime() > 60000) {
-                        dbg.error('finalize_object_parts: A big gap was found between id creation and addition to DB:', block, bucket.name, obj.key);
+                    const block_id_time = block_id.getTimestamp().getTime();
+                    if (block_id_time < now.getTime() - (config.MD_GRACE_IN_MILLISECONDS - config.MD_AGGREGATOR_INTERVAL)) {
+                        dbg.error('finalize_object_parts: A big gap was found between id creation and addition to DB:',
+                            block, bucket.name, obj.key, block_id_time, now.getTime());
+                    }
+                    if (block_id_time < bucket.storage_stats.last_update + config.MD_AGGREGATOR_INTERVAL) {
+                        dbg.error('finalize_object_parts: A big gap was found between id creation and bucket last update:',
+                            block, bucket.name, obj.key, block_id_time, bucket.storage_stats.last_update);
                     }
                     new_blocks.push(_.extend({
                         _id: block_id,

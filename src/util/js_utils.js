@@ -93,12 +93,25 @@ function append_buffer_or_array(buffer_or_array, item) {
 
 
 function deep_freeze(obj) {
+
+    // Checking isFrozen is the break condition for the recursion
+    // Since isFrozen(non_object)===false it will break if it is number,string,etc,..
+    // But note that any shallow frozen object will not get recursive freeze by this
+    if (Object.isFrozen(obj)) return obj;
+
+    // Cannot freeze buffers - TypeError: Cannot freeze array buffer views with elements
+    if (Buffer.isBuffer(obj)) return obj;
+
     Object.freeze(obj);
-    _.each(obj, val => {
-        if (typeof(val) === 'object' && val !== null && !Object.isFrozen(val)) {
-            deep_freeze(val);
-        }
-    });
+
+    // Freeze all properties
+    const keys = Object.keys(obj);
+    for (var i = 0; i < keys.length; ++i) {
+        const k = keys[i];
+        const v = obj[k];
+        deep_freeze(v);
+    }
+
     return obj;
 }
 

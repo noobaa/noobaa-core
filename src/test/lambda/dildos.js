@@ -72,6 +72,71 @@ const sync_func = {
     }]
 };
 
+const read_bucket_func = {
+    FunctionName: 'read_bucket',
+    Description: 'Get bucket information',
+    Runtime: 'nodejs6',
+    Handler: 'read_bucket_func.handler',
+    Role: ROLE_ARN,
+    MemorySize: 128,
+    VpcConfig: {
+        SubnetIds: POOLS
+    },
+    Files: [{
+        path: 'read_bucket_func.js',
+        fs_path: path.join(__dirname, 'read_bucket_func.js'),
+    }]
+};
+
+const RB_EVENT = {
+    "name": "files",
+}
+
+const create_bucket_func = {
+    FunctionName: 'create_bucket',
+    Description: 'create bucket and associate it to pool',
+    Runtime: 'nodejs6',
+    Handler: 'create_bucket_func.handler',
+    Role: ROLE_ARN,
+    MemorySize: 128,
+    VpcConfig: {
+        SubnetIds: POOLS
+    },
+    Files: [{
+        path: 'create_bucket_func.js',
+        fs_path: path.join(__dirname, 'create_bucket_func.js'),   
+    }]
+};
+
+const CB_EVENT = {
+    "name": "momo10",
+    "data_placement": "SPREAD",
+    "pools": ["london"]
+}
+
+const set_account_bucket_permissions_func = {
+    FunctionName: 'set_account_bucket_permissions',
+    Description: 'Set account permissions on buckets',
+    Runtime: 'nodejs6',
+    Handler: 'set_account_bucket_permissions_func.handler',
+    Role: ROLE_ARN,
+    MemorySize: 128,
+    VpcConfig: {
+        SubnetIds: POOLS
+    },
+    Files: [{
+        path: 'set_account_bucket_permissions_func.js',
+        fs_path: path.join(__dirname, 'set_account_bucket_permissions_func.js')  
+    }]
+};
+
+const SP_EVENT = {
+    "email": "new@aaa.com",
+    "s3_access": true,
+    "default_pool": "london",
+    "allowed_buckets": ['logs']
+}
+
 const create_account_func = {
     FunctionName: 'create_account',
     Description: 'Create User Account',
@@ -87,6 +152,36 @@ const create_account_func = {
         fs_path: path.join(__dirname, 'create_account_func.js'),
     }]
 };
+
+const CA_EVENT = {
+    "name": "eran2",
+    "email": "eran2@noobaa.com",
+    "password": "MyPassw0rd",
+    "s3_access": true,
+    "allowed_buckets": ["movies", "files"],
+    "default_pool": "default_pool"
+}
+
+const set_account_ip_access_func = {
+    FunctionName: 'set_account_ip_access',
+    Description: 'Set dedicated IP per account',
+    Runtime: 'nodejs6',
+    Handler: 'set_account_ip_access_func.handler',
+    Role: ROLE_ARN,
+    MemorySize: 128,
+    VpcConfig: {
+        SubnetIds: POOLS
+    },
+    Files: [{
+        path: 'set_account_ip_access_func.js',
+        fs_path: path.join(__dirname, 'set_account_ip_access_func.js'),
+    }]
+};
+
+const SA_EVENT = {
+    "email": "test@noobaa.com",
+    "ips": ["1.1.1.1"]
+}
 
 const WC_EVENT = {
     text: 'a',
@@ -139,13 +234,25 @@ function install() {
         return install_func(sync_func);
     }
     if (argv.install === 'account') {
-        return install_func(create_account_func);
+        return P.resolve()
+            .then(() => install_func(create_account_func))
+            .then(() => install_func(set_account_bucket_permissions_func))
+            .then(() => install_func(set_account_ip_access_func));
+    }
+    if (argv.install === 'bucket') {
+        return P.resolve()
+            .then(() => install_func(read_bucket_func))
+            .then(() => install_func(create_account_func));
     }
     return P.resolve()
         .then(() => install_func(word_count_func))
         .then(() => install_func(dos_func))
         .then(() => install_func(sync_func))
-        .then(() => install_func(create_account_func));
+        .then(() => install_func(create_account_func))
+        .then(() => install_func(set_account_ip_access_func))
+        .then(() => install_func(read_bucket_func))
+        .then(() => install_func(create_bucket_func))
+        .then(() => install_func(set_account_bucket_permissions_func));
 }
 
 function install_func(fn) {
@@ -153,10 +260,10 @@ function install_func(fn) {
     return P.resolve()
         .then(() => prepare_func(fn))
         .then(() => P.fromCallback(callback => lambda.deleteFunction({
-                FunctionName: fn.FunctionName,
-            }, callback))
+            FunctionName: fn.FunctionName,
+        }, callback))
             .catch(err => {
-                console.log('Delete function if exist:', err.message);
+                console.log('Delete function if exist:', fn.FunctionName, err.message);
             }))
         .then(() => P.fromCallback(callback => lambda.createFunction(fn, callback)))
         .then(() => console.log('created.'));
@@ -168,9 +275,9 @@ function clear() {
             f => P.fromCallback(callback => lambda.deleteFunction({
                 FunctionName: f.FunctionName,
             }, callback))
-            .catch(err => {
-                console.log('Delete function if exist:', err.message);
-            })
+                .catch(err => {
+                    console.log('Delete function if exist:.', f.FunctionName, err.message);
+                })
         ));
 }
 
@@ -191,9 +298,11 @@ function test() {
         FunctionName: dos_func.FunctionName,
         Payload: JSON.stringify(DOS_EVENT),
     } : {
-        FunctionName: word_count_func.FunctionName,
-        Payload: JSON.stringify(WC_EVENT)
-    };
+            FunctionName: set_account_bucket_permissions_func.FunctionName,
+            Payload: JSON.stringify(SP_EVENT)
+            // FunctionName: create_account_func.FunctionName,
+            // Payload: JSON.stringify(CA_EVENT)
+        };
     console.log('Testing', params);
     return P.fromCallback(callback => lambda.invoke(params, callback))
         .then(res => console.log('Result:', res));

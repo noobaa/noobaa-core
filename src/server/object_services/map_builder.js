@@ -35,6 +35,7 @@ class MapBuilder {
     constructor(chunk_ids) {
         this.chunk_ids = chunk_ids;
         this.objects_to_delete = [];
+        this.chunks_to_delete = [];
     }
 
     run() {
@@ -46,10 +47,10 @@ class MapBuilder {
             .then(() => this.reload_chunks(this.chunk_ids))
             .then(() => system_store.refresh())
             .then(() => P.join(
-                MDStore.instance().load_blocks_for_chunks(this.chunks),
-                MDStore.instance().load_parts_objects_for_chunks(this.chunks)
+                MDStore.instance().load_parts_objects_for_chunks(this.chunks),
+                MDStore.instance().load_blocks_for_chunks(this.chunks)
             ))
-            .spread((_ignore_res, parts_objects_res) => this.prepare_and_fix_chunks(parts_objects_res))
+            .spread(parts_objects_res => this.prepare_and_fix_chunks(parts_objects_res))
             .then(() => this.refresh_alloc())
             .then(() => this.analyze_chunks())
             .then(() => this.allocate_blocks())
@@ -102,6 +103,7 @@ class MapBuilder {
                     if (!chunk.parts || !chunk.parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
                     if (!chunk.objects || !chunk.objects.length) throw new Error('No valid objects are pointing to chunk', chunk._id);
                 })
+                .then(() => this.clean_up_undeleted_chunks_and_blocks(chunk))
                 .then(() => this.populate_chunk_bucket(chunk))
                 .catch(err => {
                     dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
@@ -109,6 +111,17 @@ class MapBuilder {
                     this.had_errors = true;
                 });
         });
+    }
+
+    clean_up_undeleted_chunks_and_blocks(chunk) {
+        return P.resolve()
+            .then(() => {
+                const no_valid_parts = _.every(chunk.parts, part => Boolean(part.deleted));
+                if (no_valid_parts) {
+                    dbg.warn(`Chunk marked for deletion ${chunk._id}`);
+                    this.chunks_to_delete.push(chunk);
+                }
+            });
     }
 
     populate_chunk_bucket(chunk) {
@@ -287,6 +300,7 @@ class MapBuilder {
         const failed_chunk_ids = mongo_utils.uniq_ids(
             _.filter(this.chunks, chunk => chunk.had_errors && !chunk.bucket.deleted), '_id');
         const objs_to_be_deleted = _.uniqBy(_.flatten(this.objects_to_delete), '_id');
+        const chunks_to_be_deleted = _.uniqBy(_.flatten(this.chunks_to_delete), '_id');
 
         const unset_special_chunk_ids = mongo_utils.uniq_ids(
             _.filter(this.chunks, chunk => chunk.special_replica && !chunk.is_special), '_id');
@@ -298,6 +312,7 @@ class MapBuilder {
             'success_chunk_ids', success_chunk_ids.length,
             'failed_chunk_ids', failed_chunk_ids.length,
             'objs_to_be_deleted', objs_to_be_deleted.length,
+            'chunks_to_be_deleted', chunks_to_be_deleted.length,
             'new_blocks', _.get(this, 'new_blocks.length', 0),
             'delete_blocks', _.get(this, 'delete_blocks.length', 0));
 
@@ -312,7 +327,8 @@ class MapBuilder {
                 if (!res.isFulfilled()) {
                     dbg.log0('Failed delete_multiple_objects', res);
                 }
-            })
+            }),
+            map_deleter.delete_chunks(_.map(chunks_to_be_deleted, '_id'), new Date())
         );
     }
 }

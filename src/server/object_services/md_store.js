@@ -434,6 +434,7 @@ class MDStore {
     delete_multiparts_of_object(obj, delete_date) {
         return this._multiparts.col().updateMany({
             obj: obj._id,
+            deleted: null
         }, {
             $set: {
                 deleted: delete_date
@@ -582,6 +583,7 @@ class MDStore {
     delete_parts_of_object(obj, delete_date) {
         return this._parts.col().updateMany({
             obj: obj._id,
+            deleted: null
         }, {
             $set: {
                 deleted: delete_date
@@ -731,7 +733,8 @@ class MDStore {
         return this._chunks.col().updateMany({
             _id: {
                 $in: chunk_ids
-            }
+            },
+            deleted: null
         }, {
             $set: {
                 deleted: delete_date
@@ -742,6 +745,18 @@ class MDStore {
         });
     }
 
+    delete_object_by_id(object_id) {
+        if (!object_id) return;
+        return this._objects.col().updateOne({
+            _id: object_id,
+            deleted: null
+        }, {
+            $set: {
+                deleted: new Date(),
+                cloud_synced: false
+            },
+        });
+    }
 
     ////////////
     // BLOCKS //
@@ -868,7 +883,8 @@ class MDStore {
         return this._blocks.col().updateMany({
             chunk: {
                 $in: chunk_ids
-            }
+            },
+            deleted: null
         }, {
             $set: {
                 deleted: delete_date

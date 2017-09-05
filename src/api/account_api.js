@@ -456,7 +456,7 @@ module.exports = {
                                             properties: {
                                                 usage_type: {
                                                     type: 'string',
-                                                    enum: ['CLOUD_POOL', 'CLOUD_SYNC']
+                                                    enum: ['CLOUD_SYNC', 'CLOUD_RESOURCE', 'NAMESPACE_RESOURCE']
                                                 },
                                                 entity: {
                                                     type: 'string'

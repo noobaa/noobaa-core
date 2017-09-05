@@ -69,6 +69,29 @@ module.exports = {
             }
         },
 
+        create_namespace_resource: {
+            doc: 'Create Namespace Resource',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name', 'connection', 'target_bucket'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    connection: {
+                        type: 'string',
+                    },
+                    target_bucket: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         create_mongo_pool: {
             doc: 'Create Mongo Pool',
             method: 'POST',
@@ -126,8 +149,45 @@ module.exports = {
             }
         },
 
+        read_namespace_resource: {
+            doc: 'Read Namespace Resource',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/namespace_resource_info'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         delete_pool: {
             doc: 'Delete Pool',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_namespace_resource: {
+            doc: 'Delete Namespace Resource',
             method: 'POST',
             params: {
                 type: 'object',
@@ -280,6 +340,55 @@ module.exports = {
             }
         },
 
+        namespace_resource_info: {
+            type: 'object',
+            required: ['name', 'endpoint_type', 'endpoint', 'target_bucket'],
+            properties: {
+                name: {
+                    type: 'string'
+                },
+                endpoint: {
+                    type: 'string'
+                },
+                endpoint_type: {
+                    type: 'string',
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA']
+                },
+                target_bucket: {
+                    type: 'string'
+                },
+                identity: {
+                    type: 'string'
+                }
+            }
+        },
+
+        // Currently the extended info has an addition of secret_key
+        namespace_resource_extended_info: {
+            type: 'object',
+            required: ['name', 'endpoint_type', 'endpoint', 'target_bucket'],
+            properties: {
+                name: {
+                    type: 'string'
+                },
+                endpoint: {
+                    type: 'string'
+                },
+                endpoint_type: {
+                    type: 'string',
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA']
+                },
+                target_bucket: {
+                    type: 'string'
+                },
+                access_key: {
+                    type: 'string'
+                },
+                secret_key: {
+                    type: 'string'
+                }
+            }
+        },
 
         pool_extended_info: {
             type: 'object',

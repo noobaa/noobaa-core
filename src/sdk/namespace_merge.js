@@ -15,7 +15,7 @@ class NamespaceMerge {
     /////////////////
 
     list_objects(params, object_sdk) {
-        return P.map(this.namespaces, ns => ns.list_objects(params))
+        return P.map(this.namespaces.read_resources, ns => ns.list_objects(params))
             .then(res => {
                 if (res.length === 1) return res[0];
                 var i;
@@ -136,17 +136,17 @@ class NamespaceMerge {
         var i = -1;
         const try_next = err => {
             i += 1;
-            if (i >= this.namespaces.length) {
+            if (i >= this.namespaces.read_resources.length) {
                 return P.reject(err || new Error('NamespaceMerge._ns_get exhausted'));
             }
-            const ns = this.namespaces[i];
+            const ns = this.namespaces.read_resources[i];
             return P.try(() => func(ns)).catch(try_next);
         };
         return try_next();
     }
 
     _ns_put(func) {
-        const ns = this.namespaces[0];
+        const ns = this.namespaces.write_resource;
         return P.try(() => func(ns));
     }
 

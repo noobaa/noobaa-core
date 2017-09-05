@@ -7,6 +7,7 @@ const mongodb = require('mongodb');
 const EventEmitter = require('events').EventEmitter;
 const system_schema = require('./schemas/system_schema');
 const cluster_schema = require('./schemas/cluster_schema');
+const namespace_resource_schema = require('./schemas/namespace_resource_schema');
 const role_schema = require('./schemas/role_schema');
 const account_schema = require('./schemas/account_schema');
 const bucket_schema = require('./schemas/bucket_schema');
@@ -35,6 +36,22 @@ const COLLECTIONS = [{
     db_indexes: [{
         fields: {
             owner_secret: 1,
+        },
+        options: {
+            unique: true,
+        }
+    }],
+}, {
+    name: 'namespace_resources',
+    schema: namespace_resource_schema,
+    mem_indexes: [{
+        name: 'namespace_resources_by_name',
+        context: 'system',
+        key: 'name'
+    }],
+    db_indexes: [{
+        fields: {
+            name: 1,
         },
         options: {
             unique: true,

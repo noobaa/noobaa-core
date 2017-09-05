@@ -502,6 +502,8 @@ function read_system(req) {
                     }
                     return b;
                 }),
+            namespace_resources: _.map(system.namespace_resources_by_name,
+                ns => pool_server.get_namespace_resource_info(ns)),
             pools: _.filter(system.pools_by_name,
                     pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
                 .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo, hosts_aggregate_pool)),

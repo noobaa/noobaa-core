@@ -542,6 +542,12 @@ module.exports = {
                         $ref: 'bucket_api#/definitions/bucket_info'
                     }
                 },
+                namespace_resources: {
+                    type: 'array',
+                    items: {
+                        $ref: 'pool_api#/definitions/namespace_resource_info'
+                    }
+                },
                 pools: {
                     type: 'array',
                     items: {

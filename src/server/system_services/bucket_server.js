@@ -127,11 +127,37 @@ function create_bucket(req) {
         changes.insert.tieringpolicies = [tiering_policy];
         changes.insert.tiers = [tier];
     }
+
+    const read_resources = _.compact(req.rpc_params.read_resources
+        .map(ns_name =>
+            req.system.namespace_resources_by_name[ns_name] &&
+            req.system.namespace_resources_by_name[ns_name]._id)
+    );
+    const wr_obj = req.system.namespace_resources_by_name[req.rpc_params.write_resource];
+    const write_resource = wr_obj && wr_obj._id;
+    if (req.rpc_params.read_resources &&
+        (!read_resources.length ||
+            (read_resources.length !== req.rpc_params.read_resources.length)
+        )) {
+        throw new RpcError('INVALID_READ_RESOURCES');
+    }
+    if (req.rpc_params.write_resource && !write_resource) {
+        throw new RpcError('INVALID_WRITE_RESOURCES');
+    }
+
     let bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
         tiering_policy._id,
         req.rpc_params.tag);
+
+    if (req.rpc_params.read_resources && req.rpc_params.write_resource) {
+        bucket.namespace = {
+            read_resources,
+            write_resource
+        };
+    }
+
     changes.insert.buckets = [bucket];
     Dispatcher.instance().activity({
         event: 'bucket.create',
@@ -190,7 +216,23 @@ function read_bucket(req) {
                 num_of_objects, cloud_sync_policy));
 }
 
+function get_bucket_namespaces(req) {
+    var bucket = find_bucket(req);
+    const system = req.system;
 
+    if (!bucket.namespace) throw new RpcError('NOT_NAMESPACE_BUCKET');
+
+    return P.resolve({
+        name: bucket.name,
+        namespace: {
+            write_resource: pool_server.get_namespace_resource_extended_info(
+                system.namespace_resources_by_name[bucket.namespace.write_resource.name]
+            ),
+            read_resources: _.map(bucket.namespace.read_resources, rs =>
+                pool_server.get_namespace_resource_extended_info(rs))
+        }
+    });
+}
 
 /**
  *
@@ -210,6 +252,26 @@ function update_bucket(req) {
     const update_changes = {
         buckets: [bucket_updates]
     };
+
+    if (req.rpc_params.namespace) {
+        if (!req.rpc_params.namespace.read_resources.length) {
+            throw new RpcError('INVALID_READ_RESOURCES');
+        }
+
+        const read_resources = _.compact(req.rpc_params.namespace.read_resources
+            .map(ns_name => req.system.namespace_resources_by_name[ns_name] && req.system.namespace_resources_by_name[ns_name]._id));
+        if (!read_resources.length || (read_resources.length !== req.rpc_params.namespace.read_resources.length)) {
+            throw new RpcError('INVALID_READ_RESOURCES');
+        }
+        _.set(bucket_updates, 'namespace.read_resources', read_resources);
+        const wr_obj = req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource];
+        const write_resource = wr_obj && wr_obj._id;
+        if (!write_resource) {
+            throw new RpcError('INVALID_WRITE_RESOURCES');
+        }
+        _.set(bucket_updates, 'namespace.write_resource', write_resource);
+    }
+
     if (req.rpc_params.new_name) {
         bucket_updates.name = req.rpc_params.new_name;
     }
@@ -672,7 +734,8 @@ function set_cloud_sync(req) {
         additions_only: js_utils.default_value(req.rpc_params.policy.additions_only, false)
     };
 
-    const already_used_by = cloud_utils.get_used_cloud_targets(cloud_sync.endpoint_type, system_store.data.buckets, system_store.data.pools)
+    const already_used_by = cloud_utils.get_used_cloud_targets(cloud_sync.endpoint_type,
+            system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
         .find(candidate_target => (candidate_target.endpoint === cloud_sync.endpoint &&
             candidate_target.target_name === cloud_sync.target_bucket));
     if (already_used_by) {
@@ -955,13 +1018,15 @@ function get_cloud_buckets(req) {
             if (connection.endpoint_type === 'AZURE') {
                 let blob_svc = azure_storage.createBlobService(cloud_utils.get_azure_connection_string(connection));
                 blob_svc.setProxy(proxy ? url.parse(proxy) : null);
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE', system_store.data.buckets, system_store.data.pools);
+                let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE',
+                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
                     .timeout(EXTERNAL_BUCKET_LIST_TO)
                     .then(data => data.entries.map(entry =>
                         _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
             } //else if AWS
-            let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AWS', system_store.data.buckets, system_store.data.pools);
+            let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AWS',
+                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
             var s3 = new AWS.S3({
                 endpoint: connection.endpoint,
                 accessKeyId: connection.access_key,
@@ -1020,15 +1085,10 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     const info = {
         name: bucket.name,
         namespace: bucket.namespace ? {
-            list: _.map(bucket.namespace.list,
-                it => _.pick(it,
-                    'endpoint_type',
-                    'endpoint',
-                    'target_bucket',
-                    'access_key',
-                    'secret_key'
-                )
-            ),
+            write_resource: pool_server.get_namespace_resource_info(
+                bucket.namespace.write_resource),
+            read_resources: _.map(bucket.namespace.read_resources, rs =>
+                pool_server.get_namespace_resource_info(rs))
         } : undefined,
         tiering: tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool, aggregate_data_free_by_tier),
         tag: bucket.tag ? bucket.tag : '',
@@ -1041,7 +1101,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         quota: undefined,
         stats: undefined,
         cloud_sync: undefined,
-        mode: undefined
+        mode: undefined,
+        bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR'
     };
 
 
@@ -1207,10 +1268,21 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         info.cloud_sync = undefined;
     }
 
-    info.mode = calc_bucket_mode(has_any_pool_configured, has_any_valid_pool_configured, is_no_storage,
-        is_storage_low, is_quota_low, is_quota_exceeded, spillover_allowed_in_policy);
+    info.mode = bucket.namespace ?
+        calc_namespace_mode() :
+        calc_bucket_mode(
+            has_any_pool_configured,
+            has_any_valid_pool_configured,
+            is_no_storage,
+            is_storage_low,
+            is_quota_low,
+            is_quota_exceeded);
 
     return info;
+}
+
+function calc_namespace_mode() {
+    return 'OPTIMAL';
 }
 
 function calc_bucket_mode(has_any_pool_configured, has_any_valid_pool_configured, is_no_storage,
@@ -1319,6 +1391,7 @@ exports.delete_bucket = delete_bucket;
 exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
 exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
 exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;
+exports.get_bucket_namespaces = get_bucket_namespaces;
 exports.list_buckets = list_buckets;
 exports.update_buckets = update_buckets;
 //exports.generate_bucket_access = generate_bucket_access;

@@ -3,8 +3,8 @@ set -e
 isAzure=false
 isesx=false
 function clean_ifcfg() {
-    eths=$(ifconfig | grep eth | awk '{print $1}')
-    for eth in ${eths}; do
+    eths=$(ifconfig | grep ^en | awk '{print $1}')
+    for eth in ${eths//:/}; do
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${eth}
         sudo sed -i "s:.*${eth}.*::" /etc/udev/rules.d/70-persistent-net.rules
     done

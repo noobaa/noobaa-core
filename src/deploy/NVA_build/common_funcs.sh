@@ -27,8 +27,8 @@ function set_mongo_cluster_mode {
 
 function update_noobaa_net {
     > ${NOOBAANET}
-    eths=$(ifconfig -a | grep eth | awk '{print $1}')
-    for eth in ${eths}; do
+    eths=$(ifconfig -a | grep ^en | awk '{print $1}')
+    for eth in ${eths//:/}; do
         echo "${eth}" >> ${NOOBAANET}
     done
 }

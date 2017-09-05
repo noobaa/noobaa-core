@@ -61,7 +61,7 @@ function get_azure_connection_string(params) {
 }
 
 
-function get_used_cloud_targets(endpoint_type, bucket_list, pool_list) {
+function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace_resources) {
     const cloud_sync_targets = bucket_list ? bucket_list.filter(bucket =>
             (bucket.cloud_sync && bucket.cloud_sync.endpoint_type === endpoint_type))
         .map(bucket_with_cloud_sync => ({
@@ -80,7 +80,15 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list) {
             target_name: pool_with_cloud_resource.cloud_pool_info.target_bucket,
             usage_type: 'CLOUD_RESOURCE'
         })) : [];
-    return cloud_sync_targets.concat(cloud_resource_targets);
+    const namespace_resource_targets = namespace_resources ? namespace_resources.filter(ns => ns.connection.endpoint_type === endpoint_type)
+        .map(ns_rec => ({
+            endpoint: ns_rec.connection.endpoint,
+            endpoint_type: ns_rec.connection.endpoint_type,
+            source_name: ns_rec.name,
+            target_name: ns_rec.connection.target_bucket,
+            usage_type: 'NAMESPACE_RESOURCE'
+        })) : [];
+    return cloud_sync_targets.concat(cloud_resource_targets).concat(namespace_resource_targets);
 }
 
 exports.find_cloud_connection = find_cloud_connection;

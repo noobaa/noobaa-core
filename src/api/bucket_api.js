@@ -29,6 +29,15 @@ module.exports = {
                     tag: {
                         type: 'string',
                     },
+                    write_resource: {
+                        type: 'string'
+                    },
+                    read_resources: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    }
                 }
             },
             reply: {
@@ -52,6 +61,25 @@ module.exports = {
             },
             reply: {
                 $ref: '#/definitions/bucket_info'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        get_bucket_namespaces: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/bucket_namespaces_info'
             },
             auth: {
                 system: 'admin'
@@ -325,7 +353,7 @@ module.exports = {
                                 },
                                 usage_type: {
                                     type: 'string',
-                                    enum: ['CLOUD_SYNC', 'CLOUD_RESOURCE']
+                                    enum: ['CLOUD_SYNC', 'CLOUD_RESOURCE', 'NAMESPACE_RESOURCE']
                                 },
                             }
                         }
@@ -516,39 +544,13 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'writable', 'mode'],
+            required: ['name', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'writable', 'mode', 'bucket_type'],
             properties: {
                 name: {
                     type: 'string',
                 },
                 namespace: {
-                    type: 'object',
-                    properties: {
-                        list: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    endpoint_type: {
-                                        type: 'string',
-                                        enum: ['NOOBAA', 'AWS', 'AZURE', 'S3_COMPATIBLE']
-                                    },
-                                    endpoint: {
-                                        type: 'string'
-                                    },
-                                    target_bucket: {
-                                        type: 'string'
-                                    },
-                                    access_key: {
-                                        type: 'string'
-                                    },
-                                    secret_key: {
-                                        type: 'string'
-                                    },
-                                }
-                            }
-                        },
-                    }
+                    $ref: '#/definitions/bucket_namespace'
                 },
                 tiering: {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
@@ -673,7 +675,11 @@ module.exports = {
                 },
                 undeletable: {
                     $ref: '#/definitions/undeletable_bucket_reason'
-                }
+                },
+                bucket_type: {
+                    enum: ['REGULAR', 'NAMESPACE'],
+                    type: 'string',
+                },
             }
         },
 
@@ -734,6 +740,56 @@ module.exports = {
             }
         },
 
+        bucket_namespace: {
+            type: 'object',
+            required: [
+                'read_resources',
+                'write_resource',
+            ],
+            properties: {
+                read_resources: {
+                    type: 'array',
+                    items: {
+                        $ref: 'pool_api#/definitions/namespace_resource_info'
+                    }
+                },
+                write_resource: {
+                    $ref: 'pool_api#/definitions/namespace_resource_info'
+                }
+            }
+        },
+
+        bucket_namespaces_info: {
+            type: 'object',
+            required: [
+                'name',
+                'namespace'
+            ],
+            properties: {
+                name: {
+                    type: 'string'
+                },
+                namespace: {
+                    type: 'object',
+                    required: [
+                        'read_resources',
+                        'write_resource',
+                    ],
+                    properties: {
+                        read_resources: {
+                            type: 'array',
+                            items: {
+                                $ref: 'pool_api#/definitions/namespace_resource_extended_info'
+                            }
+                        },
+                        write_resource: {
+                            $ref: 'pool_api#/definitions/namespace_resource_extended_info'
+                        }
+                    }
+                }
+            }
+        },
+
         api_cloud_sync_status: {
             enum: ['PENDING', 'SYNCING', 'UNABLE', 'SYNCED', 'NOTSET'],
             type: 'string',
@@ -743,7 +799,6 @@ module.exports = {
             enum: ['STANDARD_IA', 'GLACIER'],
             type: 'string'
         },
-
         update_bucket_params: {
             type: 'object',
             required: ['name'],
@@ -779,6 +834,21 @@ module.exports = {
                 },
                 use_internal_spillover: {
                     type: 'boolean',
+                },
+                namespace: {
+                    type: 'object',
+                    required: ['write_resource', 'read_resources'],
+                    properties: {
+                        write_resource: {
+                            type: 'string'
+                        },
+                        read_resources: {
+                            type: 'array',
+                            items: {
+                                type: 'string'
+                            },
+                        }
+                    }
                 }
             }
         },

@@ -44,31 +44,20 @@ module.exports = {
         },
         namespace: {
             type: 'object',
+            required: [
+                'read_resources',
+                'write_resource',
+            ],
             properties: {
-                list: {
+                read_resources: {
                     type: 'array',
                     items: {
-                        type: 'object',
-                        properties: {
-                            endpoint_type: {
-                                type: 'string',
-                                enum: ['NOOBAA', 'AWS', 'AZURE', 'S3_COMPATIBLE']
-                            },
-                            endpoint: {
-                                type: 'string'
-                            },
-                            target_bucket: {
-                                type: 'string'
-                            },
-                            access_key: {
-                                type: 'string'
-                            },
-                            secret_key: {
-                                type: 'string'
-                            },
-                        }
+                        format: 'objectid' // namespace resource id
                     }
                 },
+                write_resource: {
+                    format: 'objectid' // namespace resource id
+                }
             }
         },
         tiering: {

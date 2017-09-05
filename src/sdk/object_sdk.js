@@ -42,14 +42,14 @@ class ObjectSDK {
 
     _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
-        return P.resolve(params.bucket || this.rpc_client.bucket.read_bucket({ name: params.name }))
+        return P.resolve(params.bucket || this.rpc_client.bucket.get_bucket_namespaces({ name: params.name }))
             .then(bucket => this._setup_bucket_namespace(bucket));
     }
 
     _validate_bucket_namespace(data, params) {
         const time = Date.now();
         if (time <= data.valid_until) return true;
-        return this.rpc_client.bucket.read_bucket({ name: params.name })
+        return this.rpc_client.bucket.get_bucket_namespaces({ name: params.name })
             .then(bucket => {
                 if (_.isEqual(bucket.namespace, data.bucket.namespace)) {
                     // namespace unchanged - extend validity for another period
@@ -68,7 +68,7 @@ class ObjectSDK {
         const time = Date.now();
         dbg.log0('_load_bucket_namespace', util.inspect(bucket, true, null, true));
         try {
-            if (bucket.namespace && bucket.namespace.list) {
+            if (bucket.namespace && bucket.namespace.read_resources && bucket.namespace.write_resource) {
                 return {
                     ns: this._setup_merge_namespace(bucket),
                     bucket,
@@ -86,14 +86,12 @@ class ObjectSDK {
     }
 
     _setup_merge_namespace(bucket) {
-        if (bucket.namespace.list.length === 1) {
-            return this._setup_single_namespace(bucket.namespace.list[0]);
-        }
-        return new NamespaceMerge(
-            _.map(bucket.namespace.list,
+        return new NamespaceMerge({
+            write_resource: this._setup_single_namespace(bucket.namespace.write_resource),
+            read_resources: _.map(bucket.namespace.read_resources,
                 ns_info => this._setup_single_namespace(ns_info)
             )
-        );
+        });
     }
 
     _setup_single_namespace(ns_info) {
@@ -111,8 +109,8 @@ class ObjectSDK {
                 endpoint: ns_info.endpoint,
                 accessKeyId: ns_info.access_key,
                 secretAccessKey: ns_info.secret_key,
-                region: 'us-east-1', // TODO needed?
-                signatureVersion: 's3',
+                // region: 'us-east-1', // TODO needed?
+                // signatureVersion: 's3',
                 s3ForcePathStyle: true,
                 // computeChecksums: false, // disabled by default for performance
                 // s3DisableBodySigning: true, // disabled by default for performance

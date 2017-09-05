@@ -7,6 +7,7 @@
 'use strict';
 
 const _ = require('lodash');
+const util = require('util');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
@@ -54,6 +55,16 @@ function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
             blocks_size: 0,
             last_update: now - (2 * config.MD_GRACE_IN_MILLISECONDS)
         },
+    };
+}
+
+function new_namespace_resource_defaults(name, system_id, account_id, connection) {
+    return {
+        _id: system_store.generate_id(),
+        system: system_id,
+        account: account_id,
+        name,
+        connection
     };
 }
 
@@ -111,6 +122,45 @@ function create_hosts_pool(req) {
         .then(() => server_rpc.client.host.migrate_hosts_to_pool({ pool_id, hosts }, { auth_token }));
 }
 
+function create_namespace_resource(req) {
+    const name = req.rpc_params.name;
+    const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
+    const namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, {
+        endpoint: connection.endpoint,
+        target_bucket: req.rpc_params.target_bucket,
+        access_key: connection.access_key,
+        secret_key: connection.secret_key,
+        endpoint_type: connection.endpoint_type || 'AWS'
+    });
+
+    const already_used_by = cloud_utils.get_used_cloud_targets(namespace_resource.connection.endpoint_type,
+            system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
+        .find(candidate_target => (candidate_target.endpoint === namespace_resource.connection.endpoint &&
+            candidate_target.target_name === namespace_resource.connection.target_bucket));
+    if (already_used_by) {
+        dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
+        throw new Error('Target already in use');
+    }
+
+    dbg.log0('creating namespace_resource:', namespace_resource);
+    return system_store.make_changes({
+            insert: {
+                namespace_resources: [namespace_resource]
+            }
+        })
+        // .then(() => {
+        //     Dispatcher.instance().activity({
+        //         event: 'resource.cloud_create',
+        //         level: 'info',
+        //         system: req.system._id,
+        //         actor: req.account && req.account._id,
+        //         pool: pool._id,
+        //         desc: `${pool.name} was created by ${req.account && req.account.email}`,
+        //     });
+        // })
+        .return();
+}
+
 function create_cloud_pool(req) {
     var name = req.rpc_params.name;
     var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
@@ -127,7 +177,7 @@ function create_cloud_pool(req) {
 
 
     const already_used_by = cloud_utils.get_used_cloud_targets(cloud_info.endpoint_type,
-            system_store.data.buckets, system_store.data.pools)
+            system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
         .find(candidate_target => (candidate_target.endpoint === cloud_info.endpoint &&
             candidate_target.target_name === cloud_info.target_bucket));
     if (already_used_by) {
@@ -222,6 +272,12 @@ function read_pool(req) {
         .then(nodes_aggregate_pool => get_pool_info(pool, nodes_aggregate_pool));
 }
 
+function read_namespace_resource(req) {
+    const namespace_resource = find_namespace_resource_by_name(req);
+    return P.resolve()
+        .then(() => get_namespace_resource_info(namespace_resource));
+}
+
 function delete_pool(req) {
     var pool = find_pool_by_name(req);
     if (_is_regular_pool(pool)) {
@@ -229,6 +285,24 @@ function delete_pool(req) {
     } else {
         return _delete_resource_pool(req, pool, req.account);
     }
+}
+
+function delete_namespace_resource(req) {
+    const ns = find_namespace_resource_by_name(req);
+    dbg.log0('Deleting namespace resource', ns.name);
+    return P.resolve()
+        .then(() => {
+            const reason = check_namespace_resource_deletion(ns);
+            if (reason) {
+                throw new RpcError(reason, 'Cannot delete namespace resource');
+            }
+            return system_store.make_changes({
+                remove: {
+                    namespace_resources: [ns._id]
+                }
+            });
+        })
+        .return();
 }
 
 
@@ -388,6 +462,15 @@ function find_pool_by_name(req) {
     return pool;
 }
 
+function find_namespace_resource_by_name(req) {
+    const name = req.rpc_params.name;
+    const namespace_resource = req.system.namespace_resources_by_name[name];
+    if (!namespace_resource) {
+        throw new RpcError('NO_SUCH_NAMESPACE_RESOURCE', 'No such namespace resource: ' + name);
+    }
+    return namespace_resource;
+}
+
 function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
     const p_nodes = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
     const p_hosts = _.get(hosts_aggregate_pool, ['groups', String(pool._id)], { nodes: {} });
@@ -424,6 +507,31 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
 
     //Get associated accounts
     info.associated_accounts = get_associated_accounts(pool);
+
+    return info;
+}
+
+function get_namespace_resource_info(namespace_resource) {
+    const info = {
+        name: namespace_resource.name,
+        endpoint_type: namespace_resource.connection.endpoint_type,
+        endpoint: namespace_resource.connection.endpoint,
+        target_bucket: namespace_resource.connection.target_bucket,
+        identity: namespace_resource.connection.access_key,
+    };
+
+    return info;
+}
+
+function get_namespace_resource_extended_info(namespace_resource) {
+    const info = {
+        name: namespace_resource.name,
+        endpoint_type: namespace_resource.connection.endpoint_type,
+        endpoint: namespace_resource.connection.endpoint,
+        target_bucket: namespace_resource.connection.target_bucket,
+        access_key: namespace_resource.connection.access_key,
+        secret_key: namespace_resource.connection.secret_key
+    };
 
     return info;
 }
@@ -507,6 +615,24 @@ function check_resrouce_pool_deletion(pool) {
     }
 }
 
+function check_namespace_resource_deletion(ns) {
+    //Verify namespace resource is not used by any namespace bucket
+    const buckets = get_associated_buckets_ns(ns);
+    if (buckets.length) {
+        return 'IN_USE';
+    }
+}
+
+function get_associated_buckets_ns(ns) {
+    const associated_buckets = _.filter(ns.system.buckets_by_name, bucket => {
+        if (!bucket.namespace) return;
+        return (_.find(bucket.namespace.read_resources, read_resource => String(ns._id) === String(read_resource._id)) ||
+            (String(ns._id) === String(bucket.namespace.write_resource._id)));
+    });
+
+    return _.map(associated_buckets, 'name');
+}
+
 function _is_cloud_pool(pool) {
     return Boolean(pool.cloud_pool_info);
 }
@@ -531,14 +657,19 @@ function get_internal_mongo_pool(system_id) {
 exports.get_internal_mongo_pool = get_internal_mongo_pool;
 exports.new_pool_defaults = new_pool_defaults;
 exports.get_pool_info = get_pool_info;
+exports.read_namespace_resource = read_namespace_resource;
+exports.get_namespace_resource_info = get_namespace_resource_info;
 exports.create_nodes_pool = create_nodes_pool;
 exports.create_hosts_pool = create_hosts_pool;
 exports.create_cloud_pool = create_cloud_pool;
+exports.create_namespace_resource = create_namespace_resource;
 exports.create_mongo_pool = create_mongo_pool;
 exports.list_pool_nodes = list_pool_nodes;
 exports.read_pool = read_pool;
 exports.delete_pool = delete_pool;
+exports.delete_namespace_resource = delete_namespace_resource;
 exports.assign_hosts_to_pool = assign_hosts_to_pool;
 exports.assign_nodes_to_pool = assign_nodes_to_pool;
 exports.get_associated_buckets = get_associated_buckets;
 exports.get_pool_history = get_pool_history;
+exports.get_namespace_resource_extended_info = get_namespace_resource_extended_info;

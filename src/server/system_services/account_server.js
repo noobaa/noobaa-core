@@ -997,11 +997,21 @@ function _list_connection_usage(account, credentials) {
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
             pool.cloud_pool_info.access_keys.access_key === credentials.access_key
         )), pool => ({
-            usage_type: 'CLOUD_POOL',
+            usage_type: 'CLOUD_RESOURCE',
             entity: pool.name,
             external_entity: pool.cloud_pool_info.target_bucket
         })) || [];
-    return cloud_sync_usage.concat(cloud_pool_usage);
+    let namespace_resource_usage = _.map(
+        _.filter(system_store.data.namespace_resources, ns => (
+            ns.connection.endpoint === credentials.endpoint &&
+            ns.account._id === account._id &&
+            ns.connection.access_key === credentials.access_key
+        )), ns_rec => ({
+            usage_type: 'NAMESPACE_RESOURCE',
+            entity: ns_rec.name,
+            external_entity: ns_rec.connection.target_bucket
+        })) || [];
+    return cloud_sync_usage.concat(cloud_pool_usage).concat(namespace_resource_usage);
 }
 
 // // TODO: Shall implement that for everyone and call it

@@ -18,6 +18,7 @@ const addConnectionOption = deepFreeze({
 
 const usedTargetTooltip = deepFreeze({
     CLOUD_RESOURCE: name => `Already used by ${name} cloud resource`,
+    NAMESPACE_RESOURCE: name => `Already used by ${name} namespace resource`,
     CLOUD_SYNC: name => `Already used by bucket's ${name} cloud sync policy`
 });
 

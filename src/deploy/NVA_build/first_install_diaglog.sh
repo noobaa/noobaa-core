@@ -169,7 +169,7 @@ function configure_dns_dialog {
     if [ "${dns2}" != "" ]; then
       sudo bash -c "echo 'nameserver ${dns2} #NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
     fi
-    sudo supervisorctl restart all
+    sudo supervisorctl restart all > /dev/null 2>&1
 }
 
 function configure_hostname_dialog {
@@ -236,12 +236,13 @@ function configure_ntp_dialog {
   done
     echo "${ntp_server}" > /tmp/ntp
 
-    sudo sed -i "s/.*NooBaa Configured NTP Server.*/server ${ntp_server} iburst #NooBaa Configured NTP Server/" /etc/ntp.conf
+    sudo sed -i "s/.*NooBaa Configured NTP Server//" /etc/ntp.conf
+    sudo bash -c "echo 'server ${ntp_server} iburst # NooBaa Configured NTP Server' >> /etc/ntp.conf"
     sudo /sbin/chkconfig ntpd on 2345
-    sudo /etc/init.d/ntpd restart
-    sudo /etc/init.d/rsyslog restart
-    sudo /etc/init.d/supervisord restart
-}
+    sudo /etc/init.d/ntpd restart > /dev/null 2>&1
+    sudo /etc/init.d/rsyslog restart > /dev/null 2>&1
+    sudo /etc/init.d/supervisord restart > /dev/null 2>&1
+} 
 
 
 function reset_password {

@@ -88,9 +88,9 @@ const read_bucket_func = {
     }]
 };
 
-const RB_EVENT = {
-    "name": "files",
-}
+// const RB_EVENT = {
+//     "name": "files",
+// };
 
 const create_bucket_func = {
     FunctionName: 'create_bucket',
@@ -104,15 +104,15 @@ const create_bucket_func = {
     },
     Files: [{
         path: 'create_bucket_func.js',
-        fs_path: path.join(__dirname, 'create_bucket_func.js'),   
+        fs_path: path.join(__dirname, 'create_bucket_func.js'),
     }]
 };
 
-const CB_EVENT = {
-    "name": "momo10",
-    "data_placement": "SPREAD",
-    "pools": ["london"]
-}
+// const CB_EVENT = {
+//     "name": "momo10",
+//     "data_placement": "SPREAD",
+//     "pools": ["london"]
+// };
 
 const set_account_bucket_permissions_func = {
     FunctionName: 'set_account_bucket_permissions',
@@ -126,7 +126,7 @@ const set_account_bucket_permissions_func = {
     },
     Files: [{
         path: 'set_account_bucket_permissions_func.js',
-        fs_path: path.join(__dirname, 'set_account_bucket_permissions_func.js')  
+        fs_path: path.join(__dirname, 'set_account_bucket_permissions_func.js')
     }]
 };
 
@@ -135,7 +135,7 @@ const SP_EVENT = {
     "s3_access": true,
     "default_pool": "london",
     "allowed_buckets": ['logs']
-}
+};
 
 const create_account_func = {
     FunctionName: 'create_account',
@@ -153,6 +153,7 @@ const create_account_func = {
     }]
 };
 
+/*
 const CA_EVENT = {
     "name": "eran2",
     "email": "eran2@noobaa.com",
@@ -160,7 +161,8 @@ const CA_EVENT = {
     "s3_access": true,
     "allowed_buckets": ["movies", "files"],
     "default_pool": "default_pool"
-}
+};
+*/
 
 const set_account_ip_access_func = {
     FunctionName: 'set_account_ip_access',
@@ -178,10 +180,10 @@ const set_account_ip_access_func = {
     }]
 };
 
-const SA_EVENT = {
-    "email": "test@noobaa.com",
-    "ips": ["1.1.1.1"]
-}
+// const SA_EVENT = {
+//     "email": "test@noobaa.com",
+//     "ips": ["1.1.1.1"]
+// };
 
 const WC_EVENT = {
     text: 'a',

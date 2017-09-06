@@ -75,6 +75,13 @@ class AttachServerModalViewModel extends BaseViewModel {
                             return newAddress !== address || result !== 'HAS_OBJECTS';
                         },
                         message: 'Server hold uploaded files'
+                    },
+                    {
+                        validator: newAddress => {
+                            const { address, result } = serverVerificationState() || {};
+                            return newAddress !== address || result !== 'NO_NTP_SET';
+                        },
+                        message: 'Server should be configured with NTP before attaching'
                     }
                 ]
             });

@@ -228,7 +228,6 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
     let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_server ? '' : 'rs');
     program_obj.name = 'mongo_wrapper';
     program_obj.command = '/root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_wrapper.sh' +
-        ' --testsystem ' +
         ' mongod' +
         ' --replSet ' + name +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +

@@ -37,7 +37,12 @@ function run() {
         dbg.log0('waiting for system store to load');
         return;
     }
+    if (!system_store.data.systems[0]) {
+        dbg.log0('system does not exist, skipping');
+        return;
+    }
     server_conf = system_store.get_local_cluster_info(true);
+
     return system_store.refresh()
         .then(() => _verify_cluster_configuration())
         .then(() => _check_ntp())

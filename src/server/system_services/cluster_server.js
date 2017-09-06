@@ -1478,11 +1478,16 @@ function _verify_join_preconditons(req) {
                                 }
                             });
                     }
-                    // If we do not need system in order to add a server to a cluster
-                    dbg.log0('_verify_join_preconditons okay. server has no system');
-                    return 'OKAY';
                 })
-                .catch(err => err.message);
+                .then(() => {
+                     // If we do not need system in order to add a server to a cluster
+                     dbg.log0('_verify_join_preconditons okay. server has no system');
+                     return 'OKAY';
+                })
+                .catch(err => {
+                    dbg.warn('failed _verify_join_preconditons on', err.message);
+                    return err.message;
+                });
         });
 }
 
@@ -1531,8 +1536,6 @@ function _add_new_shard_on_server(shardname, ip, params) {
                         clusters: [current_topology]
                     }
                 });
-            } else {
-
             }
         })
         .then(function() {
@@ -1542,8 +1545,6 @@ function _add_new_shard_on_server(shardname, ip, params) {
                     IPs: config_updates.config_servers,
                     cluster_id: current_topology.cluster_id
                 });
-            } else {
-
             }
         });
 }
@@ -1687,8 +1688,6 @@ function _add_new_config_on_server(cfg_array, params) {
                 return MongoCtrl.add_member_to_replica_set(
                     config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true
                 ); //3rd param /*=config set*/
-            } else {
-
             }
         });
 }

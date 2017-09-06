@@ -1438,7 +1438,9 @@ function _validate_member_request(req) {
         })
         .then(() => os_utils.get_ntp())
         .then(platform_ntp => {
-            throw new Error('Could not add members when NTP is not set');
+            if (!platform_ntp) {
+                throw new Error('Could not add members when NTP is not set');
+            }
         });
 }
 
@@ -1740,7 +1742,7 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
         };
         return cluster_server;
     }
-    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
+    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '# NooBaa Configured NTP Server'),
             os_utils.get_time_config(),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'),

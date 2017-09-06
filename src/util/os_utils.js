@@ -257,7 +257,7 @@ function read_mac_linux_drives(include_all) {
                     .then(() => linux_volume_to_drive(vol))
                     .catch(() => {
                         dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
-                        return;
+                        
                     });
             }))
             .then(res => _.compact(res)));
@@ -428,7 +428,7 @@ function get_ntp() {
     if (os.type() === 'Linux') {
         return promise_utils.exec("cat /etc/ntp.conf | grep NooBaa", false, true)
             .then(res => {
-                let regex_res = (/server (.*) iburst #NooBaa Configured NTP Server/).exec(res);
+                let regex_res = (/server (.*) iburst # NooBaa Configured NTP Server/).exec(res);
                 return regex_res ? regex_res[1] : "";
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
@@ -440,7 +440,7 @@ function get_ntp() {
 function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
         var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server +
-            " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
+            " iburst # NooBaa Configured NTP Server/' /etc/ntp.conf";
         return _set_time_zone(timez)
             .then(() => promise_utils.exec(command))
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
@@ -761,7 +761,7 @@ function handle_unreleased_fds() {
             if (res) {
                 dbg.log0('Deleted FDs which were not released', res);
             }
-            return;
+            
         });
 }
 

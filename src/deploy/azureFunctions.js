@@ -233,7 +233,7 @@ class AzureFunctions {
     createPublicIp(publicIPName) {
         var publicIPParameters = {
             location: this.location,
-            publicIPAllocationMethod: 'Dynamic',
+            publicIPAllocationMethod: 'Static',
             // dnsSettings: {
             //     domainNameLabel: domainNameLabel
             // }

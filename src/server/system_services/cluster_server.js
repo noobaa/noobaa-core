@@ -1435,6 +1435,10 @@ function _validate_member_request(req) {
         .catch(() => {
             throw new Error(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT},
             might be due to a FW blocking`);
+        })
+        .then(() => os_utils.get_ntp())
+        .then(platform_ntp => {
+            throw new Error('Could not add members when NTP is not set');
         });
 }
 

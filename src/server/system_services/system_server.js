@@ -223,6 +223,7 @@ function create_system(req) {
     let reply_token;
     let owner_secret = system_store.get_server_secret();
     let system_changes;
+    let ntp_configured = false;
     //Create system
     return P.fcall(function() {
             var params = {
@@ -267,12 +268,15 @@ function create_system(req) {
 
             if (cluster_info) {
                 if (ntp_server) {
+                    dbg.log0(`ntp server was already configured in first install to ${ntp_server}`);
+                    ntp_configured = true;
                     cluster_info.ntp = {
                         timezone: time_config.timezone,
                         server: ntp_server
                     };
                 }
                 if (dns_config.dns_servers.length) {
+                    dbg.log0(`DNS servers were already configured in first install to`, dns_config.dns_servers);
                     cluster_info.dns_servers = dns_config.dns_servers;
                 }
                 changes.insert.clusters = [cluster_info];
@@ -302,7 +306,8 @@ function create_system(req) {
             reply_token = response.token;
 
             //Time config, if supplied
-            if (!req.rpc_params.time_config) {
+            if (!req.rpc_params.time_config ||
+                (ntp_configured && !req.rpc_params.time_config.ntp_server)) {
                 return;
             }
             let time_config = req.rpc_params.time_config;

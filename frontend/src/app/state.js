@@ -1,8 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { Subject } from 'rx';
-import { deepFreeze, isObject, noop } from 'utils/core-utils';
 import reducer from 'reducers';
+import stateSchema from './schema/state';
+import { deepFreeze, isObject, noop } from 'utils/core-utils';
+import { createSchemaValidator } from 'utils/schema-utils';
+
 
 // Actions stream.
 export const action$ = global.action$ = new Subject();
@@ -24,6 +27,17 @@ function _filterMishapedActions(action) {
     return true;
 }
 
+// Check state against schema
+const schemaValidator = createSchemaValidator(stateSchema);
+function _validateState(state) {
+    const errors = schemaValidator(state);
+    if (errors) {
+        console.error('INVALID STATE', { state, errors });
+        throw new Error('Invalid state');
+    }
+}
+
+
 // Project action stream into a state stream.
 export const state$ = action$
     .filter(_filterMishapedActions)
@@ -34,6 +48,7 @@ export const state$ = action$
         action.payload
     ))
     .scan((state, action) => deepFreeze(reducer(state, action)), {})
+    .tap(_validateState)
     .switchMap(state => Promise.resolve(state))
     .tap(state => console.log('UPDATING VIEW with', state))
     .shareReplay(1);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 NooBaa */
+/* Copyright (C) 2016 NooBaa */
 'use strict';
 
 /* sample event:

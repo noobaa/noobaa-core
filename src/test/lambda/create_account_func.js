@@ -13,7 +13,7 @@
 
 exports.handler = function(event, context, callback) {
     context.rpc_client.account.create_account(event)
-        .then(() => context.rpc_client.account.read_account({email:event.email}))
-        .then(res => callback(null,JSON.stringify(res)))
+        .then(() => context.rpc_client.account.read_account({email: event.email}))
+        .then(res => callback(null, JSON.stringify(res)))
         .catch(err => callback(err));
 };

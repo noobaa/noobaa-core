@@ -154,15 +154,15 @@ function configure_dns_dialog {
     local dns1=$(head -1 answer_dns)
     local dns2=$(tail -1 answer_dns)
 
-    sudo sed -i "s/.*NooBaa Configured Primary DNS Server//" /etc/resolv.conf
-    sudo sed -i "s/.*NooBaa Configured Secondary DNS Server//" /etc/resolv.conf
-
     while [ "${dns1}" == "" ]; do
       dialog --colors --nocancel --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 65 4 "Primary DNS:" 1 1 "${dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${dns2}" 2 25 25 30 2> answer_dns
       dns1=$(head -1 answer_dns)
       #sudo echo "First Install adding dns ${dns}" >> /var/log/noobaa_deploy.log
       dns2=$(tail -1 answer_dns)
     done
+
+    sudo sed -i "s/.*NooBaa Configured Primary DNS Server//" /etc/resolv.conf
+    sudo sed -i "s/.*NooBaa Configured Secondary DNS Server//" /etc/resolv.conf
 
     sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
     sudo bash -c "echo 'nameserver ${dns1} #NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"

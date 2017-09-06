@@ -7,6 +7,7 @@ const P = require('../../util/promise');
 var api = require('../../api');
 var promise_utils = require('../../util/promise_utils');
 var ops = require('../system_tests/basic_server_ops');
+const s3ops = require('../qa/s3ops');
 var _ = require('lodash');
 
 require('../../util/dotenv').load();
@@ -20,8 +21,13 @@ var clientId = process.env.CLIENT_ID;
 var domain = process.env.DOMAIN;
 var secret = process.env.APPLICATION_SECRET;
 var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
+var master_ip;
+var rpc;
+var client;
 const serversincluster = argv.servers || 3;
-let errors_in_test = false;
+let failures_in_test = false;
+let errors = [];
+let agentConf;
 
 //defining the required parameters
 const {
@@ -36,6 +42,14 @@ const {
     clean = false
 } = argv;
 
+const oses = [
+    'ubuntu12', 'ubuntu14', 'ubuntu16'];
+
+function saveErrorAndResume(message) {
+    console.error(message);
+    errors.push(message);
+}
+
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
@@ -43,16 +57,16 @@ function isSecretChanged(isMasterDown, oldSecret, masterSecret) {
     if (isMasterDown) {
         if (oldSecret === masterSecret) {
             console.log(`Error - The master didn't move server and it is down`);
-            errors_in_test = true;
+            failures_in_test = true;
         } else {
             console.log(`The master has moved - as should from secret: ${oldSecret} to: ${masterSecret}`);
         }
     } else if (oldSecret === masterSecret) {
         console.log(`The master is the same as the old one - as Should`);
     } else {
-        console.log(`Error - The master has moved from secret: ${oldSecret} to: ${
+        saveErrorAndResume(`Error - The master has moved from secret: ${oldSecret} to: ${
             masterSecret} and shoulden't.`);
-        errors_in_test = true;
+        failures_in_test = true;
     }
 }
 
@@ -62,12 +76,12 @@ function checkClusterHAReport(read_system_res, serversByStatus, servers) {
         if (read_system_res.cluster.shards[0].high_availabilty) {
             console.log(`Cluster is highly available as should!!`);
         } else {
-            console.log(`Error! Cluster is not highly available although most servers are up!!`);
-            errors_in_test = true;
+            saveErrorAndResume(`Error! Cluster is not highly available although most servers are up!!`);
+            failures_in_test = true;
         }
     } else if (read_system_res.cluster.shards[0].high_availabilty) {
         console.log(`Error! Cluster is highly available when most servers are down!!`);
-        errors_in_test = true;
+        failures_in_test = true;
     } else {
         console.log(`Cluster is not highly available as should!!`);
     }
@@ -81,7 +95,7 @@ function checkServersStatus(read_system_res, servers, masterSecret, masterIndex)
             console.log(`Read system returned more than one server with the same secret!! ${
                 serversBySecret[server.secret]
                 }`);
-            errors_in_test = true;
+            failures_in_test = true;
             throw new Error(`Read System duplicate Secrets!!`);
         }
         var role = '*SLAVE*';
@@ -97,7 +111,7 @@ function checkServersStatus(read_system_res, servers, masterSecret, masterIndex)
                 server.secret} is of Status ${
                 serversBySecret[server.secret][0].status} - should be ${server.status}`);
             console.log(read_system_res.cluster.shards[0]);
-            errors_in_test = true;
+            failures_in_test = true;
         }
     });
 }
@@ -115,9 +129,6 @@ function checkClusterStatus(servers, oldMasterNumber) {
     }
     var serversByStatus = _.groupBy(servers, 'status');
     var masterIndex = oldMasterNumber;
-    var master_ip;
-    var rpc;
-    var client;
     if (serversByStatus.CONNECTED && serversByStatus.CONNECTED.length > (servers.length / 2)) {
         return promise_utils.exec('curl http://' + serversByStatus.CONNECTED[0].ip + ':8080 2> /dev/null ' +
             '| grep -o \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'', false, true)
@@ -148,12 +159,12 @@ function checkClusterStatus(servers, oldMasterNumber) {
                 isSecretChanged(isMasterDown, oldSecret, masterSecret);
                 checkClusterHAReport(res, serversByStatus, servers);
                 checkServersStatus(res, servers, masterSecret, masterIndex);
-                if (errors_in_test && breakonerror) {
+                if (failures_in_test && breakonerror) {
                     throw new Error('Error in test - breaking the test');
                 }
                 return masterIndex;
-            })
-            .finally(() => rpc.disconnect_all());
+            });
+          //  .finally(() => rpc.disconnect_all());
     } else {
         console.log('Most of the servers are down - Can\'t check cluster status');
         return -1;
@@ -178,7 +189,11 @@ function preparServers(requestedServers) {
                 return ops.upload_and_upgrade(ip, upgrade_pack);
             }
         })
-        .catch(err => console.log('Can\'t create server', err)));
+    ).catch(err => {
+            saveErrorAndResume('Can\'t create server and upgrade servers', err);
+            failures_in_test = true;
+            throw err;
+        });
 }
 
 function delayInSec(sec) {
@@ -193,11 +208,72 @@ function createCluster(requestedServers) {
         .then(() => delayInSec(90));
 }
 
-const timeInMin = timeout * 1000 * 60;
+function createAgents() {
+    return getAgentConf()
+        .then(res => P.map(oses, osname => azf.createAgent(
+        osname, storage, vnet,
+        azf.getImagesfromOSname(osname), master_ip, res)))
+        .catch(err => {
+            saveErrorAndResume(`${master_ip} FAILED creating agents`, err);
+            failures_in_test = true;
+            throw err;
+        });
+}
+
+function getAgentConf() {
+    return client.system.get_node_installation_string({
+        pool: "first.pool",
+        exclude_drives: []
+    })
+        .then(installationString => {
+            console.log('Installation string is: ' + installationString.LINUX);
+            agentConf = installationString.LINUX;
+            const index = agentConf.indexOf('config');
+            agentConf = agentConf.substring(index + 7);
+            console.log(agentConf);
+        });
+}
+
+function deleteAgents() {
+    return P.map(oses, osname => azf.deleteVirtualMachine(osname))
+        .catch(err => {
+            console.warn(`Deleting agents is FAILED `, err);
+        });
+}
+
+function verifyS3Server() {
+    console.log(`starting the verify s3 server`);
+    var bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
+    return s3ops.create_bucket(master_ip, bucket)
+        .then(() => s3ops.get_list_buckets(master_ip))
+        .then(res => {
+            if (res.includes(bucket)) {
+                console.log('Bucket is successfully added');
+            } else {
+                saveErrorAndResume('Created bucket ' + bucket + 'is not returns on list ' + res);
+            }
+        })
+        //.then(() => s3ops.put_file_with_md5(master_ip, bucket, '100MB_File', 100, 1048576))
+        //.then(() => s3ops.get_file_check_md5(master_ip, bucket, '100MB_File'))
+        .catch(err => {
+            saveErrorAndResume(`${master_ip} FAILED verification s3 server`, err);
+            failures_in_test = true;
+            throw err;
+        });
+}
+function cleanEnv() {
+    return P.map(servers, server => azf.deleteVirtualMachine(server.name)
+        .catch(err => console.log('Can\'t delete old server', err.message)))
+        .then(() => clean && process.exit(0))
+        .then(() => deleteAgents());
+}
+
+//const timeInMin = timeout * 1000 * 60;
 console.log(`${YELLOW}Timeout in min is: ${timeout}${NC}`);
 // var masterIndex = serversincluster + 1;
 let masterIndex = 0;
 console.log('Breaking on error?', breakonerror);
+
 return azf.authenticate()
     .then(() => {
         for (var i = 0; i < serversincluster; ++i) {
@@ -209,13 +285,68 @@ return azf.authenticate()
             });
         }
     })
-    .then(() => P.map(servers, server => azf.deleteVirtualMachine(server.name)
-        .catch(err => console.log('Can\'t delete old server', err.message)))
-        .then(() => clean && process.exit(0)))
+    .then(() => cleanEnv())
     .then(() => preparServers(servers))
     .then(() => createCluster(servers))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
-    // .then(() => checkClusterStatus(servers, 0)) //TODO: remove...
+    //.then(() => checkClusterStatus(servers, 0)) //TODO: remove...
+    .then(() => createAgents())
+    .then(() => verifyS3Server())
+    .then(() => {
+        console.log(`${RED}<==== Starting first flow ====>${NC}`);
+        return azf.stopVirtualMachine(servers[1].name);
+    })
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => azf.startVirtualMachine(servers[1].name))
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => checkClusterStatus(servers, masterIndex))
+    .then(() => {
+        console.log(`${RED}<==== Starting second flow ====>${NC}`);
+        return azf.stopVirtualMachine(servers[1].name);
+    })
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => azf.stopVirtualMachine(servers[2].name))
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => azf.startVirtualMachine(servers[1].name))
+    .then(() => verifyS3Server())
+    .then(() => azf.startVirtualMachine(servers[2].name))
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => checkClusterStatus(servers, masterIndex))
+    .then(() => {
+        console.log(`${RED}<==== Starting third flow ====>${NC}`);
+        return azf.stopVirtualMachine(servers[1].name);
+    })
+    .then(() => azf.stopVirtualMachine(servers[2].name))
+    .then(() => delayInSec(90))
+    .then(() => s3ops.put_file_with_md5(master_ip, 'files', '100MB_File', 100, 1048576)
+        .catch(err => console.log('Couldn\'t upload file wih 2 disconnected clusters - as should ', err.message)))
+    .then(() => azf.stopVirtualMachine(servers[0].name))
+    .then(() => azf.startVirtualMachine(servers[1].name))
+    .then(() => azf.startVirtualMachine(servers[2].name))
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => azf.startVirtualMachine(servers[0].name))
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => checkClusterStatus(servers, masterIndex))
+    .then(() => {
+        console.log(`${RED}<==== Starting forth flow ====>${NC}`);
+        return azf.stopVirtualMachine(servers[0].name);
+    })
+    .then(() => checkClusterStatus(servers, masterIndex))
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => azf.startVirtualMachine(servers[0].name))
+    .then(() => delayInSec(90))
+    .then(() => verifyS3Server())
+    .then(() => checkClusterStatus(servers, masterIndex))
+
+  /*
     .then(() => {
         const start = Date.now();
         let cycle = 0;
@@ -234,20 +365,22 @@ return azf.authenticate()
             return prom
                 .then(() => delayInSec(180))
                 .then(() => checkClusterStatus(servers, masterIndex))
+                .then(() => verifyS3Server())
                 .then(newMaster => {
                     masterIndex = newMaster;
                 });
         });
     })
+    */
     .catch(err => {
-        console.log('something went wrong :(' + err);
-        errors_in_test = true;
+        console.error('something went wrong :(' + err);
+        failures_in_test = true;
     })
     .then(() => {
-        if (errors_in_test) {
-            console.error(':( :( Errors during cluster test ): ):');
+        if (failures_in_test) {
+            console.error(':( :( Errors during cluster test ): ):' + errors);
             process.exit(1);
         }
         console.log(':) :) :) cluster test were successful! (: (: (:');
-        process.exit(0);
+        return cleanEnv();
     });

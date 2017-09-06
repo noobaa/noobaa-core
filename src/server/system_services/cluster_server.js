@@ -1448,23 +1448,35 @@ function _verify_join_preconditons(req) {
                 return 'SECRET_MISMATCH';
             }
 
-            let system = system_store.data.systems[0];
-            if (system) {
-                //Verify we are not already joined to a cluster
-                //TODO:: think how do we want to handle it, if at all
-                if (cutil.get_topology().shards.length !== 1 ||
-                    cutil.get_topology().shards[0].servers.length !== 1) {
-                    dbg.error('Server already joined to a cluster');
-                    return 'ALREADY_A_MEMBER';
-                }
+            return os_utils.get_ntp()
+                .then(platform_ntp => {
+                    if (!platform_ntp) {
+                        throw new Error('NO_NTP_SET');
+                    }
 
-                // verify there are no objects on the system
-                return MDStore.instance().has_any_objects_in_system(system._id)
-                    .then(has_objects => (has_objects ? 'HAS_OBJECTS' : 'OKAY'));
-            }
-            // If we do not need system in order to add a server to a cluster
-            dbg.log0('_verify_join_preconditons okay. server has no system');
-            return 'OKAY';
+                    let system = system_store.data.systems[0];
+                    if (system) {
+                        //Verify we are not already joined to a cluster
+                        //TODO:: think how do we want to handle it, if at all
+                        if (cutil.get_topology().shards.length !== 1 ||
+                            cutil.get_topology().shards[0].servers.length !== 1) {
+                            dbg.error('Server already joined to a cluster');
+                            throw new Error('ALREADY_A_MEMBER');
+                        }
+
+                        // verify there are no objects on the system
+                        return MDStore.instance().has_any_objects_in_system(system._id)
+                            .then(has_objects => {
+                                if (has_objects) {
+                                    throw new Error('HAS_OBJECTS');
+                                }
+                            });
+                    }
+                    // If we do not need system in order to add a server to a cluster
+                    dbg.log0('_verify_join_preconditons okay. server has no system');
+                    return 'OKAY';
+                })
+                .catch(err => err.message);
         });
 }
 
@@ -1514,7 +1526,7 @@ function _add_new_shard_on_server(shardname, ip, params) {
                     }
                 });
             } else {
-                return;
+
             }
         })
         .then(function() {
@@ -1525,7 +1537,7 @@ function _add_new_shard_on_server(shardname, ip, params) {
                     cluster_id: current_topology.cluster_id
                 });
             } else {
-                return;
+
             }
         });
 }
@@ -1590,7 +1602,7 @@ function _update_cluster_info(params) {
             return system_store.make_changes(changes)
                 .then(() => {
                     dbg.log0('local cluster info updates successfully');
-                    return;
+
                 })
                 .catch(err => {
                     console.error('failed on local cluster info update with', err.message);
@@ -1670,7 +1682,7 @@ function _add_new_config_on_server(cfg_array, params) {
                     config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true
                 ); //3rd param /*=config set*/
             } else {
-                return;
+
             }
         });
 }

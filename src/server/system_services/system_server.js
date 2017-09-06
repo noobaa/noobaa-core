@@ -250,15 +250,31 @@ function create_system(req) {
                     }
                 });
         })
-        .then(() => P.join(new_system_changes(account.name, account),
-            cluster_server.new_cluster_info({ address: "127.0.0.1" })))
-        .spread(function(changes, cluster_info) {
+        .then(() => {
+            return P.join(
+                new_system_changes(account.name, account),
+                cluster_server.new_cluster_info({ address: "127.0.0.1" }),
+                os_utils.get_ntp(),
+                os_utils.get_time_config(),
+                os_utils.get_dns_servers()
+            );
+        })
+        .spread(function(changes, cluster_info, ntp_server, time_config, dns_config) {
             allowed_buckets = {
                 full_permission: true
             };
             default_pool = changes.insert.pools[0]._id.toString();
 
             if (cluster_info) {
+                if (ntp_server) {
+                    cluster_info.ntp = {
+                        timezone: time_config.timezone,
+                        server: ntp_server
+                    };
+                }
+                if (dns_config.dns_servers.length) {
+                    cluster_info.dns_servers = dns_config.dns_servers;
+                }
                 changes.insert.clusters = [cluster_info];
             }
             return changes;

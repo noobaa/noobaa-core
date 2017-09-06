@@ -1,9 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
 /*global Buffer process */
-
 'use strict';
-let argv = require('yargs').argv;
+const argv = require('yargs').argv;
 const gulp = require('gulp');
 const del = require('del');
 const path = require('path');
@@ -21,7 +20,7 @@ const $ = require('gulp-load-plugins')();
 
 const buildPath = './dist';
 const uglify = !!argv.uglify;
-let  buildErrors = 0;
+let buildErrors = 0;
 let lintErrors = 0;
 
 const libs = [
@@ -37,7 +36,8 @@ const libs = [
     { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' },
     { name: 'chartjs',              path: './src/lib/chart.js/dist/Chart.js' },
     { name: 'rx',                   path: './src/lib/rxjs/dist/rx.lite.js' },
-    { name: 'big-integer',          path: './src/lib/big-integer/BigInteger.min.js'}
+    { name: 'big-integer',          path: './src/lib/big-integer/BigInteger.min.js' },
+    { name: 'ajv',                  path: './src/lib/ajv/dist/ajv.min.js' }
 ];
 
 const apiBlackList = [
@@ -83,7 +83,7 @@ gulp.task('clean', cb => {
 });
 
 gulp.task('build-lib', ['install-deps'], () => {
-    let b = browserify({
+    const b = browserify({
         debug: true,
         noParse: true
     });
@@ -103,7 +103,7 @@ gulp.task('build-lib', ['install-deps'], () => {
 });
 
 gulp.task('build-api', () => {
-    let b = browserify({
+    const b = browserify({
         paths: ['./node_modules'],
         debug: true
     });
@@ -111,7 +111,7 @@ gulp.task('build-api', () => {
     // Ignore unused files.
     apiBlackList.forEach(
         file => {
-            let path = require.resolve(`../src/rpc/${file}`);
+            const path = require.resolve(`../src/rpc/${file}`);
             console.log(`[${moment().format('HH:mm:ss')}] build-api: Ignoring ${path}`);
             b.ignore(path);
         }
@@ -149,7 +149,6 @@ gulp.task('compile-styles', () => {
         .pipe(gulp.dest(buildPath));
 });
 
-
 gulp.task('generate-svg-icons', () => {
     return gulp.src('src/assets/icons/*.svg')
         .pipe($.rename({ suffix: '-icon' }))
@@ -182,12 +181,17 @@ gulp.task('build-js-style', () => {
         .pipe(gulp.dest(buildPath));
 });
 
-gulp.task('install-deps', () => {
-    return gulp.src('./bower.json')
-        .pipe($.install());
+gulp.task('install-deps', cb => {
+    // Install the FE dependencies.
+    gulp.src('./bower.json')
+        .pipe($.install(() => {
+            // Build and bundle the ajv dependency.
+            gulp.src('./src/lib/ajv/package.json')
+                .pipe($.install(() => cb()));
+        }));
 });
 
-gulp.task('lint-app' , () => {
+gulp.task('lint-app', () => {
     return gulp.src('src/app/**/*.js')
         .pipe($.eslint())
         .pipe($.eslint.format())
@@ -311,7 +315,7 @@ function createBundler(useWatchify) {
 }
 
 function bundleApp(watch) {
-    let bundler = createBundler(watch);
+    const bundler = createBundler(watch);
     bundler
         .require(buildPath + '/style.json', { expose: 'style' })
         .transform(babelify, {
@@ -328,7 +332,7 @@ function bundleApp(watch) {
     libs.forEach(lib => bundler.external(lib.name));
     bundler.external('nb-api');
 
-    let bundle = () => bundler.bundle()
+    const bundle = () => bundler.bundle()
         .on('error', errorHandler)
         .pipe(sourceStream('app.js'))
         .pipe(buffer())
@@ -345,9 +349,9 @@ function bundleApp(watch) {
 
 function letsToLessClass() {
     return through.obj(function(file, encoding, callback) {
-        let contents = file.contents.toString('utf-8');
-        let regExp = /@([A-Za-z0-9\-]+)\s*\:\s*(.+?)\s*;/g;
-        let output =  [];
+        const contents = file.contents.toString('utf-8');
+        const regExp = /@([A-Za-z0-9\-]+)\s*\:\s*(.+?)\s*;/g;
+        const output =  [];
 
         let matches = regExp.exec(contents);
         while (matches) {
@@ -355,7 +359,7 @@ function letsToLessClass() {
             matches = regExp.exec(contents);
         }
 
-        let str = [].concat(contents, 'json {', output, '}').join('\n');
+        const str = [].concat(contents, 'json {', output, '}').join('\n');
         this.push(new VFile({
             contents: new Buffer(str, 'utf-8'),
             path: 'temp.less'
@@ -367,9 +371,9 @@ function letsToLessClass() {
 
 function cssClassToJson() {
     return through.obj(function (file, encoding, callback) {
-        let contents = file.contents.toString('utf-8');
-        let regExp = /([A-Za-z0-9\-]+)\s*:\s*(.+?)\s*;/g;
-        let output = {};
+        const contents = file.contents.toString('utf-8');
+        const regExp = /([A-Za-z0-9\-]+)\s*:\s*(.+?)\s*;/g;
+        const output = {};
 
         let matches = regExp.exec(contents);
         while (matches) {

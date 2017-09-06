@@ -257,7 +257,6 @@ function read_mac_linux_drives(include_all) {
                     .then(() => linux_volume_to_drive(vol))
                     .catch(() => {
                         dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
-                        
                     });
             }))
             .then(res => _.compact(res)));
@@ -761,7 +760,7 @@ function handle_unreleased_fds() {
             if (res) {
                 dbg.log0('Deleted FDs which were not released', res);
             }
-            
+
         });
 }
 

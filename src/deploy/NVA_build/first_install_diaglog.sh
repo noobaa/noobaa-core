@@ -105,6 +105,10 @@ function configure_interface_ip() {
       sudo dmesg -n 1
       sudo service network restart &> /dev/null
       sudo dmesg -n 3
+      #dhcpclient rewrites resolv.conf, add NooBaa marks to the new files
+      sudo bash -c "echo '#NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"
+      sudo bash -c "echo '#NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
+      sudo bash -c "echo '#NooBaa Configured Search' >> /etc/resolv.conf"
       ifcfg=$(ifconfig | grep inet | grep -v inet6 | grep -v 127.0.0.1) # ipv4
       if [[ "${dynamic}" -eq "2" && "${ifcfg}" == "" ]]; then
         dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1ERROR" --msgbox "\Zb\Z1Was unable to get dynamically allocated IP via DHCP" 5 55

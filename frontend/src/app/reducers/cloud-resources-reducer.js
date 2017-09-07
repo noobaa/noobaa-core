@@ -21,21 +21,27 @@ function onCompleteFetchSystemInfo(_, { payload }) {
     return keyByProperty(
         pools.filter(pool => pool.resource_type === 'CLOUD'),
         'name',
-        ({ name, cloud_info, storage, undeletable }) => ({
-            name,
-            type: cloud_info.endpoint_type,
-            state: 'HEALTHY',
-            target: cloud_info.target_bucket,
-            storage: storage,
-            usedBy: bucketsByPools[name] || [],
-            undeletable
-        })
+        res => _mapResource(res, bucketsByPools)
     );
 }
 
 // ------------------------------
 // Local util functions
 // ------------------------------
+function _mapResource(resource, bucketsByPools) {
+    const { name, mode, cloud_info, storage, undeletable } = resource;
+    return {
+        name,
+        mode,
+        type: cloud_info.endpoint_type,
+        state: 'HEALTHY',
+        target: cloud_info.target_bucket,
+        storage: storage,
+        usedBy: bucketsByPools[name] || [],
+        undeletable
+    };
+}
+
 function _mapPoolsToBuckets(buckets, tiers) {
     const bucketsByTierName = keyBy(
         buckets,

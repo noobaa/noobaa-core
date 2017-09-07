@@ -90,10 +90,17 @@ function onClearCompletedObjectUploads(uploads) {
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _completeUpload(uploads, { id, error = '' }) {
-    const objects = uploads.objects.map(
-        obj => obj.id === id ? { ...obj, completed: true, error } : obj
-    );
+function _completeUpload(uploads, { id, error }) {
+    const objects = uploads.objects
+        .map(obj => {
+            if (obj.id !== id) return obj;
+
+            return {
+                ...obj,
+                completed: true,
+                error: error ? error.message : ''
+            };
+        });
 
     const stats = _recalcStats(objects);
 

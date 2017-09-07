@@ -3,12 +3,24 @@
 import bigInteger from 'big-integer';
 import { deepFreeze } from './core-utils';
 
-const unit = 1024;
-const bytesInPeta = Math.pow(unit, 5);
-
 export const sizeUnits = deepFreeze([
     ' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'
 ]);
+
+const kilo = 1024;
+
+export const unitsInBytes = deepFreeze({
+    KILOBYTE: kilo,
+    KB: kilo,
+    MEGABYTE: Math.pow(kilo, 2),
+    MB: Math.pow(kilo, 2),
+    GIGABYTE: Math.pow(kilo, 3),
+    GB: Math.pow(kilo, 3),
+    TERABYTE: Math.pow(kilo, 4),
+    TB: Math.pow(kilo, 4),
+    PETABYTE: Math.pow(kilo, 5),
+    PB: Math.pow(kilo, 5),
+});
 
 export { bigInteger };
 
@@ -30,7 +42,7 @@ export function toBigInteger(sizeOrBytes) {
 }
 
 export function fromBigInteger(bi) {
-    const { quotient, remainder } = bi.divmod(bytesInPeta);
+    const { quotient, remainder } = bi.divmod(unitsInBytes.PETABYTE);
     return compactSize({
         peta: quotient.toJSNumber(),
         n: remainder.toJSNumber()
@@ -58,7 +70,7 @@ export function mulBigIntegerReal(bi, real){
 // represent very big numbers.
 export function toBytes(sizeOrBytes){
     const { peta, n } = normalizeSize(sizeOrBytes);
-    return peta * bytesInPeta + n;
+    return peta * unitsInBytes.PETABYTE + n;
 }
 
 export function interpolateSizes(sizeOrBytes1 = 0, sizeOrBytes2 = 0, t) {
@@ -69,9 +81,9 @@ export function interpolateSizes(sizeOrBytes1 = 0, sizeOrBytes2 = 0, t) {
     // where 0 <= t <= 1. The interpolation is written using Numbers because bigInteger
     // does not support multiplication with a fraction. The algorithm it guaranteed to
     // work because t is defined as friction between 0 and 1.
-    const { quotient, remainder } = bi2.subtract(bi1).divmod(bytesInPeta);
+    const { quotient, remainder } = bi2.subtract(bi1).divmod(unitsInBytes.PETABYTE);
     const peta = Math.floor(quotient * t);
-    const n = Math.round(remainder * t + (quotient % 1) * bytesInPeta);
+    const n = Math.round(remainder * t + (quotient % 1) * unitsInBytes.PETABYTE);
     return fromBigInteger(_toBigInteger(n, peta).add(bi1));
 }
 
@@ -91,11 +103,11 @@ export function formatSize(sizeOrBytes) {
 
     if (peta > 0) {
         i = 5;
-        n = peta + n / bytesInPeta;
+        n = peta + n / unitsInBytes.PETABYTE;
     }
 
-    while (n / unit >= 1) {
-        n /= unit;
+    while (n / kilo >= 1) {
+        n /= kilo;
         ++i;
     }
 
@@ -106,11 +118,16 @@ export function formatSize(sizeOrBytes) {
     return `${n}${sizeUnits[i]}`;
 }
 
+export function isSizeZero(sizeOrBytes) {
+    let { peta, n } = normalizeSize(sizeOrBytes);
+    return peta === 0 && n == 0;
+}
+
 // ----------------------------------
 // Internal Helpers
 // ----------------------------------
 function _toBigInteger(n, peta) {
-    return bigInteger(bytesInPeta)
+    return bigInteger(unitsInBytes.PETABYTE)
         .multiply(peta)
         .add(n);
 }

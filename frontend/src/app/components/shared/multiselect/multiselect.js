@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './multiselect.html';
-import Observer from 'observer';
 import ko from 'knockout';
 
 function _normalizeOption(option) {
@@ -16,15 +15,13 @@ function _normalizeOption(option) {
     return { value, label, disabled, tooltip };
 }
 
-class MultiSelectViewModel extends Observer {
+class MultiSelectViewModel {
     constructor({
         options = [],
         selected,
         disabled = false,
         insertValidationMessage = false
     }) {
-        super();
-
         this.options = ko.pureComputed(
             () => (ko.unwrap(options) || []).map(_normalizeOption)
         );

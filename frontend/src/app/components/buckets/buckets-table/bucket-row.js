@@ -1,216 +1,99 @@
 /* Copyright (C) 2016 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { deleteBucket } from'actions';
-import { deepFreeze, keyByProperty } from 'utils/core-utils';
-import { capitalize, stringifyAmount } from 'utils/string-utils';
-import { getBucketStateIcon } from 'utils/ui-utils';
+import { deepFreeze } from 'utils/core-utils';
+import numeral from 'numeral';
+import { realizeUri } from 'utils/browser-utils';
+import { formatSize } from 'utils/size-utils';
+import {
+    getBucketStateIcon,
+    getPlacementTypeDisplayName,
+    getCloudSyncState
+} from 'utils/bucket-utils';
 
 const undeletableReasons = deepFreeze({
     LAST_BUCKET: 'Last bucket cannot be deleted',
     NOT_EMPTY: 'Cannot delete a bucket that contain files',
 });
 
-const cloudSyncStatusMapping = deepFreeze({
-    NOTSET: {
-        text: 'not set',
-        css: ''
+const resourceGroupMetadata = deepFreeze({
+    HOSTS: {
+        icon: 'nodes-pool',
+        tooltipTitle: 'Node pool resources',
     },
-    PENDING: {
-        text: 'waiting',
-        css: ''
-    },
-    SYNCING: {
-        text: 'syncing',
-        css: ''
-    },
-    PAUSED: {
-        text: 'paused',
-        css: ''
-    },
-    SYNCED: {
-        text: 'synced',
-        css: ''
-    },
-    UNABLE: {
-        text: 'unable to sync',
-        css: 'error'
+    CLOUD: {
+        icon: 'cloud-resource',
+        tooltipTitle: 'Cloud resources'
     }
 });
 
-const placementPolicyTypeMapping = deepFreeze({
-    SPREAD: 'Spread',
-    MIRROR: 'Mirrored'
-});
-
-function cloudStorageIcon(list, baseIconName, tooltipTitle) {
-    const count = list.length;
-    const name =  `${baseIconName}${count ? '-colored' : ''}`;
-    const tooltipText = count === 0 ?
-        `No ${tooltipTitle}` :
-        { title: capitalize(tooltipTitle), list: list };
-
+function _mapResourceGroup(resources, type) {
+    const { icon, tooltipTitle } = resourceGroupMetadata[type];
+    const group = resources.filter(res => res.type === type);
+    const hasResources = group.length > 0;
     return {
-        name: name,
-        tooltip: { text: tooltipText }
+        icon: icon,
+        lighted: hasResources > 0,
+        tooltip: hasResources && {
+            text: {
+                title: tooltipTitle,
+                list: group.map(res => res.name)
+            }
+        }
     };
 }
 
-export default class BucketRowViewModel extends BaseViewModel {
-    constructor(bucket, deleteGroup) {
-        super();
-
-        this.state = ko.pureComputed(
-           () => bucket() ? getBucketStateIcon(bucket().mode) : ''
-        );
-
-        this.name = ko.pureComputed(
-            () => {
-                if (!bucket()) {
-                    return {};
-                }
-
-                const { name } = bucket();
-                return {
-                    text: name,
-                    href: {
-                        route: 'bucket',
-                        params: {
-                            bucket: name,
-                            tab: null
-                        }
-                    }
-                };
-            }
-        );
-
-        this.fileCount = ko.pureComputed(
-            () => {
-                if (!bucket()) {
-                    return 0;
-                }
-
-                return bucket().num_objects;
-            }
-        )
-        .extend({
-            formatNumber: true
-        });
-
-        const tierName = ko.pureComputed(
-            () => bucket() && bucket().tiering.tiers[0].tier
-        );
-
-        const tier = ko.pureComputed(
-            () => systemInfo() && systemInfo().tiers.find(
-                tier => tier.name === tierName()
-            )
-        );
-
-        this.placementPolicy = ko.pureComputed(
-            () => {
-                if (!tier()) {
-                    return {};
-                }
-
-                const { data_placement, attached_pools } = tier();
-                const count = attached_pools.length;
-                const text = `${
-                        placementPolicyTypeMapping[data_placement]
-                    } on ${
-                        stringifyAmount('pool', count)
-                    }`;
-
-                return {
-                    text: text,
-                    tooltip: attached_pools
-                };
-            }
-        );
-
-        const cloudPolicy = ko.pureComputed(
-            () => {
-                const policy = { AWS: [], AZURE: [], S3_COMPATIBLE: [] };
-                if (!tier()) {
-                    return policy;
-                }
-
-                const poolsByName = keyByProperty(systemInfo().pools, 'name');
-                return tier().attached_pools
-                    .map(poolName => poolsByName[poolName])
-                    .filter(pool => pool.resource_type === 'CLOUD')
-                    .reduce(
-                        (mapping, pool) => {
-                            mapping[pool.cloud_info.endpoint_type].push(pool.name);
-                            return mapping;
-                        },
-                        policy
-                    );
-            }
-        );
-
-        this.cloudStorage = {
-            awsIcon: ko.pureComputed(
-                () => cloudStorageIcon(
-                    cloudPolicy().AWS,
-                    'aws-s3-resource',
-                    'AWS S3 resources'
-                )
-            ),
-            azureIcon: ko.pureComputed(
-                () => cloudStorageIcon(
-                    cloudPolicy().AZURE,
-                    'azure-resource',
-                    'Azure blob resources'
-                )
-            ),
-            cloudIcon: ko.pureComputed(
-                () => cloudStorageIcon(
-                    cloudPolicy().S3_COMPATIBLE,
-                    'cloud-resource',
-                    'generic S3 compatible resorurces'
-                )
-            )
-        };
-
-        const storage = ko.pureComputed(
-            () => bucket() ? bucket().storage.values : {}
-        );
+export default class BucketRowViewModel {
+    constructor({ baseRoute, deleteGroup, onDelete }) {
+        this.baseRoute = baseRoute;
+        this.name = ko.observable();
+        this.state = ko.observable();
+        this.objectCount = ko.observable();
+        this.placementPolicy = ko.observable();
+        this.resources = ko.observable();
+        this.spilloverUsage = ko.observable();
+        this.cloudSync = ko.observable();
+        this.totalCapacity = ko.observable();
+        this.usedCapacity = ko.observable();
 
         this.capacity = {
-            total: ko.pureComputed(
-                () => storage().total || 0
-            ),
-            used: ko.pureComputed(
-                () => storage().used || 0
-            )
+            total: this.totalCapacity,
+            used: this.usedCapacity
         };
-
-
-        this.cloudSync = ko.pureComputed(
-            () => {
-                const state = (bucket() && bucket().cloud_sync) ? bucket().cloud_sync.status : 'NOTSET';
-                return cloudSyncStatusMapping[state];
-            }
-        );
-
-        const isUndeletable = ko.pureComputed(
-            () => Boolean(!bucket() || bucket().undeletable)
-        );
 
         this.deleteButton = {
             subject: 'bucket',
+            disabled: ko.observable(),
+            tooltip: ko.observable(),
+            id: ko.observable(),
             group: deleteGroup,
-            disabled: isUndeletable,
-            tooltip: ko.pureComputed(
-                () => {
-                    const { undeletable } = bucket() || {};
-                    return undeletable ? undeletableReasons[undeletable] : '';
-                }
-            ),
-            onDelete: () => deleteBucket(bucket().name)
+            onDelete: onDelete
         };
+    }
+
+    onBucket(bucket) {
+        const name = {
+            text: bucket.name,
+            href: realizeUri(this.baseRoute, { bucket: bucket.name }),
+            tooltip: { text: bucket.name, breakWords: true }
+        };
+
+        const resources  = ['HOSTS', 'CLOUD']
+            .map(type => _mapResourceGroup(bucket.placement.resources, type));
+
+        const spillover = formatSize(bucket.spillover ? bucket.spillover.usage : 0);
+
+        this.state(getBucketStateIcon(bucket));
+        this.name(name);
+        this.objectCount(numeral(bucket.objectCount).format('0,0'));
+        this.placementPolicy(getPlacementTypeDisplayName(bucket.placement.policyType));
+        this.resources(resources);
+        this.spilloverUsage(spillover);
+        this.cloudSync(getCloudSyncState(bucket));
+        this.totalCapacity(bucket.storage.total);
+        this.usedCapacity(bucket.storage.used);
+        this.deleteButton.id(bucket.name);
+        this.deleteButton.disabled(Boolean(bucket.undeletable));
+        this.deleteButton.tooltip(bucket.undeletable ? undeletableReasons[bucket.undeletable] : '');
     }
 }

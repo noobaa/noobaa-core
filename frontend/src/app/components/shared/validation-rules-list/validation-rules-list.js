@@ -1,12 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './validation-rules-list.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 
-class ValidationRulesListViewModel extends BaseViewModel {
+class ValidationRulesListViewModel {
     constructor({ field, highlightErrors = false }) {
-        super();
         this.validationRules = ko.pureComputed(
             () => ko.validation.fullValidationState(field)()
                 .map(

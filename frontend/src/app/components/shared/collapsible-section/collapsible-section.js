@@ -1,11 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './collapsible-section.html';
-import BaseViewModel from 'components/base-view-model';
 
-class CollapsibleSectionViewModel extends BaseViewModel {
+class CollapsibleSectionViewModel {
     constructor(params, collapsedTemplate, expandedTemplate) {
-        super();
 
         let { title, collapsed } = params;
 

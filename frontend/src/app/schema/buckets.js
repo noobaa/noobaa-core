@@ -5,7 +5,11 @@ export default {
         required: [
             'name',
             'mode',
-            'storage'
+            'storage',
+            'data',
+            'objectCount',
+            'placement',
+            'io'
         ],
         properties: {
             name: {
@@ -29,23 +33,89 @@ export default {
             data: {
                 type: 'object',
                 properties: {
-                    size_reduced: {
-                        $ref: '#/def/common/size'
+                    lastUpdate: {
+                        type: 'integer'
                     },
                     size: {
                         $ref: '#/def/common/size'
                     },
-                    free: {
+                    sizeReduced: {
                         $ref: '#/def/common/size'
                     },
-                    available_for_upload: {
+                    availableForUpload: {
                         $ref: '#/def/common/size'
                     },
-                    spillover_free: {
+                    availableForSpillover: {
                         $ref: '#/def/common/size'
+                    }
+                }
+            },
+            objectCount: {
+                type: 'integer'
+            },
+            placement: {
+                type: 'object',
+                required: ['tierName', 'policyType', 'resources'],
+                properties: {
+                    tierName: {
+                        type: 'string'
                     },
-                    last_update: {
+                    policyType: {
+                        type: 'string',
+                        enum: ['SPREAD', 'MIRROR']
+                    },
+                    resources: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['type', 'name', 'usage'],
+                            properties: {
+                                type: {
+                                    type: 'string',
+                                    enum: ['HOSTS', 'CLOUD']
+                                },
+                                name: {
+                                    type: 'string'
+                                },
+                                usage: {
+                                    $ref: '#/def/common/size'
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+            io: {
+                type: 'object',
+                required: [ 'readCount', 'writeCount', 'lastRead', 'lastWrite' ],
+                properties: {
+                    readCount: {
                         type: 'integer'
+                    },
+                    lastRead: {
+                        type: 'integer'
+                    },
+                    writeCount: {
+                        type: 'integer'
+                    },
+                    lastWrite: {
+                        type: 'integer'
+                    }
+                }
+            },
+            spillover: {
+                type: 'object',
+                required: ['type', 'name', 'usage'],
+                properties: {
+                    type: {
+                        type: 'string',
+                        enum: ['INTERNAL']
+                    },
+                    name: {
+                        type: 'string'
+                    },
+                    usage: {
+                        $ref: '#/def/common/size'
                     }
                 }
             },
@@ -61,6 +131,20 @@ export default {
                         enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
                     },
                 }
+            },
+            cloudSync: {
+                type: 'object',
+                required: ['state'],
+                properties: {
+                    state: {
+                        type: 'string',
+                        enum: ['PENDING', 'SYNCING', 'UNABLE', 'SYNCED']
+                    }
+                }
+            },
+            undeletable: {
+                type: 'string',
+                enum: ['LAST_BUCKET', 'NOT_EMPTY'],
             }
         }
     }

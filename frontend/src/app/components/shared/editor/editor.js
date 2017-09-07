@@ -1,17 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './editor.html';
-import BaseViewModel from 'components/base-view-model';
 
-class EditorViewModel extends BaseViewModel {
+class EditorViewModel {
     constructor({
         label = '',
         visible = true,
         disabled = false,
         insertValMessages = true
     }) {
-        super();
-
         this.label = label;
         this.visible = visible;
         this.disabled = disabled;

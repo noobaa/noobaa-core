@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './capacity-bar.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sumSize, formatSize, toBytes } from 'utils/size-utils';
 import style from 'style';
@@ -11,10 +10,8 @@ const bgColor = style['color7'];
 const emptyColor = style['color7'];
 const color = style['color8'];
 
-class CapacityBarViewModel extends BaseViewModel {
+class CapacityBarViewModel {
     constructor({ total, used }) {
-        super();
-
         const sum = ko.pureComputed(
             () => {
                 const usedNaked = ko.deepUnwrap(used);

@@ -1,52 +1,75 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row" ko.if="dataReady">
+<div class="fill row" ko.visible="!bucketLoaded()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
+
+<div class="summary greedy row" ko.css.visible="bucketLoaded">
     <section class="c3 column pad borders">
-        <div class="greedy row content-middle">
+        <div class="row content-middle greedy">
             <svg-icon class="push-next" params="name: state().name" ko.css="state().css">
             </svg-icon>
             <span class="heading3 greedy" ko.text="state().tooltip"></span>
         </div>
-        <hr />
-        <div class="greedy row content-middle">
+        <hr/>
+        <div class="row content-middle greedy">
             <span class="c5 highlight push-next">Data Placement:</span>
             <span class="c7 text-right" ko.text="dataPlacement"></span>
         </div>
     </section>
 
-    <section class="c6 column push-both">
-        <div class="row align-middle">
-            <div class="column greedy push-next">
-                <toggle-filter class="align-start push-next" params="
-                    options: graphOptions,
-                    selected: viewType
+    <section class="column c6 push-both">
+        <div class="row graphs greedy align-middle">
+            <div class="column">
+                <toggle-filter class="graph-selector align-start push-next-half" params="
+                    options: viewOptions,
+                    selected: ko.pc(selectedView, onSelectView, $component)
                 "></toggle-filter>
 
-                <chart-legend class="greedy" params="items: legend, format: 'size'"></chart-legend>
+                <chart-legend class="greedy"
+                    ko.css="legendCss"
+                    params="items: chartValues, format: 'size'"
+                ></chart-legend>
 
-                <!-- ko if: viewType() === 'data' -->
-                <p class="row push-next">
-                    <span class="greedy highlight">
-                        {{availableForWrite}}
-                        are available for upload
-                    </span>
-
-                    <svg-icon class="icon-small" params="name: 'question'"
-                        ko.tooltip="availableForWriteTootlip"></svg-icon>
+                <!-- ko if: selectedView.eq('RAW_USAGE') -->
+                <p class="row remark content-middle push-next">
+                    <svg-icon class="icon-small push-next-half" params="name: 'clock'"></svg-icon>
+                    Updated: {{lastRawUsageTime}}
                 </p>
+                <!-- /ko -->
+
+                <!-- ko if: selectedView.eq('DATA_USAGE') -->
+                <p class="row remark content-middle push-next">
+                    <svg-icon class="icon-small push-next-half" params="name: 'clock'"></svg-icon>
+                    Updated: {{lastDataUsageTime}}
+                </p>
+                <!-- /ko -->
+
+                <!-- ko if: selectedView.eq('AVAILABILITY') -->
+                <bar class="push-both align-start" params="
+                    values: availablity,
+                    limits: formatSize,
+                    teeth: 5,
+                    minRatio: 0,
+                    markers: availablityMarkers,
+                    width: 442
+                "></bar>
                 <!-- /ko -->
             </div>
 
-            <!-- ko if: viewType() === 'storage' -->
-            <pie-chart class="push-prev" params="
-                values: storageValues,
-                primaryText: totalStorage,
-                secondaryText: 'Total'
-            "></pie-chart>
+            <!-- ko if: selectedView.eq('DATA_USAGE') -->
+            <bar-chart class="align-end push-prev"
+                ko.visibility="selectedView.eq('DATA_USAGE')"
+                params="values: dataUsage"
+            ></bar-chart>
             <!-- /ko -->
 
-            <!-- ko if: viewType() === 'data' -->
-            <bar-chart class="push-prev" params="values: dataValues"></bar-chart>
+            <!-- ko if: selectedView.eq('RAW_USAGE') -->
+            <pie-chart class="align-end  push-prev" params="
+                values: rawUsage,
+                primaryText: totalCapacity,
+                secondaryText: 'Total'
+            "></pie-chart>
             <!-- /ko -->
         </div>
     </section>

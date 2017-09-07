@@ -1,57 +1,66 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { getPoolStateIcon, getResourceTypeIcon, getPoolCapacityBarValues } from 'utils/ui-utils';
+import numeral from 'numeral';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
+import {
+    getHostsPoolStateIcon,
+    getCloudResourceStateIcon,
+    getCloudResourceTypeIcon
+} from 'utils/resource-utils';
 
 export default class PlacementRowViewModel {
-    constructor(pool) {
-        this.state = ko.pureComputed(
-            () => pool() ? getPoolStateIcon(pool()) : ''
-        );
+    constructor() {
+        this.state = ko.observable();
+        this.type = ko.observable();
+        this.resourceName = ko.observable();
+        this.onlineHostCount = ko.observable();
+        this.bucketUsage = ko.observable();
+    }
 
-        this.type = ko.pureComputed(
-            () => pool() ? getResourceTypeIcon(pool()) : ''
-        );
-
-        this.resourceName = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return {};
-                }
-
-                const text = pool().name;
-                if (pool().resource_type === 'HOSTS') {
-                    const href = {
-                        route: 'pool',
-                        params: { pool: text, tab: null }
-                    };
-
-                    return { text, href };
-
-                } else {
-                    return { text };
-                }
+    onResource(type, resource, usage, system) {
+        switch (type) {
+            case 'HOSTS': {
+                this._onHostPool(resource, usage, system);
+                break;
             }
-        );
 
-        this.onlineNodeCount = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return '';
-                }
-
-                if (pool().resource_type === 'HOSTS') {
-                    const { count, by_mode } = pool().hosts;
-                    return `${count - (by_mode.OFFLINE || 0)} of ${count}`;
-
-                } else {
-                    return '-';
-                }
+            case 'CLOUD': {
+                this._onCloudResource(resource, usage, system);
+                break;
             }
-        );
+        }
+    }
 
-        this.capacity = ko.pureComputed(
-            () => getPoolCapacityBarValues(pool() || {})
-        );
+    _onHostPool(pool, bucketUsage, system) {
+        const { hostCount, hostsByMode } = pool;
+        const onlineHostCount = numeral(hostCount - (hostsByMode.OFFLINE || 0)).format('0,0');
+        const poolUri = realizeUri(routes.pool, { system, pool: pool.name });
+
+        this.resourceName({
+            text: pool.name,
+            tooltip: pool.name,
+            href: poolUri
+        });
+
+        this.state(getHostsPoolStateIcon(pool));
+        this.type('nodes-pool');
+        this.onlineHostCount(onlineHostCount);
+        this.bucketUsage({
+            total: pool.storage.total,
+            used: bucketUsage
+        });
+    }
+
+    _onCloudResource(resource, bucketUsage) {
+        this.resourceName(resource.name);
+        this.state(getCloudResourceStateIcon(resource));
+        this.type(getCloudResourceTypeIcon(resource));
+        this.onlineHostCount('---');
+        this.bucketUsage({
+            total: resource.storage.total,
+            used: bucketUsage
+        });
     }
 }

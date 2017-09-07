@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './modal.html';
-import BaseViewModel from 'components/base-view-model';
 import { deepFreeze, noop } from 'utils/core-utils';
 import ko from 'knockout';
 
@@ -20,7 +19,7 @@ const severityMapping = deepFreeze({
     }
 });
 
-class ModalViewModel extends BaseViewModel {
+class ModalViewModel {
     constructor({
         title,
         severity,
@@ -29,8 +28,6 @@ class ModalViewModel extends BaseViewModel {
         hideCloseButton = false,
         disableCloseButton = false
     }) {
-        super();
-
         this.titleText = title;
 
         let meta = ko.pureComputed(

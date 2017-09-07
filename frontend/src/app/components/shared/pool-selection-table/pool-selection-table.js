@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pool-selection-table.html';
-import BaseViewModel from 'components/base-view-model';
 import PoolRowViewModel from './pool-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
@@ -33,14 +32,12 @@ const columns = deepFreeze([
     }
 ]);
 
-class PoolSelectionTableViewModel extends BaseViewModel {
+class PoolSelectionTableViewModel {
     constructor({
         caption = 'Select pools',
         pools = [],
         selectedPools = ko.observableArray()
     }) {
-        super();
-
         this.caption = caption;
         this.columns = columns;
         this.pools = pools;

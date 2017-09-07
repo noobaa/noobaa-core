@@ -140,6 +140,39 @@ export function openBucketPlacementPolicyModal(bucketName) {
     };
 }
 
+export function openEditBucketPlacementModal(bucketName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-bucket-placement-modal',
+                params: { bucketName }
+            },
+            options: {
+                title: 'Edit Placement Policy',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function openEmptyBucketPlacementWarningModal(action) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'empty-bucket-placement-warning-modal',
+                params: { action }
+            },
+            options: {
+                title: 'Empty data placement policy',
+                size: 'xsmall',
+                severity: 'warning'
+            }
+        }
+    };
+}
+
 export function openFileUploadsModal() {
     return {
         type: OPEN_MODAL,
@@ -420,7 +453,7 @@ export function openEditHostStorageDrivesModal(host) {
 
 export function openDisableHostGatewayWarningModal(host, isLastService) {
     return {
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'disable-host-gateway-warning-modal',
@@ -481,7 +514,6 @@ export function openDisableHostLastServiceWarningModal(host, service) {
         }
     };
 }
-
 export function openCreateNamespaceResourceModal() {
     return {
         type: OPEN_MODAL,
@@ -517,7 +549,20 @@ export function openEditGatewayBucketDataPlacementModal(bucket) {
                 params: { bucket }
             },
             options: {
-                title: 'Edit Placement Policy',
+                title: 'Edit Bucket Data Placement Policy',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function openEditSpilloverTargetsModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'edit-spillover-targets-modal',
+            options: {
+                title: 'Edit Spillover Targets',
                 size: 'medium'
             }
         }

@@ -231,6 +231,24 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             }
         );
 
+        const internalStorage = ko.pureComputed(
+            () => {
+                const storage = (systemInfo() ? systemInfo().pools : [])
+                    .filter(pool => pool.resource_type === 'INTERNAL')
+                    .map(pool => pool.storage)[0];
+
+                const { used = 0, total = 0 } = storage || {};
+                return {
+                    used: formatSize(used),
+                    total: formatSize(total),
+                    href: {
+                        route: 'resources',
+                        params: { tab: 'internal' }
+                    }
+                };
+            }
+        );
+
         return [
             {
                 label: 'Cluster Connectivity IP',
@@ -267,6 +285,11 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             {
                 label: 'Number or CPUs',
                 value: cpusCount
+            },
+            {
+                label: 'Internal Storage Resource',
+                value: internalStorage,
+                template: 'internal-storage'
             }
         ];
     }

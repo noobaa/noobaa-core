@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './timezone-chooser.html';
-import BaseViewModel from 'components/base-view-model';
 import moment from 'moment-timezone';
 
 const options = moment.tz.names()
@@ -26,10 +25,8 @@ const options = moment.tz.names()
         }
     );
 
-class TimezoneChooserViewModel extends BaseViewModel {
+class TimezoneChooserViewModel {
     constructor({ timezone }) {
-        super();
-
         this.options = options;
         this.selected = timezone;
     }

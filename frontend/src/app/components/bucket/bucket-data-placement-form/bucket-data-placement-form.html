@@ -1,50 +1,63 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="column">
-    <div class="row content-middle pad alt-bg">
-        <div class="cloumn greedy">
-            <h3 class="heading3">Resources</h3>
-            <div class="row">
-                <span class="highlight">
-                    <span>Policy type:</span>
-                    <span data-bind="text: placementType"></span>
-                </span>
-                <span class="push-both">|</span>
-                <span>
-                    <span>Nodes Pools:</span>
-                    <span data-bind="text: nodePoolCount"></span>
-                </span>
-                <span class="push-both">|</span>
-                <span>
-                    <span>Cloud resources:</span>
-                    <span data-bind="text: cloudResourceCount"></span>
-                </span>
+<section class="column greedy push-next">
+    <div class="alt-bg">
+        <div class="row content-middle pad">
+            <div class="cloumn greedy">
+                <h3 class="heading3">Resources</h3>
+                <p class="row">
+                    <span class="highlight">Policy type: {{placementType}}</span>
+                    <span class="push-both">|</span>
+                    <span>Nodes Pools: {{hostPoolCount}}</span>
+                    <span class="push-both">|</span>
+                    <span>Cloud resources: {{cloudResourceCount}}</span>
+                </p>
             </div>
+
+            <button class="btn push-next"
+                ko.enable="infoLoaded"
+                ko.click="onEditBucketQuota"
+            >
+                Edit Bucket Quota
+            </button>
+
+            <button class="btn"
+                ko.click="onEditDataPlacement"
+                ko.enable="infoLoaded"
+            >
+                Edit data placement
+            </button>
         </div>
-
-
-        <button class="btn push-next" ko.click="onEditBucketQuota">
-            Edit Bucket Quota
-        </button>
-        <button class="btn" ko.click="onEditDataPlacement">
-            Edit data placement
-        </button>
     </div>
 
     <data-table class="placement-table" params="
-        columns: placementTableColumns,
-        data: nodePools,
-        rowFactory: pool => createPlacementRow(pool),
+        columns: placementColumns,
+        data: placementRows,
+        loading: !infoLoaded(),
         emptyMessage: 'No resources participate in policy'
-    ">
-        <template name="custom-link">
-            <!-- ko if: $data().href -->
-            <a class="link" data-bind="text: $data().text, href: $data().href"></a>
-            <!-- /ko -->
-            <!-- ko ifnot: $data().href -->
-            <span data-bind="text: $data().text"></span>
-            <!-- /ko -->
-        </template>
+    "></data-table>
+</section>
 
-    </data-table>
+<section class="column greedy">
+    <div class="alt-bg">
+        <div class="row content-middle pad">
+            <div class="cloumn greedy">
+                <h3 class="heading3">Bucket Spillover</h3>
+                <p>Automatically used when this bucket storage is not enough to store new data</p>
+            </div>
+
+            <button class="btn"
+                ko.click="onToggleSpillover"
+                ko.enable="infoLoaded"
+                ko.text="spilloverToggleText"
+            ></button>
+        </div>
+    </div>
+
+    <data-table class="spillover-table" params="
+        columns: spilloverColumns,
+        data: spilloverRows,
+        loading: !infoLoaded(),
+        rowCssProp: 'css'
+    "></data-table>
 </section>

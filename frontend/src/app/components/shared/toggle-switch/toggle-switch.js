@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './toggle-switch.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 
-class ToggleSwitchViewModel extends BaseViewModel {
+class ToggleSwitchViewModel {
     constructor({
         value = ko.observable(true),
         onLabel = 'on',
@@ -12,8 +11,6 @@ class ToggleSwitchViewModel extends BaseViewModel {
         disabled = false
 
     }) {
-        super();
-
         this.value = value;
         this.label = ko.pureComputed(
             () => ko.unwrap(value) ? ko.unwrap(onLabel) : ko.unwrap(offLabel)

@@ -4,7 +4,6 @@ import './data-table-binding';
 import template from './data-table.html';
 import ColumnViewModel from './column';
 import * as cellTemplates from './cell-templates';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isFunction } from 'utils/core-utils';
 
@@ -16,10 +15,8 @@ const expandColumnDescriptor = {
     label: ''
 };
 
-class DataTableViewModel extends BaseViewModel {
+class DataTableViewModel {
     constructor(params, inlineTemplates) {
-        super();
-
         const {
             columns = [],
             // The default is used to strip the accessor in case the
@@ -112,9 +109,7 @@ class DataTableViewModel extends BaseViewModel {
 
         // Update the table rows on data change event.
         if (ko.isObservable(data)) {
-            this.addToDisposeList(
-                data.subscribe(() => this.updateRows(data))
-            );
+            this.updateSub = data.subscribe(() => this.updateRows(data));
         }
     }
     updateRows(data) {
@@ -151,11 +146,9 @@ class DataTableViewModel extends BaseViewModel {
     }
 
     dispose() {
-        this.rows().forEach(
-            row => isFunction(row.vm.dispose) && row.vm.dispose()
-        );
-
-        super.dispose();
+        const { rows, updateSub } = this;
+        rows().forEach(row => isFunction(row.vm.dispose) && row.vm.dispose());
+        updateSub && updateSub.dispose();
     }
 }
 

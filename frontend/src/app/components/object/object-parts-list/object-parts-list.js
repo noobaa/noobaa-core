@@ -6,13 +6,11 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { navigateTo } from 'actions';
-import { deepFreeze, keyByProperty } from 'utils/core-utils';
+import { keyByProperty } from 'utils/core-utils';
 import { action$ } from 'state';
 import { openObjectPreviewModal } from 'action-creators';
 import { systemInfo, sessionInfo } from 'model';
 import { getResourceTypeIcon } from 'utils/ui-utils';
-
-const allowedResoruceTypes = deepFreeze([ 'HOSTS', 'CLOUD' ]);
 
 class ObjectPartsListViewModel extends BaseViewModel {
     constructor({ obj, parts }) {
@@ -32,9 +30,7 @@ class ObjectPartsListViewModel extends BaseViewModel {
                     return {};
                 }
 
-                const pools = systemInfo().pools
-                    .filter(pool => allowedResoruceTypes.includes(pool.resource_type));
-
+                const pools = systemInfo().pools;
                 return keyByProperty(pools, 'name', getResourceTypeIcon);
             }
         );

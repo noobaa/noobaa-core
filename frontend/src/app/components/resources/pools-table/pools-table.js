@@ -83,7 +83,7 @@ class PoolsTableViewModel extends Observer {
 
         this.baseRoute = '';
         this.columns = columns;
-        this.poolsLoaded = ko.observable(false);
+        this.poolsLoaded = ko.observable();
         this.isCreatePoolDisabled = ko.observable();
         this.createPoolTooltip = ko.observable();
         this.filter = ko.observable();
@@ -107,8 +107,13 @@ class PoolsTableViewModel extends Observer {
     }
 
     onPools([ pools, location ]) {
+        if (!pools) {
+            this.poolsLoaded(false);
+            return;
+        }
+
         const { system, tab } = location.params;
-        if (!pools || (tab && tab !== 'pools')) return;
+        if (tab && tab !== 'pools') return;
 
         const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = location.query;
         const { compareKey } = columns.find(column => column.name === sortBy);

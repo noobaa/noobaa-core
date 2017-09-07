@@ -1,11 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './wizard.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isObject, noop } from 'utils/core-utils';
 
-class WizardViewModel extends BaseViewModel {
+class WizardViewModel {
     constructor({
         heading = '[wizard-heading]',
         size = 'small',
@@ -17,8 +16,6 @@ class WizardViewModel extends BaseViewModel {
         onComplete = noop,
         onClose = noop
     }) {
-        super();
-
         this.heading = heading;
         this.step = ko.observable(skip);
         this.isStepValid = ko.observable(false);

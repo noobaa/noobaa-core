@@ -1,37 +1,38 @@
 <!-- Copyright (C) 2016 NooBaa -->
-
 <div class="row alt-bg pad content-middle">
     <div class="greedy push-next">
-        <input type="search" placeholder="Filter by bucket name" data-bind="
-            textInput: filter
-        "/>
+        <input type="search"
+            placeholder="Filter by bucket name"
+            ko.textInput="ko.pc(filter, onFilterThrottled)"
+        />
     </div>
-    <button class="btn align-end" data-bind="
-        click: () => showCreateBucketWizard()
-    ">
+    <button class="btn align-end" ko.click="showCreateBucketWizard">
         Create Bucket
     </button>
 </div>
 
 <data-table class="greedy" params="
     columns: columns,
-    sorting: sorting,
-    data: buckets,
-    rowFactory: bucket => newBucketRow(bucket),
-        emptyMessage: 'The current filter does not match any bucket'
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !bucketsLoaded(),
+    emptyMessage: 'The current filter does not match any bucket'
 ">
-    <template name="cloud-storage">
-        <svg-icon class="icon-small" params="name: awsIcon().name" data-bind="
-            tooltip: awsIcon().tooltip
+    <template name="resources-cell">
+        <!-- ko foreach: $data -->
+        <svg-icon params="name: icon"
+            ko.css.lighted="lighted"
+            ko.tooltip="tooltip"
         "></svg-icon>
-        <svg-icon class="icon-small" params="name: azureIcon().name" data-bind="
-            tooltip: azureIcon().tooltip
-        "></svg-icon>
-        <svg-icon class="icon-small" params="name: cloudIcon().name" data-bind="
-            tooltip: cloudIcon().tooltip
-        "></svg-icon>
+        <!-- /ko -->
     </template>
 </data-table>
+
+<paginator params="
+    itemCount: bucketCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>
 
 <!-- ko if: isCreateBucketWizardVisible -->
 <create-bucket-wizard params="onClose: () => hideCreateBucketWizard()">

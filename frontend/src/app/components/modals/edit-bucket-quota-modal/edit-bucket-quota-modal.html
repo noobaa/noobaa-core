@@ -1,56 +1,61 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="greedy column">
+<!-- ko if: isFormInitalized -->
+<form class="column greedy" ko.submit="form.submit">
     <editor params="label: 'Bucket Quota'">
         <toggle-switch params="
-            value: isUsingQuota,
+            value: form.enabled,
             onLabel: 'Enabled',
             offLabel: 'Disabled'
         "></toggle-switch>
     </editor>
 
-    <editor params="label: 'Set Limit', disabled: !isUsingQuota(), insertValMessages: false">
+    <editor params="label: 'Set Limit', disabled: !form.enabled()">
         <div class="row">
-            <input type="number" min="0"
+            <input type="number" min="1"
                 class="push-next"
-                ko.enable="isUsingQuota"
-                ko.value="quotaSize"
+                ko.enable="form.enabled"
+                ko.value="form.size"
+                ko.validationCss="form.size"
                 ko.hasFocus="true"
             />
-
             <dropdown class="size-unit" params="
                 options: unitOptions,
-                disabled: !isUsingQuota(),
-                selected: quotaUnit
+                disabled: !form.enabled(),
+                selected: form.unit
             "></dropdown>
         </div>
-        <div class="val-msg" data-bind="validationMessage: quotaSize"></div>
+        <validation-message params="field: form.size"></validation-message>
     </editor>
 
-    <bar class="push-prev align-start" ko.css.disabled="!isUsingQuota()" params="
-        values: barValues,
-        teeth: 5,
-        limits: formatBarLabel,
-        width: 500,
-        minRatio: 0,
-        markers: [quotaMarker()]
-    "></bar>
+    <div class="greedy push-prev">
+        <bar class="push-prev align-start" ko.css.disabled="!form.enabled()" params="
+            values: barValues,
+            teeth: 5,
+            limits: 'size',
+            markers: markers,
+            width: 500,
+            minRatio: 0
+        "></bar>
 
-    <chart-legend class="legend-row"
-        params="items: barValues, format: 'size'"
-        ko.css.disabled="!isUsingQuota()"
-    ></chart-legend>
-</div>
+        <chart-legend class="legend-row"
+            params="items: barValues, format: 'size'"
+            ko.css.disabled="!form.enabled()"
+        ></chart-legend>
+    </div>
 
-<div class="row content-middle">
-    <p class="remark greedy row push-next">
-        <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
-        When a quota is not set the bucket will utilize all its available resources.
-    </p>
-    <button class="link alt-colors push-both" ko.click="onCancel">
-        Cancel
-    </button>
-    <button class="btn" ko.click="onSave" ko.shakeOnClick="errors().length">
-        Save
-    </button>
-</div>
+    <div class="row content-middle">
+        <p class="remark greedy row push-next">
+            <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+            When a quota is not set the bucket will utilize all its available resources.
+        </p>
+        <button class="link alt-colors push-both" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">
+            Save
+        </button>
+    </div>
+</form>
+<!-- /ko -->
+

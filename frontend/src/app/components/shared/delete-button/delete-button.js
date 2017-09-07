@@ -1,12 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './delete-button.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isFunction, noop } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 
-class DeleteButtonViewModel extends BaseViewModel {
+class DeleteButtonViewModel {
     constructor({
         id = randomString(),
         group = ko.observable(),
@@ -15,8 +14,6 @@ class DeleteButtonViewModel extends BaseViewModel {
         tooltip,
         disabled = false,
     }) {
-        super();
-
         this.id = id;
         this.onDelete = isFunction(onDelete) ? onDelete : noop;
         this.disabled = disabled;

@@ -1,19 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './toggle-filter.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { randomString } from 'utils/string-utils';
 
-class ToggleFilterViewModel extends BaseViewModel {
+class ToggleFilterViewModel {
     constructor({
             options = [],
             selected = ko.observable(),
             name = randomString(5)
         })
     {
-        super();
-
         this.options = ko.pureComputed(
             () => ko.unwrap(options).map(
                 opt => {

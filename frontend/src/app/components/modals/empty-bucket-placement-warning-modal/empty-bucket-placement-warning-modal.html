@@ -6,13 +6,11 @@
 </p>
 
 <div class="row push-prev content-middle align-end">
-    <button class="btn alt-colors push-next" data-bind="click: backToEdit">
+    <button class="btn alt-colors push-next" ko.click="onBack">
         Back to edit resources
     </button>
-    <button class="btn" data-bind="
-        click: save,
-        shakeOnClick: errors().length
-    ">
+    <button class="btn" ko.click="onContinue">
         Yes, Continue without resources
     </button>
 </div>
+

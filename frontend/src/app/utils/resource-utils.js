@@ -62,8 +62,47 @@ const hostsPoolModeToStateIcon = deepFreeze({
     }
 });
 
+const cloudResourceModeToStateIcon = deepFreeze({
+    OPTIMAL: {
+        tooltip: 'Healthy',
+        css: 'success',
+        name: 'healthy',
+    },
+    IO_ERRORS: {
+        tooltip: 'Resource has Read/Write problems',
+        css: 'error',
+        name: 'problem',
+    },
+    STORAGE_NOT_EXIST: resource => {
+        const tooltip = resource.type === 'AZURE' ?
+            'Target Azure container does not exist' :
+            'Target S3 bucket does not exist';
+
+        return {
+            tooltip,
+            css: 'error',
+            name: 'problem',
+        };
+    },
+    AUTH_FAILED: {
+        tooltip: 'Authentication failure',
+        css: 'error',
+        name: 'problem',
+    },
+    INITIALIZING: {
+        tooltip: 'Initializing',
+        css: 'warning',
+        name: 'working',
+    },
+    ALL_NODES_OFFLINE: {
+        tooltip: 'Offline',
+        css: 'error',
+        name: 'problem',
+    }
+});
+
 const internalResourceModeToStateIcon = deepFreeze({
-    INITALIZING: {
+    INITIALIZING: {
         tooltip: 'Initializing',
         css: 'warning',
         name: 'working'
@@ -93,7 +132,7 @@ const namespaceResourceModeToStateIcon = deepFreeze({
     }
 });
 
-const namespaceResourceServiceToIcon = deepFreeze({
+const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
     AWS: {
         name: 'aws-s3-resource',
         tooltip: 'AWS S3 resource'
@@ -116,6 +155,12 @@ export function getHostsPoolStateIcon(pool) {
     return isFunction(state) ? state(pool) : state;
 }
 
+export function getCloudResourceStateIcon(resource) {
+    const { mode } = resource;
+    const state = cloudResourceModeToStateIcon[mode];
+    return isFunction(state) ? state(resource) : state;
+}
+
 export function getInternalResourceStateIcon(resource) {
     const { mode } = resource;
     return internalResourceModeToStateIcon[mode];
@@ -128,5 +173,10 @@ export function getNamespaceResourceStateIcon(resource) {
 
 export function getNamespaceResourceTypeIcon(resource) {
     const { service } = resource;
-    return namespaceResourceServiceToIcon[service];
+    return cloudAndNamespaceResourceTypeToIcon[service];
+}
+
+export function getCloudResourceTypeIcon(resource) {
+    const { type } = resource;
+    return cloudAndNamespaceResourceTypeToIcon[type];
 }

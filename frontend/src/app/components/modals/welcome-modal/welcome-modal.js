@@ -1,23 +1,26 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './welcome-modal.html';
-import BaseViewModel from 'components/base-view-model';
-import ko from 'knockout';
-import { sleep } from 'utils/promise-utils';
+import Observer from 'observer';
+import { realizeUri } from 'utils/browser-utils';
+import { state$, action$ } from 'state';
+import { requestLocation } from 'action-creators';
 
-const loadingDelay = 2000;
-
-class WelcomeModalViewModel extends BaseViewModel {
-    constructor({ onClose }) {
+class WelcomeModalViewModel extends Observer {
+    constructor() {
         super();
 
-        this.onClose = onClose;
-        this.loading = ko.observable(true);
-        sleep(loadingDelay, false).then(this.loading);
+        this.systemUri = '';
+        this.observe(state$.get('location'), this.onLocation);
     }
 
-    start() {
-        this.onClose();
+    onLocation(location) {
+        const { route, params } = location;
+        this.systemUri = realizeUri(route, params);
+    }
+
+    onStart() {
+        action$.onNext(requestLocation(this.systemUri, true));
     }
 }
 

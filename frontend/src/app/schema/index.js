@@ -24,15 +24,12 @@ const schemas = {
     state
 };
 
-// Stricitfy the schema definitions.
-Object.values(schemas)
-    .forEach(strictify);
+export default deepFreeze(
+    strictify({
+        def: schemas,
 
-
-export default deepFreeze({
-    def: schemas,
-
-    // Define that root schema for the validator will be the state schema.
-    $ref: '#/def/state',
-});
+        // Define that root schema for the validator will be the state schema.
+        $ref: '#/def/state'
+    })
+);
 

@@ -435,40 +435,6 @@ export function createBucket(name, dataPlacement, pools) {
         .done();
 }
 
-export function deleteBucket(name) {
-    logAction('deleteBucket', { name });
-
-    api.bucket.delete_bucket({ name })
-        .then(
-            () => notify(`Bucket ${name} deleted successfully`, 'success'),
-            () => notify(`Bucket ${name} deletion failed`, 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
-export function updateBucketPlacementPolicy(tierName, placementType, attachedPools) {
-    logAction('updateBucketPlacementPolicy', { tierName, placementType, attachedPools });
-
-    const bucket = model.systemInfo().buckets.find(
-        bucket => bucket.tiering.tiers.find(
-            entry => entry.tier === tierName
-        )
-    );
-
-    api.tier.update_tier({
-        name: tierName,
-        data_placement: placementType,
-        attached_pools: attachedPools
-    })
-        .then(
-            () => notify(`${bucket.name} placement policy updated successfully`, 'success'),
-            () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
 export function createCloudResource(name, connection, cloudBucket) {
     logAction('createCloudResource', { name, connection, cloudBucket });
 

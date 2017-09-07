@@ -1,6 +1,24 @@
 /* Copyright (C) 2016 NooBaa */
 
 bucket-summary {
-    display: block;
+    .column();
+    position: relative;
+    min-height: 186px;
 
+    .summary  {
+        opacity: 0;
+
+        &.visible {
+            opacity: 1;
+            transition: opacity 250ms ease-out;
+        }
+    }
+
+    .graphs {
+        max-width: 442px;
+    }
+
+    .graph-selector .toggle-btn {
+        font-size: @font-size1;
+    }
 }

@@ -1,4 +1,5 @@
 import Ajv from 'ajv';
+import { isObject } from 'utils/core-utils';
 import { escapeQuotes } from 'utils/string-utils';
 
 export function createSchemaValidator(schema) {
@@ -21,11 +22,15 @@ export function createSchemaValidator(schema) {
 }
 
 export function strictify(schema) {
-    if (!schema || schema.type !== 'object') return;
-    schema.additionalProperties = schema.additionalProperties || false;
+    if (isObject(schema)) {
+        if (schema.type === 'object') {
+            schema.additionalProperties = schema.additionalProperties || false;
+        }
 
-    strictify(schema.additionalProperties);
-    Object.values(schema.properties || {}).forEach(strictify);
+        Object.values(schema).forEach(strictify);
+    }
+
+    return schema;
 }
 
 function _createDataPathAccessor(dataPath) {

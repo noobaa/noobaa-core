@@ -1,15 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './working-button.html';
-import BaseViewModel from 'components/base-view-model';
-// import ko from 'knockout';
-// import numeral from 'numeral';
-// import moment from 'moment';
 
-class WorkingBtnViewModel extends BaseViewModel {
+class WorkingBtnViewModel {
     constructor({ working, workingLabel, click, disabled }) {
-        super();
-
         this.working = working;
         this.label = workingLabel;
         this.click = click;

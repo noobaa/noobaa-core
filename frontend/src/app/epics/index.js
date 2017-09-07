@@ -16,7 +16,6 @@ import updateAccountS3Access from './update-account-s3-access';
 import fetchAlerts from './fetch-alerts';
 import updateAlerts from './update-alerts';
 import fetchUnreadAlertsCount from './fetch-unread-alerts-count';
-import updateBucketQuota from './update-bucket-quota';
 import fetchNodeInstallationCommands from './fetch-node-installation-commands';
 import uploadObjects from './upload-objects';
 import setAccountIpRestrictions from './set-account-ip-restrictions';
@@ -36,6 +35,11 @@ import downloadFile from './download-file';
 import fetchHostObjects from './fetch-host-objects';
 import tryDeleteAccount from './try-delete-account';
 import signOutDeletedUser from './sign-out-deleted-user';
+import updateBucketQuota from './update-bucket-quota';
+import toggleBucketSpillover from './toggle-bucket-spillover';
+import toggleBucketsSpillover from './toggle-buckets-spillover';
+import deleteBucket from './delete-bucket';
+import updateBucketPlacementPolicy from './update-bucket-placement-policy';
 import fetchCloudTargets from './fetch-cloud-targets';
 import createNamespaceResource from './create-namespace-resource';
 import deleteNamespaceResource from './delete-namespace-resource';
@@ -85,6 +89,10 @@ const accountRelatedEpics = [
 
 const bucketRelatedEpics = [
     updateBucketQuota,
+    toggleBucketSpillover,
+    toggleBucketsSpillover,
+    updateBucketPlacementPolicy,
+    deleteBucket,
     createGatewayBucket,
     updateGatewayBucketPlacement,
     deleteGatewayBucket

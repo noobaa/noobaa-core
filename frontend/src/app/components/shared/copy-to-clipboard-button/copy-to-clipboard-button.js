@@ -1,16 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './copy-to-clipboard-button.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { copyTextToClipboard } from 'utils/browser-utils';
 
 const copyMessage = 'Copy to Clipboard';
 const copiedMessage = 'Copied';
 
-class CopyToClipboardButtonViewModel extends BaseViewModel {
+class CopyToClipboardButtonViewModel{
     constructor({ value, disabled = false }) {
-        super();
         this.value = value;
         this.disabled = disabled;
         this.tooltip = ko.observable(copyMessage);

@@ -4,11 +4,7 @@ bucket-data-placement-form  {
     display: block;
     padding-right: @gutter / 2;
 
-    section + section {
-        margin: @gutter * 3 0;
-    }
-
-    .placement-table {
+    .placement-table, .spillover-table {
         .state-col {
             min-width: 60px;
         }
@@ -22,12 +18,12 @@ bucket-data-placement-form  {
             width: 100%;
         }
 
-        .online-node-count-col {
+        .online-host-count-col {
             min-width: 160px;
         }
 
-        .capacity-col {
-            min-width: 120px;
+        .bucket-usage-col {
+            min-width: 160px;
         }
     }
 }

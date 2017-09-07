@@ -2,11 +2,9 @@
 
 import './chartjs-binding';
 import template from './chartjs.html';
-import BaseViewModel from 'components/base-view-model';
 
-class chartJSViewModel extends BaseViewModel {
+class chartJSViewModel {
     constructor({ type = 'line', data = {}, options = {} }) {
-        super();
         this.config = { type, options, data };
     }
 }

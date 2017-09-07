@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bar.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import style from 'style';
-import { isFunction, echo, clamp } from 'utils/core-utils';
+import { deepFreeze, isString, isFunction, echo, clamp } from 'utils/core-utils';
+import { formatSize } from 'utils/size-utils';
 
 const defaultEmptyColor = style['color15'];
 const teethColor = style['color7'];
@@ -19,7 +19,24 @@ const markersMargin = 8;
 const markersHeight = Math.ceil(parseInt(fontSize) * 1.5 + markersMargin);
 const font = `${fontSize} ${style['font-family1']}`;
 
-class BarViewModel extends BaseViewModel {
+const namedFormats = deepFreeze({
+    none: echo,
+    size: formatSize
+});
+
+function _selectFormatter(value) {
+    if (isString(value)) {
+        return namedFormats[value] || echo;
+    }
+
+    if (isFunction(value)) {
+        return value;
+    }
+
+    return echo;
+}
+
+class BarViewModel {
     constructor({
         values = [],
         height = 2,
@@ -31,8 +48,6 @@ class BarViewModel extends BaseViewModel {
         minRatio = defaultMinRatio,
 
     }) {
-        super();
-
         this.total = ko.pureComputed(
             () => ko.deepUnwrap(values).reduce(
                 (sum, entry) => sum + entry.value,
@@ -47,8 +62,7 @@ class BarViewModel extends BaseViewModel {
         this.markers = markers;
         this.barHeight = height;
         this.minRatio = minRatio;
-        this.formatter = isFunction(limits) ? limits : echo;
-
+        this.formatter = _selectFormatter(limits);
         this.canvasWidth = width;
         this.canvasHeight = ko.pureComputed(
             () => {

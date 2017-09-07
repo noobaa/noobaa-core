@@ -1,30 +1,14 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="content-wrapper">
-    <div class="column content-middle" data-bind="visible: loading">
-        <p class="heading1 push-next">Creating your system...</p>
-
-        <svg-icon class="loading-icon icon-big spin"
-            params="name: 'in-progress'"></svg-icon>
-    </div>
-
-    <div class="column content-middle" data-bind="visible: !loading()">
-        <hr class="align-stretch" />
-
-        <h1 class="heading1 push-both">
-            Congratulations, You're in
-        </h1>
-
-        <p class="push-next text-center">
-            NooBaa system was created and is ready to go.
-            <br>
-            We have created a default pool and bucket for you to get you started as quickly as possible.
-        </p>
-
-        <button class="start-btn btn push-both" data-bind="click: start">
-            Start getting things done
-        </button>
-
-        <hr class="align-stretch" />
-    </div>
+<section class="greedy">
+    <p>Congratulations, You are now ready to use NooBaa management system</p>
+    <br />
+    <p>
+        To make it as easy as we can, we have created a resource which reside on the local VM's disks.
+        You can start writing data to the first bucket right away.
+    </p>
 </section>
+
+<a class="btn align-end" ko.click="onStart">
+    Take Me to The System
+</a>

@@ -1,13 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './paginator.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 
-class PaginatorViewModel extends BaseViewModel {
+class PaginatorViewModel {
     constructor({ itemCount, pageSize, page }) {
-        super();
-
         this.page = page;
 
         this.count = ko.pureComputed(

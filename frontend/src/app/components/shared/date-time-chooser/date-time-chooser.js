@@ -1,15 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './date-time-chooser.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import { makeRange } from 'utils/core-utils';
 
-class DateTimeChooserViewModel extends BaseViewModel {
+class DateTimeChooserViewModel {
     constructor({ time, timezone }) {
-        super();
-
         this.yearOptions = makeRange(
             moment().year() - 10, moment().year() + 10
         ).map(

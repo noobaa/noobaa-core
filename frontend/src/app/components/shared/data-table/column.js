@@ -1,6 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isObject, isString, noop } from 'utils/core-utils';
 import { toDashedCase } from 'utils/string-utils';
@@ -9,10 +8,8 @@ function addSpaces(str) {
     return str.replace(/[A-Z1-9]+/g, match => ` ${match}`);
 }
 
-export default class ColumnViewModel extends BaseViewModel {
+export default class ColumnViewModel {
     constructor(config, templates, sorting) {
-        super();
-
         const normalized = isObject(config) ? config : { name: config.toString() };
         const {
             name,

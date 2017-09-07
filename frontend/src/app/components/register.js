@@ -61,7 +61,6 @@ export default function register(ko) {
     ko.components.register('edit-cloud-sync-modal',                     require('./modals/edit-cloud-sync-modal/edit-cloud-sync-modal').default);
     ko.components.register('s3-access-details-modal',                   require('./modals/s3-access-details-modal/s3-access-details-modal').default);
     ko.components.register('bucket-s3-access-modal',                    require('./modals/bucket-s3-access-modal/bucket-s3-access-modal').default);
-    ko.components.register('bucket-placement-policy-modal',             require('./modals/bucket-placement-policy-modal/bucket-placement-policy-modal').default);
     ko.components.register('start-maintenance-modal',                   require('./modals/start-maintenance-modal/start-maintenance-modal').default);
     ko.components.register('file-uploads-modal',                        require('./modals/file-uploads-modal/file-uploads-modal').default);
     ko.components.register('delete-current-account-warning-modal',      require('./modals/delete-current-account-warning-modal/delete-current-account-warning-modal').default);
@@ -87,6 +86,9 @@ export default function register(ko) {
     ko.components.register('create-namespace-resource-modal',           require('./modals/create-namespace-resource-modal/create-namespace-resource-modal').default);
     ko.components.register('create-gateway-bucket-modal',               require('./modals/create-gateway-bucket-modal/create-gateway-bucket-modal').default);
     ko.components.register('edit-gateway-bucket-data-placement-modal',  require('./modals/edit-gateway-bucket-data-placement-modal/edit-gateway-bucket-data-placement-modal').default);
+    ko.components.register('edit-bucket-placement-modal',               require('./modals/edit-bucket-placement-modal/edit-bucket-placement-modal').default);
+    ko.components.register('empty-bucket-placement-warning-modal',      require('./modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal').default);
+    ko.components.register('edit-spillover-targets-modal', require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -119,7 +121,7 @@ export default function register(ko) {
     /** INJECT:bucket **/
 
     // -------------------------------
-    // Namespace Bucket
+    // Gateway Bucket
     // -------------------------------
     ko.components.register('gateway-bucket-panel',               require('./gateway-bucket/gateway-bucket-panel/gateway-bucket-panel').default);
     ko.components.register('gateway-bucket-summary',             require('./gateway-bucket/gateway-bucket-summary/gateway-bucket-summary').default);
@@ -142,6 +144,7 @@ export default function register(ko) {
     ko.components.register('pools-table',               require('./resources/pools-table/pools-table').default);
     ko.components.register('cloud-resources-table',     require('./resources/cloud-resources-table/cloud-resources-table').default);
     ko.components.register('namespace-resources-table', require('./resources/namespace-resources-table/namespace-resources-table').default);
+    ko.components.register('internal-resources-table',  require('./resources/internal-resources-table/internal-resources-table').default);
     /** INJECT:resources **/
 
     // -------------------------------

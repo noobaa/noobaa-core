@@ -3,6 +3,7 @@
 import { createReducer } from 'utils/reducer-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 import { keyByProperty } from 'utils/core-utils';
+import { mapApiStorage } from 'utils/state-utils';
 
 // ------------------------------
 // Initial State
@@ -27,7 +28,7 @@ function _mapInternalResource(resource) {
     return {
         name: resource.name,
         mode: resource.mode,
-        storage: resource.storage
+        storage: mapApiStorage(resource.storage)
     };
 }
 

@@ -2,103 +2,53 @@
 
 import template from './edit-bucket-quota-modal.html';
 import Observer from 'observer';
-import { deepFreeze } from 'utils/core-utils';
-import { toBigInteger, fromBigInteger, bigInteger, formatSize, toBytes } from 'utils/size-utils';
+import FormViewModel from 'components/form-view-model';
+import { deepFreeze, mapValues } from 'utils/core-utils';
+import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
 import style from 'style';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
-import { updateBucketQuota } from 'action-creators';
+import { updateBucketQuota, closeModal } from 'action-creators';
+import { formatSize, toBytes, toBigInteger,
+    unitsInBytes, isSizeZero } from 'utils/size-utils';
 
-const units = deepFreeze({
-    GIGABYTE: { label: 'GB', inBytes: Math.pow(1024, 3) },
-    TERABYTE: { label: 'TB', inBytes: Math.pow(1024, 4) },
-    PETABYTE: { label: 'PB', inBytes: Math.pow(1024, 5) },
-});
 
-const quotaSizeValidationMessage = 'Must be a number bigger or equal to 1';
-
-function quotaBigInt({ size, unit }) {
-    return toBigInteger(size).multiply(units[unit].inBytes);
-}
-
-function calcDataBreakdown(data, quota) {
-    if (quota) {
-        const zero = bigInteger.zero;
-        const available = toBigInteger(data.free);
-        const quotaSize = quotaBigInt(quota);
-        const used = bigInteger.min(toBigInteger(data.size), quotaSize);
-        const overused = bigInteger.max(zero, toBigInteger(data.size).subtract(quotaSize));
-        const overallocated = bigInteger.max(zero, quotaSize.subtract(available.add(used)));
-        const availableToUpload = bigInteger.min(bigInteger.max(zero, quotaSize.subtract(used)), available);
-        const availableOverQuota = bigInteger.max(zero, available.subtract(availableToUpload));
-
-        return {
-            used: fromBigInteger(used),
-            overused: fromBigInteger(overused),
-            availableToUpload: fromBigInteger(availableToUpload),
-            availableOverQuota: fromBigInteger(availableOverQuota),
-            overallocated: fromBigInteger(overallocated)
-        };
-
-    } else {
-        return {
-            used: data.size,
-            overused: 0,
-            availableToUpload: data.free,
-            availableOverQuota: 0,
-            overallocated: 0
-        };
+const formName = 'editBucketQuota';
+const unitOptions = deepFreeze([
+    {
+        label: 'GB',
+        value: 'GIGABYTE',
+    },
+    {
+        label: 'TB',
+        value: 'TERABYTE'
+    },
+    {
+        label: 'PB',
+        value: 'PETABYTE'
     }
-}
+]);
 
-function getBarValues(values) {
-    return [
-        {
-            value: toBytes(values.used),
-            label: 'Used Data',
-            color: style['color8']
-        },
-        {
-            value: toBytes(values.overused),
-            label: 'Overused',
-            color: style['color10']
-        },
-        {
-            value: toBytes(values.availableToUpload),
-            label: 'Available to upload',
-            color: style['color7']
-        },
-        {
-            value: toBytes(values.availableOverQuota),
-            label: 'Potential',
-            color: style['color15']
-        },
-        {
-            value: toBytes(values.overallocated),
-            label: 'Overallocated',
-            color: style['color16']
-        }
-    ]
-        .filter(item => item.value > 0);
-}
+function _findMaxQuotaPossible(data) {
+    const { PETABYTE, TERABYTE, GIGABYTE } = unitsInBytes;
 
-function recommendQuota(data) {
-    const total = toBigInteger(data.size).add(toBigInteger(data.free));
+    const { size, availableForUpload } = data;
+    const total = toBigInteger(size).add(toBigInteger(availableForUpload));
 
-    if (total.greaterOrEquals(units.PETABYTE.inBytes)) {
+    if (total.greaterOrEquals(PETABYTE)) {
         return {
-            size: total.divide(units.PETABYTE.inBytes),
+            size: total.divide(PETABYTE),
             unit: 'PETABYTE'
         };
 
-    } else if (total.greaterOrEquals(units.TERABYTE.inBytes)) {
+    } else if (total.greaterOrEquals(TERABYTE)) {
         return {
-            size: total.divide(units.TERABYTE.inBytes),
+            size: total.divide(TERABYTE),
             unit: 'TERABYTE'
         };
-    } else if (total.greaterOrEquals(units.GIGABYTE.inBytes)) {
+    } else if (total.greaterOrEquals(GIGABYTE)) {
         return {
-            size: total.divide(units.GIGABYTE.inBytes),
+            size: total.divide(GIGABYTE),
             unit: 'GIGABYTE'
         };
 
@@ -111,104 +61,159 @@ function recommendQuota(data) {
 }
 
 class EditBucketQuotaModalViewModel extends Observer {
-    constructor({ onClose, bucketName }) {
+    constructor({ bucketName }) {
         super();
 
-        this.close = onClose;
-        this.bucketName = bucketName;
-        this.formatSize = formatSize;
-        this.unitOptions = Object.entries(units).map(
-            ([ value, { label }]) => ({ value, label })
-        );
-
-        this.isUsingQuota = ko.observable();
-        this.quotaUnit = ko.observable();
-        this.quotaSize = ko.observable().extend({
-            required: {
-                onlyIf: this.isUsingQuota,
-                message: quotaSizeValidationMessage
+        this.bucketName = ko.unwrap(bucketName);
+        this.unitOptions = unitOptions;
+        this.form = null;
+        this.isFormInitalized = ko.observable();
+        this.markers = ko.observableArray();
+        this.barValues = [
+            {
+                key: 'used',
+                label: 'Used Data',
+                color: style['color8'],
+                value: ko.observable()
             },
-            number: {
-                onlyIf: this.isUsingQuota,
-                message: quotaSizeValidationMessage
+            {
+                key: 'overused',
+                label: 'Overused',
+                color: style['color10'],
+                value: ko.observable(),
+                visible: ko.observable()
             },
-            min: {
-                onlyIf: this.isUsingQuota,
-                params: 1,
-                message: quotaSizeValidationMessage
+            {
+                key: 'availableForUpload',
+                label: 'Available',
+                color: style['color7'],
+                value: ko.observable()
             },
-            validation: {
-                onlyIf: this.isUsingQuota,
-                validator: val => Number.isInteger(Number(val)),
-                message: quotaSizeValidationMessage
+            {
+                key: 'potentialForUpload',
+                label: 'Potential for upload',
+                color: style['color15'],
+                value: ko.observable(),
+                visible: ko.observable()
+            },
+            {
+                key: 'availableForSpillover',
+                label: 'Available for spillover',
+                color: style['color6'],
+                value: ko.observable(),
+                visible: ko.observable()
+            },
+            {
+                key: 'potentialForSpillover',
+                label: 'Potential for spillover',
+                color: style['color16'],
+                value: ko.observable(),
+                visible: ko.observable()
+            },
+            {
+                key: 'overallocated',
+                label: 'Overallocated',
+                color: style['color11'],
+                value: ko.observable(),
+                visible: ko.observable()
             }
+        ];
+
+        this.observe(
+            state$.getMany(
+                ['buckets', this.bucketName],
+                ['forms', formName]
+            ),
+            this.onState
+        );
+    }
+
+    onState([ bucket, form ]) {
+        if (!bucket) {
+            this.isFormInitalized(false);
+            return;
+        }
+
+        const formValues = form && mapValues(form.fields, field => field.value);
+        const enabled = formValues ? formValues.enabled : Boolean(bucket.quota);
+        const quota = formValues ?
+            { size: Math.max(formValues.size, 0), unit: formValues.unit } :
+            (bucket.quota || _findMaxQuotaPossible(bucket.data));
+
+        const breakdown = getDataBreakdown(bucket.data, enabled ? quota : undefined);
+        this.barValues.forEach(part => {
+            const value = breakdown[part.key];
+            part.value(toBytes(value));
+            part.visible && part.visible(!isSizeZero(value));
         });
 
-        this.barValues = ko.observable();
-        this.dataSize = ko.observable();
-        this.dataFree = ko.observable();
+        const markers = [];
+        if (enabled) {
+            const value = getQuotaValue(quota);
+            const placement = toBytes(value);
+            const label = `Quota: ${formatSize(value)}`;
 
-        this.observe(state$.get('buckets', bucketName), this.onBucket);
+            markers.push({ placement, label });
+        }
 
-        this.barValues = ko.pureComputed(
-            () => getBarValues(
-                calcDataBreakdown(
-                    { size: this.dataSize(), free: this.dataFree() },
-                    { unit: this.quotaUnit(), size: this.quotaSize() }
-                )
-            )
-        );
+        this.markers(markers);
 
-        this.quotaMarker = ko.pureComputed(
-            () => {
-                const quota = quotaBigInt({
-                    size: this.quotaSize(),
-                    unit: this.quotaUnit()
-                });
-
-                return {
-                    placement: toBytes(quota),
-                    label: `Quota: ${formatSize(fromBigInteger(quota))}`
-                };
-            }
-        );
-
-        this.errors = ko.validation.group([
-            this.quotaSize
-        ]);
+        if (!form) {
+            this.form = new FormViewModel({
+                name: formName,
+                fields: {
+                    enabled: enabled,
+                    unit: quota.unit,
+                    size: quota.size
+                },
+                onValidate: this.onValidate.bind(this),
+                onSubmit: this.onSubmit.bind(this)
+            });
+            this.isFormInitalized(true);
+        }
     }
 
-    onBucket({ quota, data }) {
-        const usingQuota = Boolean(quota);
-        quota = quota || recommendQuota(data);
+    onValidate(values) {
+        const errors = {};
 
-        this.isUsingQuota(usingQuota);
-        this.quotaUnit(quota.unit);
-        this.quotaSize(quota.size);
-        this.dataSize(data.size);
-        this.dataFree(data.free);
+        const size = Number(values.size);
+        if (values.enabled && (!Number.isInteger(size) || size < 1)) {
+            errors.size = 'Must be a number bigger or equal to 1';
+        }
+
+        return errors;
     }
 
-    formatBarLabel(value) {
-        return value && formatSize(value);
+    onSubmit(values) {
+        const quota = values.enabled ?
+            { unit: values.unit, size: Number(values.size) } :
+            null;
+
+        action$.onNext(updateBucketQuota(this.bucketName, quota));
+        action$.onNext(closeModal());
     }
 
     onCancel() {
-        this.close();
+        action$.onNext(closeModal());
     }
 
-    onSave() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
+    // onSave() {
+    //     if (this.errors().length > 0) {
+    //         this.errors.showAllMessages();
 
-        } else {
-            const quota = this.isUsingQuota() ?
-                { unit: this.quotaUnit(), size: Number(this.quotaSize()) } :
-                null;
+    //     } else {
+    //         const quota = this.isUsingQuota() ?
+    //             { unit: this.quotaUnit(), size: Number(this.quotaSize()) } :
+    //             null;
 
-            action$.onNext(updateBucketQuota(this.bucketName, quota));
-            this.close();
-        }
+    //         action$.onNext(updateBucketQuota(this.bucketName, quota));
+    //         action$.onNext(closeModal());
+    //     }
+    // }
+
+    dispose() {
+        this.form && this.form.dispose();
+        super.dispose();
     }
 }
 

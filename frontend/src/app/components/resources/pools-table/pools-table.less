@@ -1,44 +1,45 @@
 /* Copyright (C) 2016 NooBaa */
 
 pools-table {
-    .column();
+    display: block;
 
-    .state-col {
-        min-width: 72px;
+    .resources-table {
+        .state-col {
+            min-width: 72px;
+        }
+
+        .name-col{
+            text-align: left;
+            max-width: 85px;
+            width: 100%;
+        }
+
+        .buckets-col {
+            min-width: 160px;
+        }
+
+        .host-count-col {
+            min-width: 65px;
+        }
+
+        .healthy-count-col {
+            min-width: 65px;
+        }
+
+        .issues-count-col {
+            min-width: 65px;
+        }
+
+        .offline-count-col {
+            min-width: 65px;
+        }
+
+        .capacity-col {
+            min-width: 120px;
+        }
+
+        .delete-col {
+            min-width: 50px;
+        }
     }
-
-    .name-col{
-        text-align: left;
-        max-width: 85px;
-        width: 100%;
-    }
-
-    .buckets-col {
-        min-width: 160px;
-    }
-
-    .host-count-col {
-        min-width: 65px;
-    }
-
-    .healthy-count-col {
-        min-width: 65px;
-    }
-
-    .issues-count-col {
-        min-width: 65px;
-    }
-
-    .offline-count-col {
-        min-width: 65px;
-    }
-
-    .capacity-col {
-        min-width: 120px;
-    }
-
-    .delete-col {
-        min-width: 50px;
-    }
-
 }

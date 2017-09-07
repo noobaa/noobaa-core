@@ -1,11 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './radio-group.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { randomString } from 'utils/string-utils';
 
-class RadioGroupViewModel extends BaseViewModel {
+class RadioGroupViewModel {
     constructor({
             selected = ko.observable(),
             name = randomString(5),
@@ -14,8 +13,6 @@ class RadioGroupViewModel extends BaseViewModel {
             disabled = false,
             hasFocus = false
     }) {
-        super();
-
         this.name = name;
         this.selected = selected;
         this.disabled = disabled;

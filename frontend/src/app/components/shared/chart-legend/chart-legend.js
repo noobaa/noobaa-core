@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './chart-legend.html';
-import BaseViewModel from 'components/base-view-model';
 import { echo, deepFreeze, isFunction } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import ko from 'knockout';
@@ -11,14 +10,12 @@ const namedFormats = deepFreeze({
     size: formatSize
 });
 
-class ChartLegendViewModel extends BaseViewModel {
+class ChartLegendViewModel {
     constructor({
         caption = '',
         items,
         format = 'none'
     }) {
-        super();
-
         this.caption = caption;
         this.formatter = isFunction(format) ? format : namedFormats[format];
         this.items = ko.pureComputed(

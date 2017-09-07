@@ -1,13 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './range-indicator.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 
-class RangeIndicatorViewModel extends BaseViewModel {
+class RangeIndicatorViewModel {
     constructor({ values }) {
-        super();
-
         this.values = values;
         this.total = ko.computed(() => values.reduce( (sum, { value }) => {
             return sum + ko.unwrap(value);

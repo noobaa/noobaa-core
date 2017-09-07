@@ -1,0 +1,33 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="column alt-bg pad">
+    <div class="row content-middle push-next">
+        <div class="greedy">
+            <input type="search"
+                placeholder="Filter by resource name"
+                ko.textInput="ko.pc(filter, onFilterThrottled)" />
+        </div>
+        <button class="btn"
+            ko.click="onEditSpilloverTargets"
+            ko.disable="!resourcesLoaded()">
+            Edit Spillover Targets
+        </button>
+    </div>
+    <p>Internal storage consist of the cluster members disk sotrage and it is used for bucket spillover only.</p>
+</div>
+
+<data-table class="resources-table greedy" params="
+    columns: columns,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !resourcesLoaded(),
+    emptyMessage: 'The current filter does not match any resource'
+"></data-table>
+
+<paginator params="
+    itemCount: resourceCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>
+
+

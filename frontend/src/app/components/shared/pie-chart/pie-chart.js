@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pie-chart.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import {  makeArray, deepFreeze, decimalRound } from 'utils/core-utils';
 import style from 'style';
@@ -69,14 +68,12 @@ function normalizeValues(values) {
     );
 }
 
-class PieChartViewModel extends BaseViewModel {
+class PieChartViewModel {
     constructor({
         values = [],
         primaryText = '',
         secondaryText = ''
     }) {
-        super();
-
         this.canvasWidth = this.canvasHeight = radius * 2;
         this.primaryText = primaryText;
         this.secondaryText = secondaryText;

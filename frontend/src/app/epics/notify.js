@@ -10,8 +10,6 @@ import {
     FAIL_SET_ACCOUNT_IP_RESTRICTIONS,
     COMPLETE_CHANGE_ACCOUNT_PASSWORD,
     FAIL_CHANGE_ACCOUNT_PASSWORD,
-    COMPLETE_UPDATE_BUCKET_QUOTA,
-    FAIL_UPDATE_BUCKET_QUOTA,
     COMPLETE_ADD_EXTERNAL_CONNECTION,
     FAIL_ADD_EXTERNAL_CONNECTION,
     COMPLETE_DELETE_RESOURCE,
@@ -36,13 +34,22 @@ import {
     FAIL_CREATE_NAMSPACE_RESOURCE,
     COMPLETE_DELETE_NAMESPACE_RESOURCE,
     FAIL_DELETE_NAMSPACE_RESOURCE,
+    COMPLETE_UPDATE_BUCKET_QUOTA,
+    FAIL_UPDATE_BUCKET_QUOTA,
+    COMPLETE_TOGGLE_BUCKET_SPILLOVER,
+    FAIL_TOGGLE_BUCKET_SPILLOVER,
+    COMPLETE_TOGGLE_BUCKETS_SPILLOVER,
+    FAIL_TOGGLE_BUCKETS_SPILLOVER,
+    COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
+    FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
+    COMPLETE_DELETE_BUCKET,
+    FAIL_DELETE_BUCKET,
     COMPLETE_CREATE_GATEWAY_BUCKET,
     FAIL_CREATE_GATEWAY_BUCKET,
     COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT,
     FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT,
     COMPLETE_DELETE_GATEWAY_BUCKET,
     FAIL_DELETE_GATEWAY_BUCKET
-
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -78,16 +85,6 @@ const actionToNotification = deepFreeze({
 
     [FAIL_CHANGE_ACCOUNT_PASSWORD]: ({ accountName }) => ({
         message: `Changing ${accountName} password failed`,
-        severity: 'error'
-    }),
-
-    [COMPLETE_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
-        message: `${bucket} quota updated successfully`,
-        severity: 'success'
-    }),
-
-    [FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
-        message: `Updating quota for ${bucket} failed`,
         severity: 'error'
     }),
 
@@ -239,6 +236,56 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
+    [COMPLETE_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
+        message: `${bucket} quota updated successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
+        message: `Updating quota for ${bucket} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_TOGGLE_BUCKET_SPILLOVER]: ({ bucket, state }) => ({
+        message: `Spillover ${state ? 'enabled' : 'disabled'} successfully for ${bucket}`,
+        severity: 'success'
+    }),
+
+    [FAIL_TOGGLE_BUCKET_SPILLOVER]: ({ bucket, state }) => ({
+        message: `${state ? 'Enabling' : 'Disabling'} spillover for ${bucket} failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_TOGGLE_BUCKETS_SPILLOVER]: () => ({
+        message: 'Spillover targets updated successfully',
+        severity: 'success'
+    }),
+
+    [FAIL_TOGGLE_BUCKETS_SPILLOVER]: () => ({
+        message: 'Updating spillover targets failed',
+        severity: 'error'
+    }),
+
+    [COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
+        message: `${bucket} placement policy updated successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
+        message: `Updating ${bucket} placement policy failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_DELETE_BUCKET]: ({ bucket }) => ({
+        message: `Bucket ${bucket} deleted successfully`,
+        severity:'success'
+    }),
+
+    [FAIL_DELETE_BUCKET]: ({ bucket }) => ({
+        message: `Bucket ${bucket} deletion failed`,
+        severity: 'error'
+    }),
+
     [COMPLETE_CREATE_GATEWAY_BUCKET]: ({ name }) =>({
         message: `Gateway bucket ${name} created successfully`,
         severity: 'success'
@@ -267,7 +314,7 @@ const actionToNotification = deepFreeze({
     [FAIL_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
         message: `Gateway bucket ${name} deletion failed`,
         severity: 'error'
-    }),
+    })
 });
 
 export default function(action$) {

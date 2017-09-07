@@ -20,37 +20,28 @@ export const size = {
 export const storage = {
     type: 'object',
     properties: {
+        lastUpdate: {
+            type: 'integer'
+        },
         total: {
             $ref: '#/def/common/size'
         },
         free: {
             $ref: '#/def/common/size'
         },
-        spillover_free: {
+        spilloverFree: {
             $ref: '#/def/common/size'
         },
-        unavailable_free: {
+        unavailableFree: {
             $ref: '#/def/common/size'
         },
         used: {
             $ref: '#/def/common/size'
         },
-        used_other: {
-            $ref: '#/def/common/size'
-        },
-        used_reduced: {
-            $ref: '#/def/common/size'
-        },
-        alloc: {
-            $ref: '#/def/common/size'
-        },
-        limit: {
+        usedOther: {
             $ref: '#/def/common/size'
         },
         reserved: {
-            $ref: '#/def/common/size'
-        },
-        real: {
             $ref: '#/def/common/size'
         }
     }

@@ -109,6 +109,11 @@ ko.subscribable.fn.eq = function(value) {
     return ko.pureComputed(() => this() === value);
 };
 
+ko.subscribable.fn.oneOf = function(...values) {
+    return ko.pureComputed(() => values.includes(this()));
+
+};
+
 ko.subscribable.fn.when = function(condition = Boolean) {
     const val = this.peek();
     if (condition(val)) {

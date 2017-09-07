@@ -1,13 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './slider.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 
-class SliderViewModel extends BaseViewModel {
+class SliderViewModel {
     constructor({ current = 1 }) {
-        super();
-
         this.current = current;
 
         this.transform = ko.pureComputed(

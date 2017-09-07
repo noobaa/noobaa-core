@@ -7,25 +7,34 @@ buckets-table {
         }
 
         .name-col{
+            .no-wrap();
             text-align: left;
-            max-width: 300px;
+            max-width: 90px;
             width: 100%;
         }
 
-        .file-count-col {
+        .object-count-col {
             min-width: 40px;
         }
 
         .placement-policy-col {
-            min-width: 128px;
+            min-width: 110px;
         }
 
-        .cloud-storage-col {
-            min-width: 128px;
+        .resources-col {
+            min-width: 100px;
 
             svg-icon {
                 margin: 0 @gutter/4;
+
+                &.lighted {
+                    fill: @color8;
+                }
             }
+        }
+
+        .spillover-usage-col {
+            min-width: 100px;
         }
 
         .capacity-col {
@@ -33,7 +42,7 @@ buckets-table {
         }
 
         .cloud-sync-col {
-            min-width: 100px;
+            min-width: 85px;
         }
 
         .delete-col {

@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bar-chart.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import { deepFreeze, echo, isFunction, clamp, isString } from 'utils/core-utils';
@@ -36,10 +35,8 @@ const namedFormats = deepFreeze({
     percentage: value => numeral(value).format('%')
 });
 
-class BarChartViewModel extends BaseViewModel {
+class BarChartViewModel {
     constructor({ values, options = {} }) {
-        super();
-
         this.values = ko.pureComputed(
             () => ko.deepUnwrap(values)
         );

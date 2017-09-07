@@ -1,12 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './new-wizard.html';
-import BaseViewModel from 'components/base-view-model';
 import { noop } from 'utils/core-utils';
 import ko from 'knockout';
 
 
-class NewWizardViewModel extends BaseViewModel {
+class NewWizardViewModel {
     constructor({
         steps = [],
         step = ko.observable(0),
@@ -17,8 +16,6 @@ class NewWizardViewModel extends BaseViewModel {
         onCancel = noop,
         onComplete = noop
     }) {
-        super();
-
         this.steps = steps;
         this.step = step;
         this.disabled = disabled;

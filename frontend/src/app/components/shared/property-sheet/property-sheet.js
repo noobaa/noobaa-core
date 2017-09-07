@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './property-sheet.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { copyTextToClipboard } from 'utils/browser-utils';
 
@@ -27,10 +26,8 @@ function _mapProperty(prop, templates) {
         multiline, allowCopy, template};
 }
 
-class PropertySheetViewModel extends BaseViewModel {
+class PropertySheetViewModel {
     constructor({ properties = [], loading = false }, templates) {
-        super();
-
         this.properties = ko.pureComputed(
             () => ko.unwrap(properties).map(prop => _mapProperty(prop, templates))
         );

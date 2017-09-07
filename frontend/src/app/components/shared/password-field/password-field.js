@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './password-field.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze, isFunction } from 'utils/core-utils';
 import { tweenColors } from 'utils/color-utils';
@@ -20,10 +19,8 @@ const iconMapping = deepFreeze({
 
 const barTweenDuration = 250;
 
-class PasswordFieldViewModel extends BaseViewModel {
+class PasswordFieldViewModel {
     constructor({ value, disabled, placeholder = '', strengthCalc}) {
-        super();
-
         this.value = value;
         this.disabled = disabled;
         this.type = ko.observable('password');

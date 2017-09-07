@@ -52,7 +52,7 @@ function _mapBucket(bucket, /*tiersByName*/) {
     return {
         name: bucket.name,
         mode: bucket.mode,
-        storage: bucket.storage,
+        storage: bucket.storage.values,
         data: bucket.data,
         quota: bucket.quota,
         // placement: placement,

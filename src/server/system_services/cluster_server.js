@@ -1480,9 +1480,9 @@ function _verify_join_preconditons(req) {
                     }
                 })
                 .then(() => {
-                     // If we do not need system in order to add a server to a cluster
-                     dbg.log0('_verify_join_preconditons okay. server has no system');
-                     return 'OKAY';
+                    // If we do not need system in order to add a server to a cluster
+                    dbg.log0('_verify_join_preconditons okay. server has no system');
+                    return 'OKAY';
                 })
                 .catch(err => {
                     dbg.warn('failed _verify_join_preconditons on', err.message);
@@ -1648,16 +1648,35 @@ function _add_new_server_to_replica_set(params) {
     return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
         .then(() => system_store.load())
         .then(() => _attach_server_configuration(new_topology))
-        .then(() => {
-            // insert an entry for this server in clusters collection.
-            new_topology._id = system_store.generate_id();
-            dbg.log0('inserting topology for new server to clusters collection:', new_topology);
-            return system_store.make_changes({
-                insert: {
-                    clusters: [new_topology]
+        .then(() => P.join(
+            os_utils.get_ntp(),
+            os_utils.get_time_config(),
+            os_utils.get_dns_servers(),
+            (ntp_server, time_config, dns_config) => {
+                // insert an entry for this server in clusters collection.
+                new_topology._id = system_store.generate_id();
+                // get dns and ntp settings configured in the os
+                if (ntp_server) {
+                    dbg.log0(`_add_new_server_to_replica_set: using existing ntp configuration: ${ntp_server}, ${time_config.timezone}`);
+                    new_topology.ntp = {
+                        timezone: time_config.timezone,
+                        server: ntp_server
+                    };
                 }
-            });
-        })
+                if (dns_config.dns_servers.length) {
+                    dbg.log0(`_add_new_server_to_replica_set: using existing DNS servers configuration: `, dns_config.dns_servers);
+                    new_topology.dns_servers = dns_config.dns_servers;
+                }
+
+
+                dbg.log0('inserting topology for new server to clusters collection:', new_topology);
+                return system_store.make_changes({
+                    insert: {
+                        clusters: [new_topology]
+                    }
+                });
+            }
+        ))
         .then(() => {
             dbg.log0('Adding new replica set member to the set');
             let new_rs_params = {

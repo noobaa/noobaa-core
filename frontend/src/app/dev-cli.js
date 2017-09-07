@@ -1,19 +1,23 @@
 import * as model from 'model';
 import { action$, state$ } from 'state';
-import { togglePreviewContent } from 'action-creators';
+import * as actionCreators from 'action-creators';
+import schema from 'schema';
 import api from 'services/api';
+import { mapValues } from 'utils/core-utils';
 
-function bindToActionStream(actionCreator) {
-    return function(...args) {
-        action$.onNext(actionCreator(...args));
-    };
-}
+const actions = mapValues(
+    actionCreators,
+    creator => function(...args) {
+        action$.onNext(creator(...args));
+    }
+);
 
 const cli = Object.seal({
     model: model,
+    schema: schema.def,
+    actions: actions,
     state: undefined,
-    api: api,
-    togglePreviewContent: bindToActionStream(togglePreviewContent)
+    api: api
 });
 
 state$.subscribe(state => { cli.state = state; });

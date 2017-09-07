@@ -108,3 +108,9 @@ export function stringifyAmount(subject, amount, zeroMoniker = '0') {
 export function splice(str, start, end, replacement = '') {
     return `${str.substr(0, start)}${replacement}${str.substr(end)}`;
 }
+
+export function escapeQuotes(str) {
+    return str
+        .replace(/'/g, "\\'") // eslint-disable-line quotes
+        .replace(/"/g, '\\"');
+}

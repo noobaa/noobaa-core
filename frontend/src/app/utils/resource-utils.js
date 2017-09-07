@@ -62,8 +62,37 @@ const hostsPoolModeToStateIcon = deepFreeze({
     }
 });
 
+const internalResourceModeToStateIcon = deepFreeze({
+    INITALIZING: {
+        tooltip: 'Initializing',
+        css: 'warning',
+        name: 'working'
+    },
+    ALL_NODES_OFFLINE: {
+        tooltip: 'Resource is offline',
+        css: 'error',
+        name: 'problem'
+    },
+    IO_ERRORS: {
+        tooltip: 'Resource has Read/Write problems',
+        css: 'error',
+        name: 'problem'
+    },
+    OPTIMAL: {
+        tooltip: 'Healthy',
+        css: 'success',
+        name: 'healthy'
+    }
+});
+
 export function getHostsPoolStateIcon(pool) {
     const { mode } = pool;
     const state = hostsPoolModeToStateIcon[mode];
     return isFunction(state) ? state(pool) : state;
 }
+
+export function getInternalResourceStateIcon(resource) {
+    const { mode } = resource;
+    return internalResourceModeToStateIcon[mode];
+}
+

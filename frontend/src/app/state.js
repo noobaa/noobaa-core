@@ -2,7 +2,7 @@
 
 import { Subject } from 'rx';
 import reducer from 'reducers';
-import stateSchema from './schema/state';
+import stateSchema from './schema';
 import { deepFreeze, isObject, noop } from 'utils/core-utils';
 import { createSchemaValidator } from 'utils/schema-utils';
 

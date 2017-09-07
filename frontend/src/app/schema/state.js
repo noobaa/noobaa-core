@@ -1,13 +1,21 @@
-import sessionSchema from './session';
-import locationSchema from './location';
-import objectUploadsSchema from './object-uploads';
-
 export default {
     type: 'object',
     additionalProperties: true,
     properties: {
-        session: sessionSchema,
-        location: locationSchema,
-        objectUploads: objectUploadsSchema
-    }
+        session: {
+            $ref: '#/def/session'
+        },
+        location: {
+            $ref: '#/def/location'
+        },
+        buckets: {
+            $ref: '#/def/buckets'
+        },
+        objectUploads: {
+            $ref: '#/def/objectUploads'
+        },
+        internalResources: {
+            $ref: '#/def/internalResources'
+        }
+    },
 };

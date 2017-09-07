@@ -781,12 +781,12 @@ function update_dns_servers(req) {
                 throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
             }
             const config_to_compare = [
-                dns_servers_config.dns_servers ? dns_servers_config.dns_servers.sort() : undefined,
-                dns_servers_config.search_domains ? dns_servers_config.search_domains.sort() : undefined
+                dns_servers_config.dns_servers ? dns_servers_config.dns_servers.sort() : [],
+                dns_servers_config.search_domains ? dns_servers_config.search_domains.sort() : []
             ];
             // don't update servers that already have the dame configuration
             target_servers = target_servers.filter(srv => {
-                const { dns_servers, search_domains } = srv;
+                const { dns_servers = [], search_domains = [] } = srv;
                 return !_.isEqual(config_to_compare, [dns_servers.sort(), search_domains.sort()]);
             });
             if (!target_servers.length) {

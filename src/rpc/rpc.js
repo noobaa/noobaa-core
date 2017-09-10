@@ -183,7 +183,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
                 'reqid', req.reqid);
 
             if (this._request_logger) {
-                this._request_logger('RPC REQUEST SEND', req.srv, params); //NBNB
+                this._request_logger('RPC REQUEST SEND', req.srv, params);
             }
 
             // send request over the connection
@@ -227,6 +227,9 @@ RPC.prototype._request = function(api, method_api, params, options) {
             // return_rpc_req mode allows callers to get back the request
             // instead of a bare reply, and the reply is in req.reply
             this._update_flight_avg(req.took_flight);
+            if (this._stats_handler) {
+                this._stats_handler(this._aggregated_flight_time / this._served_requests);
+            }
             return options.return_rpc_req ? req : reply;
         })
         .catch(err => {
@@ -234,7 +237,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
             // if failed without getting a response (connect/send) we fill times for printing
             if (!req.took_srv) req._set_times(0);
 
-             if (this._request_logger) {
+            if (this._request_logger) {
                 this._request_logger('RPC REQUEST CATCH', req.srv, '==>', err);
             }
 
@@ -257,7 +260,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
         })
         .finally(() =>
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
-             this._release_connection(req));
+            this._release_connection(req));
 
     if (options.timeout) {
         request_promise.timeout(options.timeout, 'RPC REQUEST TIMEOUT');
@@ -913,13 +916,8 @@ RPC.prototype.set_request_logger = function(request_logger) {
 /**
  * Statistics & Performance metrics
  */
-RPC.prototype.rpc_perf_stats = function() {
-    console.log('NBNB:: ', this._aggregated_flight_time, this._served_requests);
-    if (this._served_requests) {
-        return this._aggregated_flight_time / this._served_requests;
-    } else {
-        return 1;
-    }
+RPC.prototype.set_stats_handler = function(stats_handler) {
+    this._stats_handler = stats_handler;
 };
 
 

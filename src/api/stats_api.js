@@ -188,6 +188,34 @@ module.exports = {
                                         type: 'integer'
                                     }
                                 }
+                            },
+                            cluster: {
+                                type: 'object',
+                                properties: {
+                                    members: {
+                                        type: 'integer'
+                                    }
+                                }
+                            },
+                            configuration: {
+                                type: 'object',
+                                properties: {
+                                    dns_servers: {
+                                        type: 'integer'
+                                    },
+                                    dns_search: {
+                                        type: 'integer'
+                                    },
+                                    ntp_server: {
+                                        type: 'boolean'
+                                    },
+                                    proxy: {
+                                        type: 'boolean'
+                                    },
+                                    remote_syslog: {
+                                        type: 'boolean'
+                                    },
+                                }
                             }
                         }
                     }

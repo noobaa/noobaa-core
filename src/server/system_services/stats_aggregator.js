@@ -59,6 +59,16 @@ const SINGLE_SYS_DEFAULTS = {
         on: 0,
         off: 0,
     },
+    configuration: {
+        dns_servers: 0,
+        dns_search: false,
+        ntp_server: false,
+        proxy: false,
+        remote_syslog: false
+    },
+    cluster: {
+        members: 0
+    }
 };
 
 //Collect systems related stats and usage
@@ -93,6 +103,16 @@ function get_systems_stats(req) {
                             off: res.nodes.count - res.nodes.online,
                         },
                         owner: res.owner.email,
+                        configuration: {
+                            dns_servers: res.cluster.shards[0].servers[0].dns_servers.length,
+                            dns_search: res.cluster.shards[0].servers[0].search_domains.length,
+                            ntp_server: !_.isEmpty(res.cluster.shards[0].servers[0].ntp_server),
+                            proxy: !_.isEmpty(res.phone_home_config.proxy_address),
+                            remote_syslog: !_.isEmpty(res.remote_syslog_config),
+                        },
+                        cluster: {
+                            members: res.cluster.shards[0].servers.length
+                        }
                     }, SINGLE_SYS_DEFAULTS);
                 });
             // TODO: Need to handle it differently

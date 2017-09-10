@@ -664,6 +664,13 @@ function check_azure_connection(params) {
         secret_key: params.secret
     });
 
+    function err_to_status(err, status) {
+        const ret_error = new Error(status);
+        ret_error.err_code = err.code || 'Error';
+        ret_error.err_message = err.message || 'Unkown Error';
+        return ret_error;
+    }
+
     return P.resolve()
         .then(() => P.resolve()
             .then(() => {
@@ -673,26 +680,32 @@ function check_azure_connection(params) {
             })
             .catch(err => {
                 dbg.warn(`got error on createBlobService with params`, params, ` error: ${err}`);
-                throw new Error(err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');
+                throw err_to_status(err, err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');
             })
         )
         .then(blob_svc => P.fromCallback(callback => blob_svc.listContainersSegmented(null, callback))
             .then(() => blob_svc)
             .catch(err => {
                 dbg.warn(`got error on listContainersSegmented with params`, params, ` error: ${err}`);
-                throw new Error(err instanceof StorageError ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
+                throw err_to_status(err, err instanceof StorageError ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
             })
         )
         .then(blob_svc => P.fromCallback(callback => blob_svc.getServiceProperties(callback))
             .catch(err => {
                 dbg.warn(`got error on getServiceProperties with params`, params, ` error: ${err}`);
-                throw new Error('NOT_SUPPORTED');
+                throw err_to_status(err, 'NOT_SUPPORTED');
             })
         )
         .timeout(check_connection_timeout, new Error('TIMEOUT'))
         .then(
-            () => 'SUCCESS',
-            err => err.message
+            () => ({ status: 'SUCCESS' }),
+            err => ({
+                status: err.message,
+                error: {
+                    code: err.err_code,
+                    message: err.err_message
+                }
+            })
         );
 }
 
@@ -702,7 +715,8 @@ const aws_error_mapping = Object.freeze({
     NetworkingError: 'INVALID_ENDPOINT',
     XMLParserError: 'INVALID_ENDPOINT',
     InvalidAccessKeyId: 'INVALID_CREDENTIALS',
-    SignatureDoesNotMatch: 'INVALID_CREDENTIALS'
+    SignatureDoesNotMatch: 'INVALID_CREDENTIALS',
+    RequestTimeTooSkewed: 'TIME_SKEW'
 });
 
 function check_aws_connection(params) {
@@ -722,10 +736,17 @@ function check_aws_connection(params) {
     return P.fromCallback(callback => s3.listBuckets(callback))
         .timeout(check_connection_timeout, timeoutError)
         .then(
-            ret => 'SUCCESS',
+            ret => ({ status: 'SUCCESS' }),
             err => {
-                dbg.warn(`got error on listBuckets with params`, params, ` error: ${err}`);
-                return aws_error_mapping[err.code] || 'UNKNOWN_FAILURE';
+                dbg.warn(`got error on listBuckets with params`, params, ` error: ${err}`, err.message);
+                const status = aws_error_mapping[err.code] || 'UNKNOWN_FAILURE';
+                return {
+                    status,
+                    error: {
+                        code: err.code,
+                        message: err.message
+                    }
+                };
             }
         );
 }

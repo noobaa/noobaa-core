@@ -153,7 +153,13 @@ function configure_ips_dialog {
 }
 
 function configure_dns_dialog {
-    dialog --colors --nocancel --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 80 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2 25 25 30 2> answer_dns
+    local cur_dns1=$(grep "#NooBaa Configured Primary DNS Server" /etc/resolv.conf | sed 's:nameserver.*\(.*\)#.*:\1:')
+    local cur_dns2=$(grep "#NooBaa Configured Secondary DNS Server" /etc/resolv.conf | sed 's:nameserver.*\(.*\)#.*:\1:')
+    dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 80 4 "Primary DNS:" 1 1 "${cur_dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${cur_dns2}" 2 25 25 30 2> answer_dns
+
+    if test $? -eq 1 ; then #cancel pressed
+      return
+    fi
 
     local dns1=$(head -1 answer_dns)
     local dns2=$(tail -1 answer_dns)
@@ -161,7 +167,6 @@ function configure_dns_dialog {
     while [ "${dns1}" == "" ]; do
       dialog --colors --nocancel --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 65 4 "Primary DNS:" 1 1 "${dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${dns2}" 2 25 25 30 2> answer_dns
       dns1=$(head -1 answer_dns)
-      #sudo echo "First Install adding dns ${dns}" >> /var/log/noobaa_deploy.log
       dns2=$(tail -1 answer_dns)
     done
 
@@ -200,13 +205,14 @@ function configure_networking_dialog {
     done
 }
 function configure_ntp_dialog {
-  local ntp_server=""
-  local tz=""
+  local ntp_server=$(grep "NooBaa Configured" /etc/ntp.conf | sed 's:.*server \(.*\) iburst.*:\1:')
+  local tz=$(ls -la /etc/localtime  | sed 's:.*/usr/share/zoneinfo/\(.*\):\1:')
   local tz_file=""
   local err_tz_msg=""
   local err_ntp_msg=""
   local err_tz=1
   local err_ntp=1
+
   while [ ${err_tz} -eq 1 ] || [ ${err_ntp} -eq 1 ]; do
     dialog --colors --backtitle "NooBaa First Install" --title "NTP Configuration" --form "\nPlease supply an NTP server address and Time Zone (TZ format https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)\nYou can configure NTP later in the management console\n${err_ntp_msg}\n${err_tz_msg}\n(Use \Z4\ZbUp/Down\Zn to navigate)" 15 80 2 "NTP Server:" 1 1 "${ntp_server}" 1 25 25 30  "Time Zone:" 2 1 "${tz}" 2 25 25 30 2> answer_ntp
     ntp_server="$(head -1 answer_ntp)"

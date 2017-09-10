@@ -318,28 +318,6 @@ function do_upgrade() {
         .timeout(360000, 'do_upgrade: packages_upgrade timeout')
         .then(() => disable_supervisord())
         .then(() => {
-            if (argv.cluster_str === 'cluster') {
-                dbg.log0('do_upgrade: Cluster upgrade');
-                // # remove auth flag from mongo if present
-                return promise_utils.exec(`sed -i "s:mongod --auth:mongod:" /etc/noobaa_supervisor.conf`, {
-                        ignore_rc: false,
-                        return_stdout: true,
-                        trim_stdout: true
-                    })
-                    .then(() => fs.readFileAsync('/etc/noobaa_supervisor.conf'))
-                    .then(data => {
-                        dbg.log0(`do_upgrade: Data read from /etc/noobaa_supervisor.conf`, data);
-                        if (data.indexOf('bind_ip') < 0) {
-                            return promise_utils.exec(`sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf`, {
-                                ignore_rc: false,
-                                return_stdout: true,
-                                trim_stdout: true
-                            });
-                        }
-                    });
-            }
-        })
-        .then(() => {
             dbg.log0(`do_upgrade: Running pre upgrade`);
             return upgrade_wrapper.run_upgrade_wrapper({
                 stage: 'PRE_UPGRADE',
@@ -384,15 +362,15 @@ function do_upgrade() {
         })
         .then(function() {
             let should_work = true;
-            return fs_utils.file_must_exist('/backup/agent_storage/')
+            return fs_utils.file_must_exist('/backup/noobaa_storage/')
                 .catch(err => {
                     dbg.log0(err);
                     should_work = false;
                 })
                 .then(() => {
                     if (!should_work) return P.resolve();
-                    dbg.log0(`do_upgrade: Moving old agent_storage to ${CORE_DIR}`);
-                    return promise_utils.exec(`mv /backup/agent_storage/ ${CORE_DIR}`, {
+                    dbg.log0(`do_upgrade: Moving old noobaa_storage to ${CORE_DIR}`);
+                    return promise_utils.exec(`mv /backup/noobaa_storage/ ${CORE_DIR}`, {
                         ignore_rc: false,
                         return_stdout: true,
                         trim_stdout: true
@@ -525,17 +503,24 @@ function run_upgrade() {
 
 function mongo_upgrade_database_metadata(params) {
     dbg.log0(`mongo_upgrade_database_metadata: Called`, params);
-    // #!/bin/bash
-    const UPGRADE_SCRIPTS = [
-        'mongo_upgrade_15.js',
-        'mongo_upgrade_17.js',
-        'mongo_upgrade_18.js',
-        'mongo_upgrade_19.js',
-        'mongo_upgrade_1_10.js',
-        'mongo_upgrade_mark_completed.js'
-    ];
-
-    return P.resolve()
+    let UPGRADE_SCRIPTS = [];
+    return promise_utils.exec(`${MONGO_SHELL} --quiet --eval "db.clusters.find({owner_secret: '${params.secret}'}).toArray()[0].upgrade.mongo_upgrade" | tail -n 1`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        })
+        .then(should_mongo_upgrade => {
+            dbg.log0(`mongo_upgrade_database_metadata: secret is ${params.secret} - should_mongo_upgrade = ${should_mongo_upgrade}`);
+            if (should_mongo_upgrade === "true") {
+                UPGRADE_SCRIPTS = [
+                    'mongo_upgrade_mark_completed.js'
+                ];
+            } else {
+                UPGRADE_SCRIPTS = [
+                    'mongo_upgrade_wait_for_master.js'
+                ];
+            }
+        })
         .then(() => {
             if (argv.cluster_str === 'cluster') {
                 dbg.log0(`mongo_upgrade_database_metadata: Cluster upgrade`);

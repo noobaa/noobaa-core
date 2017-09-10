@@ -24,6 +24,7 @@ import cloudTargetsReducer from './cloud-targets-reducer';
 import bucketObjectsReducer from './bucket-objects-reducer';
 import storageHistoryReducer from './storage-history-reducer';
 import systemReducer from './system-reducer';
+import helpMetadataReducer from './help-metadata-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -48,5 +49,6 @@ export default combineReducers({
     cloudTargets: cloudTargetsReducer,
     bucketObjects: bucketObjectsReducer,
     storageHistory: storageHistoryReducer,
-    system: systemReducer
+    system: systemReducer,
+    helpMetadata: helpMetadataReducer
 });

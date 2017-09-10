@@ -10,7 +10,8 @@ import {
     openAuditDrawer,
     openAlertsDrawer,
     fetchUnreadAlertsCount,
-    refreshLocation
+    refreshLocation,
+    openSelectHelpTopicModal
 } from 'action-creators';
 
 class CommandBarViewModel extends Observer {
@@ -46,6 +47,10 @@ class CommandBarViewModel extends Observer {
 
     onAlerts() {
         action$.onNext(openAlertsDrawer());
+    }
+
+    onHelp() {
+        action$.onNext(openSelectHelpTopicModal());
     }
 }
 

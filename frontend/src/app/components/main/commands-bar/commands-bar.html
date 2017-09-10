@@ -4,17 +4,24 @@
     ko.click="onRefresh"
     ko.css="{ 'no-outline': isRefreshSpinning }"
     ko.tooltip="'Refresh'"
-">
+>
     <svg-icon class="hightlight"
         ko.css="{ 'fast-spin': isRefreshSpinning }"
         params="name: 'refresh'"
     ></svg-icon>
 </a>
 
+<button class="icon-btn preview-only"
+        ko.click="onHelp"
+        ko.tooltip="'Help'"
+>
+    <svg-icon class="hightlight" params="name: 'help'"></svg-icon>
+</button>
+
 <button class="icon-btn"
     ko.click="onAudit"
     ko.tooltip="'Audit'"
-">
+>
     <svg-icon class="hightlight" params="name: 'audit'"></svg-icon>
 </button>
 
@@ -23,7 +30,7 @@
     ko.tooltip="'Alerts'"
     ko.css.counter="unreadAlertsCount"
     ko.attr="{ 'data-count': unreadAlertsCount }"
-">
+>
     <svg-icon class="hightlight" params="name: 'alert'"></svg-icon>
 </button>
 

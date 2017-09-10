@@ -14,6 +14,7 @@ import topology from './topology';
 import system from './system';
 import notifications from './notifications';
 import alerts from './alerts';
+import interactiveHelp from './interactive-help';
 import state from './state.js';
 
 const schemas = {
@@ -31,6 +32,7 @@ const schemas = {
     system,
     notifications,
     alerts,
+    interactiveHelp,
     state
 };
 

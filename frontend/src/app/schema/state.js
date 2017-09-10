@@ -40,6 +40,9 @@ export default {
         },
         alerts: {
             $ref: '#/def/alerts'
+        },
+        interactiveHelp: {
+            $ref: '#/def/interactiveHelp'
         }
     }
 };

@@ -527,6 +527,19 @@ export function openCreateNamespaceResourceModal() {
     };
 }
 
+export function openSelectHelpTopicModal() {
+    return {
+        type: 'OPEN_MODAL',
+        payload: {
+            component: 'select-help-topic-modal',
+            options: {
+                size: 'medium',
+                title: 'Need Some Help?'
+            }
+        }
+    };
+}
+
 export function openCreateGatewayBucketModal() {
     return {
         type: OPEN_MODAL,
@@ -568,3 +581,4 @@ export function openEditSpilloverTargetsModal() {
         }
     };
 }
+

@@ -1,0 +1,83 @@
+{
+  "version": "1.12",
+  "categories": [
+    {
+      "label": "All Topics",
+      "order": 0
+    },
+    {
+      "label": "Nodes & Pools",
+      "order": 1
+    },
+    {
+      "label": "Buckets & Data",
+      "order": 2
+    },
+    {
+      "label": "S3 Access",
+      "order": 3
+    },
+    {
+      "label": "Configuration",
+      "order": 4
+    }
+  ],
+  "topics": [
+    {
+      "category": "Buckets & Data",
+      "kind": "ARTICLE",
+      "title": "NooBaa Hybrid Model: a, b, test",
+      "subtitle": "When to use Sync vs Cloud Storage",
+      "keywords": ["a", "b", "test"],
+      "uri": "https://noobaa.desk.com/"
+    },
+    {
+      "category": "Buckets & Data",
+      "kind": "ARTICLE",
+      "title": "NooBaa Hybrid Model: a, c, test",
+      "subtitle": "When to use Sync vs Cloud Storage",
+      "keywords": ["a", "c", "test"],
+      "uri": "https://noobaa.desk.com/"
+    },
+    {
+      "category": "Buckets & Data",
+      "kind": "ARTICLE",
+      "title": "NooBaa Hybrid Model: a, d",
+      "subtitle": "When to use Sync vs Cloud Storage",
+      "keywords": ["a", "d"],
+      "uri": "https://noobaa.desk.com/"
+    },
+    {
+      "category": "Buckets & Data",
+      "kind": "ARTICLE",
+      "title": "NooBaa Hybrid Model 2: a, d",
+      "subtitle": "When to use Sync vs Cloud Storage",
+      "keywords": ["a", "d"],
+      "uri": "https://noobaa.desk.com/"
+    },
+    {
+      "category": "Nodes & Pools",
+      "kind": "LINK",
+      "title": "How Can I Use Internal Storage: b, c, d, test",
+      "subtitle": "Learn about the system internal storage",
+      "keywords": ["b", "c", "d", "test"],
+      "uri": "https://noobaa.desk.com/"
+    },
+    {
+      "category": "Nodes & Pools",
+      "kind": "SLIDES",
+      "title": "Install Nodes: c, d",
+      "subtitle": "Learn how to install nodes and how to use their capacity",
+      "keywords": ["c", "d"],
+      "uri": "https://noobaa.desk.com/"
+    },
+    {
+      "category": "Nodes & Pools",
+      "kind": "VIDEO",
+      "title": "NooBaa setup teaser: d",
+      "subtitle": "Learn how to setup NooBaa",
+      "keywords": ["d"],
+      "uri": "https://www.youtube.com/watch?v=MM82dZI9kVo"
+    }
+  ]
+}

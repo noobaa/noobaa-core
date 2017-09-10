@@ -9,6 +9,7 @@ import buckets from './buckets';
 import gatewayBuckets from './gateway-buckets';
 import objectUploads from './object-uploads';
 import cloudTargets from './cloud-targets';
+import interactiveHelp from './interactive-help';
 import state from './state.js';
 
 const schemas = {
@@ -21,6 +22,7 @@ const schemas = {
     objectUploads,
     gatewayBuckets,
     cloudTargets,
+    interactiveHelp,
     state
 };
 

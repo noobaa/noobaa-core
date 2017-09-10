@@ -25,6 +25,9 @@ export default {
         },
         cloudTargets: {
             $ref: '#/def/cloudTargets'
+        },
+        interactiveHelp: {
+            $ref: '#/def/interactiveHelp'
         }
     },
 };

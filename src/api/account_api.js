@@ -318,15 +318,34 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'string',
-                enum: [
-                    'SUCCESS',
-                    'TIMEOUT',
-                    'INVALID_ENDPOINT',
-                    'INVALID_CREDENTIALS',
-                    'NOT_SUPPORTED',
-                    'UNKNOWN_FAILURE'
-                ]
+                type: 'object',
+                required: ['status'],
+                properties: {
+                    status: {
+                        type: 'string',
+                        enum: [
+                            'SUCCESS',
+                            'TIMEOUT',
+                            'INVALID_ENDPOINT',
+                            'INVALID_CREDENTIALS',
+                            'NOT_SUPPORTED',
+                            'TIME_SKEW',
+                            'UNKNOWN_FAILURE'
+                        ]
+                    },
+                    error: {
+                        type: 'object',
+                        required: ['code', 'message'],
+                        properties: {
+                            code: {
+                                type: 'string'
+                            },
+                            message: {
+                                type: 'string'
+                            },
+                        }
+                    }
+                }
             },
             auth: {
                 system: 'admin'

@@ -128,7 +128,7 @@ class addCloudConnectionModalViewModel extends Observer {
     }
 
     async onValidateAsync({ service, endpoint, identity, secret }) {
-        const result = await api.account.check_external_connection({
+        const { status } = await api.account.check_external_connection({
             endpoint_type: service,
             endpoint: endpoint,
             identity: identity,
@@ -137,19 +137,21 @@ class addCloudConnectionModalViewModel extends Observer {
 
         const errors = {};
 
-        if (result === 'TIMEOUT') {
+        if (status === 'TIMEOUT') {
             errors.endpoint = 'Endpoint communication timed out';
 
-        } else if (result === 'INVALID_ENDPOINT') {
+        } else if (status === 'INVALID_ENDPOINT') {
             errors.endpoint = 'Please enter a valid endpoint';
 
-        } else if (result === 'INVALID_CREDENTIALS') {
+        } else if (status === 'INVALID_CREDENTIALS') {
             errors.secret = errors.identity = 'Credentials does not match';
 
-        } else if (result === 'NOT_SUPPORTED') {
+        } else if (status === 'NOT_SUPPORTED') {
             errors.identity = 'Account type is not supported';
+        } else if (status === 'TIME_SKEW') {
+            errors.endpoint = 'Time difference with the server is too large';
         }
-        else if (result === 'UNKNOWN_FAILURE') {
+        else if (status === 'UNKNOWN_FAILURE') {
             errors.endpoint = 'Something went wrong';
         }
 

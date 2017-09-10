@@ -1332,7 +1332,7 @@ function read_server_config(req) {
             }
 
             const { dns_servers, search_domains, ntp = {} } = srvconf;
-            const { timezone, ntp_server } = ntp;
+            const { timezone, server } = ntp;
             const used_proxy = ph_proxy;
 
             return {
@@ -1341,7 +1341,7 @@ function read_server_config(req) {
                 dns_servers,
                 search_domains,
                 timezone,
-                ntp_server,
+                ntp_server: server,
                 used_proxy
             };
         });

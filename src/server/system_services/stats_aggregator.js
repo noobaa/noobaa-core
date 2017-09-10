@@ -61,7 +61,7 @@ const SINGLE_SYS_DEFAULTS = {
     },
     configuration: {
         dns_servers: 0,
-        dns_search: false,
+        dns_search: 0,
         ntp_server: false,
         proxy: false,
         remote_syslog: false
@@ -702,10 +702,14 @@ function _handle_payload(payload) {
 
 function background_worker() {
     let statistics;
+
+    if (!system_store.is_finished_initial_load) return P.resolve();
+    let system = system_store.data.systems[0];
+    if (!system) return P.resolve();
+
     dbg.log('Central Statistics gathering started');
     //Run the system statistics gatheting
     return P.fcall(() => {
-            let system = system_store.data.systems[0];
             let support_account = _.find(system_store.data.accounts, account => account.is_support);
             return server_rpc.client.stats.get_all_stats({}, {
                 auth_token: auth_server.make_auth_token({

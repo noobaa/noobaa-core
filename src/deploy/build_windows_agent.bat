@@ -1,24 +1,28 @@
-rem @echo off
 cls
+
 REM  default - clean build
 set CLEAN=true
 set GIT_COMMIT=DEVONLY
+set /p NODEJS_VERSION=<.\.nvmrc
 
 REM Read input parameters in the form of "CLEAN:false"
-
 FOR %%A IN (%*) DO (
    FOR /f "tokens=1,2 delims=:" %%G IN ("%%A") DO set %%G=%%H
 )
 
+echo "CLEAN = %CLEAN%"
+echo "GIT_COMMIT = %GIT_COMMIT%"
+echo "NODEJS_VERSION = %NODEJS_VERSION%"
 
-echo "CLEAN BUILD ==>"%CLEAN%
 IF %CLEAN%==false GOTO SKIP_BUILD
 call npm cache clean
+
 echo "delete old files"
 rd /s/q build\windows
 mkdir build\windows
 cd build\windows
 mkdir .\ssl\
+
 echo "copy files"
 copy ..\..\frontend\src\assets\noobaa_icon24.ico .
 copy ..\..\src\deploy\7za.exe .
@@ -26,6 +30,7 @@ copy ..\..\src\deploy\openssl.cnf  .\ssl\
 copy ..\..\src\deploy\wget.exe  .
 copy ..\..\src\deploy\NooBaa_Agent_wd.exe .
 copy ..\..\package.json .
+copy ..\..\binding.gyp .
 copy ..\..\config.js .
 mkdir .\src\
 xcopy /Y/I/E ..\..\src\agent .\src\agent
@@ -53,14 +58,10 @@ echo %current_package_version%
 del version.txt
 sed -i 's/%current_version_line%/\"version\": \"%current_package_version%-%GIT_COMMIT%\",/' package.json
 
-
-REM
 REM remove irrelevant packages
-type package.json  | findstr /v npm-run-all | findstr /v forever-service | findstr /v istanbul | findstr /v mongoose | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v eslint | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v eslint| findstr /v nodetime| findstr /v newrelic| findstr /v vsphere > package.json_s
-
+type package.json | findstr /v mocha | findstr /v istanbul | findstr /v gulp | findstr /v eslint | findstr /v vsphere > package.json_s
 del /Q package.json
 rename package.json_s package.json
-copy ..\..\binding.gyp .
 
 REM need to have a frontend dir with empty package.json for npm install to work
 mkdir frontend
@@ -68,29 +69,42 @@ cd frontend
 call npm init --force
 cd ..
 
-nvm install 6.11.2 32
-nvm use 6.11.2 32
-call nvm list
+echo "Cleaning previous build"
+rd /q/s .\build\Release
+rd /q/s %USERPROFILE%\.node-gyp
 
-rem fail build if failed to install and build
+echo "Build 32 bit"
+nvm install "%NODEJS_VERSION%" 32 || exit 1
+nvm use "%NODEJS_VERSION%" 32 || exit 1
+sleep 5
+nvm list
+nvm arch
+node -p process.arch
 call npm install --production || exit 1
-if not exist ".\build\Release" exit 1
 
+echo "Copy 32 bit build results"
+if not exist ".\build\Release" exit 1
 xcopy /Y/I/E .\build\Release .\build\Release-32
 
-del /q/s .\build\Release
-nvm install 6.11.2 64
-nvm use 6.11.2 64
+echo "Cleaning previous build"
+rd /q/s .\build\Release
+rd /q/s %USERPROFILE%\.node-gyp
+
+echo "Build 64 bit"
+nvm install "%NODEJS_VERSION%" 64 || exit 1
+nvm use "%NODEJS_VERSION%" 64 || exit 1
+sleep 5
 nvm list
+nvm arch
+node -p process.arch
+call npm install --production || exit 1
 
-call .\node_modules\.bin\node-gyp --arch=x64 configure
-call .\node_modules\.bin\node-gyp --arch=x64 build
-rd /q/s .\node_modules\node-gyp
-
+echo "Copy 64 bit build results"
+if not exist ".\build\Release" exit 1
 xcopy /Y/I/E .\build\Release .\build\Release-64
 
-call curl -L https://nodejs.org/dist/v6.11.2/win-x86/node.exe > node-32.exe
-call curl -L https://nodejs.org/dist/v6.11.2/win-x64/node.exe > node-64.exe
+call curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x86/node.exe > node-32.exe
+call curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x64/node.exe > node-64.exe
 call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-i386-win32.zip > openssl_32.zip
 call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-x64_86-win64.zip > openssl_64.zip
 
@@ -137,14 +151,15 @@ echo "building installer"
 
 makensis -NOCD ..\..\src\deploy\atom_agent_win.nsi || exit 1
 
-rename noobaa-setup.exe noobaa-setup-%current_package_version%-%GIT_COMMIT%.exe
+set FINAL_SETUP_FILE_NAME=noobaa-setup-%current_package_version%-%GIT_COMMIT%.exe
+rename noobaa-setup.exe %FINAL_SETUP_FILE_NAME%
 
-IF EXIST "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\signtool" (
-"c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\signtool"  sign /t http://timestamp.digicert.com /a noobaa-setup.exe
+if exist "c:\sign\signtool.exe" (
+    echo "Signing installer"
+    c:\sign\signtool.exe sign /v /sm /t http://timestamp.digicert.com /a %FINAL_SETUP_FILE_NAME%
 )
 
-
-echo "noobaa-setup.exe installer available under build\windows"
+echo "%FINAL_SETUP_FILE_NAME% installer available under build\windows"
 
 cd ..\..
 

@@ -12,7 +12,7 @@
     "preinstall": "npm install nan",
     "postinstall": "npm run build",
     "---": "------------------------------------------------------------------",
-    "build:native": "node-gyp configure && node-gyp build",
+    "build:native": "node-gyp rebuild",
     "build:fe": "cd frontend && npm install",
     "build": "npm run build:native && npm run build:fe",
     "----": "-----------------------------------------------------------------",

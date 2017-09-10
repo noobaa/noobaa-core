@@ -424,7 +424,6 @@ function set_manual_time(time_epoch, timez) {
     if (os.type() === 'Linux') {
         return _set_time_zone(timez)
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd off 2345'))
-            // .then(() => promise_utils.exec('/etc/init.d/ntpd stop'))
             .then(() => promise_utils.exec('systemctl stop ntpd.service'))
             .then(() => promise_utils.exec('date +%s -s @' + time_epoch))
             .then(() => restart_rsyslogd());
@@ -472,7 +471,6 @@ function set_ntp(server, timez) {
             .then(() => promise_utils.exec(command))
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
             .then(() => promise_utils.exec('systemctl restart ntpd.service'))
-            // .then(() => promise_utils.exec('/etc/init.d/ntpd restart'))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return P.resolve();

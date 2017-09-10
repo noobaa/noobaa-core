@@ -32,8 +32,6 @@ const DETECT_NEW_DRIVES_INTERVAL = 60 * 1000;
 
 const S3_AGENT_NAME_PREFIX = 's3-agent-';
 
-let first_create_flag = true;
-
 /**
  *
  * AgentCLI
@@ -50,8 +48,8 @@ function AgentCLI(params) {
     this.client = rpc.new_client();
     this.s3 = new S3Auth();
     this.agents = {};
-    this.params.hostname = this.params.test_host || os.hostname();
-    const agent_conf_name = this.params.test_host ? 'agent_conf_' + this.params.test_host + '.json' : 'agent_conf.json';
+    this.params.hostname = this.params.test_hostname || os.hostname();
+    const agent_conf_name = this.params.test_hostname ? 'agent_conf_' + this.params.test_hostname + '.json' : 'agent_conf.json';
     this.agent_conf = new json_utils.JsonFileWrapper(agent_conf_name);
 }
 
@@ -65,35 +63,12 @@ function AgentCLI(params) {
 AgentCLI.prototype.init = function() {
     var self = this;
 
-    if (self.params.cloud_endpoint) {
-        self.cloud_info = {
-            endpoint: self.params.cloud_endpoint,
-            endpoint_type: self.params.endpoint_type,
-            target_bucket: self.params.cloud_bucket,
-            access_keys: {
-                access_key: self.params.cloud_access_key,
-                secret_key: self.params.cloud_secret_key
-            },
-            pool_name: self.params.node_name
-        };
-    }
-
-    if (self.params.mongo_info) {
-        self.mongo_info = {
-            mongo_path: self.params.mongo_path,
-            pool_name: self.params.node_name
-        };
-    }
-
     if (self.params.access_key) {
         self.params.access_key = self.params.access_key.toString();
     }
     if (self.params.secret_key) {
         self.params.secret_key = self.params.secret_key.toString();
     }
-
-    // for now node name is passed only for internal agents.
-    self.params.internal_agent = Boolean(self.params.node_name);
 
     return self.agent_conf.read()
         .then(function(agent_conf) {
@@ -125,8 +100,8 @@ AgentCLI.prototype.init = function() {
         .then(() => os_utils.get_disk_mount_points())
         .tap(mount_points => self.rename_agent_storage(mount_points))
         .then(function(mount_points) {
-            if (self.params.test_host) {
-                self.params.root_path = './noobaa_storage_' + self.params.test_host;
+            if (self.params.test_hostname) {
+                self.params.root_path = './noobaa_storage_' + self.params.test_hostname;
                 mount_points[0].mount = self.params.root_path;
             } else {
                 self.params.root_path = mount_points[0].mount;
@@ -242,39 +217,6 @@ AgentCLI.prototype.load = function(added_storage_paths) {
     let paths_to_work_on = added_storage_paths || self.params.all_storage_paths;
 
     let internal_agent_prefix = 'noobaa-internal-agent-';
-    // if this is an internal agent check if its path already exists, and restart it.
-    // otherwise create one.
-    if (self.params.internal_agent) {
-        let node_name = internal_agent_prefix + self.params.node_name;
-        let internal_nodes_names = [];
-        if (self.params.scale) {
-            for (var i = 0; i < self.params.scale; i++) {
-                internal_nodes_names.push(node_name + '-' + (i + 1).toString());
-            }
-        } else {
-            internal_nodes_names.push(node_name);
-        }
-        dbg.log0('loading agents with cloud_info: ', self.cloud_info);
-        dbg.log0('loading agents with mongo_info: ', self.mongo_info);
-        let storage_path = paths_to_work_on[0].mount;
-        return P.resolve()
-            .then(() => fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
-            .then(() => fs.readdirAsync(storage_path))
-            .then(nodes_names => P.all(internal_nodes_names.map(name => {
-                if (nodes_names.indexOf(name) >= 0) {
-                    // cloud or mongo node already exist. start it
-                    let node_path = path.join(storage_path, name);
-                    dbg.log0('loading existing internal agent. node_path=', node_path);
-                    return self.start(name, node_path);
-                } else {
-                    dbg.log0('starting new internal agent. name = ', name);
-                    return self.create_node_helper(paths_to_work_on[0], {
-                        use_host_id: true,
-                        internal_node_name: name
-                    });
-                }
-            })));
-    }
 
     // TODO: This has to work on partitial relevant paths only
     // handle regular agents
@@ -313,7 +255,6 @@ AgentCLI.prototype.load = function(added_storage_paths) {
                 // create path for s3 agent. it will be used if agent_conf contains s3 role
                 dbg.log0(`creating s3 storage_path in ${self.params.all_storage_paths[0]}`);
                 return self.create_node_helper(self.params.all_storage_paths[0], {
-                        use_host_id: true,
                         is_s3_agent: true
                     })
                     // return storage nodes that will be created according to scale
@@ -325,7 +266,7 @@ AgentCLI.prototype.load = function(added_storage_paths) {
             return storage_path_nodes;
         })
         .then(storage_path_nodes => {
-            var nodes_scale = parseInt(self.params.scale, 10) || 0;
+            var nodes_scale = 0;
             var number_of_new_paths = 0;
             var existing_nodes_count = 0;
             _.each(storage_path_nodes, function(nodes) {
@@ -345,9 +286,6 @@ AgentCLI.prototype.load = function(added_storage_paths) {
             dbg.log0('AGENTS SCALE TO', nodes_scale);
             dbg.log0('AGENTS EXISTING', existing_nodes_count);
             dbg.log0('AGENTS NEW PATHS', number_of_new_paths);
-            if (existing_nodes_count > 0) {
-                first_create_flag = false;
-            }
             if (number_of_new_paths > 0 &&
                 paths_to_work_on.length > number_of_new_paths) {
                 dbg.log0('Introducing new HD, while other exist. Adding only one node for these new drives');
@@ -358,7 +296,7 @@ AgentCLI.prototype.load = function(added_storage_paths) {
             if (nodes_to_add < 0) {
                 dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
             } else {
-                return self.create_some(nodes_to_add, /*use_host_id=*/ true, paths_to_work_on);
+                return self.create_some(nodes_to_add, paths_to_work_on);
             }
         })
         .catch(err => {
@@ -415,14 +353,14 @@ AgentCLI.prototype.load.helper = function() {
 AgentCLI.prototype.create_node_helper = function(current_node_path_info, options) {
     var self = this;
 
-    let { use_host_id, internal_node_name, is_s3_agent } = options;
+    let { is_s3_agent } = (options || {});
 
     return P.fcall(function() {
         dbg.log0('create_node_helper called with self.params', self.params);
         var current_node_path = current_node_path_info.mount;
         const name_prefix = is_s3_agent ? S3_AGENT_NAME_PREFIX : '';
-        var node_name = internal_node_name || name_prefix + self.params.hostname;
-        const noobaa_storage_dir_name = self.params.test_host ? 'noobaa_storage_' + self.params.test_host : 'noobaa_storage';
+        var node_name = name_prefix + self.params.hostname;
+        const noobaa_storage_dir_name = self.params.test_hostname ? 'noobaa_storage_' + self.params.test_hostname : 'noobaa_storage';
         var path_modification = current_node_path.replace('/' + noobaa_storage_dir_name + '/', '').replace(/\//g, '')
             .replace('.', '');
         //windows
@@ -434,20 +372,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, options
         } else if (!_.isEmpty(path_modification)) {
             node_name = node_name + '-' + path_modification.replace('/', '');
         }
-
-        if (!internal_node_name) {
-            if (self.params.scale || !use_host_id) {
-                if (self.params.scale && first_create_flag && !is_s3_agent) {
-                    node_name += '-0';
-                    first_create_flag = false;
-                } else {
-                    // when running with scale use new uuid for each node
-                    node_name = node_name + '-' + uuid().split('-')[0];
-                }
-            } else {
-                node_name += '-' + self.params.host_id.split('-')[0];
-            }
-        }
+        node_name += '-' + self.params.host_id.split('-')[0];
 
         var node_path = path.join(current_node_path, node_name);
         var token_path = path.join(node_path, 'token');
@@ -479,14 +404,12 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, options
                 if (res) {
                     dbg.log0('result create:', res, 'node path:', node_path);
                     self.params.create_node_token = res.token;
-                    if (!self.params.internal_agent) {
-                        // replace access_key\secret_key with create_node_token in agnet_conf
-                        return self.agent_conf.update({
-                            access_key: undefined,
-                            secret_key: undefined,
-                            create_node_token: self.params.create_node_token
-                        });
-                    }
+                    // replace access_key\secret_key with create_node_token in agnet_conf
+                    return self.agent_conf.update({
+                        access_key: undefined,
+                        secret_key: undefined,
+                        create_node_token: self.params.create_node_token
+                    });
                 } else {
                     dbg.log0('has token', self.params.create_node_token);
                 }
@@ -518,23 +441,21 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, options
  * create new node agent
  *
  */
-AgentCLI.prototype.create = function(number_of_nodes, use_host_id, paths_to_work_on) {
+AgentCLI.prototype.create = function(number_of_nodes, paths_to_work_on) {
     var self = this;
     let storage_paths_to_add = paths_to_work_on || self.params.all_storage_paths;
     //create root path last. First, create all other.
     // for internal_agents only use root path
     return P.all(_.map(_.drop(storage_paths_to_add, 1), function(current_storage_path) {
-            if (!self.params.internal_agent) {
-                return fs.readdirAsync(current_storage_path.mount)
-                    .then(function(files) {
-                        if (files.length > 0 && number_of_nodes === 0) {
-                            //if new HD introduced,  skip existing HD.
-                            return;
-                        } else {
-                            return self.create_node_helper(current_storage_path, { use_host_id });
-                        }
-                    });
-            }
+            return fs.readdirAsync(current_storage_path.mount)
+                .then(function(files) {
+                    if (files.length > 0 && number_of_nodes === 0) {
+                        //if new HD introduced,  skip existing HD.
+                        return;
+                    } else {
+                        return self.create_node_helper(current_storage_path);
+                    }
+                });
         }))
         .then(function() {
             //create root folder
@@ -545,13 +466,13 @@ AgentCLI.prototype.create = function(number_of_nodes, use_host_id, paths_to_work
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(storage_paths_to_add[0], { use_host_id });
+                            return self.create_node_helper(storage_paths_to_add[0]);
                         }
                     });
             } else if (number_of_nodes === 0) {
                 return;
             } else {
-                return self.create_node_helper(storage_paths_to_add[0], { use_host_id });
+                return self.create_node_helper(storage_paths_to_add[0]);
             }
         })
         .then(null, function(err) {
@@ -570,16 +491,16 @@ AgentCLI.prototype.create.helper = function() {
  * create new node agent
  *
  */
-AgentCLI.prototype.create_some = function(n, use_host_id, paths_to_work_on) {
+AgentCLI.prototype.create_some = function(n, paths_to_work_on) {
     var self = this;
     //special case, new HD introduction to the system. adding only these new HD nodes
     if (n === 0) {
-        return self.create(0, use_host_id, paths_to_work_on);
+        return self.create(0, paths_to_work_on);
     } else {
         var sem = new Semaphore(5);
         return P.all(_.times(n, function() {
             return sem.surround(function() {
-                return self.create(n, use_host_id, paths_to_work_on);
+                return self.create(n, paths_to_work_on);
             });
         }));
     }
@@ -598,9 +519,7 @@ AgentCLI.prototype.create_some.helper = function() {
  */
 AgentCLI.prototype.start = function(node_name, node_path) {
     var self = this;
-    dbg.log0('agent started ', node_path, node_name,
-        self.cloud_info ? 'cloud_info: ' + self.cloud_info : '',
-        self.mongo_info ? 'mongo_info: ' + self.mongo_info : '');
+    dbg.log0('agent started ', node_path, node_name);
 
     var agent = self.agents[node_name];
     if (!agent) {
@@ -618,20 +537,13 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             })
         };
 
-        let host_id = self.params.host_id;
-        if (self.params.scale && !self._is_s3_agent(node_name) && !node_name.endsWith('-0')) {
-            host_id = self.params.host_id + '-' + node_name;
-        }
-
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             servers: self.params.servers,
             node_name: node_name,
-            test_host: self.params.test_host,
-            host_id: host_id,
+            test_hostname: self.params.test_hostname,
+            host_id: self.params.host_id,
             storage_path: node_path,
-            cloud_info: self.cloud_info,
-            mongo_info: self.mongo_info,
             permission_tempering: self.permission_tempering,
             storage_limit: self.params.storage_limit,
             is_demo_agent: self.params.demo,
@@ -765,7 +677,9 @@ function main() {
         dbg.set_process_name('Agent');
     }
 
+
     var cli = new AgentCLI(argv);
+
     cli.init().then(function() {
         if (!argv.repl) return;
         // start a Read-Eval-Print-Loop
@@ -793,6 +707,15 @@ function main() {
     }, function(err) {
         dbg.error('init err:' + err);
     });
+
+    if (argv.scale) {
+        P.map(_.range(1, argv.scale), i => {
+            let params = _.clone(argv);
+            params.test_hostname = `${os.hostname()}-${i}`;
+            let test_agent_cli = new AgentCLI(params);
+            return test_agent_cli.init();
+        });
+    }
 }
 
 if (require.main === module) {

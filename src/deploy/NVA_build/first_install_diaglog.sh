@@ -25,26 +25,13 @@ function prepare_ifcfg() {
   sudo ifconfig ${interface} up
 }
 
-#function fix_network() {
-#  local test=$(grep eth /etc/udev/rules.d/70-persistent-net.rules|wc -l)
-#  local curmac=$(ifconfig -a | grep eth | awk '{print $5}')
-#  if [ "${test}" == "2" ]; then
-#    sudo sed -i 's:.*NAME="eth0".*::' /etc/udev/rules.d/70-persistent-net.rules
-#    sudo sed -i 's:\(.*\)NAME="eth1"\(.*\):\1NAME="eth0"\2:' /etc/udev/rules.d/70-persistent-net.rules
-#    sudo sed -i "s/HWADDR=.*/HWADDR=$curmac/" /etc/sysconfig/network-scripts/ifcfg-eth0
-#    sudo /sbin/udevadm control --reload-rules
-#    sudo /sbin/udevadm trigger --attr-match=subsystem=net
-#    sudo service network restart
-#  fi
-# }
-
 function validate_mask() {
   grep -E -q '^(254|252|248|240|224|192|128)\.0\.0\.0|255\.(254|252|248|240|224|192|128|0)\.0\.0|255\.255\.(254|252|248|240|224|192|128|0)\.0|255\.255\.255\.(254|252|248|240|224|192|128|0)' <<< "$1" && return 0 || return 1
 }
 
 function configure_interface_ip() {
     local interface=$1
-    local current_ip=$(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}')
+    local current_ip=$(ifconfig ${interface} | grep -w 'inet' | awk '{print $2}')
 
     dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Current IP for \Z4\Zb${interface}\Z : \Z4\Zb${current_ip}\Zn .\nChoose IP Assignment (Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 3 1 "Static IP" 2 "Dynamic IP" 3 "Exit" 2> choice
 
@@ -248,7 +235,7 @@ function configure_ntp_dialog {
     echo "${ntp_server}" > /tmp/ntp
 
     sudo sed -i "s/.*NooBaa Configured NTP Server//" /etc/ntp.conf
-    sudo bash -c "echo 'server ${ntp_server} iburst # NooBaa Configured NTP Server' >> /etc/ntp.conf"
+    sudo bash -c "echo 'server ${ntp_server} iburst #NooBaa Configured NTP Server' >> /etc/ntp.conf"
     sudo /sbin/chkconfig ntpd on 2345
     sudo systemctl restart ntpd.service > /dev/null 2>&1
     sudo /etc/init.d/rsyslog restart > /dev/null 2>&1
@@ -335,10 +322,10 @@ function update_ips_etc_issue {
 
 function update_noobaa_net {
   sudo bash -c "> ${NOOBAANET}"
-  eths=$(ifconfig -a | grep ^en | awk '{print $1}')
-  eths=${eths//:/}
-  for eth in ${eths}; do
-      sudo bash -c "echo ${eth} >> ${NOOBAANET}"
+  interfaces=$(ifconfig -a | grep ^en | awk '{print $1}')
+  interfaces=${interfaces//:/}
+  for int in ${interfaces}; do
+      sudo bash -c "echo ${int} >> ${NOOBAANET}"
   done
 }
 

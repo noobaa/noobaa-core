@@ -455,7 +455,7 @@ function post_upgrade {
 
 	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
 	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
-		echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
+		echo "#NooBaa Configured NTP Server"	 >> /etc/ntp.conf
 	fi
 
   local noobaa_proxy=$(grep 'NooBaa Configured Proxy Server' /etc/yum.conf | wc -l)

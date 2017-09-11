@@ -3,10 +3,9 @@ set -e
 isAzure=false
 isesx=false
 function clean_ifcfg() {
-    eths=$(ifconfig | grep ^en | awk '{print $1}')
-    for eth in ${eths//:/}; do
-        sudo rm /etc/sysconfig/network-scripts/ifcfg-${eth}
-        sudo sed -i "s:.*${eth}.*::" /etc/udev/rules.d/70-persistent-net.rules
+    interfaces=$(ifconfig | grep ^en | awk '{print $1}')
+    for int in ${interfaces//:/}; do
+        sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done
 }
 
@@ -68,7 +67,7 @@ date -s "21 Aug 2017 00:00:00"
 sed -i "s:.*#NooBaa Configured Primary DNS Server.*:#NooBaa Configured Primary DNS Server:" /etc/resolv.conf
 sed -i "s:.*#NooBaa Configured Secondary DNS Server.*:#NooBaa Configured Secondary DNS Server:" /etc/resolv.conf
 sed -i "s:.*#NooBaa Configured Search.*:#NooBaa Configured Search:" /etc/resolv.conf
-sed -i "s:.*# NooBaa Configured NTP Server.*:# NooBaa Configured NTP Server:" /etc/ntp.conf
+sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc/ntp.conf
 
 
 #Clean supervisors

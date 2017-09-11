@@ -19,6 +19,13 @@ function deploy_log {
     logger -t UPGRADE -p local0.warn "$*"
 }
 
+function clean_ifcfg() {
+    interfaces=$(ifconfig | grep ^en | awk '{print $1}')
+    for int in ${interfaces//:/}; do
+        sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
+    done
+}
+
 function install_platform {
     deploy_log install_platform start
 
@@ -49,7 +56,12 @@ function install_platform {
         screen \
         strace \
         vim \
+        net-tools \
         iptables-services
+
+    # make iptables run on boot instead of firewalld
+    systemctl disable firewalld
+    systemctl enable iptables
 
 	# make crontab start on boot
 	chkconfig crond on
@@ -66,7 +78,7 @@ function install_platform {
     cd ~
 
     # By Default, NTP is disabled, set local TZ to US Pacific
-    echo "# NooBaa Configured NTP Server"     >> /etc/ntp.conf
+    echo "#NooBaa Configured NTP Server"     >> /etc/ntp.conf
     echo "#NooBaa Configured Proxy Server"     >> /etc/yum.conf
     echo "#NooBaa Configured Primary DNS Server" >> /etc/resolv.conf
     echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
@@ -119,16 +131,14 @@ function setup_linux_users {
         fi
     fi
 
-	#local current_ip=$(ifconfig eth0 | grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
-
     #Fix login message
     echo -e "\x1b[0;35;40m" > /etc/issue
-    echo  '  _    _            ______              ' >> /etc/issue
-    echo  ' | \\ | |           | ___ \             ' >> /etc/issue
+    echo  '  _   _            ______              ' >> /etc/issue
+    echo  ' | \\ | |           | ___ \\             ' >> /etc/issue
     echo  ' |  \\| | ___   ___ | |_/ / __ _  __ _  ' >> /etc/issue
-    echo  ' | . `  |/ _ \ / _ \| ___ \/ _` |/ _` | ' >> /etc/issue
+    echo  ' | . ` |/ _ \\ / _ \\| ___ \\/ _` |/ _` | ' >> /etc/issue
     echo  ' | |\\  | (_) | (_) | |_/ / (_| | (_| | ' >> /etc/issue
-    echo  ' \_| \\_/\___/ \___/\____/ \__,_|\__,_| ' >> /etc/issue
+    echo  ' \\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_| ' >> /etc/issue
     echo -e "\x1b[0m" >> /etc/issue
 
     echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
@@ -209,6 +219,10 @@ function install_mongo {
 
 function general_settings {
 	deploy_log "general_settings start"
+
+    #Open n2n ports
+    iptables -I INPUT 1 -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
+    
     iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
     iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
     iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT
@@ -220,11 +234,8 @@ function general_settings {
     #CVE-1999-0524
     iptables -A INPUT -p ICMP --icmp-type timestamp-request -j DROP
     iptables -A INPUT -p ICMP --icmp-type timestamp-reply -j DROP
-
-    #Open n2n ports
-    #yum install iptables-services
-    iptables -A INPUT -i eth0 -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
     service iptables save
+
 
     echo "export LC_ALL=C" >> ~/.bashrc
     echo "export TERM=xterm" >> ~/.bashrc

@@ -990,6 +990,7 @@ function set_certificate(zip_file) {
             let key_count = 0;
             let cert_count = 0;
             _.forEach(files, file => {
+                if (file.path.startsWith('__MACOSX')) return;
                 if (file.path.endsWith('.key')) {
                     key = file.data.toString();
                     key_count += 1;

@@ -143,24 +143,26 @@ function get_distro() {
 
 // calculate cpu)
 function calc_cpu_usage(current_cpus, previous_cpus) {
-    if (previous_cpus) {
-        for (let i = 0; i < current_cpus.length; ++i) {
-            if (previous_cpus[i]) {
-                _.keys(previous_cpus[i].times).forEach(key => {
-                    current_cpus[i].times[key] -= previous_cpus[i].times[key];
-                });
-            }
-        }
-    }
+    previous_cpus = previous_cpus || [{ times: { user: 0, nice: 0, sys: 0, idle: 0, irq: 0, } }];
+    let previous_cpus_reduced = previous_cpus.map(cpu => cpu.times).reduce((prev, curr) => ({
+        user: prev.user + curr.user,
+        nice: prev.nice + curr.nice,
+        sys: prev.sys + curr.sys,
+        idle: prev.idle + curr.idle,
+        irq: prev.irq + curr.irq
+    }));
+    // sum current cpus, and substract the sum of previous cpus (take negative of prev_sum as inital val)
+    let current_cpus_reduced = current_cpus.map(cpu => cpu.times).reduce((prev, curr) => ({
+            user: prev.user + curr.user,
+            nice: prev.nice + curr.nice,
+            sys: prev.sys + curr.sys,
+            idle: prev.idle + curr.idle,
+            irq: prev.irq + curr.irq
+        }),
+        _.mapValues(previous_cpus_reduced, val => (-1) * val));
+    let total = _.reduce(current_cpus_reduced, (a, b) => a + b);
+    let usage = 1 - (current_cpus_reduced.idle / total); // return the time not in idle
 
-    let usage = 0;
-    for (let i = 0; i < current_cpus.length; ++i) {
-        let total = 0;
-        _.keys(current_cpus[i].times).forEach(key => {
-            total += current_cpus[i].times[key];
-        });
-        usage += (total - current_cpus[i].times.idle) / total;
-    }
     return usage;
 }
 

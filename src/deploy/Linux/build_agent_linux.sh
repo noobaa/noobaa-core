@@ -74,31 +74,17 @@ if [ "$CLEAN" = true ] ; then
     #TODO: create new package for that matter
     cd package
     sed -i '/gulp/d' package.json
-    sed -i '/babel/d' package.json
-    sed -i '/eslint/d' package.json
-    sed -i '/mongoose/d' package.json
-    sed -i '/googleapis/d' package.json
-    sed -i '/bower/d' package.json
-    sed -i '/bootstrap/d' package.json
-    sed -i '/browserify"/d' package.json
-    sed -i '/rebuild/d' package.json
-    sed -i '/nodetime/d' package.json
-    sed -i '/newrelic/d' package.json
+    sed -i '/mocha/d' package.json
     sed -i '/istanbul/d' package.json
-    sed -i '/npm-run-all/d' package.json
-    sed -i '/selectize/d' package.json
-    sed -i '/jsonwebtoken/d' package.json
-    sed -i '/googleapis/d' package.json
+    sed -i '/eslint/d' package.json
     sed -i '/vsphere/d' package.json
-    echo "npm install node-gyp"
-    npm install -g node-gyp
-    npm install nan
+
     echo "npm install node-linux@0.1.8"
     npm install node-linux@0.1.8
-    echo "rebuild"
-    node-gyp rebuild
     echo "npm install"
     npm install --production
+
+    echo "make self extracting package"
     cd ..
     wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh
     wget https://raw.githubusercontent.com/megastep/makeself/master/makeself.sh

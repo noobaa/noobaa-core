@@ -65,33 +65,20 @@ else
         cp -R ../../src/api ./package/src/
         cp -R ../../src/native ./package/src/
         cp -R ../../binding.gyp ./package/
-        cd ./package
-        npm install -g node-gyp
-        npm install nan
 
-        node-gyp rebuild
         #remove irrelevant packages
         #TODO: create new package for that matter
-        echo "npm install"
+        cd package
         sed -i '/gulp/d' package.json
-        sed -i '/babel/d' package.json
-        sed -i '/eslint/d' package.json
-        sed -i '/mongoose/d' package.json
-        sed -i '/googleapis/d' package.json
-        sed -i '/bower/d' package.json
-        sed -i '/bootstrap/d' package.json
-        sed -i '/browserify"/d' package.json
-        sed -i '/rebuild/d' package.json
-        sed -i '/nodetime/d' package.json
-        sed -i '/newrelic/d' package.json
+        sed -i '/mocha/d' package.json
         sed -i '/istanbul/d' package.json
-        sed -i '/npm-run-all/d' package.json
-        sed -i '/selectize/d' package.json
-        sed -i '/jsonwebtoken/d' package.json
-        sed -i '/googleapis/d' package.json
+        sed -i '/eslint/d' package.json
         sed -i '/vsphere/d' package.json
-        npm install -dd --production
 
+        echo "npm install"
+        npm install --production
+
+        echo "make self extracting package"
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself.sh

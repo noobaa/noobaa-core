@@ -1,5 +1,5 @@
 #!/bin/bash
-# default - clean build
+set -e
 
 source ~/.bashrc
 source "$NVM_DIR/nvm.sh"
@@ -10,6 +10,7 @@ echo "WARNING: devtoolset-2 is enabled!"
 nvm install 
 nvm alias default $(nvm current)
 
+# default - clean build
 CLEAN=true;
 GIT_COMMIT=0
 
@@ -79,10 +80,10 @@ if [ "$CLEAN" = true ] ; then
     sed -i '/eslint/d' package.json
     sed -i '/vsphere/d' package.json
 
-    echo "npm install node-linux@0.1.8"
-    npm install node-linux@0.1.8
     echo "npm install"
     npm install --production
+    echo "npm install node-linux@0.1.8"
+    npm install node-linux@0.1.8
 
     echo "make self extracting package"
     cd ..

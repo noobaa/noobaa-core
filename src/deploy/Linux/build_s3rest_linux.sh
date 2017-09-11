@@ -1,5 +1,5 @@
 #!/bin/bash
-# default - clean build
+set -e
 
 source ~/.bashrc
 source "$NVM_DIR/nvm.sh"
@@ -7,6 +7,7 @@ source "$NVM_DIR/nvm.sh"
 nvm install
 nvm alias default $(nvm current)
 
+# default - clean build
 CLEAN=true;
 #ON_PREMISE means that we are currently building the ON_PREMISE package
 #In this case, there is no point to create executable.

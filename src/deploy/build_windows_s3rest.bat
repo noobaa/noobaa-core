@@ -15,7 +15,7 @@ echo "GIT_COMMIT = %GIT_COMMIT%"
 echo "NODEJS_VERSION = %NODEJS_VERSION%"
 
 IF %CLEAN%==false GOTO SKIP_BUILD
-call npm cache clean
+cmd /c npm cache clean
 
 echo "delete old files"
 rd /s/q build\windows
@@ -33,10 +33,14 @@ copy ..\..\package.json .
 copy ..\..\binding.gyp .
 copy ..\..\config.js .
 mkdir .\src\
+xcopy /Y/I/E ..\..\src\agent .\src\agent
 xcopy /Y/I/E ..\..\src\s3 .\src\s3
-xcopy /Y/I/E ..\..\src\util .\src\util
+xcopy /Y/I/E ..\..\src\sdk .\src\sdk
+xcopy /Y/I/E ..\..\src\endpoint .\src\endpoint
 xcopy /Y/I/E ..\..\src\rpc .\src\rpc
 xcopy /Y/I/E ..\..\src\api .\src\api
+xcopy /Y/I/E ..\..\src\util .\src\util
+xcopy /Y/I/E ..\..\src\tools .\src\tools
 xcopy /Y/I/E ..\..\src\native .\src\native
 
 
@@ -59,12 +63,6 @@ type package.json | findstr /v mocha | findstr /v istanbul | findstr /v gulp | f
 del /Q package.json
 rename package.json_s package.json
 
-REM need to have a frontend dir with empty package.json for npm install to work
-mkdir frontend
-cd frontend
-call npm init --force
-cd ..
-
 echo "Cleaning previous build"
 rd /q/s .\build\Release
 rd /q/s %USERPROFILE%\.node-gyp
@@ -76,7 +74,8 @@ sleep 5
 nvm list
 nvm arch
 node -p process.arch
-call npm install --production || exit 1
+cmd /c npm config set msvs_version=2015 --global
+cmd /c npm install --production || exit 1
 
 echo "Copy 32 bit build results"
 if not exist ".\build\Release" exit 1
@@ -93,16 +92,17 @@ sleep 5
 nvm list
 nvm arch
 node -p process.arch
-call npm install --production || exit 1
+cmd /c npm config set msvs_version=2015 --global
+cmd /c npm install --production || exit 1
 
 echo "Copy 64 bit build results"
 if not exist ".\build\Release" exit 1
 xcopy /Y/I/E .\build\Release .\build\Release-64
 
-call curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x86/node.exe > node-32.exe
-call curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x64/node.exe > node-64.exe
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-i386-win32.zip  > openssl_32.zip
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-x64_86-win64.zip> openssl_64.zip
+curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x86/node.exe > node-32.exe || exit 1
+curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x64/node.exe > node-64.exe || exit 1
+curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-i386-win32.zip  > openssl_32.zip || exit 1
+curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-x64_86-win64.zip> openssl_64.zip || exit 1
 
 mkdir .\32
 mkdir .\64
@@ -112,7 +112,7 @@ rd /q/s .\build\src
 rd /q/s .\build\Windows
 del /q .\build\*.*
 
-call 7za.exe e openssl_32.zip -y -x!*.txt
+7za.exe e openssl_32.zip -y -x!*.txt || exit 1
 del /Q openssl_32.zip
 
 copy /y *.dll .\32\
@@ -123,7 +123,7 @@ del /Q *.dll
 del /Q node-32.exe
 del /Q openssl.exe
 
-call 7za.exe e openssl_64.zip -y -x!*.txt
+7za.exe e openssl_64.zip -y -x!*.txt || exit 1
 del /Q openssl_64.zip
 
 copy /y *.dll .\64\
@@ -150,11 +150,10 @@ makensis -NOCD ..\..\src\deploy\windows_rest_script.nsi || exit 1
 set FINAL_SETUP_FILE_NAME=noobaa-s3rest-%current_package_version%-%GIT_COMMIT%.exe
 rename noobaa-s3rest.exe %FINAL_SETUP_FILE_NAME%
 
-if exist "c:\sign\signtool.exe" (
-    echo "Signing installer"
-    c:\sign\signtool.exe sign /v /sm /t http://timestamp.digicert.com /a %FINAL_SETUP_FILE_NAME%
+if exist "%SIGNTOOL_PATH%" (
+    echo "Signing installer with %SIGNTOOL_PATH%"
+    "%SIGNTOOL_PATH%" sign /v /sm /t http://timestamp.digicert.com /a %FINAL_SETUP_FILE_NAME% || exit 1
 )
-
 
 echo "%FINAL_SETUP_FILE_NAME% installer available under build\windows"
 

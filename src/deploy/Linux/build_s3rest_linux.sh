@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-source ~/.bashrc
-source "$NVM_DIR/nvm.sh"
+source ~/.bashrc || true
+source "$NVM_DIR/nvm.sh" || true
+source /opt/rh/devtoolset-2/enable || true
 
 nvm install
 nvm alias default $(nvm current)
@@ -61,9 +62,12 @@ else
 
         mkdir ./package/src/
         cp -R ../../src/s3 ./package/src/
-        cp -R ../../src/util ./package/src/
+        cp -R ../../src/sdk ./package/src/
+        cp -R ../../src/endpoint ./package/src/
         cp -R ../../src/rpc ./package/src/
         cp -R ../../src/api ./package/src/
+        cp -R ../../src/util ./package/src/
+        cp -R ../../src/tools ./package/src/
         cp -R ../../src/native ./package/src/
         cp -R ../../binding.gyp ./package/
 
